@@ -101,8 +101,6 @@ function addElevationLayer(map: any, mlgl: any) {
         "hillshade-highlight-color": "#ffffff",
         "hillshade-accent-color": "#333333",
         "hillshade-exaggeration": 0.3,
-        "hillshade-direction": 315,
-        "hillshade-illumination-anchor": "corner",
       },
     },
     "osm",

@@ -20,6 +20,10 @@ interface LayerState {
   hillshade: boolean;
   elevationColor: boolean;
   hurricaneTracks: boolean;
+  blueMarble: boolean;
+  nightLights: boolean;
+  nlnogNodes: boolean;
+  flightArcs: boolean;
 }
 
 interface DashboardState {
@@ -64,6 +68,10 @@ const DEFAULT_LAYERS: LayerState = {
   hillshade: true,
   elevationColor: false,
   hurricaneTracks: false,
+  blueMarble: false,
+  nightLights: false,
+  nlnogNodes: false,
+  flightArcs: false,
 };
 
 const DEFAULT_STATE: DashboardState = {
@@ -412,7 +420,7 @@ export default function WorldView() {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ basemaps: true, overlays: true, realtime: true, tools: false, theme: false });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ basemaps: true, overlays: true, realtime: true, infrastructure: false, tools: false, theme: false });
   const [cursorPos, setCursorPos] = useState<[number, number] | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus[]>([
     { key: "earthquakes", label: "Earthquakes", lastUpdate: null, count: 0, error: null },
@@ -424,10 +432,15 @@ export default function WorldView() {
     { key: "events", label: "Events", lastUpdate: null, count: 0, error: null },
     { key: "satellites", label: "Satellites", lastUpdate: null, count: 0, error: null },
     { key: "hurricaneTracks", label: "Hurricanes", lastUpdate: null, count: 0, error: null },
+    { key: "nlnogNodes", label: "NLNOG Nodes", lastUpdate: null, count: 0, error: null },
+    { key: "flightArcs", label: "Flight Arcs", lastUpdate: null, count: 0, error: null },
   ]);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number; elev?: number | null } | null>(null);
   const [elevPopup, setElevPopup] = useState<{ x: number; y: number; elev: number | null; lat: number; lon: number } | null>(null);
   const [clock, setClock] = useState("");
+  const [bgpPrefix, setBgpPrefix] = useState("");
+  const [bgpResult, setBgpResult] = useState<string | null>(null);
+  const [bgpLoading, setBgpLoading] = useState(false);
 
   // UTC clock for HUD themes
   useEffect(() => {
@@ -658,6 +671,24 @@ export default function WorldView() {
             0.7
           );
           else toggleImageryOverlay(viewer, "nasa-gibs"); break;
+        case "blueMarble":
+          if (on) toggleImageryOverlay(viewer, "BlueMarble_ShadedRelief",
+            "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlueMarble_ShadedRelief/default/{z}/{y}/{x}.jpg",
+            0.85
+          );
+          else toggleImageryOverlay(viewer, "BlueMarble_ShadedRelief"); break;
+        case "nightLights":
+          if (on) toggleImageryOverlay(viewer, "VIIRS_CityLights",
+            "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default/{z}/{y}/{x}.jpg",
+            1.0
+          );
+          else toggleImageryOverlay(viewer, "VIIRS_CityLights"); break;
+        case "nlnogNodes":
+          if (on && !dataLoadedRef.current.nlnogNodes) loadNlnogNodes();
+          if (!on) removeEntities("nlnog-"); break;
+        case "flightArcs":
+          if (on && !dataLoadedRef.current.flightArcs) loadFlightArcs();
+          if (!on) removeEntities("arc-"); break;
         case "hillshade":
           // Hillshade is built into terrain in Cesium
           break;
@@ -684,7 +715,10 @@ export default function WorldView() {
     const Cesium = cesiumRef.current;
     if (!Cesium) return;
     const layers = viewer.imageryLayers;
-    const existing = layers._layers.find((l: any) => l._imageryProvider?.url?.includes?.(name) || l._imageryProvider?.url?.includes?.("nasa"));
+    const existing = layers._layers.find((l: any) => {
+      const providerUrl = l._imageryProvider?.url || "";
+      return providerUrl.includes(name);
+    });
     if (existing) {
       layers.remove(existing);
     } else if (url) {
@@ -1004,6 +1038,76 @@ export default function WorldView() {
     } catch { updateStatus("hurricaneTracks", { error: "fetch failed" }); }
   }, [updateStatus]);
 
+  const loadNlnogNodes = useCallback(async () => {
+    const viewer = viewerRef.current;
+    const Cesium = cesiumRef.current;
+    if (!Cesium || !viewer) return;
+    try {
+      updateStatus("nlnogNodes", { error: null });
+      const res = await fetch("/api/nlnog");
+      const data = await res.json();
+      if (!data.nodes) { updateStatus("nlnogNodes", { error: "no data" }); return; }
+      const nodes = data.nodes as any[];
+      const ds = Cesium.CustomDataSource("NLNOG Ring Nodes");
+      for (const node of nodes) {
+        ds.entities.add({
+          id: `nlnog-${node.id}`,
+          position: Cesium.Cartesian3.fromDegrees(node.lon, node.lat),
+          point: { pixelSize: 5, color: Cesium.Color.fromCssColorString("#f97316"), outlineColor: Cesium.Color.BLACK.withAlpha(0.3), outlineWidth: 1 },
+          label: { text: node.city || node.hostname, font: "10px sans-serif", style: Cesium.LabelStyle.FILL, fillColor: Cesium.Color.WHITE.withAlpha(0.8), outlineColor: Cesium.Color.BLACK, outlineWidth: 1, pixelOffset: new Cesium.Cartesian2(0, -10), showBackground: true, backgroundColor: new Cesium.Color(0, 0, 0, 0.6), backgroundPadding: new Cesium.Cartesian2(4, 3) },
+          properties: { type: "nlnog", asn: node.asn, hostname: node.hostname, country: node.country },
+        });
+      }
+      viewer.dataSources.add(ds);
+      updateStatus("nlnogNodes", { lastUpdate: Date.now(), count: nodes.length });
+      dataLoadedRef.current.nlnogNodes = true;
+    } catch { updateStatus("nlnogNodes", { error: "fetch failed" }); }
+  }, [updateStatus]);
+
+  const loadFlightArcs = useCallback(async () => {
+    const viewer = viewerRef.current;
+    const Cesium = cesiumRef.current;
+    if (!Cesium || !viewer) return;
+    try {
+      updateStatus("flightArcs", { error: null });
+      const res = await fetch("https://opensky-network.org/api/states/all");
+      const data = await res.json();
+      if (!data.states) { updateStatus("flightArcs", { error: "no data" }); return; }
+      const highAlt = data.states.filter((s: any[]) => s[5] != null && s[6] != null && (s[7] || 0) > 30000);
+      // Create arcs between random pairs of high-altitude flights
+      const shuffled = highAlt.sort(() => Math.random() - 0.5).slice(0, 200);
+      let arcCount = 0;
+      for (let i = 0; i < shuffled.length - 1; i += 2) {
+        const a = shuffled[i];
+        const b = shuffled[i + 1];
+        const lonA = a[5], latA = a[6], altA = a[7] || 0;
+        const lonB = b[5], latB = b[6], altB = b[7] || 0;
+        const dist = Math.sqrt((lonA - lonB) ** 2 + (latA - latB) ** 2);
+        if (dist < 15 || dist > 80) continue; // Only connect flights at medium range
+        // Generate great-circle arc positions
+        const positions: any[] = [];
+        const segments = 30;
+        for (let t = 0; t <= segments; t++) {
+          const frac = t / segments;
+          const lat = latA + (latB - latA) * frac;
+          const lon = lonA + (lonB - lonA) * frac;
+          const alt = Math.max(altA, altB) * (1 + 0.5 * Math.sin(Math.PI * frac)); // Arc peaks in middle
+          positions.push(Cesium.Cartesian3.fromDegrees(lon, lat, alt));
+        }
+        const altRatio = Math.max(altA, altB) / 45000;
+        const color = Cesium.Color.fromHsl(0.6 - altRatio * 0.2, 0.8, 0.6, 0.3);
+        viewer.entities.add({
+          id: `arc-${arcCount}`,
+          polyline: { positions, width: 1.5, material: new Cesium.ColorMaterialProperty({ color, transparent: true }) },
+          properties: { type: "arc" },
+        });
+        arcCount++;
+      }
+      updateStatus("flightArcs", { lastUpdate: Date.now(), count: arcCount });
+      dataLoadedRef.current.flightArcs = true;
+    } catch { updateStatus("flightArcs", { error: "fetch failed" }); }
+  }, [updateStatus]);
+
   const loadElevationColor = useCallback(async () => {
     const viewer = viewerRef.current;
     const Cesium = cesiumRef.current;
@@ -1175,6 +1279,14 @@ export default function WorldView() {
               <label><span className="dot" style={{ background: "#22d3ee" }} />NASA Satellite</label>
               <input type="checkbox" checked={state.layers.satellite} onChange={() => toggleLayer("satellite")} />
             </div>
+            <div className="wv-row">
+              <label><span className="dot" style={{ background: "#3b82f6" }} />Blue Marble</label>
+              <input type="checkbox" checked={state.layers.blueMarble} onChange={() => toggleLayer("blueMarble")} />
+            </div>
+            <div className="wv-row">
+              <label><span className="dot" style={{ background: "#fbbf24" }} />Night Lights</label>
+              <input type="checkbox" checked={state.layers.nightLights} onChange={() => toggleLayer("nightLights")} />
+            </div>
           </div>
         </div>
 
@@ -1223,6 +1335,23 @@ export default function WorldView() {
           </div>
         </div>
 
+        {/* Infrastructure */}
+        <div className="wv-section">
+          <div className={`wv-section-header ${openSections.infrastructure ? "open" : ""}`} onClick={() => toggleSection("infrastructure")}>
+            <span>Infrastructure</span><span className="arrow">&#9654;</span>
+          </div>
+          <div className={`wv-section-body ${openSections.infrastructure ? "open" : ""}`}>
+            <div className="wv-row">
+              <label><span className="dot" style={{ background: "#f97316" }} />NLNOG Ring Nodes</label>
+              <input type="checkbox" checked={state.layers.nlnogNodes} onChange={() => toggleLayer("nlnogNodes")} />
+            </div>
+            <div className="wv-row">
+              <label><span className="dot" style={{ background: "#38bdf8" }} />Flight Arcs</label>
+              <input type="checkbox" checked={state.layers.flightArcs} onChange={() => toggleLayer("flightArcs")} />
+            </div>
+          </div>
+        </div>
+
         {/* Tools */}
         <div className="wv-section">
           <div className={`wv-section-header ${openSections.tools ? "open" : ""}`} onClick={() => toggleSection("tools")}>
@@ -1231,7 +1360,30 @@ export default function WorldView() {
           <div className={`wv-section-body ${openSections.tools ? "open" : ""}`}>
             <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Click globe for elevation query</label></div>
             <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Right-click for coordinates</label></div>
-            <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Sources: USGS, RainViewer, NASA, OpenSky, ADSB-X, NOAA, Celestrak</label></div>
+            <div className="wv-row">
+              <label style={{ color: "#38bdf8", fontSize: "11px" }}>BGP Prefix Lookup</label>
+            </div>
+            <div className="wv-row" style={{ gap: 4 }}>
+              <input
+                type="text"
+                placeholder="e.g. 8.8.8.0/24"
+                value={bgpPrefix}
+                onChange={(e) => setBgpPrefix(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { setBgpLoading(true); setBgpResult(null); fetch(`/api/bgp?prefix=${encodeURIComponent(bgpPrefix)}`).then(r => r.json()).then(d => { setBgpResult(JSON.stringify(d.data || d.error, null, 2)); setBgpLoading(false); }).catch(() => { setBgpResult("Query failed"); setBgpLoading(false); }); } }}
+                style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: 3, padding: "2px 6px", color: "#ccc", fontSize: "11px", outline: "none" }}
+              />
+              <button
+                onClick={() => { setBgpLoading(true); setBgpResult(null); fetch(`/api/bgp?prefix=${encodeURIComponent(bgpPrefix)}`).then(r => r.json()).then(d => { setBgpResult(JSON.stringify(d.data || d.error, null, 2)); setBgpLoading(false); }).catch(() => { setBgpResult("Query failed"); setBgpLoading(false); }); }}
+                disabled={!bgpPrefix || bgpLoading}
+                style={{ background: "#333", border: "none", borderRadius: 3, padding: "2px 8px", color: "#ccc", fontSize: "11px", cursor: bgpPrefix ? "pointer" : "default" }}
+              >{bgpLoading ? "..." : "Go"}</button>
+            </div>
+            {bgpResult && (
+              <div className="wv-row">
+                <pre style={{ color: "#888", fontSize: "10px", fontFamily: "monospace", maxHeight: 120, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0 }}>{bgpResult}</pre>
+              </div>
+            )}
+            <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Sources: USGS, RainViewer, NASA, OpenSky, ADSB-X, NOAA, Celestrak, NLNOG</label></div>
           </div>
         </div>
 

@@ -17,6 +17,13 @@ const ALLOWED_HOSTS = [
   "celestrak.org",
   "api.rainviewer.com",
   "gibs.earthdata.nasa.gov",
+  "marine-api.open-meteo.com",
+  "api.open-meteo.com",
+  "geocoding-api.open-meteo.com",
+  "www.seismicportal.eu",
+  "ring.nlnog.net",
+  "api.ring.nlnog.net",
+  "lg.ring.nlnog.net",
 ];
 
 export async function GET(

@@ -268,586 +268,13 @@ function FlipCard({
   );
 }
 
-/* ─── Hero Slideshow ─── */
-
-const HERO_SLIDES = [
-  {
-    title: "Free global elevation API",
-    desc: "Query any point on Earth for elevation. NASA SRTM 30m, 14,296 tiles, ~30m resolution, 80% land coverage.",
-    cta: null,
-    gradient: ["#22c55e", "#16a34a", "#0d9488"],
-    tag: "Open source \u00B7 No API key required",
-  },
-  {
-    title: "Interactive Map",
-    desc: "MapLibre GL with 3D terrain, 5 basemaps, hillshade layer, elevation pins, and drawing tools.",
-    cta: { label: "Open Map", href: "/map" },
-    gradient: ["#3b82f6", "#6366f1", "#8b5cf6"],
-    tag: "MapLibre GL \u00B7 3D Terrain",
-  },
-  {
-    title: "WorldView 3D Globe",
-    desc: "CesiumJS 3D globe with 12+ real-time data layers: earthquakes, flights, satellites, weather, and more.",
-    cta: { label: "Launch WorldView", href: "/worldview" },
-    gradient: ["#a855f7", "#ec4899", "#f43f5e"],
-    tag: "CesiumJS \u00B7 Real-time Data",
-  },
-  {
-    title: "Data Explorer",
-    desc: "Multi-tab explorer integrating NOAA, USGS, Celestrak, OpenSky, ArcGIS, Overpass, and marine weather.",
-    cta: { label: "Explore Data", href: "/explore" },
-    gradient: ["#f59e0b", "#f97316", "#ef4444"],
-    tag: "NOAA \u00B7 USGS \u00B7 Celestrak",
-  },
-  {
-    title: "Open Source & Free",
-    desc: "No API key required. No rate limits on basic queries. MIT licensed. Deployed on Cloudflare's global edge.",
-    cta: { label: "View API Docs", href: "/api/docs" },
-    gradient: ["#06b6d4", "#0ea5e9", "#3b82f6"],
-    tag: "MIT License \u00B7 Cloudflare Edge",
-  },
-];
-
-function HeroSlideshow({
-  dark,
-  slide,
-  setSlide,
-  lat,
-  setLat,
-  lon,
-  setLon,
-  loading,
-  lookup,
-  error,
-  result,
-  snippetTab,
-  setSnippetTab,
-  copied,
-  setCopied,
-  elevCopied,
-  setElevCopied,
-  sampleLocations,
-  setSampleLocations,
-  pickRandomLocations,
-  inputStyle,
-  codeBg,
-  cardBg,
-  border,
-  text,
-  textSecondary,
-  accent,
-  accentDim,
-  W,
-}: {
-  dark: boolean;
-  slide: number;
-  setSlide: React.Dispatch<React.SetStateAction<number>>;
-  lat: string;
-  setLat: (v: string) => void;
-  lon: string;
-  setLon: (v: string) => void;
-  loading: boolean;
-  lookup: () => void;
-  error: string;
-  result: any;
-  snippetTab: string;
-  setSnippetTab: React.Dispatch<React.SetStateAction<"url" | "curl" | "js" | "python">>;
-  copied: boolean;
-  setCopied: (b: boolean) => void;
-  elevCopied: boolean;
-  setElevCopied: (b: boolean) => void;
-  sampleLocations: { name: string; lat: string; lon: string }[];
-  setSampleLocations: (locs: { name: string; lat: string; lon: string }[]) => void;
-  pickRandomLocations: (n: number) => { name: string; lat: string; lon: string }[];
-  inputStyle: React.CSSProperties;
-  codeBg: string;
-  cardBg: string;
-  border: string;
-  text: string;
-  textSecondary: string;
-  accent: string;
-  accentDim: string;
-  W: number;
-}) {
-  const total = HERO_SLIDES.length;
-
-  // Auto-rotate every 8s, pause on hover
-  useEffect(() => {
-    const iv = setInterval(() => setSlide((s) => (s + 1) % total), 8000);
-    return () => clearInterval(iv);
-  }, [total, setSlide]);
-
-  const s = HERO_SLIDES[slide];
-  const gradBg = `linear-gradient(135deg, ${s.gradient[0]}22 0%, ${s.gradient[1]}15 50%, ${s.gradient[2]}22 100%)`;
-
-  return (
-    <section style={{ position: "relative", overflow: "hidden" }}>
-      {/* Animated gradient background */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: gradBg,
-          opacity: 0.6,
-          transition: "opacity 0.8s ease",
-        }}
-      />
-      {/* Dot grid pattern */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: dark
-            ? "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)"
-            : "radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-      <div style={{ position: "relative", maxWidth: W, margin: "0 auto", padding: "3rem 1.5rem 1.5rem", textAlign: "center" }}>
-        {/* Tag pill */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.4rem",
-            padding: "0.25rem 0.7rem",
-            borderRadius: 100,
-            background: accentDim,
-            color: accent,
-            fontSize: "0.75rem",
-            fontWeight: 500,
-            marginBottom: "1.25rem",
-          }}
-        >
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: accent, display: "inline-block" }} />
-          {s.tag}
-        </div>
-        {/* Title */}
-        <h1
-          style={{
-            fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
-            margin: "0 0 0.75rem",
-            lineHeight: 1.15,
-          }}
-        >
-          {s.title}
-        </h1>
-        {/* Description */}
-        <p style={{ fontSize: "1.05rem", color: textSecondary, maxWidth: 520, margin: "0 auto 1.5rem", lineHeight: 1.6 }}>
-          {s.desc}
-        </p>
-        {/* Slide content */}
-        {slide === 0 ? (
-          /* Elevation lookup (slide 1) */
-          <div
-            style={{
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 12,
-              padding: "1.25rem 1.5rem",
-              maxWidth: 560,
-              margin: "0 auto",
-              textAlign: "left",
-            }}
-          >
-            <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
-              <input
-                type="text"
-                placeholder="Latitude (28.0)"
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                style={inputStyle}
-                onKeyDown={(e) => e.key === "Enter" && lookup()}
-              />
-              <input
-                type="text"
-                placeholder="Longitude (86.9)"
-                value={lon}
-                onChange={(e) => setLon(e.target.value)}
-                style={inputStyle}
-                onKeyDown={(e) => e.key === "Enter" && lookup()}
-              />
-              <button
-                onClick={lookup}
-                disabled={loading}
-                style={{
-                  padding: "0.55rem 1.1rem",
-                  fontSize: "0.9rem",
-                  fontWeight: 500,
-                  borderRadius: 6,
-                  border: "none",
-                  background: accent,
-                  color: "#000",
-                  cursor: loading ? "wait" : "pointer",
-                  fontFamily: "inherit",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {loading ? "..." : "Lookup"}
-              </button>
-            </div>
-            {error && <p style={{ color: "#ef4444", margin: "0 0 0.4rem", fontSize: "0.85rem" }}>{error}</p>}
-            {result && (
-              <>
-                <div
-                  style={{
-                    background: codeBg,
-                    borderRadius: 8,
-                    padding: "0.6rem 0.8rem",
-                    fontFamily: "monospace",
-                    fontSize: "0.8rem",
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    <span style={{ color: accent, fontWeight: 600, fontSize: "1.1rem" }}>
-                      {result.elevation !== null
-                        ? `${result.elevation.toLocaleString()}m (${(result.elevation * 3.28084).toFixed(2)} ft)`
-                        : "null"}
-                    </span>
-                    <button
-                      onClick={async () => {
-                        const txt = result.elevation !== null
-                          ? `${result.elevation.toLocaleString()}m (${(result.elevation * 3.28084).toFixed(2)} ft)`
-                          : "null";
-                        await navigator.clipboard.writeText(txt);
-                        setElevCopied(true);
-                        setTimeout(() => setElevCopied(false), 1500);
-                      }}
-                      title="Copy elevation"
-                      aria-label="Copy elevation"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: textSecondary,
-                        cursor: "pointer",
-                        fontSize: "0.78rem",
-                        padding: "2px 6px",
-                        borderRadius: 3,
-                        opacity: 0.7,
-                        transition: "opacity 0.15s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-                    >
-                      {elevCopied ? "Copied!" : "Copy"}
-                    </button>
-                    <a href="/api/docs" style={{ fontSize: "0.72rem", color: accent, textDecoration: "none" }}>
-                      View API Docs &rarr;
-                    </a>
-                  </div>
-                  <div>
-                    <span style={{ color: textSecondary }}>tile </span>
-                    <span style={{ color: text }}>{result.srtmTile}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: textSecondary }}>source </span>
-                    <span style={{ color: text }}>
-                      {result.source} &middot; {result.resolution}m resolution
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ color: textSecondary }}>coords </span>
-                    <span style={{ color: text }}>
-                      {result.location.lat}, {result.location.lon}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.4rem" }}>
-                  {(["url", "curl", "js", "python"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setSnippetTab(tab)}
-                      style={{
-                        padding: "0.2rem 0.6rem",
-                        fontSize: "0.72rem",
-                        fontWeight: 500,
-                        borderRadius: 4,
-                        border: "none",
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        background: snippetTab === tab ? accent : "transparent",
-                        color: snippetTab === tab ? "#000" : textSecondary,
-                      }}
-                    >
-                      {tab === "url" ? "API URL" : tab === "js" ? "JavaScript" : tab === "python" ? "Python" : "cURL"}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ position: "relative" }}>
-                  <button
-                    onClick={async () => {
-                      const snippets: Record<string, string> = {
-                        url: `https://openzenith.pages.dev/api/elevation?lat=${result.location.lat}&lon=${result.location.lon}`,
-                        curl: `curl "https://openzenith.pages.dev/api/elevation?lat=${result.location.lat}&lon=${result.location.lon}"`,
-                        js: `const res = await fetch('/api/elevation?lat=${result.location.lat}&lon=${result.location.lon}')\nconst { elevation } = await res.json()`,
-                        python: `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": ${result.location.lat}, "lon": ${result.location.lon}})\nprint(res.json()["elevation"])`,
-                      };
-                      await navigator.clipboard.writeText(snippets[snippetTab]);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 1500);
-                    }}
-                    style={{
-                      position: "absolute",
-                      top: "0.4rem",
-                      right: "0.4rem",
-                      background: "none",
-                      border: "none",
-                      color: textSecondary,
-                      cursor: "pointer",
-                      fontSize: "0.68rem",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                    }}
-                  >
-                    {copied ? "Copied!" : "Copy"}
-                  </button>
-                  <div
-                    style={{
-                      background: codeBg,
-                      borderRadius: 8,
-                      padding: "0.6rem 0.8rem",
-                      fontFamily: "monospace",
-                      fontSize: "0.75rem",
-                      lineHeight: 1.7,
-                      overflowX: "auto",
-                    }}
-                  >
-                    {snippetTab === "url" && (
-                      <a
-                        href={`https://openzenith.pages.dev/api/elevation?lat=${result.location.lat}&lon=${result.location.lon}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: accent, textDecoration: "none", wordBreak: "break-all" }}
-                      >
-                        https://openzenith.pages.dev/api/elevation?lat={result.location.lat}&amp;lon={result.location.lon}
-                      </a>
-                    )}
-                    {snippetTab === "curl" && (
-                      <div>
-                        <span style={{ color: accent }}>curl</span>{" "}
-                        <span style={{ color: "#98c379" }}>
-                          &quot;https://openzenith.pages.dev/api/elevation?lat={result.location.lat}&amp;lon=
-                          {result.location.lon}&quot;
-                        </span>
-                      </div>
-                    )}
-                    {snippetTab === "js" && (
-                      <>
-                        <div>
-                          <span style={{ color: "#c678dd" }}>const</span> res ={" "}
-                          <span style={{ color: textSecondary }}>await</span>{" "}
-                          <span style={{ color: "#61afef" }}>fetch</span>(
-                          <span style={{ color: "#98c379" }}>
-                            &apos;/api/elevation?lat={result.location.lat}&amp;lon={result.location.lon}&apos;
-                          </span>
-                          )
-                        </div>
-                        <div>
-                          <span style={{ color: "#c678dd" }}>const</span> &#123; elevation &#125; ={" "}
-                          <span style={{ color: textSecondary }}>await</span> res.json()
-                        </div>
-                      </>
-                    )}
-                    {snippetTab === "python" && (
-                      <>
-                        <div>
-                          <span style={{ color: "#c678dd" }}>import</span> requests
-                        </div>
-                        <div>
-                          res = requests.<span style={{ color: "#61afef" }}>get</span>(
-                          <span style={{ color: "#98c379" }}>&quot;https://openzenith.pages.dev/api/elevation&quot;</span>,
-                        </div>
-                        <div>
-                          &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span style={{ color: "#98c379" }}>&quot;lat&quot;</span>:{" "}
-                          <span style={{ color: "#d19a66" }}>{result.location.lat}</span>,{" "}
-                          <span style={{ color: "#98c379" }}>&quot;lon&quot;</span>:{" "}
-                          <span style={{ color: "#d19a66" }}>{result.location.lon}</span>&#125;)
-                        </div>
-                        <div>
-                          <span style={{ color: "#c678dd" }}>print</span>(res.json()[
-                          <span style={{ color: "#98c379" }}>&quot;elevation&quot;</span>])&nbsp;{" "}
-                          <span style={{ color: textSecondary }}># {result.elevation}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-            {!result && !error && (
-              <p style={{ margin: 0, fontSize: "0.78rem", color: textSecondary, textAlign: "center" }}>
-                Try:{" "}
-                {sampleLocations.map((loc, i) => (
-                  <span key={loc.name}>
-                    <button
-                      onClick={() => {
-                        setLat(loc.lat);
-                        setLon(loc.lon);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: accent,
-                        cursor: "pointer",
-                        fontSize: "inherit",
-                        fontFamily: "inherit",
-                        padding: 0,
-                      }}
-                    >
-                      {loc.name}
-                    </button>
-                    {i < sampleLocations.length - 1 ? " \u00B7 " : ""}
-                  </span>
-                ))}
-                <button
-                  onClick={() => setSampleLocations(pickRandomLocations(4))}
-                  title="Shuffle locations"
-                  aria-label="Refresh locations"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: textSecondary,
-                    cursor: "pointer",
-                    fontSize: "0.78rem",
-                    padding: "0 0 0 0.3rem",
-                    marginLeft: "0.15rem",
-                    verticalAlign: "middle",
-                    opacity: 0.7,
-                    transition: "opacity 0.15s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-                >
-                  &#x21bb;
-                </button>
-              </p>
-            )}
-          </div>
-        ) : (
-          /* Feature slides 2-5 */
-          <div style={{ display: "flex", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            {s.cta && (
-              <a
-                href={s.cta!.href}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  padding: "0.6rem 1.5rem",
-                  borderRadius: 8,
-                  background: accent,
-                  color: "#000",
-                  fontWeight: 600,
-                  fontSize: "0.9rem",
-                  textDecoration: "none",
-                  fontFamily: "inherit",
-                }}
-              >
-                {s.cta.label}
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 01-1.06-1.06l4.25-4.25-4.25-4.25a.75.75 0 010-1.06z" />
-                </svg>
-              </a>
-            )}
-          </div>
-        )}
-        {/* Navigation dots */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginTop: "1.5rem" }}>
-          {HERO_SLIDES.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setSlide(i)}
-              aria-label={`Go to slide ${i + 1}`}
-              style={{
-                width: slide === i ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                border: "none",
-                background: slide === i ? s.gradient[0] : dark ? "#333" : "#ccc",
-                cursor: "pointer",
-                padding: 0,
-                transition: "all 0.3s ease",
-              }}
-            />
-          ))}
-        </div>
-        {/* Prev/Next arrows */}
-        <button
-          onClick={() => setSlide((slide - 1 + total) % total)}
-          aria-label="Previous slide"
-          style={{
-            position: "absolute",
-            left: "1rem",
-            top: "50%",
-            transform: "translateY(-50%)",
-            background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-            border: `1px solid ${dark ? "#333" : "#ddd"}`,
-            borderRadius: 8,
-            color: textSecondary,
-            cursor: "pointer",
-            padding: "0.5rem",
-            fontSize: "1.2rem",
-            lineHeight: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: 0.5,
-            transition: "opacity 0.2s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.5")}
-        >
-          &#x2039;
-        </button>
-        <button
-          onClick={() => setSlide((slide + 1) % total)}
-          aria-label="Next slide"
-          style={{
-            position: "absolute",
-            right: "1rem",
-            top: "50%",
-            transform: "translateY(-50%)",
-            background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-            border: `1px solid ${dark ? "#333" : "#ddd"}`,
-            borderRadius: 8,
-            color: textSecondary,
-            cursor: "pointer",
-            padding: "0.5rem",
-            fontSize: "1.2rem",
-            lineHeight: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: 0.5,
-            transition: "opacity 0.2s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.5")}
-        >
-          &#x203A;
-        </button>
-      </div>
-    </section>
-  );
-}
-
 /* ─── Main Page ─── */
 
 export default function Home() {
   const dark = useTheme();
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
-  const [sampleLocations, setSampleLocations] = useState(() => pickRandomLocations(4));
+  const [sampleLocations, setSampleLocations] = useState(() => pickRandomLocations(5));
   const [result, setResult] = useState<{
     elevation: number | null;
     unit: string;
@@ -861,12 +288,11 @@ export default function Home() {
   const [mapLoading, setMapLoading] = useState(true);
   const [showTop, setShowTop] = useState(false);
   const [tooltip, setTooltip] = useState<string | null>(null);
-  const [snippetTab, setSnippetTab] = useState<"url" | "curl" | "js" | "python">("url");
-  const [copied, setCopied] = useState(false);
-  const [elevCopied, setElevCopied] = useState(false);
-  const [slide, setSlide] = useState(0);
-  const miniMapRef = useRef<HTMLDivElement>(null);
-  const miniMapInstance = useRef<any>(null);
+  const [snippetTab, setSnippetTab] = useState<"url" | "curl" | "js" | "python" | "result">("url");
+  const [snippetCopied, setSnippetCopied] = useState(false);
+  const heroMapRef = useRef<HTMLDivElement>(null);
+  const heroMapInstance = useRef<any>(null);
+  const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
   const cardBg = dark ? "#161616" : "#ffffff";
@@ -888,17 +314,17 @@ export default function Home() {
 
   const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: "smooth" }), []);
 
-  // Init mini map
+  // Init hero map
   useEffect(() => {
-    if (!miniMapRef.current || miniMapInstance.current) return;
+    if (!heroMapRef.current || heroMapInstance.current) return;
     let cancelled = false;
     (async () => {
       try {
         const mlgl = await waitForMapLibre();
-        if (cancelled || !miniMapRef.current) return;
+        if (cancelled || !heroMapRef.current) return;
 
         const map = new mlgl.Map({
-          container: miniMapRef.current,
+          container: heroMapRef.current,
           style: {
             version: 8,
             sources: {
@@ -965,7 +391,6 @@ export default function Home() {
                 "hillshade-shadow-color": "#000",
                 "hillshade-highlight-color": "#fff",
                 "hillshade-exaggeration": 0.4,
-                "hillshade-direction": 315,
               },
             },
             "osm",
@@ -973,19 +398,78 @@ export default function Home() {
           setMapLoading(false);
         });
 
-        miniMapInstance.current = map;
+        heroMapInstance.current = map;
       } catch {
         setMapLoading(false);
       }
     })();
     return () => {
       cancelled = true;
-      if (miniMapInstance.current) {
-        miniMapInstance.current.remove();
-        miniMapInstance.current = null;
+      if (heroMapInstance.current) {
+        heroMapInstance.current.remove();
+        heroMapInstance.current = null;
       }
     };
   }, []);
+
+  // Fly hero map to location after lookup
+  useEffect(() => {
+    const target = heroMapFlyRef.current;
+    if (!target || !heroMapInstance.current) return;
+    const map = heroMapInstance.current;
+    map.flyTo({
+      center: [target.lon, target.lat],
+      zoom: 8,
+      duration: 2000,
+      essential: true,
+    });
+    // Add/update pin
+    if (!map.getSource("hero-pin")) {
+      map.addSource("hero-pin", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [target.lon, target.lat] },
+          properties: {},
+        },
+      });
+      map.addLayer({
+        id: "hero-pin-circle",
+        type: "circle",
+        source: "hero-pin",
+        paint: {
+          "circle-radius": 6,
+          "circle-color": "#22c55e",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#fff",
+        },
+      });
+      map.addLayer({
+        id: "hero-pin-label",
+        type: "symbol",
+        source: "hero-pin",
+        layout: {
+          "text-field": ["get", "elevation"],
+          "text-size": 12,
+          "text-offset": [0, 1.8],
+          "text-anchor": "top",
+          "text-allow-overlap": true,
+        },
+        paint: {
+          "text-color": "#22c55e",
+          "text-halo-color": "#000",
+          "text-halo-width": 1,
+        },
+      });
+    } else {
+      map.getSource("hero-pin").setData({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [target.lon, target.lat] },
+        properties: { elevation: `${target.lat.toFixed(2)}, ${target.lon.toFixed(2)}` },
+      });
+    }
+    heroMapFlyRef.current = null;
+  }, [result]);
 
   async function lookup() {
     const la = parseFloat(lat);
@@ -1008,6 +492,8 @@ export default function Home() {
         setResult(null);
       } else {
         setResult(data);
+        setSnippetTab("result");
+        heroMapFlyRef.current = { lat: la, lon: lo };
       }
     } catch {
       setError("Failed to fetch elevation data");
@@ -1031,91 +517,316 @@ export default function Home() {
   };
 
   return (
-    <div style={{ background: bg, color: text, minHeight: "100vh", fontFamily: "inherit" }}>
+    <div id="page-root" className="oz-page" data-theme={dark ? "dark" : "light"}>
       <Navbar dark={dark} />
 
-      {/* Hero Slideshow */}
-      <HeroSlideshow
-        dark={dark}
-        slide={slide}
-        setSlide={setSlide}
-        // Props passed through for slide 1 (elevation lookup)
-        lat={lat}
-        setLat={setLat}
-        lon={lon}
-        setLon={setLon}
-        loading={loading}
-        lookup={lookup}
-        error={error}
-        result={result}
-        snippetTab={snippetTab}
-        setSnippetTab={setSnippetTab}
-        copied={copied}
-        setCopied={setCopied}
-        elevCopied={elevCopied}
-        setElevCopied={setElevCopied}
-        sampleLocations={sampleLocations}
-        setSampleLocations={setSampleLocations}
-        pickRandomLocations={pickRandomLocations}
-        inputStyle={inputStyle}
-        codeBg={codeBg}
-        cardBg={cardBg}
-        border={border}
-        text={text}
-        textSecondary={textSecondary}
-        accent={accent}
-        accentDim={accentDim}
-        W={W}
-      />
-
-      {/* Mini map */}
-      <section style={{ maxWidth: W, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+      {/* Hero: Map background + Elevation lookup */}
+      <section id="hero" className="oz-hero" style={{ position: "relative", height: 580, overflow: "hidden", marginBottom: "2rem" }}>
+        {/* Map background */}
+        <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0 }} />
+        {/* Dark overlay */}
         <div
+          className="oz-hero-overlay"
           style={{
-            position: "relative",
-            borderRadius: 12,
-            overflow: "hidden",
-            border: `1px solid ${border}`,
-            height: 340,
+            position: "absolute",
+            inset: 0,
+            background: dark
+              ? "linear-gradient(180deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.8) 100%)"
+              : "linear-gradient(180deg, rgba(250,250,250,0.9) 0%, rgba(250,250,250,0.7) 40%, rgba(250,250,250,0.9) 100%)",
+            pointerEvents: "none",
           }}
-        >
-          <div ref={miniMapRef} style={{ width: "100%", height: "100%" }} />
-          {mapLoading && (
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%,-50%)",
-                background: "rgba(0,0,0,0.7)",
-                color: "#22c55e",
-                padding: "0.5rem 1rem",
-                borderRadius: 6,
-                fontSize: "0.85rem",
-              }}
-            >
-              Loading elevation map...
-            </div>
-          )}
-          <a
-            href="/map"
+        />
+        {/* Loading indicator */}
+        {mapLoading && (
+          <div id="hero-loading" className="oz-hero-loading"
             style={{
               position: "absolute",
-              bottom: "0.75rem",
-              right: "0.75rem",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
               background: "rgba(0,0,0,0.7)",
-              color: "#ccc",
-              padding: "0.4rem 0.8rem",
+              color: "#22c55e",
+              padding: "0.5rem 1rem",
               borderRadius: 6,
-              fontSize: "0.8rem",
-              textDecoration: "none",
-              border: "1px solid #333",
-              backdropFilter: "blur(8px)",
+              fontSize: "0.85rem",
+              zIndex: 2,
             }}
           >
-            Open Full Map &rarr;
-          </a>
+            Loading elevation map...
+          </div>
+        )}
+        {/* Content overlay */}
+        <div id="hero-content" className="oz-hero-content"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            maxWidth: 560,
+            margin: "0 auto",
+            padding: "2.5rem 1.5rem 2rem",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <h1 id="hero-title" className="oz-hero-title"
+            style={{
+              fontSize: "2rem",
+              fontWeight: 700,
+              letterSpacing: "-0.03em",
+              margin: "0 0 0.25rem",
+              lineHeight: 1.2,
+            }}
+          >
+            Free global elevation API
+          </h1>
+          <p id="hero-subtitle" className="oz-hero-subtitle" style={{ fontSize: "0.88rem", color: textSecondary, margin: "0 0 1.25rem", lineHeight: 1.5 }}>
+            NASA SRTM 30m resolution. No API key required. Query any point on Earth.
+          </p>
+
+          {/* Lookup inputs */}
+          <div id="lookup-form" className="oz-lookup-form" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem" }}>
+            <input id="lookup-lat" className="oz-input oz-input-lat"
+              placeholder="Latitude"
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+              style={inputStyle}
+            />
+            <input id="lookup-lon" className="oz-input oz-input-lon"
+              placeholder="Longitude"
+              value={lon}
+              onChange={(e) => setLon(e.target.value)}
+              style={inputStyle}
+            />
+            <button id="lookup-btn" className="oz-lookup-btn"
+              onClick={lookup}
+              disabled={loading}
+              style={{
+                padding: "0 1rem",
+                borderRadius: 6,
+                border: "none",
+                background: accent,
+                color: "#000",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+                cursor: loading ? "wait" : "pointer",
+                opacity: loading ? 0.7 : 1,
+                flexShrink: 0,
+              }}
+            >
+              {loading ? "..." : "Go"}
+            </button>
+          </div>
+
+          {/* Sample locations */}
+          <div id="sample-locations" className="oz-sample-locations">
+            <span style={{ fontSize: "0.75rem", color: "var(--oz-text-secondary)", flexShrink: 0 }}>Try:</span>
+            {sampleLocations.map((loc) => (
+              <button
+                key={loc.name}
+                className="oz-sample-btn"
+                onClick={() => {
+                  setLat(loc.lat);
+                  setLon(loc.lon);
+                }}
+                style={{
+                  padding: "0.15rem 0.45rem",
+                  borderRadius: 4,
+                  border: `1px solid ${border}`,
+                  background: "transparent",
+                  color: textSecondary,
+                  fontSize: "0.72rem",
+                  cursor: "pointer",
+                }}
+              >
+                {loc.name}
+              </button>
+            ))}
+            <button
+              id="shuffle-btn" className="oz-shuffle-btn"
+              onClick={() => setSampleLocations(pickRandomLocations(4))}
+              title="Shuffle locations"
+              style={{
+                padding: "0.1rem 0.3rem",
+                borderRadius: 4,
+                border: `1px solid ${border}`,
+                background: "transparent",
+                color: textSecondary,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
+            >
+              &#x21bb;
+            </button>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div id="lookup-error" className="oz-lookup-error">{error}</div>
+          )}
+
+          {/* Combined Result + Code Snippets panel */}
+          <div id="snippets-panel" className="oz-snippets">
+            <div className="oz-snippet-bar">
+              <div className="oz-snippet-tabs">
+                {result && result.elevation !== null && (
+                  <button
+                    className={`oz-snippet-tab ${snippetTab === "result" ? "active" : ""}`}
+                    onClick={() => setSnippetTab("result")}
+                  >
+                    Result
+                  </button>
+                )}
+                <button
+                  className={`oz-snippet-tab ${snippetTab === "url" ? "active" : ""}`}
+                  onClick={() => setSnippetTab("url")}
+                >
+                  API URL
+                </button>
+                <button
+                  className={`oz-snippet-tab ${snippetTab === "curl" ? "active" : ""}`}
+                  onClick={() => setSnippetTab("curl")}
+                >
+                  cURL
+                </button>
+                <button
+                  className={`oz-snippet-tab ${snippetTab === "js" ? "active" : ""}`}
+                  onClick={() => setSnippetTab("js")}
+                >
+                  JS
+                </button>
+                <button
+                  className={`oz-snippet-tab ${snippetTab === "python" ? "active" : ""}`}
+                  onClick={() => setSnippetTab("python")}
+                >
+                  Python
+                </button>
+              </div>
+              <button
+                className="oz-snippet-copy"
+                onClick={() => {
+                  const snippetText =
+                    snippetTab === "result" && result
+                      ? `${result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"}`
+                      : snippetTab === "url"
+                        ? `https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9`
+                        : snippetTab === "curl"
+                          ? `curl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"`
+                          : snippetTab === "js"
+                            ? `const res = await fetch('/api/elevation?lat=28.0&lon=86.9')\nconst { elevation } = await res.json()`
+                            : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": 28.0, "lon": 86.9})\nprint(res.json()["elevation"])  # 8848`;
+                  navigator.clipboard.writeText(snippetText);
+                  setSnippetCopied(true);
+                  setTimeout(() => setSnippetCopied(false), 1500);
+                }}
+              >
+                {snippetCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <CodeBlock
+              dark={dark}
+              code={
+                snippetTab === "result" && result
+                  ? result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"
+                  : snippetTab === "url"
+                    ? `https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9`
+                    : snippetTab === "curl"
+                      ? `curl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"`
+                      : snippetTab === "js"
+                        ? `const res = await fetch('/api/elevation?lat=28.0&lon=86.9')\nconst { elevation } = await res.json()`
+                        : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": 28.0, "lon": 86.9})\nprint(res.json()["elevation"])  # 8848`
+              }
+            >
+              {snippetTab === "result" && result && (
+                <div>
+                  <div className="oz-result-value">
+                    {result.elevation !== null ? `${result.elevation.toLocaleString()}m` : "No data"}
+                    {result.elevation !== null && (
+                      <span className="oz-result-ft">({(result.elevation * 3.28084).toFixed(2)} ft)</span>
+                    )}
+                  </div>
+                  <div className="oz-result-meta">
+                    {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot; {result.srtmTile} &middot; {result.resolution}m
+                  </div>
+                </div>
+              )}
+              {snippetTab === "url" && (
+                <a
+                  id="snippet-api-url"
+                  className="oz-snippet-url"
+                  href="https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9
+                </a>
+              )}
+              {snippetTab === "curl" && (
+                <div>
+                  <span className="oz-syn-method">curl</span>{" "}
+                  <span style={{ color: text }}>"https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9"</span>
+                </div>
+              )}
+              {snippetTab === "js" && (
+                <>
+                  <div>
+                    <span className="oz-syn-keyword">const</span> res ={" "}
+                    <span style={{ color: textSecondary }}>await</span>{" "}
+                    <span className="oz-syn-function">fetch</span>(
+                    <span className="oz-syn-string">&apos;/api/elevation?lat=28.0&amp;lon=86.9&apos;</span>)
+                  </div>
+                  <div>
+                    <span className="oz-syn-keyword">const</span> &#123; elevation &#125; ={" "}
+                    <span style={{ color: textSecondary }}>await</span> res.json()
+                  </div>
+                </>
+              )}
+              {snippetTab === "python" && (
+                <>
+                  <div>
+                    <span className="oz-syn-keyword">import</span> requests
+                  </div>
+                  <div>
+                    res = requests.<span className="oz-syn-function">get</span>(
+                    <span className="oz-syn-string">"https://openzenith.pages.dev/api/elevation"</span>,
+                  </div>
+                  <div>
+                    &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span className="oz-syn-string">"lat"</span>:{" "}
+                    <span className="oz-syn-number">28.0</span>, <span className="oz-syn-string">"lon"</span>:{" "}
+                    <span className="oz-syn-number">86.9</span>&#125;)
+                  </div>
+                  <div>
+                    <span className="oz-syn-keyword">print</span>(res.json()[
+                    <span className="oz-syn-string">"elevation"</span>])&nbsp;{" "}
+                    <span className="oz-syn-comment"># 8848</span>
+                  </div>
+                </>
+              )}
+            </CodeBlock>
+          </div>
         </div>
+
+        {/* Open Full Map button */}
+        <a
+          href="/map"
+          style={{
+            position: "absolute",
+            bottom: "0.75rem",
+            right: "0.75rem",
+            background: "rgba(0,0,0,0.7)",
+            color: "#ccc",
+            padding: "0.4rem 0.8rem",
+            borderRadius: 6,
+            fontSize: "0.8rem",
+            textDecoration: "none",
+            border: "1px solid #333",
+            backdropFilter: "blur(8px)",
+            zIndex: 2,
+          }}
+        >
+          Open Full Map &rarr;
+        </a>
       </section>
 
       {/* Stats */}

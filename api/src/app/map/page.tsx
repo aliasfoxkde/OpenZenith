@@ -968,8 +968,6 @@ function addHillshadeLayer(map: any) {
         "hillshade-highlight-color": "#ffffff",
         "hillshade-accent-color": "#333333",
         "hillshade-exaggeration": 0.5,
-        "hillshade-direction": 315,
-        "hillshade-illumination-anchor": "corner",
       },
     },
     "basemap",

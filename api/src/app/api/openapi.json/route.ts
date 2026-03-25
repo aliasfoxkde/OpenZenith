@@ -6,7 +6,7 @@ const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "OpenZenith API",
-    version: "0.3.0",
+    version: "0.4.0",
     description:
       "Free, fast, global elevation and geospatial API. Query any point on Earth for elevation data from NASA SRTM 30m, track flights, monitor weather, explore OpenStreetMap, and more. No API key required.",
     contact: {
@@ -428,6 +428,118 @@ const openApiSpec = {
         tags: ["Discovery"],
       },
     },
+    "/api/geoip": {
+      get: {
+        summary: "Get GeoIP information for requester",
+        description:
+          "Returns geolocation data for the requesting IP using Cloudflare's request.cf object. Includes city, country, region, coordinates, timezone, ASN, and colocation facility. Cached for 1 hour.",
+        responses: {
+          "200": {
+            description: "GeoIP data",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    ip: { type: "string", example: "203.0.113.1" },
+                    city: { type: ["string", "null"], example: "San Francisco" },
+                    country: { type: ["string", "null"], example: "US" },
+                    countryName: { type: ["string", "null"], example: "United States" },
+                    region: { type: ["string", "null"], example: "CA" },
+                    regionName: { type: ["string", "null"], example: "California" },
+                    postalCode: { type: ["string", "null"], example: "94105" },
+                    latitude: { type: ["number", "null"], example: 37.7749 },
+                    longitude: { type: ["number", "null"], example: -122.4194 },
+                    timezone: { type: ["string", "null"], example: "America/Los_Angeles" },
+                    continent: { type: ["string", "null"], example: "NA" },
+                    asn: { type: ["number", "null"], example: 13335 },
+                    asOrganization: { type: ["string", "null"], example: "Cloudflare" },
+                    colo: { type: ["string", "null"], example: "SJC" },
+                  },
+                },
+              },
+            },
+          },
+        },
+        tags: ["System"],
+      },
+    },
+    "/api/nlnog": {
+      get: {
+        summary: "Get NLNOG Ring network nodes",
+        description:
+          "Returns all NLNOG Ring measurement nodes worldwide with geographic coordinates, ASN, hostname, and city/country data. Approximately 743 nodes across 58 countries. Used for network infrastructure visualization. Cached for 1 hour.",
+        responses: {
+          "200": {
+            description: "NLNOG node list",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    nodes: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "integer", example: 945 },
+                          hostname: { type: "string", example: "node.perth.ring.nlnog.net" },
+                          asn: { type: "integer", example: 136557 },
+                          ipv4: { type: "string", example: "203.0.113.1" },
+                          city: { type: "string", example: "Perth" },
+                          country: { type: "string", example: "AU" },
+                          lat: { type: "number", example: -31.86 },
+                          lon: { type: "number", example: 115.89 },
+                        },
+                      },
+                    },
+                    count: { type: "integer", example: 743 },
+                  },
+                },
+              },
+            },
+          },
+          "502": { description: "NLNOG API unavailable" },
+        },
+        tags: ["Data"],
+      },
+    },
+    "/api/bgp": {
+      get: {
+        summary: "BGP prefix lookup (NLNOG Looking Glass)",
+        description:
+          "Queries the NLNOG Looking Glass API for BGP routing information about a given IP prefix. Returns AS paths, origin AS, and routing data. Cached for 5 minutes.",
+        parameters: [
+          {
+            name: "prefix",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "IP prefix in CIDR notation",
+            example: "8.8.8.0/24",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "BGP routing data",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    prefix: { type: "string", example: "8.8.8.0/24" },
+                    data: { type: "object", description: "NLNOG Looking Glass response with AS path data" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Missing prefix parameter" },
+          "502": { description: "NLNOG Looking Glass unavailable" },
+        },
+        tags: ["Network"],
+      },
+    },
   },
   tags: [
     { name: "Elevation", description: "Point elevation queries" },
@@ -436,6 +548,7 @@ const openApiSpec = {
     { name: "Proxy", description: "CORS proxy for external geospatial APIs" },
     { name: "Data", description: "Real-time geospatial data (flights, weather, OSM)" },
     { name: "Discovery", description: "Service discovery and metadata" },
+    { name: "Network", description: "Network infrastructure and BGP data" },
   ],
 };
 

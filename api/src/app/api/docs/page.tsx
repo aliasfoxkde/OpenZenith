@@ -560,7 +560,7 @@ export default function DocsPage() {
               }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-10-4 15.3 15.3 0 0 1-10 4 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10 15.3 15.3 0 0 1 10 4 15.3 15.3 0 0 1 10-4z" /></svg>
               </div>
-              <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>WorldView Dashboard</h3>
+              <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Globe Dashboard</h3>
             </div>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
               Real-time geospatial intelligence. Earthquakes, flights, weather radar, satellites, hurricanes, natural events, and more.

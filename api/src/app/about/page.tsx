@@ -136,7 +136,7 @@ export default function AboutPage() {
           </div>
           <div className="ab-card">
             <div className="icon purple">W</div>
-            <h3>WorldView (3D Globe)</h3>
+            <h3>Globe (3D Globe)</h3>
             <p>
               CesiumJS-powered 3D globe with real-time data overlays: earthquakes, flights, satellites, natural events,
               and weather.
@@ -295,7 +295,7 @@ export default function AboutPage() {
             </p>
           </div>
           <div className="ab-timeline-item">
-            <h4>WorldView Globe</h4>
+            <h4>Globe</h4>
             <p>
               Integrated CesiumJS for a 3D globe with real-time overlays: earthquakes, flights, satellites, and natural
               events.

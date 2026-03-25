@@ -66,7 +66,7 @@ export function Footer({ dark }: FooterProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
               {[
                 { label: "Map", href: "/map" },
-                { label: "WorldView", href: "/worldview" },
+                { label: "Globe", href: "/worldview" },
                 { label: "Explorer", href: "/explore" },
                 { label: "API Docs", href: "/api/docs" },
                 { label: "Contribute", href: "/contribute" },

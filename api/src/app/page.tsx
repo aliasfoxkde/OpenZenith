@@ -934,7 +934,7 @@ export default function Home() {
             {
               label: "Data layers",
               value: "12+",
-              tip: "WorldView integrates 12+ real-time data layers including earthquakes, radar, flights, military ADS-B, vessels, weather warnings, satellites, hurricanes, and more.",
+              tip: "Globe integrates 12+ real-time data layers including earthquakes, radar, flights, military ADS-B, vessels, weather warnings, satellites, hurricanes, and more.",
             },
           ].map((s) => (
             <div
@@ -1063,11 +1063,11 @@ export default function Home() {
             },
             {
               emoji: "\uD83C\uDF0D",
-              title: "WorldView 3D Globe",
+              title: "Globe 3D",
               desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, 5 themes, and 12+ real-time data layers.",
               back: "Switch between 3D globe, Columbus 3D, and 2D map. Five built-in themes from Dark to Classified Intel HUD.",
               href: "/worldview",
-              btn: "Launch WorldView",
+              btn: "Launch Globe",
             },
             {
               emoji: "\u2708\uFE0F",
@@ -1193,7 +1193,7 @@ export default function Home() {
       {/* Data Layers */}
       <section style={{ maxWidth: W, margin: "0 auto", padding: "0 1.5rem 1.5rem" }}>
         <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
-          WorldView Data Layers
+          Globe Data Layers
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.75rem" }}>
           {[

@@ -135,7 +135,7 @@ export default function ContributePage() {
             <div className="icon purple">3</div>
             <h3>Integration</h3>
             <p>
-              Once approved, your data layer is added to WorldView, the API, or the data explorer with full attribution.
+              Once approved, your data layer is added to Globe, the API, or the data explorer with full attribution.
             </p>
           </div>
           <div className="ct-card">
@@ -260,7 +260,7 @@ export default function ContributePage() {
           <div className="ct-step">
             <h4>Real-Time Feeds (WMS/WFS/WCS)</h4>
             <p>
-              Weather data, satellite imagery, and other OGC-standard services can be added as live layers to WorldView
+              Weather data, satellite imagery, and other OGC-standard services can be added as live layers to Globe
               with configurable refresh intervals.
             </p>
           </div>
@@ -275,7 +275,7 @@ export default function ContributePage() {
             <h4>API Endpoints</h4>
             <p>
               If you have a REST API serving geospatial data, we can create a proxy endpoint (like{" "}
-              <code>/api/flights</code>) to fetch and display it on WorldView.
+              <code>/api/flights</code>) to fetch and display it on Globe.
             </p>
           </div>
         </div>
@@ -306,7 +306,7 @@ export default function ContributePage() {
           <div className="ct-step">
             <h4>Add a Route or Layer</h4>
             <p>
-              Create a new API route in <code>src/app/api/</code> or add your data as a layer in the WorldView
+              Create a new API route in <code>src/app/api/</code> or add your data as a layer in the Globe
               component. Include proper attribution.
             </p>
           </div>
@@ -362,7 +362,7 @@ export default function ContributePage() {
           </div>
           <div> &#125;);</div>
           <div className="comment" style={{ marginTop: "0.75rem" }}>
-            // Add to WorldView as a toggleable layer // See src/app/worldview/page.tsx loadEarthquakes() for patterns
+            // Add to Globe as a toggleable layer // See src/app/worldview/page.tsx loadEarthquakes() for patterns
           </div>
         </div>
       </div>

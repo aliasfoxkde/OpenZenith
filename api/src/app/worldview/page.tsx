@@ -1204,8 +1204,8 @@ export default function WorldView() {
             <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
           </svg>
           OpenZenith
-          {!isHud && <span style={{ color: "var(--text-muted2)", fontWeight: 400, fontSize: "0.75rem", marginLeft: 4 }}>/ WorldView</span>}
-          {isHud && <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem", marginLeft: 4 }}>// WV</span>}
+          {!isHud && <span style={{ color: "var(--text-muted2)", fontWeight: 400, fontSize: "0.75rem", marginLeft: 4 }}>/ Globe</span>}
+          {isHud && <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem", marginLeft: 4 }}>// Globe</span>}
         </Link>
         {isHud && <span className="wv-nav-time">{clock}</span>}
         <div className="wv-nav-links">

@@ -8,13 +8,14 @@ interface NavbarProps {
   dark: boolean;
   /** Optional right-side extra elements (theme toggles, etc.) */
   extra?: ReactNode;
-  /** Show breadcrumb text after brand (e.g., "WorldView") */
+  /** Show breadcrumb text after brand (e.g., "Globe") */
   breadcrumb?: string;
 }
 
 const NAV_LINKS = [
+  { label: "Home", href: "/" },
   { label: "Map", href: "/map" },
-  { label: "WorldView", href: "/worldview" },
+  { label: "Globe", href: "/worldview" },
   { label: "Explore", href: "/explore" },
   { label: "Docs", href: "/api/docs" },
   { label: "Status", href: "/api/health" },

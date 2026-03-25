@@ -115,12 +115,26 @@ function parseHash(h: string): Partial<DashboardState> {
   try {
     const p = new URLSearchParams(h.replace(/^#/, ""));
     if (!p.toString()) return {};
-    const c = (p.get("c") || "").split(",").map(Number);
+    // Support both old format (c=lng,lat) and new format (lng=...&lat=...)
+    const c = p.get("c");
+    const lng = p.get("lng");
+    const lat = p.get("lat");
+    let center: [number, number] | undefined;
+    if (c) {
+      const parts = c.split(",").map(Number);
+      if (parts.length === 2 && parts.every((n) => !isNaN(n))) center = parts as [number, number];
+    } else if (lng && lat) {
+      const ln = Number(lng);
+      const lt = Number(lat);
+      if (!isNaN(ln) && !isNaN(lt)) center = [ln, lt];
+    }
+    // Support both "z" and "zoom" param names
+    const zoomVal = p.get("zoom") ?? p.get("z");
     const layers = p.get("l");
     const activeLayers = layers ? layers.split(",") : [];
     return {
-      center: c.length === 2 && c.every((n) => !isNaN(n)) ? c as [number, number] : undefined,
-      zoom: p.has("z") ? Number(p.get("z")) : undefined,
+      center,
+      zoom: zoomVal ? Number(zoomVal) : undefined,
       basemap: p.get("bm") || undefined,
       layers: {
         earthquakes: DEFAULT_LAYERS.earthquakes,
@@ -141,8 +155,9 @@ function parseHash(h: string): Partial<DashboardState> {
 
 function buildHash(s: DashboardState): string {
   const p = new URLSearchParams();
-  p.set("c", `${s.center[0].toFixed(4)},${s.center[1].toFixed(4)}`);
-  p.set("z", s.zoom.toFixed(1));
+  p.set("lng", s.center[0].toFixed(4));
+  p.set("lat", s.center[1].toFixed(4));
+  p.set("zoom", s.zoom.toFixed(1));
   if (s.basemap !== "dark") p.set("bm", s.basemap);
   const active = Object.entries(s.layers)
     .filter(([, v]) => v)
@@ -205,10 +220,15 @@ async function fetchHurricaneTracks(): Promise<any> {
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
 .wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;background:#0a0e17}
-.wv-map{position:absolute;inset:0}
-.wv-sidebar{position:absolute;top:0;left:0;bottom:40px;width:300px;background:rgba(10,14,23,0.95);backdrop-filter:blur(12px);border-right:1px solid rgba(255,255,255,0.08);z-index:10;overflow-y:auto;transition:transform .3s ease;display:flex;flex-direction:column}
+.wv-map{position:absolute;inset:0;top:36px}
+.wv-nav{position:absolute;top:0;left:0;right:0;height:36px;background:rgba(10,14,23,0.92);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,0.08);z-index:20;display:flex;align-items:center;padding:0 12px;gap:1rem}
+.wv-nav-brand{color:#22c55e;font-weight:700;font-size:0.9rem;text-decoration:none;letter-spacing:-0.02em}
+.wv-nav-links{display:flex;gap:0.75rem;margin-left:auto}
+.wv-nav-links a{color:#888;font-size:0.75rem;text-decoration:none}
+.wv-nav-links a:hover{color:#ccc}
+.wv-sidebar{position:absolute;top:36px;left:0;bottom:40px;width:300px;background:rgba(10,14,23,0.95);backdrop-filter:blur(12px);border-right:1px solid rgba(255,255,255,0.08);z-index:10;overflow-y:auto;transition:transform .3s ease;display:flex;flex-direction:column}
 .wv-sidebar.collapsed{transform:translateX(-300px)}
-.wv-sidebar-toggle{position:absolute;top:12px;left:12px;z-index:11;width:36px;height:36px;background:rgba(10,14,23,0.9);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e0e0e0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:left .3s ease}
+.wv-sidebar-toggle{position:absolute;top:48px;left:12px;z-index:11;width:36px;height:36px;background:rgba(10,14,23,0.9);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e0e0e0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:left .3s ease}
 .wv-sidebar:not(.collapsed)~.wv-sidebar-toggle{left:312px}
 .wv-sidebar-header{padding:16px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0}
 .wv-sidebar-header h2{margin:0;font-size:16px;font-weight:600;color:#e0e0e0;letter-spacing:1px}
@@ -273,6 +293,7 @@ export default function WorldViewPage() {
   const [loading, setLoading] = useState(true);
   const [cursorPos, setCursorPos] = useState<[number, number] | null>(null);
   const [elevPopup, setElevPopup] = useState<{ x: number; y: number; elev: number | null; lat: number; lon: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus[]>([
     { key: "earthquakes", label: "Quakes", lastUpdate: null, count: 0, error: null },
     { key: "radar", label: "Radar", lastUpdate: null, count: 0, error: null },
@@ -323,16 +344,9 @@ export default function WorldViewPage() {
           version: 8,
           sources: {
             basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attr },
-            elevation: {
-              type: "raster",
-              tiles: [`${window.location.origin}/api/tile/{z}/{x}/{y}`],
-              tileSize: 256,
-              encoding: "terrarium",
-            },
           },
           layers: [
             { id: "basemap", type: "raster", source: "basemap" },
-            { id: "hillshade", type: "hillshade", source: "elevation", paint: { "hillshade-shadow-color": "#000000", "hillshade-highlight-color": "#ffffff", "hillshade-accent-color": "#333333", "hillshade-exaggeration": 0.3 } },
           ],
           glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
         },
@@ -356,8 +370,21 @@ export default function WorldViewPage() {
         setCursorPos([e.lngLat.lng, e.lngLat.lat]);
       });
 
+      // Right-click context menu
+      map.getCanvas().addEventListener("contextmenu", (e: MouseEvent) => {
+        e.preventDefault();
+        const rect = map.getCanvas().getBoundingClientRect();
+        const point = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+        setCtxMenu({ x: e.clientX, y: e.clientY, lng: point.lng, lat: point.lat });
+      });
+      map.getCanvas().addEventListener("click", () => setCtxMenu(null), true);
+      document.addEventListener("click", (e) => {
+        if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) setCtxMenu(null);
+      }, true);
+
       map.on("click", async (e: any) => {
         const { lng, lat } = e.lngLat;
+        setCtxMenu(null);
         try {
           const r = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`);
           const d = await r.json();
@@ -368,6 +395,37 @@ export default function WorldViewPage() {
 
       map.on("load", () => {
         if (destroyed) return;
+
+        // Register custom protocol to convert Int16 tiles to terrarium PNG
+        mlgl.addProtocol("elevation", async (params: any, callback: any) => {
+          const { z, x, y } = params;
+          try {
+            const res = await fetch(`/api/tile/${z}/${x}/${y}`);
+            if (!res.ok) { callback(null, null, null); return { cancel: () => {} }; }
+            const buffer = await res.arrayBuffer();
+            const int16 = new Int16Array(buffer);
+            const terrarium = elevationToTerrarium(int16);
+            const canvas = document.createElement("canvas");
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext("2d")!;
+            const img = ctx.createImageData(256, 256);
+            img.data.set(terrarium);
+            ctx.putImageData(img, 0, 0);
+            canvas.toBlob((blob: Blob | null) => {
+              if (blob) callback(null, blob, null, null);
+              else callback(new Error("Tile encode error"));
+            }, "image/png");
+            return { cancel: () => {} };
+          } catch (err) { callback(err); return { cancel: () => {} }; }
+        });
+
+        // Add elevation source and hillshade layer
+        map.addSource("elevation", { type: "raster-dem", tiles: ["elevation://{z}/{x}/{y}"], tileSize: 256, maxzoom: 6, encoding: "terrarium" });
+        map.addLayer({
+          id: "hillshade", type: "hillshade", source: "elevation",
+          paint: { "hillshade-shadow-color": "#000000", "hillshade-highlight-color": "#ffffff", "hillshade-accent-color": "#333333", "hillshade-exaggeration": 0.3 },
+        });
+
         mapRef.current = map;
         setLoading(false);
       });
@@ -928,6 +986,17 @@ export default function WorldViewPage() {
         </div>
       )}
 
+      {/* Nav bar */}
+      <div className="wv-nav">
+        <a href="/" className="wv-nav-brand">OpenZenith</a>
+        <div className="wv-nav-links">
+          <a href="/">Home</a>
+          <a href="/map">Map</a>
+          <a href="/explore">Explore</a>
+          <a href="/api/docs">Docs</a>
+        </div>
+      </div>
+
       <div ref={containerRef} className="wv-map" />
 
       {/* Sidebar */}
@@ -1039,6 +1108,65 @@ export default function WorldViewPage() {
       <button className="wv-sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
         {sidebarOpen ? "\u2715" : "\u2630"}
       </button>
+
+      {/* Context menu */}
+      {ctxMenu && (
+        <div
+          className="wv-ctx-menu"
+          style={{
+            position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 200,
+            background: "rgba(20,20,30,0.95)", border: "1px solid #333", borderRadius: 8,
+            padding: "4px 0", minWidth: 190, boxShadow: "0 4px 12px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)",
+          }}
+        >
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Copy coordinates
+          </button>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Copy compact
+          </button>
+          <button onClick={() => {
+            const toDms = (d: number, pos: string, neg: string) => {
+              const dir = d >= 0 ? pos : neg;
+              const a = Math.abs(d);
+              const deg = Math.floor(a);
+              const min = Math.floor((a - deg) * 60);
+              const sec = ((a - deg - min / 60) * 3600).toFixed(2);
+              return `${deg}\u00b0${min}'${sec}"${dir}`;
+            };
+            navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`);
+            setCtxMenu(null);
+          }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Copy DMS
+          </button>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Copy lng,lat
+          </button>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Copy lat,lng
+          </button>
+          <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#4a9eff", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Open in OSM
+          </button>
+          <button onClick={async () => {
+            try {
+              const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`);
+              const d = await r.json();
+              navigator.clipboard.writeText(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`);
+            } catch { /* ignore */ }
+            setCtxMenu(null);
+          }}
+            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#22c55e", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            Copy elevation
+          </button>
+        </div>
+      )}
 
       {/* Elevation popup */}
       {elevPopup && (

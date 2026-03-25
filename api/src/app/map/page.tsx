@@ -99,10 +99,24 @@ function parseHash(hash: string): Partial<MapViewState> {
     const h = hash.replace(/^#/, "");
     if (!h) return {};
     const params = new URLSearchParams(h);
-    const center = (params.get("c") || "").split(",").map(Number);
+    // Support both old format (c=lng,lat) and new format (lng=...&lat=...)
+    const c = params.get("c");
+    const lng = params.get("lng");
+    const lat = params.get("lat");
+    let center: [number, number] | undefined;
+    if (c) {
+      const parts = c.split(",").map(Number);
+      if (parts.length === 2 && parts.every((n) => !isNaN(n))) center = parts as [number, number];
+    } else if (lng && lat) {
+      const ln = Number(lng);
+      const lt = Number(lat);
+      if (!isNaN(ln) && !isNaN(lt)) center = [ln, lt];
+    }
+    // Support both "z" and "zoom" param names
+    const zoomVal = params.get("zoom") ?? params.get("z");
     return {
-      center: center.length === 2 && center.every((n) => !isNaN(n)) ? center as [number, number] : undefined,
-      zoom: params.has("z") ? Number(params.get("z")) : undefined,
+      center,
+      zoom: zoomVal ? Number(zoomVal) : undefined,
       bearing: params.has("b") ? Number(params.get("b")) : undefined,
       pitch: params.has("p") ? Number(params.get("p")) : undefined,
       basemap: params.get("bm") || undefined,
@@ -114,8 +128,9 @@ function parseHash(hash: string): Partial<MapViewState> {
 
 function buildHash(state: MapViewState): string {
   const p = new URLSearchParams();
-  p.set("c", `${state.center[0].toFixed(4)},${state.center[1].toFixed(4)}`);
-  p.set("z", state.zoom.toFixed(1));
+  p.set("lng", state.center[0].toFixed(4));
+  p.set("lat", state.center[1].toFixed(4));
+  p.set("zoom", state.zoom.toFixed(1));
   if (state.bearing) p.set("b", state.bearing.toFixed(1));
   if (state.pitch) p.set("p", state.pitch.toFixed(1));
   if (state.basemap !== "dark") p.set("bm", state.basemap);
@@ -137,6 +152,7 @@ export default function MapPage() {
   const [loadError, setLoadError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [fetchingElevation, setFetchingElevation] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
   const mlglRef = useRef<any>(null);
   const pinsRef = useRef<any[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -188,6 +204,8 @@ export default function MapPage() {
         map.on("click", async (e: any) => {
           const { lat, lng } = e.lngLat;
           setFetchingElevation(true);
+          setCtxMenu(null);
+
           try {
             const res = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`);
             const data = await res.json();
@@ -219,6 +237,18 @@ export default function MapPage() {
 
         map.addControl(new mlgl.NavigationControl(), "top-right");
         map.addControl(new mlgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
+
+        // Right-click context menu
+        map.getCanvas().addEventListener("contextmenu", (e: MouseEvent) => {
+          e.preventDefault();
+          const rect = map.getCanvas().getBoundingClientRect();
+          const point = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+          setCtxMenu({ x: e.clientX, y: e.clientY, lng: point.lng, lat: point.lat });
+        });
+        map.getCanvas().addEventListener("click", () => setCtxMenu(null), true);
+        document.addEventListener("click", (e) => {
+          if (!(e.target as HTMLElement).closest(".map-ctx-menu")) setCtxMenu(null);
+        }, true);
 
         mapRef.current = map;
       } catch {
@@ -395,6 +425,63 @@ export default function MapPage() {
 
       {/* Map */}
       <div style={{ flex: 1, position: "relative" }}>
+        {ctxMenu && (
+          <div
+            className="map-ctx-menu"
+            style={{
+              position: "absolute", top: ctxMenu.y, left: ctxMenu.x, zIndex: 30,
+              background: "rgba(20,20,30,0.95)", border: "1px solid #333", borderRadius: 8,
+              padding: "4px 0", minWidth: 180, boxShadow: "0 4px 12px rgba(0,0,0,0.4)", backdropFilter: "blur(8px)",
+            }}
+          >
+            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Copy coordinates
+            </button>
+            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Copy compact
+            </button>
+            <button onClick={() => {
+              const toDms = (d: number, pos: string, neg: string) => {
+                const dir = d >= 0 ? pos : neg;
+                const a = Math.abs(d);
+                const deg = Math.floor(a);
+                const min = Math.floor((a - deg) * 60);
+                const sec = ((a - deg - min / 60) * 3600).toFixed(2);
+                return `${deg}\u00b0${min}'${sec}"${dir}`;
+              };
+              navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`);
+              setCtxMenu(null);
+            }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Copy DMS
+            </button>
+            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Copy lng,lat
+            </button>
+            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)}, ${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Copy lat,lng
+            </button>
+            <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#4a9eff", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Open in OSM
+            </button>
+            <button onClick={async () => {
+              try {
+                const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`);
+                const d = await r.json();
+                navigator.clipboard.writeText(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`);
+              } catch { /* ignore */ }
+              setCtxMenu(null);
+            }}
+              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#22c55e", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+              Copy elevation
+            </button>
+          </div>
+        )}
         <div
           ref={containerRef}
           style={{

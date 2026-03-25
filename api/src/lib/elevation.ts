@@ -95,7 +95,20 @@ export async function getElevation(
 
   // Interpret as Int16
   const pixels = chunkWidth * chunkHeight;
-  const data = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
+  const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
+
+  // Undo TIFF horizontal predictor (predictor=2).
+  // The SRTM GeoTIFF tiles are stored with horizontal differencing:
+  // each sample is the difference from the previous sample in the row.
+  // Undo by cumulative sum per row.
+  const data = new Int16Array(pixels);
+  for (let r = 0; r < chunkHeight; r++) {
+    const rowOff = r * chunkWidth;
+    data[rowOff] = rawData[rowOff]; // first pixel is the absolute value
+    for (let c = 1; c < chunkWidth; c++) {
+      data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
+    }
+  }
 
   // Extract elevation with bilinear interpolation
   const getPixel = (r: number, c: number): number => {

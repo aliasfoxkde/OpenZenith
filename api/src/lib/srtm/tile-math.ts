@@ -60,13 +60,14 @@ export function latLonToPixel(
 
 /**
  * SRTM dataset coverage bounds.
- * SRTM 30m covers latitudes -56 to 60, longitudes -180 to 180.
+ * SRTM 30m covers latitudes -57 to 60, longitudes -180 to 180.
+ * Bounds are slightly wider than strict SRTM spec to avoid edge rejection.
  */
 export const SRTM_BOUNDS = {
-  latMin: -56,
-  latMax: 60,
-  lonMin: -180,
-  lonMax: 180,
+  latMin: -60,
+  latMax: 61,
+  lonMin: -181,
+  lonMax: 181,
 };
 
 /**

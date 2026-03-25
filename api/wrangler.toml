@@ -4,4 +4,5 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 STORAGE_BACKEND = "huggingface"
-HF_REPO = "aliasfox/srtm30m-chunks"
+HF_REPO = "aliasfox/srtm30m-merged"
+USE_MERGED = "true"

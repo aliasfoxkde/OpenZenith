@@ -1,0 +1,21 @@
+[project]
+name = "openzenith"
+version = "0.1.0"
+description = "OpenZenith - Universal elevation data compression and tiling service"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "zstandard>=0.20",
+    "pillow>=10.0",
+]
+
+[project.scripts]
+oz-convert = "scripts.convert_srtm:main"
+oz-benchmark = "scripts.benchmark:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.setuptools.packages.find]
+where = ["."]

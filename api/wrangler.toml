@@ -1,0 +1,7 @@
+name = "openzenith"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+STORAGE_BACKEND = "huggingface"
+HF_REPO = "aliasfox/srtm30m-chunks"

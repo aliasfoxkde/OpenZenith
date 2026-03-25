@@ -1,0 +1,27 @@
+{
+  "name": "openzenith",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenZenith - Free global elevation API and tiling service",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.12",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
+  }
+}

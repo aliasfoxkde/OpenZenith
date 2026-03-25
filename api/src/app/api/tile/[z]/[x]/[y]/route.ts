@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getTileData } from "@/lib/tile";
+import { getDefaultBackend } from "@/lib/storage/backend";
+
+export const runtime = "edge";
+
+const TILE_SIZE = 256;
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Range",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ z: string; x: string; y: string }> },
+) {
+  const { z, x, y } = await params;
+  const zoom = parseInt(z);
+  const tileX = parseInt(x);
+  const tileY = parseInt(y);
+
+  if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY)) {
+    return NextResponse.json(
+      { error: "z, x, y must be integers" },
+      { status: 400 },
+    );
+  }
+
+  if (zoom < 0 || zoom > 15) {
+    return NextResponse.json(
+      { error: "zoom must be between 0 and 15" },
+      { status: 400 },
+    );
+  }
+
+  const maxTile = Math.pow(2, zoom) - 1;
+  if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
+    return NextResponse.json(
+      { error: `x,y must be between 0 and ${maxTile} at zoom ${zoom}` },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const storage = getDefaultBackend();
+    const result = await getTileData(zoom, tileX, tileY, storage);
+
+    const buffer = result.data.buffer.slice(
+      result.data.byteOffset,
+      result.data.byteOffset + result.data.byteLength,
+    );
+
+    return new NextResponse(buffer as ArrayBuffer, {
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(buffer.byteLength),
+        "Cache-Control": "public, max-age=2592000",
+        "Access-Control-Allow-Origin": "*",
+        "X-Tile-Size": String(TILE_SIZE),
+        "X-Zoom": String(zoom),
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

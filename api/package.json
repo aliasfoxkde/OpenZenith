@@ -11,7 +11,7 @@
     "test": "vitest",
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01",
-    "pages:deploy": "npx wrangler pages project create openzenith --production-branch main 2>/dev/null; npx wrangler pages deploy .vercel/output/static --branch main"
+    "pages:deploy": "echo \"Deploy handled by Cloudflare build system\""
   },
   "dependencies": {
     "next": "^15.3.3",

@@ -849,7 +849,7 @@ export default function Home() {
             "MapLibre GL",
             "NASA SRTM",
             "HuggingFace",
-            "Terraform Encoding",
+            "Terrarium Encoding",
           ].map((tag) => (
             <span
               key={tag}

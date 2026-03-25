@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Navbar } from "@/components/Navbar";
 
 /* ─── Types ─── */
 
@@ -88,8 +89,13 @@ function waitForMapLibre(timeoutMs = 15000): Promise<any> {
     if (w.maplibregl) return resolve(w.maplibregl);
     const start = Date.now();
     const iv = setInterval(() => {
-      if (w.maplibregl) { clearInterval(iv); resolve(w.maplibregl); }
-      else if (Date.now() - start > timeoutMs) { clearInterval(iv); reject(new Error("MapLibre GL failed to load")); }
+      if (w.maplibregl) {
+        clearInterval(iv);
+        resolve(w.maplibregl);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(iv);
+        reject(new Error("MapLibre GL failed to load"));
+      }
     }, 100);
   });
 }
@@ -104,12 +110,14 @@ function parseHash(hash: string): Partial<MapViewState> {
     const ty = params.get("y");
     const tz = params.get("z");
     if (tx && ty && tz) {
-      const x = Number(tx), y = Number(ty), z = Number(tz);
+      const x = Number(tx),
+        y = Number(ty),
+        z = Number(tz);
       if (!isNaN(x) && !isNaN(y) && !isNaN(z) && z >= 0 && z <= 22) {
         const n = Math.pow(2, z);
         const lng = (x / n) * 360 - 180;
-        const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
-        const lat = latRad * 180 / Math.PI;
+        const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
+        const lat = (latRad * 180) / Math.PI;
         return {
           center: [lng, lat],
           zoom: z,
@@ -201,9 +209,13 @@ export default function MapPage() {
           container: containerRef.current,
           style: {
             version: 8,
-            sources: { basemap: { type: "raster", tiles: [basemap.url], tileSize: 256, attribution: basemap.attribution } },
+            sources: {
+              basemap: { type: "raster", tiles: [basemap.url], tileSize: 256, attribution: basemap.attribution },
+            },
             layers: [{ id: "basemap", type: "raster", source: "basemap" }],
-            ...(mapState.basemap === "dark" ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" } : {}),
+            ...(mapState.basemap === "dark"
+              ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" }
+              : {}),
           },
           center: mapState.center,
           zoom: mapState.zoom,
@@ -265,9 +277,13 @@ export default function MapPage() {
           setCtxMenu({ x: e.clientX, y: e.clientY, lng: point.lng, lat: point.lat });
         });
         map.getCanvas().addEventListener("click", () => setCtxMenu(null), true);
-        document.addEventListener("click", (e) => {
-          if (!(e.target as HTMLElement).closest(".map-ctx-menu")) setCtxMenu(null);
-        }, true);
+        document.addEventListener(
+          "click",
+          (e) => {
+            if (!(e.target as HTMLElement).closest(".map-ctx-menu")) setCtxMenu(null);
+          },
+          true,
+        );
 
         mapRef.current = map;
       } catch {
@@ -277,7 +293,10 @@ export default function MapPage() {
 
     return () => {
       cancelled = true;
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -311,37 +330,38 @@ export default function MapPage() {
   );
 
   // Toggle layer
-  const toggleLayer = useCallback(
-    (layerName: string, enabled: boolean) => {
-      const map = mapRef.current;
-      const mlgl = mlglRef.current;
-      if (!map || !mlgl) return;
+  const toggleLayer = useCallback((layerName: string, enabled: boolean) => {
+    const map = mapRef.current;
+    const mlgl = mlglRef.current;
+    if (!map || !mlgl) return;
 
-      setMapState((prev) => {
-        const layers = { ...prev.layers, [layerName]: enabled };
+    setMapState((prev) => {
+      const layers = { ...prev.layers, [layerName]: enabled };
 
-        if (layerName === "hillshade") {
-          if (enabled) addHillshadeLayer(map);
-          else {
-            try { map.removeLayer("hillshade"); } catch {}
-            try { map.removeSource("elevation"); } catch {}
-          }
+      if (layerName === "hillshade") {
+        if (enabled) addHillshadeLayer(map);
+        else {
+          try {
+            map.removeLayer("hillshade");
+          } catch {}
+          try {
+            map.removeSource("elevation");
+          } catch {}
         }
+      }
 
-        if (layerName === "terrain3d") {
-          if (enabled) enable3DTerrain(map);
-          else disable3DTerrain(map);
-        }
+      if (layerName === "terrain3d") {
+        if (enabled) enable3DTerrain(map);
+        else disable3DTerrain(map);
+      }
 
-        if (layerName === "contour") {
-          // Contour is a visual hint — actual contour generation would need server-side
-        }
+      if (layerName === "contour") {
+        // Contour is a visual hint — actual contour generation would need server-side
+      }
 
-        return { ...prev, layers };
-      });
-    },
-    [],
-  );
+      return { ...prev, layers };
+    });
+  }, []);
 
   // Reset view
   const resetView = useCallback(() => {
@@ -366,81 +386,56 @@ export default function MapPage() {
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#0a0a0a" }}>
       {/* Top bar */}
-      <header
-        style={{
-          height: 48,
-          background: "rgba(10,10,10,0.9)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid #222",
-          display: "flex",
-          alignItems: "center",
-          padding: "0 1rem",
-          gap: "0.75rem",
-          zIndex: 100,
-          flexShrink: 0,
-        }}
-      >
-        <a href="/" style={{ color: "#e5e5e5", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-            <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
-            <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
-            <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
-          </svg>
-          <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>OpenZenith</span>
-        </a>
-        <span style={{ color: "#333" }}>/</span>
-        <span style={{ color: "#888", fontSize: "0.85rem" }}>Map</span>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Elevation result */}
-        {activePin && (
-          <div
-            style={{
-              background: "rgba(0,0,0,0.6)",
-              border: "1px solid #333",
-              borderRadius: 6,
-              padding: "0.25rem 0.75rem",
-              fontFamily: "monospace",
-              fontSize: "0.85rem",
-              color: "#e5e5e5",
-            }}
-          >
-            {activePin.elevation !== null ? (
-              <span>
-                <span style={{ color: "#22c55e", fontWeight: 600 }}>{activePin.elevation.toLocaleString()}m</span>
-                <span style={{ color: "#666", marginLeft: "0.5rem" }}>
-                  {activePin.lat.toFixed(4)}, {activePin.lon.toFixed(4)}
-                </span>
-              </span>
-            ) : (
-              <span style={{ color: "#888" }}>No data</span>
+      <Navbar
+        dark
+        breadcrumb="Map"
+        extra={
+          <>
+            {/* Elevation result */}
+            {activePin && (
+              <div
+                style={{
+                  background: "rgba(0,0,0,0.6)",
+                  border: "1px solid #333",
+                  borderRadius: 6,
+                  padding: "0.25rem 0.75rem",
+                  fontFamily: "monospace",
+                  fontSize: "0.85rem",
+                  color: "#e5e5e5",
+                }}
+              >
+                {activePin.elevation !== null ? (
+                  <span>
+                    <span style={{ color: "#22c55e", fontWeight: 600 }}>{activePin.elevation.toLocaleString()}m</span>
+                    <span style={{ color: "#666", marginLeft: "0.5rem" }}>
+                      {activePin.lat.toFixed(4)}, {activePin.lon.toFixed(4)}
+                    </span>
+                  </span>
+                ) : (
+                  <span style={{ color: "#888" }}>No data</span>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {fetchingElevation && (
-          <span style={{ color: "#22c55e", fontSize: "0.8rem" }}>querying...</span>
-        )}
+            {fetchingElevation && <span style={{ color: "#22c55e", fontSize: "0.8rem" }}>querying...</span>}
 
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          style={{
-            background: "rgba(255,255,255,0.08)",
-            border: "1px solid #333",
-            borderRadius: 6,
-            color: "#ccc",
-            padding: "0.3rem 0.6rem",
-            cursor: "pointer",
-            fontSize: "0.8rem",
-          }}
-        >
-          Layers
-        </button>
-
-        <a href="/" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>Home</a>
-        <a href="/api/docs" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>Docs</a>
-      </header>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid #333",
+                borderRadius: 6,
+                color: "#ccc",
+                padding: "0.3rem 0.6rem",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
+            >
+              Layers
+            </button>
+          </>
+        }
+      />
 
       {/* Map */}
       <div style={{ flex: 1, position: "relative" }}>
@@ -448,55 +443,169 @@ export default function MapPage() {
           <div
             className="map-ctx-menu"
             style={{
-              position: "absolute", top: ctxMenu.y, left: ctxMenu.x, zIndex: 30,
-              background: "rgba(20,20,30,0.95)", border: "1px solid #333", borderRadius: 8,
-              padding: "4px 0", minWidth: 180, boxShadow: "0 4px 12px rgba(0,0,0,0.4)", backdropFilter: "blur(8px)",
+              position: "absolute",
+              top: ctxMenu.y,
+              left: ctxMenu.x,
+              zIndex: 30,
+              background: "rgba(20,20,30,0.95)",
+              border: "1px solid #333",
+              borderRadius: 8,
+              padding: "4px 0",
+              minWidth: 180,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+              backdropFilter: "blur(8px)",
             }}
           >
-            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`);
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#ddd",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Copy coordinates
             </button>
-            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`);
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#ddd",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Copy compact
             </button>
-            <button onClick={() => {
-              const toDms = (d: number, pos: string, neg: string) => {
-                const dir = d >= 0 ? pos : neg;
-                const a = Math.abs(d);
-                const deg = Math.floor(a);
-                const min = Math.floor((a - deg) * 60);
-                const sec = ((a - deg - min / 60) * 3600).toFixed(2);
-                return `${deg}\u00b0${min}'${sec}"${dir}`;
-              };
-              navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`);
-              setCtxMenu(null);
-            }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                const toDms = (d: number, pos: string, neg: string) => {
+                  const dir = d >= 0 ? pos : neg;
+                  const a = Math.abs(d);
+                  const deg = Math.floor(a);
+                  const min = Math.floor((a - deg) * 60);
+                  const sec = ((a - deg - min / 60) * 3600).toFixed(2);
+                  return `${deg}\u00b0${min}'${sec}"${dir}`;
+                };
+                navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`);
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#ddd",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Copy DMS
             </button>
-            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`);
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#ddd",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Copy lng,lat
             </button>
-            <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)}, ${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)}, ${ctxMenu.lat.toFixed(6)}`);
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#ddd",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Copy lat,lng
             </button>
-            <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#4a9eff", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                window.open(
+                  `https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`,
+                  "_blank",
+                );
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#4a9eff",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Open in OSM
             </button>
-            <button onClick={async () => {
-              try {
-                const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`);
-                const d = await r.json();
-                navigator.clipboard.writeText(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`);
-              } catch { /* ignore */ }
-              setCtxMenu(null);
-            }}
-              style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#22c55e", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`);
+                  const d = await r.json();
+                  navigator.clipboard.writeText(
+                    `${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`,
+                  );
+                } catch {
+                  /* ignore */
+                }
+                setCtxMenu(null);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 12px",
+                background: "none",
+                border: "none",
+                color: "#22c55e",
+                fontSize: "0.8rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
               Copy elevation
             </button>
           </div>
@@ -512,19 +621,37 @@ export default function MapPage() {
 
         {/* Loading */}
         {loading && !loadError && (
-          <div style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-            background: "rgba(0,0,0,0.8)", color: "#22c55e", padding: "1rem 2rem", borderRadius: 8, fontSize: "0.9rem",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
+              background: "rgba(0,0,0,0.8)",
+              color: "#22c55e",
+              padding: "1rem 2rem",
+              borderRadius: 8,
+              fontSize: "0.9rem",
+            }}
+          >
             Loading map...
           </div>
         )}
 
         {loadError && (
-          <div style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-            background: "rgba(180,0,0,0.9)", color: "#fff", padding: "1rem 2rem", borderRadius: 8, fontSize: "0.9rem",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%,-50%)",
+              background: "rgba(180,0,0,0.9)",
+              color: "#fff",
+              padding: "1rem 2rem",
+              borderRadius: 8,
+              fontSize: "0.9rem",
+            }}
+          >
             Failed to load MapLibre GL. Refresh the page.
           </div>
         )}
@@ -546,14 +673,31 @@ export default function MapPage() {
               zIndex: 50,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <div
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}
+            >
               <span style={{ fontWeight: 600, color: "#e5e5e5", fontSize: "0.95rem" }}>Map Controls</span>
-              <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: "1.2rem" }}
+              >
+                &times;
+              </button>
             </div>
 
             {/* Basemap selector */}
             <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ color: "#888", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Basemap</div>
+              <div
+                style={{
+                  color: "#888",
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Basemap
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
                 {Object.entries(BASEMAPS).map(([key, bm]) => (
                   <button
@@ -577,7 +721,17 @@ export default function MapPage() {
 
             {/* Layer toggles */}
             <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ color: "#888", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Layers</div>
+              <div
+                style={{
+                  color: "#888",
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Layers
+              </div>
               {[
                 { key: "hillshade", label: "Hillshade", desc: "Terrain shading from elevation data" },
                 { key: "terrain3d", label: "3D Terrain", desc: "Extrude terrain in 3D perspective" },
@@ -610,62 +764,110 @@ export default function MapPage() {
 
             {/* View controls */}
             <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ color: "#888", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>View</div>
+              <div
+                style={{
+                  color: "#888",
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                View
+              </div>
               <div style={{ display: "flex", gap: "0.35rem" }}>
-                <button onClick={resetView} style={{ ...btnStyle, flex: 1 }}>Reset View</button>
-                <button onClick={clearPins} style={{ ...btnStyle, flex: 1 }}>Clear Pins</button>
+                <button onClick={resetView} style={{ ...btnStyle, flex: 1 }}>
+                  Reset View
+                </button>
+                <button onClick={clearPins} style={{ ...btnStyle, flex: 1 }}>
+                  Clear Pins
+                </button>
               </div>
             </div>
 
             {/* Coordinate info */}
             <div style={{ marginBottom: "1rem" }}>
-              <div style={{ color: "#888", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Position</div>
+              <div
+                style={{
+                  color: "#888",
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Position
+              </div>
               <div style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#666" }}>
-                <div>Center: {mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}</div>
-                <div>Zoom: {mapState.zoom.toFixed(1)} | Bearing: {(mapState.bearing || 0).toFixed(0)}&deg; | Pitch: {(mapState.pitch || 0).toFixed(0)}&deg;</div>
+                <div>
+                  Center: {mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}
+                </div>
+                <div>
+                  Zoom: {mapState.zoom.toFixed(1)} | Bearing: {(mapState.bearing || 0).toFixed(0)}&deg; | Pitch:{" "}
+                  {(mapState.pitch || 0).toFixed(0)}&deg;
+                </div>
               </div>
             </div>
 
             {/* Pin history */}
             {pins.length > 0 && (
               <div>
-                <div style={{ color: "#888", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                <div
+                  style={{
+                    color: "#888",
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: "0.5rem",
+                  }}
+                >
                   Pins ({pins.length})
                 </div>
                 <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                  {[...pins].reverse().slice(0, 20).map((p, i) => (
-                    <div
-                      key={i}
-                      onClick={() => {
-                        const map = mapRef.current;
-                        if (map) map.flyTo({ center: [p.lon, p.lat], zoom: 12, duration: 1000 });
-                        setActivePin(p);
-                      }}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        padding: "0.3rem 0",
-                        borderBottom: "1px solid #1a1a1a",
-                        cursor: "pointer",
-                        fontSize: "0.8rem",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      <span style={{ color: "#22c55e" }}>
-                        {p.elevation !== null ? `${p.elevation}m` : "---"}
-                      </span>
-                      <span style={{ color: "#555" }}>
-                        {p.lat.toFixed(3)}, {p.lon.toFixed(3)}
-                      </span>
-                    </div>
-                  ))}
+                  {[...pins]
+                    .reverse()
+                    .slice(0, 20)
+                    .map((p, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          const map = mapRef.current;
+                          if (map) map.flyTo({ center: [p.lon, p.lat], zoom: 12, duration: 1000 });
+                          setActivePin(p);
+                        }}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          padding: "0.3rem 0",
+                          borderBottom: "1px solid #1a1a1a",
+                          cursor: "pointer",
+                          fontSize: "0.8rem",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        <span style={{ color: "#22c55e" }}>{p.elevation !== null ? `${p.elevation}m` : "---"}</span>
+                        <span style={{ color: "#555" }}>
+                          {p.lat.toFixed(3)}, {p.lon.toFixed(3)}
+                        </span>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
 
             {/* Share URL */}
             <div style={{ marginTop: "1rem", borderTop: "1px solid #222", paddingTop: "0.75rem" }}>
-              <div style={{ color: "#888", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.4rem" }}>Share</div>
+              <div
+                style={{
+                  color: "#888",
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "0.4rem",
+                }}
+              >
+                Share
+              </div>
               <div
                 style={{
                   background: "#111",
@@ -719,7 +921,10 @@ function addElevationSource(map: any, mlgl: any) {
     const { z, x, y } = params;
     try {
       const res = await fetch(`/api/tile/${z}/${x}/${y}`);
-      if (!res.ok) { callback(null, null, null); return { cancel: () => {} }; }
+      if (!res.ok) {
+        callback(null, null, null);
+        return { cancel: () => {} };
+      }
       const buffer = await res.arrayBuffer();
       const int16 = new Int16Array(buffer);
       const terrarium = elevationToTerrarium(int16);
@@ -735,7 +940,10 @@ function addElevationSource(map: any, mlgl: any) {
         else callback(new Error("Failed to create tile PNG"));
       }, "image/png");
       return { cancel: () => {} };
-    } catch (err) { callback(err); return { cancel: () => {} }; }
+    } catch (err) {
+      callback(err);
+      return { cancel: () => {} };
+    }
   });
 
   map.addSource("elevation", {
@@ -797,9 +1005,7 @@ function addPinMarker(map: any, mlgl: any, pin: ElevationPin, pinsStore: React.M
     <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; border: 2px solid #000; margin-top: -2px;"></div>
   `;
 
-  const marker = new mlgl.Marker({ element: el, anchor: "bottom" })
-    .setLngLat([pin.lon, pin.lat])
-    .addTo(map);
+  const marker = new mlgl.Marker({ element: el, anchor: "bottom" }).setLngLat([pin.lon, pin.lat]).addTo(map);
 
   pinsStore.current.push(marker);
   // Keep only last 50 markers

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Navbar } from "@/components/Navbar";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -32,31 +33,148 @@ interface OverpassResult {
    ═══════════════════════════════════════════════════════════════ */
 
 const KNOWN_HOSTS: ArcGISTarget[] = [
-  { host: "services9.arcgis.com", id: "RHVPKKiFTONKtxq3", url: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services" },
-  { host: "services7.arcgis.com", id: "WHDO3oT6B54vXxsx", url: "https://services7.arcgis.com/WHDO3oT6B54vXxsx/ArcGIS/rest/services" },
-  { host: "services6.arcgis.com", id: "P0j8gBhkWyUvGMOJ", url: "https://services6.arcgis.com/P0j8gBhkWyUvGMOJ/ArcGIS/rest/services" },
-  { host: "services3.arcgis.com", id: "NV3gBKL1xPmJ6h8V", url: "https://services3.arcgis.com/NV3gBKL1xPmJ6h8V/ArcGIS/rest/services" },
-  { host: "services1.arcgis.com", id: "Wl7Y1mXPaBnJF4o4", url: "https://services1.arcgis.com/Wl7Y1mXPaBnJF4o4/ArcGIS/rest/services" },
-  { host: "services.arcgis.com", id: "6tLsIO2BUcJ2mKgv", url: "https://services.arcgis.com/6tLsIO2BUcJ2mKgv/ArcGIS/rest/services" },
-  { host: "services2.arcgis.com", id: "jDGuO8AoQLB0zqXz", url: "https://services2.arcgis.com/jDGuO8AoQLB0zqXz/ArcGIS/rest/services" },
-  { host: "services8.arcgis.com", id: "HEYY8eQgKtITtGVcc", url: "https://services8.arcgis.com/HEYY8eQgKtITtGVcc/ArcGIS/rest/services" },
-  { host: "services10.arcgis.com", id: "jDGuO8AoQLB0zqXz", url: "https://services10.arcgis.com/jDGuO8AoQLB0zqXz/ArcGIS/rest/services" },
-  { host: "services11.arcgis.com", id: "6tLsIO2BUcJ2mKgv", url: "https://services11.arcgis.com/6tLsIO2BUcJ2mKgv/ArcGIS/rest/services" },
-  { host: "services12.arcgis.com", id: "rJILGiHnLq1MxPsB", url: "https://services12.arcgis.com/rJILGiHnLq1MxPsB/ArcGIS/rest/services" },
+  {
+    host: "services9.arcgis.com",
+    id: "RHVPKKiFTONKtxq3",
+    url: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services",
+  },
+  {
+    host: "services7.arcgis.com",
+    id: "WHDO3oT6B54vXxsx",
+    url: "https://services7.arcgis.com/WHDO3oT6B54vXxsx/ArcGIS/rest/services",
+  },
+  {
+    host: "services6.arcgis.com",
+    id: "P0j8gBhkWyUvGMOJ",
+    url: "https://services6.arcgis.com/P0j8gBhkWyUvGMOJ/ArcGIS/rest/services",
+  },
+  {
+    host: "services3.arcgis.com",
+    id: "NV3gBKL1xPmJ6h8V",
+    url: "https://services3.arcgis.com/NV3gBKL1xPmJ6h8V/ArcGIS/rest/services",
+  },
+  {
+    host: "services1.arcgis.com",
+    id: "Wl7Y1mXPaBnJF4o4",
+    url: "https://services1.arcgis.com/Wl7Y1mXPaBnJF4o4/ArcGIS/rest/services",
+  },
+  {
+    host: "services.arcgis.com",
+    id: "6tLsIO2BUcJ2mKgv",
+    url: "https://services.arcgis.com/6tLsIO2BUcJ2mKgv/ArcGIS/rest/services",
+  },
+  {
+    host: "services2.arcgis.com",
+    id: "jDGuO8AoQLB0zqXz",
+    url: "https://services2.arcgis.com/jDGuO8AoQLB0zqXz/ArcGIS/rest/services",
+  },
+  {
+    host: "services8.arcgis.com",
+    id: "HEYY8eQgKtITtGVcc",
+    url: "https://services8.arcgis.com/HEYY8eQgKtITtGVcc/ArcGIS/rest/services",
+  },
+  {
+    host: "services10.arcgis.com",
+    id: "jDGuO8AoQLB0zqXz",
+    url: "https://services10.arcgis.com/jDGuO8AoQLB0zqXz/ArcGIS/rest/services",
+  },
+  {
+    host: "services11.arcgis.com",
+    id: "6tLsIO2BUcJ2mKgv",
+    url: "https://services11.arcgis.com/6tLsIO2BUcJ2mKgv/ArcGIS/rest/services",
+  },
+  {
+    host: "services12.arcgis.com",
+    id: "rJILGiHnLq1MxPsB",
+    url: "https://services12.arcgis.com/rJILGiHnLq1MxPsB/ArcGIS/rest/services",
+  },
   { host: "opendata.arcgis.com", id: "zNFqk4i7h0oYAdW4", url: "https://opendata.arcgis.com/datasets/zNFqk4i7h0oYAdW4" },
 ];
 
 const OVERPASS_QUERIES = [
-  { label: "Amenities in view", query: '[out:json][timeout:25];({node["amenity"]({{bbox}});way["amenity"]({{bbox}});relation["amenity"]({{bbox}});});out center;' },
+  {
+    label: "Amenities in view",
+    query:
+      '[out:json][timeout:25];({node["amenity"]({{bbox}});way["amenity"]({{bbox}});relation["amenity"]({{bbox}});});out center;',
+  },
   { label: "Power lines", query: '[out:json][timeout:25];way["power"="line"]({{bbox}});out geom;' },
   { label: "Waterways", query: '[out:json][timeout:25];way["waterway"]({{bbox}});out geom;' },
   { label: "Buildings", query: '[out:json][timeout:25];way["building"]({{bbox}});out geom;(._<;);out skel qt 50;' },
   { label: "Roads", query: '[out:json][timeout:25];way["highway"]({{bbox}});out geom;' },
   { label: "Aerialways", query: '[out:json][timeout:25];way["aerialway"]({{bbox}});out geom;' },
-  { label: "Natural features", query: '[out:json][timeout:25];(node["natural"]({{bbox}});way["natural"]({{bbox}}););out center;' },
-  { label: "Historic sites", query: '[out:json][timeout:25];(node["historic"]({{bbox}});way["historic"]({{bbox}}););out center;' },
+  {
+    label: "Natural features",
+    query: '[out:json][timeout:25];(node["natural"]({{bbox}});way["natural"]({{bbox}}););out center;',
+  },
+  {
+    label: "Historic sites",
+    query: '[out:json][timeout:25];(node["historic"]({{bbox}});way["historic"]({{bbox}}););out center;',
+  },
   { label: "Railways", query: '[out:json][timeout:25];way["railway"]({{bbox}});out geom;' },
   { label: "Landuse", query: '[out:json][timeout:25];way["landuse"]({{bbox}});out geom;' },
+];
+
+const NOAA_DATASETS = [
+  {
+    label: "NWS Weather Warnings",
+    url: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/NWS_Watch_Warn_Advisory/FeatureServer/0/query?f=json&where=1%3D1&returnGeometry=true&outFields=*&resultRecordCount=100",
+    desc: "Watches, warnings, and advisories with polygon boundaries from NOAA NWS.",
+    source: "ArcGIS",
+  },
+  {
+    label: "NHC Active Cyclones",
+    url: "https://www.nhc.noaa.gov/CurrentStorms.json",
+    desc: "Active tropical cyclone data from the National Hurricane Center.",
+    source: "NHC",
+  },
+  {
+    label: "USGS All Earthquakes (7 days)",
+    url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+    desc: "All earthquakes in the past day from USGS.",
+    source: "USGS",
+  },
+  {
+    label: "USGS M4.5+ (7 days)",
+    url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson",
+    desc: "Significant earthquakes M4.5+ in the past week.",
+    source: "USGS",
+  },
+  {
+    label: "USGS M2.5+ (7 days)",
+    url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    desc: "Moderate earthquakes M2.5+ in the past week.",
+    source: "USGS",
+  },
+  {
+    label: "NASA EONET Events",
+    url: "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=100",
+    desc: "Open natural events: volcanoes, wildfires, icebergs, landslides.",
+    source: "NASA",
+  },
+  {
+    label: "NWS Point Forecast",
+    url: null,
+    desc: "7-day weather forecast for a specific latitude/longitude point. Requires coordinates.",
+    source: "NWS",
+  },
+  {
+    label: "NWS Alerts by Point",
+    url: null,
+    desc: "Active weather alerts for a specific location. Requires coordinates.",
+    source: "NWS",
+  },
+];
+
+const SATELLITE_GROUPS = [
+  { label: "Active (all)", id: "active" },
+  { label: "Visible", id: "visual" },
+  { label: "Communication", id: "communication" },
+  { label: "Navigation (GPS)", id: "gnss" },
+  { label: "Weather", id: "weather" },
+  { label: "Earth Observation", id: "earth-observation" },
+  { label: "Science", id: "science" },
+  { label: "Space Stations", id: "space-stations" },
+  { label: "Education", id: "education" },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -66,13 +184,6 @@ const OVERPASS_QUERIES = [
 const S = `
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
 .ex-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif;color:#e0e0e0;background:#0a0e17}
-.ex-nav{position:sticky;top:0;z-index:100;background:rgba(10,14,23,0.92);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 1.5rem;height:48px;gap:0.75rem}
-.ex-nav-brand{display:flex;align-items:center;gap:0.4rem;color:#e0e0e0;font-weight:700;font-size:0.95rem;text-decoration:none;letter-spacing:-0.02em}
-.ex-nav-brand svg{flex-shrink:0}
-.ex-nav-crumb{color:#333;font-size:0.85rem;margin-left:0.25rem}
-.ex-nav-links{display:flex;gap:1rem;margin-left:auto;align-items:center}
-.ex-nav-links a{color:#666;font-size:0.8rem;text-decoration:none;transition:color .15s}
-.ex-nav-links a:hover{color:#ccc}
 .ex-body{padding:1.5rem 2rem 3rem;max-width:1600px;margin:0 auto}
 .ex-body h1{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;letter-spacing:-0.02em}
 .ex-body .sub{color:#555;font-size:0.85rem;margin:0 0 1.5rem}
@@ -99,6 +210,12 @@ const S = `
 .ex-badge.is{background:rgba(251,146,60,0.12);color:#fb923c}
 .ex-badge.wms{background:rgba(234,179,8,0.12);color:#eab308}
 .ex-badge.err{background:rgba(239,68,68,0.12);color:#ef4444}
+.ex-badge.noaa{background:rgba(56,189,248,0.12);color:#38bdf8}
+.ex-badge.usgs{background:rgba(239,68,68,0.12);color:#ef4444}
+.ex-badge.nasa{background:rgba(34,197,94,0.12);color:#22c55e}
+.ex-badge.flight{background:rgba(251,146,60,0.12);color:#fb923c}
+.ex-badge.sat{background:rgba(6,182,212,0.12);color:#06b6d4}
+.ex-badge.marine{background:rgba(59,130,246,0.12);color:#3b82f6}
 .ex-stat{display:flex;align-items:center;gap:0.5rem;margin:0.25rem 0;font-size:0.8rem}
 .ex-stat .num{color:#4a9eff;font-weight:600;font-family:'JetBrains Mono',monospace}
 .ex-row{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap}
@@ -108,34 +225,84 @@ const S = `
 .ex-query-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;margin-bottom:1rem}
 .ex-query-btn{padding:0.4rem 0.6rem;font-size:0.78rem;background:rgba(255,255,255,0.02);color:#888;border:1px solid #1a1a1a;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;font-family:inherit}
 .ex-query-btn:hover{border-color:#4a9eff;color:#4a9eff;background:rgba(74,158,255,0.05)}
-.ex-tabs{display:flex;gap:0.25rem;margin-bottom:1.25rem;background:rgba(255,255,255,0.02);border-radius:8px;padding:3px;border:1px solid rgba(255,255,255,0.06)}
-.ex-tab{padding:0.4rem 1rem;border-radius:6px;border:none;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;background:transparent;color:#666}
+.ex-tabs{display:flex;gap:0.25rem;margin-bottom:1.25rem;background:rgba(255,255,255,0.02);border-radius:8px;padding:3px;border:1px solid rgba(255,255,255,0.06);flex-wrap:wrap}
+.ex-tab{padding:0.4rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;background:transparent;color:#666;white-space:nowrap}
 .ex-tab:hover{color:#aaa}
 .ex-tab.active{background:rgba(74,158,255,0.12);color:#4a9eff}
-.ex-toolbar{display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px}
-.ex-toolbar input{flex:1}
-.ex-info-bar{display:flex;gap:1rem;align-items:center;padding:0.5rem 0;margin-bottom:1rem;font-size:0.8rem;color:#555;border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:0.75rem}
+.ex-toolbar{display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;flex-wrap:wrap}
+.ex-toolbar input{flex:1;min-width:120px}
+.ex-info-bar{display:flex;gap:1rem;align-items:center;padding:0.5rem 0;margin-bottom:1rem;font-size:0.8rem;color:#555;border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:0.75rem;flex-wrap:wrap}
+.ex-ds-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.75rem}
+.ex-ds-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
+.ex-ds-card:hover{border-color:rgba(74,158,255,0.3);background:rgba(74,158,255,0.03)}
+.ex-ds-card.selected{border-color:rgba(74,158,255,0.5);background:rgba(74,158,255,0.06)}
+.ex-flight-table{width:100%;border-collapse:collapse;font-size:0.78rem}
+.ex-flight-table th{text-align:left;padding:0.4rem 0.6rem;color:#666;font-weight:500;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#0a0e17}
+.ex-flight-table td{padding:0.35rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);color:#bbb;font-family:'JetBrains Mono',monospace}
+.ex-flight-table tr:hover td{background:rgba(74,158,255,0.04)}
+.ex-quake-list{display:flex;flex-direction:column;gap:0.4rem}
+.ex-quake-item{display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.8rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;transition:border-color .15s}
+.ex-quake-item:hover{border-color:rgba(239,68,68,0.3)}
+.ex-quake-mag{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;font-family:'JetBrains Mono',monospace}
+.ex-filter-group{display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap}
+.ex-filter-group label{font-size:0.75rem;color:#666;white-space:nowrap}
+.ex-filter-group input{width:100px;flex:none}
+.ex-filter-group select{width:auto;flex:none;background:#0d1117;color:#e0e0e0;border:1px solid #222;border-radius:6px;padding:0.4rem 0.6rem;font-size:0.82rem;font-family:inherit;outline:none}
 @media(max-width:768px){
   .ex-body{padding:1rem}
-  .ex-grid{grid-template-columns:1fr}
+  .ex-grid,.ex-ds-grid{grid-template-columns:1fr}
   .ex-nav{padding:0 0.75rem}
   .ex-query-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .ex-filter-group input{width:80px}
+  .ex-tabs{gap:0.15rem}
+  .ex-tab{padding:0.35rem 0.5rem;font-size:0.72rem}
 }
 `;
+
+/* ═══════════════════════════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════════════════════════ */
+
+function proxyFetch(url: string): Promise<any> {
+  return fetch(`/api/proxy/${encodeURIComponent(url)}`).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const ct = r.headers.get("content-type") || "";
+    if (ct.includes("geojson") || ct.includes("json")) return r.json();
+    return r.text();
+  });
+}
+
+function magColor(mag: number): string {
+  if (mag >= 7) return "#ef4444";
+  if (mag >= 5) return "#f97316";
+  if (mag >= 3) return "#eab308";
+  if (mag >= 1) return "#22c55e";
+  return "#4a9eff";
+}
+
+function magBg(mag: number): string {
+  if (mag >= 7) return "rgba(239,68,68,0.15)";
+  if (mag >= 5) return "rgba(249,115,22,0.15)";
+  if (mag >= 3) return "rgba(234,179,8,0.15)";
+  if (mag >= 1) return "rgba(34,197,94,0.15)";
+  return "rgba(74,158,255,0.15)";
+}
 
 /* ═══════════════════════════════════════════════════════════════
    Component
    ═══════════════════════════════════════════════════════════════ */
 
+type TabId = "arcgis" | "overpass" | "noaa" | "flights" | "earthquakes" | "satellites" | "marine";
+
 export default function ExplorePage() {
-  const [tab, setTab] = useState<"arcgis" | "overpass">("arcgis");
+  const [tab, setTab] = useState<TabId>("noaa");
 
   // ArcGIS state
   const [hosts, setHosts] = useState<ArcGISTarget[]>(KNOWN_HOSTS);
   const [selectedHost, setSelectedHost] = useState<string | null>(null);
   const [serviceDetails, setServiceDetails] = useState<any>(null);
   const [serviceFields, setServiceFields] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [arcLoading, setArcLoading] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
 
   // Overpass state
@@ -144,38 +311,78 @@ export default function ExplorePage() {
   const [opResult, setOpResult] = useState<OverpassResult | null>(null);
   const [opLoading, setOpLoading] = useState(false);
   const [opError, setOpError] = useState("");
-  const [opStats, setOpStats] = useState<{ nodes: number; ways: number; relations: number }>({ nodes: 0, ways: 0, relations: 0 });
-  const bboxRef = useRef<HTMLInputElement>(null);
+  const [opStats, setOpStats] = useState<{ nodes: number; ways: number; relations: number }>({
+    nodes: 0,
+    ways: 0,
+    relations: 0,
+  });
 
-  // ─── ArcGIS: discover services for a host ───
+  // NOAA state
+  const [noaaLoading, setNoaaLoading] = useState(false);
+  const [noaaData, setNoaaData] = useState<any>(null);
+  const [noaaError, setNoaaError] = useState("");
+  const [noaaSelected, setNoaaSelected] = useState(0);
+  const [nwsLat, setNwsLat] = useState("40.7128");
+  const [nwsLon, setNwsLon] = useState("-74.0060");
+
+  // Flights state
+  const [flLoading, setFlLoading] = useState(false);
+  const [flData, setFlData] = useState<any>(null);
+  const [flError, setFlError] = useState("");
+  const [flCallsign, setFlCallsign] = useState("");
+  const [flAltMin, setFlAltMin] = useState("");
+  const [flAltMax, setFlAltMax] = useState("");
+  const [flBbox, setFlBbox] = useState("-122.5,37.7,-122.3,37.8");
+  const [flOnGround, setFlOnGround] = useState<"all" | "airborne" | "ground">("all");
+
+  // Earthquakes state
+  const [eqLoading, setEqLoading] = useState(false);
+  const [eqData, setEqData] = useState<any>(null);
+  const [eqError, setEqError] = useState("");
+  const [eqPeriod, setEqPeriod] = useState("day");
+  const [eqMinMag, setEqMinMag] = useState("2.5");
+
+  // Satellites state
+  const [satLoading, setSatLoading] = useState(false);
+  const [satData, setSatData] = useState<any>(null);
+  const [satError, setSatError] = useState("");
+  const [satGroup, setSatGroup] = useState("active");
+  const [satSearch, setSatSearch] = useState("");
+
+  // Marine state
+  const [marLoading, setMarLoading] = useState(false);
+  const [marData, setMarData] = useState<any>(null);
+  const [marError, setMarError] = useState("");
+  const [marLat, setMarLat] = useState("40.7128");
+  const [marLon, setMarLon] = useState("-74.0060");
+
+  // ─── ArcGIS ───
   const discoverHost = useCallback(async (host: ArcGISTarget) => {
-    setHosts((prev) => prev.map((h) => h.id === host.id ? { ...h, loading: true, error: undefined } : h));
+    setHosts((prev) => prev.map((h) => (h.id === host.id ? { ...h, loading: true, error: undefined } : h)));
     try {
       const resp = await fetch(`/api/arcgis?url=${encodeURIComponent(host.url + "?f=pjson")}`);
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
-      const services = (data.services || []).map((s: any) => ({
-        name: s.name,
-        type: s.type,
-        url: s.url,
-      }));
-      setHosts((prev) => prev.map((h) => h.id === host.id ? { ...h, serviceCount: services.length, services, loading: false } : h));
+      const services = (data.services || []).map((s: any) => ({ name: s.name, type: s.type, url: s.url }));
+      setHosts((prev) =>
+        prev.map((h) => (h.id === host.id ? { ...h, serviceCount: services.length, services, loading: false } : h)),
+      );
     } catch (e: any) {
-      setHosts((prev) => prev.map((h) => h.id === host.id ? { ...h, loading: false, error: e.message || "failed" } : h));
+      setHosts((prev) =>
+        prev.map((h) => (h.id === host.id ? { ...h, loading: false, error: e.message || "failed" } : h)),
+      );
     }
   }, []);
 
   const discoverAll = useCallback(async () => {
-    setLoading(true);
+    setArcLoading(true);
     const undiscovered = hosts.filter((h) => h.serviceCount == null && !h.loading);
     for (let i = 0; i < undiscovered.length; i += 4) {
-      const batch = undiscovered.slice(i, i + 4);
-      await Promise.all(batch.map(discoverHost));
+      await Promise.all(undiscovered.slice(i, i + 4).map(discoverHost));
     }
-    setLoading(false);
+    setArcLoading(false);
   }, [hosts, discoverHost]);
 
-  // ─── ArcGIS: get service details ───
   const fetchServiceInfo = useCallback(async (service: ArcGISService) => {
     setSelectedHost(service.url);
     setServiceDetails(null);
@@ -196,7 +403,6 @@ export default function ExplorePage() {
     }
   }, []);
 
-  // ─── ArcGIS: add custom host ───
   const addCustomHost = useCallback(() => {
     if (!customUrl.trim()) return;
     const match = customUrl.match(/https?:\/\/([a-z0-9.-]+)\/([A-Za-z0-9_-]+)\/ArcGIS\/rest\/services/);
@@ -208,7 +414,7 @@ export default function ExplorePage() {
     discoverHost(newHost);
   }, [customUrl, discoverHost]);
 
-  // ─── Overpass: run query ───
+  // ─── Overpass ───
   const runOverpass = useCallback(async () => {
     if (!opQuery.trim()) return;
     setOpLoading(true);
@@ -225,10 +431,12 @@ export default function ExplorePage() {
       if (data.error) throw new Error(data.error);
       if (data.remark) throw new Error(data.remark);
       setOpResult(data);
-      const nodes = (data.elements || []).filter((e: any) => e.type === "node").length;
-      const ways = (data.elements || []).filter((e: any) => e.type === "way").length;
-      const relations = (data.elements || []).filter((e: any) => e.type === "relation").length;
-      setOpStats({ nodes, ways, relations });
+      const els = data.elements || [];
+      setOpStats({
+        nodes: els.filter((e: any) => e.type === "node").length,
+        ways: els.filter((e: any) => e.type === "way").length,
+        relations: els.filter((e: any) => e.type === "relation").length,
+      });
     } catch (e: any) {
       setOpError(e.message || "Overpass query failed");
     } finally {
@@ -236,6 +444,167 @@ export default function ExplorePage() {
     }
   }, [opQuery, opBbox]);
 
+  // ─── NOAA ───
+  const fetchNoaa = useCallback(
+    async (idx?: number) => {
+      const i = idx ?? noaaSelected;
+      const ds = NOAA_DATASETS[i];
+      if (!ds) return;
+      if (ds.url === null) {
+        // Point-based: NWS forecast or alerts
+        if (ds.label.includes("Point Forecast")) {
+          setNoaaLoading(true);
+          setNoaaError("");
+          setNoaaData(null);
+          try {
+            const lat = parseFloat(nwsLat);
+            const lon = parseFloat(nwsLon);
+            if (isNaN(lat) || isNaN(lon)) throw new Error("Invalid coordinates");
+            // Get gridpoint
+            const gpResp = await proxyFetch(`https://api.weather.gov/points/${lat},${lon}`);
+            if (gpResp?.properties?.forecastHourly) {
+              const fcResp = await proxyFetch(gpResp.properties.forecastHourly);
+              setNoaaData(fcResp);
+            } else {
+              setNoaaData(gpResp);
+            }
+          } catch (e: any) {
+            setNoaaError(e.message || "NWS fetch failed");
+          } finally {
+            setNoaaLoading(false);
+          }
+        } else if (ds.label.includes("Alerts")) {
+          setNoaaLoading(true);
+          setNoaaError("");
+          setNoaaData(null);
+          try {
+            const lat = parseFloat(nwsLat);
+            const lon = parseFloat(nwsLon);
+            if (isNaN(lat) || isNaN(lon)) throw new Error("Invalid coordinates");
+            const data = await proxyFetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
+            setNoaaData(data);
+          } catch (e: any) {
+            setNoaaError(e.message || "NWS alerts fetch failed");
+          } finally {
+            setNoaaLoading(false);
+          }
+        }
+        return;
+      }
+      setNoaaLoading(true);
+      setNoaaError("");
+      setNoaaData(null);
+      try {
+        const data = await proxyFetch(ds.url);
+        setNoaaData(data);
+      } catch (e: any) {
+        setNoaaError(e.message || "Fetch failed");
+      } finally {
+        setNoaaLoading(false);
+      }
+    },
+    [noaaSelected, nwsLat, nwsLon],
+  );
+
+  // ─── Flights ───
+  const fetchFlights = useCallback(async () => {
+    setFlLoading(true);
+    setFlError("");
+    setFlData(null);
+    try {
+      let url = "/api/flights?";
+      const params = new URLSearchParams();
+      if (flBbox) {
+        const [lomin, lamin, lomax, lamax] = flBbox.split(",").map(Number);
+        if (!lomin || !lamin || !lomax || !lamax) throw new Error("Invalid bbox format: west,south,east,north");
+        params.set("lomin", String(lomin));
+        params.set("lamin", String(lamin));
+        params.set("lomax", String(lomax));
+        params.set("lamax", String(lamax));
+      }
+      url += params.toString();
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      // Filter client-side
+      let states = data.states || [];
+      if (flCallsign.trim()) {
+        const cs = flCallsign.trim().toUpperCase();
+        states = states.filter((s: any[]) => (s[1] || "").toUpperCase().includes(cs));
+      }
+      if (flAltMin || flAltMax) {
+        states = states.filter((s: any[]) => {
+          const alt = s[7]; // baro_altitude
+          if (alt === null) return false;
+          if (flAltMin && alt < parseFloat(flAltMin)) return false;
+          if (flAltMax && alt > parseFloat(flAltMax)) return false;
+          return true;
+        });
+      }
+      if (flOnGround === "airborne") states = states.filter((s: any[]) => !s[8]);
+      if (flOnGround === "ground") states = states.filter((s: any[]) => s[8]);
+      setFlData({ time: data.time, states, totalRaw: (data.states || []).length });
+    } catch (e: any) {
+      setFlError(e.message || "Flight fetch failed");
+    } finally {
+      setFlLoading(false);
+    }
+  }, [flBbox, flCallsign, flAltMin, flAltMax, flOnGround]);
+
+  // ─── Earthquakes ───
+  const fetchEarthquakes = useCallback(async () => {
+    setEqLoading(true);
+    setEqError("");
+    setEqData(null);
+    try {
+      const minMag = parseFloat(eqMinMag) || 0;
+      const data = await proxyFetch(
+        `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${minMag}_${eqPeriod}.geojson`,
+      );
+      setEqData(data);
+    } catch (e: any) {
+      setEqError(e.message || "Earthquake fetch failed");
+    } finally {
+      setEqLoading(false);
+    }
+  }, [eqPeriod, eqMinMag]);
+
+  // ─── Satellites ───
+  const fetchSatellites = useCallback(async () => {
+    setSatLoading(true);
+    setSatError("");
+    setSatData(null);
+    try {
+      const data = await proxyFetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${satGroup}&FORMAT=json`);
+      setSatData(data);
+    } catch (e: any) {
+      setSatError(e.message || "Satellite fetch failed");
+    } finally {
+      setSatLoading(false);
+    }
+  }, [satGroup]);
+
+  // ─── Marine ───
+  const fetchMarine = useCallback(async () => {
+    setMarLoading(true);
+    setMarError("");
+    setMarData(null);
+    try {
+      const lat = parseFloat(marLat);
+      const lon = parseFloat(marLon);
+      if (isNaN(lat) || isNaN(lon)) throw new Error("Invalid coordinates");
+      const data = await proxyFetch(
+        `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,wind_wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m&timezone=auto`,
+      );
+      setMarData(data);
+    } catch (e: any) {
+      setMarError(e.message || "Marine fetch failed");
+    } finally {
+      setMarLoading(false);
+    }
+  }, [marLat, marLon]);
+
+  // ─── Helpers ───
   const typeBadge = (type: string) => {
     const t = (type || "").toLowerCase();
     if (t.includes("feature")) return "fs";
@@ -248,174 +617,716 @@ export default function ExplorePage() {
 
   const totalServices = hosts.reduce((sum, h) => sum + (h.serviceCount || 0), 0);
 
+  // Tab configs
+  const TABS: { id: TabId; label: string; icon: string }[] = [
+    { id: "noaa", label: "NOAA & USGS", icon: "\uD83C\uDF0A" },
+    { id: "flights", label: "Flights", icon: "\u2708\uFE0F" },
+    { id: "earthquakes", label: "Earthquakes", icon: "\uD83D\uDCA5" },
+    { id: "satellites", label: "Satellites", icon: "\uD83D\uDEF0\uFE0F" },
+    { id: "marine", label: "Marine", icon: "\uD83D\uDEA2" },
+    { id: "overpass", label: "Overpass / OSM", icon: "\uD83D\uDD0D" },
+    { id: "arcgis", label: "ArcGIS", icon: "\uD83D\uDD27" },
+  ];
+
   return (
     <div className="ex-wrap">
       <style dangerouslySetInnerHTML={{ __html: S }} />
 
       {/* Nav */}
-      <div className="ex-nav">
-        <a href="/" className="ex-nav-brand">
-          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-            <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
-            <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
-            <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
-          </svg>
-          OpenZenith
-        </a>
-        <span className="ex-nav-crumb">/</span>
-        <span style={{ color: "#666", fontSize: "0.85rem" }}>Explore</span>
-        <div className="ex-nav-links">
-          <a href="/">Home</a>
-          <a href="/map">Map</a>
-          <a href="/worldview">WorldView</a>
-          <a href="/api/docs">Docs</a>
-        </div>
-      </div>
+      <Navbar dark breadcrumb="Explore" />
 
       <div className="ex-body">
         <h1>Data Explorer</h1>
-        <p className="sub">Discover ArcGIS REST services and query OpenStreetMap via Overpass API</p>
+        <p className="sub">
+          Search, filter, and explore geospatial data from NOAA, USGS, NASA, OpenSky, Celestrak, and more
+        </p>
 
         {/* Tabs */}
         <div className="ex-tabs">
-          <button className={`ex-tab ${tab === "arcgis" ? "active" : ""}`} onClick={() => setTab("arcgis")}>ArcGIS Services</button>
-          <button className={`ex-tab ${tab === "overpass" ? "active" : ""}`} onClick={() => setTab("overpass")}>Overpass / OSM</button>
+          {TABS.map((t) => (
+            <button key={t.id} className={`ex-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+              {t.icon} {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* ═══ ARCGIS TAB ═══ */}
-        {tab === "arcgis" && (
+        {/* ═══ NOAA & USGS TAB ═══ */}
+        {tab === "noaa" && (
           <>
-            <div className="ex-toolbar">
-              <input
-                placeholder="https://servicesX.arcgis.com/XXXX/ArcGIS/rest/services"
-                value={customUrl}
-                onChange={(e) => setCustomUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addCustomHost()}
-              />
-              <button className="primary" onClick={addCustomHost}>Add Host</button>
-              <button className="secondary" onClick={discoverAll} disabled={loading}>
-                {loading ? "Scanning..." : `Scan All`}
-              </button>
-            </div>
+            <h2>NOAA &amp; USGS Data Sources</h2>
+            <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+              Access weather warnings, hurricane data, earthquake feeds, and NASA natural events via our CORS proxy.
+            </p>
 
-            <div className="ex-info-bar">
-              <span><span className="num">{hosts.filter((h) => h.serviceCount != null).length}</span> hosts scanned</span>
-              <span className="ex-sep" />
-              <span><span className="num">{totalServices.toLocaleString()}</span> services found</span>
-              {hosts.filter((h) => h.serviceCount == null).length > 0 && (
-                <>
-                  <span className="ex-sep" />
-                  <span>{hosts.filter((h) => h.serviceCount == null).length} remaining</span>
-                </>
-              )}
-            </div>
-
-            <h2>Hosts ({hosts.length})</h2>
-            <div className="ex-grid">
-              {hosts.map((h) => (
-                <div key={h.id} className="ex-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{h.host}</div>
-                      <div style={{ fontSize: "0.7rem", color: "#444", fontFamily: "'JetBrains Mono',monospace" }}>{h.id}</div>
-                    </div>
-                    <div className="ex-row">
-                      {h.serviceCount != null && <span className="ex-badge fs">{h.serviceCount} services</span>}
-                      {h.loading && <span className="ex-badge" style={{ background: "rgba(234,179,8,0.12)", color: "#eab308" }}>scanning...</span>}
-                      {h.error && <span className="ex-badge err">{h.error.substring(0, 30)}</span>}
-                    </div>
+            <div className="ex-ds-grid" style={{ marginBottom: "1.25rem" }}>
+              {NOAA_DATASETS.map((ds, i) => (
+                <div
+                  key={i}
+                  className={`ex-ds-card ${noaaSelected === i ? "selected" : ""}`}
+                  onClick={() => {
+                    setNoaaSelected(i);
+                    setNoaaData(null);
+                    setNoaaError("");
+                  }}
+                >
+                  <div className="ex-row" style={{ marginBottom: "0.4rem" }}>
+                    <span
+                      className={`ex-badge ${ds.source === "USGS" ? "usgs" : ds.source === "NASA" ? "nasa" : "noaa"}`}
+                    >
+                      {ds.source}
+                    </span>
                   </div>
-                  <div className="ex-row">
-                    <button className="secondary" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
-                      onClick={() => discoverHost(h)} disabled={h.loading}>
-                      {h.serviceCount != null ? "Refresh" : "Scan"}
-                    </button>
-                    {h.services && h.services.length > 0 && (
-                      <button className="secondary" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
-                        onClick={() => { setSelectedHost(h.url); setServiceDetails(null); setServiceFields([]); }}>
-                        View Services ({h.services.length})
-                      </button>
-                    )}
-                  </div>
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{ds.label}</div>
+                  <div style={{ fontSize: "0.78rem", color: "#666", lineHeight: 1.45 }}>{ds.desc}</div>
+                  {ds.url === null && (
+                    <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
+                      <input
+                        style={{ width: 90, fontSize: "0.78rem", padding: "0.3rem 0.5rem" }}
+                        placeholder="lat"
+                        value={nwsLat}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setNwsLat(e.target.value)}
+                      />
+                      <input
+                        style={{ width: 90, fontSize: "0.78rem", padding: "0.3rem 0.5rem" }}
+                        placeholder="lon"
+                        value={nwsLon}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setNwsLon(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
-            {/* Service list for selected host */}
-            {selectedHost && !serviceDetails && (() => {
-              const host = hosts.find((h) => h.url === selectedHost);
-              if (!host?.services?.length) return null;
-              return (
-                <div style={{ marginTop: "1rem" }}>
-                  <h3>Services: {host.host}</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", maxHeight: 600, overflow: "auto" }}>
-                    {host.services.map((s, i) => (
-                      <div key={i} className="ex-card" style={{ padding: "0.6rem 0.8rem", cursor: "pointer" }}
-                        onClick={() => fetchServiceInfo(s)}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <span className={`ex-badge ${typeBadge(s.type)}`}>{s.type.replace("Server", "")}</span>
-                          <span style={{ fontSize: "0.8rem", color: "#bbb" }}>{s.name}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="ex-row">
+              <button className="primary" onClick={() => fetchNoaa()} disabled={noaaLoading}>
+                {noaaLoading ? "Fetching..." : "Fetch Data"}
+              </button>
+              <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/proxy</span>
+            </div>
 
-            {/* Service detail view */}
-            {serviceDetails && (
+            {noaaError && (
+              <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)", marginTop: "1rem" }}>
+                <span className="ex-badge err">Error</span> {noaaError}
+              </div>
+            )}
+
+            {noaaData && (
               <div style={{ marginTop: "1rem" }}>
-                <h3 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <button className="secondary" style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }} onClick={() => { setServiceDetails(null); setServiceFields([]); }}>&larr;</button>
-                  Service Details
-                </h3>
-                {serviceDetails.error ? (
-                  <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)" }}>
-                    <span className="ex-badge err">Error</span> {serviceDetails.error}
-                  </div>
-                ) : (
-                  <div className="ex-card">
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Description:</span> {serviceDetails.description || serviceDetails.serviceDescription || "(none)"}</div>
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Copyright:</span> {serviceDetails.copyrightText || "(none)"}</div>
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Layers:</span> <span className="num">{serviceDetails.layers?.length || 0}</span></div>
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Capabilities:</span> {serviceDetails.capabilities || "N/A"}</div>
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Max Records:</span> {serviceDetails.maxRecordCount?.toLocaleString() || "N/A"}</div>
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Spatial Ref:</span> WKID {serviceDetails.spatialReference?.wkid || "N/A"}</div>
-                    <div className="ex-stat"><span style={{ color: "#555" }}>Export Formats:</span> {serviceDetails.supportedExportFormats || "N/A"}</div>
-
-                    {serviceDetails.layers?.length > 0 && (
-                      <div style={{ marginTop: "0.75rem" }}>
-                        <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>Layers</div>
-                        {serviceDetails.layers.map((l: any) => (
-                          <div key={l.id} style={{ fontSize: "0.78rem", padding: "0.2rem 0", color: "#888" }}>
-                            <span style={{ color: "#4a9eff", marginRight: "0.4rem" }}>{l.id}</span>
-                            {l.name} <span className="ex-tag">{l.geometryType}</span>
-                            {l.defaultVisibility ? null : <span className="ex-tag" style={{ color: "#555" }}>hidden</span>}
+                <h3>Results: {NOAA_DATASETS[noaaSelected].label}</h3>
+                {/* Earthquakes GeoJSON */}
+                {noaaData.features && (
+                  <div>
+                    <div className="ex-stat">
+                      <span className="num">{noaaData.features.length}</span> features
+                    </div>
+                    {noaaData.metadata && (
+                      <div className="ex-stat">
+                        <span style={{ color: "#555" }}>Generated:</span>{" "}
+                        {new Date(noaaData.metadata.generated).toLocaleString()}
+                      </div>
+                    )}
+                    <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
+                      {noaaData.features.slice(0, 60).map((f: any, i: number) => {
+                        const p = f.properties;
+                        const coords = f.geometry?.coordinates;
+                        const mag = p.mag || p.magnitude;
+                        return (
+                          <div key={i} className="ex-quake-item">
+                            {mag != null && (
+                              <div className="ex-quake-mag" style={{ color: magColor(mag), background: magBg(mag) }}>
+                                {mag.toFixed(1)}
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{ fontSize: "0.82rem", fontWeight: 500, color: "#ccc", marginBottom: "0.1rem" }}
+                              >
+                                {p.place || p.title || p.name || p.event || "(unnamed)"}
+                              </div>
+                              <div className="ex-row" style={{ fontSize: "0.72rem", color: "#666" }}>
+                                {coords && (
+                                  <span>
+                                    {coords[1]?.toFixed(3)}, {coords[0]?.toFixed(3)}
+                                  </span>
+                                )}
+                                {p.depth != null && (
+                                  <>
+                                    <span className="ex-sep" />
+                                    <span>Depth: {typeof p.depth === "number" ? p.depth.toFixed(1) : p.depth} km</span>
+                                  </>
+                                )}
+                                {p.type && (
+                                  <>
+                                    <span className="ex-sep" />
+                                    <span>{p.type}</span>
+                                  </>
+                                )}
+                                {p.eventType && (
+                                  <>
+                                    <span className="ex-sep" />
+                                    <span>{p.eventType}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "#444", whiteSpace: "nowrap" }}>
+                              {p.time ? new Date(p.time).toLocaleString() : ""}
+                            </div>
                           </div>
-                        ))}
+                        );
+                      })}
+                    </div>
+                    {noaaData.features.length > 60 && (
+                      <div className="ex-empty" style={{ padding: "0.75rem" }}>
+                        ...and {(noaaData.features.length - 60).toLocaleString()} more
                       </div>
                     )}
-
-                    {serviceFields.length > 0 && (
-                      <div style={{ marginTop: "0.75rem" }}>
-                        <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-                          Fields (Layer {serviceDetails.layers?.[0]?.id})
-                        </div>
-                        <pre style={{ maxHeight: 300, fontSize: "0.72rem" }}>
-                          {serviceFields.map((f: any) => `${f.name.padEnd(25)} ${f.type.padEnd(20)} ${f.alias || ""}`).join("\n")}
-                        </pre>
-                      </div>
-                    )}
-
+                  </div>
+                )}
+                {/* NWS forecast */}
+                {noaaData.properties?.periods && (
+                  <div>
+                    <div className="ex-stat">
+                      <span style={{ color: "#555" }}>Source:</span> {noaaData.properties.forecastGenerator || "NWS"}
+                    </div>
                     <div style={{ marginTop: "0.75rem" }}>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>Query URL</div>
-                      <pre style={{ fontSize: "0.72rem", wordBreak: "break-all" }}>
-                        {selectedHost}/0/query?f=json&where=1%3D1&outFields=*&returnGeometry=true&resultRecordCount=10
-                      </pre>
+                      {noaaData.properties.periods.slice(0, 48).map((p: any, i: number) => (
+                        <div key={i} className="ex-quake-item">
+                          <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
+                            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#4a9eff" }}>
+                              {p.isDaytime ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.9rem",
+                                fontWeight: 700,
+                                color: "#e0e0e0",
+                                fontFamily: "'JetBrains Mono',monospace",
+                              }}
+                            >
+                              {p.temperature}&deg;{p.temperatureUnit}
+                            </div>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: "0.82rem", fontWeight: 500 }}>{p.name}</div>
+                            <div style={{ fontSize: "0.75rem", color: "#888" }}>{p.shortForecast}</div>
+                            <div style={{ fontSize: "0.72rem", color: "#555", marginTop: "0.15rem" }}>
+                              {p.windSpeed} {p.windDirection}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.72rem", color: "#555" }}>
+                            {new Date(p.startTime).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
+                {/* NWS alerts */}
+                {Array.isArray(noaaData.features) && noaaData.features[0]?.properties?.severity && (
+                  <div>
+                    <div className="ex-stat">
+                      <span className="num">{noaaData.features.length}</span> active alerts
+                    </div>
+                    <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
+                      {noaaData.features.map((f: any, i: number) => {
+                        const p = f.properties;
+                        const sevColor =
+                          p.severity === "Extreme"
+                            ? "#ef4444"
+                            : p.severity === "Severe"
+                              ? "#f97316"
+                              : p.severity === "Moderate"
+                                ? "#eab308"
+                                : "#4a9eff";
+                        return (
+                          <div key={i} className="ex-quake-item">
+                            <div
+                              style={{ width: 8, height: 40, borderRadius: 4, background: sevColor, flexShrink: 0 }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 500, color: "#ccc" }}>
+                                {p.event || p.title}
+                              </div>
+                              <div
+                                className="ex-row"
+                                style={{ fontSize: "0.72rem", color: "#666", marginTop: "0.1rem" }}
+                              >
+                                <span className="ex-badge" style={{ background: `${sevColor}18`, color: sevColor }}>
+                                  {p.severity}
+                                </span>
+                                <span>{p.areaDesc?.split(";")?.[0] || ""}</span>
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: "#555", marginTop: "0.15rem" }}>
+                                {p.headline || ""}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* NHC storms */}
+                {noaaData?.activeStorms && (
+                  <div>
+                    <div className="ex-stat">
+                      <span className="num">{noaaData.activeStorms.length}</span> active storms
+                    </div>
+                    <pre style={{ marginTop: "0.75rem" }}>{JSON.stringify(noaaData.activeStorms, null, 2)}</pre>
+                  </div>
+                )}
+                {/* NASA EONET */}
+                {noaaData?.events && (
+                  <div>
+                    <div className="ex-stat">
+                      <span className="num">{noaaData.events.length}</span> events
+                    </div>
+                    <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
+                      {noaaData.events.map((ev: any, i: number) => (
+                        <div key={i} className="ex-quake-item">
+                          <div
+                            style={{
+                              width: 8,
+                              height: 40,
+                              borderRadius: 4,
+                              background: ev.categories?.[0]?.color || "#4a9eff",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: "0.82rem", fontWeight: 500, color: "#ccc" }}>{ev.title}</div>
+                            <div className="ex-row" style={{ fontSize: "0.72rem", color: "#666", marginTop: "0.1rem" }}>
+                              {ev.categories?.[0]?.title && <span className="ex-tag">{ev.categories[0].title}</span>}
+                              {ev.sources?.[0]?.id && <span className="ex-tag">{ev.sources[0].id}</span>}
+                            </div>
+                            {ev.geometry?.coordinates?.[0]?.length && (
+                              <div style={{ fontSize: "0.7rem", color: "#555", marginTop: "0.1rem" }}>
+                                {ev.geometry.coordinates[0][0]?.[1]?.toFixed(2)},{" "}
+                                {ev.geometry.coordinates[0][0]?.[0]?.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Fallback: raw JSON */}
+                {!noaaData.features &&
+                  !noaaData.properties?.periods &&
+                  !noaaData?.activeStorms &&
+                  !noaaData?.events && (
+                    <pre style={{ marginTop: "0.75rem" }}>{JSON.stringify(noaaData, null, 2).substring(0, 8000)}</pre>
+                  )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ═══ FLIGHTS TAB ═══ */}
+        {tab === "flights" && (
+          <>
+            <h2>Flight Tracker (ADS-B)</h2>
+            <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+              Real-time flight data from OpenSky Network. Filter by callsign, altitude, bounding box, and airborne
+              status.
+            </p>
+
+            <div className="ex-filter-group">
+              <label>BBox</label>
+              <input
+                placeholder="west,south,east,north"
+                value={flBbox}
+                onChange={(e) => setFlBbox(e.target.value)}
+                style={{ width: 220 }}
+              />
+              <label>Callsign</label>
+              <input
+                placeholder="UAL, DAL, AAL..."
+                value={flCallsign}
+                onChange={(e) => setFlCallsign(e.target.value)}
+                style={{ width: 120 }}
+              />
+            </div>
+            <div className="ex-filter-group">
+              <label>Alt Min (m)</label>
+              <input placeholder="0" type="number" value={flAltMin} onChange={(e) => setFlAltMin(e.target.value)} />
+              <label>Alt Max (m)</label>
+              <input placeholder="15000" type="number" value={flAltMax} onChange={(e) => setFlAltMax(e.target.value)} />
+              <label>Status</label>
+              <select value={flOnGround} onChange={(e) => setFlOnGround(e.target.value as any)}>
+                <option value="all">All</option>
+                <option value="airborne">Airborne</option>
+                <option value="ground">Ground</option>
+              </select>
+            </div>
+
+            <div className="ex-row" style={{ marginBottom: "1rem" }}>
+              <button className="primary" onClick={fetchFlights} disabled={flLoading}>
+                {flLoading ? "Fetching..." : "Fetch Flights"}
+              </button>
+              <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/flights &middot; 15s cache</span>
+            </div>
+
+            {flError && (
+              <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)" }}>
+                <span className="ex-badge err">Error</span> {flError}
+              </div>
+            )}
+
+            {flData && (
+              <div>
+                <div className="ex-info-bar">
+                  <span>
+                    <span className="num">{flData.states.length}</span> flights
+                  </span>
+                  {flData.states.length !== flData.totalRaw && (
+                    <>
+                      <span className="ex-sep" />
+                      <span style={{ color: "#555" }}>filtered from {flData.totalRaw}</span>
+                    </>
+                  )}
+                  <span className="ex-sep" />
+                  <span style={{ color: "#444" }}>Time: {new Date(flData.time * 1000).toLocaleTimeString()}</span>
+                </div>
+                <div style={{ overflow: "auto", maxHeight: 500, borderRadius: 8, border: "1px solid #1a1a1a" }}>
+                  <table className="ex-flight-table">
+                    <thead>
+                      <tr>
+                        <th>Callsign</th>
+                        <th>Country</th>
+                        <th>Lat</th>
+                        <th>Lon</th>
+                        <th>Alt (m)</th>
+                        <th>Speed (m/s)</th>
+                        <th>Heading</th>
+                        <th>Vert Rate</th>
+                        <th>Squawk</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flData.states.slice(0, 200).map((s: any[], i: number) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600, color: "#e0e0e0" }}>{s[1] || "---"}</td>
+                          <td>{s[2] || ""}</td>
+                          <td>{s[6]?.toFixed(4)}</td>
+                          <td>{s[5]?.toFixed(4)}</td>
+                          <td>{s[7] != null ? s[7].toFixed(0) : "---"}</td>
+                          <td>{s[9] != null ? s[9].toFixed(0) : "---"}</td>
+                          <td>{s[10] != null ? s[10].toFixed(0) : "---"}</td>
+                          <td style={{ color: s[11] > 0 ? "#22c55e" : s[11] < 0 ? "#ef4444" : "#666" }}>
+                            {s[11] != null ? (s[11] > 0 ? "+" : "") + s[11].toFixed(0) : "---"}
+                          </td>
+                          <td>{s[14] || ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {flData.states.length > 200 && (
+                  <div className="ex-empty" style={{ padding: "0.75rem" }}>
+                    ...and {(flData.states.length - 200).toLocaleString()} more flights
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ═══ EARTHQUAKES TAB ═══ */}
+        {tab === "earthquakes" && (
+          <>
+            <h2>USGS Earthquake Feed</h2>
+            <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+              Real-time earthquake data from USGS. Filter by minimum magnitude and time period.
+            </p>
+
+            <div className="ex-filter-group">
+              <label>Min Magnitude</label>
+              <select value={eqMinMag} onChange={(e) => setEqMinMag(e.target.value)}>
+                <option value="0">All</option>
+                <option value="1">M1.0+</option>
+                <option value="2.5">M2.5+</option>
+                <option value="4.5">M4.5+</option>
+                <option value="5">M5.0+</option>
+                <option value="6">M6.0+</option>
+              </select>
+              <label>Period</label>
+              <select value={eqPeriod} onChange={(e) => setEqPeriod(e.target.value)}>
+                <option value="hour">Past Hour</option>
+                <option value="day">Past Day</option>
+                <option value="week">Past Week</option>
+                <option value="month">Past Month</option>
+              </select>
+              <button className="primary" onClick={fetchEarthquakes} disabled={eqLoading}>
+                {eqLoading ? "Fetching..." : "Fetch"}
+              </button>
+            </div>
+
+            {eqError && (
+              <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)", marginTop: "1rem" }}>
+                <span className="ex-badge err">Error</span> {eqError}
+              </div>
+            )}
+
+            {eqData?.features && (
+              <div>
+                <div className="ex-info-bar">
+                  <span>
+                    <span className="num">{eqData.features.length}</span> earthquakes
+                  </span>
+                  <span className="ex-sep" />
+                  <span style={{ color: "#444" }}>
+                    Generated: {new Date(eqData.metadata.generated).toLocaleString()}
+                  </span>
+                </div>
+                <div className="ex-quake-list">
+                  {eqData.features.map((f: any, i: number) => {
+                    const p = f.properties;
+                    const mag = p.mag;
+                    return (
+                      <div key={i} className="ex-quake-item">
+                        {mag != null && (
+                          <div className="ex-quake-mag" style={{ color: magColor(mag), background: magBg(mag) }}>
+                            {mag.toFixed(1)}
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: "0.82rem", fontWeight: 500, color: "#ccc", marginBottom: "0.1rem" }}>
+                            {p.place}
+                          </div>
+                          <div className="ex-row" style={{ fontSize: "0.72rem", color: "#666" }}>
+                            <span>
+                              {p.coordinates?.[1]?.toFixed(3)}, {p.coordinates?.[0]?.toFixed(3)}
+                            </span>
+                            <span className="ex-sep" />
+                            <span>Depth: {p.depth?.toFixed(1)} km</span>
+                            <span className="ex-sep" />
+                            <span>{p.tsunami ? "\uD83C\uDF0A Tsunami" : ""}</span>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#444", textAlign: "right", whiteSpace: "nowrap" }}>
+                          <div>{new Date(p.time).toLocaleString()}</div>
+                          <div style={{ color: "#555" }}>
+                            {p.type} &middot; {p.cd ? `felt ${p.cd}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ═══ SATELLITES TAB ═══ */}
+        {tab === "satellites" && (
+          <>
+            <h2>Celestrak Satellite Tracker</h2>
+            <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+              TLE (Two-Line Element) data for active satellites from Celestrak. Search by name or filter by group.
+            </p>
+
+            <div className="ex-filter-group">
+              <label>Group</label>
+              <select value={satGroup} onChange={(e) => setSatGroup(e.target.value)} style={{ width: 160 }}>
+                {SATELLITE_GROUPS.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+              <label>Search</label>
+              <input
+                placeholder="STARLINK, ISS, NOAA..."
+                value={satSearch}
+                onChange={(e) => setSatSearch(e.target.value)}
+                style={{ width: 200 }}
+              />
+              <button className="primary" onClick={fetchSatellites} disabled={satLoading}>
+                {satLoading ? "Fetching..." : "Fetch"}
+              </button>
+            </div>
+
+            {satError && (
+              <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)", marginTop: "1rem" }}>
+                <span className="ex-badge err">Error</span> {satError}
+              </div>
+            )}
+
+            {satData && Array.isArray(satData) && (
+              <div>
+                <div className="ex-info-bar">
+                  <span>
+                    <span className="num">{satData.length}</span> satellites
+                  </span>
+                  <span className="ex-sep" />
+                  <span style={{ color: "#444" }}>Group: {SATELLITE_GROUPS.find((g) => g.id === satGroup)?.label}</span>
+                  {satSearch && (
+                    <>
+                      <span className="ex-sep" />
+                      <span style={{ color: "#555" }}>Filtered: &quot;{satSearch}&quot;</span>
+                    </>
+                  )}
+                </div>
+                <div style={{ overflow: "auto", maxHeight: 500, borderRadius: 8, border: "1px solid #1a1a1a" }}>
+                  <table className="ex-flight-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>NORAD ID</th>
+                        <th>Object Type</th>
+                        <th>TLE Line 1</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {satData
+                        .filter(
+                          (s: any) =>
+                            !satSearch || (s.OBJECT_NAME || "").toUpperCase().includes(satSearch.toUpperCase()),
+                        )
+                        .slice(0, 200)
+                        .map((s: any, i: number) => (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 600, color: "#e0e0e0" }}>{s.OBJECT_NAME}</td>
+                            <td>{s.NORAD_CAT_ID}</td>
+                            <td>
+                              <span className="ex-tag">{s.OBJECT_TYPE}</span>
+                            </td>
+                            <td style={{ fontSize: "0.68rem", color: "#555" }}>{s.TLE_LINE1}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {satData.length > 200 && (
+                  <div className="ex-empty" style={{ padding: "0.75rem" }}>
+                    ...and {(satData.length - 200).toLocaleString()} more satellites
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ═══ MARINE TAB ═══ */}
+        {tab === "marine" && (
+          <>
+            <h2>Marine Weather (Open-Meteo)</h2>
+            <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+              Wave height, direction, period, wind speed, and temperature from Open-Meteo Marine API.
+            </p>
+
+            <div className="ex-filter-group">
+              <label>Latitude</label>
+              <input
+                placeholder="40.7128"
+                value={marLat}
+                onChange={(e) => setMarLat(e.target.value)}
+                style={{ width: 120 }}
+              />
+              <label>Longitude</label>
+              <input
+                placeholder="-74.006"
+                value={marLon}
+                onChange={(e) => setMarLon(e.target.value)}
+                style={{ width: 120 }}
+              />
+              <button className="primary" onClick={fetchMarine} disabled={marLoading}>
+                {marLoading ? "Fetching..." : "Fetch"}
+              </button>
+            </div>
+
+            {marError && (
+              <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)", marginTop: "1rem" }}>
+                <span className="ex-badge err">Error</span> {marError}
+              </div>
+            )}
+
+            {marData?.current && (
+              <div style={{ marginTop: "1rem" }}>
+                <h3>
+                  Current Conditions at {marLat}, {marLon}
+                </h3>
+                <div style={{ fontSize: "0.72rem", color: "#555", marginBottom: "0.75rem" }}>
+                  Time: {new Date(marData.current.time).toLocaleString()}
+                </div>
+                <div className="ex-grid">
+                  {[
+                    { label: "Wave Height", value: `${marData.current.wave_height ?? "---"} m`, icon: "\uD83C\uDF0A" },
+                    {
+                      label: "Wave Direction",
+                      value: `${marData.current.wave_direction ?? "---"}\u00B0`,
+                      icon: "\uD83E\uDDF3",
+                    },
+                    { label: "Wave Period", value: `${marData.current.wave_period ?? "---"} s`, icon: "\u23F1\uFE0F" },
+                    {
+                      label: "Wind Wave Height",
+                      value: `${marData.current.wind_wave_height ?? "---"} m`,
+                      icon: "\uD83C\uDF2A\uFE0F",
+                    },
+                    {
+                      label: "Swell Height",
+                      value: `${marData.current.swell_wave_height ?? "---"} m`,
+                      icon: "\uD83C\uDF0A",
+                    },
+                    {
+                      label: "Swell Direction",
+                      value: `${marData.current.swell_wave_direction ?? "---"}\u00B0`,
+                      icon: "\uD83E\uDDF3",
+                    },
+                    {
+                      label: "Swell Period",
+                      value: `${marData.current.swell_wave_period ?? "---"} s`,
+                      icon: "\u23F1\uFE0F",
+                    },
+                    {
+                      label: "Wind Speed",
+                      value: `${marData.current.wind_speed_10m ?? "---"} km/h`,
+                      icon: "\uD83C\uDF2C\uFE0F",
+                    },
+                    {
+                      label: "Wind Direction",
+                      value: `${marData.current.wind_direction_10m ?? "---"}\u00B0`,
+                      icon: "\uD83E\uDDF3",
+                    },
+                    {
+                      label: "Wind Gusts",
+                      value: `${marData.current.wind_gusts_10m ?? "---"} km/h`,
+                      icon: "\uD83C\uDF2A\uFE0F",
+                    },
+                    {
+                      label: "Temperature",
+                      value: `${marData.current.temperature_2m ?? "---"}\u00B0C`,
+                      icon: "\uD83C\uDF21\uFE0F",
+                    },
+                  ].map((item) => (
+                    <div key={item.label} className="ex-card" style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "1.3rem", marginBottom: "0.25rem" }}>{item.icon}</div>
+                      <div
+                        style={{
+                          fontSize: "1.2rem",
+                          fontWeight: 700,
+                          color: "#4a9eff",
+                          fontFamily: "'JetBrains Mono',monospace",
+                          marginBottom: "0.15rem",
+                        }}
+                      >
+                        {item.value}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "#666" }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </>
@@ -426,14 +1337,29 @@ export default function ExplorePage() {
           <>
             <h2>Overpass API / OpenStreetMap</h2>
             <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
-              Query OpenStreetMap data using the Overpass QL language. Use <code style={{ color: "#4a9eff", background: "rgba(74,158,255,0.1)", padding: "0.1rem 0.3rem", borderRadius: 3 }}>&#123;&#123;bbox&#125;&#125;</code> as a placeholder for the bounding box.
+              Query OpenStreetMap data using the Overpass QL language. Use{" "}
+              <code
+                style={{
+                  color: "#4a9eff",
+                  background: "rgba(74,158,255,0.1)",
+                  padding: "0.1rem 0.3rem",
+                  borderRadius: 3,
+                }}
+              >
+                &#123;&#123;bbox&#125;&#125;
+              </code>{" "}
+              as a placeholder for the bounding box.
             </p>
 
             <div style={{ marginBottom: "0.75rem" }}>
               <label style={{ fontSize: "0.78rem", color: "#666", display: "block", marginBottom: "0.25rem" }}>
                 Bounding Box (west,south,east,north)
               </label>
-              <input value={opBbox} onChange={(e) => setOpBbox(e.target.value)} placeholder="-74.02,40.70,-73.95,40.78" />
+              <input
+                value={opBbox}
+                onChange={(e) => setOpBbox(e.target.value)}
+                placeholder="-74.02,40.70,-73.95,40.78"
+              />
             </div>
 
             <div style={{ marginBottom: "0.5rem" }}>
@@ -453,9 +1379,7 @@ export default function ExplorePage() {
               <button className="primary" onClick={runOverpass} disabled={opLoading}>
                 {opLoading ? "Running..." : "Run Query"}
               </button>
-              <span style={{ fontSize: "0.72rem", color: "#444" }}>
-                Via /api/overpass
-              </span>
+              <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/overpass</span>
             </div>
 
             <div style={{ marginBottom: "1rem" }}>
@@ -487,16 +1411,208 @@ export default function ExplorePage() {
                   <span className="ex-sep" />
                   <span style={{ color: "#444" }}>Snapshot: {opResult.osm3s?.timestamp_osm_base || "N/A"}</span>
                 </div>
-
                 {opResult.elements.length > 0 && (
                   <pre style={{ marginTop: "0.75rem" }}>
                     {JSON.stringify(opResult.elements.slice(0, 50), null, 2)}
-                    {opResult.elements.length > 50 && `\n... and ${(opResult.elements.length - 50).toLocaleString()} more elements`}
+                    {opResult.elements.length > 50 &&
+                      `\n... and ${(opResult.elements.length - 50).toLocaleString()} more elements`}
                   </pre>
                 )}
-
                 {opResult.elements.length === 0 && (
                   <div className="ex-empty">No elements found for this query and bounding box.</div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ═══ ARCGIS TAB ═══ */}
+        {tab === "arcgis" && (
+          <>
+            <div className="ex-toolbar">
+              <input
+                placeholder="https://servicesX.arcgis.com/XXXX/ArcGIS/rest/services"
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addCustomHost()}
+              />
+              <button className="primary" onClick={addCustomHost}>
+                Add Host
+              </button>
+              <button className="secondary" onClick={discoverAll} disabled={arcLoading}>
+                {arcLoading ? "Scanning..." : "Scan All"}
+              </button>
+            </div>
+
+            <div className="ex-info-bar">
+              <span>
+                <span className="num">{hosts.filter((h) => h.serviceCount != null).length}</span> hosts scanned
+              </span>
+              <span className="ex-sep" />
+              <span>
+                <span className="num">{totalServices.toLocaleString()}</span> services found
+              </span>
+            </div>
+
+            <h2>Hosts ({hosts.length})</h2>
+            <div className="ex-grid">
+              {hosts.map((h) => (
+                <div key={h.id} className="ex-card">
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{h.host}</div>
+                      <div style={{ fontSize: "0.7rem", color: "#444", fontFamily: "'JetBrains Mono',monospace" }}>
+                        {h.id}
+                      </div>
+                    </div>
+                    <div className="ex-row">
+                      {h.serviceCount != null && <span className="ex-badge fs">{h.serviceCount} services</span>}
+                      {h.loading && (
+                        <span className="ex-badge" style={{ background: "rgba(234,179,8,0.12)", color: "#eab308" }}>
+                          scanning...
+                        </span>
+                      )}
+                      {h.error && <span className="ex-badge err">{h.error.substring(0, 30)}</span>}
+                    </div>
+                  </div>
+                  <div className="ex-row">
+                    <button
+                      className="secondary"
+                      style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                      onClick={() => discoverHost(h)}
+                      disabled={h.loading}
+                    >
+                      {h.serviceCount != null ? "Refresh" : "Scan"}
+                    </button>
+                    {h.services && h.services.length > 0 && (
+                      <button
+                        className="secondary"
+                        style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                        onClick={() => {
+                          setSelectedHost(h.url);
+                          setServiceDetails(null);
+                          setServiceFields([]);
+                        }}
+                      >
+                        View Services ({h.services.length})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {selectedHost &&
+              !serviceDetails &&
+              (() => {
+                const host = hosts.find((h) => h.url === selectedHost);
+                if (!host?.services?.length) return null;
+                return (
+                  <div style={{ marginTop: "1rem" }}>
+                    <h3>Services: {host.host}</h3>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.3rem",
+                        maxHeight: 600,
+                        overflow: "auto",
+                      }}
+                    >
+                      {host.services.map((s, i) => (
+                        <div
+                          key={i}
+                          className="ex-card"
+                          style={{ padding: "0.6rem 0.8rem", cursor: "pointer" }}
+                          onClick={() => fetchServiceInfo(s)}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span className={`ex-badge ${typeBadge(s.type)}`}>{s.type.replace("Server", "")}</span>
+                            <span style={{ fontSize: "0.8rem", color: "#bbb" }}>{s.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+            {serviceDetails && (
+              <div style={{ marginTop: "1rem" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <button
+                    className="secondary"
+                    style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
+                    onClick={() => {
+                      setServiceDetails(null);
+                      setServiceFields([]);
+                    }}
+                  >
+                    &larr;
+                  </button>
+                  Service Details
+                </h3>
+                {serviceDetails.error ? (
+                  <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)" }}>
+                    <span className="ex-badge err">Error</span> {serviceDetails.error}
+                  </div>
+                ) : (
+                  <div className="ex-card">
+                    <div className="ex-stat">
+                      <span style={{ color: "#555" }}>Description:</span>{" "}
+                      {serviceDetails.description || serviceDetails.serviceDescription || "(none)"}
+                    </div>
+                    <div className="ex-stat">
+                      <span style={{ color: "#555" }}>Copyright:</span> {serviceDetails.copyrightText || "(none)"}
+                    </div>
+                    <div className="ex-stat">
+                      <span style={{ color: "#555" }}>Layers:</span>{" "}
+                      <span className="num">{serviceDetails.layers?.length || 0}</span>
+                    </div>
+                    <div className="ex-stat">
+                      <span style={{ color: "#555" }}>Capabilities:</span> {serviceDetails.capabilities || "N/A"}
+                    </div>
+                    <div className="ex-stat">
+                      <span style={{ color: "#555" }}>Max Records:</span>{" "}
+                      {serviceDetails.maxRecordCount?.toLocaleString() || "N/A"}
+                    </div>
+                    {serviceDetails.layers?.length > 0 && (
+                      <div style={{ marginTop: "0.75rem" }}>
+                        <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>Layers</div>
+                        {serviceDetails.layers.map((l: any) => (
+                          <div key={l.id} style={{ fontSize: "0.78rem", padding: "0.2rem 0", color: "#888" }}>
+                            <span style={{ color: "#4a9eff", marginRight: "0.4rem" }}>{l.id}</span>
+                            {l.name} <span className="ex-tag">{l.geometryType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {serviceFields.length > 0 && (
+                      <div style={{ marginTop: "0.75rem" }}>
+                        <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>
+                          Fields (Layer {serviceDetails.layers?.[0]?.id})
+                        </div>
+                        <pre style={{ maxHeight: 300, fontSize: "0.72rem" }}>
+                          {serviceFields
+                            .map((f: any) => `${f.name.padEnd(25)} ${f.type.padEnd(20)} ${f.alias || ""}`)
+                            .join("\n")}
+                        </pre>
+                      </div>
+                    )}
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>Query URL</div>
+                      <pre style={{ fontSize: "0.72rem", wordBreak: "break-all" }}>
+                        {selectedHost}/0/query?f=json&where=1%3D1&outFields=*&returnGeometry=true&resultRecordCount=10
+                      </pre>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

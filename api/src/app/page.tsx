@@ -280,6 +280,7 @@ export default function Home() {
             { label: "Data chunks", value: "3.2M" },
             { label: "Resolution", value: "~30m" },
             { label: "Land coverage", value: "80%" },
+            { label: "World coverage", value: "100%" },
             { label: "Lat range", value: "60°N–60°S" },
           ].map((s) => (
             <div key={s.label} style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.75rem 1rem", textAlign: "center" }}>

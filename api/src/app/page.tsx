@@ -12,7 +12,7 @@ const LOCATIONS = [
   { name: "Mount Everest", lat: "28.0", lon: "86.9" },
   { name: "K2", lat: "35.8825", lon: "76.5133" },
   { name: "Kangchenjunga", lat: "27.7025", lon: "88.1475" },
-  { name: "Denali", lat: "63.0695", lon: "-151.0074" },
+  { name: "Mt. McKinley", lat: "59.5", lon: "-151.0" },
   { name: "Mt. Whitney", lat: "36.5785", lon: "-118.2923" },
   { name: "Matterhorn", lat: "45.9763", lon: "7.6586" },
   { name: "Mont Blanc", lat: "45.8326", lon: "6.8652" },
@@ -25,7 +25,7 @@ const LOCATIONS = [
   { name: "Ben Nevis", lat: "56.7969", lon: "-5.0036" },
   { name: "Mt. Cook", lat: "-43.5950", lon: "170.1418" },
   { name: "Pico de Orizaba", lat: "19.0303", lon: "-97.2689" },
-  { name: "Vinson Massif", lat: "-78.5254", lon: "-85.6171" },
+  { name: "Pico de Neblina", lat: "0.9833", lon: "-66.0" },
   { name: "Puncak Jaya", lat: "-4.0833", lon: "137.1833" },
   { name: "Mt. Rainier", lat: "46.8523", lon: "-121.7603" },
   { name: "Grand Teton", lat: "43.7410", lon: "-110.8025" },
@@ -81,10 +81,10 @@ const LOCATIONS = [
   { name: "Galapagos", lat: "-0.9538", lon: "-90.9656" },
   { name: "Sahara (Tamanrasset)", lat: "22.7850", lon: "5.5228" },
   { name: "Amazon (Manaus)", lat: "-3.1190", lon: "-60.0217" },
-  { name: "Antarctica (McMurdo)", lat: "-77.8460", lon: "166.6760" },
-  { name: "North Pole", lat: "90.0", lon: "0.0" },
-  { name: "Svalbard (Longyearbyen)", lat: "78.2232", lon: "15.6267" },
-  { name: "Reykjavik", lat: "64.1466", lon: "-21.9426" },
+  { name: "Drakensberg", lat: "-29.3", lon: "29.5" },
+  { name: "Timbuktu", lat: "16.7735", lon: "-3.0074" },
+  { name: "Lhasa", lat: "29.6520", lon: "91.1721" },
+  { name: "Kathmandu", lat: "27.7172", lon: "85.3240" },
   { name: "Ushuaia", lat: "-54.8019", lon: "-68.3030" },
   { name: "Cape Town", lat: "-33.9249", lon: "18.4241" },
   { name: "Dubai", lat: "25.2048", lon: "55.2708" },
@@ -268,6 +268,65 @@ function FlipCard({
   );
 }
 
+/* ─── Helpers ─── */
+
+function addOrUpdatePin(map: any, lon: number, lat: number) {
+  if (!map.getSource("hero-pin")) {
+    map.addSource("hero-pin", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [lon, lat] },
+        properties: {},
+      },
+    });
+    map.addLayer({
+      id: "hero-pin-circle",
+      type: "circle",
+      source: "hero-pin",
+      paint: {
+        "circle-radius": 6,
+        "circle-color": "#22c55e",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#fff",
+      },
+    });
+    map.addLayer({
+      id: "hero-pin-label",
+      type: "symbol",
+      source: "hero-pin",
+      layout: {
+        "text-field": ["get", "elevation"],
+        "text-size": 12,
+        "text-offset": [0, 1.8],
+        "text-anchor": "top",
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": "#22c55e",
+        "text-halo-color": "#000",
+        "text-halo-width": 1,
+      },
+    });
+  } else {
+    map.getSource("hero-pin").setData({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: { elevation: `${lat.toFixed(2)}, ${lon.toFixed(2)}` },
+    });
+  }
+}
+
+function flyToWithPadding(map: any, lon: number, lat: number, zoom: number) {
+  map.flyTo({
+    center: [lon, lat],
+    zoom,
+    padding: { top: 0, bottom: 0, left: 0, right: window.innerWidth / 2 + 100 },
+    duration: 2000,
+    essential: true,
+  });
+}
+
 /* ─── Main Page ─── */
 
 export default function Home() {
@@ -293,6 +352,48 @@ export default function Home() {
   const heroMapRef = useRef<HTMLDivElement>(null);
   const heroMapInstance = useRef<any>(null);
   const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
+  const geoInitDone = useRef(false);
+
+  // Auto-detect user location via GeoIP and pre-populate
+  useEffect(() => {
+    if (geoInitDone.current) return;
+    geoInitDone.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const geoRes = await fetch("/api/geoip");
+        if (cancelled) return;
+        const geo = await geoRes.json();
+
+        const userLat = geo?.latitude;
+        const userLon = geo?.longitude;
+        if (typeof userLat !== "number" || typeof userLon !== "number") return;
+
+        // Clamp to SRTM coverage
+        const clampedLat = Math.max(-60, Math.min(60, userLat));
+        const clampedLon = Math.max(-180, Math.min(180, userLon));
+        const latStr = clampedLat.toFixed(4);
+        const lonStr = clampedLon.toFixed(4);
+
+        if (cancelled) return;
+        setLat(latStr);
+        setLon(lonStr);
+
+        // Fetch elevation for user location
+        const eRes = await fetch(`/api/elevation?lat=${clampedLat}&lon=${clampedLon}`);
+        if (cancelled) return;
+        const eData = await eRes.json();
+        if (!eData.error) {
+          setResult(eData);
+          setSnippetTab("result");
+          heroMapFlyRef.current = { lat: clampedLat, lon: clampedLon };
+        }
+      } catch {
+        // GeoIP unavailable — silent fallback, user can type manually
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
   const cardBg = dark ? "#161616" : "#ffffff";
@@ -399,6 +500,17 @@ export default function Home() {
         });
 
         heroMapInstance.current = map;
+
+        // If GeoIP resolved before map loaded, fly now
+        if (heroMapFlyRef.current) {
+          const pending = heroMapFlyRef.current;
+          heroMapFlyRef.current = null;
+          setTimeout(() => {
+            if (!map || !map.getSource) return;
+            flyToWithPadding(map, pending.lon, pending.lat, 8);
+            addOrUpdatePin(map, pending.lon, pending.lat);
+          }, 500);
+        }
       } catch {
         setMapLoading(false);
       }
@@ -417,57 +529,8 @@ export default function Home() {
     const target = heroMapFlyRef.current;
     if (!target || !heroMapInstance.current) return;
     const map = heroMapInstance.current;
-    map.flyTo({
-      center: [target.lon, target.lat],
-      zoom: 8,
-      duration: 2000,
-      essential: true,
-    });
-    // Add/update pin
-    if (!map.getSource("hero-pin")) {
-      map.addSource("hero-pin", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [target.lon, target.lat] },
-          properties: {},
-        },
-      });
-      map.addLayer({
-        id: "hero-pin-circle",
-        type: "circle",
-        source: "hero-pin",
-        paint: {
-          "circle-radius": 6,
-          "circle-color": "#22c55e",
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#fff",
-        },
-      });
-      map.addLayer({
-        id: "hero-pin-label",
-        type: "symbol",
-        source: "hero-pin",
-        layout: {
-          "text-field": ["get", "elevation"],
-          "text-size": 12,
-          "text-offset": [0, 1.8],
-          "text-anchor": "top",
-          "text-allow-overlap": true,
-        },
-        paint: {
-          "text-color": "#22c55e",
-          "text-halo-color": "#000",
-          "text-halo-width": 1,
-        },
-      });
-    } else {
-      map.getSource("hero-pin").setData({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [target.lon, target.lat] },
-        properties: { elevation: `${target.lat.toFixed(2)}, ${target.lon.toFixed(2)}` },
-      });
-    }
+    flyToWithPadding(map, target.lon, target.lat, 8);
+    addOrUpdatePin(map, target.lon, target.lat);
     heroMapFlyRef.current = null;
   }, [result]);
 
@@ -670,7 +733,7 @@ export default function Home() {
           <div id="snippets-panel" className="oz-snippets">
             <div className="oz-snippet-bar">
               <div className="oz-snippet-tabs">
-                {result && result.elevation !== null && (
+                {result && (
                   <button
                     className={`oz-snippet-tab ${snippetTab === "result" ? "active" : ""}`}
                     onClick={() => setSnippetTab("result")}
@@ -972,7 +1035,7 @@ export default function Home() {
         <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
           Core API &amp; Map Tools
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 280px))", gap: "0.75rem", justifyContent: "center" }}>
           {[
             {
               emoji: "\u26F0\uFE0F",
@@ -1055,6 +1118,14 @@ export default function Home() {
               btn: "View on GitHub",
             },
             {
+              emoji: "\uD83D\uDEAB",
+              title: "No Ads Ever",
+              desc: "Clean, distraction-free experience. No ads, no trackers, no popups. Just data and tools.",
+              back: "Zero ads, zero tracking, zero popups. Focused on the data and tools, not monetization.",
+              href: "https://github.com/aliasfoxkde/OpenZenith",
+              btn: "View on GitHub",
+            },
+            {
               emoji: "\uD83D\uDCD6",
               title: "OpenAPI Spec",
               desc: "Full OpenAPI 3.0.3 documentation with interactive try-it panel, editable parameters, and code examples.",
@@ -1083,15 +1154,15 @@ export default function Home() {
               minHeight={150}
               front={
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
                     <div style={{ fontSize: "1.5rem" }}>{f.emoji}</div>
-                    <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>{f.title}</h3>
+                    <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, textAlign: "center" }}>{f.title}</h3>
                   </div>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45 }}>{f.desc}</p>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45, textAlign: "center" }}>{f.desc}</p>
                 </>
               }
               back={
-                <>
+                <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: "0.82rem", color: textSecondary, lineHeight: 1.55, marginBottom: "0.85rem" }}>
                     {f.back}
                   </div>
@@ -1108,12 +1179,11 @@ export default function Home() {
                       fontSize: "0.78rem",
                       fontWeight: 600,
                       textDecoration: "none",
-                      textAlign: "center",
                     }}
                   >
                     {f.btn}
                   </a>
-                </>
+                </div>
               }
             />
           ))}

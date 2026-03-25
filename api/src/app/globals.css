@@ -159,7 +159,6 @@
   align-items: center;
   gap: 0.35rem;
   flex-wrap: wrap;
-  max-width: 380px;
   margin-bottom: 0.75rem;
 }
 .oz-sample-btn {
@@ -170,6 +169,9 @@
   color: var(--oz-text-secondary);
   font-size: 0.72rem;
   cursor: pointer;
+  flex: 1;
+  text-align: center;
+  min-width: 0;
 }
 .oz-shuffle-btn {
   padding: 0.1rem 0.3rem;

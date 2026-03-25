@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 /* ─── Helpers ─── */
 
@@ -70,6 +70,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mapLoading, setMapLoading] = useState(true);
+  const [showTop, setShowTop] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: "", email: "", subject: "", message: "" });
+  const [contactSent, setContactSent] = useState(false);
   const miniMapRef = useRef<HTMLDivElement>(null);
   const miniMapInstance = useRef<any>(null);
 
@@ -82,6 +85,22 @@ export default function Home() {
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const codeBg = dark ? "#1a1a1a" : "#f5f5f5";
   const inputBg = dark ? "#111" : "#fff";
+
+  // Back-to-top scroll listener
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 500);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: "smooth" }), []);
+
+  async function sendContact(e: React.FormEvent) {
+    e.preventDefault();
+    if (!contactForm.name || !contactForm.email || !contactForm.message) return;
+    setContactSent(true);
+    setContactForm({ name: "", email: "", subject: "", message: "" });
+  }
 
   // Init mini map
   useEffect(() => {
@@ -271,14 +290,15 @@ export default function Home() {
       </section>
 
       {/* Features */}
-      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`, paddingTop: "2rem" }}>
-        <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 1.25rem", textAlign: "center" }}>Features</h2>
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 1.5rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`, paddingTop: "2rem" }}>
+        <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.4rem", textAlign: "center" }}>Features</h2>
+        <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>Core API &amp; Map Tools</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem" }}>
           {[
             { title: "Elevation API", desc: "Query elevation by lat/lon. Returns height in meters with bilinear interpolation.", href: "/api/docs" },
             { title: "Tile Server", desc: "Slippy map tiles (z/x/y) serving raw Int16 elevation data, 256x256 per tile.", href: "/map" },
             { title: "Interactive Map", desc: "Dark theme, 3D terrain, multiple basemaps, layer controls, elevation pins.", href: "/map" },
-            { title: "WorldView Dashboard", desc: "Real-time geospatial intelligence: flights, earthquakes, weather radar, satellites, hurricanes.", href: "/worldview" },
+            { title: "WorldView Dashboard", desc: "Real-time geospatial intelligence: flights, earthquakes, weather, satellites.", href: "/worldview" },
             { title: "Data Explorer", desc: "Discover ArcGIS REST services and query OpenStreetMap via Overpass API.", href: "/explore" },
             { title: "No Authentication", desc: "Completely free. No API keys, no rate limits, no sign-up required.", href: "https://github.com/aliasfoxkde/OpenZenith" },
             { title: "Health Endpoint", desc: "Real-time service status with backend info and coverage metadata.", href: "/api/health" },
@@ -293,6 +313,54 @@ export default function Home() {
               <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45 }}>{f.desc}</p>
             </a>
           ))}
+        </div>
+      </section>
+
+      {/* Data Layers */}
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 1.5rem" }}>
+        <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>WorldView Data Layers</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
+          {[
+            { title: "Earthquakes", desc: "USGS real-time seismic data with magnitude, depth, and event details.", color: "#ef4444" },
+            { title: "Weather Radar", desc: "NOAA NEXRAD radar mosaic with precipitation intensity overlays.", color: "#3b82f6" },
+            { title: "Flight Tracking", desc: "OpenSky ADS-B live aircraft positions, altitudes, and call signs.", color: "#f59e0b" },
+            { title: "Weather Warnings", desc: "NWS watches, warnings, and advisories with polygon boundaries.", color: "#a855f7" },
+            { title: "Satellites", desc: "Real-time satellite positions from Space-Track.org TLE data.", color: "#06b6d4" },
+            { title: "Hurricanes", desc: "Active tropical cyclone tracks with forecast cone and wind data.", color: "#f97316" },
+            { title: "Hillshade & 3D", desc: "Terrain hillshade rendering and 3D terrain with SRTM elevation data.", color: "#22c55e" },
+          ].map((d) => (
+            <a key={d.title} href="/worldview" style={{ textDecoration: "none", color: "inherit", background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1rem 1.15rem" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: `${d.color}18`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "0.5rem" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color }} />
+              </div>
+              <h3 style={{ margin: "0 0 0.15rem", fontSize: "0.88rem", fontWeight: 600 }}>{d.title}</h3>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: textSecondary, lineHeight: 1.4 }}>{d.desc}</p>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* Contribute & Integrations */}
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
+          <a href="/contribute" style={{ textDecoration: "none", color: "inherit", background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #22c55e18, #3b82f618)", display: "flex", alignItems: "center", justifyContent: "center", color: accent, fontSize: "1rem", fontWeight: 700 }}>C</div>
+              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Contribute Data</h3>
+            </div>
+            <p style={{ margin: 0, fontSize: "0.82rem", color: textSecondary, lineHeight: 1.5 }}>
+              Add your own geospatial data to OpenZenith. Upload files, integrate data sources, or submit pull requests. Supports GeoJSON, GeoTIFF, CSV, and more.
+            </p>
+          </a>
+          <a href="/api/docs" style={{ textDecoration: "none", color: "inherit", background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #a855f718, #ec489918)", display: "flex", alignItems: "center", justifyContent: "center", color: "#a855f7", fontSize: "1rem", fontWeight: 700 }}>&lt;/&gt;</div>
+              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Integrations &amp; Tools</h3>
+            </div>
+            <p style={{ margin: 0, fontSize: "0.82rem", color: textSecondary, lineHeight: 1.5 }}>
+              OpenAPI spec, CORS proxy, MapLibre GL elevation tiles, and Overpass API proxy. Integrate elevation into your own maps and apps in minutes.
+            </p>
+          </a>
         </div>
       </section>
 
@@ -330,10 +398,73 @@ export default function Home() {
             <a href="/map" style={{ color: textSecondary, textDecoration: "none" }}>Map</a>
             <a href="/worldview" style={{ color: textSecondary, textDecoration: "none" }}>WorldView</a>
             <a href="/explore" style={{ color: textSecondary, textDecoration: "none" }}>Explore</a>
+            <a href="/contribute" style={{ color: textSecondary, textDecoration: "none" }}>Contribute</a>
           </div>
           <span>NASA SRTM 30m Global DEM</span>
         </div>
       </footer>
+
+      {/* Contact Form */}
+      <section id="contact" style={{ maxWidth: 1280, margin: "0 auto", padding: "2.5rem 1.5rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}` }}>
+        <div style={{ position: "relative", background: cardBg, border: `1px solid ${border}`, borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, #22c55e, #3b82f6, #a855f7)` }} />
+          <div style={{ padding: "2rem 2.5rem" }}>
+            <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: "0 0 0.35rem", textAlign: "center", letterSpacing: "-0.02em" }}>Get in Touch</h2>
+            <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.75rem", textAlign: "center" }}>Have a question, suggestion, or want to collaborate? Drop us a message.</p>
+            {contactSent ? (
+              <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: accentDim, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 0.75rem", color: accent, fontSize: "1.5rem" }}>&#10003;</div>
+                <p style={{ fontSize: "0.95rem", fontWeight: 500, margin: "0 0 0.25rem" }}>Message received</p>
+                <p style={{ fontSize: "0.82rem", color: textSecondary, margin: "0" }}>We'll get back to you as soon as possible.</p>
+                <button onClick={() => setContactSent(false)} style={{ marginTop: "1rem", padding: "0.4rem 1rem", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: textSecondary, cursor: "pointer", fontSize: "0.8rem", fontFamily: "inherit" }}>Send another</button>
+              </div>
+            ) : (
+              <form onSubmit={sendContact} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", maxWidth: 640, margin: "0 auto" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, color: textSecondary, marginBottom: "0.3rem" }}>Name *</label>
+                  <input type="text" required value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                    placeholder="Your name" style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, color: textSecondary, marginBottom: "0.3rem" }}>Email *</label>
+                  <input type="email" required value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                    placeholder="you@example.com" style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, color: textSecondary, marginBottom: "0.3rem" }}>Subject</label>
+                  <input type="text" value={contactForm.subject} onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
+                    placeholder="What's this about?" style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, color: textSecondary, marginBottom: "0.3rem" }}>Message *</label>
+                  <textarea required rows={4} value={contactForm.message} onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                    placeholder="Your message..." style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8, border: `1px solid ${border}`, background: inputBg, color: text, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ gridColumn: "1 / -1", textAlign: "right" }}>
+                  <button type="submit" style={{
+                    padding: "0.55rem 1.6rem", borderRadius: 8, border: "none",
+                    background: accent, color: "#000", fontWeight: 600, fontSize: "0.85rem",
+                    cursor: "pointer", fontFamily: "inherit",
+                  }}>Send Message</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Back to top */}
+      {showTop && (
+        <button onClick={scrollToTop} aria-label="Back to top" style={{
+          position: "fixed", bottom: "1.5rem", right: "1.5rem", zIndex: 200,
+          width: 40, height: 40, borderRadius: 10,
+          background: cardBg, border: `1px solid ${border}`,
+          color: text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.15)", transition: "opacity 0.2s",
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 12V4M4 7l4-4 4 4" /></svg>
+        </button>
+      )}
 
       {/* Support / Donate */}
       <section style={{ maxWidth: 1280, margin: "0 auto", padding: "2.5rem 1.5rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}` }}>

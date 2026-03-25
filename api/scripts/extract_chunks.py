@@ -185,13 +185,25 @@ def verify_chunk(tif_path, output_base):
 
 
 def extract_all(src_dir, output_base, workers=4, verify=True):
-    """Extract chunks from all TIF files in parallel."""
+    """Extract chunks from all TIF files in parallel. Skips already-extracted files."""
     tif_files = sorted(
         f for f in os.listdir(src_dir) if f.endswith(".tif") or f.endswith(".tiff")
     )
-    tif_paths = [os.path.join(src_dir, f) for f in tif_files]
+    tif_paths = []
 
-    print(f"Extracting {len(tif_files)} TIF files from {src_dir}")
+    # Skip TIF files whose chunks are already fully extracted
+    for f in tif_files:
+        basename = f.replace(".tif", "").replace(".tiff", "")
+        lat_dir = basename[:3]
+        chunk_dir = os.path.join(output_base, lat_dir)
+        # If the last chunk exists, all 225 were extracted
+        last_chunk = os.path.join(chunk_dir, f"{basename}_14_14.deflate")
+        if os.path.isfile(last_chunk):
+            continue
+        tif_paths.append(os.path.join(src_dir, f))
+
+    skipped = len(tif_files) - len(tif_paths)
+    print(f"Extracting {len(tif_paths)} TIF files from {src_dir} (skipped {skipped} already done)")
     print(f"Output: {output_base}")
     print(f"Workers: {workers}")
     print("=" * 80)

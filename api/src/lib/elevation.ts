@@ -66,8 +66,20 @@ export async function getElevation(
   const chunkKey = `oz:chunk:${srtmName}:${chunkRow}:${chunkCol}`;
   let compressedData = await cacheGet(chunkKey);
   if (!compressedData) {
-    compressedData = await storage.fetchChunk(srtmName, chunkRow, chunkCol);
-    await cachePut(chunkKey, compressedData);
+    try {
+      compressedData = await storage.fetchChunk(srtmName, chunkRow, chunkCol);
+      await cachePut(chunkKey, compressedData);
+    } catch {
+      // Chunk not available (not uploaded yet or no data for this area)
+      return {
+        elevation: null,
+        unit: "meters",
+        location: { lat, lon },
+        source: "none",
+        srtmTile: srtmName,
+        resolution: 0,
+      };
+    }
   }
 
   // Decompress

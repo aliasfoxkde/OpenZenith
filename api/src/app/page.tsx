@@ -274,9 +274,10 @@ export default function Home() {
 
       {/* Stats */}
       <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "0.75rem" }}>
           {[
-            { label: "Data tiles", value: "14,296" },
+            { label: "SRTM tiles", value: "14,296" },
+            { label: "Data chunks", value: "3.2M" },
             { label: "Resolution", value: "~30m" },
             { label: "Land coverage", value: "80%" },
             { label: "Lat range", value: "60°N–60°S" },

@@ -398,6 +398,16 @@ export default function Home() {
               <div><span style={{ color: "#c678dd" }}>const</span> &#123; elevation &#125; = <span style={{ color: textSecondary }}>await</span> res.json()</div>
             </div>
           </div>
+          <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem" }}>
+            <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Python</div>
+            <div style={{ background: codeBg, borderRadius: 8, padding: "0.8rem 1rem", fontFamily: "monospace", fontSize: "0.8rem", lineHeight: 1.7, overflowX: "auto" }}>
+              <div><span style={{ color: "#c678dd" }}>import</span> requests</div>
+              <div style={{ marginTop: "0.3rem" }}>res = requests.<span style={{ color: "#61afef" }}>get</span>(<span style={{ color: "#98c379" }}>"https://openzenith.pages.dev/api/elevation"</span>,</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span style={{ color: "#98c379" }}>"lat"</span>: <span style={{ color: "#d19a66" }}>48.8566</span>, <span style={{ color: "#98c379" }}>"lon"</span>: <span style={{ color: "#d19a66" }}>2.3522</span>&#125;)</div>
+              <div>data = res.json()</div>
+              <div><span style={{ color: "#c678dd" }}>print</span>(data[<span style={{ color: "#98c379" }}>"elevation"</span>])&nbsp; <span style={{ color: textSecondary }}># 35</span></div>
+            </div>
+          </div>
         </div>
       </section>
 

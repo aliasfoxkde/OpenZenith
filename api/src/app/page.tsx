@@ -73,6 +73,7 @@ export default function Home() {
   const [showTop, setShowTop] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [contactSent, setContactSent] = useState(false);
+  const [tooltip, setTooltip] = useState<string | null>(null);
   const miniMapRef = useRef<HTMLDivElement>(null);
   const miniMapInstance = useRef<any>(null);
 
@@ -276,16 +277,27 @@ export default function Home() {
       <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "0.75rem" }}>
           {[
-            { label: "SRTM tiles", value: "14,296" },
-            { label: "Data chunks", value: "3.2M" },
-            { label: "Resolution", value: "~30m" },
-            { label: "Land coverage", value: "80%" },
-            { label: "World coverage", value: "100%" },
-            { label: "Lat range", value: "60°N–60°S" },
+            { label: "SRTM tiles", value: "14,296", tip: null },
+            { label: "Data chunks", value: "3.2M", tip: "Each 3601\u00d73601 SRTM tile is split into 256\u00d7256 chunks (15\u00d715 = 225 per tile). Chunks are compressed and served on demand for efficiency." },
+            { label: "Resolution", value: "~30m", tip: null },
+            { label: "Land coverage", value: "80%", tip: "SRTM covers 80% of Earth\u2019s landmass between 60\u00b0N and 60\u00b0S. Polar regions and some small islands are excluded." },
+            { label: "World coverage", value: "~29%", tip: "Land (80%) covers ~29% of Earth\u2019s total surface. Ocean bathymetry and waterway elevations are planned for future coverage." },
+            { label: "Lat range", value: "60\u00b0N\u201360\u00b0S", tip: null },
           ].map((s) => (
-            <div key={s.label} style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.75rem 1rem", textAlign: "center" }}>
+            <div key={s.label} style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.75rem 1rem", textAlign: "center", position: "relative" }}>
               <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accent, marginBottom: "0.15rem" }}>{s.value}</div>
-              <div style={{ fontSize: "0.75rem", color: textSecondary }}>{s.label}</div>
+              <div style={{ fontSize: "0.75rem", color: textSecondary, display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
+                {s.label}
+                {s.tip && (
+                  <span onMouseEnter={(e) => { setTooltip(s.tip!); (e.target as HTMLElement).style.cursor = "help"; }} onMouseLeave={() => setTooltip(null)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: `1px solid ${border}`, fontSize: "0.6rem", color: textSecondary, lineHeight: 1, flexShrink: 0 }}>&#63;</span>
+                )}
+              </div>
+              {tooltip === s.tip && s.tip && (
+                <div style={{ position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", background: dark ? "#222" : "#1a1a1a", color: "#e5e5e5", padding: "0.5rem 0.7rem", borderRadius: 8, fontSize: "0.72rem", lineHeight: 1.5, width: 220, zIndex: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.3)", whiteSpace: "normal" }}>
+                  {s.tip}
+                  <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", border: "5px solid transparent", borderTopColor: dark ? "#222" : "#1a1a1a" }} />
+                </div>
+              )}
             </div>
           ))}
         </div>

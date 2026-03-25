@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -24,6 +24,7 @@ interface DashboardState {
   zoom: number;
   basemap: string;
   layers: LayerState;
+  theme: string;
 }
 
 interface DataStatus {
@@ -65,6 +66,39 @@ const DEFAULT_STATE: DashboardState = {
   zoom: 2,
   basemap: "dark",
   layers: { ...DEFAULT_LAYERS },
+  theme: "default",
+};
+
+const THEMES: Record<string, {
+  label: string;
+  icon: string;
+  css: string;
+}> = {
+  default: {
+    label: "Default",
+    icon: "◇",
+    css: `--bg:rgba(10,14,23,0.95);--bg-solid:#0a0e17;--bg-nav:rgba(10,14,23,0.92);--bg-hover:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.08);--border-hover:rgba(255,255,255,0.15);--text:#e0e0e0;--text-dim:#aab;--text-muted:#666;--text-muted2:#555;--text-darker:#444;--accent:#4a9eff;--accent-glow:rgba(74,158,255,0.2);--accent-active:#4a9eff;--brand:#22c55e;--ok:#22c55e;--err:#ef4444;--warn:#eab308;--font-ui:system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;--scanlines:none;--corner-size:0;--ticker-display:none;--classification-display:none;--grid-display:none;--glow-intensity:0`,
+  },
+  classified: {
+    label: "Classified Intel",
+    icon: "▲",
+    css: `--bg:rgba(0,8,4,0.96);--bg-solid:#000a04;--bg-nav:rgba(0,8,4,0.94);--bg-hover:rgba(0,255,65,0.05);--border:rgba(0,255,65,0.15);--border-hover:rgba(0,255,65,0.35);--text:#00ff41;--text-dim:#00cc33;--text-muted:#008822;--text-muted2:#006618;--text-darker:#004410;--accent:#00ff41;--accent-glow:rgba(0,255,65,0.15);--accent-active:#00ff41;--brand:#00ff41;--ok:#00ff41;--err:#ff0040;--warn:#ffaa00;--font-ui:'JetBrains Mono',monospace;--font-mono:'JetBrains Mono',monospace;--scanlines:block;--corner-size:16px;--ticker-display:block;--classification-display:block;--grid-display:block;--glow-intensity:1`,
+  },
+  amber: {
+    label: "Amber Terminal",
+    icon: "◉",
+    css: `--bg:rgba(12,8,0,0.96);--bg-solid:#0c0800;--bg-nav:rgba(12,8,0,0.94);--bg-hover:rgba(255,176,0,0.05);--border:rgba(255,176,0,0.15);--border-hover:rgba(255,176,0,0.35);--text:#ffb000;--text-dim:#cc8d00;--text-muted:#885e00;--text-muted2:#664600;--text-darker:#443000;--accent:#ffb000;--accent-glow:rgba(255,176,0,0.15);--accent-active:#ffb000;--brand:#ffb000;--ok:#00ff41;--err:#ff3333;--warn:#ffaa00;--font-ui:'JetBrains Mono',monospace;--font-mono:'JetBrains Mono',monospace;--scanlines:block;--corner-size:8px;--ticker-display:block;--classification-display:none;--grid-display:none;--glow-intensity:0.6`,
+  },
+  arctic: {
+    label: "Arctic",
+    icon: "❄",
+    css: `--bg:rgba(8,16,28,0.95);--bg-solid:#08101c;--bg-nav:rgba(8,16,28,0.92);--bg-hover:rgba(100,200,255,0.05);--border:rgba(100,200,255,0.12);--border-hover:rgba(100,200,255,0.3);--text:#c8e6ff;--text-dim:#88bbee;--text-muted:#4477aa;--text-muted2:#335577;--text-darker:#223344;--accent:#00ccff;--accent-glow:rgba(0,204,255,0.15);--accent-active:#00ccff;--brand:#66ddff;--ok:#00ff88;--err:#ff4466;--warn:#ffcc00;--font-ui:system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;--scanlines:none;--corner-size:0;--ticker-display:none;--classification-display:none;--grid-display:none;--glow-intensity:0`,
+  },
+  crimson: {
+    label: "Crimson Ops",
+    icon: "⬥",
+    css: `--bg:rgba(16,4,4,0.96);--bg-solid:#100404;--bg-nav:rgba(16,4,4,0.94);--bg-hover:rgba(255,40,40,0.05);--border:rgba(255,40,40,0.15);--border-hover:rgba(255,40,40,0.35);--text:#ff4444;--text-dim:#cc3333;--text-muted:#882222;--text-muted2:#661818;--text-darker:#441010;--accent:#ff2222;--accent-glow:rgba(255,34,34,0.15);--accent-active:#ff2222;--brand:#ff4444;--ok:#44ff44;--err:#ff0000;--warn:#ffaa00;--font-ui:'JetBrains Mono',monospace;--font-mono:'JetBrains Mono',monospace;--scanlines:block;--corner-size:12px;--ticker-display:block;--classification-display:block;--grid-display:none;--glow-intensity:0.8`,
+  },
 };
 
 const EONET_COLORS: Record<string, string> = {
@@ -132,6 +166,7 @@ function parseHash(h: string): Partial<DashboardState> {
           center: [lng, lat],
           zoom: z,
           basemap: p.get("bm") || undefined,
+          theme: p.get("theme") || undefined,
           layers: {
             earthquakes: DEFAULT_LAYERS.earthquakes,
             radar: DEFAULT_LAYERS.radar,
@@ -168,6 +203,7 @@ function parseHash(h: string): Partial<DashboardState> {
       center,
       zoom: zoomVal ? Number(zoomVal) : undefined,
       basemap: p.get("bm") || undefined,
+      theme: p.get("theme") || undefined,
       layers: {
         earthquakes: DEFAULT_LAYERS.earthquakes,
         radar: DEFAULT_LAYERS.radar,
@@ -191,6 +227,7 @@ function buildHash(s: DashboardState): string {
   p.set("lat", s.center[1].toFixed(4));
   p.set("zoom", s.zoom.toFixed(1));
   if (s.basemap !== "dark") p.set("bm", s.basemap);
+  if (s.theme !== "default") p.set("theme", s.theme);
   const active = Object.entries(s.layers)
     .filter(([, v]) => v)
     .map(([k]) => k);
@@ -250,52 +287,122 @@ async function fetchHurricaneTracks(): Promise<any> {
    ═══════════════════════════════════════════════════════════════ */
 
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
-.wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;background:#0a0e17}
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+/* ── Theme Variables (set via inline style on wrapper) ── */
+
+.wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:var(--font-ui);background:var(--bg-solid);color:var(--text)}
+
+/* ── Scan Lines Overlay ── */
+.wv-scanlines{display:var(--scanlines);position:absolute;inset:0;z-index:15;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px)}
+
+/* ── Classification Banner ── */
+.wv-classification{display:var(--classification-display);position:absolute;top:36px;left:50%;transform:translateX(-50%);z-index:14;pointer-events:none;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:3px;color:var(--accent);
+  background:var(--bg);padding:3px 24px;border:1px solid var(--border);
+  text-shadow:0 0 8px var(--accent-glow)}
+
+/* ── Grid Overlay ── */
+.wv-grid-overlay{display:var(--grid-display);position:absolute;inset:0;top:36px;z-index:1;pointer-events:none;opacity:0.06;
+  background-image:
+    linear-gradient(var(--accent) 1px,transparent 1px),
+    linear-gradient(90deg,var(--accent) 1px,transparent 1px);
+  background-size:60px 60px}
+
+/* ── HUD Corner Brackets ── */
+.wv-hud-corners{position:absolute;inset:0;top:36px;z-index:13;pointer-events:none}
+.wv-hud-corners::before,.wv-hud-corners::after,
+.wv-hud-inner::before,.wv-hud-inner::after{
+  content:'';position:absolute;width:var(--corner-size);height:var(--corner-size);border-color:var(--accent);border-style:solid;border-width:0;opacity:0.5}
+.wv-hud-corners::before{top:8px;left:8px;border-top-width:2px;border-left-width:2px}
+.wv-hud-corners::after{top:8px;right:8px;border-top-width:2px;border-right-width:2px}
+.wv-hud-inner::before{bottom:48px;left:8px;border-bottom-width:2px;border-left-width:2px}
+.wv-hud-inner::after{bottom:48px;right:8px;border-bottom-width:2px;border-right-width:2px}
+
+/* ── Ticker Bar ── */
+.wv-ticker{display:var(--ticker-display);position:absolute;top:36px;left:0;right:0;height:22px;background:var(--bg);border-bottom:1px solid var(--border);z-index:14;overflow:hidden;
+  font-family:var(--font-mono);font-size:10px;color:var(--text-muted);line-height:22px}
+.wv-ticker-inner{display:inline-block;white-space:nowrap;animation:ticker-scroll 60s linear infinite}
+@keyframes ticker-scroll{0%{transform:translateX(100vw)}100%{transform:translateX(-100%)}}
+
+/* ── Base Layout ── */
 .wv-map{position:absolute;inset:0;top:36px}
-.wv-nav{position:absolute;top:0;left:0;right:0;height:36px;background:rgba(10,14,23,0.92);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,0.08);z-index:20;display:flex;align-items:center;padding:0 12px;gap:1rem}
-.wv-nav-brand{color:#22c55e;font-weight:700;font-size:0.9rem;text-decoration:none;letter-spacing:-0.02em}
-.wv-nav-links{display:flex;gap:0.75rem;margin-left:auto}
-.wv-nav-links a{color:#888;font-size:0.75rem;text-decoration:none}
-.wv-nav-links a:hover{color:#ccc}
-.wv-sidebar{position:absolute;top:36px;left:0;bottom:40px;width:300px;background:rgba(10,14,23,0.95);backdrop-filter:blur(12px);border-right:1px solid rgba(255,255,255,0.08);z-index:10;overflow-y:auto;transition:transform .3s ease;display:flex;flex-direction:column}
+.wv-nav{position:absolute;top:0;left:0;right:0;height:36px;background:var(--bg-nav);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);z-index:20;display:flex;align-items:center;padding:0 12px;gap:1rem}
+.wv-nav-brand{color:var(--brand);font-weight:700;font-size:0.9rem;text-decoration:none;letter-spacing:-0.02em;text-shadow:0 0 calc(var(--glow-intensity) * 12px) var(--brand)}
+.wv-nav-links{display:flex;gap:0.75rem;margin-left:auto;align-items:center}
+.wv-nav-links a{color:var(--text-muted);font-size:0.75rem;text-decoration:none;transition:color .15s}
+.wv-nav-links a:hover{color:var(--text)}
+.wv-nav-time{font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-right:0.5rem}
+
+/* ── Theme Switcher ── */
+.wv-theme-switcher{position:relative;display:flex;align-items:center}
+.wv-theme-btn{width:28px;height:28px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.wv-theme-btn:hover{border-color:var(--border-hover);color:var(--text)}
+.wv-theme-dropdown{position:absolute;top:34px;right:0;background:var(--bg-solid);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:160px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.5)}
+.wv-theme-option{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:11px;color:var(--text-dim);cursor:pointer;border-radius:4px;border:none;background:none;width:100%;text-align:left;transition:all .1s;font-family:var(--font-ui)}
+.wv-theme-option:hover{background:var(--bg-hover);color:var(--text)}
+.wv-theme-option.active{color:var(--accent)}
+.wv-theme-option .swatch{width:12px;height:12px;border-radius:2px;border:1px solid var(--border);flex-shrink:0}
+
+/* ── Sidebar ── */
+.wv-sidebar{position:absolute;top:36px;left:0;bottom:40px;width:300px;background:var(--bg);backdrop-filter:blur(12px);border-right:1px solid var(--border);z-index:10;overflow-y:auto;transition:transform .3s ease;display:flex;flex-direction:column}
 .wv-sidebar.collapsed{transform:translateX(-300px)}
-.wv-sidebar-toggle{position:absolute;top:48px;left:12px;z-index:11;width:36px;height:36px;background:rgba(10,14,23,0.9);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e0e0e0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:left .3s ease}
+.wv-sidebar-toggle{position:absolute;top:48px;left:12px;z-index:11;width:36px;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:left .3s ease}
 .wv-sidebar:not(.collapsed)~.wv-sidebar-toggle{left:312px}
-.wv-sidebar-header{padding:16px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0}
-.wv-sidebar-header h2{margin:0;font-size:16px;font-weight:600;color:#e0e0e0;letter-spacing:1px}
-.wv-sidebar-header p{margin:4px 0 0;font-size:11px;color:#666}
-.wv-section{border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0}
-.wv-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;user-select:none}
-.wv-section-header:hover{background:rgba(255,255,255,0.03)}
-.wv-section-header span{font-size:12px;font-weight:600;color:#aab;color:uppercase;letter-spacing:0.5px}
-.wv-section-header .arrow{font-size:10px;color:#555;transition:transform .2s}
+.wv-sidebar-header{padding:16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.wv-sidebar-header h2{margin:0;font-size:16px;font-weight:600;color:var(--text);letter-spacing:1px}
+.wv-sidebar-header p{margin:4px 0 0;font-size:11px;color:var(--text-muted)}
+.wv-section{border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0}
+.wv-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;user-select:none;transition:background .1s}
+.wv-section-header:hover{background:var(--bg-hover)}
+.wv-section-header span{font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px}
+.wv-section-header .arrow{font-size:10px;color:var(--text-muted2);transition:transform .2s}
 .wv-section-header.open .arrow{transform:rotate(90deg)}
 .wv-section-body{padding:0 16px 10px;display:none}
 .wv-section-body.open{display:block}
 .wv-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0}
-.wv-row label{font-size:12px;color:#bbb;cursor:pointer;display:flex;align-items:center;gap:6px}
+.wv-row label{font-size:12px;color:var(--text);opacity:0.8;cursor:pointer;display:flex;align-items:center;gap:6px}
 .wv-row .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.wv-row input[type=checkbox]{accent-color:#4a9eff;width:14px;height:14px;cursor:pointer}
+.wv-row input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
 .wv-bm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.wv-bm-btn{padding:6px 4px;font-size:10px;color:#aaa;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;text-align:center;transition:all .15s}
-.wv-bm-btn:hover{background:rgba(255,255,255,0.1);color:#ddd}
-.wv-bm-btn.active{background:rgba(74,158,255,0.2);border-color:#4a9eff;color:#4a9eff}
-.wv-status{position:absolute;bottom:0;left:0;right:0;height:40px;background:rgba(10,14,23,0.95);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,0.08);z-index:10;display:flex;align-items:center;padding:0 16px;gap:16px;font-size:11px;font-family:'JetBrains Mono',monospace;overflow-x:auto}
-.wv-status-item{display:flex;align-items:center;gap:5px;white-space:nowrap;color:#777}
+.wv-bm-btn{padding:6px 4px;font-size:10px;color:var(--text-dim);background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;cursor:pointer;text-align:center;transition:all .15s;font-family:var(--font-ui)}
+.wv-bm-btn:hover{border-color:var(--border-hover);color:var(--text)}
+.wv-bm-btn.active{background:var(--accent-glow);border-color:var(--accent-active);color:var(--accent-active)}
+
+/* ── Status Bar ── */
+.wv-status{position:absolute;bottom:0;left:0;right:0;height:40px;background:var(--bg);backdrop-filter:blur(8px);border-top:1px solid var(--border);z-index:10;display:flex;align-items:center;padding:0 16px;gap:16px;font-size:11px;font-family:var(--font-mono);overflow-x:auto}
+.wv-status-item{display:flex;align-items:center;gap:5px;white-space:nowrap;color:var(--text-muted)}
 .wv-status-item .indicator{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.wv-status-item .indicator.ok{background:#22c55e}
-.wv-status-item .indicator.err{background:#ef4444}
-.wv-status-item .indicator.loading{background:#eab308;animation:pulse 1s infinite}
-.wv-status-item .indicator.off{background:#333}
-.wv-status-sep{width:1px;height:20px;background:rgba(255,255,255,0.1)}
-.wv-coords{margin-left:auto;color:#555;font-size:11px}
-.wv-elev-popup{position:absolute;z-index:20;background:rgba(10,14,23,0.95);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:8px 12px;font-size:12px;color:#e0e0e0;pointer-events:none;white-space:nowrap}
-.wv-elev-popup .val{font-weight:600;font-size:14px;color:#4a9eff}
-.wv-elev-popup .coords{color:#666;font-size:10px}
+.wv-status-item .indicator.ok{background:var(--ok);box-shadow:0 0 calc(var(--glow-intensity) * 6px) var(--ok)}
+.wv-status-item .indicator.err{background:var(--err);box-shadow:0 0 calc(var(--glow-intensity) * 6px) var(--err)}
+.wv-status-item .indicator.loading{background:var(--warn);animation:pulse 1s infinite}
+.wv-status-item .indicator.off{background:var(--text-darker)}
+.wv-status-sep{width:1px;height:20px;background:var(--border)}
+.wv-coords{margin-left:auto;color:var(--text-muted2);font-size:11px}
+
+/* ── Elevation Popup ── */
+.wv-elev-popup{position:absolute;z-index:20;background:var(--bg);border:1px solid var(--border-hover);border-radius:4px;padding:8px 12px;font-size:12px;color:var(--text);pointer-events:none;white-space:nowrap;
+  box-shadow:0 0 calc(var(--glow-intensity) * 10px) var(--accent-glow)}
+.wv-elev-popup .val{font-weight:600;font-size:14px;color:var(--accent)}
+.wv-elev-popup .coords{color:var(--text-muted);font-size:10px}
+
+/* ── Context Menu ── */
+.wv-ctx-menu button{display:block;width:100%;padding:6px 12px;background:none;border:none;color:var(--text-dim);font-size:0.8rem;text-align:left;cursor:pointer;font-family:var(--font-ui);transition:all .1s}
+.wv-ctx-menu button:hover{background:var(--bg-hover);color:var(--text)}
+
+/* ── Animations ── */
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.wv-loading-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0e17;z-index:30}
-.wv-loading-overlay .spinner{width:32px;height:32px;border:3px solid rgba(74,158,255,0.2);border-top-color:#4a9eff;border-radius:50%;animation:spin .8s linear infinite}
+.wv-loading-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-solid);z-index:30}
+.wv-loading-overlay .spinner{width:32px;height:32px;border:3px solid var(--accent-glow);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+
+/* ── Blink cursor for classified themes ── */
+.wv-blink{animation:blink-cursor 1s step-end infinite}
+@keyframes blink-cursor{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── Glow text effect for HUD themes ── */
+.wv-glow{text-shadow:0 0 calc(var(--glow-intensity) * 8px) var(--accent-glow)}
+
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:768px){
   .wv-sidebar{width:280px}
@@ -315,13 +422,17 @@ export default function WorldViewPage() {
   const [state, setState] = useState<DashboardState>(() => {
     if (typeof window === "undefined") return DEFAULT_STATE;
     const parsed = parseHash(window.location.hash);
+    const savedTheme = typeof localStorage !== "undefined" ? localStorage.getItem("wv-theme") : null;
     return {
       ...DEFAULT_STATE,
       ...parsed,
       layers: { ...DEFAULT_LAYERS, ...parsed.layers },
+      theme: parsed.theme || savedTheme || DEFAULT_STATE.theme,
     };
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
+  const [clock, setClock] = useState("");
   const [loading, setLoading] = useState(true);
   const [cursorPos, setCursorPos] = useState<[number, number] | null>(null);
   const [elevPopup, setElevPopup] = useState<{ x: number; y: number; elev: number | null; lat: number; lon: number } | null>(null);
@@ -337,7 +448,7 @@ export default function WorldViewPage() {
     { key: "hurricaneTracks", label: "Storms", lastUpdate: null, count: 0, error: null },
   ]);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    basemaps: true, overlays: true, realtime: true, tools: true,
+    basemaps: true, overlays: true, realtime: true, tools: true, theme: false,
   });
   const hashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
@@ -351,6 +462,22 @@ export default function WorldViewPage() {
     }, 300);
     return () => clearTimeout(hashTimeout.current);
   }, [state]);
+
+  // Clock for HUD themes
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setClock(now.toISOString().replace("T", " ").slice(0, 19) + " UTC");
+    };
+    update();
+    const iv = setInterval(update, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Persist theme
+  useEffect(() => {
+    try { localStorage.setItem("wv-theme", state.theme); } catch { /* noop */ }
+  }, [state.theme]);
 
   // Update status helper
   const updateStatus = useCallback((key: string, update: Partial<DataStatus>) => {
@@ -601,6 +728,12 @@ export default function WorldViewPage() {
   // ─── Section toggle ───
   const toggleSection = useCallback((key: string) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  // ─── Theme switch ───
+  const switchTheme = useCallback((key: string) => {
+    setState((prev) => ({ ...prev, theme: key }));
+    setThemeDropdownOpen(false);
   }, []);
 
   // ─── Data loaders ───
@@ -1008,8 +1141,22 @@ export default function WorldViewPage() {
   }, [loading, state.layers.earthquakes, state.layers.events, loadEarthquakes, loadEvents]);
 
   // ─── Render ───
+  const currentTheme = THEMES[state.theme] || THEMES.default;
+  const isHud = state.theme === "classified" || state.theme === "crimson";
+  const themeStyle = useMemo(() => {
+    const obj: Record<string, string> = {};
+    for (const pair of currentTheme.css.split(";")) {
+      const idx = pair.indexOf(":");
+      if (idx === -1) continue;
+      const k = pair.slice(0, idx).trim();
+      const v = pair.slice(idx + 1).trim();
+      if (k && v) obj[k] = v;
+    }
+    return obj;
+  }, [currentTheme.css]);
+
   return (
-    <div className="wv-wrap">
+    <div className="wv-wrap" style={themeStyle as React.CSSProperties}>
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
 
       {loading && (
@@ -1018,14 +1165,69 @@ export default function WorldViewPage() {
         </div>
       )}
 
+      {/* Scan lines */}
+      <div className="wv-scanlines" />
+
+      {/* Grid overlay */}
+      <div className="wv-grid-overlay" />
+
+      {/* HUD corners */}
+      <div className="wv-hud-corners"><div className="wv-hud-inner" /></div>
+
+      {/* Classification banner */}
+      {isHud && (
+        <div className="wv-classification">
+          {state.theme === "classified" ? "TOP SECRET // SCI" : "RESTRICTED // OPERATIONAL"}
+          <span className="wv-blink" style={{ marginLeft: 12, fontSize: 9, opacity: 0.5 }}>●</span>
+        </div>
+      )}
+
+      {/* Ticker bar */}
+      {isHud && (
+        <div className="wv-ticker">
+          <div className="wv-ticker-inner">
+            SIGINT FEED ACTIVE ◆ GEOSPATIAL INTEL COLLECTION IN PROGRESS ◆ ALL SOURCES NOMINAL ◆
+            {dataStatus.filter(d => d.lastUpdate).map(d => `${d.label.toUpperCase()}: ${d.count} OBJECTS`).join(" ◆ ")} ◆
+            LAT {cursorPos ? cursorPos[1].toFixed(4) : "----"} LON {cursorPos ? cursorPos[0].toFixed(4) : "----"} ◆
+            ZOOM {state.zoom.toFixed(1)} ◆ {clock}
+          </div>
+        </div>
+      )}
+
       {/* Nav bar */}
       <div className="wv-nav">
-        <a href="/" className="wv-nav-brand">OpenZenith</a>
+        <a href="/" className="wv-nav-brand">
+          {isHud ? "▲ " : ""}OpenZenith{isHud ? " // WV" : ""}
+        </a>
+        {isHud && <span className="wv-nav-time">{clock}</span>}
         <div className="wv-nav-links">
           <a href="/">Home</a>
           <a href="/map">Map</a>
           <a href="/explore">Explore</a>
           <a href="/api/docs">Docs</a>
+
+          {/* Theme switcher */}
+          <div className="wv-theme-switcher">
+            <button className="wv-theme-btn" onClick={() => setThemeDropdownOpen(!themeDropdownOpen)} title="Change theme">
+              {currentTheme.icon}
+            </button>
+            {themeDropdownOpen && (
+              <div className="wv-theme-dropdown">
+                {Object.entries(THEMES).map(([k, v]) => (
+                  <button
+                    key={k}
+                    className={`wv-theme-option ${state.theme === k ? "active" : ""}`}
+                    onClick={() => switchTheme(k)}
+                  >
+                    <span className="swatch" style={{
+                      background: k === "default" ? "#4a9eff" : k === "classified" ? "#00ff41" : k === "amber" ? "#ffb000" : k === "arctic" ? "#00ccff" : "#ff2222",
+                    }} />
+                    {v.icon} {v.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1034,8 +1236,8 @@ export default function WorldViewPage() {
       {/* Sidebar */}
       <div className={`wv-sidebar ${sidebarOpen ? "" : "collapsed"}`}>
         <div className="wv-sidebar-header">
-          <h2>WORLDVIEW</h2>
-          <p>Real-Time Geospatial Intelligence</p>
+          <h2 className={isHud ? "wv-glow" : ""}>{isHud ? "◆ " : ""}WORLDVIEW</h2>
+          <p>{isHud ? "GEOINT ANALYSIS TERMINAL" : "Real-Time Geospatial Intelligence"}</p>
         </div>
 
         {/* Basemaps */}
@@ -1123,14 +1325,35 @@ export default function WorldViewPage() {
           </div>
           <div className={`wv-section-body ${openSections.tools ? "open" : ""}`}>
             <div className="wv-row">
-              <label style={{ color: "#888", fontSize: "11px" }}>
+              <label style={{ color: "var(--text-muted)", fontSize: "11px" }}>
                 Click map for elevation query
               </label>
             </div>
             <div className="wv-row">
-              <label style={{ color: "#888", fontSize: "11px" }}>
+              <label style={{ color: "var(--text-muted)", fontSize: "11px" }}>
                 Data sources: USGS, RainViewer, NASA, OpenSky, NOAA, Celestrak
               </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Theme */}
+        <div className="wv-section">
+          <div className={`wv-section-header ${openSections.theme ? "open" : ""}`} onClick={() => toggleSection("theme")}>
+            <span>Theme</span>
+            <span className="arrow">&#9654;</span>
+          </div>
+          <div className={`wv-section-body ${openSections.theme ? "open" : ""}`}>
+            <div className="wv-bm-grid">
+              {Object.entries(THEMES).map(([k, v]) => (
+                <button
+                  key={k}
+                  className={`wv-bm-btn ${state.theme === k ? "active" : ""}`}
+                  onClick={() => switchTheme(k)}
+                >
+                  {v.icon} {v.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -1141,22 +1364,25 @@ export default function WorldViewPage() {
         {sidebarOpen ? "\u2715" : "\u2630"}
       </button>
 
+      {/* Close theme dropdown on outside click */}
+      {themeDropdownOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />
+      )}
+
       {/* Context menu */}
       {ctxMenu && (
         <div
           className="wv-ctx-menu"
           style={{
             position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 200,
-            background: "rgba(20,20,30,0.95)", border: "1px solid #333", borderRadius: 8,
+            background: "var(--bg-solid)", border: "1px solid var(--border-hover)", borderRadius: 6,
             padding: "4px 0", minWidth: 190, boxShadow: "0 4px 12px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)",
           }}
         >
-          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>
             Copy coordinates
           </button>
-          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>
             Copy compact
           </button>
           <button onClick={() => {
@@ -1170,20 +1396,17 @@ export default function WorldViewPage() {
             };
             navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`);
             setCtxMenu(null);
-          }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+          }}>
             Copy DMS
           </button>
-          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`); setCtxMenu(null); }}>
             Copy lng,lat
           </button>
-          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#ddd", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>
             Copy lat,lng
           </button>
           <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#4a9eff", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            style={{ color: "var(--accent)" }}>
             Open in OSM
           </button>
           <button onClick={async () => {
@@ -1194,7 +1417,7 @@ export default function WorldViewPage() {
             } catch { /* ignore */ }
             setCtxMenu(null);
           }}
-            style={{ display: "block", width: "100%", padding: "6px 12px", background: "none", border: "none", color: "#22c55e", fontSize: "0.8rem", textAlign: "left", cursor: "pointer" }}>
+            style={{ color: "var(--ok)" }}>
             Copy elevation
           </button>
         </div>

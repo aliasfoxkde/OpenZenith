@@ -25,7 +25,7 @@ export default function RootLayout({
       <head>
         <Script
           src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"
-          strategy="lazyOnload"
+          strategy="afterInteractive"
         />
         <link
           rel="stylesheet"

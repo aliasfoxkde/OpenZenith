@@ -98,17 +98,28 @@ export default function Home() {
         fontFamily: "inherit",
       }}
     >
-      {/* Nav bar */}
+      {/* Nav bar - sticky */}
       <nav
         style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "1.2rem 1.5rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+          background: bg,
+          borderBottom: `1px solid ${border}`,
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
       >
+        <div
+          style={{
+            maxWidth: 960,
+            margin: "0 auto",
+            padding: "0.8rem 1.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
         <a
           href="/"
           style={{
@@ -155,18 +166,49 @@ export default function Home() {
             GitHub
           </a>
         </div>
+        </div>
       </nav>
 
-      {/* Hero */}
+      {/* Hero banner */}
       <section
         style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "4rem 1.5rem 3rem",
-          textAlign: "center",
+          background: dark
+            ? "linear-gradient(180deg, #0a1a0a 0%, #0a0a0a 100%)"
+            : "linear-gradient(180deg, #f0fdf4 0%, #fafafa 100%)",
+          padding: "0",
         }}
       >
+        {/* Decorative mountain silhouette */}
         <div
+          style={{
+            height: 120,
+            overflow: "hidden",
+            position: "relative",
+            opacity: dark ? 0.3 : 0.15,
+          }}
+        >
+          <svg
+            viewBox="0 0 960 120"
+            preserveAspectRatio="none"
+            style={{ display: "block", width: "100%", height: "100%" }}
+          >
+            <path
+              d="M0 120 L0 80 L60 60 L120 75 L180 45 L240 70 L300 30 L360 55 L420 20 L480 50 L540 35 L600 60 L660 25 L720 55 L780 40 L840 65 L900 50 L960 70 L960 120 Z"
+              fill={dark ? "#22c55e" : "#166534"}
+            />
+          </svg>
+        </div>
+
+        {/* Hero content */}
+        <div
+          style={{
+            maxWidth: 960,
+            margin: "0 auto",
+            padding: "2rem 1.5rem 3rem",
+            textAlign: "center",
+          }}
+        >
+          <div
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -302,6 +344,7 @@ export default function Home() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </section>
 
@@ -466,6 +509,27 @@ export default function Home() {
             }
             title="No Authentication"
             description="Completely free and open. No API keys, no rate limits, no sign-up required. Just query and go."
+            href="https://github.com/aliasfoxkde/OpenZenith"
+            cardBg={cardBg}
+            border={border}
+            text={text}
+            textSecondary={textSecondary}
+            accent={accent}
+            accentDim={accentDim}
+          />
+          <FeatureCard
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                <line x1="6" y1="6" x2="6.01" y2="6" />
+                <line x1="6" y1="18" x2="6.01" y2="18" />
+                <path d="M14 6l1-4 1 4" />
+                <path d="M14 18l1-4 1 4" />
+              </svg>
+            }
+            title="Self-Hostable"
+            description="Deploy anywhere that supports Next.js. Data stored on HuggingFace or your own HTTP backend. No infrastructure lock-in."
             href="https://github.com/aliasfoxkde/OpenZenith"
             cardBg={cardBg}
             border={border}

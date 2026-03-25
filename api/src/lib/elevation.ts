@@ -97,8 +97,47 @@ export async function getElevation(
   const pixels = chunkWidth * chunkHeight;
   const data = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
 
-  // Extract elevation
-  const elevation = data[localRow * chunkWidth + localCol];
+  // Extract elevation with bilinear interpolation
+  const getPixel = (r: number, c: number): number => {
+    if (r < 0 || r >= chunkHeight || c < 0 || c >= chunkWidth) return NODATA;
+    return data[r * chunkWidth + c];
+  };
+
+  // Nearest-neighbor: just use the exact pixel
+  const nearest = getPixel(localRow, localCol);
+
+  // Bilinear interpolation using 4 surrounding pixels
+  // Compute fractional pixel position for interpolation
+  const exactRow = (bounds.latMax - lat) * 3600;
+  const exactCol = (lon - bounds.lonMin) * 3600;
+  const chunkStartRow = chunkRow * 256;
+  const chunkStartCol = chunkCol * 256;
+  const fracRow = exactRow - chunkStartRow;
+  const fracCol = exactCol - chunkStartCol;
+
+  const r0 = Math.floor(fracRow);
+  const c0 = Math.floor(fracCol);
+  const r1 = r0 + 1;
+  const c1 = c0 + 1;
+  const fy = fracRow - r0;
+  const fx = fracCol - c0;
+
+  const v00 = getPixel(r0, c0);
+  const v10 = getPixel(r1, c0);
+  const v01 = getPixel(r0, c1);
+  const v11 = getPixel(r1, c1);
+
+  // If any corner is nodata, fall back to nearest-neighbor
+  const hasNodata = v00 === NODATA || v10 === NODATA || v01 === NODATA || v11 === NODATA;
+
+  const elevation = hasNodata
+    ? (nearest === NODATA ? null : nearest)
+    : Math.round(
+        v00 * (1 - fx) * (1 - fy) +
+        v01 * fx * (1 - fy) +
+        v10 * (1 - fx) * fy +
+        v11 * fx * fy,
+      );
 
   return {
     elevation: elevation === NODATA ? null : elevation,

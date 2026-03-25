@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Logo } from "./Logo";
 
 interface NavbarProps {
@@ -51,7 +52,7 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
             justifyContent: "space-between",
           }}
         >
-          <a
+          <Link
             href="/"
             style={{
               display: "flex",
@@ -68,17 +69,17 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
                 / {breadcrumb}
               </span>
             )}
-          </a>
+          </Link>
           {/* Desktop nav */}
           <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }} className="desktop-nav">
             {NAV_LINKS.map((l) => (
-              <a
+              <Link
                 key={l.label}
                 href={l.href}
                 style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}
               >
                 {l.label}
-              </a>
+              </Link>
             ))}
             <a
               href="https://github.com/aliasfoxkde/OpenZenith"
@@ -138,14 +139,14 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
             }}
           >
             {NAV_LINKS.map((l) => (
-              <a
+              <Link
                 key={l.label}
                 href={l.href}
                 onClick={() => setMobileMenu(false)}
                 style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem", padding: "0.3rem 0" }}
               >
                 {l.label}
-              </a>
+              </Link>
             ))}
             <a
               href="https://github.com/aliasfoxkde/OpenZenith"

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 // Convert raw Int16 elevation to terrarium-encoded RGBA for MapLibre
@@ -202,19 +203,19 @@ export default function Demo() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <a href="/" style={{ color: "#e5e5e5", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <Link href="/" style={{ color: "#e5e5e5", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
               <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
               <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
               <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
             </svg>
             OpenZenith
-          </a>
+          </Link>
           <span style={{ color: "#333" }}>/</span>
           <span style={{ color: "#888", fontSize: "0.9rem" }}>Elevation Map</span>
         </div>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <a href="/" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>Home</a>
+          <Link href="/" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>Home</Link>
           <a href="/api/docs" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>Docs</a>
           <a
             href="https://github.com/aliasfoxkde/OpenZenith"

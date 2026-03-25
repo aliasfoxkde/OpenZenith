@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, type ReactElement } from "react";
+import { useState, type ReactNode } from "react";
 
 interface CodeBlockProps {
   children: ReactNode;

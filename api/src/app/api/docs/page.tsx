@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 /* ─── Types ─── */
 
@@ -490,14 +491,14 @@ export default function DocsPage() {
         maxWidth: 960, margin: "0 auto", padding: "1.5rem",
         display: "flex", alignItems: "center", gap: "0.75rem",
       }}>
-        <a href="/" style={{ color: text, textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+        <Link href="/" style={{ color: text, textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
           <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
             <path d="M16 2L28 28H4L16 2Z" fill={accent} opacity="0.9" />
             <path d="M16 2L22 15H10L16 2Z" fill={accent} opacity="0.5" />
             <path d="M4 28L16 18L28 28H4Z" fill={accent} opacity="0.3" />
           </svg>
           OpenZenith
-        </a>
+        </Link>
         <span style={{ color: "#333" }}>/</span>
         <span style={{ color: textDim, fontSize: "0.9rem" }}>API Docs</span>
       </div>

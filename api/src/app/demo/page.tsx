@@ -112,19 +112,24 @@ export default function Demo() {
       <div
         style={{
           padding: "0.5rem 1rem",
-          background: "#111",
-          color: "#fff",
+          background: "#0a0a0a",
+          color: "#e5e5e5",
           display: "flex",
           alignItems: "center",
-          gap: "1rem",
+          gap: "0.6rem",
           zIndex: 10,
         }}
       >
-        <a href="/" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+        <a href="/" style={{ color: "#e5e5e5", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
+            <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
+            <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
+          </svg>
           OpenZenith
         </a>
-        <span style={{ color: "#666" }}>|</span>
-        <span>Elevation Map</span>
+        <span style={{ color: "#333" }}>/</span>
+        <span style={{ color: "#888", fontSize: "0.9rem" }}>Elevation Map</span>
         {elevation && (
           <span
             style={{

@@ -6,7 +6,7 @@ const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "OpenZenith API",
-    version: "0.4.0",
+    version: "0.5.0",
     description:
       "Free, fast, global elevation and geospatial API. Query any point on Earth for elevation data from NASA SRTM 30m, track flights, monitor weather, explore OpenStreetMap, and more. No API key required.",
     contact: {
@@ -540,6 +540,238 @@ const openApiSpec = {
         tags: ["Network"],
       },
     },
+    "/api/geocode": {
+      get: {
+        summary: "Forward geocode (address to coordinates)",
+        description:
+          "Proxies Nominatim API for forward geocoding. Converts an address or place name to latitude/longitude coordinates. Returns up to 10 results with full address details. Cached for 1 hour.",
+        parameters: [
+          {
+            name: "query",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "Address or place name to geocode",
+            example: "1600 Pennsylvania Ave, Washington DC",
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 10 },
+            description: "Maximum results (default: 5)",
+            example: 5,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Geocoding results",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    results: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          display_name: { type: "string", example: "White House, 1600, Pennsylvania Avenue Northwest, Washington, DC, 20500, United States" },
+                          lat: { type: "number", example: 38.8977 },
+                          lon: { type: "number", example: -77.0365 },
+                          type: { type: "string", example: "way" },
+                          importance: { type: "number" },
+                          address: { type: "object" },
+                        },
+                      },
+                    },
+                    count: { type: "integer", example: 5 },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Missing query parameter" },
+          "502": { description: "Nominatim unavailable" },
+        },
+        tags: ["Geocoding"],
+      },
+    },
+    "/api/reverse-geocode": {
+      get: {
+        summary: "Reverse geocode (coordinates to address)",
+        description:
+          "Proxies Nominatim API for reverse geocoding. Converts latitude/longitude coordinates to a human-readable address. Includes full address hierarchy. Cached for 1 hour.",
+        parameters: [
+          {
+            name: "lat",
+            in: "query",
+            required: true,
+            schema: { type: "number", minimum: -90, maximum: 90 },
+            description: "Latitude",
+            example: 38.8977,
+          },
+          {
+            name: "lon",
+            in: "query",
+            required: true,
+            schema: { type: "number", minimum: -180, maximum: 180 },
+            description: "Longitude",
+            example: -77.0365,
+          },
+          {
+            name: "zoom",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 0, maximum: 18 },
+            description: "Detail level (0=country, 18=building). Default: 18",
+            example: 18,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Reverse geocoding result",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    place: {
+                      type: ["object", "null"],
+                      properties: {
+                        display_name: { type: "string", example: "White House, 1600, Pennsylvania Avenue Northwest, Washington, DC, 20500, United States" },
+                        name: { type: "string", example: "White House" },
+                        type: { type: "string", example: "way" },
+                        address: { type: "object" },
+                        osm_id: { type: "integer" },
+                        osm_type: { type: "string" },
+                      },
+                    },
+                    location: {
+                      type: "object",
+                      properties: {
+                        lat: { type: "number", example: 38.8977 },
+                        lon: { type: "number", example: -77.0365 },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Missing or invalid coordinates" },
+          "502": { description: "Nominatim unavailable" },
+        },
+        tags: ["Geocoding"],
+      },
+    },
+    "/api/bathymetry": {
+      get: {
+        summary: "Get ocean depth or land elevation",
+        description:
+          "Returns elevation data for any point on Earth. For land points, returns the SRTM elevation. For ocean points, returns depth information. Full GEBCO 2024 bathymetry integration pending.",
+        parameters: [
+          {
+            name: "lat",
+            in: "query",
+            required: true,
+            schema: { type: "number", minimum: -90, maximum: 90 },
+            description: "Latitude",
+            example: 28.0,
+          },
+          {
+            name: "lon",
+            in: "query",
+            required: true,
+            schema: { type: "number", minimum: -180, maximum: 180 },
+            description: "Longitude",
+            example: -30.0,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Bathymetry/elevation data",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    depth: { type: ["number", "null"], description: "Ocean depth in meters (negative), null for land" },
+                    elevation: { type: ["number", "null"], description: "Land elevation in meters, null for ocean" },
+                    unit: { type: "string", example: "meters" },
+                    surface_type: { type: "string", enum: ["land", "ocean"] },
+                    source: { type: ["string", "null"], description: "Data source" },
+                    location: {
+                      type: "object",
+                      properties: {
+                        lat: { type: "number" },
+                        lon: { type: "number" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Missing or invalid coordinates" },
+        },
+        tags: ["Hydrography"],
+      },
+    },
+    "/api/waterways": {
+      get: {
+        summary: "Get water features in a bounding box",
+        description:
+          "Returns rivers, lakes, and other water features within a bounding box from OpenStreetMap via the Overpass API. Results are returned as a GeoJSON FeatureCollection. Cached for 7 days.",
+        parameters: [
+          {
+            name: "bbox",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "Bounding box as minLon,minLat,maxLon,maxLat",
+            example: "-74.1,40.6,-73.9,40.8",
+          },
+          {
+            name: "type",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["rivers", "lakes", "all"] },
+            description: "Feature type to return (default: all)",
+            example: "rivers",
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 500 },
+            description: "Maximum features (default: 100)",
+            example: 100,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "GeoJSON FeatureCollection of water features",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  description: "GeoJSON FeatureCollection",
+                  properties: {
+                    type: { type: "string", example: "FeatureCollection" },
+                    features: { type: "array", items: { type: "object" } },
+                    count: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Missing or invalid bbox" },
+          "502": { description: "Overpass API unavailable" },
+        },
+        tags: ["Hydrography"],
+      },
+    },
   },
   tags: [
     { name: "Elevation", description: "Point elevation queries" },
@@ -549,6 +781,8 @@ const openApiSpec = {
     { name: "Data", description: "Real-time geospatial data (flights, weather, OSM)" },
     { name: "Discovery", description: "Service discovery and metadata" },
     { name: "Network", description: "Network infrastructure and BGP data" },
+    { name: "Geocoding", description: "Forward and reverse geocoding" },
+    { name: "Hydrography", description: "Bathymetry and waterway data" },
   ],
 };
 

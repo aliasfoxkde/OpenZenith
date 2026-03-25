@@ -115,7 +115,40 @@ function parseHash(h: string): Partial<DashboardState> {
   try {
     const p = new URLSearchParams(h.replace(/^#/, ""));
     if (!p.toString()) return {};
-    // Support both old format (c=lng,lat) and new format (lng=...&lat=...)
+    // x/y/z = tile coordinates → compute center from tile
+    const tx = p.get("x");
+    const ty = p.get("y");
+    const tz = p.get("z");
+    if (tx && ty && tz) {
+      const x = Number(tx), y = Number(ty), z = Number(tz);
+      if (!isNaN(x) && !isNaN(y) && !isNaN(z) && z >= 0 && z <= 22) {
+        const n = Math.pow(2, z);
+        const lng = (x / n) * 360 - 180;
+        const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+        const lat = latRad * 180 / Math.PI;
+        const layers = p.get("l");
+        const activeLayers = layers ? layers.split(",") : [];
+        return {
+          center: [lng, lat],
+          zoom: z,
+          basemap: p.get("bm") || undefined,
+          layers: {
+            earthquakes: DEFAULT_LAYERS.earthquakes,
+            radar: DEFAULT_LAYERS.radar,
+            satellite: DEFAULT_LAYERS.satellite,
+            flights: DEFAULT_LAYERS.flights,
+            warnings: DEFAULT_LAYERS.warnings,
+            events: DEFAULT_LAYERS.events,
+            satellites: DEFAULT_LAYERS.satellites,
+            hillshade: DEFAULT_LAYERS.hillshade,
+            terrain3d: DEFAULT_LAYERS.terrain3d,
+            hurricaneTracks: DEFAULT_LAYERS.hurricaneTracks,
+            ...Object.fromEntries(activeLayers.map((l) => [l, true])),
+          },
+        };
+      }
+    }
+    // lng/lat/zoom = center coordinates
     const c = p.get("c");
     const lng = p.get("lng");
     const lat = p.get("lat");
@@ -128,8 +161,7 @@ function parseHash(h: string): Partial<DashboardState> {
       const lt = Number(lat);
       if (!isNaN(ln) && !isNaN(lt)) center = [ln, lt];
     }
-    // Support both "z" and "zoom" param names
-    const zoomVal = p.get("zoom") ?? p.get("z");
+    const zoomVal = p.get("zoom");
     const layers = p.get("l");
     const activeLayers = layers ? layers.split(",") : [];
     return {

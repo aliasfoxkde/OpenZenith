@@ -99,7 +99,27 @@ function parseHash(hash: string): Partial<MapViewState> {
     const h = hash.replace(/^#/, "");
     if (!h) return {};
     const params = new URLSearchParams(h);
-    // Support both old format (c=lng,lat) and new format (lng=...&lat=...)
+    // x/y/z = tile coordinates → compute center from tile
+    const tx = params.get("x");
+    const ty = params.get("y");
+    const tz = params.get("z");
+    if (tx && ty && tz) {
+      const x = Number(tx), y = Number(ty), z = Number(tz);
+      if (!isNaN(x) && !isNaN(y) && !isNaN(z) && z >= 0 && z <= 22) {
+        const n = Math.pow(2, z);
+        const lng = (x / n) * 360 - 180;
+        const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+        const lat = latRad * 180 / Math.PI;
+        return {
+          center: [lng, lat],
+          zoom: z,
+          bearing: params.has("b") ? Number(params.get("b")) : undefined,
+          pitch: params.has("p") ? Number(params.get("p")) : undefined,
+          basemap: params.get("bm") || undefined,
+        };
+      }
+    }
+    // lng/lat/zoom = center coordinates
     const c = params.get("c");
     const lng = params.get("lng");
     const lat = params.get("lat");
@@ -112,8 +132,7 @@ function parseHash(hash: string): Partial<MapViewState> {
       const lt = Number(lat);
       if (!isNaN(ln) && !isNaN(lt)) center = [ln, lt];
     }
-    // Support both "z" and "zoom" param names
-    const zoomVal = params.get("zoom") ?? params.get("z");
+    const zoomVal = params.get("zoom");
     return {
       center,
       zoom: zoomVal ? Number(zoomVal) : undefined,

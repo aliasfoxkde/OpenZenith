@@ -2,6 +2,29 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
+
+/* ─── Registry lookup ─── */
+const LAYER_MAP = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
+
+/* ─── Sidebar section mapping ─── */
+const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof LayerState)[] }[] = [
+  {
+    title: "Overlays",
+    key: "overlays",
+    layerIds: ["hillshade", "elevationColor", "satellite", "blueMarble", "nightLights"],
+  },
+  {
+    title: "Real-Time Data",
+    key: "realtime",
+    layerIds: ["earthquakes", "radar", "flights", "militaryFlights", "vessels", "warnings", "events", "satellites", "hurricaneTracks"],
+  },
+  {
+    title: "Infrastructure",
+    key: "infrastructure",
+    layerIds: ["nlnogNodes", "flightArcs"],
+  },
+];
 
 /* ═══════════════════════════════════════════════════════════════
    Types
@@ -281,7 +304,8 @@ const STYLES = `
 
 .wv-grid-overlay{display:var(--grid-display);position:absolute;inset:0;z-index:14;pointer-events:none;
   background-image:linear-gradient(rgba(0,255,65,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.03) 1px,transparent 1px);
-  background-size:60px 60px}
+  background-size:60px 60px;animation:gridPulse 4s ease-in-out infinite}
+@keyframes gridPulse{0%,100%{opacity:1}50%{opacity:0.4}}
 
 .wv-hud-corners{display:block;position:absolute;inset:0;z-index:14;pointer-events:none}
 .wv-hud-inner{position:absolute;inset:8px;border:1px solid var(--border);border-radius:var(--corner-size);opacity:0.4}
@@ -300,6 +324,8 @@ const STYLES = `
 .wv-glow{text-shadow:0 0 8px var(--accent-glow),0 0 16px var(--accent-glow)}
 .wv-blink{animation:blink 1.5s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.wv-pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 
 .wv-loading-overlay{position:absolute;inset:0;z-index:50;background:var(--bg-solid);display:flex;align-items:center;justify-content:center}
 .spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
@@ -307,7 +333,8 @@ const STYLES = `
 
 /* ── Nav ── */
 .wv-nav{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;justify-content:space-between;
-  padding:0 12px;height:42px;background:var(--bg-nav);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);font-size:13px}
+  padding:0 12px;height:42px;background:var(--bg-nav);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);font-size:13px;
+  box-shadow:0 calc(var(--glow-intensity) * 4px) calc(var(--glow-intensity) * 16px) var(--accent-glow)}
 .wv-nav-brand{display:flex;align-items:center;gap:6px;color:var(--text);text-decoration:none;font-weight:700;font-size:14px;letter-spacing:-0.02em}
 .wv-nav-time{color:var(--text-muted);font-family:var(--font-mono);font-size:11px;margin-left:8px}
 .wv-nav-links{display:flex;align-items:center;gap:14px}
@@ -332,7 +359,8 @@ const STYLES = `
 
 /* ── Sidebar ── */
 .wv-sidebar{position:absolute;top:42px;left:0;bottom:0;width:260px;z-index:25;background:var(--bg-nav);border-right:1px solid var(--border);
-  backdrop-filter:blur(12px);overflow-y:auto;overflow-x:hidden;transition:transform .2s ease}
+  backdrop-filter:blur(12px);overflow-y:auto;overflow-x:hidden;transition:transform .2s ease;
+  box-shadow:calc(var(--glow-intensity) * 4px) 0 calc(var(--glow-intensity) * 16px) var(--accent-glow)}
 .wv-sidebar.collapsed{transform:translateX(-260px)}
 .wv-sidebar::-webkit-scrollbar{width:4px}
 .wv-sidebar::-webkit-scrollbar-track{background:transparent}
@@ -378,10 +406,11 @@ const STYLES = `
 
 /* ── Status bar ── */
 .wv-status{position:absolute;bottom:0;left:0;right:0;z-index:25;display:flex;align-items:center;gap:12px;
-  padding:4px 12px;background:var(--bg-nav);border-top:1px solid var(--border);font-size:10px;backdrop-filter:blur(8px)}
+  padding:4px 12px;background:var(--bg-nav);border-top:1px solid var(--border);font-size:10px;backdrop-filter:blur(8px);
+  box-shadow:0 calc(var(--glow-intensity) * -4px) calc(var(--glow-intensity) * 12px) var(--accent-glow)}
 .wv-status-item{display:flex;align-items:center;gap:4px}
 .indicator{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.indicator.ok{background:var(--ok)}
+.indicator.ok{background:var(--ok);box-shadow:0 0 calc(var(--glow-intensity) * 6px) var(--ok)}
 .indicator.err{background:var(--err)}
 .indicator.loading{background:var(--warn);animation:blink 1s step-end infinite}
 .indicator.off{background:var(--text-darker)}
@@ -1243,7 +1272,7 @@ export default function WorldView() {
       {/* Sidebar */}
       <div className={`wv-sidebar ${sidebarOpen ? "" : "collapsed"}`}>
         <div className="wv-sidebar-header">
-          <h2 className={isHud ? "wv-glow" : ""}>{isHud ? "◆ " : ""}WORLDVIEW</h2>
+          <h2 className={isHud ? "wv-glow" : ""}>{isHud ? "◆ " : ""}GLOBE</h2>
           <p>{isHud ? "GEOINT ANALYSIS TERMINAL" : "Real-Time Geospatial Intelligence"}</p>
         </div>
 
@@ -1261,96 +1290,29 @@ export default function WorldView() {
           </div>
         </div>
 
-        {/* Overlays */}
-        <div className="wv-section">
-          <div className={`wv-section-header ${openSections.overlays ? "open" : ""}`} onClick={() => toggleSection("overlays")}>
-            <span>Overlays</span><span className="arrow">&#9654;</span>
-          </div>
-          <div className={`wv-section-body ${openSections.overlays ? "open" : ""}`}>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#4a9eff" }} />Hillshade</label>
-              <input type="checkbox" checked={state.layers.hillshade} onChange={() => toggleLayer("hillshade")} />
+        {/* Dynamic layer sections from registry */}
+        {SIDEBAR_SECTIONS.map((section) => (
+          <div className="wv-section" key={section.key}>
+            <div className={`wv-section-header ${openSections[section.key as keyof typeof openSections] ? "open" : ""}`} onClick={() => toggleSection(section.key as any)}>
+              <span>{section.title}</span><span className="arrow">&#9654;</span>
             </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#8b5cf6" }} />Elevation Color</label>
-              <input type="checkbox" checked={state.layers.elevationColor} onChange={() => toggleLayer("elevationColor")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#22d3ee" }} />NASA Satellite</label>
-              <input type="checkbox" checked={state.layers.satellite} onChange={() => toggleLayer("satellite")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#3b82f6" }} />Blue Marble</label>
-              <input type="checkbox" checked={state.layers.blueMarble} onChange={() => toggleLayer("blueMarble")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#fbbf24" }} />Night Lights</label>
-              <input type="checkbox" checked={state.layers.nightLights} onChange={() => toggleLayer("nightLights")} />
+            <div className={`wv-section-body ${openSections[section.key as keyof typeof openSections] ? "open" : ""}`}>
+              {section.layerIds.map((layerId) => {
+                const layer = LAYER_MAP[layerId];
+                const checked = (state.layers as unknown as Record<string, boolean>)[layerId] ?? false;
+                return (
+                  <div className="wv-row" key={layerId}>
+                    <label>
+                      <span className="dot" style={{ background: layer?.accent || "var(--accent)" }} />
+                      {layer?.name || layerId}
+                    </label>
+                    <input type="checkbox" checked={checked} onChange={() => toggleLayer(layerId as any)} />
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-
-        {/* Real-Time Data */}
-        <div className="wv-section">
-          <div className={`wv-section-header ${openSections.realtime ? "open" : ""}`} onClick={() => toggleSection("realtime")}>
-            <span>Real-Time Data</span><span className="arrow">&#9654;</span>
-          </div>
-          <div className={`wv-section-body ${openSections.realtime ? "open" : ""}`}>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#ff4444" }} />Earthquakes</label>
-              <input type="checkbox" checked={state.layers.earthquakes} onChange={() => toggleLayer("earthquakes")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#3b82f6" }} />Weather Radar</label>
-              <input type="checkbox" checked={state.layers.radar} onChange={() => toggleLayer("radar")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#22c55e" }} />Flights (ADS-B)</label>
-              <input type="checkbox" checked={state.layers.flights} onChange={() => toggleLayer("flights")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#ec4899" }} />Military (ADS-B-X)</label>
-              <input type="checkbox" checked={state.layers.militaryFlights} onChange={() => toggleLayer("militaryFlights")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#3b82f6" }} />Vessels (AIS)</label>
-              <input type="checkbox" checked={state.layers.vessels} onChange={() => toggleLayer("vessels")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#f97316" }} />Weather Warnings</label>
-              <input type="checkbox" checked={state.layers.warnings} onChange={() => toggleLayer("warnings")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#a855f7" }} />Natural Events</label>
-              <input type="checkbox" checked={state.layers.events} onChange={() => toggleLayer("events")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#00ffff" }} />Satellites</label>
-              <input type="checkbox" checked={state.layers.satellites} onChange={() => toggleLayer("satellites")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#ff00ff" }} />Hurricane Tracks</label>
-              <input type="checkbox" checked={state.layers.hurricaneTracks} onChange={() => toggleLayer("hurricaneTracks")} />
-            </div>
-          </div>
-        </div>
-
-        {/* Infrastructure */}
-        <div className="wv-section">
-          <div className={`wv-section-header ${openSections.infrastructure ? "open" : ""}`} onClick={() => toggleSection("infrastructure")}>
-            <span>Infrastructure</span><span className="arrow">&#9654;</span>
-          </div>
-          <div className={`wv-section-body ${openSections.infrastructure ? "open" : ""}`}>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#f97316" }} />NLNOG Ring Nodes</label>
-              <input type="checkbox" checked={state.layers.nlnogNodes} onChange={() => toggleLayer("nlnogNodes")} />
-            </div>
-            <div className="wv-row">
-              <label><span className="dot" style={{ background: "#38bdf8" }} />Flight Arcs</label>
-              <input type="checkbox" checked={state.layers.flightArcs} onChange={() => toggleLayer("flightArcs")} />
-            </div>
-          </div>
-        </div>
+        ))}
 
         {/* Tools */}
         <div className="wv-section">

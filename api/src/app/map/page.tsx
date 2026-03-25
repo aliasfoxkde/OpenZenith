@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Navbar } from "@/components/Navbar";
+import { Toolbar } from "@/components/Toolbar";
+import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
+import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 
 /* ─── Types ─── */
 
@@ -180,6 +183,7 @@ export default function MapPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [fetchingElevation, setFetchingElevation] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
+  const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
   const mlglRef = useRef<any>(null);
   const pinsRef = useRef<any[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -265,6 +269,11 @@ export default function MapPage() {
             pitch: map.getPitch(),
           }));
         });
+
+        map.on("mousemove", (e: any) => {
+          setCursorPos({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+        });
+        map.on("mouseout", () => setCursorPos(null));
 
         map.addControl(new mlgl.NavigationControl(), "top-right");
         map.addControl(new mlgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
@@ -381,10 +390,40 @@ export default function MapPage() {
     setActivePin(null);
   }, []);
 
+  // Search via geocode API
+  const handleSearch = useCallback(async (query: string) => {
+    try {
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=1`);
+      const data = await res.json();
+      if (data.results?.length > 0) {
+        const r = data.results[0];
+        const map = mapRef.current;
+        if (map) map.flyTo({ center: [Number(r.lon), Number(r.lat)], zoom: 12, duration: 1500 });
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Jump to coordinates
+  const handleJumpTo = useCallback((lat: number, lon: number) => {
+    const map = mapRef.current;
+    if (map) map.flyTo({ center: [lon, lat], zoom: 10, duration: 1500 });
+  }, []);
+
+  // Screenshot
+  const handleScreenshot = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const canvas = map.getCanvas();
+    const link = document.createElement("a");
+    link.download = `openzenith-map-${Date.now()}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, []);
+
   const dark = mapState.basemap === "dark" || mapState.basemap === "satellite";
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#0a0a0a" }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg }}>
       {/* Top bar */}
       <Navbar
         dark
@@ -395,40 +434,44 @@ export default function MapPage() {
             {activePin && (
               <div
                 style={{
-                  background: "rgba(0,0,0,0.6)",
-                  border: "1px solid #333",
-                  borderRadius: 6,
-                  padding: "0.25rem 0.75rem",
-                  fontFamily: "monospace",
-                  fontSize: "0.85rem",
-                  color: "#e5e5e5",
+                  background: T.panel,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 4,
+                  padding: "0.2rem 0.6rem",
+                  fontFamily: T.fontMono,
+                  fontSize: "0.78rem",
+                  color: T.text,
+                  boxShadow: T.glowSubtle,
                 }}
               >
                 {activePin.elevation !== null ? (
                   <span>
-                    <span style={{ color: "#22c55e", fontWeight: 600 }}>{activePin.elevation.toLocaleString()}m</span>
-                    <span style={{ color: "#666", marginLeft: "0.5rem" }}>
+                    <span style={{ color: T.green, fontWeight: 600 }}>{activePin.elevation.toLocaleString()}m</span>
+                    <span style={{ color: T.textMuted, marginLeft: "0.5rem" }}>
                       {activePin.lat.toFixed(4)}, {activePin.lon.toFixed(4)}
                     </span>
                   </span>
                 ) : (
-                  <span style={{ color: "#888" }}>No data</span>
+                  <span style={{ color: T.textMuted }}>No data</span>
                 )}
               </div>
             )}
 
-            {fetchingElevation && <span style={{ color: "#22c55e", fontSize: "0.8rem" }}>querying...</span>}
+            {fetchingElevation && (
+              <span style={{ color: T.accent, fontSize: "0.75rem", fontFamily: T.fontMono }}>querying...</span>
+            )}
 
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid #333",
-                borderRadius: 6,
-                color: "#ccc",
-                padding: "0.3rem 0.6rem",
+                background: "transparent",
+                border: `1px solid ${T.border}`,
+                borderRadius: 4,
+                color: sidebarOpen ? T.accent : T.textMuted,
+                padding: "0.2rem 0.5rem",
                 cursor: "pointer",
-                fontSize: "0.8rem",
+                fontSize: "0.78rem",
+                fontFamily: T.fontMono,
               }}
             >
               Layers
@@ -439,6 +482,32 @@ export default function MapPage() {
 
       {/* Map */}
       <div style={{ flex: 1, position: "relative" }}>
+        {/* Toolbar overlay */}
+        <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
+          <Toolbar onSearch={handleSearch} onJumpTo={handleJumpTo} onScreenshot={handleScreenshot} />
+        </div>
+
+        {/* Coordinate readout */}
+        <div style={{ position: "absolute", bottom: 8, left: 8, zIndex: 10 }}>
+          <SurveillancePanel style={{ padding: "0.3rem 0.6rem" }}>
+            {cursorPos ? (
+              <CoordinateReadout lat={cursorPos.lat} lon={cursorPos.lon} zoom={mapState.zoom} />
+            ) : (
+              <span style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted }}>
+                LAT ----.----- | LON ----.-----
+              </span>
+            )}
+          </SurveillancePanel>
+        </div>
+
+        {/* Status indicators */}
+        <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
+          <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
+            <StatusIndicator color={loading ? T.amber : T.green} label={loading ? "LOADING" : "READY"} pulse={loading} />
+            {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}
+          </SurveillancePanel>
+        </div>
+
         {ctxMenu && (
           <div
             className="map-ctx-menu"
@@ -447,12 +516,12 @@ export default function MapPage() {
               top: ctxMenu.y,
               left: ctxMenu.x,
               zIndex: 30,
-              background: "rgba(20,20,30,0.95)",
-              border: "1px solid #333",
-              borderRadius: 8,
+              background: T.panel,
+              border: `1px solid ${T.border}`,
+              borderRadius: 6,
               padding: "4px 0",
               minWidth: 180,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+              boxShadow: T.glow,
               backdropFilter: "blur(8px)",
             }}
           >
@@ -467,8 +536,9 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#ddd",
-                fontSize: "0.8rem",
+                color: T.text,
+                fontSize: "0.78rem",
+                fontFamily: T.fontMono,
                 textAlign: "left",
                 cursor: "pointer",
               }}
@@ -486,8 +556,9 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#ddd",
-                fontSize: "0.8rem",
+                color: T.text,
+                fontSize: "0.78rem",
+                fontFamily: T.fontMono,
                 textAlign: "left",
                 cursor: "pointer",
               }}
@@ -513,8 +584,9 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#ddd",
-                fontSize: "0.8rem",
+                color: T.text,
+                fontSize: "0.78rem",
+                fontFamily: T.fontMono,
                 textAlign: "left",
                 cursor: "pointer",
               }}
@@ -532,8 +604,9 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#ddd",
-                fontSize: "0.8rem",
+                color: T.text,
+                fontSize: "0.78rem",
+                fontFamily: T.fontMono,
                 textAlign: "left",
                 cursor: "pointer",
               }}
@@ -551,8 +624,9 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#ddd",
-                fontSize: "0.8rem",
+                color: T.text,
+                fontSize: "0.78rem",
+                fontFamily: T.fontMono,
                 textAlign: "left",
                 cursor: "pointer",
               }}
@@ -573,7 +647,7 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#4a9eff",
+                color: T.accent,
                 fontSize: "0.8rem",
                 textAlign: "left",
                 cursor: "pointer",
@@ -600,7 +674,7 @@ export default function MapPage() {
                 padding: "6px 12px",
                 background: "none",
                 border: "none",
-                color: "#22c55e",
+                color: T.green,
                 fontSize: "0.8rem",
                 textAlign: "left",
                 cursor: "pointer",
@@ -627,11 +701,14 @@ export default function MapPage() {
               top: "50%",
               left: "50%",
               transform: "translate(-50%,-50%)",
-              background: "rgba(0,0,0,0.8)",
-              color: "#22c55e",
+              background: T.panel,
+              border: `1px solid ${T.border}`,
+              color: T.accent,
               padding: "1rem 2rem",
-              borderRadius: 8,
-              fontSize: "0.9rem",
+              borderRadius: 6,
+              fontSize: "0.85rem",
+              fontFamily: T.fontMono,
+              boxShadow: T.glow,
             }}
           >
             Loading map...
@@ -646,10 +723,12 @@ export default function MapPage() {
               left: "50%",
               transform: "translate(-50%,-50%)",
               background: "rgba(180,0,0,0.9)",
+              border: `1px solid ${T.red}`,
               color: "#fff",
               padding: "1rem 2rem",
-              borderRadius: 8,
-              fontSize: "0.9rem",
+              borderRadius: 6,
+              fontSize: "0.85rem",
+              fontFamily: T.fontMono,
             }}
           >
             Failed to load MapLibre GL. Refresh the page.
@@ -665,116 +744,83 @@ export default function MapPage() {
               right: 0,
               width: 280,
               height: "100%",
-              background: "rgba(10,10,10,0.95)",
+              background: T.panel,
               backdropFilter: "blur(12px)",
-              borderLeft: "1px solid #222",
-              padding: "1rem",
+              borderLeft: `1px solid ${T.border}`,
+              boxShadow: T.glow,
+              padding: "0.75rem",
               overflowY: "auto",
               zIndex: 50,
             }}
           >
             <div
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}
             >
-              <span style={{ fontWeight: 600, color: "#e5e5e5", fontSize: "0.95rem" }}>Map Controls</span>
+              <span style={{ fontWeight: 700, color: T.text, fontSize: "0.85rem", fontFamily: T.fontMono, letterSpacing: "0.05em" }}>
+                MAP CONTROLS
+              </span>
               <button
                 onClick={() => setSidebarOpen(false)}
-                style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: "1.2rem" }}
+                style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: "1.2rem" }}
               >
                 &times;
               </button>
             </div>
 
             {/* Basemap selector */}
-            <div style={{ marginBottom: "1.25rem" }}>
-              <div
-                style={{
-                  color: "#888",
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Basemap
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+            <SurveillancePanel title="Basemap" style={{ marginBottom: "0.75rem" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
                 {Object.entries(BASEMAPS).map(([key, bm]) => (
                   <button
                     key={key}
                     onClick={() => switchBasemap(key)}
                     style={{
-                      padding: "0.3rem 0.6rem",
-                      borderRadius: 4,
-                      border: mapState.basemap === key ? "1px solid #22c55e" : "1px solid #333",
-                      background: mapState.basemap === key ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.04)",
-                      color: mapState.basemap === key ? "#22c55e" : "#888",
+                      padding: "0.25rem 0.5rem",
+                      borderRadius: 3,
+                      border: mapState.basemap === key ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+                      background: mapState.basemap === key ? `${T.accent}22` : "transparent",
+                      color: mapState.basemap === key ? T.accent : T.textMuted,
                       cursor: "pointer",
-                      fontSize: "0.8rem",
+                      fontSize: "0.72rem",
+                      fontFamily: T.fontMono,
+                      boxShadow: mapState.basemap === key ? `0 0 6px ${T.accent}33` : "none",
                     }}
                   >
                     {bm.label}
                   </button>
                 ))}
               </div>
-            </div>
+            </SurveillancePanel>
 
             {/* Layer toggles */}
-            <div style={{ marginBottom: "1.25rem" }}>
-              <div
-                style={{
-                  color: "#888",
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Layers
-              </div>
+            <SurveillancePanel title="Layers" style={{ marginBottom: "0.75rem" }}>
               {[
-                { key: "hillshade", label: "Hillshade", desc: "Terrain shading from elevation data" },
-                { key: "terrain3d", label: "3D Terrain", desc: "Extrude terrain in 3D perspective" },
-                { key: "contour", label: "Contour lines", desc: "Elevation contour overlay" },
+                { key: "hillshade", label: "Hillshade", desc: "Terrain shading" },
+                { key: "terrain3d", label: "3D Terrain", desc: "Extruded perspective" },
+                { key: "contour", label: "Contour lines", desc: "Elevation contours" },
               ].map(({ key, label, desc }) => (
-                <label
+                <div
                   key={key}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    padding: "0.5rem 0",
-                    borderBottom: "1px solid #1a1a1a",
-                    cursor: "pointer",
+                    padding: "0.35rem 0",
+                    borderBottom: `1px solid ${T.border}`,
                   }}
                 >
-                  <input
-                    type="checkbox"
+                  <LayerToggle
+                    label={label}
                     checked={!!mapState.layers[key]}
-                    onChange={(e) => toggleLayer(key, e.target.checked)}
-                    style={{ accentColor: "#22c55e" }}
+                    onChange={(checked) => toggleLayer(key, checked)}
+                    color={T.accent}
                   />
-                  <div>
-                    <div style={{ color: "#ccc", fontSize: "0.85rem" }}>{label}</div>
-                    <div style={{ color: "#555", fontSize: "0.75rem" }}>{desc}</div>
+                  <div style={{ color: T.textMuted, fontSize: "0.65rem", marginLeft: 18, marginTop: -2 }}>
+                    {desc}
                   </div>
-                </label>
+                </div>
               ))}
-            </div>
+            </SurveillancePanel>
 
             {/* View controls */}
-            <div style={{ marginBottom: "1.25rem" }}>
-              <div
-                style={{
-                  color: "#888",
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                View
-              </div>
+            <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>
               <div style={{ display: "flex", gap: "0.35rem" }}>
                 <button onClick={resetView} style={{ ...btnStyle, flex: 1 }}>
                   Reset View
@@ -783,46 +829,27 @@ export default function MapPage() {
                   Clear Pins
                 </button>
               </div>
-            </div>
+            </SurveillancePanel>
 
             {/* Coordinate info */}
-            <div style={{ marginBottom: "1rem" }}>
-              <div
-                style={{
-                  color: "#888",
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Position
-              </div>
-              <div style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#666" }}>
+            <SurveillancePanel title="Position" style={{ marginBottom: "0.75rem" }}>
+              <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
                 <div>
-                  Center: {mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}
+                  Center: <span style={{ color: T.accent }}>{mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}</span>
                 </div>
                 <div>
-                  Zoom: {mapState.zoom.toFixed(1)} | Bearing: {(mapState.bearing || 0).toFixed(0)}&deg; | Pitch:{" "}
-                  {(mapState.pitch || 0).toFixed(0)}&deg;
+                  Zoom: <span style={{ color: T.accent }}>{mapState.zoom.toFixed(1)}</span>
+                  {" | Bearing: "}
+                  <span style={{ color: T.accent }}>{(mapState.bearing || 0).toFixed(0)}</span>&deg;
+                  {" | Pitch: "}
+                  <span style={{ color: T.accent }}>{(mapState.pitch || 0).toFixed(0)}</span>&deg;
                 </div>
               </div>
-            </div>
+            </SurveillancePanel>
 
             {/* Pin history */}
             {pins.length > 0 && (
-              <div>
-                <div
-                  style={{
-                    color: "#888",
-                    fontSize: "0.75rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Pins ({pins.length})
-                </div>
+              <SurveillancePanel title={`Pins (${pins.length})`} style={{ marginBottom: "0.75rem" }}>
                 <div style={{ maxHeight: 200, overflowY: "auto" }}>
                   {[...pins]
                     .reverse()
@@ -838,51 +865,40 @@ export default function MapPage() {
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
-                          padding: "0.3rem 0",
-                          borderBottom: "1px solid #1a1a1a",
+                          padding: "0.25rem 0",
+                          borderBottom: `1px solid ${T.border}`,
                           cursor: "pointer",
-                          fontSize: "0.8rem",
-                          fontFamily: "monospace",
+                          fontSize: "0.72rem",
+                          fontFamily: T.fontMono,
                         }}
                       >
-                        <span style={{ color: "#22c55e" }}>{p.elevation !== null ? `${p.elevation}m` : "---"}</span>
-                        <span style={{ color: "#555" }}>
+                        <span style={{ color: T.green }}>{p.elevation !== null ? `${p.elevation}m` : "---"}</span>
+                        <span style={{ color: T.textMuted }}>
                           {p.lat.toFixed(3)}, {p.lon.toFixed(3)}
                         </span>
                       </div>
                     ))}
                 </div>
-              </div>
+              </SurveillancePanel>
             )}
 
             {/* Share URL */}
-            <div style={{ marginTop: "1rem", borderTop: "1px solid #222", paddingTop: "0.75rem" }}>
+            <SurveillancePanel title="Share">
               <div
                 style={{
-                  color: "#888",
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "0.4rem",
-                }}
-              >
-                Share
-              </div>
-              <div
-                style={{
-                  background: "#111",
-                  border: "1px solid #222",
-                  borderRadius: 4,
-                  padding: "0.4rem 0.6rem",
-                  fontSize: "0.7rem",
-                  color: "#555",
+                  background: "rgba(0,0,0,0.3)",
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 3,
+                  padding: "0.35rem 0.5rem",
+                  fontSize: "0.65rem",
+                  color: T.textMuted,
                   wordBreak: "break-all",
-                  fontFamily: "monospace",
+                  fontFamily: T.fontMono,
                 }}
               >
                 {window.location.origin + buildHash(mapState)}
               </div>
-            </div>
+            </SurveillancePanel>
           </div>
         )}
 
@@ -894,13 +910,16 @@ export default function MapPage() {
               bottom: "2rem",
               left: "50%",
               transform: "translateX(-50%)",
-              background: "rgba(0,0,0,0.7)",
-              color: "#888",
-              padding: "0.4rem 0.8rem",
+              background: T.panel,
+              border: `1px solid ${T.border}`,
+              color: T.textMuted,
+              padding: "0.35rem 0.75rem",
               borderRadius: 4,
-              fontSize: "0.8rem",
+              fontSize: "0.72rem",
+              fontFamily: T.fontMono,
               pointerEvents: "none",
               zIndex: 5,
+              boxShadow: T.glowSubtle,
             }}
           >
             Right-click + drag to rotate terrain &middot; Scroll to zoom &middot; Click to query elevation
@@ -995,12 +1014,12 @@ function addPinMarker(map: any, mlgl: any, pin: ElevationPin, pinsStore: React.M
   `;
   el.innerHTML = `
     <div style="
-      background: rgba(0,0,0,0.75); color: #22c55e; padding: 2px 8px; border-radius: 4px;
-      font-size: 12px; font-weight: 600; font-family: monospace; white-space: nowrap;
-      border: 1px solid rgba(34,197,94,0.3);
+      background: rgba(10,15,26,0.88); color: ${T.green}; padding: 2px 8px; border-radius: 4px;
+      font-size: 12px; font-weight: 600; font-family: ${T.fontMono}; white-space: nowrap;
+      border: 1px solid ${T.border}; box-shadow: ${T.glowSubtle};
     ">${pin.elevation !== null ? pin.elevation.toLocaleString() + "m" : "No data"}</div>
-    <svg width="12" height="8" viewBox="0 0 12 8"><path d="M6 8L0 0h12z" fill="rgba(0,0,0,0.75)"/></svg>
-    <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; border: 2px solid #000; margin-top: -2px;"></div>
+    <svg width="12" height="8" viewBox="0 0 12 8"><path d="M6 8L0 0h12z" fill="rgba(10,15,26,0.88)"/></svg>
+    <div style="width: 8px; height: 8px; border-radius: 50%; background: ${T.green}; border: 2px solid ${T.bg}; margin-top: -2px; box-shadow: 0 0 4px ${T.green};"></div>
   `;
 
   const marker = new mlgl.Marker({ element: el, anchor: "bottom" }).setLngLat([pin.lon, pin.lat]).addTo(map);
@@ -1015,11 +1034,12 @@ function addPinMarker(map: any, mlgl: any, pin: ElevationPin, pinsStore: React.M
 /* ─── Styles ─── */
 
 const btnStyle: React.CSSProperties = {
-  padding: "0.4rem 0.6rem",
-  borderRadius: 4,
-  border: "1px solid #333",
-  background: "rgba(255,255,255,0.04)",
-  color: "#888",
+  padding: "0.35rem 0.5rem",
+  borderRadius: 3,
+  border: `1px solid ${T.border}`,
+  background: "transparent",
+  color: T.textMuted,
   cursor: "pointer",
-  fontSize: "0.8rem",
+  fontSize: "0.72rem",
+  fontFamily: T.fontMono,
 };

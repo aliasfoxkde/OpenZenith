@@ -329,7 +329,7 @@ const STYLES = `
 /* ── Base Layout ── */
 .wv-map{position:absolute;inset:0;top:36px}
 .wv-nav{position:absolute;top:0;left:0;right:0;height:36px;background:var(--bg-nav);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);z-index:20;display:flex;align-items:center;padding:0 12px;gap:1rem}
-.wv-nav-brand{color:var(--brand);font-weight:700;font-size:0.9rem;text-decoration:none;letter-spacing:-0.02em;text-shadow:0 0 calc(var(--glow-intensity) * 12px) var(--brand)}
+.wv-nav-brand{color:var(--brand);font-weight:700;font-size:0.9rem;text-decoration:none;letter-spacing:-0.02em;text-shadow:0 0 calc(var(--glow-intensity) * 12px) var(--brand);display:flex;align-items:center;gap:0.4rem}
 .wv-nav-links{display:flex;gap:0.75rem;margin-left:auto;align-items:center}
 .wv-nav-links a{color:var(--text-muted);font-size:0.75rem;text-decoration:none;transition:color .15s}
 .wv-nav-links a:hover{color:var(--text)}
@@ -422,11 +422,16 @@ export default function WorldViewPage() {
   const [state, setState] = useState<DashboardState>(() => {
     if (typeof window === "undefined") return DEFAULT_STATE;
     const parsed = parseHash(window.location.hash);
-    const savedTheme = typeof localStorage !== "undefined" ? localStorage.getItem("wv-theme") : null;
+    let savedTheme: string | null = null;
+    try { savedTheme = localStorage.getItem("wv-theme"); } catch { /* tracking prevention */ }
+    const clean: Partial<DashboardState> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v !== undefined) (clean as any)[k] = v;
+    }
     return {
       ...DEFAULT_STATE,
-      ...parsed,
-      layers: { ...DEFAULT_LAYERS, ...parsed.layers },
+      ...clean,
+      layers: { ...DEFAULT_LAYERS, ...(parsed.layers || {}) },
       theme: parsed.theme || savedTheme || DEFAULT_STATE.theme,
     };
   });
@@ -476,7 +481,7 @@ export default function WorldViewPage() {
 
   // Persist theme
   useEffect(() => {
-    try { localStorage.setItem("wv-theme", state.theme); } catch { /* noop */ }
+    try { localStorage.setItem("wv-theme", state.theme); } catch { /* tracking prevention */ }
   }, [state.theme]);
 
   // Update status helper
@@ -1197,7 +1202,14 @@ export default function WorldViewPage() {
       {/* Nav bar */}
       <div className="wv-nav">
         <a href="/" className="wv-nav-brand">
-          {isHud ? "▲ " : ""}OpenZenith{isHud ? " // WV" : ""}
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
+            <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
+            <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
+          </svg>
+          OpenZenith
+          {!isHud && <span style={{ color: "var(--text-muted2)", fontWeight: 400, fontSize: "0.75rem", marginLeft: 4 }}>/ WorldView</span>}
+          {isHud && <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem", marginLeft: 4 }}>// WV</span>}
         </a>
         {isHud && <span className="wv-nav-time">{clock}</span>}
         <div className="wv-nav-links">

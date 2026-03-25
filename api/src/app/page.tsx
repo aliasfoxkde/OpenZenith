@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+/* ─── Helpers ─── */
 
 function useTheme() {
   const [dark, setDark] = useState(false);
@@ -14,13 +16,46 @@ function useTheme() {
   return dark;
 }
 
+function elevationToTerrarium(data: Int16Array): Uint8Array {
+  const pixels = new Uint8Array(data.length * 4);
+  for (let i = 0; i < data.length; i++) {
+    const elev = data[i];
+    if (elev === -32768) {
+      pixels[i * 4 + 3] = 0;
+    } else {
+      const h = elev + 32768;
+      pixels[i * 4] = (h / 256) | 0;
+      pixels[i * 4 + 1] = h % 256;
+      pixels[i * 4 + 2] = 0;
+      pixels[i * 4 + 3] = 255;
+    }
+  }
+  return pixels;
+}
+
+function waitForMapLibre(timeoutMs = 15000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const w = window as any;
+    if (w.maplibregl) return resolve(w.maplibregl);
+    const start = Date.now();
+    const iv = setInterval(() => {
+      if (w.maplibregl) { clearInterval(iv); resolve(w.maplibregl); }
+      else if (Date.now() - start > timeoutMs) { clearInterval(iv); reject(new Error("MapLibre GL failed to load")); }
+    }, 100);
+  });
+}
+
+/* ─── Logo ─── */
+
 const LOGO = (
-  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
     <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
     <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
     <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
   </svg>
 );
+
+/* ─── Main Page ─── */
 
 export default function Home() {
   const dark = useTheme();
@@ -34,6 +69,9 @@ export default function Home() {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mapLoading, setMapLoading] = useState(true);
+  const miniMapRef = useRef<HTMLDivElement>(null);
+  const miniMapInstance = useRef<any>(null);
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
   const cardBg = dark ? "#161616" : "#ffffff";
@@ -41,1016 +79,310 @@ export default function Home() {
   const text = dark ? "#e5e5e5" : "#171717";
   const textSecondary = dark ? "#888" : "#737373";
   const accent = "#22c55e";
-  const accentDim = dark ? "#166534" : "#dcfce7";
+  const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const codeBg = dark ? "#1a1a1a" : "#f5f5f5";
   const inputBg = dark ? "#111" : "#fff";
-  const sectionBorder = dark ? "#1a1a1a" : "#f0f0f0";
+
+  // Init mini map
+  useEffect(() => {
+    if (!miniMapRef.current || miniMapInstance.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const mlgl = await waitForMapLibre();
+        if (cancelled || !miniMapRef.current) return;
+
+        const map = new mlgl.Map({
+          container: miniMapRef.current,
+          style: {
+            version: 8,
+            sources: {
+              osm: { type: "raster", tiles: ["https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"], tileSize: 256, attribution: "&copy; CartoDB" },
+            },
+            layers: [{ id: "osm", type: "raster", source: "osm" }],
+            glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+          },
+          center: [0, 25],
+          zoom: 1.5,
+          interactive: false,
+          attributionControl: false,
+        });
+
+        map.on("load", () => {
+          if (cancelled) return;
+          mlgl.addProtocol("elevation", async (params: any, callback: any) => {
+            const { z, x, y } = params;
+            try {
+              const res = await fetch(`/api/tile/${z}/${x}/${y}`);
+              if (!res.ok) { callback(null, null, null); return { cancel: () => {} }; }
+              const buffer = await res.arrayBuffer();
+              const int16 = new Int16Array(buffer);
+              const terrarium = elevationToTerrarium(int16);
+              const canvas = document.createElement("canvas");
+              canvas.width = 256; canvas.height = 256;
+              const ctx = canvas.getContext("2d")!;
+              const img = ctx.createImageData(256, 256);
+              img.data.set(terrarium);
+              ctx.putImageData(img, 0, 0);
+              canvas.toBlob((blob: Blob | null) => {
+                if (blob) callback(null, blob, null, null);
+                else callback(new Error("Tile error"));
+              }, "image/png");
+              return { cancel: () => {} };
+            } catch (err) { callback(err); return { cancel: () => {} }; }
+          });
+
+          map.addSource("elevation", { type: "raster-dem", tiles: ["elevation://{z}/{x}/{y}"], tileSize: 256, maxzoom: 6, encoding: "terrarium" });
+          map.addLayer({
+            id: "hillshade",
+            type: "hillshade",
+            source: "elevation",
+            paint: { "hillshade-shadow-color": "#000", "hillshade-highlight-color": "#fff", "hillshade-exaggeration": 0.4, "hillshade-direction": 315 },
+          }, "osm");
+          setMapLoading(false);
+        });
+
+        miniMapInstance.current = map;
+      } catch {
+        setMapLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (miniMapInstance.current) { miniMapInstance.current.remove(); miniMapInstance.current = null; }
+    };
+  }, []);
 
   async function lookup() {
     const la = parseFloat(lat);
     const lo = parseFloat(lon);
-    if (isNaN(la) || isNaN(lo)) {
-      setError("Enter valid coordinates");
-      return;
-    }
-    if (la < -60 || la > 60 || lo < -180 || lo > 180) {
-      setError("Out of SRTM coverage (lat -60 to 60, lon -180 to 180)");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
+    if (isNaN(la) || isNaN(lo)) { setError("Enter valid coordinates"); return; }
+    if (la < -60 || la > 60 || lo < -180 || lo > 180) { setError("Out of SRTM coverage (lat -60 to 60)"); return; }
+    setLoading(true); setError("");
     try {
       const res = await fetch(`/api/elevation?lat=${la}&lon=${lo}`);
       const data = await res.json();
-      if (data.error) {
-        setError(data.error);
-        setResult(null);
-      } else {
-        setResult(data);
-      }
-    } catch {
-      setError("Failed to fetch elevation data");
-      setResult(null);
-    } finally {
-      setLoading(false);
-    }
+      if (data.error) { setError(data.error); setResult(null); } else { setResult(data); }
+    } catch { setError("Failed to fetch elevation data"); setResult(null); }
+    finally { setLoading(false); }
   }
 
   const inputStyle: React.CSSProperties = {
-    flex: 1,
-    padding: "0.6rem 0.8rem",
-    fontSize: "0.95rem",
-    borderRadius: 8,
-    border: `1px solid ${border}`,
-    background: inputBg,
-    color: text,
-    outline: "none",
-    fontFamily: "inherit",
+    flex: 1, padding: "0.55rem 0.75rem", fontSize: "0.9rem", borderRadius: 6,
+    border: `1px solid ${border}`, background: inputBg, color: text, outline: "none",
+    fontFamily: "inherit", minWidth: 0,
   };
 
   return (
-    <div
-      style={{
-        background: bg,
-        color: text,
-        minHeight: "100vh",
-        fontFamily: "inherit",
-      }}
-    >
-      {/* Nav bar - sticky */}
-      <nav
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          background: bg,
-          borderBottom: `1px solid ${border}`,
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 960,
-            margin: "0 auto",
-            padding: "0.8rem 1.5rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-        <a
-          href="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            textDecoration: "none",
-            color: text,
-          }}
-        >
-          {LOGO}
-          <span style={{ fontWeight: 700, fontSize: "1.1rem", letterSpacing: "-0.02em" }}>
-            OpenZenith
-          </span>
-        </a>
-        <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }}>
-          <a
-            href="/demo"
-            style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem" }}
-          >
-            Map
+    <div style={{ background: bg, color: text, minHeight: "100vh", fontFamily: "inherit" }}>
+      {/* Nav */}
+      <nav style={{ position: "sticky", top: 0, zIndex: 100, background: bg, borderBottom: `1px solid ${border}`, backdropFilter: "blur(12px)" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0.7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <a href="/" style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", color: text }}>
+            {LOGO}
+            <span style={{ fontWeight: 700, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>OpenZenith</span>
           </a>
-          <a
-            href="/api/docs"
-            style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem" }}
-          >
-            Docs
-          </a>
-          <a
-            href="/api/health"
-            style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem" }}
-          >
-            Status
-          </a>
-          <a
-            href="https://github.com/aliasfoxkde/OpenZenith"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.3rem" }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-            </svg>
-            GitHub
-          </a>
-        </div>
+          <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }}>
+            <a href="/map" style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}>Map</a>
+            <a href="/worldview" style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}>WorldView</a>
+            <a href="/explore" style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}>Explore</a>
+            <a href="/api/docs" style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}>Docs</a>
+            <a href="/api/health" style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}>Status</a>
+            <a href="https://github.com/aliasfoxkde/OpenZenith" target="_blank" rel="noopener noreferrer"
+              style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              GitHub
+            </a>
+          </div>
         </div>
       </nav>
 
-      {/* Hero banner */}
-      <section
-        style={{
-          background: dark
-            ? "linear-gradient(180deg, #0a1a0a 0%, #0a0a0a 100%)"
-            : "linear-gradient(180deg, #f0fdf4 0%, #fafafa 100%)",
-          padding: "0",
-        }}
-      >
-        {/* Decorative mountain silhouette */}
-        <div
-          style={{
-            height: 120,
-            overflow: "hidden",
-            position: "relative",
-            opacity: dark ? 0.3 : 0.15,
-          }}
-        >
-          <svg
-            viewBox="0 0 960 120"
-            preserveAspectRatio="none"
-            style={{ display: "block", width: "100%", height: "100%" }}
-          >
-            <path
-              d="M0 120 L0 80 L60 60 L120 75 L180 45 L240 70 L300 30 L360 55 L420 20 L480 50 L540 35 L600 60 L660 25 L720 55 L780 40 L840 65 L900 50 L960 70 L960 120 Z"
-              fill={dark ? "#22c55e" : "#166534"}
-            />
-          </svg>
-        </div>
-
-        {/* Hero content */}
-        <div
-          style={{
-            maxWidth: 960,
-            margin: "0 auto",
-            padding: "2rem 1.5rem 3rem",
-            textAlign: "center",
-          }}
-        >
-          <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.4rem",
-            padding: "0.3rem 0.8rem",
-            borderRadius: 100,
-            background: accentDim,
-            color: accent,
-            fontSize: "0.8rem",
-            fontWeight: 500,
-            marginBottom: "1.5rem",
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: accent, display: "inline-block" }} />
+      {/* Hero */}
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "3rem 1.5rem 1rem", textAlign: "center" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.25rem 0.7rem", borderRadius: 100, background: accentDim, color: accent, fontSize: "0.75rem", fontWeight: 500, marginBottom: "1.25rem" }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: accent, display: "inline-block" }} />
           Open source &middot; No API key required
         </div>
-
-        <h1
-          style={{
-            fontSize: "clamp(2.2rem, 5vw, 3.2rem)",
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
-            margin: "0 0 1rem",
-            lineHeight: 1.15,
-            color: text,
-          }}
-        >
+        <h1 style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 700, letterSpacing: "-0.03em", margin: "0 0 0.75rem", lineHeight: 1.15 }}>
           Free global elevation API
         </h1>
-        <p
-          style={{
-            fontSize: "1.15rem",
-            color: textSecondary,
-            maxWidth: 560,
-            margin: "0 auto 3rem",
-            lineHeight: 1.7,
-          }}
-        >
-          Query any point on Earth for elevation data. Powered by NASA SRTM 30m
-          global DEM with 14,296 tiles at approximately 30 meter resolution, covering
-          80% of Earth&apos;s land surface.
+        <p style={{ fontSize: "1.05rem", color: textSecondary, maxWidth: 520, margin: "0 auto 2rem", lineHeight: 1.6 }}>
+          Query any point on Earth for elevation. NASA SRTM 30m, 14,296 tiles, ~30m resolution, 80% land coverage.
         </p>
 
-        {/* Elevation lookup card */}
-        <div
-          style={{
-            background: cardBg,
-            border: `1px solid ${border}`,
-            borderRadius: 16,
-            padding: "1.5rem 2rem",
-            maxWidth: 560,
-            margin: "0 auto",
-            textAlign: "left",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              marginBottom: "1rem",
-              flexWrap: "wrap",
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Latitude (e.g. 28.0)"
-              value={lat}
-              onChange={(e) => setLat(e.target.value)}
-              style={inputStyle}
-              onKeyDown={(e) => e.key === "Enter" && lookup()}
-            />
-            <input
-              type="text"
-              placeholder="Longitude (e.g. 86.9)"
-              value={lon}
-              onChange={(e) => setLon(e.target.value)}
-              style={inputStyle}
-              onKeyDown={(e) => e.key === "Enter" && lookup()}
-            />
-            <button
-              onClick={lookup}
-              disabled={loading}
-              style={{
-                padding: "0.6rem 1.2rem",
-                fontSize: "0.95rem",
-                fontWeight: 500,
-                borderRadius: 8,
-                border: "none",
-                background: accent,
-                color: "#000",
-                cursor: loading ? "wait" : "pointer",
-                fontFamily: "inherit",
-                whiteSpace: "nowrap",
-              }}
-            >
+        {/* Elevation lookup */}
+        <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem", maxWidth: 520, margin: "0 auto", textAlign: "left" }}>
+          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+            <input type="text" placeholder="Latitude (28.0)" value={lat} onChange={(e) => setLat(e.target.value)} style={inputStyle} onKeyDown={(e) => e.key === "Enter" && lookup()} />
+            <input type="text" placeholder="Longitude (86.9)" value={lon} onChange={(e) => setLon(e.target.value)} style={inputStyle} onKeyDown={(e) => e.key === "Enter" && lookup()} />
+            <button onClick={lookup} disabled={loading} style={{
+              padding: "0.55rem 1.1rem", fontSize: "0.9rem", fontWeight: 500, borderRadius: 6,
+              border: "none", background: accent, color: "#000", cursor: loading ? "wait" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+            }}>
               {loading ? "..." : "Lookup"}
             </button>
           </div>
-
-          {error && (
-            <p style={{ color: "#ef4444", margin: "0 0 0.5rem", fontSize: "0.9rem" }}>
-              {error}
-            </p>
-          )}
-
+          {error && <p style={{ color: "#ef4444", margin: "0 0 0.4rem", fontSize: "0.85rem" }}>{error}</p>}
           {result && (
-            <div
-              style={{
-                background: codeBg,
-                borderRadius: 10,
-                padding: "0.8rem 1rem",
-                fontFamily: "monospace",
-                fontSize: "0.85rem",
-              }}
-            >
-              <div>
-                <span style={{ color: textSecondary }}>elevation </span>
-                <span style={{ color: accent }}>
-                  {result.elevation !== null
-                    ? `${result.elevation.toLocaleString()}m`
-                    : "null"}
-                </span>
-              </div>
-              <div>
-                <span style={{ color: textSecondary }}>tile </span>
-                <span style={{ color: text }}>{result.srtmTile}</span>
-              </div>
-              <div>
-                <span style={{ color: textSecondary }}>coords </span>
-                <span style={{ color: text }}>
-                  {result.location.lat}, {result.location.lon}
-                </span>
-              </div>
+            <div style={{ background: codeBg, borderRadius: 8, padding: "0.6rem 0.8rem", fontFamily: "monospace", fontSize: "0.8rem" }}>
+              <div><span style={{ color: textSecondary }}>elevation </span><span style={{ color: accent }}>{result.elevation !== null ? `${result.elevation.toLocaleString()}m` : "null"}</span></div>
+              <div><span style={{ color: textSecondary }}>tile </span><span style={{ color: text }}>{result.srtmTile}</span></div>
+              <div><span style={{ color: textSecondary }}>coords </span><span style={{ color: text }}>{result.location.lat}, {result.location.lon}</span></div>
             </div>
           )}
         </div>
+      </section>
+
+      {/* Mini map */}
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+        <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: `1px solid ${border}`, height: 340 }}>
+          <div ref={miniMapRef} style={{ width: "100%", height: "100%" }} />
+          {mapLoading && (
+            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "rgba(0,0,0,0.7)", color: "#22c55e", padding: "0.5rem 1rem", borderRadius: 6, fontSize: "0.85rem" }}>
+              Loading elevation map...
+            </div>
+          )}
+          <a href="/map" style={{
+            position: "absolute", bottom: "0.75rem", right: "0.75rem",
+            background: "rgba(0,0,0,0.7)", color: "#ccc", padding: "0.4rem 0.8rem",
+            borderRadius: 6, fontSize: "0.8rem", textDecoration: "none",
+            border: "1px solid #333", backdropFilter: "blur(8px)",
+          }}>
+            Open Full Map &rarr;
+          </a>
         </div>
       </section>
 
-      {/* Stats bar */}
-      <section
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "0 1.5rem 3rem",
-        }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: "1rem",
-          }}
-        >
+      {/* Stats */}
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.75rem" }}>
           {[
             { label: "Data tiles", value: "14,296" },
             { label: "Resolution", value: "~30m" },
             { label: "Land coverage", value: "80%" },
-            { label: "Lat coverage", value: "60\u00b0N\u201360\u00b0S" },
+            { label: "Lat range", value: "60°N–60°S" },
           ].map((s) => (
-            <div
-              key={s.label}
-              style={{
-                background: cardBg,
-                border: `1px solid ${border}`,
-                borderRadius: 12,
-                padding: "1rem 1.2rem",
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: "1.4rem", fontWeight: 700, color: accent, marginBottom: "0.2rem" }}>
-                {s.value}
-              </div>
-              <div style={{ fontSize: "0.8rem", color: textSecondary }}>{s.label}</div>
+            <div key={s.label} style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.75rem 1rem", textAlign: "center" }}>
+              <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accent, marginBottom: "0.15rem" }}>{s.value}</div>
+              <div style={{ fontSize: "0.75rem", color: textSecondary }}>{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* Features */}
-      <section
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "0 1.5rem 3rem",
-          borderTop: `1px solid ${sectionBorder}`,
-          paddingTop: "3rem",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            margin: "0 0 1.5rem",
-            textAlign: "center",
-          }}
-        >
-          Features
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "1rem",
-          }}
-        >
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-              </svg>
-            }
-            title="Elevation API"
-            description="Query elevation by latitude and longitude. Returns height in meters above sea level with SRTM tile reference."
-            href="/api/docs"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-                <line x1="8" y1="2" x2="8" y2="18" />
-                <line x1="16" y1="6" x2="16" y2="22" />
-              </svg>
-            }
-            title="Tile Server"
-            description="Slippy map tile endpoint (z/x/y) serving raw Int16 elevation data. Compatible with MapLibre, Leaflet, and custom renderers."
-            href="/demo"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-            }
-            title="Interactive Map"
-            description="Hillshade visualization with click-to-query elevation. Built on MapLibre GL with terrarium-encoded elevation tiles."
-            href="/demo"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <line x1="3" y1="9" x2="21" y2="9" />
-                <line x1="9" y1="21" x2="9" y2="9" />
-              </svg>
-            }
-            title="Slippy Map Tiles"
-            description="Standard z/x/y tile pyramid format. Raw binary Int16 data, 256x256 pixels per tile, seamless zoom from 0 to 12."
-            href="/api/tile/8/218/135"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-            }
-            title="Health Endpoint"
-            description="Real-time service status with backend info, data source details, and coverage metadata."
-            href="/api/health"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            }
-            title="No Authentication"
-            description="Completely free and open. No API keys, no rate limits, no sign-up required. Just query and go."
-            href="https://github.com/aliasfoxkde/OpenZenith"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-          <FeatureCard
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-                <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-                <line x1="6" y1="6" x2="6.01" y2="6" />
-                <line x1="6" y1="18" x2="6.01" y2="18" />
-                <path d="M14 6l1-4 1 4" />
-                <path d="M14 18l1-4 1 4" />
-              </svg>
-            }
-            title="Self-Hostable"
-            description="Deploy anywhere that supports Next.js. Data stored on HuggingFace or your own HTTP backend. No infrastructure lock-in."
-            href="https://github.com/aliasfoxkde/OpenZenith"
-            cardBg={cardBg}
-            border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
-          />
-        </div>
-      </section>
-
-      {/* Data source */}
-      <section
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "0 1.5rem 3rem",
-          borderTop: `1px solid ${sectionBorder}`,
-          paddingTop: "3rem",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            margin: "0 0 1.5rem",
-            textAlign: "center",
-          }}
-        >
-          Data source
-        </h2>
-        <div
-          style={{
-            background: cardBg,
-            border: `1px solid ${border}`,
-            borderRadius: 14,
-            padding: "2rem",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "1.5rem",
-          }}
-        >
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`, paddingTop: "2rem" }}>
+        <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 1.25rem", textAlign: "center" }}>Features</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem" }}>
           {[
-            {
-              label: "Dataset",
-              value: "NASA SRTM GL1 v3",
-              note: "Shuttle Radar Topography Mission",
-            },
-            {
-              label: "Resolution",
-              value: "1 arc-second (~30m)",
-              note: "Global DEM at 30 meter postings",
-            },
-            {
-              label: "Coverage",
-              value: "56\u00b0S \u2013 60\u00b0N",
-              note: "~80% of Earth\u2019s land surface",
-            },
-            {
-              label: "Tiles",
-              value: "14,296 files",
-              note: "1\u00b0 \u00d7 1\u00b0 degree tiles, 3601\u00d73601 pixels",
-            },
-            {
-              label: "Format",
-              value: "Int16 binary",
-              note: "Raw elevation in meters, -32768 = nodata",
-            },
-            {
-              label: "Vertical accuracy",
-              value: "< 16m absolute",
-              note: "< 10m relative (CE90/LE90)",
-            },
-          ].map((item) => (
-            <div key={item.label}>
-              <div style={{ fontSize: "0.75rem", color: textSecondary, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.3rem" }}>
-                {item.label}
+            { title: "Elevation API", desc: "Query elevation by lat/lon. Returns height in meters with bilinear interpolation.", href: "/api/docs" },
+            { title: "Tile Server", desc: "Slippy map tiles (z/x/y) serving raw Int16 elevation data, 256x256 per tile.", href: "/map" },
+            { title: "Interactive Map", desc: "Dark theme, 3D terrain, multiple basemaps, layer controls, elevation pins.", href: "/map" },
+            { title: "WorldView Dashboard", desc: "Real-time geospatial intelligence: flights, earthquakes, weather radar, satellites, hurricanes.", href: "/worldview" },
+            { title: "Data Explorer", desc: "Discover ArcGIS REST services and query OpenStreetMap via Overpass API.", href: "/explore" },
+            { title: "No Authentication", desc: "Completely free. No API keys, no rate limits, no sign-up required.", href: "https://github.com/aliasfoxkde/OpenZenith" },
+            { title: "Health Endpoint", desc: "Real-time service status with backend info and coverage metadata.", href: "/api/health" },
+            { title: "Self-Hostable", desc: "Deploy anywhere with Next.js. Data on HuggingFace or your own storage.", href: "https://github.com/aliasfoxkde/OpenZenith" },
+          ].map((f) => (
+            <a key={f.title} href={f.href} target={f.href.startsWith("http") ? "_blank" : undefined} rel={f.href.startsWith("http") ? "noopener noreferrer" : undefined}
+              style={{ textDecoration: "none", color: "inherit", background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: accentDim, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "0.6rem", color: accent, fontSize: "0.85rem", fontWeight: 700 }}>
+                {f.title[0]}
               </div>
-              <div style={{ fontSize: "1rem", fontWeight: 600, color: text, marginBottom: "0.15rem" }}>
-                {item.value}
-              </div>
-              <div style={{ fontSize: "0.8rem", color: textSecondary }}>
-                {item.note}
-              </div>
-            </div>
+              <h3 style={{ margin: "0 0 0.2rem", fontSize: "0.95rem", fontWeight: 600 }}>{f.title}</h3>
+              <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45 }}>{f.desc}</p>
+            </a>
           ))}
         </div>
       </section>
 
       {/* API Quickstart */}
-      <section
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "0 1.5rem 3rem",
-          borderTop: `1px solid ${sectionBorder}`,
-          paddingTop: "3rem",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            margin: "0 0 1.5rem",
-            textAlign: "center",
-          }}
-        >
-          Quick start
-        </h2>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {/* Elevation endpoint */}
-          <div
-            style={{
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 14,
-              padding: "1.5rem 2rem",
-            }}
-          >
-            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: text, marginBottom: "0.75rem" }}>
-              Elevation lookup
-            </div>
-            <div
-              style={{
-                background: codeBg,
-                borderRadius: 10,
-                padding: "1rem 1.2rem",
-                fontFamily: "monospace",
-                fontSize: "0.85rem",
-                lineHeight: 1.8,
-                overflowX: "auto",
-              }}
-            >
-              <div>
-                <span style={{ color: accent }}>GET</span>{" "}
-                <span style={{ color: textSecondary }}>/api/elevation?lat={lat}&amp;lon={lon}</span>
-              </div>
-              <div style={{ marginTop: "0.5rem" }}>
-                <span style={{ color: textSecondary }}># Example: Mount Everest</span>
-              </div>
-              <div>
-                <span style={{ color: accent }}>curl</span>{" "}
-                <span style={{ color: text }}>&quot;https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9&quot;</span>
-              </div>
-              <div style={{ marginTop: "0.5rem" }}>
-                <span style={{ color: textSecondary }}># Response</span>
-              </div>
-              <div>
-                {"{"}{" "}
-                <span style={{ color: "#f59e0b" }}>&quot;elevation&quot;</span>
-                : <span style={{ color: accent }}>8848</span>,{" "}
-                <span style={{ color: "#f59e0b" }}>&quot;unit&quot;</span>
-                : <span style={{ color: "#f59e0b" }}>&quot;m&quot;</span>,{" "}
-                <span style={{ color: "#f59e0b" }}>&quot;srtmTile&quot;</span>
-                : <span style={{ color: "#f59e0b" }}>&quot;N28E086.tif&quot;</span>,{" "}
-                <span style={{ color: "#f59e0b" }}>&quot;location&quot;</span>
-                : {"{"}{" "}
-                <span style={{ color: "#f59e0b" }}>&quot;lat&quot;</span>: <span style={{ color: accent }}>28.0</span>,{" "}
-                <span style={{ color: "#f59e0b" }}>&quot;lon&quot;</span>: <span style={{ color: accent }}>86.9</span>
-                {" "}{"}"}
-                {"}"}
-              </div>
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem 2rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`, paddingTop: "2rem" }}>
+        <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 1.25rem", textAlign: "center" }}>Quick start</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem" }}>
+            <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Elevation lookup</div>
+            <div style={{ background: codeBg, borderRadius: 8, padding: "0.8rem 1rem", fontFamily: "monospace", fontSize: "0.8rem", lineHeight: 1.7, overflowX: "auto" }}>
+              <div><span style={{ color: accent }}>GET</span> <span style={{ color: textSecondary }}>/api/elevation?lat=&#123;lat&#125;&amp;lon=&#123;lon&#125;</span></div>
+              <div style={{ marginTop: "0.3rem" }}><span style={{ color: textSecondary }}># Mount Everest</span></div>
+              <div><span style={{ color: accent }}>curl</span> <span style={{ color: text }}>"https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9"</span></div>
+              <div style={{ marginTop: "0.3rem" }}>{`{"elevation": 8848, "unit": "meters", "srtmTile": "N28E086.tif"}`}</div>
             </div>
           </div>
-
-          {/* Tile endpoint */}
-          <div
-            style={{
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 14,
-              padding: "1.5rem 2rem",
-            }}
-          >
-            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: text, marginBottom: "0.75rem" }}>
-              Tile endpoint
-            </div>
-            <div
-              style={{
-                background: codeBg,
-                borderRadius: 10,
-                padding: "1rem 1.2rem",
-                fontFamily: "monospace",
-                fontSize: "0.85rem",
-                lineHeight: 1.8,
-                overflowX: "auto",
-              }}
-            >
-              <div>
-                <span style={{ color: accent }}>GET</span>{" "}
-                <span style={{ color: textSecondary }}>/api/tile/&#123;z&#125;/&#123;x&#125;/&#123;y&#125;</span>
-              </div>
-              <div style={{ marginTop: "0.5rem" }}>
-                <span style={{ color: textSecondary }}># Returns: raw Int16 binary (256x256 grid)</span>
-              </div>
-              <div>
-                <span style={{ color: textSecondary }}># Each pixel = 2 bytes (signed 16-bit int, meters MSL)</span>
-              </div>
-              <div>
-                <span style={{ color: textSecondary }}># Nodata = -32768</span>
-              </div>
+          <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem" }}>
+            <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>JavaScript</div>
+            <div style={{ background: codeBg, borderRadius: 8, padding: "0.8rem 1rem", fontFamily: "monospace", fontSize: "0.8rem", lineHeight: 1.7, overflowX: "auto" }}>
+              <div><span style={{ color: "#c678dd" }}>const</span> res = <span style={{ color: textSecondary }}>await</span> <span style={{ color: "#61afef" }}>fetch</span>(<span style={{ color: "#98c379" }}>'/api/elevation?lat=48.8566&amp;lon=2.3522'</span>)</div>
+              <div><span style={{ color: "#c678dd" }}>const</span> &#123; elevation &#125; = <span style={{ color: textSecondary }}>await</span> res.json()</div>
             </div>
           </div>
-
-          {/* JavaScript example */}
-          <div
-            style={{
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 14,
-              padding: "1.5rem 2rem",
-            }}
-          >
-            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: text, marginBottom: "0.75rem" }}>
-              JavaScript example
-            </div>
-            <div
-              style={{
-                background: codeBg,
-                borderRadius: 10,
-                padding: "1rem 1.2rem",
-                fontFamily: "monospace",
-                fontSize: "0.85rem",
-                lineHeight: 1.8,
-                overflowX: "auto",
-              }}
-            >
-              <div>
-                <span style={{ color: "#c678dd" }}>const</span>{" "}
-                <span style={{ color: text }}>res</span>{" "}
-                <span style={{ color: textSecondary }}>=</span>{" "}
-                <span style={{ color: textSecondary }}>await</span>{" "}
-                <span style={{ color: "#61afef" }}>fetch</span>
-                <span style={{ color: textSecondary }}>(</span>
-                <span style={{ color: "#98c379" }}>&apos;/api/elevation?lat=48.8566&amp;lon=2.3522&apos;</span>
-                <span style={{ color: textSecondary }}>)</span>
-              </div>
-              <div>
-                <span style={{ color: "#c678dd" }}>const</span>{" "}
-                <span style={{ color: text }}>data</span>{" "}
-                <span style={{ color: textSecondary }}>=</span>{" "}
-                <span style={{ color: textSecondary }}>await</span>{" "}
-                <span style={{ color: text }}>res</span>
-                <span style={{ color: textSecondary }}>{"."}</span>
-                <span style={{ color: "#61afef" }}>json</span>
-                <span style={{ color: textSecondary }}>{"()"}</span>
-              </div>
-              <div>
-                <span style={{ color: text }}>console</span>
-                <span style={{ color: textSecondary }}>{"."}</span>
-                <span style={{ color: "#61afef" }}>log</span>
-                <span style={{ color: textSecondary }}>(</span>
-                <span style={{ color: text }}>data</span>
-                <span style={{ color: textSecondary }}>{"."}</span>
-                <span style={{ color: text }}>elevation</span>
-                <span style={{ color: textSecondary }}>)</span>
-                <span style={{ color: textSecondary }}>{"; "}</span>
-                <span style={{ color: textSecondary }}>{"// 35"}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "0 1.5rem 3rem",
-          borderTop: `1px solid ${sectionBorder}`,
-          paddingTop: "3rem",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            margin: "0 0 1.5rem",
-            textAlign: "center",
-          }}
-        >
-          How it works
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "1.5rem",
-          }}
-        >
-          {[
-            {
-              step: "1",
-              title: "Request",
-              description: "Send coordinates via the REST API or click on the interactive map.",
-            },
-            {
-              step: "2",
-              title: "Tile lookup",
-              description: "Coordinates are mapped to the corresponding SRTM 1\u00b0 tile and pixel offset.",
-            },
-            {
-              step: "3",
-              title: "Fetch data",
-              description: "Tile data is fetched from HuggingFace storage as compressed binary chunks.",
-            },
-            {
-              step: "4",
-              title: "Response",
-              description: "Elevation value is extracted via bilinear interpolation and returned as JSON.",
-            },
-          ].map((item) => (
-            <div key={item.step} style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  background: accentDim,
-                  color: accent,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  marginBottom: "0.75rem",
-                }}
-              >
-                {item.step}
-              </div>
-              <div style={{ fontWeight: 600, marginBottom: "0.3rem", fontSize: "0.95rem" }}>
-                {item.title}
-              </div>
-              <div style={{ fontSize: "0.85rem", color: textSecondary, lineHeight: 1.5 }}>
-                {item.description}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Tech stack */}
-      <section
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "0 1.5rem 3rem",
-          borderTop: `1px solid ${sectionBorder}`,
-          paddingTop: "3rem",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            margin: "0 0 1.5rem",
-            textAlign: "center",
-          }}
-        >
-          Tech stack
-        </h2>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-            justifyContent: "center",
-          }}
-        >
-          {[
-            "Next.js 15",
-            "Cloudflare Pages",
-            "Edge Runtime",
-            "TypeScript",
-            "MapLibre GL",
-            "NASA SRTM",
-            "HuggingFace",
-            "Terrarium Encoding",
-          ].map((tag) => (
-            <span
-              key={tag}
-              style={{
-                padding: "0.4rem 0.9rem",
-                borderRadius: 100,
-                background: cardBg,
-                border: `1px solid ${border}`,
-                fontSize: "0.8rem",
-                color: textSecondary,
-              }}
-            >
-              {tag}
-            </span>
-          ))}
         </div>
       </section>
 
       {/* Footer */}
-      <footer
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "1.5rem 1.5rem 2rem",
-          borderTop: `1px solid ${sectionBorder}`,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "0.75rem",
-            fontSize: "0.8rem",
-            color: textSecondary,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            {LOGO}
-            <span>OpenZenith</span>
+      <footer style={{ maxWidth: 1280, margin: "0 auto", padding: "1.5rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", fontSize: "0.75rem", color: textSecondary }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>{LOGO}<span>OpenZenith</span></div>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <a href="https://github.com/aliasfoxkde/OpenZenith" target="_blank" rel="noopener noreferrer" style={{ color: textSecondary, textDecoration: "none" }}>Source</a>
+            <a href="/api/docs" style={{ color: textSecondary, textDecoration: "none" }}>Docs</a>
+            <a href="/api/health" style={{ color: textSecondary, textDecoration: "none" }}>Status</a>
+            <a href="/map" style={{ color: textSecondary, textDecoration: "none" }}>Map</a>
+            <a href="/worldview" style={{ color: textSecondary, textDecoration: "none" }}>WorldView</a>
+            <a href="/explore" style={{ color: textSecondary, textDecoration: "none" }}>Explore</a>
           </div>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <a
-              href="https://github.com/aliasfoxkde/OpenZenith"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: textSecondary, textDecoration: "none" }}
-            >
-              Source code
-            </a>
-            <a
-              href="/api/docs"
-              style={{ color: textSecondary, textDecoration: "none" }}
-            >
-              API docs
-            </a>
-            <a
-              href="/api/health"
-              style={{ color: textSecondary, textDecoration: "none" }}
-            >
-              Status
-            </a>
-          </div>
-          <span>Data: NASA SRTM 30m Global DEM</span>
+          <span>NASA SRTM 30m Global DEM</span>
         </div>
       </footer>
-    </div>
-  );
-}
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-  href,
-  cardBg,
-  border,
-  text,
-  textSecondary,
-  accent,
-  accentDim,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  href: string;
-  cardBg: string;
-  border: string;
-  text: string;
-  textSecondary: string;
-  accent: string;
-  accentDim: string;
-}) {
-  return (
-    <a
-      href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-        background: cardBg,
-        border: `1px solid ${border}`,
-        borderRadius: 14,
-        padding: "1.5rem",
-        display: "block",
-      }}
-    >
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          background: accentDim,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: "0.75rem",
-          color: accent,
-        }}
-      >
-        {icon}
-      </div>
-      <h3
-        style={{
-          margin: "0 0 0.3rem",
-          fontSize: "1rem",
-          fontWeight: 600,
-          color: text,
-        }}
-      >
-        {title}
-      </h3>
-      <p style={{ margin: 0, fontSize: "0.85rem", color: textSecondary, lineHeight: 1.5 }}>
-        {description}
-      </p>
-    </a>
+      {/* Support / Donate */}
+      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "2.5rem 1.5rem", borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}` }}>
+        <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 14, padding: "2rem 2.5rem", textAlign: "center", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${accent}, #3b82f6, #a855f7, ${accent})` }} />
+          <h2 style={{ fontSize: "1.4rem", fontWeight: 700, margin: "0 0 0.5rem", letterSpacing: "-0.02em" }}>Help us push further</h2>
+          <p style={{ fontSize: "0.95rem", color: textSecondary, maxWidth: 600, margin: "0 auto 1.5rem", lineHeight: 1.65 }}>
+            OpenZenith runs entirely client-side on Cloudflare's free tier &mdash; no servers, no databases, no monthly costs.
+            That keeps it free for everyone, but it also means we're limited to what a browser can do.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", maxWidth: 720, margin: "0 auto 2rem", textAlign: "left" }}>
+            {[
+              { icon: "D", title: "Dedicated Hardware", desc: "Run heavy data processing (viewshed analysis, water flow simulation, slope computation) on a real GPU server instead of trying to do it in your browser tab." },
+              { icon: "S", title: "Self-Hosted Services", desc: "Deploy our own ADS-B receiver, AIS antenna, and weather stations for live, local data that doesn't depend on third-party rate limits." },
+              { icon: "M", title: "Mapping Tools", desc: "Build proper elevation profiling, contour generation, flood simulation, and terrain analysis tools that go beyond what edge functions can handle." },
+              { icon: "F", title: "Further Development", desc: "Time to build the cool stuff: 3D terrain flythroughs, real-time hurricane spaghetti models, vessel tracking, and all the features we have planned." },
+            ].map((item) => (
+              <div key={item.title} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: accentDim, display: "flex", alignItems: "center", justifyContent: "center", color: accent, fontSize: "0.8rem", fontWeight: 700, flexShrink: 0 }}>
+                  {item.icon}
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.15rem" }}>{item.title}</div>
+                  <div style={{ fontSize: "0.78rem", color: textSecondary, lineHeight: 1.45 }}>{item.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: "0.8rem", color: textSecondary, marginBottom: "1.25rem", lineHeight: 1.5 }}>
+            Every contribution directly funds hardware, data processing, and new features. No middlemen, no platform fees &mdash; just geospatial tools that keep getting better.
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+            <a href="https://github.com/sponsors/aliasfoxkde" target="_blank" rel="noopener noreferrer" style={{
+              display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.4rem", borderRadius: 8,
+              background: "#000", color: "#fff", textDecoration: "none", fontSize: "0.85rem", fontWeight: 500,
+              border: dark ? "1px solid #333" : "1px solid #ddd",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              Sponsor on GitHub
+            </a>
+            <a href="https://ko-fi.com/aliasfoxkde" target="_blank" rel="noopener noreferrer" style={{
+              display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.4rem", borderRadius: 8,
+              background: "#ff5e5b", color: "#fff", textDecoration: "none", fontSize: "0.85rem", fontWeight: 500,
+            }}>
+              Ko-fi
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

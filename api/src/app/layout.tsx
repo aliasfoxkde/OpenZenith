@@ -31,6 +31,10 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css"
         />
+        <Script
+          src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"
+          strategy="lazyOnload"
+        />
       </head>
       <body
         style={{

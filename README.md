@@ -2,7 +2,7 @@
 
 Free, fast, global elevation data API. Query any point on Earth for elevation from NASA SRTM 30m.
 
-**Live:** [https://openzenith.pages.dev](https://openzenith.pages.dev) | **API Docs:** [/api/docs](https://openzenith.pages.dev/api/docs) | **Demo Map:** [/demo](https://openzenith.pages.dev/demo)
+**Live:** [https://openzenith.pages.dev](https://openzenith.pages.dev) | **Map:** [/map](https://openzenith.pages.dev/map) | **WorldView:** [/worldview](https://openzenith.pages.dev/worldview) | **Explore:** [/explore](https://openzenith.pages.dev/explore)
 
 ---
 
@@ -10,7 +10,9 @@ Free, fast, global elevation data API. Query any point on Earth for elevation fr
 
 - **Elevation API** - Query elevation by latitude/longitude, returns height in meters with bilinear interpolation
 - **Tile Server** - Slippy map tiles (z/x/y) serving raw Int16 elevation data, compatible with MapLibre and Leaflet
-- **Interactive Map** - Hillshade visualization with click-to-query elevation, built on MapLibre GL
+- **Interactive Map** - Dark theme, 3D terrain, multiple basemaps, layer controls, elevation pins with click-to-query
+- **WorldView Dashboard** - Real-time geospatial intelligence: flights, earthquakes, weather radar, satellites, hurricanes
+- **Data Explorer** - Discover ArcGIS REST services and query OpenStreetMap via Overpass API
 - **Self-Hostable** - Deploy anywhere with the data on HuggingFace or your own storage backend
 - **No Authentication** - Free and open, no API keys, no rate limits, no sign-up required
 - **Edge-Deployed** - Runs on Cloudflare Pages edge runtime for low latency worldwide
@@ -54,6 +56,8 @@ print(data["elevation"])  # 35
 | `GET /api/health` | Service health and status |
 | `GET /api/docs` | Interactive API documentation |
 | `GET /api/openapi.json` | OpenAPI 3.0.3 specification |
+| `GET /api/arcgis?url=` | Proxy for ArcGIS REST API service discovery |
+| `POST /api/overpass` | Proxy for Overpass API / OpenStreetMap queries |
 
 See [docs/USAGE.md](docs/USAGE.md) for detailed API documentation.
 
@@ -128,6 +132,24 @@ api/
 
 - [USAGE.md](docs/USAGE.md) - Detailed API usage guide
 - [CHANGELOG.md](docs/CHANGELOG.md) - Version history and changes
+
+## Sponsor / Support
+
+OpenZenith runs entirely client-side on Cloudflare's free tier — no servers, no databases, no monthly costs. That keeps it free and zero-dependency, but it also limits what we can do: heavy terrain processing, custom data collection, and advanced simulation tools all need real hardware.
+
+**What your support funds:**
+
+| Goal | Details |
+|------|---------|
+| **Dedicated hardware** | GPU servers for viewshed analysis, water flow simulation, flood modeling, and terrain processing that can't run in a browser tab |
+| **Self-hosted data collection** | ADS-B receiver for live flight data, AIS antenna for marine vessel tracking, weather stations — our own data, no rate limits |
+| **Mapping tools** | Elevation profiling, contour generation, slope/aspect analysis, 3D terrain flythroughs, and proper GIS tools |
+| **Further development** | Real-time hurricane spaghetti models, vessel tracking, advanced WorldView features, and everything on the roadmap |
+
+Every contribution goes directly to hardware, data processing, and development. No platform fees, no middlemen.
+
+- [Sponsor on GitHub](https://github.com/sponsors/aliasfoxkde)
+- [Support on Ko-fi](https://ko-fi.com/aliasfoxkde)
 
 ## License
 

@@ -9,7 +9,10 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
   const lat = Cesium.Math.toDegrees(cg.latitude);
   const height = cg.height;
 
-  const gridSize = height > 5000000 ? 10 : height > 1000000 ? 15 : height > 200000 ? 20 : 30;
+  // Skip in space mode — too many points, no visible terrain
+  if (height > 5000000) return;
+
+  const gridSize = height > 1000000 ? 12 : height > 200000 ? 18 : 24;
   const span = Math.min(height * 0.8, 2);
   const step = span / gridSize;
 
@@ -28,6 +31,7 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ points }),
     });
+    if (!r.ok) return; // Batch endpoint unavailable — skip silently
     const data = await r.json();
     if (!data.results) return;
 
@@ -53,5 +57,5 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
     }
 
     entitiesRef.current["elev-points"] = pointCollection;
-  } catch { /* batch fetch failed */ }
+  } catch { /* batch fetch failed — skip silently */ }
 }

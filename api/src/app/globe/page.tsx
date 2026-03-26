@@ -201,7 +201,7 @@ export default function Globe() {
     if (viewerRef.current) removeEntitiesHelper(viewerRef.current, prefix, entitiesRef.current);
   }, []);
 
-  const toggleImageryOverlay = useCallback((name: string, url?: string, opacity?: number) => {
+  const toggleImageryOverlay = useCallback((name: string, url?: string, opacity?: number, maximumLevel?: number) => {
     if (viewerRef.current) toggleImageryOverlayHelper(viewerRef.current, cesiumRef.current, name, url, opacity);
   }, []);
 
@@ -532,7 +532,7 @@ export default function Globe() {
     const satJs = (window as any).satellite;
     if (!Cesium || !viewer || !satJs) return;
     try {
-      const r = await fetch("https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json");
+      const r = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json");
       const data = await r.json();
       if (!Array.isArray(data) || !data[0]?.TLE_LINE1) return;
       const tle = data[0];
@@ -601,13 +601,13 @@ export default function Globe() {
         case "satellite":
           if (on) toggleImageryOverlay("nasa-gibs",
             "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.3.0&LAYER=MODIS_Terra_CorrectedReflectance_TrueColor&TILEMATRIXSET=GoogleMapsCompatible&TILECOL={z}&TILEROW={y}&TILEMATRIX={z}&FORMAT=image%2Fpng",
-            0.7
+            0.7, 8
           );
           else toggleImageryOverlay("nasa-gibs"); break;
         case "blueMarble":
           if (on) toggleImageryOverlay("BlueMarble_ShadedRelief",
             "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlueMarble_ShadedRelief/default/{z}/{y}/{x}.jpg",
-            0.85
+            0.85, 8
           );
           else toggleImageryOverlay("BlueMarble_ShadedRelief"); break;
         case "nightLights":

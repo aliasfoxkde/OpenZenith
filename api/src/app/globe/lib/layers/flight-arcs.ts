@@ -9,7 +9,7 @@ export function loadFlightArcs(
   const doLoad = async () => {
     try {
       updateStatus("flightArcs", { error: null });
-      const res = await fetch("https://opensky-network.org/api/states/all");
+      const res = await fetch("/api/proxy/https://opensky-network.org/api/states/all");
       const data = await res.json();
       if (!data.states) { updateStatus("flightArcs", { error: "no data" }); return; }
       const highAlt = data.states.filter((s: any[]) => s[5] != null && s[6] != null && (s[7] || 0) > 30000);

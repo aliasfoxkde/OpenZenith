@@ -12,8 +12,8 @@ export function loadOrbitalTracks(
     { name: "ISS", catnr: 25544 },
     { name: "Hubble", catnr: 20580 },
     { name: "Tiangong", catnr: 48274 },
-    { name: "GPS Ops", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=gps-ops&FORMAT=json" },
-    { name: "Starlink", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=json" },
+    { name: "GPS Ops", url: "/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=gps-ops&FORMAT=json" },
+    { name: "Starlink", url: "/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=json" },
   ];
 
   const now = Date.now();
@@ -28,7 +28,7 @@ export function loadOrbitalTracks(
       } catch { return; }
     } else if (group.catnr) {
       try {
-        const r = await fetch(`https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`);
+        const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`);
         const data = await r.json();
         if (Array.isArray(data)) tles = data;
       } catch { return; }

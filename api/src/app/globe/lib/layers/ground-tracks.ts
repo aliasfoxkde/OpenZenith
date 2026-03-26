@@ -12,7 +12,7 @@ export function loadGroundTracks(viewer: any, Cesium: any) {
 
   const loadTrack = async (sat: typeof notable[0]) => {
     try {
-      const r = await fetch(`https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`);
+      const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`);
       const data = await r.json();
       if (!Array.isArray(data) || !data[0]?.TLE_LINE1) return;
       const tle = data[0];

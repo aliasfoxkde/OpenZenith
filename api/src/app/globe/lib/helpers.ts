@@ -184,7 +184,7 @@ export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<
   viewer.scene.requestRender();
 }
 
-export function toggleImageryOverlay(viewer: any, cesiumRef: any, name: string, url?: string, opacity?: number) {
+export function toggleImageryOverlay(viewer: any, cesiumRef: any, name: string, url?: string, opacity?: number, maximumLevel?: number) {
   const Cesium = cesiumRef;
   if (!Cesium) return;
   const layers = viewer.imageryLayers;
@@ -195,7 +195,9 @@ export function toggleImageryOverlay(viewer: any, cesiumRef: any, name: string, 
   if (existing) {
     layers.remove(existing);
   } else if (url) {
-    layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({ url, credit: "" }));
+    const opts: any = { url, credit: "" };
+    if (maximumLevel !== undefined) opts.maximumLevel = maximumLevel;
+    layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider(opts));
     const idx = layers.length - 1;
     if (opacity !== undefined && layers.get(idx)) {
       (layers.get(idx) as any).alpha = opacity;

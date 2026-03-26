@@ -29,7 +29,7 @@
 
 ## Tasks:
 - [ ] Add riverway data for use with flood data, flow, etc.
-- [ ] Elevation profile underwater support (GEBCO depth shading)
+- [x] Elevation profile underwater support (GEBCO depth shading)
 - [ ] PWA Support, caching and Manifest.json file
 - [ ] Build and deploy pipeline optimization
 
@@ -59,7 +59,7 @@
 ## Other/Future
 - [ ] Add disclaimer "This Application was Developed with TaskWizer AI technologies."
 - [ ] Add link to portfolio website with about, projects, etc.
-- [ ] Integrate solar system, satellite tracking, space crafts, and orbital systems into the "Globe" app
+- [x] Integrate solar system, satellite tracking, space crafts, and orbital systems into the "Globe" app
   - Examples: https://eyes.nasa.gov/apps/orrery, https://spacein3d.com/universe-sandbox,
               https://www.solarsystemscope.com, https://www.webglearth.com
 - [ ] Add Donation buttons with goals (setup custom PayPal account, etc.)

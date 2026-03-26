@@ -870,8 +870,9 @@ export default function WorldView() {
           // Hillshade is built into terrain in Cesium
           break;
         case "elevationColor":
-          if (on) loadElevationColor();
-          else removeEntities("elev-"); break;
+          // Loading/unloading is handled by the useEffect that watches state.layers.elevationColor
+          if (!on) removeEntities("elev-");
+          break;
         case "orbitalTracks":
           if (on && !dataLoadedRef.current.orbitalTracks) loadOrbitalTracks();
           if (!on) removeEntities("orbit-"); break;
@@ -896,6 +897,10 @@ export default function WorldView() {
     if (prefix === "sat-" && entitiesRef.current["sat-points"]) {
       viewer.scene.primitives.remove(entitiesRef.current["sat-points"]);
       delete entitiesRef.current["sat-points"];
+    }
+    if (prefix === "elev-" && entitiesRef.current["elev-points"]) {
+      viewer.scene.primitives.remove(entitiesRef.current["elev-points"]);
+      delete entitiesRef.current["elev-points"];
     }
   }
 
@@ -1499,39 +1504,99 @@ export default function WorldView() {
     } catch { updateStatus("flightArcs", { error: "fetch failed" }); }
   }, [updateStatus]);
 
+  // ─── Elevation Color (batched) ───
+  const elevColorRef = useRef<{ points: any; key: string } | null>(null);
+  const elevTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadElevationColor = useCallback(async () => {
     const viewer = viewerRef.current;
     const Cesium = cesiumRef.current;
     if (!Cesium || !viewer) return;
-    // Sample elevation along current view bounds and create color-coded points
+
     const camera = viewer.camera;
     const cg = camera.positionCartographic;
     const lng = Cesium.Math.toDegrees(cg.longitude);
     const lat = Cesium.Math.toDegrees(cg.latitude);
     const height = cg.height;
-    const span = height * 0.8;
-    const step = Math.max(span / 20, 0.5);
-    let count = 0;
-    for (let dlng = -span / 2; dlng <= span / 2; dlng += step) {
-      for (let dlat = -span / 2; dlat <= span / 2; dlat += step) {
-        try {
-          const r = await fetch(`/api/elevation?lat=${(lat + dlat).toFixed(4)}&lon=${(lng + dlng).toFixed(4)}`);
-          const d = await r.json();
-          if (d.elevation !== null && d.elevation !== -32768) {
-            const c = Cesium.Color.fromCssColorString(elevationColor(d.elevation));
-            viewer.entities.add({
-              id: `elev-${count}`,
-              position: Cesium.Cartesian3.fromDegrees(lng + dlng, lat + dlat, 0),
-              point: { pixelSize: 3, color: c, outlineColor: Cesium.Color.BLACK.withAlpha(0.2) },
-              properties: { type: "elevation", elevation: d.elevation },
-            });
-            count++;
-          }
-        } catch { /* skip */ }
+
+    // Adjust grid density based on zoom level
+    const gridSize = height > 5000000 ? 10 : height > 1000000 ? 15 : height > 200000 ? 20 : 30;
+    const span = Math.min(height * 0.8, 2); // cap at 2 degrees
+    const step = span / gridSize;
+
+    // Build points array
+    const points: { lat: number; lon: number; id: string }[] = [];
+    for (let i = 0; i <= gridSize; i++) {
+      for (let j = 0; j <= gridSize; j++) {
+        const pLat = lat - span / 2 + i * step;
+        const pLon = lng - span / 2 + j * step;
+        points.push({ lat: +pLat.toFixed(4), lon: +pLon.toFixed(4), id: `${i}-${j}` });
       }
     }
-    dataLoadedRef.current.elevationColor = true;
+
+    try {
+      const r = await fetch("/api/elevation/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points }),
+      });
+      const data = await r.json();
+      if (!data.results) return;
+
+      // Remove previous elevation points
+      if (entitiesRef.current["elev-points"]) {
+        viewer.scene.primitives.remove(entitiesRef.current["elev-points"]);
+      }
+
+      const pointCollection = new Cesium.PointPrimitiveCollection();
+      viewer.scene.primitives.add(pointCollection);
+
+      for (const pt of data.results) {
+        if (pt.elevation === null || pt.elevation < -9000) continue;
+        const color = Cesium.Color.fromCssColorString(elevationColor(pt.elevation));
+        pointCollection.add({
+          position: Cesium.Cartesian3.fromDegrees(pt.lon, pt.lat, 0),
+          pixelSize: 4,
+          color: color.withAlpha(0.7),
+          outlineColor: color.withAlpha(0.3),
+          outlineWidth: 1,
+          scaleByDistance: new Cesium.NearFarScalar(1e4, 1.5, 1e6, 0.5),
+          translucencyByDistance: new Cesium.NearFarScalar(1e4, 1.0, 1e6, 0.2),
+        });
+      }
+
+      entitiesRef.current["elev-points"] = pointCollection;
+      dataLoadedRef.current.elevationColor = true;
+    } catch { /* batch fetch failed */ }
   }, []);
+
+  // Re-fetch elevation color on camera move (debounced)
+  useEffect(() => {
+    if (!state.layers.elevationColor || loading) return;
+
+    const update = () => {
+      if (elevTimerRef.current) clearTimeout(elevTimerRef.current);
+      elevTimerRef.current = setTimeout(() => {
+        loadElevationColor();
+      }, 2000); // 2-second debounce
+    };
+
+    // Initial load
+    loadElevationColor();
+
+    // Listen for camera changes
+    const viewer = viewerRef.current;
+    if (viewer) {
+      viewer.camera.changed.addEventListener(update);
+    }
+
+    return () => {
+      if (elevTimerRef.current) clearTimeout(elevTimerRef.current);
+      if (viewer) {
+        viewer.camera.changed.removeEventListener(update);
+      }
+    };
+  }, [state.layers.elevationColor, loading, loadElevationColor]);
 
   // ─── Load initial layers ───
   useEffect(() => {

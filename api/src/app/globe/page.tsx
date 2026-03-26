@@ -891,11 +891,12 @@ export default function Globe() {
         const isEvent = entId?.startsWith("event-");
         const isEntity = isEq || isFlight || isVessel || isSat || isStorm || isEvent;
 
-        // Keep menu within viewport
+        // Keep menu within viewport (safe for SSR — only runs client-side since ctxMenu is client-set)
+        const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+        const vh = typeof window !== "undefined" ? window.innerHeight : 768;
         const menuW = 240;
-        const menuH = 480;
-        const adjustedX = x + menuW > window.innerWidth ? window.innerWidth - menuW - 8 : x;
-        const adjustedY = y + menuH > window.innerHeight ? window.innerHeight - menuH - 8 : y;
+        const adjustedX = x + menuW > vw ? vw - menuW - 8 : x;
+        const adjustedY = Math.min(y, vh - 8);
 
         return (
           <div className="wv-ctx-menu" style={{

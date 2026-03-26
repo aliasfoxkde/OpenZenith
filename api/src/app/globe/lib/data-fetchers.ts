@@ -13,7 +13,15 @@ export async function fetchEONET(): Promise<any> {
   return r.json();
 }
 
-export async function fetchFlights(): Promise<any> {
+export async function fetchFlights(bbox?: { lamin: number; lamax: number; lomin: number; lomax: number }): Promise<any> {
+  const params = bbox
+    ? `?lamin=${bbox.lamin}&lamax=${bbox.lamax}&lomin=${bbox.lomin}&lomax=${bbox.lomax}`
+    : "";
+  const r = await fetch(`/api/opensky/flights${params}`);
+  return r.json();
+}
+
+export async function fetchFlightsAnonymous(): Promise<any> {
   const r = await fetch("/api/flights");
   return r.json();
 }
@@ -30,10 +38,10 @@ export async function fetchMilitaryFlights(): Promise<any> {
 
 export async function fetchVessels(): Promise<any> {
   try {
-    const r = await fetch("https://marine-api.open-meteo.com/v1/marine?latitude=40&longitude=-74&current=wave_height");
+    const r = await fetch("/api/vessels");
     return r.json();
   } catch {
-    return {};
+    return { error: "Failed to fetch vessel config" };
   }
 }
 

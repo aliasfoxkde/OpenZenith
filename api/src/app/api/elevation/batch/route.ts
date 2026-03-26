@@ -22,6 +22,7 @@ import {
 import { getDefaultBackend } from "@/lib/storage/backend";
 import { cacheGet, cachePut } from "@/lib/storage/cache";
 import { getCopernicusElevation } from "@/lib/copernicus/cog-reader";
+import { getCopernicusElevationFromMerged } from "@/lib/copernicus/merged-reader";
 
 export const runtime = "edge";
 
@@ -217,16 +218,23 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Phase 3: Copernicus fallback for non-SRTM points ──
-    // Best-effort: ocean/out-of-coverage points. Limited to 50 to avoid timeout.
+    // Try merged HuggingFace chunks first (fast), then COG reader (slow).
+    // Limited to 50 to avoid timeout.
     const fallbackSlice = copernicusIndices.slice(0, 50);
     await Promise.allSettled(
       fallbackSlice.map(async (idx) => {
         try {
           const p = points[idx];
-          const r = await getCopernicusElevation(p.lat, p.lon);
-          // Only overwrite if Copernicus has actual data (not ocean nodata)
+          // Try merged HuggingFace reader first
+          const r = await getCopernicusElevationFromMerged(p.lat, p.lon);
           if (r.elevation !== null && r.elevation >= -9000) {
             results[idx] = { id: p.id, lat: p.lat, lon: p.lon, elevation: Math.round(r.elevation) };
+            return;
+          }
+          // Fall back to COG reader
+          const r2 = await getCopernicusElevation(p.lat, p.lon);
+          if (r2.elevation !== null && r2.elevation >= -9000) {
+            results[idx] = { id: p.id, lat: p.lat, lon: p.lon, elevation: Math.round(r2.elevation) };
           }
         } catch {
           // Keep null placeholder

@@ -772,17 +772,63 @@ const openApiSpec = {
         tags: ["Hydrography"],
       },
     },
+    "/api/vessels": {
+      get: {
+        summary: "Get AIS vessel tracking configuration",
+        description:
+          "Returns AISstream.io WebSocket configuration for client-side vessel tracking. Requires AISSTREAM_KEY environment variable to be set. The client connects directly to AISstream.io via WebSocket for real-time AIS vessel positions.",
+        responses: {
+          "200": {
+            description: "AISstream.io connection config",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    wsUrl: { type: "string", example: "wss://stream.aisstream.io/v0/stream" },
+                    apiKey: { type: "string", description: "AISstream.io API key" },
+                    messageTypes: {
+                      type: "array",
+                      items: { type: "string" },
+                      example: ["PositionReport"],
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "503": {
+            description: "AISSTREAM_KEY not configured",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    error: { type: "string", example: "AISSTREAM_KEY not configured" },
+                    message: { type: "string", description: "Setup instructions" },
+                    wsUrl: { type: "string" },
+                    signupUrl: { type: "string", example: "https://www.aisstream.io/" },
+                  },
+                },
+              },
+            },
+          },
+        },
+        tags: ["Maritime"],
+      },
+    },
   },
   tags: [
     { name: "Elevation", description: "Point elevation queries" },
     { name: "Tiles", description: "Slippy map elevation tiles" },
     { name: "System", description: "Health and status endpoints" },
     { name: "Proxy", description: "CORS proxy for external geospatial APIs" },
-    { name: "Data", description: "Real-time geospatial data (flights, weather, OSM)" },
+    { name: "Data", description: "Real-time geospatial data (flights, vessels, weather, OSM)" },
     { name: "Discovery", description: "Service discovery and metadata" },
     { name: "Network", description: "Network infrastructure and BGP data" },
     { name: "Geocoding", description: "Forward and reverse geocoding" },
     { name: "Hydrography", description: "Bathymetry and waterway data" },
+    { name: "Maritime", description: "AIS vessel tracking data" },
   ],
 };
 

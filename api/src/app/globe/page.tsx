@@ -22,7 +22,7 @@ import { loadEarthquakes } from "./lib/layers/earthquakes";
 import { loadRadar } from "./lib/layers/radar";
 import { loadFlights } from "./lib/layers/flights";
 import { loadMilitaryFlights } from "./lib/layers/military";
-import { loadVessels } from "./lib/layers/vessels";
+import { loadVessels, cleanupVessels } from "./lib/layers/vessels";
 import { loadWarnings } from "./lib/layers/warnings";
 import { loadEvents } from "./lib/layers/events";
 import { loadSatellites } from "./lib/layers/satellites";
@@ -371,8 +371,8 @@ export default function Globe() {
           if (on && !dataLoadedRef.current.militaryFlights) loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
           if (!on) removeEntities("mil-"); break;
         case "vessels":
-          if (on && !dataLoadedRef.current.vessels) loadVessels(viewer, Cesium, updateStatus);
-          if (!on) removeEntities("vessel-"); break;
+          if (on && !dataLoadedRef.current.vessels) loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (!on) { removeEntities("vessel-"); cleanupVessels(); } break;
         case "warnings":
           if (on && !dataLoadedRef.current.warnings) loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
           if (!on) removeEntities("warn-"); break;

@@ -10,6 +10,7 @@ export type LayerCategory =
   | "hydro"
   | "geocoding"
   | "aviation"
+  | "maritime"
   | "space";
 
 export interface LayerDefinition {

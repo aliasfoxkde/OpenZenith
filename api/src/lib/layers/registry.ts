@@ -93,6 +93,15 @@ export const LAYERS: readonly LayerDefinition[] = [
     dataSource: "/api/flights",
   },
   {
+    id: "vessels",
+    name: "Vessels (AIS)",
+    category: "maritime",
+    description: "Real-time ship positions from AISstream.io (requires API key)",
+    defaultEnabled: false,
+    accent: "#00e5ff",
+    dataSource: "/api/vessels",
+  },
+  {
     id: "militaryFlights",
     name: "Military ADS-B",
     category: "aviation",
@@ -229,6 +238,7 @@ export function getDefaultToggleState(): LayerToggleState {
 export const CATEGORY_ORDER = [
   "weather",
   "aviation",
+  "maritime",
   "infrastructure",
   "hydro",
   "terrain",
@@ -239,6 +249,7 @@ export const CATEGORY_ORDER = [
 export const CATEGORY_LABELS: Record<string, string> = {
   weather: "Weather",
   aviation: "Aviation",
+  maritime: "Maritime",
   infrastructure: "Infrastructure",
   hydro: "Hydrography",
   terrain: "Terrain",

@@ -13,7 +13,7 @@ export function loadFlightArcs(
       const data = await res.json();
       if (!data.states) { updateStatus("flightArcs", { error: "no data" }); return; }
       const highAlt = data.states.filter((s: any[]) => s[5] != null && s[6] != null && (s[7] || 0) > 30000);
-      const shuffled = highAlt.sort(() => Math.random() - 0.5).slice(0, 200);
+      const shuffled = highAlt.sort(() => Math.random() - 0.5).slice(0, 100);
       let arcCount = 0;
 
       for (let i = 0; i < shuffled.length - 1; i += 2) {

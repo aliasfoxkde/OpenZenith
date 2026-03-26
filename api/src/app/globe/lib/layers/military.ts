@@ -13,7 +13,12 @@ export function loadMilitaryFlights(
   const doLoad = async () => {
     try {
       const data = await fetchMilitaryFlights();
-      if (!Cesium || !viewer || !data.ac) return;
+      if (!Cesium || !viewer || !data.ac) {
+        if (data.msg && data.msg.includes("purchase")) {
+          updateStatus("militaryFlights", { error: "ADSBExchange requires API key", lastUpdate: Date.now(), count: 0 });
+        }
+        return;
+      }
       const ac = data.ac.filter((a: any) => a.lat && a.lon);
       updateStatus("militaryFlights", { lastUpdate: Date.now(), count: ac.length });
       ac.forEach((a: any, i: number) => {

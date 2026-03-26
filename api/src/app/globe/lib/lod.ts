@@ -106,18 +106,18 @@ export function applyLOD(
 
   const allVisible = new Set(zone.visible);
 
-  // Update entity show/hide
+  // Update entity show/hide using entity ID prefix matching only
+  // (avoid calling .getValue() on properties which crashes CallbackProperty without time arg)
   const entities = viewer.entities.values;
   for (let i = 0; i < entities.length; i++) {
     const entity = entities[i];
     const id = entity.id || "";
-    const type = entity.properties?.type?.getValue?.() || "";
 
-    // Only manage LOD for known entity types
+    // Only manage LOD for known entity types (ID prefix match)
     let managed = false;
     for (const prefixes of Object.values(ENTITY_PREFIXES)) {
       for (const prefix of prefixes) {
-        if (id.startsWith(prefix) || type.startsWith(prefix.replace("-", ""))) {
+        if (id.startsWith(prefix)) {
           managed = true;
           break;
         }

@@ -24,7 +24,7 @@ export function loadOrbitalTracks(
     if (group.url) {
       try {
         const r = await fetch(group.url);
-        tles = (await r.json()).slice(0, 50);
+        tles = (await r.json()).slice(0, 20);
       } catch { return; }
     } else if (group.catnr) {
       try {

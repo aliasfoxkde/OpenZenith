@@ -69,7 +69,7 @@ export function loadFlights(
   let lastBboxKey = "";
   const BBOX_CACHE_MS = 12000;
 
-  const addFlightEntity = (s: any[], idx: number) => {
+  const addFlightEntity = (s: any[], idx: number, showContrails = true) => {
     const callsign = (s[SV.CALLSIGN] || "").trim();
     const icao24 = s[SV.ICAO24] || "";
     const alt = s[SV.BARO_ALTITUDE] || s[SV.GEO_ALTITUDE] || 0;
@@ -150,7 +150,8 @@ export function loadFlights(
     }
 
     // ─── Contrail trail for high-altitude aircraft (>8000m / ~FL260) ───
-    if (alt > 8000 && spd > 50 && !onGround && hdg > 0) {
+    // Skip contrails when too many flights to maintain performance
+    if (showContrails && alt > 8000 && spd > 50 && !onGround && hdg > 0) {
       const trailLen = Math.min(spd * 0.6, 30000); // ~30km max trail
       const hdgRad = Cesium.Math.toRadians(hdg);
       // 5 trail segments fading from 0.5 to 0.0 alpha
@@ -218,11 +219,12 @@ export function loadFlights(
 
       if (!Cesium || !viewer || !data.states) return;
 
-      const states = data.states.filter((s: any[]) =>
-        s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND],
-      );
+      const MAX_FLIGHTS = 500;
+      const states = data.states
+        .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
+        .slice(0, MAX_FLIGHTS);
       updateStatus("flights", { lastUpdate: Date.now(), count: states.length });
-      states.forEach((s: any[], i: number) => addFlightEntity(s, i));
+      states.forEach((s: any[], i: number) => addFlightEntity(s, i, states.length <= 300));
 
       // Refresh interval
       const iv = setInterval(async () => {
@@ -264,12 +266,13 @@ export function loadFlights(
 
           if (newData.states) {
             removeEntities("flight-");
-            newData.states
+            const filtered = newData.states
               .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
-              .forEach((s: any[], i: number) => addFlightEntity(s, i));
+              .slice(0, MAX_FLIGHTS);
+            filtered.forEach((s: any[], i: number) => addFlightEntity(s, i, filtered.length <= 300));
             updateStatus("flights", {
               lastUpdate: Date.now(),
-              count: newData.states.filter((s: any[]) => s[SV.LON] != null).length,
+              count: filtered.length,
             });
           }
         } catch { /* retry next interval */ }

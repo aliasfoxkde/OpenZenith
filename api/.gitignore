@@ -29,4 +29,7 @@ next-env.d.ts
 # python
 __pycache__/
 *.pyc
-upload_progress.json
+
+# Lock files
+*.lock
+package-lock.json

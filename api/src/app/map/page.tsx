@@ -58,13 +58,15 @@ const BASEMAPS: Record<string, { label: string; url: string; attribution: string
   },
 };
 
+const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
+
 const DEFAULT_STATE: MapViewState = {
   center: [0, 20],
   zoom: 2,
   bearing: 0,
   pitch: 0,
   basemap: "dark",
-  layers: { hillshade: true, contour: false, terrain3d: false },
+  layers: { hillshade: true, contour: false, terrain3d: false, boundaries: true },
 };
 
 /* ─── Helpers ─── */
@@ -123,6 +125,36 @@ function waitForMapLibre(timeoutMs = 15000): Promise<any> {
       }, 100);
     })
   );
+}
+
+/* ─── Boundary data ─── */
+
+let topojsonLib: any = null;
+let boundariesGeoJSON: any = null;
+
+async function loadTopojsonLib(): Promise<any> {
+  if (topojsonLib) return topojsonLib;
+  const w = window as any;
+  if (w.topojson) return (topojsonLib = w.topojson);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/topojson-client@3/dist/topojson-client.min.js";
+    s.onload = () => { topojsonLib = w.topojson; resolve(topojsonLib); };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function loadBoundariesData(): Promise<any> {
+  if (boundariesGeoJSON) return boundariesGeoJSON;
+  try {
+    const topo = await loadTopojsonLib();
+    const res = await fetch(BOUNDARIES_URL);
+    if (!res.ok) return null;
+    const world = await res.json();
+    boundariesGeoJSON = topo.feature(world, world.objects.countries);
+    return boundariesGeoJSON;
+  } catch { return null; }
 }
 
 function parseHash(hash: string): Partial<MapViewState> {
@@ -255,6 +287,7 @@ export default function MapPage() {
         map.on("load", () => {
           if (cancelled) return;
           addElevationSource(map, mlgl);
+          if (mapState.layers.boundaries) addBoundaryLayers(map);
           setLoading(false);
         });
 
@@ -350,9 +383,10 @@ export default function MapPage() {
 
       map.once("styledata", () => {
         addElevationSource(map, mlgl);
-        // Re-add hillshade/terrain if enabled
+        // Re-add hillshade/terrain/boundaries if enabled
         if (mapState.layers.hillshade) addHillshadeLayer(map);
         if (mapState.layers.terrain3d) enable3DTerrain(map);
+        if (mapState.layers.boundaries) addBoundaryLayers(map);
       });
 
       setMapState((prev) => ({ ...prev, basemap: key }));
@@ -388,6 +422,11 @@ export default function MapPage() {
 
       if (layerName === "contour") {
         // Contour is a visual hint — actual contour generation would need server-side
+      }
+
+      if (layerName === "boundaries") {
+        if (enabled) addBoundaryLayers(map);
+        else removeBoundaryLayers(map);
       }
 
       return { ...prev, layers };
@@ -819,6 +858,7 @@ export default function MapPage() {
               {[
                 { key: "hillshade", label: "Hillshade", desc: "Terrain shading" },
                 { key: "terrain3d", label: "3D Terrain", desc: "Extruded perspective" },
+                { key: "boundaries", label: "Boundaries", desc: "Neon glow borders" },
                 { key: "contour", label: "Contour lines", desc: "Elevation contours" },
               ].map(({ key, label, desc }) => (
                 <div
@@ -994,6 +1034,49 @@ function addElevationSource(map: any, mlgl: any) {
     maxzoom: 12,
     encoding: "terrarium",
   });
+}
+
+function addBoundaryLayers(map: any) {
+  if (map.getLayer("boundaries-glow")) return;
+  loadBoundariesData().then((data) => {
+    if (!data || !map.getSource) return;
+    try {
+      if (!map.getSource("boundaries")) {
+        map.addSource("boundaries", { type: "geojson", data });
+      }
+      if (!map.getLayer("boundaries-glow")) {
+        map.addLayer({
+          id: "boundaries-glow",
+          type: "line",
+          source: "boundaries",
+          paint: { "line-color": "rgba(0, 229, 255, 0.12)", "line-width": 8, "line-blur": 5 },
+        });
+      }
+      if (!map.getLayer("boundaries-glow-inner")) {
+        map.addLayer({
+          id: "boundaries-glow-inner",
+          type: "line",
+          source: "boundaries",
+          paint: { "line-color": "rgba(0, 229, 255, 0.4)", "line-width": 2.5, "line-blur": 1.5 },
+        });
+      }
+      if (!map.getLayer("boundaries-core")) {
+        map.addLayer({
+          id: "boundaries-core",
+          type: "line",
+          source: "boundaries",
+          paint: { "line-color": "#00e5ff", "line-width": 1, "line-opacity": 0.8 },
+        });
+      }
+    } catch { /* map may have been removed */ }
+  });
+}
+
+function removeBoundaryLayers(map: any) {
+  ["boundaries-core", "boundaries-glow-inner", "boundaries-glow"].forEach((id) => {
+    try { map.removeLayer(id); } catch {}
+  });
+  try { map.removeSource("boundaries"); } catch {}
 }
 
 function addHillshadeLayer(map: any) {

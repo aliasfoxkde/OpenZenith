@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { LAYERS } from "@/lib/layers/registry";
 import { Navbar } from "@/components/Navbar";
-
-/* ─── Registry lookup ─── */
-const LAYER_MAP = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
 
 /* ─── Imports from extracted modules ─── */
 import type { LayerState, DashboardState, DataStatus } from "./lib/types";
 import {
-  SIDEBAR_SECTIONS, BASEMAPS, DEFAULT_LAYERS, DEFAULT_STATE, THEMES,
+  DEFAULT_LAYERS, DEFAULT_STATE, THEMES,
 } from "./lib/constants";
 import {
   parseHash, buildHash, fmtTime, safeCopy, elevationColor,
@@ -37,6 +33,14 @@ import { applyLOD, getZoneLabel } from "./lib/lod";
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
 import { createElevationProfile, renderProfileChart } from "./lib/tools/elevation-profile";
 import { getAllFormats } from "./lib/tools/measure";
+import { useWidgetManager } from "./lib/widgets/useWidgetManager";
+import { WidgetShell } from "./lib/widgets/WidgetShell";
+import { WidgetBar } from "./lib/widgets/WidgetBar";
+import { BasemapWidget } from "./lib/widgets/BasemapWidget";
+import { LayersWidget } from "./lib/widgets/LayersWidget";
+import { ToolsWidget } from "./lib/widgets/ToolsWidget";
+import { SettingsWidget } from "./lib/widgets/SettingsWidget";
+import type { GlobeContext } from "./lib/widgets/types";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -68,9 +72,7 @@ export default function Globe() {
     };
   });
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ basemaps: true, overlays: true, realtime: true, infrastructure: false, tools: false, theme: false });
   const [cursorPos, setCursorPos] = useState<[number, number] | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus[]>([
     { key: "earthquakes", label: "Earthquakes", lastUpdate: null, count: 0, error: null },
@@ -88,9 +90,6 @@ export default function Globe() {
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number; elev?: number | null } | null>(null);
   const [elevPopup, setElevPopup] = useState<{ x: number; y: number; elev: number | null; lat: number; lon: number } | null>(null);
   const [clock, setClock] = useState("");
-  const [bgpPrefix, setBgpPrefix] = useState("");
-  const [bgpResult, setBgpResult] = useState<string | null>(null);
-  const [bgpLoading, setBgpLoading] = useState(false);
   const [compassHeading, setCompassHeading] = useState(0);
   const [cameraAlt, setCameraAlt] = useState(0);
   const [isSpaceMode, setIsSpaceMode] = useState(false);
@@ -520,13 +519,40 @@ export default function Globe() {
   }, []);
 
   // ─── Section/theme toggles ───
-  const toggleSection = useCallback((key: string) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
   const switchTheme = useCallback((key: string) => {
     setState((prev) => ({ ...prev, theme: key }));
     setThemeDropdownOpen(false);
   }, []);
+
+  // ─── Fly To helper ───
+  const flyTo = useCallback((lat: number, lon: number, alt?: number) => {
+    const viewer = viewerRef.current;
+    const Cesium = cesiumRef.current;
+    if (!viewer || !Cesium) return;
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(lon, lat, alt || 50000),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-45), roll: 0 },
+      duration: 1.5,
+    });
+  }, []);
+
+  // ─── Widget system ───
+  const widgetComponents = useMemo(() => ({
+    basemaps: BasemapWidget,
+    layers: LayersWidget,
+    tools: ToolsWidget,
+    settings: SettingsWidget,
+  }), []);
+
+  const { widgets, updateWidget, toggleWidget, resetLayout } = useWidgetManager(widgetComponents);
+
+  const globeContext: GlobeContext = useMemo(() => ({
+    viewerRef, cesiumRef, state, setState,
+    toggleLayer, switchBasemap, switchTheme, switchViewMode,
+    activeTool, setActiveTool,
+    toolManagerRef, elevationProfileRef,
+    cursorPos, dataStatus, flyTo,
+  }), [viewerRef, cesiumRef, state, setState, toggleLayer, switchBasemap, switchTheme, switchViewMode, activeTool, setActiveTool, toolManagerRef, elevationProfileRef, cursorPos, dataStatus, flyTo]);
 
   // ─── Elevation Color (batched) ───
   const elevTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -669,58 +695,6 @@ export default function Globe() {
         <button className="wv-zoom-btn" onClick={toggleFullscreen} title="Fullscreen (F)" style={{ fontSize: "12px" }}>{isFullscreen ? "\u29C9" : "\u26F6"}</button>
       </div>
 
-      {/* Measurement tools */}
-      <div className="wv-tools-bar">
-        <button
-          className={`wv-tool-btn ${activeTool === "measure-distance" ? "active" : ""}`}
-          onClick={() => {
-            const next = activeTool === "measure-distance" ? "none" : "measure-distance";
-            setActiveTool(next);
-            toolManagerRef.current?.setMode(next);
-            if (next === "none") { elevationProfileRef.current?.clear(); setProfileData(null); }
-          }}
-          title="Measure distance — click points on globe"
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 14L14 2M2 14l3-3M14 2l-3 3" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          <span>Ruler</span>
-        </button>
-        <button
-          className={`wv-tool-btn ${activeTool === "measure-area" ? "active" : ""}`}
-          onClick={() => {
-            const next = activeTool === "measure-area" ? "none" : "measure-area";
-            setActiveTool(next);
-            toolManagerRef.current?.setMode(next);
-            if (next === "none") { elevationProfileRef.current?.clear(); setProfileData(null); }
-          }}
-          title="Measure area — click 3+ points on globe"
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14"><polygon points="2,14 8,2 14,14" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          <span>Area</span>
-        </button>
-        <button
-          className={`wv-tool-btn ${activeTool === "elevation-profile" ? "active" : ""}`}
-          onClick={() => {
-            const next = activeTool === "elevation-profile" ? "none" : "elevation-profile";
-            setActiveTool(next);
-            toolManagerRef.current?.setMode("none");
-            if (next === "none") { elevationProfileRef.current?.clear(); setProfileData(null); }
-          }}
-          title="Elevation profile — draw a line to see terrain cross-section"
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 12 L4 8 L7 10 L10 4 L13 6 L15 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          <span>Profile</span>
-        </button>
-        {activeTool !== "none" && (
-          <button
-            className="wv-tool-btn clear"
-            onClick={() => { setActiveTool("none"); toolManagerRef.current?.clear(); elevationProfileRef.current?.clear(); setProfileData(null); }}
-            title="Clear tool"
-          >
-            <span>Clear</span>
-          </button>
-        )}
-      </div>
-
       {/* Elevation profile chart */}
       {activeTool === "elevation-profile" && (
         <div className="wv-profile-panel">
@@ -753,105 +727,20 @@ export default function Globe() {
         <button className="wv-orbit-btn" onClick={() => flyToOrbit(35786, "GEO")}>GEO<span className="alt">35,786 km</span></button>
       </div>
 
-      {/* Sidebar */}
-      <div className={`wv-sidebar ${sidebarOpen ? "" : "collapsed"}`}>
-        <div className="wv-sidebar-header">
-          <h2 className={isHud ? "wv-glow" : ""}>{isHud ? "◆ " : ""}GLOBE</h2>
-          <p>{isHud ? "GEOINT ANALYSIS TERMINAL" : "Real-Time Geospatial Intelligence"}</p>
-        </div>
+      {/* Widget bar */}
+      <WidgetBar widgets={widgets} onToggle={toggleWidget} onResetLayout={resetLayout} />
 
-        {/* Basemaps */}
-        <div className="wv-section">
-          <div className={`wv-section-header ${openSections.basemaps ? "open" : ""}`} onClick={() => toggleSection("basemaps")}>
-            <span>Basemaps</span><span className="arrow">&#9654;</span>
-          </div>
-          <div className={`wv-section-body ${openSections.basemaps ? "open" : ""}`}>
-            <div className="wv-bm-grid">
-              {Object.entries(BASEMAPS).map(([k, v]) => (
-                <button key={k} className={`wv-bm-btn ${state.basemap === k ? "active" : ""}`} onClick={() => switchBasemap(k)}>{v.label}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Dynamic layer sections from registry */}
-        {SIDEBAR_SECTIONS.map((section) => (
-          <div className="wv-section" key={section.key}>
-            <div className={`wv-section-header ${openSections[section.key as keyof typeof openSections] ? "open" : ""}`} onClick={() => toggleSection(section.key as any)}>
-              <span>{section.title}</span><span className="arrow">&#9654;</span>
-            </div>
-            <div className={`wv-section-body ${openSections[section.key as keyof typeof openSections] ? "open" : ""}`}>
-              {section.layerIds.map((layerId) => {
-                const layer = LAYER_MAP[layerId];
-                const checked = (state.layers as unknown as Record<string, boolean>)[layerId] ?? false;
-                return (
-                  <div className="wv-row" key={layerId}>
-                    <label>
-                      <span className="dot" style={{ background: layer?.accent || "var(--accent)" }} />
-                      {layer?.name || layerId}
-                    </label>
-                    <input type="checkbox" checked={checked} onChange={() => toggleLayer(layerId as any)} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        {/* Tools */}
-        <div className="wv-section">
-          <div className={`wv-section-header ${openSections.tools ? "open" : ""}`} onClick={() => toggleSection("tools")}>
-            <span>Tools</span><span className="arrow">&#9654;</span>
-          </div>
-          <div className={`wv-section-body ${openSections.tools ? "open" : ""}`}>
-            <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Click globe for elevation query</label></div>
-            <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Right-click for coordinates</label></div>
-            <div className="wv-row">
-              <label style={{ color: "#38bdf8", fontSize: "11px" }}>BGP Prefix Lookup</label>
-            </div>
-            <div className="wv-row" style={{ gap: 4 }}>
-              <input
-                type="text"
-                placeholder="e.g. 8.8.8.0/24"
-                value={bgpPrefix}
-                onChange={(e) => setBgpPrefix(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { setBgpLoading(true); setBgpResult(null); fetch(`/api/bgp?prefix=${encodeURIComponent(bgpPrefix)}`).then(r => r.json()).then(d => { setBgpResult(JSON.stringify(d.data || d.error, null, 2)); setBgpLoading(false); }).catch(() => { setBgpResult("Query failed"); setBgpLoading(false); }); } }}
-                style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: 3, padding: "2px 6px", color: "#ccc", fontSize: "11px", outline: "none" }}
-              />
-              <button
-                onClick={() => { setBgpLoading(true); setBgpResult(null); fetch(`/api/bgp?prefix=${encodeURIComponent(bgpPrefix)}`).then(r => r.json()).then(d => { setBgpResult(JSON.stringify(d.data || d.error, null, 2)); setBgpLoading(false); }).catch(() => { setBgpResult("Query failed"); setBgpLoading(false); }); }}
-                disabled={!bgpPrefix || bgpLoading}
-                style={{ background: "#333", border: "none", borderRadius: 3, padding: "2px 8px", color: "#ccc", fontSize: "11px", cursor: bgpPrefix ? "pointer" : "default" }}
-              >{bgpLoading ? "..." : "Go"}</button>
-            </div>
-            {bgpResult && (
-              <div className="wv-row">
-                <pre style={{ color: "#888", fontSize: "10px", fontFamily: "monospace", maxHeight: 120, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0 }}>{bgpResult}</pre>
-              </div>
-            )}
-            <div className="wv-row"><label style={{ color: "var(--text-muted)", fontSize: "11px" }}>Sources: USGS, RainViewer, NASA, OpenSky, ADSB-X, NOAA, Celestrak, NLNOG</label></div>
-          </div>
-        </div>
-
-        {/* Theme */}
-        <div className="wv-section">
-          <div className={`wv-section-header ${openSections.theme ? "open" : ""}`} onClick={() => toggleSection("theme")}>
-            <span>Theme</span><span className="arrow">&#9654;</span>
-          </div>
-          <div className={`wv-section-body ${openSections.theme ? "open" : ""}`}>
-            <div className="wv-bm-grid">
-              {Object.entries(THEMES).map(([k, v]) => (
-                <button key={k} className={`wv-bm-btn ${state.theme === k ? "active" : ""}`} onClick={() => switchTheme(k)}>{v.icon} {v.label}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sidebar toggle */}
-      <button className="wv-sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} style={{ left: sidebarOpen ? 260 : 0 }}>
-        {sidebarOpen ? "\u2715" : "\u2630"}
-      </button>
+      {/* Floating widgets */}
+      {Object.entries(widgets).map(([id, entry]) => (
+        <WidgetShell
+          key={id}
+          config={entry.config}
+          state={entry.state}
+          onStateChange={(patch) => updateWidget(id, patch)}
+        >
+          <entry.component globe={globeContext} />
+        </WidgetShell>
+      ))}
 
       {/* Close theme dropdown on outside click */}
       {themeDropdownOpen && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />}

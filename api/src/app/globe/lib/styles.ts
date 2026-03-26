@@ -170,4 +170,53 @@ export const STYLES = `
 .wv-coord-label{font-size:9px;font-weight:700;color:var(--accent);letter-spacing:0.5px;min-width:32px}
 .wv-coord-val{font-size:10px;color:var(--text-dim);cursor:pointer;transition:color .1s}
 .wv-coord-val:hover{color:var(--text)}
+
+/* ── Widget system ── */
+.wv-widget{position:absolute;z-index:30;background:var(--bg-nav);border:1px solid var(--border);border-radius:8px;backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,0.5);overflow:hidden;transition:box-shadow .15s;touch-action:none}
+.wv-widget:hover{box-shadow:0 4px 20px rgba(0,0,0,0.6)}
+.wv-widget-header{display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:grab;user-select:none;font-size:11px;font-weight:600;font-family:var(--font-mono);color:var(--text-dim);border-bottom:1px solid var(--border);touch-action:none}
+.wv-widget-header:active{cursor:grabbing}
+.wv-widget-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wv-widget-header button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0 4px;line-height:1;transition:color .1s}
+.wv-widget-header button:hover{color:var(--text)}
+.wv-widget-body{padding:8px;max-height:60vh;overflow-y:auto}
+.wv-widget-body::-webkit-scrollbar{width:4px}
+.wv-widget-body::-webkit-scrollbar-track{background:transparent}
+.wv-widget-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.wv-widget-bar{position:absolute;top:56px;left:12px;z-index:40;display:flex;gap:4px;flex-wrap:wrap;max-width:calc(100vw - 24px)}
+.wv-widget-bar-btn{padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-solid);color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.wv-widget-bar-btn:hover{border-color:var(--accent);color:var(--accent)}
+.wv-widget-bar-btn.hidden{opacity:0.35}
+
+/* ── Basemap preview cards ── */
+.wv-bm-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wv-bm-preview-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-dim);cursor:pointer;transition:all .15s}
+.wv-bm-preview-card:hover{border-color:var(--border-hover);color:var(--text)}
+.wv-bm-preview-card.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+.wv-bm-preview-thumb{width:100%;height:48px;border-radius:4px;background-size:cover;background-position:center}
+.wv-bm-preview-label{font-size:10px;font-family:var(--font-mono)}
+
+/* ── Settings rows ── */
+.wv-setting-group{border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:6px}
+.wv-setting-group:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.wv-setting-label{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.5px;margin-bottom:4px;font-family:var(--font-mono)}
+.wv-setting-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;font-size:11px}
+.wv-setting-row label{color:var(--text-dim);font-size:11px}
+.wv-setting-row select,.wv-setting-row input[type="number"]{background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:2px 6px;color:#ccc;font-size:11px;font-family:var(--font-mono);outline:none;max-width:100px}
+.wv-setting-row select{cursor:pointer}
+.wv-setting-reset{width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-muted);font-size:10px;font-family:var(--font-mono);cursor:pointer;transition:all .15s}
+.wv-setting-reset:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Search results ── */
+.wv-search-results{max-height:200px;overflow-y:auto}
+.wv-search-item{display:block;width:100%;text-align:left;padding:5px 6px;border:none;background:transparent;color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;border-radius:4px;transition:background .1s}
+.wv-search-item:hover{background:var(--bg-hover);color:var(--text)}
+
+/* ── Bookmark list ── */
+.wv-bookmark-item{display:flex;align-items:center;justify-content:space-between;padding:4px 0;gap:6px}
+.wv-bookmark-name{flex:1;color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wv-bookmark-name:hover{color:var(--accent)}
+.wv-bookmark-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0 4px}
+.wv-bookmark-del:hover{color:var(--err)}
 `;

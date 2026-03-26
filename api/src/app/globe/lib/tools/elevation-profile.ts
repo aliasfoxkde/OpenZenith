@@ -160,7 +160,8 @@ export function createElevationProfile(viewer: any, Cesium: any) {
     for (let i = 0; i < numSamples; i++) {
       const targetDist = i * stepDist;
       let currentDist = 0;
-      let lng: number, lat: number;
+      let lng: number = coords[0][0];
+      let lat: number = coords[0][1];
 
       // Find the segment for this distance
       for (let j = 0; j < coords.length - 1; j++) {

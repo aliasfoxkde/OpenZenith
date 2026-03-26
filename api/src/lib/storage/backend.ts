@@ -1,17 +1,20 @@
 /**
- * Chunk-based storage backend for pre-extracted SRTM tiles.
+ * Chunk-based storage backend for pre-extracted DEM tiles.
  *
  * Supports two file formats:
  * 1. Individual .deflate chunks (one 256x256 chunk per file)
- * 2. Merged .merged files (all 225 chunks for one SRTM tile in one file)
+ * 2. Merged .merged files (all chunks for one tile in one file)
  *
  * The merged format uses a simple binary layout:
  *   [8 bytes] Magic: "OZCHNK01"
- *   [2 bytes] Version: 1
- *   [1 byte]  Rows (chunks per tile row, default 15)
- *   [1 byte]  Cols (chunks per tile col, default 15)
- *   [225 * 8 bytes] Index: [4-byte offset LE, 4-byte size LE] per chunk
+ *   [2 bytes] Version: 1 (SRTM Int16) or 2 (Copernicus Float32)
+ *   [1 byte]  Rows (chunks per tile row)
+ *   [1 byte]  Cols (chunks per tile col)
+ *   [N * 8 bytes] Index: [4-byte offset LE, 4-byte size LE] per chunk
  *   [variable] Concatenated deflate-compressed chunk data
+ *
+ * Version 1 (SRTM): 15x15 grid, Int16, 3601x3601 tiles
+ * Version 2 (Copernicus): variable grid, Float32, 3600x3600 tiles
  *
  * URL patterns:
  *   Individual: {base}/{base}_{row:02d}_{col:02d}.deflate
@@ -76,7 +79,7 @@ function parseMergedHeader(data: Uint8Array): MergedIndex | null {
 
   const view = new DataView(data.buffer, data.byteOffset);
   const version = view.getUint16(8, true);
-  if (version !== 1) return null;
+  if (version !== 1 && version !== 2) return null;
 
   const rows = data[10];
   const cols = data[11];

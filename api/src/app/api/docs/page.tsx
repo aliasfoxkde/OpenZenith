@@ -548,7 +548,7 @@ export default function DocsPage() {
             </div>
           </a>
 
-          <a href="/worldview" style={{
+          <a href="/globe" style={{
             textDecoration: "none", color: "inherit",
             background: cardBg, border: `1px solid ${border}`, borderRadius: 12,
             padding: "1.25rem", display: "block",

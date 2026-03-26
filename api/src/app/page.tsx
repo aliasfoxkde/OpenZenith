@@ -1227,7 +1227,7 @@ export default function Home() {
               title: "Globe 3D",
               desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, 5 themes, and 12+ real-time data layers.",
               back: "Switch between 3D globe, Columbus 3D, and 2D map. Five built-in themes from Dark to Classified Intel HUD.",
-              href: "/worldview",
+              href: "/globe",
               btn: "Launch Globe",
             },
             {
@@ -1235,7 +1235,7 @@ export default function Home() {
               title: "Flight Tracking",
               desc: "OpenSky ADS-B live flights plus military aircraft via ADS-B Exchange. Altitudes, callsigns, speeds.",
               back: "Real-time positions from OpenSky Network. Military and unfiltered aircraft from ADS-B Exchange. Auto-refresh.",
-              href: "/worldview",
+              href: "/globe",
               btn: "Track Flights",
             },
             {
@@ -1259,7 +1259,7 @@ export default function Home() {
               title: "Weather Data",
               desc: "NWS warnings with polygon boundaries, NOAA NEXRAD radar mosaic, and hurricane track history.",
               back: "Color-coded NWS watches/warnings/advisories. Live radar mosaic. IBTrACS hurricane history with tracks.",
-              href: "/worldview",
+              href: "/globe",
               btn: "View Weather",
             },
             {
@@ -1267,7 +1267,7 @@ export default function Home() {
               title: "Satellite Tracking",
               desc: "3,000+ active satellites from Celestrak TLE data, propagated to real-time positions using satellite.js.",
               back: "Real-time orbital propagation from TLE elements. Visible, communication, navigation, and more satellite groups.",
-              href: "/worldview",
+              href: "/globe",
               btn: "Track Satellites",
             },
             {

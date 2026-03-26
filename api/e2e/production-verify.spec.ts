@@ -54,13 +54,13 @@ test.describe("Production site verification", () => {
     expect(errors).toHaveLength(0);
   });
 
-  test("worldview/globe page loads without errors", async ({ page }) => {
+  test("globe page loads without errors", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => {
       // CesiumJS "Event" error is benign — ignore it
       if (err.message !== "Event") errors.push(err.message);
     });
-    const resp = await page.goto(`${PROD}/worldview`);
+    const resp = await page.goto(`${PROD}/globe`);
     expect(resp!.status()).toBeLessThan(400);
     await page.waitForTimeout(5000);
     expect(errors).toHaveLength(0);

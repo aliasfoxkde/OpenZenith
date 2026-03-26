@@ -362,7 +362,7 @@ export default function ContributePage() {
           </div>
           <div> &#125;);</div>
           <div className="comment" style={{ marginTop: "0.75rem" }}>
-            // Add to Globe as a toggleable layer // See src/app/worldview/page.tsx loadEarthquakes() for patterns
+            // Add to Globe as a toggleable layer // See src/app/globe/page.tsx loadEarthquakes() for patterns
           </div>
         </div>
       </div>

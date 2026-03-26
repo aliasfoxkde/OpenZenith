@@ -96,7 +96,7 @@ License: Free and open. Elevation data sourced from NASA SRTM / Copernicus.
 ## Interactive Pages
 - / — Landing page with elevation lookup, feature overview, hero map
 - /map — Interactive MapLibre elevation map with hillshade, 3D terrain, basemaps, click-to-query
-- /worldview — CesiumJS 3D globe: earthquakes, radar, flights, satellites, weather, hurricanes, basemaps
+- /globe — CesiumJS 3D globe: earthquakes, radar, flights, satellites, weather, hurricanes, basemaps
 - /explore — Data explorer: NOAA, flights, earthquakes, satellites, marine, OSM, ArcGIS
 - /demo — API demonstration and testing interface
 - /about — Project information and data sources

@@ -327,6 +327,24 @@ function flyToWithPadding(map: any, lon: number, lat: number, zoom: number) {
   });
 }
 
+async function fetchPlaceName(lat: number, lon: number): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/reverse-geocode?lat=${lat}&lon=${lon}&zoom=10`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.place?.address) return null;
+    const addr = data.place.address;
+    const parts = [
+      addr.city || addr.town || addr.village || addr.county,
+      addr.state,
+      addr.country,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ─── Main Page ─── */
 
 export default function Home() {
@@ -349,6 +367,12 @@ export default function Home() {
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [snippetTab, setSnippetTab] = useState<"url" | "curl" | "js" | "python" | "result">("url");
   const [snippetCopied, setSnippetCopied] = useState(false);
+  const [userGeo, setUserGeo] = useState<{
+    city: string | null;
+    region: string | null;
+    country: string | null;
+  } | null>(null);
+  const [placeName, setPlaceName] = useState<string | null>(null);
   const heroMapRef = useRef<HTMLDivElement>(null);
   const heroMapInstance = useRef<any>(null);
   const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -367,6 +391,13 @@ export default function Home() {
 
         const userLat = geo?.latitude;
         const userLon = geo?.longitude;
+
+        setUserGeo({
+          city: geo?.city || null,
+          region: geo?.regionName || null,
+          country: geo?.countryName || null,
+        });
+
         if (typeof userLat !== "number" || typeof userLon !== "number") return;
 
         // Clamp to SRTM coverage
@@ -388,6 +419,11 @@ export default function Home() {
           setSnippetTab("result");
           heroMapFlyRef.current = { lat: clampedLat, lon: clampedLon };
         }
+
+        // Fire reverse geocode for place name (non-blocking)
+        fetchPlaceName(clampedLat, clampedLon).then((p) => {
+          if (!cancelled) setPlaceName(p);
+        });
       } catch {
         // GeoIP unavailable — silent fallback, user can type manually
       }
@@ -496,6 +532,40 @@ export default function Home() {
             },
             "osm",
           );
+
+          // Admin boundary glow layers
+          try {
+            map.addSource("boundaries", {
+              type: "vector",
+              tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
+              maxzoom: 6,
+            });
+            map.addLayer({
+              id: "boundary-glow",
+              type: "line",
+              source: "boundaries",
+              "source-layer": "boundary",
+              paint: {
+                "line-color": "rgba(0, 229, 255, 0.12)",
+                "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
+                "line-blur": 2,
+              },
+            }, "osm");
+            map.addLayer({
+              id: "boundary-line",
+              type: "line",
+              source: "boundaries",
+              "source-layer": "boundary",
+              paint: {
+                "line-color": "rgba(0, 229, 255, 0.25)",
+                "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
+                "line-opacity": 0.6,
+              },
+            }, "boundary-glow");
+          } catch {
+            // Boundary tiles unavailable — continue without
+          }
+
           setMapLoading(false);
         });
 
@@ -557,6 +627,8 @@ export default function Home() {
         setResult(data);
         setSnippetTab("result");
         heroMapFlyRef.current = { lat: la, lon: lo };
+        // Fire reverse geocode for place name (non-blocking)
+        fetchPlaceName(la, lo).then((p) => setPlaceName(p));
       }
     } catch {
       setError("Failed to fetch elevation data");
@@ -646,6 +718,21 @@ export default function Home() {
           <p id="hero-subtitle" className="oz-hero-subtitle" style={{ fontSize: "0.88rem", color: textSecondary, margin: "0 0 1.25rem", lineHeight: 1.5 }}>
             NASA SRTM 30m resolution. No API key required. Query any point on Earth.
           </p>
+
+          {/* User location badge from GeoIP */}
+          {userGeo && (userGeo.city || userGeo.country) && (
+            <div id="user-location-badge" style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              marginBottom: "0.75rem",
+              fontSize: "0.78rem",
+              color: textSecondary,
+            }}>
+              <span style={{ color: accent, fontSize: "0.7rem" }}>&#9679;</span>
+              <span>{[userGeo.city, userGeo.region, userGeo.country].filter(Boolean).join(", ")}</span>
+            </div>
+          )}
 
           {/* Lookup inputs */}
           <div id="lookup-form" className="oz-lookup-form" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem" }}>
@@ -812,6 +899,11 @@ export default function Home() {
                   <div className="oz-result-meta">
                     {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot; {result.srtmTile} &middot; {result.resolution}m
                   </div>
+                  {placeName && (
+                    <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.15rem", fontStyle: "italic" }}>
+                      near {placeName}
+                    </div>
+                  )}
                 </div>
               )}
               {snippetTab === "url" && (

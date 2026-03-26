@@ -1,5 +1,5 @@
 import type { DataStatus } from "../types";
-import { ICONS } from "../constants";
+import { getAircraftIcon } from "../constants";
 import { fetchFlights, fetchFlightsAnonymous } from "../data-fetchers";
 
 /**
@@ -36,12 +36,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   "D": "Emergency Surf.", "E": "Service", "F": "Point Obstacle",
 };
 
-/** Altitude-based color bands */
+/** Enhanced altitude-based color bands (5 bands for better visual differentiation) */
 function altColor(alt: number, Cesium: any): any {
-  if (alt < 3000) return Cesium.Color.LIME;
-  if (alt < 10000) return Cesium.Color.YELLOW;
-  if (alt < 15000) return Cesium.Color.CYAN;
-  return Cesium.Color.RED;
+  if (alt < 3000) return Cesium.Color.LIME;       // Ground / low
+  if (alt < 6000) return Cesium.Color.YELLOW;     // Low altitude
+  if (alt < 10000) return Cesium.Color.CYAN;      // Mid altitude
+  if (alt < 15000) return Cesium.Color.DEEPSKYBLUE; // High cruise
+  return Cesium.Color.RED;                         // Very high
+}
+
+/** Format altitude as flight level */
+function flightLevel(alt: number): string {
+  return `FL${Math.round(alt / 30.48)}`; // meters to hundreds of feet
+}
+
+/** Convert m/s to knots */
+function toKnots(ms: number): number {
+  return Math.round(ms * 1.94384);
 }
 
 export function loadFlights(
@@ -60,6 +71,7 @@ export function loadFlights(
 
   const addFlightEntity = (s: any[], idx: number) => {
     const callsign = (s[SV.CALLSIGN] || "").trim();
+    const icao24 = s[SV.ICAO24] || "";
     const alt = s[SV.BARO_ALTITUDE] || s[SV.GEO_ALTITUDE] || 0;
     const spd = s[SV.VELOCITY] || 0;
     const hdg = s[SV.TRUE_TRACK] || 0;
@@ -67,30 +79,43 @@ export function loadFlights(
     const country = s[SV.ORIGIN_COUNTRY] || "";
     const vRate = s[SV.VERTICAL_RATE] || 0;
     const onGround = s[SV.ON_GROUND];
+    const squawk = s[SV.SQUAWK] || "";
     const color = onGround ? Cesium.Color.GRAY : altColor(alt, Cesium);
+    const icon = getAircraftIcon(cat);
+
+    // ─── Enhanced tooltip description ───
+    const catLabel = CATEGORY_LABELS[String(cat)] || "Unknown";
+    const vRateLabel = vRate > 1 ? "↑" : vRate < -1 ? "↓" : "→";
+    const tooltip = [
+      callsign || icao24,
+      `${flightLevel(alt)}  ${toKnots(spd)}kt  ${Math.round(hdg)}° ${vRateLabel}`,
+      `${catLabel}  [${country}]`,
+      squawk ? `SQK: ${squawk}` : null,
+    ].filter(Boolean).join("\n");
 
     viewer.entities.add({
       id: `flight-${idx}`,
-      name: callsign || `ICAO:${s[SV.ICAO24]}`,
+      name: callsign || `ICAO:${icao24}`,
       position: Cesium.Cartesian3.fromDegrees(s[SV.LON], s[SV.LAT], Math.max(alt, 0)),
       billboard: {
-        image: ICONS.flight,
-        width: 20,
-        height: 20,
+        image: icon,
+        width: 22,
+        height: 22,
         rotation: Cesium.Math.toRadians(-hdg),
         alignedAxis: Cesium.Cartesian3.UNIT_Z,
         color: color.withAlpha(0.9),
         scaleByDistance: new Cesium.NearFarScalar(1e5, 1.5, 2e6, 0.4),
       },
       label: callsign ? {
-        text: callsign, font: "10px sans-serif", fillColor: Cesium.Color.WHITE.withAlpha(0.8),
-        outlineColor: Cesium.Color.BLACK, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(10, -8), verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
-        backgroundPadding: new Cesium.Cartesian2(3, 2),
+        text: callsign, font: "10px 'JetBrains Mono', monospace", fillColor: color.withAlpha(0.9),
+        outlineColor: Cesium.Color.BLACK, outlineWidth: 2, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cesium.Cartesian2(12, -8), verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.65),
+        backgroundPadding: new Cesium.Cartesian2(4, 2),
         scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e5, 0.0),
         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000),
       } : undefined,
+      description: tooltip,
       properties: {
         type: "flight",
         callsign,
@@ -99,12 +124,13 @@ export function loadFlights(
         heading: hdg,
         country,
         category: cat,
-        categoryLabel: CATEGORY_LABELS[String(cat)] || "Unknown",
+        categoryLabel: catLabel,
         verticalRate: vRate,
+        squawk,
       },
     });
 
-    // Velocity vector for moving aircraft
+    // ─── Velocity vector for moving aircraft ───
     if (spd > 100 && hdg > 0 && !onGround) {
       const vecLen = Math.min(spd * 0.15, 8000);
       const hdgRad = Cesium.Math.toRadians(hdg);
@@ -122,6 +148,36 @@ export function loadFlights(
         properties: { type: "flight-vec" },
       });
     }
+
+    // ─── Contrail trail for high-altitude aircraft (>8000m / ~FL260) ───
+    if (alt > 8000 && spd > 50 && !onGround && hdg > 0) {
+      const trailLen = Math.min(spd * 0.6, 30000); // ~30km max trail
+      const hdgRad = Cesium.Math.toRadians(hdg);
+      // 5 trail segments fading from 0.5 to 0.0 alpha
+      const segments = 5;
+      for (let t = 0; t < segments; t++) {
+        const alpha = 0.35 * (1 - t / segments);
+        const segStart = trailLen * (t / segments);
+        const segEnd = trailLen * ((t + 1) / segments);
+        const sLat0 = s[SV.LAT] - (segStart * Math.cos(hdgRad)) / 111320;
+        const sLon0 = s[SV.LON] - (segStart * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
+        const sLat1 = s[SV.LAT] - (segEnd * Math.cos(hdgRad)) / 111320;
+        const sLon1 = s[SV.LON] - (segEnd * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
+        viewer.entities.add({
+          id: `flight-trail-${idx}-${t}`,
+          polyline: {
+            positions: Cesium.Cartesian3.fromDegreesArray(
+              [sLon0, sLat0, sLon1, sLat1],
+              Math.max(alt, 0), Math.max(alt, 0),
+            ),
+            width: 2 - t * 0.2,
+            material: Cesium.Color.WHITE.withAlpha(alpha),
+            clampToGround: false,
+          },
+          properties: { type: "flight-trail" },
+        });
+      }
+    }
   };
 
   const doLoad = async () => {
@@ -134,8 +190,6 @@ export function loadFlights(
         const cam = viewer.camera.positionCartographic;
         if (cam) {
           const camH = cam.height;
-          // Calculate bounding box based on camera altitude
-          // At higher altitudes, show wider area; at lower, narrower
           const span = Math.min(camH * 0.8, 20);
           const spanDeg = span / 111320;
           const camLng = Cesium.Math.toDegrees(cam.longitude);
@@ -175,7 +229,6 @@ export function loadFlights(
         if (!stateLayers.flights) return;
 
         try {
-          // Recalculate bbox from current camera
           let newData: any;
           if (viewer) {
             const cam = viewer.camera.positionCartographic;
@@ -187,7 +240,6 @@ export function loadFlights(
               const camLat = Cesium.Math.toDegrees(cam.latitude);
               const bboxKey = `${(camLat - spanDeg / 2).toFixed(2)},${(camLat + spanDeg / 2).toFixed(2)},${(camLng - spanDeg / 2).toFixed(2)},${(camLng + spanDeg / 2).toFixed(2)}`;
 
-              // Only re-fetch if camera moved significantly or cache expired
               if (bboxKey !== lastBboxKey || authenticated) {
                 const bbox = {
                   lamin: +(camLat - spanDeg / 2).toFixed(2),
@@ -206,7 +258,6 @@ export function loadFlights(
             }
           }
 
-          // Fall back to anonymous if auth failed
           if (!newData || newData.error) {
             newData = await fetchFlightsAnonymous();
           }

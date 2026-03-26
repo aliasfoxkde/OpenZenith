@@ -40,6 +40,7 @@ import { BasemapWidget } from "./lib/widgets/BasemapWidget";
 import { LayersWidget } from "./lib/widgets/LayersWidget";
 import { ToolsWidget } from "./lib/widgets/ToolsWidget";
 import { SettingsWidget } from "./lib/widgets/SettingsWidget";
+import { createSpaceSceneManager } from "./lib/space-scene";
 import type { GlobeContext } from "./lib/widgets/types";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -98,6 +99,7 @@ export default function Globe() {
   const [activeTool, setActiveTool] = useState<ToolMode>("none");
   const toolManagerRef = useRef<any>(null);
   const elevationProfileRef = useRef<any>(null);
+  const spaceSceneRef = useRef<any>(null);
   const [profileData, setProfileData] = useState<any[] | null>(null);
   const [coordFormats, setCoordFormats] = useState<Record<string, string> | null>(null);
   const profileCanvasRef = useRef<HTMLDivElement>(null);
@@ -250,6 +252,7 @@ export default function Globe() {
       cesiumRef.current = Cesium;
       toolManagerRef.current = createToolManager(viewer, Cesium);
       elevationProfileRef.current = createElevationProfile(viewer, Cesium);
+      spaceSceneRef.current = createSpaceSceneManager(viewer, Cesium);
       setLoading(false);
 
       // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
@@ -405,6 +408,13 @@ export default function Globe() {
       duration: 2,
     });
   }, []);
+
+  // Load space scene (stars + planets) lazily on first space mode entry
+  useEffect(() => {
+    if (isSpaceMode && spaceSceneRef.current && !spaceSceneRef.current.state.starsLoaded) {
+      spaceSceneRef.current.loadAll();
+    }
+  }, [isSpaceMode]);
 
   const flyToISS = useCallback(async () => {
     const Cesium = cesiumRef.current;
@@ -725,6 +735,7 @@ export default function Globe() {
         <button className="wv-orbit-btn" onClick={() => flyToOrbit(2000, "LEO")}>LEO<span className="alt">2,000 km</span></button>
         <button className="wv-orbit-btn" onClick={() => flyToOrbit(20200, "MEO")}>MEO<span className="alt">20,200 km</span></button>
         <button className="wv-orbit-btn" onClick={() => flyToOrbit(35786, "GEO")}>GEO<span className="alt">35,786 km</span></button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(45000, "Moon")}>Moon<span className="alt">384,400 km</span></button>
       </div>
 
       {/* Widget bar */}

@@ -191,7 +191,7 @@ export function loadFlights(
         const cam = viewer.camera.positionCartographic;
         if (cam) {
           const camH = cam.height;
-          const span = Math.min(camH * 0.8, 20);
+          const span = Math.min(camH * 0.8, 5);
           const spanDeg = span / 111320;
           const camLng = Cesium.Math.toDegrees(cam.longitude);
           const camLat = Cesium.Math.toDegrees(cam.latitude);
@@ -236,7 +236,7 @@ export function loadFlights(
             const cam = viewer.camera.positionCartographic;
             if (cam) {
               const camH = cam.height;
-              const span = Math.min(camH * 0.8, 20);
+              const span = Math.min(camH * 0.8, 5);
               const spanDeg = span / 111320;
               const camLng = Cesium.Math.toDegrees(cam.longitude);
               const camLat = Cesium.Math.toDegrees(cam.latitude);

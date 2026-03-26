@@ -68,7 +68,7 @@ export async function initCesiumViewer(
     selectionIndicator: false,
     sceneMode: Cesium.SceneMode.SCENE3D,
     requestRenderMode: true,
-    maximumRenderTimeChange: Infinity,
+    maximumRenderTimeChange: 2.0,
     // Phase 17 fix: enable logarithmic depth buffer for correct rendering
     // at extreme zoom ranges (close terrain + far Earth visibility)
     logarithmicDepthBuffer: true,

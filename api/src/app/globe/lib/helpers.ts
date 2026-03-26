@@ -180,6 +180,7 @@ export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<
     viewer.scene.primitives.remove(entitiesRef["elev-points"]);
     delete entitiesRef["elev-points"];
   }
+  viewer.scene.requestRender();
 }
 
 export function toggleImageryOverlay(viewer: any, cesiumRef: any, name: string, url?: string, opacity?: number) {
@@ -199,4 +200,5 @@ export function toggleImageryOverlay(viewer: any, cesiumRef: any, name: string, 
       (layers.get(idx) as any).alpha = opacity;
     }
   }
+  viewer.scene.requestRender();
 }

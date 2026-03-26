@@ -4,9 +4,9 @@ import { fetchCelestrak } from "../data-fetchers";
 
 /** Orbital shell definitions (altitude in meters) */
 const ORBITAL_SHELLS = [
-  { name: "LEO", minAlt: 160_000, maxAlt: 2_000_000, color: "#00ffff", alpha: 0.04 },
-  { name: "MEO", minAlt: 2_000_000, maxAlt: 35_000_000, color: "#ffff00", alpha: 0.03 },
-  { name: "GEO", minAlt: 35_000_000, maxAlt: 36_500_000, color: "#ff8800", alpha: 0.06 },
+  { name: "LEO", minAlt: 160_000, maxAlt: 2_000_000, color: "#00ffff", alpha: 0.06 },
+  { name: "MEO", minAlt: 2_000_000, maxAlt: 35_000_000, color: "#ffff00", alpha: 0.04 },
+  { name: "GEO", minAlt: 35_000_000, maxAlt: 36_500_000, color: "#ff8800", alpha: 0.08 },
 ];
 
 /** Satellite purpose classification from name heuristics */
@@ -111,7 +111,6 @@ export function loadSatellites(
             pixelOffset: new Cesium.Cartesian2(0, -20),
             verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
             scaleByDistance: new Cesium.NearFarScalar(1e7, 1.0, 5e7, 0.0),
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(1e7, 1e8),
           },
           properties: { type: "orbit-shell", shell: shell.name },
         });
@@ -124,15 +123,15 @@ export function loadSatellites(
       features.forEach((f: any) => {
         const altKm = f.coords[2];
         const color = purposeColor(f.purpose, Cesium);
-        const size = f.orbit === "GEO" ? 4 : f.orbit === "MEO" ? 3.5 : 3;
+        const size = f.orbit === "GEO" ? 6 : f.orbit === "MEO" ? 5 : 4;
         points.add({
           position: Cesium.Cartesian3.fromDegrees(f.coords[0], f.coords[1], Math.max(altKm * 1000, 160_000)),
           pixelSize: size,
-          color: color.withAlpha(0.7),
-          outlineColor: color.withAlpha(0.2),
+          color: color.withAlpha(0.85),
+          outlineColor: color.withAlpha(0.4),
           outlineWidth: 1,
-          scaleByDistance: new Cesium.NearFarScalar(1e6, 2.0, 5e7, 0.5),
-          translucencyByDistance: new Cesium.NearFarScalar(1e6, 1.0, 5e7, 0.3),
+          scaleByDistance: new Cesium.NearFarScalar(5e5, 3.0, 5e7, 1.0),
+          translucencyByDistance: new Cesium.NearFarScalar(5e5, 1.0, 8e7, 0.4),
         });
       });
       entitiesRef.current["sat-points"] = points;

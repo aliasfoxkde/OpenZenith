@@ -26,10 +26,9 @@ export async function fetchFlightsAnonymous(): Promise<any> {
   return r.json();
 }
 
-export async function fetchMilitaryFlights(): Promise<any> {
+export async function fetchMilitaryFlights(lat = 30, lon = -90, dist = 500): Promise<any> {
   try {
-    const r = await fetch("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
-    if (!r.ok) return { ac: [] };
+    const r = await fetch(`/api/military?lat=${lat}&lon=${lon}&dist=${dist}`);
     return r.json();
   } catch {
     return { ac: [] };

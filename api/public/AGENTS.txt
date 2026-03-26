@@ -1,63 +1,118 @@
 # OpenZenith
 # Free global elevation data API and interactive geospatial tools
+# No API key required.
 
-## About
-OpenZenith provides free, open access to global elevation data (NASA SRTM 30m),
-interactive mapping, weather data, flight tracking, earthquake monitoring,
-satellite data, marine data, and more. No API key required.
+## Overview
+OpenZenith is a free, open-source geospatial platform providing global elevation
+data (NASA SRTM 30m, Copernicus GLO-30), interactive mapping, weather data,
+flight tracking, earthquake monitoring, satellite data, bathymetry, and more.
+
+Production: https://openzenith.pages.dev
+Repository: https://github.com/aliasfoxkde/OpenZenith
+License: Free and open. Elevation data sourced from NASA SRTM / Copernicus.
+
+## AI Usage Guidelines
+- API endpoints return JSON. Parse responses accordingly.
+- Rate limit requests to avoid overwhelming the service.
+- Tile endpoints return raw Int16 binary (not images). Each tile is 256x256 pixels, 2 bytes/pixel = 131,072 bytes.
+- The elevation API supports bilinear interpolation between tile boundaries.
+- External APIs (flights, weather, bathymetry) may return 502 on Cloudflare edge — handle gracefully.
+- CORS proxy (/api/proxy/) has a 10s timeout and whitelisted domains only.
 
 ## API Endpoints
 
-### Elevation
-- /api/elevation?lat={lat}&lon={lon}
-- Returns elevation in meters with tile metadata and bilinear interpolation
+### Core Elevation
+- GET /api/elevation?lat={lat}&lon={lon}
+  - Returns: {"elevation": 6923, "unit": "meters", "location": {"lat": 28, "lon": 86.9}, "source": "srtm30m", "resolution": 30}
+  - Bilinear interpolation between tile boundaries
+  - SRTM 30m coverage: -56 to 60 lat, -180 to 180 lon
 
-### Map Tiles (Terrain RGB)
-- /api/tile/{z}/{x}/{y}
-- MapLibre GL compatible terrain RGB tiles from NASA SRTM 30m
+- GET /api/tile/{z}/{x}/{y}
+  - Returns: Raw Int16 binary (256x256 pixels, 131,072 bytes)
+  - Negative values indicate below sea level
+  - Nodata value: -32768
+  - MapLibre raster-dem source with terrarium encoding supported
 
-### Weather Warnings
-- /api/weather/warnings
-- NWS weather alerts as GeoJSON FeatureCollection
+### Geocoding
+- GET /api/geocode?query={search_term}
+  - Returns: {"results": [{"display_name": "...", "lat": 27.99, "lon": 86.93, ...}]}
+  - Nominatim-based forward geocoding
 
-### Flights
-- /api/flights?lamin={}&lamax={}&lomin={}&lomax={}
-- OpenSky ADS-B flight state vectors
+- GET /api/reverse-geocode?lat={lat}&lon={lon}
+  - Returns: {"address": {"house_number": "...", "road": "...", "city": "...", "state": "...", "country": "..."}}
+
+### Weather
+- GET /api/weather/warnings
+  - Returns: GeoJSON FeatureCollection of active NWS weather warnings
+  - May return 502 on Cloudflare edge due to NOAA API timeout
+
+### Flights (ADS-B)
+- GET /api/flights?lamin={lat_min}&lamax={lat_max}&lomin={lon_min}&lomax={lon_max}
+  - Alternative: GET /api/flights?lat={lat}&lon={lon}&radius={km}
+  - Returns: Array of OpenSky ADS-B flight state vectors
+  - Each entry: {callsign, lat, lon, altitude, heading, velocity, ...}
+  - May return 502 on Cloudflare edge due to OpenSky API timeout
+
+### Bathymetry
+- GET /api/bathymetry?lat={lat}&lon={lon}
+  - Returns: {"depth": -1234, "unit": "meters", "source": "gebco2025"}
+  - Negative values = below sea level
+  - May return 502 on Cloudflare edge due to external API timeout
+
+### Waterways
+- GET /api/waterways?lat={lat}&lon={lon}&radius={km}
+  - Returns: GeoJSON FeatureCollection of nearby waterways
+
+### BGP / Internet Infrastructure
+- GET /api/bgp
+  - Returns: BGP summary statistics from NLNOG LG
+
+### NLNOG Nodes
+- GET /api/nlnog
+  - Returns: Array of NLNOG network nodes with geographic coordinates
+
+### Earthquakes
+- GET /api/arcgis?url={serviceUrl}
+  - Generic ArcGIS REST API proxy
 
 ### Overpass (OSM)
-- POST /api/overpass with body: { "query": "..." }
-- Proxy to OpenStreetMap Overpass API
-
-### ArcGIS Discovery
-- /api/arcgis?url={serviceUrl}
-- ArcGIS REST service metadata discovery
+- POST /api/overpass with body: {"query": "..."}
+  - Proxy to OpenStreetMap Overpass API
+  - Returns: Overpass JSON result
 
 ### Health
-- /api/health
-- Service health status
+- GET /api/health
+  - Returns: {"status": "healthy", "version": "0.2.0", "storage": {...}, "coverage": {...}, "endpoints": {...}}
+
+### Documentation
+- GET /api/docs — Interactive OpenAPI 3.0 documentation with try-it panel
+- GET /api/openapi.json — Machine-readable OpenAPI specification
 
 ### CORS Proxy
-- /api/proxy/{encodedUrl}
-- Universal CORS proxy for whitelisted geospatial APIs
-
-### API Docs
-- /api/docs
-- Full interactive OpenAPI 3.0 documentation with try-it panel
-
-### OpenAPI Spec
-- /api/openapi.json
-- Machine-readable API specification
+- GET /api/proxy/{base64url}
+  - Universal CORS proxy for whitelisted geospatial APIs
+  - 10s timeout, 30s browser cache
 
 ## Interactive Pages
-- /map - Interactive elevation map with hillshade, 3D terrain, basemaps, elevation profile
-- /worldview - Global data layers: earthquakes, radar, flights, satellites, weather, hurricanes
-- /explore - Data explorer: NOAA, flights, earthquakes, satellites, marine, OSM, ArcGIS
-- /demo - API demonstration and testing
-- /contribute - Data contribution guidelines
+- / — Landing page with elevation lookup, feature overview, hero map
+- /map — Interactive MapLibre elevation map with hillshade, 3D terrain, basemaps, click-to-query
+- /worldview — CesiumJS 3D globe: earthquakes, radar, flights, satellites, weather, hurricanes, basemaps
+- /explore — Data explorer: NOAA, flights, earthquakes, satellites, marine, OSM, ArcGIS
+- /demo — API demonstration and testing interface
+- /about — Project information and data sources
+- /contribute — Data contribution guidelines
 
-## Rate Limits
-No API key required. Fair use policy applies. Tiles and elevation endpoints are cached.
-CORS proxy has a 10s timeout and 30s browser cache.
+## Tile Format
+Tiles are raw 16-bit signed integers (Int16) in row-major order (top-to-bottom, left-to-right).
+Each pixel represents elevation in meters. Nodata is -32768.
 
-## License
-Free and open. Elevation data sourced from NASA SRTM.
+For MapLibre hillshade/3D terrain, encode as terrarium:
+  R = floor((elevation + 32768) / 256)
+  G = (elevation + 32768) % 256
+  B = 0
+  A = 255 (land) or 0 (ocean)
+
+## Coordinate System
+- WGS 84 (EPSG:4326)
+- Elevation in meters (EGM96 geoid for bathymetry)
+- Tile scheme: standard XYZ/Slippy map tiles

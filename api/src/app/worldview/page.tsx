@@ -510,12 +510,15 @@ export default function WorldView() {
     (async () => {
       // Load CesiumJS + satellite.js from CDN
       if (!(window as any).Cesium) {
+        // Polyfill for Cesium's use of window.DEFER
+        if (!(window as any).DEFER) (window as any).DEFER = Promise.resolve();
+        (window as any).CESIUM_BASE_URL = "https://unpkg.com/cesium@1.126.0/Build/Cesium/";
         const css = document.createElement("link");
         css.rel = "stylesheet";
-        css.href = "https://cesium.com/downloads/cesiumjs/Build/Cesium/Widgets/widgets.css";
+        css.href = "https://unpkg.com/cesium@1.126.0/Build/Cesium/Widgets/widgets.css";
         document.head.appendChild(css);
         const js = document.createElement("script");
-        js.src = "https://cesium.com/downloads/cesiumjs/Build/Cesium/Cesium.js";
+        js.src = "https://unpkg.com/cesium@1.126.0/Build/Cesium/Cesium.js";
         document.head.appendChild(js);
         await new Promise<void>((res, rej) => { js.onload = () => res(); js.onerror = rej; });
       }

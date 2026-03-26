@@ -5,6 +5,8 @@ import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
+import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
+import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "./lib/layers";
 
 /* ─── Types ─── */
 
@@ -66,8 +68,25 @@ const DEFAULT_STATE: MapViewState = {
   bearing: 0,
   pitch: 0,
   basemap: "dark",
-  layers: { hillshade: true, contour: false, terrain3d: false, boundaries: true },
+  layers: buildDefaultLayers(),
 };
+
+function buildDefaultLayers(): Record<string, boolean> {
+  const layers: Record<string, boolean> = {
+    // Map-specific layers
+    hillshade: true,
+    contour: false,
+    terrain3d: false,
+    boundaries: true,
+  };
+  // Registry defaults for 2D-compatible layers
+  for (const layer of LAYERS) {
+    if (MAP_2D_LAYER_IDS.has(layer.id)) {
+      layers[layer.id] = layer.defaultEnabled;
+    }
+  }
+  return layers;
+}
 
 /* ─── Helpers ─── */
 
@@ -241,6 +260,7 @@ export default function MapPage() {
   const mlglRef = useRef<any>(null);
   const pinsRef = useRef<any[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const layerHandleRef = useRef<LayerHandle>({ intervals: [] });
 
   // Sync hash on state change
   useEffect(() => {
@@ -288,6 +308,12 @@ export default function MapPage() {
           if (cancelled) return;
           addElevationSource(map, mlgl);
           if (mapState.layers.boundaries) addBoundaryLayers(map);
+          // Load initially-enabled data layers from registry
+          for (const layer of LAYERS) {
+            if (MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+              addDataLayer(map, layerHandleRef.current, layer.id);
+            }
+          }
           setLoading(false);
         });
 
@@ -357,6 +383,9 @@ export default function MapPage() {
 
     return () => {
       cancelled = true;
+      // Clear data layer refresh intervals
+      layerHandleRef.current.intervals.forEach(clearInterval);
+      layerHandleRef.current.intervals = [];
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -406,12 +435,8 @@ export default function MapPage() {
       if (layerName === "hillshade") {
         if (enabled) addHillshadeLayer(map);
         else {
-          try {
-            map.removeLayer("hillshade");
-          } catch {}
-          try {
-            map.removeSource("elevation");
-          } catch {}
+          try { map.removeLayer("hillshade"); } catch {}
+          try { map.removeSource("elevation"); } catch {}
         }
       }
 
@@ -427,6 +452,12 @@ export default function MapPage() {
       if (layerName === "boundaries") {
         if (enabled) addBoundaryLayers(map);
         else removeBoundaryLayers(map);
+      }
+
+      // Data layers from shared registry
+      if (MAP_2D_LAYER_IDS.has(layerName)) {
+        if (enabled) addDataLayer(map, layerHandleRef.current, layerName);
+        else removeDataLayer(map, layerName);
       }
 
       return { ...prev, layers };
@@ -853,33 +884,36 @@ export default function MapPage() {
               </div>
             </SurveillancePanel>
 
-            {/* Layer toggles */}
-            <SurveillancePanel title="Layers" style={{ marginBottom: "0.75rem" }}>
-              {[
-                { key: "hillshade", label: "Hillshade", desc: "Terrain shading" },
-                { key: "terrain3d", label: "3D Terrain", desc: "Extruded perspective" },
-                { key: "boundaries", label: "Boundaries", desc: "Neon glow borders" },
-                { key: "contour", label: "Contour lines", desc: "Elevation contours" },
-              ].map(({ key, label, desc }) => (
-                <div
-                  key={key}
-                  style={{
-                    padding: "0.35rem 0",
-                    borderBottom: `1px solid ${T.border}`,
-                  }}
-                >
-                  <LayerToggle
-                    label={label}
-                    checked={!!mapState.layers[key]}
-                    onChange={(checked) => toggleLayer(key, checked)}
-                    color={T.accent}
-                  />
-                  <div style={{ color: T.textMuted, fontSize: "0.65rem", marginLeft: 18, marginTop: -2 }}>
-                    {desc}
-                  </div>
-                </div>
-              ))}
-            </SurveillancePanel>
+            {/* Layer toggles — registry-driven */}
+            {CATEGORY_ORDER.filter((cat) => cat !== "space" && cat !== "imagery").map((cat) => {
+              const layers = LAYERS.filter(
+                (l) => l.category === cat && (MAP_2D_LAYER_IDS.has(l.id) || ["hillshade", "terrain3d", "boundaries", "contour"].includes(l.id)),
+              );
+              if (layers.length === 0) return null;
+              return (
+                <SurveillancePanel key={cat} title={CATEGORY_LABELS[cat] || cat} style={{ marginBottom: "0.75rem" }}>
+                  {layers.map((layer) => (
+                    <div
+                      key={layer.id}
+                      style={{
+                        padding: "0.35rem 0",
+                        borderBottom: `1px solid ${T.border}`,
+                      }}
+                    >
+                      <LayerToggle
+                        label={layer.name}
+                        checked={!!mapState.layers[layer.id]}
+                        onChange={(checked) => toggleLayer(layer.id, checked)}
+                        color={layer.accent}
+                      />
+                      <div style={{ color: T.textMuted, fontSize: "0.65rem", marginLeft: 18, marginTop: -2 }}>
+                        {layer.description}
+                      </div>
+                    </div>
+                  ))}
+                </SurveillancePanel>
+              );
+            })}
 
             {/* View controls */}
             <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>

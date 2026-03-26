@@ -1,0 +1,22 @@
+import { NextResponse } from "next/server";
+
+// Edge runtime stub — GEBCO tiles require Node.js filesystem access (dev only).
+// In production, set GEBCO_TILE_URL env var to an external tile source (R2, CDN).
+export const runtime = "edge";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Headers": "Range, Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { error: "GEBCO tile server not available in edge runtime. Set GEBCO_TILE_URL to an external source." },
+    { status: 501, headers: CORS_HEADERS },
+  );
+}

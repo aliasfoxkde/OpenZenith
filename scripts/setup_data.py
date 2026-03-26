@@ -25,6 +25,7 @@ import time
 # Try to import huggingface_hub
 try:
     from huggingface_hub import HfApi, hf_hub_download, snapshot_download
+
     HAS_HF = True
 except ImportError:
     HAS_HF = False
@@ -45,6 +46,7 @@ def check_token():
     # Check for cached token
     try:
         from huggingface_hub import HfFolder
+
         if HfFolder.get_token():
             return True
     except ImportError:
@@ -96,7 +98,7 @@ def download_tifs(output_dir: str, workers: int = 4):
 
     for i, remote_path in enumerate(missing):
         filename = os.path.basename(remote_path)
-        local_path = os.path.join(output_dir, filename)
+        os.path.join(output_dir, filename)
         try:
             hf_hub_download(
                 repo_id=HF_TIF_REPO,
@@ -114,8 +116,7 @@ def download_tifs(output_dir: str, workers: int = 4):
             elapsed = time.time() - start
             rate = (i + 1) / elapsed
             eta = (len(missing) - i - 1) / rate if rate > 0 else 0
-            print(f"  [{(i+1)*100//len(missing)}%] {i+1}/{len(missing)} "
-                  f"({downloaded} ok) ETA:{eta:.0f}s")
+            print(f"  [{(i + 1) * 100 // len(missing)}%] {i + 1}/{len(missing)} ({downloaded} ok) ETA:{eta:.0f}s")
 
     elapsed = time.time() - start
     print("=" * 60)
@@ -132,6 +133,7 @@ def extract_chunks(tif_dir: str, chunk_dir: str, workers: int = 8):
 
     # Import and run
     import subprocess
+
     cmd = [sys.executable, extract_script, tif_dir, chunk_dir, str(workers)]
     print(f"Running: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)

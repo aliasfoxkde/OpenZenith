@@ -23,18 +23,18 @@ def srtm_filename_to_bounds(filename: str) -> tuple[float, float, float, float]:
 
     Returns: (lat_min, lon_min, lat_max, lon_max)
     """
-    name = filename.replace('.tif', '').replace('.tiff', '')
+    name = filename.replace(".tif", "").replace(".tiff", "")
     lat_dir = name[0]  # N or S
     lat_deg = int(name[1:3])
     lon_dir = name[3]  # E or W
     lon_deg = int(name[4:7])
 
-    if lat_dir == 'N':
+    if lat_dir == "N":
         lat_min, lat_max = lat_deg, lat_deg + 1
     else:
         lat_min, lat_max = -lat_deg - 1, -lat_deg
 
-    if lon_dir == 'E':
+    if lon_dir == "E":
         lon_min, lon_max = lon_deg, lon_deg + 1
     else:
         lon_min, lon_max = -lon_deg - 1, -lon_deg
@@ -42,19 +42,21 @@ def srtm_filename_to_bounds(filename: str) -> tuple[float, float, float, float]:
     return lat_min, lon_min, lat_max, lon_max
 
 
-def elevation_to_latlon(row: int, col: int, lat_min: float, lon_min: float,
-                         nrows: int = 3601, ncols: int = 3601) -> tuple[float, float]:
+def elevation_to_latlon(
+    row: int, col: int, lat_min: float, lon_min: float, nrows: int = 3601, ncols: int = 3601
+) -> tuple[float, float]:
     """Convert pixel coordinates to lat/lon."""
     lat = lat_min + (nrows - 1 - row) / (nrows - 1)  # Top row = max lat
     lon = lon_min + col / (ncols - 1)
     return lat, lon
 
 
-def latlon_to_elevation_index(lat: float, lon: float, lat_min: float, lon_min: float,
-                               nrows: int = 3601, ncols: int = 3601) -> tuple[int, int]:
+def latlon_to_elevation_index(
+    lat: float, lon: float, lat_min: float, lon_min: float, nrows: int = 3601, ncols: int = 3601
+) -> tuple[int, int]:
     """Convert lat/lon to pixel coordinates."""
-    row = int(round((lat_min + 1 - lat) * (nrows - 1)))
-    col = int(round((lon - lon_min) * (ncols - 1)))
+    row = round((lat_min + 1 - lat) * (nrows - 1))
+    col = round((lon - lon_min) * (ncols - 1))
     row = max(0, min(row, nrows - 1))
     col = max(0, min(col, ncols - 1))
     return row, col
@@ -70,12 +72,11 @@ def compute_slope(elevation: np.ndarray, pixel_size_m: float = 30.0) -> np.ndarr
     return np.degrees(slope_rad)
 
 
-def compute_rmse(original: np.ndarray, reconstructed: np.ndarray,
-                 nodata: int = -32768) -> dict:
+def compute_rmse(original: np.ndarray, reconstructed: np.ndarray, nodata: int = -32768) -> dict:
     """Compute error metrics between original and reconstructed elevation."""
     valid = (original != nodata) & (reconstructed != nodata)
     if not valid.any():
-        return {"rmse": float('nan'), "mae": float('nan'), "max_error": float('nan')}
+        return {"rmse": float("nan"), "mae": float("nan"), "max_error": float("nan")}
 
     diff = original[valid].astype(np.float64) - reconstructed[valid].astype(np.float64)
     rmse = float(np.sqrt(np.mean(diff**2)))
@@ -93,13 +94,13 @@ def compute_rmse(original: np.ndarray, reconstructed: np.ndarray,
     }
 
 
-def compute_slope_deviation(original: np.ndarray, reconstructed: np.ndarray,
-                            pixel_size_m: float = 30.0,
-                            nodata: int = -32768) -> dict:
+def compute_slope_deviation(
+    original: np.ndarray, reconstructed: np.ndarray, pixel_size_m: float = 30.0, nodata: int = -32768
+) -> dict:
     """Compute slope deviation between original and reconstructed."""
     valid = (original != nodata) & (reconstructed != nodata)
     if not valid.any():
-        return {"slope_rmse_deg": float('nan'), "slope_max_diff_deg": float('nan')}
+        return {"slope_rmse_deg": float("nan"), "slope_max_diff_deg": float("nan")}
 
     slope_orig = compute_slope(original, pixel_size_m)
     slope_recon = compute_slope(reconstructed, pixel_size_m)

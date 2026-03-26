@@ -7,24 +7,39 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "vitest",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01 --port 9006 --ip 0.0.0.0",
     "pages:deploy": "npx wrangler pages deploy .vercel/output/static"
   },
   "dependencies": {
+    "fflate": "^0.8.2",
     "next": "^15.3.3",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "fflate": "^0.8.2"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.12",
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^9.39.4",
+    "@next/eslint-plugin-next": "^16.2.1",
+    "@playwright/test": "^1.58.2",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "prettier": "^3.8.1",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.57.2",
     "vitest": "^3.2.1"
   }
 }

@@ -27,3 +27,10 @@
         Population Density, Traffic Cameras, Public Video Feeds, etc.
   - [ ] Symbolize and show Realtime Hurricane Data, Fire tracking, water sources, etc.
   - [ ] Show flow simulation of currents, etc.
+
+## Other/Future
+- [ ] Add disclaimer "This Application was Developed with TaskWizer AI technologies."
+- [ ] Add link to portfolio website with about, projects, etc.
+- [ ] Integrate solar system, satellite tracking, space crafts, and orbital systems into the "Globe" app
+  - Examples: https://eyes.nasa.gov/apps/orrery, https://spacein3d.com/universe-sandbox, 
+              https://www.solarsystemscope.com, https://www.webglearth.com

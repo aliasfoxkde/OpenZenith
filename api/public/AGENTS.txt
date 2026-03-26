@@ -1,0 +1,63 @@
+# OpenZenith
+# Free global elevation data API and interactive geospatial tools
+
+## About
+OpenZenith provides free, open access to global elevation data (NASA SRTM 30m),
+interactive mapping, weather data, flight tracking, earthquake monitoring,
+satellite data, marine data, and more. No API key required.
+
+## API Endpoints
+
+### Elevation
+- /api/elevation?lat={lat}&lon={lon}
+- Returns elevation in meters with tile metadata and bilinear interpolation
+
+### Map Tiles (Terrain RGB)
+- /api/tile/{z}/{x}/{y}
+- MapLibre GL compatible terrain RGB tiles from NASA SRTM 30m
+
+### Weather Warnings
+- /api/weather/warnings
+- NWS weather alerts as GeoJSON FeatureCollection
+
+### Flights
+- /api/flights?lamin={}&lamax={}&lomin={}&lomax={}
+- OpenSky ADS-B flight state vectors
+
+### Overpass (OSM)
+- POST /api/overpass with body: { "query": "..." }
+- Proxy to OpenStreetMap Overpass API
+
+### ArcGIS Discovery
+- /api/arcgis?url={serviceUrl}
+- ArcGIS REST service metadata discovery
+
+### Health
+- /api/health
+- Service health status
+
+### CORS Proxy
+- /api/proxy/{encodedUrl}
+- Universal CORS proxy for whitelisted geospatial APIs
+
+### API Docs
+- /api/docs
+- Full interactive OpenAPI 3.0 documentation with try-it panel
+
+### OpenAPI Spec
+- /api/openapi.json
+- Machine-readable API specification
+
+## Interactive Pages
+- /map - Interactive elevation map with hillshade, 3D terrain, basemaps, elevation profile
+- /worldview - Global data layers: earthquakes, radar, flights, satellites, weather, hurricanes
+- /explore - Data explorer: NOAA, flights, earthquakes, satellites, marine, OSM, ArcGIS
+- /demo - API demonstration and testing
+- /contribute - Data contribution guidelines
+
+## Rate Limits
+No API key required. Fair use policy applies. Tiles and elevation endpoints are cached.
+CORS proxy has a 10s timeout and 30s browser cache.
+
+## License
+Free and open. Elevation data sourced from NASA SRTM.

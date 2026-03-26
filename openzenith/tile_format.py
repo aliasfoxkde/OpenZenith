@@ -42,13 +42,14 @@ Why this enables updates:
 """
 
 import struct
+
 import numpy as np
 import zstandard as zstd
 
-MAGIC = b'OZT1'
+MAGIC = b"OZT1"
 VERSION = 1
 HEADER_SIZE = 18
-HEADER_FORMAT = '<4sBHHBhhhBB'
+HEADER_FORMAT = "<4sBHHBhhhBB"
 HEADER_STRUCT = struct.Struct(HEADER_FORMAT)
 
 # Compression mode constants
@@ -100,28 +101,25 @@ def encode(
 
     # Quantize if requested
     actual_bits = quantize_bits if quantize_bits else bits_per_sample
-    rmse = 0.0
     if quantize_bits and quantize_bits < 16 and valid_mask.any():
         scale = (2**quantize_bits - 1) / max(max_e - min_e, 1)
         offset = min_e
         quantized = np.zeros_like(arr, dtype=np.uint16)
         quantized[valid_mask] = np.clip(
             np.round((arr[valid_mask] - offset) * scale),
-            0, 2**quantize_bits - 1,
+            0,
+            2**quantize_bits - 1,
         ).astype(np.uint16)
         recon = np.zeros_like(arr, dtype=np.float64)
         recon[valid_mask] = quantized[valid_mask].astype(np.float64) / scale + offset
-        rmse = float(np.sqrt(np.mean((arr[valid_mask] - recon[valid_mask])**2)))
+        float(np.sqrt(np.mean((arr[valid_mask] - recon[valid_mask]) ** 2)))
         arr = quantized.astype(np.int16)
     else:
         offset = 0
 
     # Compress based on mode
     # For quantized data, use raw Zstd to avoid rounding errors in prediction/delta
-    if quantize_bits and quantize_bits < 16:
-        effective_comp = COMP_ZSTD
-    else:
-        effective_comp = compression
+    effective_comp = COMP_ZSTD if quantize_bits and quantize_bits < 16 else compression
 
     if effective_comp == COMP_NONE:
         data = arr.tobytes()
@@ -136,9 +134,16 @@ def encode(
 
     # Build header
     header = HEADER_STRUCT.pack(
-        MAGIC, VERSION, width, height,
-        actual_bits, nodata_value, min_e, max_e,
-        effective_comp, zstd_level,
+        MAGIC,
+        VERSION,
+        width,
+        height,
+        actual_bits,
+        nodata_value,
+        min_e,
+        max_e,
+        effective_comp,
+        zstd_level,
     )
 
     return header + data
@@ -158,8 +163,9 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
         raise TileError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
 
     # Parse header
-    (magic, version, width, height, bits, nodata,
-     min_e, max_e, compression, zstd_level) = HEADER_STRUCT.unpack(tile_bytes[:HEADER_SIZE])
+    (magic, version, width, height, bits, nodata, min_e, max_e, compression, zstd_level) = HEADER_STRUCT.unpack(
+        tile_bytes[:HEADER_SIZE]
+    )
 
     if magic != MAGIC:
         raise TileError(f"Invalid magic: {magic}")
@@ -173,9 +179,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
         raw = data
     elif compression == COMP_ZSTD:
         raw = _decompress_zstd(data)
-    elif compression == COMP_ZSTD_DELTA:
-        raw = data  # Will be handled in reconstruction
-    elif compression == COMP_ZSTD_PREDICT:
+    elif compression in (COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT):
         raw = data  # Will be handled in reconstruction
     else:
         raise TileError(f"Unknown compression: {compression}")
@@ -247,11 +251,11 @@ def _decompress_delta(compressed: bytes, width: int, height: int) -> np.ndarray:
     n_row_deltas = (height) * (width - 1) * 2
     offset = 0
 
-    first_row = np.frombuffer(raw[offset:offset + n_first_row], dtype=np.int16)
+    first_row = np.frombuffer(raw[offset : offset + n_first_row], dtype=np.int16)
     offset += n_first_row
-    first_col = np.frombuffer(raw[offset:offset + n_first_col], dtype=np.int16)
+    first_col = np.frombuffer(raw[offset : offset + n_first_col], dtype=np.int16)
     offset += n_first_col
-    row_d = np.frombuffer(raw[offset:offset + n_row_deltas], dtype=np.int16).reshape(height, width - 1)
+    row_d = np.frombuffer(raw[offset : offset + n_row_deltas], dtype=np.int16).reshape(height, width - 1)
     offset += n_row_deltas
     col_d = np.frombuffer(raw[offset:], dtype=np.int16).reshape(height - 1, width)
 
@@ -276,12 +280,12 @@ def _compress_predict(arr: np.ndarray, level: int) -> bytes:
     Residuals are small because adjacent pixels have similar elevation.
     Reconstruction uses np.cumsum (very fast).
     """
-    h, w = arr.shape
+    _h, _w = arr.shape
     a32 = arr.astype(np.int32)
 
     # Store first row and first column
-    first_row = a32[0, :].tobytes()          # w * 4 bytes
-    first_col = a32[1:, 0].tobytes()         # (h-1) * 4 bytes
+    first_row = a32[0, :].tobytes()  # w * 4 bytes
+    first_col = a32[1:, 0].tobytes()  # (h-1) * 4 bytes
 
     # Row residuals: actual[i,j] - actual[i,j-1] for j >= 1
     row_residuals = (a32[:, 1:] - a32[:, :-1]).astype(np.int16).tobytes()
@@ -305,11 +309,11 @@ def _decompress_predict(compressed: bytes, width: int, height: int) -> np.ndarra
     n_row_residuals = height * (width - 1) * 2  # int16
 
     offset = 0
-    first_row = np.frombuffer(raw[offset:offset + n_first_row], dtype=np.int32)
+    first_row = np.frombuffer(raw[offset : offset + n_first_row], dtype=np.int32)
     offset += n_first_row
-    first_col = np.frombuffer(raw[offset:offset + n_first_col], dtype=np.int32)
+    first_col = np.frombuffer(raw[offset : offset + n_first_col], dtype=np.int32)
     offset += n_first_col
-    row_residuals = np.frombuffer(raw[offset:offset + n_row_residuals], dtype=np.int16).reshape(height, width - 1)
+    row_residuals = np.frombuffer(raw[offset : offset + n_row_residuals], dtype=np.int16).reshape(height, width - 1)
 
     # Reconstruct using cumsum (vectorized)
     arr = np.empty((height, width), dtype=np.int32)
@@ -332,7 +336,7 @@ def validate_roundtrip(elevation: np.ndarray, **encode_kwargs) -> tuple[bool, fl
     if encode_kwargs.get("quantize_bits") and encode_kwargs["quantize_bits"] < 16:
         # Lossy - compute RMSE
         valid = elevation != encode_kwargs.get("nodata_value", -32768)
-        rmse = float(np.sqrt(np.mean((elevation[valid] - decoded[valid])**2)))
+        rmse = float(np.sqrt(np.mean((elevation[valid] - decoded[valid]) ** 2)))
         return False, rmse, meta
     else:
         # Should be lossless

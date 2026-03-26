@@ -1,7 +1,9 @@
 [project]
 name = "openzenith"
-version = "0.1.0"
-description = "OpenZenith - Universal elevation data compression and tiling service"
+version = "0.2.0"
+description = "OpenZenith - Elevation data compression, terrain analysis, and geospatial tools"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.24",
@@ -9,13 +11,63 @@ dependencies = [
     "pillow>=10.0",
 ]
 
+[project.optional-dependencies]
+cli = ["click>=8.1", "rich>=13.0"]
+sdk = ["httpx>=0.25"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.8",
+    "respx>=0.21",
+]
+all = ["openzenith[cli,sdk,dev]"]
+
 [project.scripts]
 oz-convert = "scripts.convert_srtm:main"
 oz-benchmark = "scripts.benchmark:main"
 
 [build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.packages.find]
-where = ["."]
+[tool.hatch.build.targets.wheel]
+packages = ["openzenith"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["openzenith", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["zstandard", "PIL", "click", "rich", "httpx", "respx"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

@@ -13,15 +13,14 @@ Modes:
 """
 
 import argparse
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from openzenith.converter import convert_directory
-from openzenith.tile_format import COMP_ZSTD_PREDICT, COMP_ZSTD_DELTA, COMP_ZSTD
-
+from openzenith.tile_format import COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT
 
 MODES = {
     "lossless": {"compression": COMP_ZSTD_PREDICT, "zstd_level": 9, "quantize_bits": None},
@@ -34,20 +33,13 @@ MODES = {
 
 def main():
     parser = argparse.ArgumentParser(description="Convert SRTM 30m GeoTIFF to OZT1")
-    parser.add_argument("--src", default="/nas/Temp/DEMs/data/srtm30m",
-                        help="Source directory with .tif files")
-    parser.add_argument("--dst", default=None,
-                        help="Output directory (default: ./data/srtm30m/{mode})")
-    parser.add_argument("--mode", default="lossless", choices=MODES.keys(),
-                        help="Compression mode")
-    parser.add_argument("--level", type=int, default=None,
-                        help="Override Zstd level (1-22)")
-    parser.add_argument("--quantize", type=int, default=None,
-                        help="Override quantize bits (None=lossless)")
-    parser.add_argument("--max", type=int, default=None,
-                        help="Max tiles to convert")
-    parser.add_argument("--pattern", default=None,
-                        help="File pattern filter (e.g., 'N2*.tif')")
+    parser.add_argument("--src", default="/nas/Temp/DEMs/data/srtm30m", help="Source directory with .tif files")
+    parser.add_argument("--dst", default=None, help="Output directory (default: ./data/srtm30m/{mode})")
+    parser.add_argument("--mode", default="lossless", choices=MODES.keys(), help="Compression mode")
+    parser.add_argument("--level", type=int, default=None, help="Override Zstd level (1-22)")
+    parser.add_argument("--quantize", type=int, default=None, help="Override quantize bits (None=lossless)")
+    parser.add_argument("--max", type=int, default=None, help="Max tiles to convert")
+    parser.add_argument("--pattern", default=None, help="File pattern filter (e.g., 'N2*.tif')")
     args = parser.parse_args()
 
     config = MODES[args.mode].copy()

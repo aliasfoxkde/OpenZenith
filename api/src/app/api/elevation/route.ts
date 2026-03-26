@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getElevation } from "@/lib/elevation";
 import { getDefaultBackend } from "@/lib/storage/backend";
 import { getCopernicusElevation } from "@/lib/copernicus/cog-reader";
+import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 import { isWithinSRTM } from "@/lib/srtm/tile-math";
 
 export const runtime = "edge";
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const validDatasets = ["auto", "srtm30m", "copernicus-glo30"];
+  const validDatasets = ["auto", "srtm30m", "copernicus-glo30", "gebco2025"];
   if (!validDatasets.includes(dataset)) {
     return NextResponse.json(
       { error: `Invalid dataset. Must be one of: ${validDatasets.join(", ")}` },
@@ -51,7 +52,10 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let result: any;
 
-    if (dataset === "copernicus-glo30") {
+    if (dataset === "gebco2025") {
+      // Force GEBCO (ocean bathymetry + coastal/ice)
+      result = await getGebcoElevation(lat, lon);
+    } else if (dataset === "copernicus-glo30") {
       // Force Copernicus
       result = await getCopernicusElevation(lat, lon);
     } else if (dataset === "srtm30m") {
@@ -59,19 +63,25 @@ export async function GET(request: NextRequest) {
       const storage = getDefaultBackend();
       result = await getElevation(lat, lon, storage);
     } else {
-      // Auto: prefer SRTM (cached, fast), fall back to Copernicus
+      // Auto: SRTM (fast, cached) → Copernicus (global land) → GEBCO (ocean bathymetry)
       if (isWithinSRTM(lat, lon)) {
         const storage = getDefaultBackend();
         const srtmResult = await getElevation(lat, lon, storage);
         if (srtmResult.elevation !== null) {
           result = srtmResult;
         } else {
-          // SRTM has no data (ocean/nodata) — try Copernicus
+          // SRTM has no data (ocean/nodata) — try Copernicus, then GEBCO
           result = await getCopernicusElevation(lat, lon);
+          if (result.elevation === null) {
+            result = await getGebcoElevation(lat, lon);
+          }
         }
       } else {
-        // Outside SRTM coverage — use Copernicus (global)
+        // Outside SRTM coverage — try Copernicus, then GEBCO
         result = await getCopernicusElevation(lat, lon);
+        if (result.elevation === null) {
+          result = await getGebcoElevation(lat, lon);
+        }
       }
     }
 

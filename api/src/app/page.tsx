@@ -404,10 +404,26 @@ export default function Home() {
     country: string | null;
   } | null>(null);
   const [placeName, setPlaceName] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: number; lon: number }>>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroMapRef = useRef<HTMLDivElement>(null);
   const heroMapInstance = useRef<any>(null);
   const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
   const geoInitDone = useRef(false);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // Auto-detect user location via GeoIP and pre-populate
   useEffect(() => {
@@ -441,20 +457,24 @@ export default function Home() {
         setLat(latStr);
         setLon(lonStr);
 
-        // Fetch elevation for user location
-        const eRes = await fetch(`/api/elevation?lat=${clampedLat}&lon=${clampedLon}`);
+        // Fetch elevation and address for user location
+        const eRes = await fetch(`/api/query?lat=${clampedLat}&lon=${clampedLon}&include=elevation,address`);
         if (cancelled) return;
         const eData = await eRes.json();
         if (!eData.error) {
-          setResult(eData);
+          if (eData.elevation) setResult(eData.elevation);
           setSnippetTab("result");
           heroMapFlyRef.current = { lat: clampedLat, lon: clampedLon };
+          if (eData.address) {
+            const addr = eData.address.address;
+            const parts = [
+              addr?.city || addr?.town || addr?.village || addr?.county,
+              addr?.state,
+              addr?.country,
+            ].filter(Boolean);
+            if (parts.length > 0) setPlaceName(parts.join(", "));
+          }
         }
-
-        // Fire reverse geocode for place name (non-blocking)
-        fetchPlaceName(clampedLat, clampedLon).then((p) => {
-          if (!cancelled) setPlaceName(p);
-        });
       } catch {
         // GeoIP unavailable — silent fallback, user can type manually
       }
@@ -635,6 +655,43 @@ export default function Home() {
     heroMapFlyRef.current = null;
   }, [result]);
 
+  function handleSearch(query: string) {
+    setSearchQuery(query);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+
+    // Check if query looks like coordinates (e.g., "40.7, -74.0" or "40.7,-74.0")
+    const coordMatch = query.trim().match(/^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/);
+    if (coordMatch) {
+      const parsedLat = parseFloat(coordMatch[1]);
+      const parsedLon = parseFloat(coordMatch[2]);
+      if (!isNaN(parsedLat) && !isNaN(parsedLon) && parsedLat >= -90 && parsedLat <= 90 && parsedLon >= -180 && parsedLon <= 180) {
+        setLat(parsedLat.toString());
+        setLon(parsedLon.toString());
+        setSearchResults([]);
+        setSearchOpen(false);
+        return;
+      }
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=5`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setSearchResults(data.results || []);
+        setSearchOpen(true);
+      } catch {
+        // ignore
+      }
+    }, 300);
+  }
+
   async function lookup() {
     const la = parseFloat(lat);
     const lo = parseFloat(lon);
@@ -642,27 +699,42 @@ export default function Home() {
       setError("Enter valid coordinates");
       return;
     }
-    if (la < -60 || la > 60 || lo < -180 || lo > 180) {
-      setError("Out of SRTM coverage (lat -60 to 60)");
+    if (la < -90 || la > 90 || lo < -180 || lo > 180) {
+      setError("Invalid coordinates (-90 to 90 lat, -180 to 180 lon)");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/elevation?lat=${la}&lon=${lo}`);
+      const res = await fetch(`/api/query?lat=${la}&lon=${lo}&include=elevation,address`);
       const data = await res.json();
       if (data.error) {
         setError(data.error);
         setResult(null);
       } else {
-        setResult(data);
+        // Extract elevation for backward compat
+        if (data.elevation) {
+          setResult(data.elevation);
+        } else {
+          setResult(null);
+        }
         setSnippetTab("result");
         heroMapFlyRef.current = { lat: la, lon: lo };
-        // Fire reverse geocode for place name (non-blocking)
-        fetchPlaceName(la, lo).then((p) => setPlaceName(p));
+        // Extract address from unified response
+        if (data.address) {
+          const addr = data.address.address;
+          const parts = [
+            addr?.city || addr?.town || addr?.village || addr?.county,
+            addr?.state,
+            addr?.country,
+          ].filter(Boolean);
+          setPlaceName(parts.length > 0 ? parts.join(", ") : data.address.display_name || null);
+        } else {
+          setPlaceName(null);
+        }
       }
     } catch {
-      setError("Failed to fetch elevation data");
+      setError("Failed to fetch data");
       setResult(null);
     } finally {
       setLoading(false);
@@ -687,7 +759,7 @@ export default function Home() {
       <Navbar dark={dark} />
 
       {/* Hero: Map background + Elevation lookup */}
-      <section id="hero" className="oz-hero" style={{ position: "relative", height: 580, overflow: "hidden", marginBottom: "2rem" }}>
+      <section id="hero" className="oz-hero" style={{ position: "relative", height: 660, overflow: "hidden", marginBottom: "2rem" }}>
         {/* Map background */}
         <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0 }} />
         {/* Dark overlay */}
@@ -726,7 +798,7 @@ export default function Home() {
           style={{
             position: "relative",
             zIndex: 1,
-            maxWidth: 560,
+            maxWidth: 600,
             margin: "0 auto",
             padding: "2.5rem 1.5rem 2rem",
             height: "100%",
@@ -744,10 +816,10 @@ export default function Home() {
               lineHeight: 1.2,
             }}
           >
-            Free global elevation API
+            Free global geospatial API
           </h1>
           <p id="hero-subtitle" className="oz-hero-subtitle" style={{ fontSize: "0.88rem", color: textSecondary, margin: "0 0 1.25rem", lineHeight: 1.5 }}>
-            NASA SRTM 30m resolution. No API key required. Query any point on Earth.
+            Elevation, weather, tides, and address data for any point on Earth. No API key required.
           </p>
 
           {/* User location badge from GeoIP */}
@@ -764,6 +836,77 @@ export default function Home() {
               <span>{[userGeo.city, userGeo.region, userGeo.country].filter(Boolean).join(", ")}</span>
             </div>
           )}
+
+          {/* Address search */}
+          <div ref={searchRef} style={{ position: "relative", marginBottom: "0.6rem" }}>
+            <div style={{ position: "relative" }}>
+              <span style={{
+                position: "absolute", left: "0.7rem", top: "50%", transform: "translateY(-50%)",
+                color: textSecondary, fontSize: "0.85rem", pointerEvents: "none",
+              }}>&#128269;</span>
+              <input
+                id="address-search"
+                className="oz-input oz-input-search"
+                placeholder="Search address or place..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setSearchOpen(false);
+                }}
+                style={{
+                  ...inputStyle,
+                  width: "100%",
+                  paddingLeft: "2rem",
+                  paddingRight: searchQuery ? "2rem" : "0.75rem",
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setSearchResults([]); setSearchOpen(false); }}
+                  style={{
+                    position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", color: textSecondary, cursor: "pointer",
+                    fontSize: "0.85rem", padding: "0.1rem", lineHeight: 1,
+                  }}
+                >
+                  &#x2715;
+                </button>
+              )}
+            </div>
+            {searchOpen && searchResults.length > 0 && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
+                background: cardBg, border: `1px solid ${border}`, borderRadius: 6,
+                maxHeight: "12rem", overflowY: "auto", marginTop: "0.2rem",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              }}>
+                {searchResults.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setLat(r.lat.toString());
+                      setLon(r.lon.toString());
+                      setSearchQuery(r.display_name.split(",")[0]);
+                      setSearchOpen(false);
+                      lookup();
+                    }}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left",
+                      padding: "0.5rem 0.75rem", border: "none", background: "none",
+                      color: text, fontSize: "0.82rem", cursor: "pointer",
+                      borderBottom: i < searchResults.length - 1 ? `1px solid ${border}` : "none",
+                    }}
+                  >
+                    <div style={{ fontWeight: 500 }}>{r.display_name.split(",")[0]}</div>
+                    <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.1rem" }}>
+                      {r.display_name.split(",").slice(1).join(",").trim()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Lookup inputs */}
           <div id="lookup-form" className="oz-lookup-form" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem" }}>

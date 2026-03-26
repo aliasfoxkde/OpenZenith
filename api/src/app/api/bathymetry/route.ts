@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 
 export const runtime = "edge";
 
@@ -34,46 +35,40 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Query the existing elevation endpoint to determine land vs ocean
-    const elevUrl = `/api/elevation?lat=${latNum}&lon=${lonNum}`;
-    const elevRes = await fetch(new URL(elevUrl, request.url));
-    const elevData = await elevRes.json();
+    const result = await getGebcoElevation(latNum, lonNum);
 
-    if (elevData.elevation !== null && elevData.elevation !== undefined) {
-      // Land point — return land elevation
+    if (result.elevation === null) {
       return NextResponse.json(
         {
           depth: null,
-          elevation: elevData.elevation,
+          elevation: null,
           unit: "meters",
-          surface_type: "land",
-          source: elevData.source || "srtm30m",
+          surface_type: "unknown",
+          source: "gebco2025",
+          tile: result.tile,
           location: { lat: latNum, lon: lonNum },
         },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },
       );
     }
 
-    // Ocean point — return depth estimate
-    // For now, use a simple estimate. Full GEBCO integration comes in Phase A4.
-    // Open-sea average depth is ~3688m. Coastal areas are shallower.
-    // This placeholder will be replaced with actual GEBCO data.
+    const isOcean = result.elevation < -0.5;
+
     return NextResponse.json(
       {
-        depth: null,
-        elevation: null,
+        depth: isOcean ? Math.abs(result.elevation) : 0,
+        elevation: isOcean ? 0 : result.elevation,
         unit: "meters",
-        surface_type: "ocean",
-        source: null,
-        note: "Bathymetry data not yet available. Full GEBCO 2024 integration pending.",
+        surface_type: result.surface_type,
+        source: "gebco2025",
+        tile: result.tile,
+        resolution: result.resolution,
         location: { lat: latNum, lon: lonNum },
       },
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },
     );
-  } catch {
-    return NextResponse.json(
-      { error: "Bathymetry query failed" },
-      { status: 500, headers: CORS_HEADERS },
-    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Bathymetry query failed";
+    return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });
   }
 }

@@ -17,7 +17,7 @@
  * The reader must decompress and undo the predictor to get raw Float32 values.
  */
 
-import { unzlibSync, inflateSync, decompressSync } from "fflate";
+import { unzlibSync, inflateSync } from "fflate";
 import { latLonToTileDir, tileDirToBounds, latLonToPixel } from "./tile-math";
 
 const MERGED_MAGIC = [0x4f, 0x5a, 0x43, 0x48, 0x4e, 0x4b, 0x30, 0x31];

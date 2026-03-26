@@ -633,6 +633,32 @@ export default function WorldView() {
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
       handler.setInputAction((click: any) => {
+        // Check for entity click (orbital track satellites) first
+        const picked = viewer.scene.pick(click.position);
+        if (picked && picked.id) {
+          const entity = picked.id;
+          const props = entity.properties;
+          if (props && props.type?.getValue() === "orbitalTrack") {
+            const name = entity.name || props.group?.getValue() || "Satellite";
+            const pos = entity.position?.getValue(Cesium.JulianDate.now());
+            if (pos) {
+              const cg = Cesium.Cartographic.fromCartesian(pos);
+              const lat = +Cesium.Math.toDegrees(cg.latitude);
+              const lon = +Cesium.Math.toDegrees(cg.longitude);
+              const altKm = +(cg.height / 1000).toFixed(1);
+              const group = props.group?.getValue() || "Unknown";
+              let orbitType = "Unknown";
+              if (altKm < 2000) orbitType = "LEO";
+              else if (altKm > 30000) orbitType = "GEO";
+              else orbitType = "MEO";
+              // Approximate velocity from orbit altitude
+              const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
+              setSelectedSat({ name, alt: altKm, vel: velKms, lat: +lat.toFixed(2), lon: +lon.toFixed(2), orbit: orbitType });
+              setFollowSat(false);
+            }
+            return; // Don't show ground context menu
+          }
+        }
         const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
         if (cart) {
           const cg = Cesium.Cartographic.fromCartesian(cart);
@@ -668,7 +694,8 @@ export default function WorldView() {
       cesiumRef.current = Cesium;
       setLoading(false);
 
-      // Track camera heading, altitude, and space mode
+      // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
+      let followEntity: any = null;
       const preRenderListener = () => {
         const cg = viewer.camera.positionCartographic;
         if (cg) {
@@ -677,8 +704,38 @@ export default function WorldView() {
           setIsSpaceMode(heightM > 100000);
           const heading = Cesium.Math.toDegrees(viewer.camera.heading);
           setCompassHeading(-heading);
+
+          // Dynamic atmosphere: fade brightness with altitude
+          const sa = viewer.scene.skyAtmosphere;
+          if (heightM < 10000) {
+            sa.brightnessShift = 0;
+          } else if (heightM < 200000) {
+            sa.brightnessShift = -0.7 * ((heightM - 10000) / 190000);
+          } else {
+            sa.brightnessShift = -0.7;
+          }
+
+          // Fade ground atmosphere above 500km
+          if (viewer.scene.globe.showGroundAtmosphere) {
+            viewer.scene.globe.showGroundAtmosphere = heightM < 500000;
+          }
+        }
+
+        // Follow mode: track selected satellite
+        if (followEntity) {
+          const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
+          if (pos) {
+            const camH = viewer.camera.positionCartographic?.height || 2000000;
+            viewer.camera.lookAt(
+              pos,
+              new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-45), camH > 500000 ? camH * 0.5 : 2000000),
+            );
+          }
         }
       };
+
+      // Expose follow control
+      (window as any).__ozSetFollowEntity = (entity: any | null) => { followEntity = entity; };
       viewer.scene.preRender.addEventListener(preRenderListener);
     })();
 
@@ -942,21 +999,79 @@ export default function WorldView() {
       if (!Cesium || !viewer) return;
       const features = data.features || [];
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: features.length });
+      const now = Date.now();
 
       features.forEach((f: any, i: number) => {
         const coords = f.geometry?.coordinates;
         if (!coords) return;
         const mag = f.properties?.mag || 0;
-        const color = mag >= 7 ? Cesium.Color.RED : mag >= 5 ? Cesium.Color.ORANGE : mag >= 3 ? Cesium.Color.YELLOW : Cesium.Color.LIME;
+        const depth = f.properties?.depth || 0;
+        const time = f.properties?.time || 0;
+        const ageHours = (now - time) / 3600000;
+
+        // Depth-based color: shallow <10km=red, 10-70km=orange, deep >70km=yellow
+        const depthColor = depth < 10 ? Cesium.Color.RED : depth < 70 ? Cesium.Color.ORANGE : Cesium.Color.YELLOW;
+        const magColor = mag >= 7 ? Cesium.Color.RED : mag >= 5 ? Cesium.Color.ORANGE : mag >= 3 ? Cesium.Color.YELLOW : Cesium.Color.LIME;
+        const color = depth < 10 ? depthColor : magColor; // shallow quakes always red
         const radius = Math.max(3000, mag * 8000);
+
+        // Pulsing scale for recent earthquakes (<2 hours)
+        const scaleProp = ageHours < 2
+          ? new Cesium.CallbackProperty(() => {
+              const pulse = 1 + 0.3 * Math.sin(Date.now() / 500);
+              return pulse;
+            }, false)
+          : undefined;
+
         viewer.entities.add({
           id: `eq-${i}`,
           name: `EQ ${mag.toFixed(1)}`,
           position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
-          ellipse: { semiMinorAxis: radius, semiMajorAxis: radius, material: new Cesium.ColorMaterialProperty({ color, transparent: true, alpha: 0.35 }) },
-          point: { pixelSize: Math.max(4, mag * 1.5), color, outlineColor: Cesium.Color.WHITE.withAlpha(0.3) },
+          ellipse: {
+            semiMinorAxis: new Cesium.CallbackProperty(() => {
+              const base = Math.max(3000, mag * 8000);
+              const pulse = ageHours < 2 ? 1 + 0.15 * Math.sin(Date.now() / 600) : 1;
+              return base * pulse;
+            }, false),
+            semiMajorAxis: new Cesium.CallbackProperty(() => {
+              const base = Math.max(3000, mag * 8000);
+              const pulse = ageHours < 2 ? 1 + 0.15 * Math.sin(Date.now() / 600) : 1;
+              return base * pulse;
+            }, false),
+            material: new Cesium.ColorMaterialProperty({ color, transparent: true, alpha: ageHours < 2 ? 0.5 : 0.35 }),
+          },
+          point: {
+            pixelSize: new Cesium.CallbackProperty(() => {
+              const base = Math.max(4, mag * 1.5);
+              return ageHours < 2 ? base * (1 + 0.2 * Math.sin(Date.now() / 400)) : base;
+            }, false),
+            color, outlineColor: Cesium.Color.WHITE.withAlpha(0.3),
+          },
           properties: { type: "earthquake", ...f.properties },
         });
+
+        // Concentric ring for magnitude >= 5.0
+        if (mag >= 5.0) {
+          viewer.entities.add({
+            id: `eq-ring-${i}`,
+            position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
+            ellipse: {
+              semiMinorAxis: new Cesium.CallbackProperty(() => {
+                const base = Math.max(3000, mag * 8000) * 1.8;
+                return base + 3000 * Math.sin(Date.now() / 1200);
+              }, false),
+              semiMajorAxis: new Cesium.CallbackProperty(() => {
+                const base = Math.max(3000, mag * 8000) * 1.8;
+                return base + 3000 * Math.sin(Date.now() / 1200);
+              }, false),
+              material: new Cesium.ColorMaterialProperty({ color: Cesium.Color.WHITE, transparent: true, alpha: 0.12 }),
+              outline: true,
+              outlineColor: color.withAlpha(0.3),
+              outlineWidth: 1,
+            },
+            properties: { type: "earthquake-ring" },
+          });
+        }
       });
       dataLoadedRef.current.earthquakes = true;
 
@@ -964,13 +1079,22 @@ export default function WorldView() {
         if (!state.layers.earthquakes) return;
         try {
           const d = await fetchEarthquakes();
-          // Remove old, add new
           removeEntities("eq-");
+          const refreshNow = Date.now();
           (d.features || []).forEach((f: any, i: number) => {
             const c = f.geometry?.coordinates;
             if (!c) return;
             const m = f.properties?.mag || 0;
-            viewer.entities.add({ id: `eq-${i}`, position: Cesium.Cartesian3.fromDegrees(c[0], c[1], 0), ellipse: { semiMinorAxis: Math.max(3000, m * 8000), semiMajorAxis: Math.max(3000, m * 8000), material: new Cesium.ColorMaterialProperty({ color: m >= 7 ? Cesium.Color.RED : m >= 5 ? Cesium.Color.ORANGE : Cesium.Color.YELLOW, transparent: true, alpha: 0.35 }) }, properties: { type: "earthquake" } });
+            const dp = f.properties?.depth || 0;
+            const tm = f.properties?.time || 0;
+            const age = (refreshNow - tm) / 3600000;
+            const dc = dp < 10 ? Cesium.Color.RED : dp < 70 ? Cesium.Color.ORANGE : Cesium.Color.YELLOW;
+            const mc = m >= 7 ? Cesium.Color.RED : m >= 5 ? Cesium.Color.ORANGE : Cesium.Color.YELLOW;
+            const col = dp < 10 ? dc : mc;
+            viewer.entities.add({ id: `eq-${i}`, position: Cesium.Cartesian3.fromDegrees(c[0], c[1], 0), ellipse: { semiMinorAxis: Math.max(3000, m * 8000), semiMajorAxis: Math.max(3000, m * 8000), material: new Cesium.ColorMaterialProperty({ color: col, transparent: true, alpha: age < 2 ? 0.5 : 0.35 }) }, properties: { type: "earthquake" } });
+            if (m >= 5.0) {
+              viewer.entities.add({ id: `eq-ring-${i}`, position: Cesium.Cartesian3.fromDegrees(c[0], c[1], 0), ellipse: { semiMinorAxis: Math.max(3000, m * 8000) * 1.8, semiMajorAxis: Math.max(3000, m * 8000) * 1.8, material: new Cesium.ColorMaterialProperty({ color: Cesium.Color.WHITE, transparent: true, alpha: 0.12 }), outline: true, outlineColor: col.withAlpha(0.3) }, properties: { type: "earthquake-ring" } });
+            }
           });
           updateStatus("earthquakes", { lastUpdate: Date.now(), count: (d.features || []).length });
         } catch { /* retry */ }
@@ -1018,21 +1142,58 @@ export default function WorldView() {
         const spd = s[9] || 0;
         const hdg = s[10] || 0;
         const color = alt > 10000 ? Cesium.Color.RED : alt > 5000 ? Cesium.Color.ORANGE : Cesium.Color.LIME;
+
+        // Create oriented billboard with heading rotation
         viewer.entities.add({
           id: `flight-${i}`,
           name: callsign || "N/A",
           position: Cesium.Cartesian3.fromDegrees(s[5], s[6], alt),
-          point: { pixelSize: 4, color, outlineColor: Cesium.Color.WHITE.withAlpha(0.2) },
-          label: callsign ? { text: callsign, font: "11px sans-serif", fillColor: Cesium.Color.WHITE.withAlpha(0.8), outlineColor: Cesium.Color.BLACK, style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(8, -8), verticalOrigin: Cesium.VerticalOrigin.CENTER, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.5), backgroundPadding: new Cesium.Cartesian2(3, 2) } : undefined,
+          billboard: {
+            image: ICONS.flight,
+            width: 20,
+            height: 20,
+            rotation: Cesium.Math.toRadians(-hdg),
+            alignedAxis: Cesium.Cartesian3.UNIT_Z,
+            color: color.withAlpha(0.9),
+            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.5, 2e6, 0.4),
+          },
+          label: callsign ? {
+            text: callsign, font: "10px sans-serif", fillColor: Cesium.Color.WHITE.withAlpha(0.8),
+            outlineColor: Cesium.Color.BLACK, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new Cesium.Cartesian2(10, -8), verticalOrigin: Cesium.VerticalOrigin.CENTER,
+            showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
+            backgroundPadding: new Cesium.Cartesian2(3, 2),
+            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e5, 0.0),
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000),
+          } : undefined,
           properties: { type: "flight", callsign, altitude: alt, speed: spd, heading: hdg, country: s[2] },
         });
+
+        // Velocity vector (short line in heading direction for fast flights)
+        if (spd > 100 && hdg > 0) {
+          const vecLen = Math.min(spd * 0.15, 8000); // meters, capped
+          const hdgRad = Cesium.Math.toRadians(hdg);
+          const dLat = vecLen * Math.cos(hdgRad) / 111320;
+          const dLon = vecLen * Math.sin(hdgRad) / (111320 * Math.cos(Cesium.Math.toRadians(s[6])));
+          viewer.entities.add({
+            id: `flight-vec-${i}`,
+            position: Cesium.Cartesian3.fromDegrees(s[5], s[6], alt),
+            polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArray([s[5], s[6], s[5] + dLon, s[6] + dLat], alt, alt),
+              width: 1.5,
+              material: color.withAlpha(0.4),
+              clampToGround: false,
+            },
+            properties: { type: "flight-vec" },
+          });
+        }
       });
       dataLoadedRef.current.flights = true;
       const iv = setInterval(async () => {
         if (!state.layers.flights) return;
         try {
           const d = await fetchFlights();
-          if (d.states) { removeEntities("flight-"); d.states.filter((s: any[]) => s[5] != null && s[6] != null).forEach((s: any[], i: number) => { const cs = (s[1] || "").trim(); const a = s[7] || 0; viewer.entities.add({ id: `flight-${i}`, position: Cesium.Cartesian3.fromDegrees(s[5], s[6], a), point: { pixelSize: 4, color: a > 10000 ? Cesium.Color.RED : a > 5000 ? Cesium.Color.ORANGE : Cesium.Color.LIME }, label: cs ? { text: cs, font: "11px sans-serif", fillColor: Cesium.Color.WHITE.withAlpha(0.8), style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(8, -8), showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.5), backgroundPadding: new Cesium.Cartesian2(3, 2) } : undefined }); }); updateStatus("flights", { lastUpdate: Date.now(), count: d.states.filter((s: any[]) => s[5] != null).length }); }
+          if (d.states) { removeEntities("flight-"); d.states.filter((s: any[]) => s[5] != null && s[6] != null).forEach((s: any[], i: number) => { const cs = (s[1] || "").trim(); const a = s[7] || 0; const sp = s[9] || 0; const hd = s[10] || 0; const col = a > 10000 ? Cesium.Color.RED : a > 5000 ? Cesium.Color.ORANGE : Cesium.Color.LIME; viewer.entities.add({ id: `flight-${i}`, position: Cesium.Cartesian3.fromDegrees(s[5], s[6], a), billboard: { image: ICONS.flight, width: 20, height: 20, rotation: Cesium.Math.toRadians(-hd), alignedAxis: Cesium.Cartesian3.UNIT_Z, color: col.withAlpha(0.9) }, label: cs ? { text: cs, font: "10px sans-serif", fillColor: Cesium.Color.WHITE.withAlpha(0.8), style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(10, -8), showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.5), backgroundPadding: new Cesium.Cartesian2(3, 2), distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000) } : undefined }); if (sp > 100 && hd > 0) { const vl = Math.min(sp * 0.15, 8000); const hr = Cesium.Math.toRadians(hd); const dlt = vl * Math.cos(hr) / 111320; const dln = vl * Math.sin(hr) / (111320 * Math.cos(Cesium.Math.toRadians(s[6]))); viewer.entities.add({ id: `flight-vec-${i}`, position: Cesium.Cartesian3.fromDegrees(s[5], s[6], a), polyline: { positions: Cesium.Cartesian3.fromDegreesArray([s[5], s[6], s[5] + dln, s[6] + dlt], a, a), width: 1.5, material: col.withAlpha(0.4) }, properties: { type: "flight-vec" } }); } }); updateStatus("flights", { lastUpdate: Date.now(), count: d.states.filter((s: any[]) => s[5] != null).length }); }
         } catch { /* retry */ }
       }, 15000);
       intervalsRef.current.push(iv);
@@ -1091,25 +1252,83 @@ export default function WorldView() {
       const Cesium = cesiumRef.current;
       if (!Cesium || !viewer || !data.features) return;
       updateStatus("warnings", { lastUpdate: Date.now(), count: data.features.length });
-      data.features.forEach((f: any, i: number) => {
+
+      const addWarningEntity = (f: any, i: number) => {
         const et = (f.properties?.Event || "").toLowerCase();
-        let color = Cesium.Color.YELLOW;
-        if (et.includes("tornado") || et.includes("extreme")) color = Cesium.Color.RED;
-        else if (et.includes("severe") || et.includes("warning")) color = Cesium.Color.ORANGE;
+        const severity = et.includes("tornado") || et.includes("extreme") ? "extreme"
+          : et.includes("severe") || et.includes("warning") ? "warning"
+          : "watch";
+        const color = severity === "extreme" ? Cesium.Color.RED
+          : severity === "warning" ? Cesium.Color.ORANGE : Cesium.Color.YELLOW;
+        const outlineAlpha = severity === "extreme" ? 0.9 : severity === "warning" ? 0.6 : 0.3;
+        const fillAlpha = severity === "extreme" ? 0.2 : 0.1;
+        const outlineWidth = severity === "extreme" ? 2 : 1;
+
         if (f.geometry?.type === "Polygon") {
+          const flat = f.geometry.coordinates.flat(10) as number[];
+          const hierarchy = Cesium.Cartesian3.fromDegreesArray(flat);
+
+          // Filled polygon
           viewer.entities.add({
             id: `warn-${i}`,
-            polygon: { hierarchy: Cesium.Cartesian3.fromDegreesArray(f.geometry.coordinates.flat(10)), material: new Cesium.ColorMaterialProperty({ color, transparent: true, alpha: 0.15 }) },
+            polygon: {
+              hierarchy,
+              material: new Cesium.ColorMaterialProperty({ color, transparent: true, alpha: fillAlpha }),
+              outline: false,
+            },
             properties: { type: "warning" },
           });
+
+          // Dashed outline
+          viewer.entities.add({
+            id: `warn-border-${i}`,
+            polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArray(flat),
+              width: outlineWidth,
+              material: new Cesium.PolylineDashMaterialProperty({
+                color: color.withAlpha(outlineAlpha),
+                dashLength: severity === "extreme" ? 8 : 16,
+              }),
+              clampToGround: true,
+            },
+            properties: { type: "warning-border" },
+          });
+
+          // Label at polygon centroid
+          if (flat.length >= 4) {
+            const avgLon = flat.filter((_, idx) => idx % 2 === 0).reduce((a, b) => a + b, 0) / (flat.length / 2);
+            const avgLat = flat.filter((_, idx) => idx % 2 === 1).reduce((a, b) => a + b, 0) / (flat.length / 2);
+            const icon = severity === "extreme" ? "\u26A0" : severity === "warning" ? "\u25B2" : "\u25CB";
+            viewer.entities.add({
+              id: `warn-label-${i}`,
+              position: Cesium.Cartesian3.fromDegrees(avgLon, avgLat, 0),
+              label: {
+                text: `${icon} ${f.properties?.Event || ""}`,
+                font: "bold 11px 'JetBrains Mono', monospace",
+                fillColor: color.withAlpha(0.95),
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2,
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                verticalOrigin: Cesium.VerticalOrigin.CENTER,
+                pixelOffset: new Cesium.Cartesian2(0, 0),
+                showBackground: true,
+                backgroundColor: Cesium.Color.BLACK.withAlpha(0.7),
+                backgroundPadding: new Cesium.Cartesian2(4, 3),
+                scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 2e6, 0.3),
+              },
+              properties: { type: "warning-label" },
+            });
+          }
         }
-      });
+      };
+
+      data.features.forEach(addWarningEntity);
       dataLoadedRef.current.warnings = true;
       const iv = setInterval(async () => {
         if (!state.layers.warnings) return;
         try {
           const d = await fetchWarnings();
-          if (d.features) { removeEntities("warn-"); d.features.forEach((f: any, i: number) => { const et = (f.properties?.Event || "").toLowerCase(); let c = Cesium.Color.YELLOW; if (et.includes("tornado") || et.includes("extreme")) c = Cesium.Color.RED; else if (et.includes("severe") || et.includes("warning")) c = Cesium.Color.ORANGE; if (f.geometry?.type === "Polygon") viewer.entities.add({ id: `warn-${i}`, polygon: { hierarchy: Cesium.Cartesian3.fromDegreesArray(f.geometry.coordinates.flat(10)), material: new Cesium.ColorMaterialProperty({ color: c, transparent: true, alpha: 0.15 }) } }); }); updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length }); }
+          if (d.features) { removeEntities("warn-"); d.features.forEach(addWarningEntity); updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length }); }
         } catch { /* retry */ }
       }, 300000);
       intervalsRef.current.push(iv);
@@ -1425,8 +1644,68 @@ export default function WorldView() {
       for (const [, track] of Object.entries(storms)) {
         if (track.length < 2) continue;
         const positions = track.map((pt: any) => Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]));
-        const color = Cesium.Color.fromCssColorString(track[track.length - 1].color);
-        viewer.entities.add({ id: `storm-${count}`, polyline: { positions, width: 3, material: new Cesium.ColorMaterialProperty({ color, transparent: true, alpha: 0.7 }) }, properties: { type: "storm" } });
+        const lastPt = track[track.length - 1];
+        const color = Cesium.Color.fromCssColorString(lastPt.color);
+        const stormName = lastPt.name || "Unnamed";
+
+        // Main track polyline
+        viewer.entities.add({
+          id: `storm-${count}`, polyline: { positions, width: 3, material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.15, color }) }, properties: { type: "storm" },
+        });
+
+        // Storm name label at current position
+        viewer.entities.add({
+          id: `storm-label-${count}`,
+          position: Cesium.Cartesian3.fromDegrees(lastPt.coordinates[0], lastPt.coordinates[1]),
+          label: {
+            text: stormName, font: "bold 12px 'JetBrains Mono', monospace",
+            fillColor: color, outlineColor: Cesium.Color.BLACK, outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new Cesium.Cartesian2(0, -18), verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.7),
+            backgroundPadding: new Cesium.Cartesian2(6, 4),
+            scaleByDistance: new Cesium.NearFarScalar(1e6, 1.0, 2e7, 0.3),
+          },
+          point: { pixelSize: 8, color, outlineColor: Cesium.Color.WHITE.withAlpha(0.5), outlineWidth: 2 },
+          properties: { type: "storm-marker" },
+        });
+
+        // Animated spiral arms at current storm position
+        const spiralCount = 3;
+        for (let arm = 0; arm < spiralCount; arm++) {
+          const armOffset = (arm * 2 * Math.PI) / spiralCount;
+          const spiralPositions: any[] = [];
+          const steps = 30;
+          for (let s = 0; s < steps; s++) {
+            const angle = armOffset + (s / steps) * Math.PI * 2;
+            const radius = (s / steps) * 200000; // 200km max radius
+            const lat = lastPt.coordinates[1] + (radius * Math.cos(angle)) / 111320;
+            const lon = lastPt.coordinates[0] + (radius * Math.sin(angle)) / (111320 * Math.cos(Cesium.Math.toRadians(lastPt.coordinates[1])));
+            spiralPositions.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+          }
+          viewer.entities.add({
+            id: `storm-spiral-${count}-${arm}`,
+            polyline: {
+              positions: spiralPositions, width: 2,
+              material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.2, color: color.withAlpha(0.4) }),
+            },
+            properties: { type: "storm-spiral" },
+          });
+        }
+
+        // Wind extent ring (circle)
+        const windRadius = 300000; // ~300km default extent
+        viewer.entities.add({
+          id: `storm-ring-${count}`,
+          position: Cesium.Cartesian3.fromDegrees(lastPt.coordinates[0], lastPt.coordinates[1]),
+          ellipse: {
+            semiMinorAxis: windRadius, semiMajorAxis: windRadius,
+            material: Cesium.Color.TRANSPARENT,
+            outline: true, outlineColor: color.withAlpha(0.3), outlineWidth: 1,
+          },
+          properties: { type: "storm-ring" },
+        });
+
         count++;
       }
       updateStatus("hurricaneTracks", { lastUpdate: Date.now(), count });
@@ -1445,15 +1724,67 @@ export default function WorldView() {
       if (!data.nodes) { updateStatus("nlnogNodes", { error: "no data" }); return; }
       const nodes = data.nodes as any[];
       const ds = Cesium.CustomDataSource("NLNOG Ring Nodes");
+
       for (const node of nodes) {
+        // Pulsing animation for active nodes
+        const pulseScale = new Cesium.CallbackProperty(() => {
+          return 1 + 0.4 * Math.sin(Date.now() / 800 + (node.id || 0));
+        }, false);
+
         ds.entities.add({
           id: `nlnog-${node.id}`,
           position: Cesium.Cartesian3.fromDegrees(node.lon, node.lat),
-          point: { pixelSize: 5, color: Cesium.Color.fromCssColorString("#f97316"), outlineColor: Cesium.Color.BLACK.withAlpha(0.3), outlineWidth: 1 },
-          label: { text: node.city || node.hostname, font: "10px sans-serif", style: Cesium.LabelStyle.FILL, fillColor: Cesium.Color.WHITE.withAlpha(0.8), outlineColor: Cesium.Color.BLACK, outlineWidth: 1, pixelOffset: new Cesium.Cartesian2(0, -10), showBackground: true, backgroundColor: new Cesium.Color(0, 0, 0, 0.6), backgroundPadding: new Cesium.Cartesian2(4, 3) },
+          point: {
+            pixelSize: new Cesium.CallbackProperty(() => {
+              return 4 + 2 * Math.sin(Date.now() / 800 + (node.id || 0));
+            }, false),
+            color: Cesium.Color.fromCssColorString("#f97316"),
+            outlineColor: Cesium.Color.WHITE.withAlpha(0.3),
+            outlineWidth: 1,
+            scaleByDistance: new Cesium.NearFarScalar(1e5, 2.0, 5e6, 0.5),
+          },
+          label: {
+            text: node.city || node.hostname, font: "10px sans-serif",
+            style: Cesium.LabelStyle.FILL, fillColor: Cesium.Color.WHITE.withAlpha(0.8),
+            outlineColor: Cesium.Color.BLACK, outlineWidth: 1,
+            pixelOffset: new Cesium.Cartesian2(0, -10), showBackground: true,
+            backgroundColor: new Cesium.Color(0, 0, 0, 0.6),
+            backgroundPadding: new Cesium.Cartesian2(4, 3),
+            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 3e6, 0.0),
+          },
           properties: { type: "nlnog", asn: node.asn, hostname: node.hostname, country: node.country },
         });
       }
+
+      // Draw connectivity lines between nearby nodes (ring topology approximation)
+      // Connect nodes within 2000km to approximate the NLNOG ring
+      const maxDistKm = 2000;
+      let lineCount = 0;
+      for (let i = 0; i < nodes.length && lineCount < 200; i++) {
+        for (let j = i + 1; j < nodes.length && lineCount < 200; j++) {
+          const a = nodes[i], b = nodes[j];
+          const dLat = (b.lat - a.lat) * 111;
+          const dLon = (b.lon - a.lon) * 111 * Math.cos(Cesium.Math.toRadians((a.lat + b.lat) / 2));
+          const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+          if (dist < maxDistKm && dist > 100) {
+            ds.entities.add({
+              id: `nlnog-line-${lineCount}`,
+              polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArray([a.lon, a.lat, b.lon, b.lat]),
+                width: 1,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                  glowPower: 0.1,
+                  color: Cesium.Color.fromCssColorString("#f97316").withAlpha(0.2),
+                }),
+                clampToGround: true,
+              },
+              properties: { type: "nlnog-line" },
+            });
+            lineCount++;
+          }
+        }
+      }
+
       viewer.dataSources.add(ds);
       updateStatus("nlnogNodes", { lastUpdate: Date.now(), count: nodes.length });
       dataLoadedRef.current.nlnogNodes = true;
@@ -1835,6 +2166,40 @@ export default function WorldView() {
         <div className="wv-elev-popup" style={{ left: elevPopup.x + 16, top: elevPopup.y - 10 }}>
           <div className="val">{elevPopup.elev != null ? `${elevPopup.elev}m` : "No data"}</div>
           <div className="coords">{elevPopup.lat.toFixed(4)}, {elevPopup.lon.toFixed(4)}</div>
+        </div>
+      )}
+
+      {/* Satellite info panel */}
+      {selectedSat && (
+        <div className="wv-sat-info">
+          <button className="sat-close" onClick={() => { setSelectedSat(null); setFollowSat(false); (window as any).__ozSetFollowEntity?.(null); }}>&times;</button>
+          <div className="sat-name">{selectedSat.name}</div>
+          <div className="sat-row"><span className="sat-label">Altitude</span><span className="sat-val">{selectedSat.alt.toLocaleString()} km</span></div>
+          <div className="sat-row"><span className="sat-label">Velocity</span><span className="sat-val">{selectedSat.vel} km/s</span></div>
+          <div className="sat-row"><span className="sat-label">Orbit</span><span className="sat-val">{selectedSat.orbit}</span></div>
+          <div className="sat-row"><span className="sat-label">Position</span><span className="sat-val">{selectedSat.lat}, {selectedSat.lon}</span></div>
+          <button
+            className="wv-btn"
+            style={{ marginTop: 4, padding: "4px 10px", fontSize: 10, width: "100%", background: followSat ? "var(--accent)" : "var(--bg-hover)", border: "1px solid var(--border)" }}
+            onClick={() => {
+              if (followSat) {
+                setFollowSat(false);
+                (window as any).__ozSetFollowEntity?.(null);
+                viewerRef.current?.camera.lookAtTransform(cesiumRef.current?.Matrix4.IDENTITY);
+              } else {
+                setFollowSat(true);
+                // Find the entity by name in viewer entities
+                const viewer = viewerRef.current;
+                if (viewer) {
+                  const Cesium = cesiumRef.current;
+                  const found = viewer.entities.values.find((e: any) => e.properties?.type?.getValue() === "orbitalTrack" && (e.name?.includes(selectedSat.name) || e.properties?.group?.getValue() === selectedSat.name));
+                  (window as any).__ozSetFollowEntity?.(found || null);
+                }
+              }
+            }}
+          >
+            {followSat ? "Stop Following" : "Follow"}
+          </button>
         </div>
       )}
 

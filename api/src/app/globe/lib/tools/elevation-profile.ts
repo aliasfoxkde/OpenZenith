@@ -250,14 +250,16 @@ export function renderProfileChart(
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.font = "12px 'JetBrains Mono', monospace";
     ctx.textAlign = "center";
-    ctx.fillText("No elevation data available for this path", width / 2, height / 2);
+    ctx.fillText("Click 2+ points on the globe to create a profile", width / 2, height / 2);
     return canvas;
   }
 
-  const minElev = Math.min(...elevs);
-  const maxElev = Math.max(...elevs);
+  const minElev = Math.min(0, ...elevs);
+  const maxElev = Math.max(0, ...elevs);
   const elevRange = maxElev - minElev || 1;
   const maxDist = profile[profile.length - 1].dist || 1;
+  const hasUnderwater = minElev < 0;
+  const hasLand = maxElev > 0;
 
   // Title
   ctx.fillStyle = "#ff4488";
@@ -269,11 +271,10 @@ export function renderProfileChart(
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.font = "9px 'JetBrains Mono', monospace";
   ctx.textAlign = "right";
-  ctx.fillText(
-    `Min: ${minElev.toFixed(0)}m  Max: ${maxElev.toFixed(0)}m  Gain: ${(maxElev - minElev).toFixed(0)}m`,
-    width - pad.right,
-    14,
-  );
+  const statsParts = [`Min: ${minElev.toFixed(0)}m  Max: ${maxElev.toFixed(0)}m`];
+  if (hasUnderwater && hasLand) statsParts.push("Depth: " + Math.abs(minElev).toFixed(0) + "m");
+  else if (hasUnderwater) statsParts.push("Max depth: " + Math.abs(minElev).toFixed(0) + "m");
+  ctx.fillText(statsParts.join("  "), width - pad.right, 14);
 
   // Grid lines
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
@@ -305,7 +306,25 @@ export function renderProfileChart(
     ctx.fillText(formatDistance(distVal), x, height - 8);
   }
 
-  // Draw fill gradient
+  // Sea level line (0m) — only if the range crosses zero
+  if (hasUnderwater && hasLand) {
+    const seaY = pad.top + chartH - ((0 - minElev) / elevRange) * chartH;
+    ctx.strokeStyle = "rgba(100, 180, 255, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, seaY);
+    ctx.lineTo(pad.left + chartW, seaY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "rgba(100, 180, 255, 0.5)";
+    ctx.font = "8px 'JetBrains Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("SEA LEVEL", pad.left + 2, seaY - 3);
+  }
+
+  // Draw fill gradient — green for above water, blue for below
   ctx.beginPath();
   let firstValid = true;
   for (const pt of profile) {
@@ -323,25 +342,84 @@ export function renderProfileChart(
     ctx.lineTo(pad.left + (firstValidPt.dist / maxDist) * chartW, pad.top + chartH);
   }
   ctx.closePath();
-  const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
-  gradient.addColorStop(0, "rgba(255, 68, 136, 0.3)");
-  gradient.addColorStop(1, "rgba(255, 68, 136, 0.02)");
-  ctx.fillStyle = gradient;
+
+  if (hasUnderwater && hasLand) {
+    // Two-tone gradient: blue below sea level, green above
+    const seaY = pad.top + chartH - ((0 - minElev) / elevRange) * chartH;
+    const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+    gradient.addColorStop(0, "rgba(34, 197, 94, 0.3)");
+    gradient.addColorStop(Math.max(0, (seaY - pad.top) / chartH - 0.01), "rgba(34, 197, 94, 0.15)");
+    gradient.addColorStop(Math.min(1, (seaY - pad.top) / chartH + 0.01), "rgba(59, 130, 246, 0.15)");
+    gradient.addColorStop(1, "rgba(59, 130, 246, 0.3)");
+    ctx.fillStyle = gradient;
+  } else if (hasUnderwater) {
+    const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+    gradient.addColorStop(0, "rgba(59, 130, 246, 0.15)");
+    gradient.addColorStop(1, "rgba(59, 130, 246, 0.3)");
+    ctx.fillStyle = gradient;
+  } else {
+    const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+    gradient.addColorStop(0, "rgba(34, 197, 94, 0.3)");
+    gradient.addColorStop(1, "rgba(34, 197, 94, 0.02)");
+    ctx.fillStyle = gradient;
+  }
   ctx.fill();
 
-  // Draw line
-  ctx.beginPath();
-  firstValid = true;
-  for (const pt of profile) {
-    if (pt.elev == null) { firstValid = true; continue; }
-    const x = pad.left + (pt.dist / maxDist) * chartW;
-    const y = pad.top + chartH - ((pt.elev - minElev) / elevRange) * chartH;
-    if (firstValid) { ctx.moveTo(x, y); firstValid = false; }
-    else ctx.lineTo(x, y);
+  // Draw line — color segments by above/below water when profile crosses sea level
+  if (hasUnderwater && hasLand) {
+    // Two-color line: green above, blue below
+    const drawSegment = (startX: number, startY: number, endX: number, endY: number, underwater: boolean) => {
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.strokeStyle = underwater ? "#3b82f6" : "#22c55e";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    };
+
+    let prevX = 0;
+    let prevY = 0;
+    let prevValid = false;
+    let prevUnderwater = false;
+
+    for (const pt of profile) {
+      if (pt.elev == null) { prevValid = false; continue; }
+      const x = pad.left + (pt.dist / maxDist) * chartW;
+      const y = pad.top + chartH - ((pt.elev - minElev) / elevRange) * chartH;
+      const underwater = pt.elev < 0;
+
+      if (prevValid && underwater !== prevUnderwater) {
+        // Segment crosses sea level — interpolate the crossing point
+        const seaY = pad.top + chartH - ((0 - minElev) / elevRange) * chartH;
+        const t = (seaY - prevY) / (y - prevY);
+        const crossX = prevX + t * (x - prevX);
+
+        drawSegment(prevX, prevY, crossX, seaY, prevUnderwater);
+        drawSegment(crossX, seaY, x, y, underwater);
+      } else if (prevValid) {
+        drawSegment(prevX, prevY, x, y, underwater);
+      }
+
+      prevX = x;
+      prevY = y;
+      prevValid = true;
+      prevUnderwater = underwater;
+    }
+  } else {
+    // Single-color line
+    ctx.beginPath();
+    firstValid = true;
+    for (const pt of profile) {
+      if (pt.elev == null) { firstValid = true; continue; }
+      const x = pad.left + (pt.dist / maxDist) * chartW;
+      const y = pad.top + chartH - ((pt.elev - minElev) / elevRange) * chartH;
+      if (firstValid) { ctx.moveTo(x, y); firstValid = false; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = hasUnderwater ? "#3b82f6" : "#22c55e";
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
-  ctx.strokeStyle = "#ff4488";
-  ctx.lineWidth = 2;
-  ctx.stroke();
 
   // Start/end dots
   if (profile[0]?.elev != null) {
@@ -349,7 +427,7 @@ export function renderProfileChart(
     const sy = pad.top + chartH - ((profile[0].elev - minElev) / elevRange) * chartH;
     ctx.beginPath();
     ctx.arc(sx, sy, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#00ff88";
+    ctx.fillStyle = profile[0].elev < 0 ? "#60a5fa" : "#22c55e";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1;
@@ -361,7 +439,7 @@ export function renderProfileChart(
     const ey = pad.top + chartH - ((last.elev - minElev) / elevRange) * chartH;
     ctx.beginPath();
     ctx.arc(ex, ey, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff4488";
+    ctx.fillStyle = last.elev < 0 ? "#60a5fa" : "#22c55e";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1;

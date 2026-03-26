@@ -118,6 +118,15 @@ export const STYLES = `
 .wv-zoom-btn:hover{border-color:var(--border-hover);background:var(--bg-hover)}
 .wv-zoom-btn:active{transform:scale(0.95)}
 
+/* ── Measurement tools bar ── */
+.wv-tools-bar{position:absolute;left:12px;bottom:40px;z-index:30;display:flex;gap:2px;align-items:center}
+.wv-tool-btn{display:flex;align-items:center;gap:4px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-solid);color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);white-space:nowrap}
+.wv-tool-btn:hover{border-color:var(--accent);color:var(--accent)}
+.wv-tool-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(74,158,255,0.1)}
+.wv-tool-btn.clear{border-color:var(--err);color:var(--err)}
+.wv-tool-btn.clear:hover{background:rgba(239,68,68,0.1)}
+.wv-tool-btn svg{flex-shrink:0}
+
 /* ── Orbital presets ── */
 .wv-orbit-presets{position:absolute;right:12px;bottom:180px;z-index:30;display:flex;flex-direction:column;gap:2px}
 .wv-orbit-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-solid);color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);white-space:nowrap;text-align:right}

@@ -34,6 +34,7 @@ import { loadGroundTracks } from "./lib/layers/ground-tracks";
 import { loadElevationColor } from "./lib/layers/elevation";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD, getZoneLabel } from "./lib/lod";
+import { createToolManager, type ToolMode } from "./lib/tools/tools";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -93,6 +94,8 @@ export default function Globe() {
   const [isSpaceMode, setIsSpaceMode] = useState(false);
   const [lodZone, setLodZone] = useState<string>("SURFACE");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [activeTool, setActiveTool] = useState<ToolMode>("none");
+  const toolManagerRef = useRef<any>(null);
   const [selectedSat, setSelectedSat] = useState<{ name: string; alt: number; vel: number; lat: number; lon: number; orbit: string } | null>(null);
   const [followSat, setFollowSat] = useState(false);
 
@@ -177,6 +180,13 @@ export default function Globe() {
           const cg = Cesium.Cartographic.fromCartesian(cart);
           const lng = +Cesium.Math.toDegrees(cg.longitude);
           const lat = +Cesium.Math.toDegrees(cg.latitude);
+
+          // Handle measurement tool clicks
+          if (toolManagerRef.current && toolManagerRef.current.state.mode !== "none") {
+            toolManagerRef.current.handleClick(lng, lat);
+            return;
+          }
+
           fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`)
             .then((r) => r.json())
             .then((d) => setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation, lat, lon: lng }))
@@ -218,6 +228,7 @@ export default function Globe() {
 
       viewerRef.current = viewer;
       cesiumRef.current = Cesium;
+      toolManagerRef.current = createToolManager(viewer, Cesium);
       setLoading(false);
 
       // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
@@ -625,6 +636,43 @@ export default function Globe() {
         <button className="wv-zoom-btn" onClick={resetView} title="Reset view (R)" style={{ fontSize: "12px" }}>&#8962;</button>
         <button className="wv-zoom-btn" onClick={flyToISS} title="Fly to ISS" style={{ fontSize: "10px", color: "var(--accent)" }}>&#9741;</button>
         <button className="wv-zoom-btn" onClick={toggleFullscreen} title="Fullscreen (F)" style={{ fontSize: "12px" }}>{isFullscreen ? "\u29C9" : "\u26F6"}</button>
+      </div>
+
+      {/* Measurement tools */}
+      <div className="wv-tools-bar">
+        <button
+          className={`wv-tool-btn ${activeTool === "measure-distance" ? "active" : ""}`}
+          onClick={() => {
+            const next = activeTool === "measure-distance" ? "none" : "measure-distance";
+            setActiveTool(next);
+            toolManagerRef.current?.setMode(next);
+          }}
+          title="Measure distance — click points on globe"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 14L14 2M2 14l3-3M14 2l-3 3" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+          <span>Ruler</span>
+        </button>
+        <button
+          className={`wv-tool-btn ${activeTool === "measure-area" ? "active" : ""}`}
+          onClick={() => {
+            const next = activeTool === "measure-area" ? "none" : "measure-area";
+            setActiveTool(next);
+            toolManagerRef.current?.setMode(next);
+          }}
+          title="Measure area — click 3+ points on globe"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14"><polygon points="2,14 8,2 14,14" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+          <span>Area</span>
+        </button>
+        {activeTool !== "none" && (
+          <button
+            className="wv-tool-btn clear"
+            onClick={() => { setActiveTool("none"); toolManagerRef.current?.clear(); }}
+            title="Clear measurement"
+          >
+            <span>Clear</span>
+          </button>
+        )}
       </div>
 
       {/* Orbital altitude presets */}

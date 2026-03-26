@@ -17,19 +17,33 @@
 - [x] Dynamic API documentation (`/api/docs`)
 - [x] Landing page with MapLibre hero, elevation lookup, code snippets
 - [x] Globe page with CesiumJS (satellites, earthquakes, flights, vessels, weather)
+  - [x] Space scene with 3200 procedural stars and planet markers (Moon, Sun)
+  - [x] Orbital tracks and ground track projections
+  - [x] Dynamic atmosphere fading based on camera altitude
+  - [x] LOD system for zoom-based layer visibility
 - [x] Map page with MapLibre GL (elevation profile, tools, widgets)
-- [x] Waterways API endpoint (Overpass-based river/lake GeoJSON)
-- [x] Weather warnings API (NOAA/NWS ArcGIS)
-- [x] Flight tracking (OpenSky authenticated API)
-- [x] Vessel tracking (AISstream.io)
-- [x] Satellite tracking (Celestrak)
-- [x] Earthquake visualization (USGS)
-- [x] Hurricane visualization (NOAA/NHC)
+  - [x] Shared layer registry with category-driven sidebar toggles
+  - [x] 2D data layers (earthquakes, warnings, radar, waterways, hurricanes, NLNOG, natural events)
 - [x] Widget system (layers, tools, basemaps, settings)
+- [x] Measurement tools (distance, area)
+- [x] Elevation profile with underwater support (GEBCO depth shading)
+- [x] Server-side cache layer (Cache API with TTL per data source)
+- [x] Flight tracking (OpenSky authenticated API, credit budget tracker)
+- [x] Vessel tracking (AISstream.io WebSocket)
+- [x] Satellite tracking (Celestrak)
+- [x] Earthquake visualization (USGS, pulsing depth colors)
+- [x] Hurricane visualization (NOAA/NHC, spiral wind rings)
+- [x] Waterways API endpoint (Overpass-based river/lake GeoJSON)
+- [x] Weather warnings API (NOAA/NWS ArcGIS, severity-colored polygons)
+- [x] MCP Server for AI tool integration
+- [x] Annotation tools (markers, lines, polygons, text, GeoJSON export)
+- [x] Bookmarks with localStorage persistence
+- [x] Range rings (concentric circles)
+- [x] Screenshot capture and download
+- [x] Gesture controls (double-click zoom, scroll zoom, drag rotate)
 
-## Tasks:
+## Tasks
 - [ ] Add riverway data for use with flood data, flow, etc.
-- [x] Elevation profile underwater support (GEBCO depth shading)
 - [ ] PWA Support, caching and Manifest.json file
 - [ ] Build and deploy pipeline optimization
 
@@ -59,11 +73,7 @@
 ## Other/Future
 - [ ] Add disclaimer "This Application was Developed with TaskWizer AI technologies."
 - [ ] Add link to portfolio website with about, projects, etc.
-- [x] Integrate solar system, satellite tracking, space crafts, and orbital systems into the "Globe" app
-  - Examples: https://eyes.nasa.gov/apps/orrery, https://spacein3d.com/universe-sandbox,
-              https://www.solarsystemscope.com, https://www.webglearth.com
 - [ ] Add Donation buttons with goals (setup custom PayPal account, etc.)
-- [ ] MCP Server for AI tool integration
 
 ## Design and Styling
 - [ ] Create/improve favicon and app icons

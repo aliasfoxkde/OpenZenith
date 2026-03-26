@@ -44,3 +44,31 @@ export const SURVEILLANCE_THEME = {
 } as const;
 
 export type SurveillanceTheme = typeof SURVEILLANCE_THEME;
+
+/** Reusable text style tiers for HUD / pin / readout rendering */
+export const TEXT_STYLES = {
+  /** Elevation pin main label */
+  pinLabel: {
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    fontSize: "11px",
+    fontWeight: 600,
+    letterSpacing: "0.03em",
+    textShadow: "0 0 8px rgba(34, 197, 94, 0.4)",
+  },
+  /** Pin sub-label (coordinates below elevation) */
+  pinSublabel: {
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    fontSize: "9px",
+    fontWeight: 400,
+    color: "#94a3b8",
+    letterSpacing: "0.02em",
+  },
+  /** HUD readout text */
+  hudReadout: {
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    fontSize: "11px",
+    fontWeight: 400,
+    letterSpacing: "0.05em",
+    textShadow: "0 0 6px rgba(0, 229, 255, 0.3)",
+  },
+} as const;

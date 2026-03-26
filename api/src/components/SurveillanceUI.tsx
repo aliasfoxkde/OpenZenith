@@ -34,6 +34,7 @@ export function SurveillancePanel({ children, title, style }: PanelProps) {
             letterSpacing: "0.08em",
             marginBottom: "0.5rem",
             fontFamily: T.fontMono,
+            textShadow: "0 0 6px rgba(0, 229, 255, 0.25)",
           }}
         >
           {title}
@@ -66,7 +67,7 @@ export function StatusIndicator({ color = T.green, label, pulse = false }: Statu
         }}
       />
       {label && (
-        <span style={{ fontSize: "0.75rem", color: T.textMuted, fontFamily: T.fontMono }}>
+        <span style={{ fontSize: "0.75rem", color: T.textMuted, fontFamily: T.fontMono, letterSpacing: "0.05em", textShadow: "0 0 4px rgba(100, 116, 139, 0.3)" }}>
           {label}
         </span>
       )}
@@ -87,9 +88,11 @@ export function CoordinateReadout({ lat, lon, zoom }: CoordProps) {
     <div
       style={{
         fontFamily: T.fontMono,
-        fontSize: "0.72rem",
+        fontSize: "0.75rem",
         color: T.accent,
         lineHeight: 1.6,
+        letterSpacing: "0.05em",
+        textShadow: "0 0 6px rgba(0, 229, 255, 0.3)",
       }}
     >
       <span>LAT {lat.toFixed(5)}</span>

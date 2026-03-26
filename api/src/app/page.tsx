@@ -1127,7 +1127,7 @@ export default function Home() {
         <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
           Core API &amp; Map Tools
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 280px))", gap: "0.75rem", justifyContent: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.75rem" }}>
           {[
             {
               emoji: "\u26F0\uFE0F",

@@ -44,6 +44,15 @@
   --oz-snippet-bg: rgba(0,0,0,0.03);
 }
 
+/* ─── Text Rendering Optimization ─── */
+.oz-page,
+.oz-page * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
+}
+
 /* ─── Page ─── */
 .oz-page {
   background: var(--oz-bg);

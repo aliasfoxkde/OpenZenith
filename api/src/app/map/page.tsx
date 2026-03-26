@@ -446,8 +446,8 @@ export default function MapPage() {
               >
                 {activePin.elevation !== null ? (
                   <span>
-                    <span style={{ color: T.green, fontWeight: 600 }}>{activePin.elevation.toLocaleString()}m</span>
-                    <span style={{ color: T.textMuted, marginLeft: "0.5rem" }}>
+                    <span style={{ color: T.green, fontWeight: 600, letterSpacing: "0.03em", textShadow: "0 0 8px rgba(34, 197, 94, 0.4)" }}>{activePin.elevation.toLocaleString()}m</span>
+                    <span style={{ color: T.textMuted, marginLeft: "0.5rem", letterSpacing: "0.02em" }}>
                       {activePin.lat.toFixed(4)}, {activePin.lon.toFixed(4)}
                     </span>
                   </span>
@@ -493,7 +493,7 @@ export default function MapPage() {
             {cursorPos ? (
               <CoordinateReadout lat={cursorPos.lat} lon={cursorPos.lon} zoom={mapState.zoom} />
             ) : (
-              <span style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted }}>
+              <span style={{ fontFamily: T.fontMono, fontSize: "0.75rem", color: T.textMuted, letterSpacing: "0.05em" }}>
                 LAT ----.----- | LON ----.-----
               </span>
             )}
@@ -1010,16 +1010,22 @@ function addPinMarker(map: any, mlgl: any, pin: ElevationPin, pinsStore: React.M
   const el = document.createElement("div");
   el.style.cssText = `
     display: flex; flex-direction: column; align-items: center; cursor: pointer;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
   `;
   el.innerHTML = `
     <div style="
-      background: rgba(10,15,26,0.88); color: ${T.green}; padding: 2px 8px; border-radius: 4px;
-      font-size: 12px; font-weight: 600; font-family: ${T.fontMono}; white-space: nowrap;
-      border: 1px solid ${T.border}; box-shadow: ${T.glowSubtle};
+      background: rgba(10,15,26,0.9); color: ${T.green}; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600; font-family: ${T.fontMono}; white-space: nowrap;
+      border: 1px solid ${T.border}; box-shadow: 0 0 8px rgba(34,197,94,0.3);
+      letter-spacing: 0.03em;
+      text-shadow: 0 0 8px rgba(34,197,94,0.4);
     ">${pin.elevation !== null ? pin.elevation.toLocaleString() + "m" : "No data"}</div>
-    <svg width="12" height="8" viewBox="0 0 12 8"><path d="M6 8L0 0h12z" fill="rgba(10,15,26,0.88)"/></svg>
-    <div style="width: 8px; height: 8px; border-radius: 50%; background: ${T.green}; border: 2px solid ${T.bg}; margin-top: -2px; box-shadow: 0 0 4px ${T.green};"></div>
+    <div style="
+      color: #94a3b8; font-size: 9px; font-family: ${T.fontMono}; white-space: nowrap;
+      letter-spacing: 0.02em; margin-top: -1px;
+    ">${pin.lat.toFixed(4)}, ${pin.lon.toFixed(4)}</div>
+    <svg width="12" height="8" viewBox="0 0 12 8"><path d="M6 8L0 0h12z" fill="rgba(10,15,26,0.9)"/></svg>
+    <div style="width: 8px; height: 8px; border-radius: 50%; background: ${T.green}; border: 2px solid ${T.bg}; margin-top: -2px; box-shadow: 0 0 6px ${T.green};"></div>
   `;
 
   const marker = new mlgl.Marker({ element: el, anchor: "bottom" }).setLngLat([pin.lon, pin.lat]).addTo(map);

@@ -878,16 +878,18 @@ export default function Home() {
               <button
                 className="oz-snippet-copy"
                 onClick={() => {
+                  const la = lat || "28.0";
+                  const lo = lon || "86.9";
                   const snippetText =
                     snippetTab === "result" && result
                       ? `${result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"}`
                       : snippetTab === "url"
-                        ? `https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9`
+                        ? `https://openzenith.pages.dev/api/elevation?lat=${la}&lon=${lo}`
                         : snippetTab === "curl"
-                          ? `curl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"`
+                          ? `curl "https://openzenith.pages.dev/api/elevation?lat=${la}&lon=${lo}"`
                           : snippetTab === "js"
-                            ? `const res = await fetch('/api/elevation?lat=28.0&lon=86.9')\nconst { elevation } = await res.json()`
-                            : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": 28.0, "lon": 86.9})\nprint(res.json()["elevation"])  # 8848`;
+                            ? `const res = await fetch('/api/elevation?lat=${la}&lon=${lo}')\nconst { elevation } = await res.json()`
+                            : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": ${la}, "lon": ${lo}})\nprint(res.json()["elevation"])`;
                   navigator.clipboard.writeText(snippetText);
                   setSnippetCopied(true);
                   setTimeout(() => setSnippetCopied(false), 1500);
@@ -902,12 +904,12 @@ export default function Home() {
                 snippetTab === "result" && result
                   ? result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"
                   : snippetTab === "url"
-                    ? `https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9`
+                    ? `https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`
                     : snippetTab === "curl"
-                      ? `curl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"`
+                      ? `curl "https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
                       : snippetTab === "js"
-                        ? `const res = await fetch('/api/elevation?lat=28.0&lon=86.9')\nconst { elevation } = await res.json()`
-                        : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": 28.0, "lon": 86.9})\nprint(res.json()["elevation"])  # 8848`
+                        ? `const res = await fetch('/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}')\nconst { elevation } = await res.json()`
+                        : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": ${lat || "28.0"}, "lon": ${lon || "86.9"}})\nprint(res.json()["elevation"])`
               }
             >
               {snippetTab === "result" && result && (
@@ -932,17 +934,17 @@ export default function Home() {
                 <a
                   id="snippet-api-url"
                   className="oz-snippet-url"
-                  href="https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"
+                  href={`https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9
+                  https://openzenith.pages.dev/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}
                 </a>
               )}
               {snippetTab === "curl" && (
                 <div>
                   <span className="oz-syn-method">curl</span>{" "}
-                  <span style={{ color: text }}>"https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9"</span>
+                  <span style={{ color: text }}>"https://openzenith.pages.dev/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}"</span>
                 </div>
               )}
               {snippetTab === "js" && (
@@ -951,7 +953,7 @@ export default function Home() {
                     <span className="oz-syn-keyword">const</span> res ={" "}
                     <span style={{ color: textSecondary }}>await</span>{" "}
                     <span className="oz-syn-function">fetch</span>(
-                    <span className="oz-syn-string">&apos;/api/elevation?lat=28.0&amp;lon=86.9&apos;</span>)
+                    <span className="oz-syn-string">&apos;/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}&apos;</span>)
                   </div>
                   <div>
                     <span className="oz-syn-keyword">const</span> &#123; elevation &#125; ={" "}
@@ -970,13 +972,12 @@ export default function Home() {
                   </div>
                   <div>
                     &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span className="oz-syn-string">"lat"</span>:{" "}
-                    <span className="oz-syn-number">28.0</span>, <span className="oz-syn-string">"lon"</span>:{" "}
-                    <span className="oz-syn-number">86.9</span>&#125;)
+                    <span className="oz-syn-number">{lat || "28.0"}</span>, <span className="oz-syn-string">"lon"</span>:{" "}
+                    <span className="oz-syn-number">{lon || "86.9"}</span>&#125;)
                   </div>
                   <div>
                     <span className="oz-syn-keyword">print</span>(res.json()[
-                    <span className="oz-syn-string">"elevation"</span>])&nbsp;{" "}
-                    <span className="oz-syn-comment"># 8848</span>
+                    <span className="oz-syn-string">"elevation"</span>])
                   </div>
                 </>
               )}

@@ -25,10 +25,31 @@ const CAT_ORDER: Record<string, number> = {
   TD: 0, SD: 1, TS: 2, STS: 2, SS: 2, Cat1: 3, Cat2: 4, Cat3: 5, Cat4: 6, Cat5: 7, HU: 5, EX: 0,
 };
 
-/** Storm intensity classification from category code */
-function stormIntensity(cat: string): string {
-  if (cat.startsWith("Cat")) return cat;
-  return cat;
+/** Category → wind speed range (kt) */
+const CAT_WINDS: Record<string, { min: number; max: number; label: string }> = {
+  TD: { min: 0, max: 33, label: "Tropical Depression" },
+  TS: { min: 34, max: 63, label: "Tropical Storm" },
+  STS: { min: 34, max: 63, label: "Sub-Tropical Storm" },
+  Cat1: { min: 64, max: 82, label: "Cat 1" },
+  Cat2: { min: 83, max: 95, label: "Cat 2" },
+  Cat3: { min: 96, max: 112, label: "Cat 3" },
+  Cat4: { min: 113, max: 136, label: "Cat 4" },
+  Cat5: { min: 137, max: 999, label: "Cat 5" },
+  HU: { min: 64, max: 999, label: "Hurricane" },
+  SD: { min: 0, max: 33, label: "Subtropical Depression" },
+  SS: { min: 34, max: 63, label: "Subtropical Storm" },
+  EX: { min: 0, max: 999, label: "Extratropical" },
+};
+
+/** Saffir-Simpson category from wind speed (knots) */
+function categoryFromWind(wind: number): string {
+  if (wind >= 137) return "Cat5";
+  if (wind >= 113) return "Cat4";
+  if (wind >= 96) return "Cat3";
+  if (wind >= 83) return "Cat2";
+  if (wind >= 64) return "Cat1";
+  if (wind >= 34) return "TS";
+  return "TD";
 }
 
 export function loadHurricanes(
@@ -53,6 +74,8 @@ export function loadHurricanes(
         const lon = parseFloat(p[7]);
         const cat = p[10]?.trim() || "TS";
         const season = p[1]?.trim();
+        const wind = parseFloat(p[11]) || 0; // Wind speed in knots (column 11)
+        const pressure = parseFloat(p[12]) || 0; // Pressure (column 12)
         if (isNaN(lat) || isNaN(lon)) continue;
         if (!storms[sid]) storms[sid] = [];
         storms[sid].push({
@@ -61,6 +84,8 @@ export function loadHurricanes(
           name: name || "Unnamed",
           color: SS_COLORS[cat] || "#aaa",
           season,
+          wind,
+          pressure,
         });
       }
 
@@ -75,12 +100,14 @@ export function loadHurricanes(
         const maxCat = track.reduce((best: string, pt: any) =>
           (CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best,
         );
+        const maxWind = track.reduce((best: number, pt: any) =>
+          pt.wind > best ? pt.wind : best, 0,
+        );
         const color = Cesium.Color.fromCssColorString(SS_COLORS[maxCat] || lastPt.color);
         const stormName = lastPt.name || "Unnamed";
         const isCat3Plus = CAT_ORDER[maxCat] >= 5;
 
         // ─── Track history dots (color-coded by category) ───
-        // Place dots at 6-hour intervals (IBTrACS is ~6h resolution)
         const dotInterval = Math.max(1, Math.floor(track.length / 40));
         for (let i = 0; i < track.length; i += dotInterval) {
           const pt = track[i];
@@ -114,12 +141,16 @@ export function loadHurricanes(
           properties: { type: "storm" },
         });
 
-        // ─── Storm label at latest position ───
+        // ─── Storm label at latest position with wind speed ───
+        const windLabel = maxWind > 0 ? ` ${Math.round(maxWind)}kt` : "";
+        const catInfo = CAT_WINDS[maxCat];
+        const catBadge = catInfo ? ` [${catInfo.label}]` : ` [${maxCat}]`;
+
         viewer.entities.add({
           id: `storm-label-${count}`,
           position: Cesium.Cartesian3.fromDegrees(lastPt.coordinates[0], lastPt.coordinates[1]),
           label: {
-            text: `${stormName} [${maxCat}]`,
+            text: `${stormName}${catBadge}${windLabel}`,
             font: "bold 12px 'JetBrains Mono', monospace",
             fillColor: color,
             outlineColor: Cesium.Color.BLACK,
@@ -139,12 +170,19 @@ export function loadHurricanes(
             outlineColor: Cesium.Color.WHITE.withAlpha(0.5),
             outlineWidth: 2,
           },
-          properties: { type: "storm-marker" },
+          description: [
+            stormName,
+            catInfo ? `Category: ${catInfo.label}` : `Type: ${maxCat}`,
+            maxWind > 0 ? `Max Wind: ${Math.round(maxWind)} kt (${Math.round(maxWind * 1.852)} km/h)` : null,
+            lastPt.pressure > 0 ? `Min Pressure: ${Math.round(lastPt.pressure)} hPa` : null,
+            `Season: ${lastPt.season}`,
+            `Track Points: ${track.length}`,
+          ].filter(Boolean).join("\n"),
+          properties: { type: "storm-marker", name: stormName, category: maxCat, wind: maxWind },
         });
 
         // ─── Animated spiral arms (rotating via CallbackProperty) ───
         const spiralCount = 3;
-        const spiralArmRefs: any[] = [];
         for (let arm = 0; arm < spiralCount; arm++) {
           const armOffset = (arm * 2 * Math.PI) / spiralCount;
           const steps = 40;
@@ -152,7 +190,7 @@ export function loadHurricanes(
 
           const spiralPositions = new Cesium.CallbackProperty((time: any) => {
             const rotation = Cesium.JulianDate.secondsDifference(time, Cesium.JulianDate.now());
-            const rotAngle = rotation * 0.3; // ~0.3 rad/sec rotation speed
+            const rotAngle = rotation * 0.3;
 
             const pts: any[] = [];
             for (let s = 0; s < steps; s++) {
@@ -165,7 +203,7 @@ export function loadHurricanes(
             return pts;
           });
 
-          const entity = viewer.entities.add({
+          viewer.entities.add({
             id: `storm-spiral-${count}-${arm}`,
             polyline: {
               positions: spiralPositions,
@@ -177,7 +215,6 @@ export function loadHurricanes(
             },
             properties: { type: "storm-spiral" },
           });
-          spiralArmRefs.push(entity);
         }
 
         // ─── Eye wall for Cat3+ storms ───

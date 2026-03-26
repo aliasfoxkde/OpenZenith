@@ -27,6 +27,7 @@ import { loadNlnogNodes } from "./lib/layers/nlnog";
 import { loadFlightArcs } from "./lib/layers/flight-arcs";
 import { loadOrbitalTracks } from "./lib/layers/orbital-tracks";
 import { loadGroundTracks } from "./lib/layers/ground-tracks";
+import { loadCurrents } from "./lib/layers/currents";
 import { loadElevationColor } from "./lib/layers/elevation";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD, getZoneLabel } from "./lib/lod";
@@ -55,6 +56,64 @@ export default function Globe() {
   const dataLoadedRef = useRef<Record<string, boolean>>({});
   const entitiesRef = useRef<Record<string, any>>({});
   const satDataRef = useRef<any[]>([]);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
+
+  // ─── Context menu sub-components ───
+  const closeCtx = () => { setCtxMenu(null); setExpandedGroup(null); };
+
+  const CtxDivider = () => <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />;
+
+  const CtxSection = ({ children }: { children: React.ReactNode }) => (
+    <div style={{ padding: "2px 0" }}>{children}</div>
+  );
+
+  const CtxMenuItem = ({ label, icon, accent, color, shortcut, onClick }: { label: string; icon?: string; accent?: boolean; color?: string; shortcut?: string; onClick: () => void }) => (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        padding: "5px 12px", border: "none", background: "transparent",
+        color: accent ? "var(--accent)" : color || "var(--text)", cursor: "pointer",
+        textAlign: "left", fontFamily: "inherit", fontSize: "12px",
+        borderRadius: 4, transition: "background .1s",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget.style.background = "var(--bg-hover)"); }}
+      onMouseLeave={(e) => { (e.currentTarget.style.background = "transparent"); }}
+    >
+      {icon && <span style={{ width: 16, textAlign: "center", fontSize: "13px", flexShrink: 0 }}>{icon}</span>}
+      <span style={{ flex: 1 }}>{label}</span>
+      {shortcut && <span style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{shortcut}</span>}
+    </button>
+  );
+
+  const CtxSubMenu = ({ label, icon, children }: { label: string; icon?: string; children: React.ReactNode }) => {
+    const isOpen = expandedGroup === label;
+    return (
+      <>
+        <button
+          onClick={() => setExpandedGroup(isOpen ? null : label)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            padding: "5px 12px", border: "none", background: "transparent",
+            color: "var(--text)", cursor: "pointer", textAlign: "left",
+            fontFamily: "inherit", fontSize: "12px", borderRadius: 4, transition: "background .1s",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget.style.background = "var(--bg-hover)"); }}
+          onMouseLeave={(e) => { (e.currentTarget.style.background = "transparent"); }}
+        >
+          {icon && <span style={{ width: 16, textAlign: "center", fontSize: "13px", flexShrink: 0 }}>{icon}</span>}
+          <span style={{ flex: 1 }}>{label}</span>
+          <span style={{ fontSize: "9px", transition: "transform 0.2s", transform: isOpen ? "rotate(90deg)" : "rotate(0)", display: "inline-block", color: "var(--text-muted)" }}>&#9654;</span>
+        </button>
+        {isOpen && (
+          <div style={{ paddingLeft: 16, borderLeft: "1px solid var(--border)", margin: "1px 0 1px 12px" }}>
+            {children}
+          </div>
+        )}
+      </>
+    );
+  };
 
   const [state, setState] = useState<DashboardState>(() => {
     if (typeof window === "undefined") return DEFAULT_STATE;
@@ -87,8 +146,9 @@ export default function Globe() {
     { key: "hurricaneTracks", label: "Hurricanes", lastUpdate: null, count: 0, error: null },
     { key: "nlnogNodes", label: "NLNOG Nodes", lastUpdate: null, count: 0, error: null },
     { key: "flightArcs", label: "Flight Arcs", lastUpdate: null, count: 0, error: null },
+    { key: "currents", label: "Currents", lastUpdate: null, count: 0, error: null },
   ]);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number; elev?: number | null } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number; elev?: number | null; entity?: any } | null>(null);
   const [elevPopup, setElevPopup] = useState<{ x: number; y: number; elev: number | null; lat: number; lon: number } | null>(null);
   const [clock, setClock] = useState("");
   const [compassHeading, setCompassHeading] = useState(0);
@@ -162,6 +222,51 @@ export default function Globe() {
           const cg = Cesium.Cartographic.fromCartesian(cart);
           setCursorPos([+Cesium.Math.toDegrees(cg.longitude).toFixed(4), +Cesium.Math.toDegrees(cg.latitude).toFixed(4)]);
         }
+        // Entity hover detection
+        const picked = viewer.scene.pick(movement.endPosition);
+        if (picked && picked.id) {
+          const ent = picked.id;
+          const entType = ent.properties?.type?.getValue?.() || "";
+          const entName = ent.name || "";
+          const entId = ent.id || "";
+          let html = "";
+          if (entId.startsWith("eq-")) {
+            const mag = ent.properties?.mag?.getValue?.() || "";
+            const place = ent.properties?.place?.getValue?.() || "";
+            html = `<div style="font-weight:700;color:var(--err)">M${mag}</div><div>${place}</div>`;
+          } else if (entId.startsWith("flight-") || entId.startsWith("mil-")) {
+            const callsign = entName || "";
+            const alt = ent.properties?.altitude?.getValue?.();
+            const speed = ent.properties?.velocity?.getValue?.();
+            html = `<div style="font-weight:700;color:var(--warn)">${callsign}</div>${alt != null ? `<div>Alt: ${Math.round(alt * 3.281)}ft</div>` : ""}${speed != null ? `<div>Spd: ${Math.round(speed * 1.944)}kts</div>` : ""}`;
+          } else if (entId.startsWith("vessel-")) {
+            const name = entName || "";
+            const mmsi = entId.replace("vessel-", "");
+            html = `<div style="font-weight:700;color:#4488ff">${name}</div><div>MMSI: ${mmsi}</div>`;
+          } else if (entId.startsWith("sat-") || entType === "orbitalTrack") {
+            const name = entName || "";
+            const alt = ent.properties?.altitude?.getValue?.();
+            html = `<div style="font-weight:700;color:#aa44ff">${name}</div>${alt != null ? `<div>Alt: ${(alt / 1000).toFixed(0)}km</div>` : ""}`;
+          } else if (entId.startsWith("storm-")) {
+            html = `<div style="font-weight:700;color:#ff00ff">${entName || "Storm"}</div>`;
+          } else if (entId.startsWith("event-")) {
+            const cat = ent.properties?.category?.getValue?.() || "";
+            const title = ent.properties?.title?.getValue?.() || entName || "Event";
+            html = `<div style="font-weight:700">${title}</div><div style="color:var(--text-muted)">${cat}</div>`;
+          } else if (entName) {
+            html = `<div>${entName}</div>`;
+          }
+          if (html) {
+            setHoverTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, html });
+            viewer.scene.canvas.style.cursor = "pointer";
+          } else {
+            setHoverTooltip(null);
+            viewer.scene.canvas.style.cursor = "";
+          }
+        } else {
+          setHoverTooltip(null);
+          viewer.scene.canvas.style.cursor = "";
+        }
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
       handler.setInputAction((click: any) => {
@@ -216,14 +321,19 @@ export default function Globe() {
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-      // Right-click context menu
+      // Right-click context menu (entity-aware)
       handler.setInputAction((click: any) => {
         const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+        // Check for entity under cursor
+        const picked = viewer.scene.pick(click.position);
+        const entity = picked?.id;
         if (cart) {
           const cg = Cesium.Cartographic.fromCartesian(cart);
           const lng = +Cesium.Math.toDegrees(cg.longitude);
           const lat = +Cesium.Math.toDegrees(cg.latitude);
-          setCtxMenu({ x: click.position.x, y: click.position.y, lng, lat });
+          const entityProps = entity?.properties;
+          const entityType = entityProps?.type?.getValue?.() || entityProps?.type;
+          setCtxMenu({ x: click.position.x, y: click.position.y, lng, lat, entity: entity ? { id: entity.id, name: entity.name, type: entityType, properties: entityProps } : undefined });
         }
       }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
@@ -515,7 +625,14 @@ export default function Globe() {
         case "hillshade":
           break;
         case "elevationColor":
-          if (!on) removeEntities("elev-");
+          // Toggle elevation color material on the globe
+          if (on && !dataLoadedRef.current.elevationColor) {
+            doLoadElevationColor();
+            dataLoadedRef.current.elevationColor = true;
+          } else if (!on) {
+            removeEntities("elev-");
+            dataLoadedRef.current.elevationColor = false;
+          }
           break;
         case "orbitalTracks":
           if (on && !dataLoadedRef.current.orbitalTracks) loadOrbitalTracks(viewer, Cesium, updateStatus);
@@ -523,6 +640,9 @@ export default function Globe() {
         case "groundTracks":
           if (on && !dataLoadedRef.current.groundTracks) loadGroundTracks(viewer, Cesium);
           if (!on) removeEntities("gtrack-"); break;
+        case "currents":
+          if (on && !dataLoadedRef.current.currents) loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (!on) removeEntities("current-"); break;
       }
       return next;
     });
@@ -756,19 +876,277 @@ export default function Globe() {
       {/* Close theme dropdown on outside click */}
       {themeDropdownOpen && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />}
 
-      {/* Context menu (right-click) */}
-      {ctxMenu && (
-        <div className="wv-ctx-menu" style={{ position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 200, background: "var(--bg-solid)", border: "1px solid var(--border-hover)", borderRadius: 6, padding: "4px 0", minWidth: 210, boxShadow: "0 4px 12px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
-          <button onClick={() => { safeCopy(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy coordinates</button>
-          <button onClick={() => { safeCopy(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy compact</button>
-          <button onClick={() => { const toDms = (d: number, pos: string, neg: string) => { const dir = d >= 0 ? pos : neg; const a = Math.abs(d); const deg = Math.floor(a); const min = Math.floor((a - deg) * 60); const sec = ((a - deg - min / 60) * 3600).toFixed(2); return `${deg}\u00b0${min}'${sec}"${dir}`; }; safeCopy(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`); setCtxMenu(null); }}>Copy DMS</button>
-          <button onClick={async () => { try { const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`); const d = await r.json(); safeCopy(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); } catch { /* */ } setCtxMenu(null); }} style={{ color: "var(--ok)" }}>Copy elevation</button>
-          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-          <button onClick={() => { const v = viewerRef.current; const C = cesiumRef.current; if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(ctxMenu.lng, ctxMenu.lat, 10000), orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 }, duration: 1.5 }); setCtxMenu(null); }} style={{ color: "var(--accent)" }}>Fly here (close)</button>
-          <button onClick={() => { const v = viewerRef.current; const C = cesiumRef.current; if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(ctxMenu.lng, ctxMenu.lat, 200000), orientation: { heading: 0, pitch: C.Math.toRadians(-60), roll: 0 }, duration: 2 }); setCtxMenu(null); }} style={{ color: "var(--accent)" }}>Fly here (overview)</button>
-          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-          <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }}>Open in OSM</button>
-          <button onClick={() => { window.open(`https://www.google.com/maps/@${ctxMenu.lat},${ctxMenu.lng},15z`, "_blank"); setCtxMenu(null); }}>Open in Google Maps</button>
+      {/* Context menu (right-click) — grouped with expandable sub-menus */}
+      {ctxMenu && (() => {
+        const { x, y, lng, lat, entity } = ctxMenu;
+        const entType = entity?.type as string | undefined;
+        const entName = entity?.name as string | undefined;
+        const entId = entity?.id as string | undefined;
+        const entProps = entity?.properties;
+        const isEq = entId?.startsWith("eq-");
+        const isFlight = entId?.startsWith("flight-") || entId?.startsWith("mil-");
+        const isVessel = entId?.startsWith("vessel-");
+        const isSat = entId?.startsWith("sat-") || entType === "orbitalTrack";
+        const isStorm = entId?.startsWith("storm-");
+        const isEvent = entId?.startsWith("event-");
+        const isEntity = isEq || isFlight || isVessel || isSat || isStorm || isEvent;
+
+        // Keep menu within viewport
+        const menuW = 240;
+        const menuH = 480;
+        const adjustedX = x + menuW > window.innerWidth ? window.innerWidth - menuW - 8 : x;
+        const adjustedY = y + menuH > window.innerHeight ? window.innerHeight - menuH - 8 : y;
+
+        return (
+          <div className="wv-ctx-menu" style={{
+            position: "fixed", top: adjustedY, left: adjustedX, zIndex: 200,
+            background: "var(--bg-solid)", border: "1px solid var(--border-hover)",
+            borderRadius: 8, padding: "4px 0", minWidth: menuW, maxHeight: "70vh",
+            overflowY: "auto", boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+            backdropFilter: "blur(12px)", fontFamily: "var(--font-ui)", fontSize: "12px",
+          }}>
+            {/* Entity header */}
+            {entity && (
+              <div style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)", marginBottom: 2, fontSize: "11px", color: "var(--text-muted)" }}>
+                <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "12px", marginBottom: 2 }}>{entName || entId}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: isEq ? "var(--err)" : isFlight ? "var(--warn)" : isVessel ? "#4488ff" : isSat ? "#aa44ff" : isStorm ? "#ff00ff" : "var(--accent)", flexShrink: 0 }} />
+                  <span>{entType || "Entity"}</span>
+                </div>
+              </div>
+            )}
+
+            {/* ── Zoom ── */}
+            <CtxSection>
+              <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>NAVIGATE</div>
+              <CtxMenuItem label="Fly here (close)" icon="&#x1F50D;" accent onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 10000), orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 }, duration: 1.5 });
+                closeCtx();
+              }} />
+              <CtxMenuItem label="Fly here (overview)" icon="&#x1F30D;" accent onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 200000), orientation: { heading: 0, pitch: C.Math.toRadians(-60), roll: 0 }, duration: 2 });
+                closeCtx();
+              }} />
+              <CtxMenuItem label="Fly here (orbital)" icon="&#x1F680;" accent onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 5000000), orientation: { heading: 0, pitch: C.Math.toRadians(-75), roll: 0 }, duration: 3 });
+                closeCtx();
+              }} />
+              <CtxMenuItem label="Zoom to ISS" icon="&#x1F6F0;" accent onClick={() => { flyToISS(); closeCtx(); }} />
+            </CtxSection>
+
+            <CtxDivider />
+
+            {/* ── Create ── */}
+            <CtxSection>
+              <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>CREATE</div>
+              <CtxMenuItem label="Add marker" icon="&#x1F4CD;" color="var(--err)" onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (v && C) v.entities.add({ id: `marker-${Date.now()}`, position: C.Cartesian3.fromDegrees(lng, lat), point: { pixelSize: 10, color: C.Color.fromCssColorString("#ff4444") }, label: { text: "Marker", font: "11px sans-serif", fillColor: C.Color.WHITE, style: C.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, outlineColor: C.Color.BLACK, verticalOrigin: C.VerticalOrigin.BOTTOM, pixelOffset: new C.Cartesian2(0, -12) } });
+                v.scene.requestRender(); closeCtx();
+              }} />
+              <CtxMenuItem label="Add annotation" icon="&#x270D;" color="#44aaff" onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (v && C) v.entities.add({ id: `ann-text-${Date.now()}`, position: C.Cartesian3.fromDegrees(lng, lat), label: { text: "Double-click to edit", font: "12px sans-serif", fillColor: C.Color.fromCssColorString("#44aaff"), style: C.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, outlineColor: C.Color.BLACK, verticalOrigin: C.VerticalOrigin.BOTTOM, pixelOffset: new C.Cartesian2(0, -14), showBackground: true, backgroundColor: new C.Color(0, 0, 0, 0.7), backgroundPadding: new C.Cartesian2(6, 4) } });
+                v.scene.requestRender(); closeCtx();
+              }} />
+              <CtxMenuItem label="Place range rings" icon="&#x25CE;" color="var(--warn)" onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (!v || !C) { closeCtx(); return; }
+                for (const r of [50, 100, 200, 500]) {
+                  const rDeg = r / 111.32;
+                  v.entities.add({ id: `ring-${r}km-${Date.now()}`, position: C.Cartesian3.fromDegrees(lng, lat), ellipse: { semiMajorAxis: rDeg, semiMinorAxis: rDeg, material: C.Color.fromCssColorString("#eab308").withAlpha(0.08), outline: true, outlineColor: C.Color.fromCssColorString("#eab308").withAlpha(0.3) } });
+                }
+                v.scene.requestRender(); closeCtx();
+              }} />
+              <CtxMenuItem label="Add bookmark" icon="&#x2606;" color="var(--warn)" onClick={() => {
+                const v = viewerRef.current; const C = cesiumRef.current;
+                if (!v || !C) { closeCtx(); return; }
+                const cam = v.camera; const cg = cam.positionCartographic;
+                const bm = { id: `bm-${Date.now()}`, name: `Bookmark @ ${lat.toFixed(2)}, ${lng.toFixed(2)}`, lat, lon: lng, alt: cg.height, heading: C.Math.toDegrees(cam.heading), pitch: C.Math.toDegrees(cam.pitch), timestamp: Date.now() };
+                try { const existing = JSON.parse(localStorage.getItem("globe-bookmarks") || "[]"); existing.push(bm); localStorage.setItem("globe-bookmarks", JSON.stringify(existing)); } catch { /* */ }
+                closeCtx();
+              }} />
+            </CtxSection>
+
+            <CtxDivider />
+
+            {/* ── Measure ── */}
+            <CtxSection>
+              <CtxSubMenu label="Measure" icon="&#x1F4CF;">
+                <CtxMenuItem label="Distance from here" icon="&#x2194;" onClick={() => {
+                  setActiveTool("measure-distance");
+                  if (toolManagerRef.current) { toolManagerRef.current.setMode("measure-distance"); toolManagerRef.current.handleClick(lng, lat); }
+                  closeCtx();
+                }} />
+                <CtxMenuItem label="Area from here" icon="&#x25A1;" onClick={() => {
+                  setActiveTool("measure-area");
+                  if (toolManagerRef.current) { toolManagerRef.current.setMode("measure-area"); toolManagerRef.current.handleClick(lng, lat); }
+                  closeCtx();
+                }} />
+                <CtxMenuItem label="Elevation profile" icon="&#x26F0;" onClick={() => {
+                  setActiveTool("elevation-profile");
+                  if (elevationProfileRef.current) elevationProfileRef.current.addPoint(lng, lat);
+                  closeCtx();
+                }} />
+              </CtxSubMenu>
+            </CtxSection>
+
+            <CtxDivider />
+
+            {/* ── Copy ── */}
+            <CtxSection>
+              <CtxSubMenu label="Copy" icon="&#x2398;">
+                <CtxMenuItem label="Coordinates (DD)" onClick={() => { safeCopy(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); closeCtx(); }} />
+                <CtxMenuItem label="Compact" onClick={() => { safeCopy(`${lat.toFixed(4)},${lng.toFixed(4)}`); closeCtx(); }} />
+                <CtxMenuItem label="DMS" onClick={() => {
+                  const toDms = (d: number, pos: string, neg: string) => { const dir = d >= 0 ? pos : neg; const a = Math.abs(d); const deg = Math.floor(a); const min = Math.floor((a - deg) * 60); const sec = ((a - deg - min / 60) * 3600).toFixed(2); return `${deg}\u00b0${min}'${sec}"${dir}`; };
+                  safeCopy(`${toDms(lat, "N", "S")} ${toDms(lng, "E", "W")}`);
+                  closeCtx();
+                }} />
+                <CtxMenuItem label="Elevation" color="var(--ok)" onClick={async () => {
+                  try { const r = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`); const d = await r.json(); safeCopy(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`); } catch { /* */ }
+                  closeCtx();
+                }} />
+              </CtxSubMenu>
+            </CtxSection>
+
+            <CtxDivider />
+
+            {/* ── Edit / Manage ── */}
+            <CtxSection>
+              <CtxSubMenu label="Edit" icon="&#x270E;">
+                <CtxMenuItem label="Clear measurements" color="var(--err)" onClick={() => {
+                  if (toolManagerRef.current) toolManagerRef.current.clear();
+                  setActiveTool("none"); closeCtx();
+                }} />
+                <CtxMenuItem label="Clear annotations" color="var(--err)" onClick={() => {
+                  const v = viewerRef.current; if (!v) return;
+                  const toRemove: any[] = [];
+                  v.entities.values.forEach((e: any) => { if (e.id && (e.id.startsWith("marker-") || e.id.startsWith("ann-text-") || e.id.startsWith("ann-line-") || e.id.startsWith("ann-poly-"))) toRemove.push(e); });
+                  toRemove.forEach((e) => v.entities.remove(e));
+                  v.scene.requestRender(); closeCtx();
+                }} />
+                <CtxMenuItem label="Clear range rings" color="var(--err)" onClick={() => {
+                  const v = viewerRef.current; if (!v) return;
+                  const toRemove: any[] = [];
+                  v.entities.values.forEach((e: any) => { if (e.id && e.id.startsWith("ring-")) toRemove.push(e); });
+                  toRemove.forEach((e) => v.entities.remove(e));
+                  v.scene.requestRender(); closeCtx();
+                }} />
+                <CtxMenuItem label="Clear all custom" color="var(--err)" onClick={() => {
+                  const v = viewerRef.current; if (!v) return;
+                  const toRemove: any[] = [];
+                  v.entities.values.forEach((e: any) => { if (e.id && (e.id.startsWith("marker-") || e.id.startsWith("ann-") || e.id.startsWith("ring-") || e.id.startsWith("bm-"))) toRemove.push(e); });
+                  toRemove.forEach((e) => v.entities.remove(e));
+                  if (toolManagerRef.current) toolManagerRef.current.clear();
+                  setActiveTool("none"); v.scene.requestRender(); closeCtx();
+                }} />
+              </CtxSubMenu>
+            </CtxSection>
+
+            <CtxDivider />
+
+            {/* ── Entity-specific actions ── */}
+            {isEq && (
+              <CtxSection>
+                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>EARTHQUAKE</div>
+                <CtxMenuItem label="USGS details" icon="&#x1F517;" accent onClick={() => {
+                  const usgsId = entId?.replace("eq-", "");
+                  window.open(`https://earthquake.usgs.gov/earthquakes/eventpage/${usgsId}`, "_blank"); closeCtx();
+                }} />
+                <CtxMenuItem label="Copy coordinates" onClick={() => { safeCopy(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); closeCtx(); }} />
+              </CtxSection>
+            )}
+            {isFlight && (
+              <CtxSection>
+                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>AIRCRAFT</div>
+                <CtxMenuItem label="FlightAware" icon="&#x1F517;" accent onClick={() => {
+                  const callsign = entName || entId?.replace("flight-", "") || "";
+                  window.open(`https://flightaware.com/live/flight/${callsign}`, "_blank"); closeCtx();
+                }} />
+                <CtxMenuItem label="Copy callsign" onClick={() => { safeCopy(entName || entId || ""); closeCtx(); }} />
+              </CtxSection>
+            )}
+            {isVessel && (
+              <CtxSection>
+                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>VESSEL</div>
+                <CtxMenuItem label="MarineTraffic" icon="&#x1F517;" accent onClick={() => {
+                  const mmsi = entId?.replace("vessel-", "") || "";
+                  window.open(`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`, "_blank"); closeCtx();
+                }} />
+                <CtxMenuItem label="Copy MMSI" onClick={() => { safeCopy(entId?.replace("vessel-", "") || ""); closeCtx(); }} />
+              </CtxSection>
+            )}
+            {isSat && (
+              <CtxSection>
+                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>SATELLITE</div>
+                <CtxMenuItem label="Show orbit info" icon="&#x1F6F0;" accent onClick={() => {
+                  // Trigger the left-click satellite info flow
+                  const v = viewerRef.current; const C = cesiumRef.current;
+                  if (v && C && entity) {
+                    const found = v.entities.values.find((e: any) => e.id === entId || (entName && e.name?.includes(entName)));
+                    if (found) {
+                      const pos = found.position?.getValue(C.JulianDate.now());
+                      if (pos) {
+                        const cg = C.Cartographic.fromCartesian(pos);
+                        const altKm = +(cg.height / 1000).toFixed(1);
+                        const group = found.properties?.group?.getValue?.() || entName || "Unknown";
+                        let orbitType = "Unknown";
+                        if (altKm < 2000) orbitType = "LEO"; else if (altKm > 30000) orbitType = "GEO"; else orbitType = "MEO";
+                        const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
+                        setSelectedSat({ name: entName || group, alt: altKm, vel: velKms, lat: +C.Math.toDegrees(cg.latitude).toFixed(2), lon: +C.Math.toDegrees(cg.longitude).toFixed(2), orbit: orbitType });
+                      }
+                    }
+                  }
+                  closeCtx();
+                }} />
+                <CtxMenuItem label="Follow satellite" icon="&#x1F440;" onClick={() => {
+                  const v = viewerRef.current;
+                  if (v) {
+                    const found = v.entities.values.find((e: any) => e.id === entId || (entName && e.name?.includes(entName)));
+                    (window as any).__ozSetFollowEntity?.(found || null);
+                    setFollowSat(true);
+                  }
+                  closeCtx();
+                }} />
+              </CtxSection>
+            )}
+            {isStorm && (
+              <CtxSection>
+                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>STORM</div>
+                <CtxMenuItem label="NHC advisory" icon="&#x1F517;" accent onClick={() => {
+                  window.open("https://www.nhc.noaa.gov/", "_blank"); closeCtx();
+                }} />
+                <CtxMenuItem label="Zoom to track" onClick={() => {
+                  const v = viewerRef.current; const C = cesiumRef.current;
+                  if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 3000000), orientation: { heading: 0, pitch: C.Math.toRadians(-70), roll: 0 }, duration: 2 });
+                  closeCtx();
+                }} />
+              </CtxSection>
+            )}
+
+            {/* ── External links ── */}
+            <CtxSection>
+              <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>EXTERNAL</div>
+              <CtxMenuItem label="Open in OSM" icon="&#x1F5FA;" onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`, "_blank"); closeCtx(); }} />
+              <CtxMenuItem label="Open in Google Maps" icon="&#x1F5FA;" onClick={() => { window.open(`https://www.google.com/maps/@${lat},${lng},15z`, "_blank"); closeCtx(); }} />
+              <CtxMenuItem label="Open in Google Earth" icon="&#x1F30C;" onClick={() => { window.open(`https://earth.google.com/web/@${lat},${lng},1000a,300d,35y,0h,0t,0r`, "_blank"); closeCtx(); }} />
+              {isEq && <CtxMenuItem label="Open in USGS" icon="&#x1F517;" onClick={() => {
+                const usgsId = entId?.replace("eq-", "");
+                window.open(`https://earthquake.usgs.gov/earthquakes/eventpage/${usgsId}`, "_blank"); closeCtx();
+              }} />}
+            </CtxSection>
+          </div>
+        );
+      })()}
+
+      {/* Entity hover tooltip */}
+      {hoverTooltip && (
+        <div className="wv-hover-tooltip" style={{ left: hoverTooltip.x + 16, top: hoverTooltip.y - 8, zIndex: 150 }}>
+          <div dangerouslySetInnerHTML={{ __html: hoverTooltip.html }} />
         </div>
       )}
 

@@ -2,6 +2,44 @@ import { switchBasemapOnViewer } from "./helpers";
 import type { DashboardState } from "./types";
 
 /**
+ * Create an elevation color map canvas for the globe material.
+ * Maps elevation values to colors:
+ *   Deep ocean (-8000m): dark navy
+ *   Shallow ocean (-500m): medium blue
+ *   Coastline (0m): sandy/light
+ *   Low land (0-500m): green
+ *   Mid elevation (500-2000m): yellow-brown
+ *   High elevation (2000-5000m): orange-brown
+ *   Peaks (5000m+): white/snow
+ */
+function createElevationColorMap(): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d")!;
+
+  const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+  gradient.addColorStop(0.0, "#0a1628");   // Deep ocean
+  gradient.addColorStop(0.15, "#0d2847");   // Mid ocean
+  gradient.addColorStop(0.35, "#1a5276");   // Shallow ocean
+  gradient.addColorStop(0.44, "#2980b9");   // Coastal water
+  gradient.addColorStop(0.48, "#5dade2");   // Near shore
+  gradient.addColorStop(0.50, "#aed6f1");   // Shoreline
+  gradient.addColorStop(0.52, "#f9e79f");   // Beach
+  gradient.addColorStop(0.55, "#82e0aa");   // Lowland green
+  gradient.addColorStop(0.62, "#27ae60");   // Mid elevation
+  gradient.addColorStop(0.72, "#f4d03f");   // Highland yellow
+  gradient.addColorStop(0.82, "#e67e22");   // Mountain orange
+  gradient.addColorStop(0.90, "#a04000");   // High mountain
+  gradient.addColorStop(0.96, "#d35400");   // Alpine
+  gradient.addColorStop(1.0, "#f0f0f0");   // Snow/peak
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 1);
+  return canvas;
+}
+
+/**
  * Load CesiumJS and satellite.js from CDN if not already present.
  */
 async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {
@@ -77,12 +115,50 @@ export async function initCesiumViewer(
   // ─── Scene configuration ───
   const scene = viewer.scene;
   scene.globe.baseColor = Cesium.Color.fromCssColorString("#0a0e17");
-  scene.backgroundColor = Cesium.Color.BLACK;
+  scene.backgroundColor = Cesium.Color.fromCssColorString("#000000");
   scene.skyAtmosphere.show = true;
+  scene.skyAtmosphere.hueShift = 0.0;
+  scene.skyAtmosphere.saturationShift = 0.0;
+  scene.skyAtmosphere.brightnessShift = 0.0;
   scene.fog.enabled = false;
   scene.globe.showGroundAtmosphere = true;
   scene.globe.enableLighting = true;
+  scene.globe.lightingFadeInDistance = 0;
+  scene.globe.lightingFadeOutDistance = 1e8;
   scene.screenSpaceCameraController.enableCollisionDetection = true;
+
+  // Improve rendering quality
+  scene.postProcessStages.fxaa.enabled = true;
+  scene.globe.show = true;
+
+  // ─── Terrain: Cesium World Terrain (includes GEBCO bathymetry) ───
+  try {
+    const terrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(1, {
+      requestVertexNormals: true,
+    });
+    viewer.terrainProvider = terrainProvider;
+    scene.globe.depthTestAgainstTerrain = false; // Don't depth-test entities against terrain
+  } catch {
+    // Cesium Ion not available — continue without terrain
+  }
+
+  // ─── Custom globe material: depth-based coloring ───
+  // Shows bathymetry (ocean depth) in blue gradients and land in green/brown
+  try {
+    const elevationColorMaterial = new Cesium.Material({
+      fabric: {
+        type: "ElevationColorMap",
+        uniforms: {
+          image: createElevationColorMap(),
+          minimumHeight: -8000,
+          maximumHeight: 9000,
+        },
+      },
+    });
+    scene.globe.material = elevationColorMaterial;
+  } catch {
+    // Material not supported — continue with default
+  }
 
   // Phase 17 fix: extend frustum far plane to 500M meters (5x max zoom distance)
   // Previously 50M which caused Earth to clip/disappear when zoomed out

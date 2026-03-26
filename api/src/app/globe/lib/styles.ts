@@ -92,6 +92,13 @@ export const STYLES = `
 /* ── Context menu ── */
 .wv-ctx-menu button{display:flex;align-items:center;gap:6px;width:100%;padding:6px 12px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;cursor:pointer;text-align:left}
 .wv-ctx-menu button:hover{background:var(--bg-hover)}
+.wv-ctx-menu::-webkit-scrollbar{width:4px}
+.wv-ctx-menu::-webkit-scrollbar-track{background:transparent}
+.wv-ctx-menu::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── Hover tooltip ── */
+.wv-hover-tooltip{position:fixed;z-index:150;background:rgba(0,0,0,0.88);border:1px solid var(--border-hover);border-radius:6px;padding:5px 10px;box-shadow:0 2px 12px rgba(0,0,0,0.5);pointer-events:none;font-size:11px;font-family:var(--font-ui);color:var(--text);max-width:260px;white-space:nowrap;backdrop-filter:blur(8px);line-height:1.4}
+.wv-hover-tooltip div{white-space:nowrap}
 
 /* ── Elevation popup ── */
 .wv-elev-popup{position:absolute;z-index:200;background:var(--bg-solid);border:1px solid var(--border);border-radius:6px;padding:6px 10px;

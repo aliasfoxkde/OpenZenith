@@ -1,15 +1,20 @@
+/**
+ * Data fetchers for globe layers.
+ * All external API calls route through /api/proxy/ to avoid CORS issues.
+ */
+
 export async function fetchEarthquakes(): Promise<any> {
-  const r = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
+  const r = await fetch("/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
   return r.json();
 }
 
 export async function fetchRainViewer(): Promise<any> {
-  const r = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+  const r = await fetch("/api/proxy/https://api.rainviewer.com/public/weather-maps.json");
   return r.json();
 }
 
 export async function fetchEONET(): Promise<any> {
-  const r = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
+  const r = await fetch("/api/proxy/https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
   return r.json();
 }
 
@@ -50,13 +55,13 @@ export async function fetchWarnings(): Promise<any> {
 }
 
 export async function fetchCelestrak(): Promise<any> {
-  const r = await fetch("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json");
+  const r = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json");
   return r.json();
 }
 
 export async function fetchHurricaneTracks(): Promise<any> {
   const r = await fetch(
-    "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv"
+    "/api/proxy/https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv"
   );
   return r.text();
 }

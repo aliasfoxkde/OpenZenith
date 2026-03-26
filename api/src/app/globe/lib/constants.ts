@@ -9,7 +9,7 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
   {
     title: "Real-Time Data",
     key: "realtime",
-    layerIds: ["earthquakes", "radar", "flights", "militaryFlights", "vessels", "warnings", "events", "hurricaneTracks"],
+    layerIds: ["earthquakes", "radar", "flights", "militaryFlights", "vessels", "warnings", "events", "hurricaneTracks", "currents"],
   },
   {
     title: "Space",
@@ -50,6 +50,7 @@ export const DEFAULT_LAYERS: LayerState = {
   flightArcs: false,
   orbitalTracks: false,
   groundTracks: false,
+  currents: false,
 };
 
 export const DEFAULT_STATE: DashboardState = {

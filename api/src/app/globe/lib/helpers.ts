@@ -161,6 +161,7 @@ export function switchBasemapOnViewer(viewer: any, key: string) {
     imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
       url: bm.url,
       credit: "",
+      maximumLevel: 18,
     }));
   }
 }

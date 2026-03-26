@@ -17,6 +17,7 @@ export interface LayerState {
   flightArcs: boolean;
   orbitalTracks: boolean;
   groundTracks: boolean;
+  currents: boolean;
 }
 
 export interface DashboardState {

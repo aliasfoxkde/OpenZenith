@@ -576,9 +576,9 @@ export default function Home() {
               type: "hillshade",
               source: "elevation",
               paint: {
-                "hillshade-shadow-color": "#000",
-                "hillshade-highlight-color": "#fff",
-                "hillshade-exaggeration": 0.4,
+                "hillshade-shadow-color": "#000000",
+                "hillshade-highlight-color": "#444444",
+                "hillshade-exaggeration": 0.8,
               },
             },
             "osm",
@@ -769,8 +769,8 @@ export default function Home() {
             position: "absolute",
             inset: 0,
             background: dark
-              ? "linear-gradient(180deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.8) 100%)"
-              : "linear-gradient(180deg, rgba(250,250,250,0.9) 0%, rgba(250,250,250,0.7) 40%, rgba(250,250,250,0.9) 100%)",
+              ? "linear-gradient(180deg, rgba(10,10,10,0.75) 0%, rgba(10,10,10,0.3) 35%, rgba(10,10,10,0.7) 100%)"
+              : "linear-gradient(180deg, rgba(250,250,250,0.85) 0%, rgba(250,250,250,0.5) 35%, rgba(250,250,250,0.85) 100%)",
             pointerEvents: "none",
           }}
         />

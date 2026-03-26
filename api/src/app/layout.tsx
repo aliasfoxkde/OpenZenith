@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -68,20 +67,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <head>
-        <Script
-          src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"
-          strategy="afterInteractive"
-        />
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css"
-        />
-        <Script
-          src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"
-          strategy="lazyOnload"
-        />
-      </head>
+      <head />
       <body
         style={{
           margin: 0,

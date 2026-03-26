@@ -25,23 +25,43 @@ function elevationToTerrarium(data: Int16Array): Uint8Array {
   return pixels;
 }
 
-/** Poll until maplibregl is available on window, with timeout. */
-function waitForMapLibre(timeoutMs = 10000): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const w = window as any;
-    if (w.maplibregl) return resolve(w.maplibregl);
-
-    const start = Date.now();
-    const interval = setInterval(() => {
-      if (w.maplibregl) {
-        clearInterval(interval);
-        resolve(w.maplibregl);
-      } else if (Date.now() - start > timeoutMs) {
-        clearInterval(interval);
-        reject(new Error("MapLibre GL failed to load"));
-      }
-    }, 100);
+function loadMapLibre(): Promise<void> {
+  const w = window as any;
+  if (w.maplibregl) return Promise.resolve();
+  if (w._maplibreLoading) return w._maplibreLoading;
+  w._maplibreLoading = new Promise<void>((resolve, reject) => {
+    if (!document.querySelector('link[href*="maplibre-gl"]')) {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css";
+      document.head.appendChild(css);
+    }
+    const js = document.createElement("script");
+    js.src = "https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js";
+    js.onload = () => resolve();
+    js.onerror = () => reject(new Error("MapLibre GL script failed to load"));
+    document.head.appendChild(js);
   });
+  return w._maplibreLoading;
+}
+
+function waitForMapLibre(timeoutMs = 10000): Promise<any> {
+  const w = window as any;
+  if (w.maplibregl) return Promise.resolve(w.maplibregl);
+  return loadMapLibre().then(
+    () => new Promise((resolve, reject) => {
+      const start = Date.now();
+      const interval = setInterval(() => {
+        if (w.maplibregl) {
+          clearInterval(interval);
+          resolve(w.maplibregl);
+        } else if (Date.now() - start > timeoutMs) {
+          clearInterval(interval);
+          reject(new Error("MapLibre GL failed to load"));
+        }
+      }, 100);
+    })
+  );
 }
 
 function addElevationLayer(map: any, mlgl: any) {

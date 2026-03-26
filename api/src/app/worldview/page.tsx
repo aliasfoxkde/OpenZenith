@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
+import { Navbar } from "@/components/Navbar";
 
 /* ─── Registry lookup ─── */
 const LAYER_MAP = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
@@ -70,10 +70,10 @@ interface DataStatus {
    Constants
    ═══════════════════════════════════════════════════════════════ */
 
-const BASEMAPS: Record<string, { label: string; ionId?: string; url?: string }> = {
-  dark: { label: "Dark", ionId: "basemaps-4c4a0a25c60e4eb8a09cc4b3e498a9e5" },
-  satellite: { label: "Satellite", ionId: "basemaps-2c6a17f43d1e484d8b35ee2c4cc4470f" },
-  osm: { label: "OSM", ionId: "basemaps-c5a0b3ac0770479ab4cf8e811e25956e" },
+const BASEMAPS: Record<string, { label: string; url: string }> = {
+  dark: { label: "Dark", url: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png" },
+  satellite: { label: "Satellite", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" },
+  osm: { label: "OSM", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" },
   voyager: { label: "Voyager", url: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" },
   topo: { label: "Topo", url: "https://tile.opentopomap.org/{z}/{x}/{y}.png" },
 };
@@ -220,6 +220,23 @@ function fmtTime(ts: number | null): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function safeCopy(text: string) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+  } catch { /* clipboard unavailable */ }
+}
+
 function elevationColor(elev: number): string {
   if (elev < 0) return "#1a5276";
   if (elev < 200) return "#1e8449";
@@ -297,7 +314,8 @@ async function fetchHurricaneTracks(): Promise<any> {
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
 
-.wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:var(--font-ui);background:var(--bg-solid);color:var(--text)}
+.wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:var(--font-ui);background:var(--bg-solid);color:var(--text);
+  display:flex;flex-direction:column}
 
 .wv-scanlines{display:var(--scanlines);position:absolute;inset:0;z-index:15;pointer-events:none;
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px)}
@@ -331,16 +349,6 @@ const STYLES = `
 .spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── Nav ── */
-.wv-nav{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;justify-content:space-between;
-  padding:0 12px;height:42px;background:var(--bg-nav);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);font-size:13px;
-  box-shadow:0 calc(var(--glow-intensity) * 4px) calc(var(--glow-intensity) * 16px) var(--accent-glow)}
-.wv-nav-brand{display:flex;align-items:center;gap:6px;color:var(--text);text-decoration:none;font-weight:700;font-size:14px;letter-spacing:-0.02em}
-.wv-nav-time{color:var(--text-muted);font-family:var(--font-mono);font-size:11px;margin-left:8px}
-.wv-nav-links{display:flex;align-items:center;gap:14px}
-.wv-nav-links a{color:var(--text-muted);text-decoration:none;font-size:12px;transition:color .15s}
-.wv-nav-links a:hover{color:var(--text)}
-
 /* ── View mode toggle ── */
 .wv-view-toggle{display:flex;gap:2px;background:var(--bg-solid);border:1px solid var(--border);border-radius:6px;padding:2px}
 .wv-view-btn{padding:3px 10px;border:none;background:transparent;color:var(--text-muted);font-size:11px;font-family:inherit;cursor:pointer;border-radius:4px;transition:all .15s}
@@ -355,10 +363,10 @@ const STYLES = `
 .wv-theme-option .swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 
 /* ── Cesium container ── */
-.wv-map{position:absolute;inset:0}
+.wv-map{position:relative;flex:1;min-height:0}
 
 /* ── Sidebar ── */
-.wv-sidebar{position:absolute;top:42px;left:0;bottom:0;width:260px;z-index:25;background:var(--bg-nav);border-right:1px solid var(--border);
+.wv-sidebar{position:absolute;top:0;left:0;bottom:0;width:260px;z-index:25;background:var(--bg-nav);border-right:1px solid var(--border);
   backdrop-filter:blur(12px);overflow-y:auto;overflow-x:hidden;transition:transform .2s ease;
   box-shadow:calc(var(--glow-intensity) * 4px) 0 calc(var(--glow-intensity) * 16px) var(--accent-glow)}
 .wv-sidebar.collapsed{transform:translateX(-260px)}
@@ -521,9 +529,6 @@ export default function WorldView() {
 
       const Cesium = (window as any).Cesium;
 
-      // Disable default ion token warning (we use open basemaps)
-      Cesium.Ion.defaultAccessToken = undefined;
-
       const viewer = new Cesium.Viewer(containerRef.current, {
         baseLayerPicker: false,
         geocoder: false,
@@ -628,9 +633,7 @@ export default function WorldView() {
       imageryLayers.remove(imageryLayers.get(0));
     }
 
-    if (bm.ionId) {
-      imageryLayers.addImageryProvider(new Cesium.IonImageryProvider({ assetId: bm.ionId }));
-    } else if (bm.url) {
+    if (bm.url) {
       imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
         url: bm.url,
         credit: "",
@@ -1225,47 +1228,36 @@ export default function WorldView() {
       )}
 
       {/* Nav */}
-      <div className="wv-nav">
-        <Link href="/" className="wv-nav-brand">
-          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-            <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
-            <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
-            <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
-          </svg>
-          OpenZenith
-          {!isHud && <span style={{ color: "var(--text-muted2)", fontWeight: 400, fontSize: "0.75rem", marginLeft: 4 }}>/ Globe</span>}
-          {isHud && <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem", marginLeft: 4 }}>// Globe</span>}
-        </Link>
-        {isHud && <span className="wv-nav-time">{clock}</span>}
-        <div className="wv-nav-links">
-          {/* View mode toggle */}
-          <div className="wv-view-toggle">
-            {(["3d", "columbus", "2d"] as const).map((mode) => (
-              <button key={mode} className={`wv-view-btn ${state.viewMode === mode ? "active" : ""}`} onClick={() => switchViewMode(mode)}>
-                {mode === "3d" ? "3D" : mode === "columbus" ? "CB" : "2D"}
-              </button>
-            ))}
-          </div>
-          <Link href="/">Home</Link>
-          <a href="/map">Map</a>
-          <a href="/explore">Explore</a>
-          <a href="/api/docs">Docs</a>
-          <a href="/contribute">Contribute</a>
-          <div className="wv-theme-switcher">
-            <button className="wv-theme-btn" onClick={() => setThemeDropdownOpen(!themeDropdownOpen)} title="Change theme">{currentTheme.icon}</button>
-            {themeDropdownOpen && (
-              <div className="wv-theme-dropdown">
-                {Object.entries(THEMES).map(([k, v]) => (
-                  <button key={k} className={`wv-theme-option ${state.theme === k ? "active" : ""}`} onClick={() => switchTheme(k)}>
-                    <span className="swatch" style={{ background: k === "default" ? "#4a9eff" : k === "classified" ? "#00ff41" : k === "amber" ? "#ffb000" : k === "arctic" ? "#00ccff" : "#ff2222" }} />
-                    {v.icon} {v.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <Navbar
+        dark
+        breadcrumb="Globe"
+        extra={
+          <>
+            {/* View mode toggle */}
+            <div className="wv-view-toggle">
+              {(["3d", "columbus", "2d"] as const).map((mode) => (
+                <button key={mode} className={`wv-view-btn ${state.viewMode === mode ? "active" : ""}`} onClick={() => switchViewMode(mode)}>
+                  {mode === "3d" ? "3D" : mode === "columbus" ? "CB" : "2D"}
+                </button>
+              ))}
+            </div>
+            {isHud && <span className="wv-nav-time">{clock}</span>}
+            <div className="wv-theme-switcher">
+              <button className="wv-theme-btn" onClick={() => setThemeDropdownOpen(!themeDropdownOpen)} title="Change theme">{currentTheme.icon}</button>
+              {themeDropdownOpen && (
+                <div className="wv-theme-dropdown">
+                  {Object.entries(THEMES).map(([k, v]) => (
+                    <button key={k} className={`wv-theme-option ${state.theme === k ? "active" : ""}`} onClick={() => switchTheme(k)}>
+                      <span className="swatch" style={{ background: k === "default" ? "#4a9eff" : k === "classified" ? "#00ff41" : k === "amber" ? "#ffb000" : k === "arctic" ? "#00ccff" : "#ff2222" }} />
+                      {v.icon} {v.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        }
+      />
 
       <div ref={containerRef} className="wv-map" />
 
@@ -1375,11 +1367,11 @@ export default function WorldView() {
       {/* Context menu */}
       {ctxMenu && (
         <div className="wv-ctx-menu" style={{ position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 200, background: "var(--bg-solid)", border: "1px solid var(--border-hover)", borderRadius: 6, padding: "4px 0", minWidth: 190, boxShadow: "0 4px 12px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
-          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy coordinates</button>
-          <button onClick={() => { navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy compact</button>
-          <button onClick={() => { const toDms = (d: number, pos: string, neg: string) => { const dir = d >= 0 ? pos : neg; const a = Math.abs(d); const deg = Math.floor(a); const min = Math.floor((a - deg) * 60); const sec = ((a - deg - min / 60) * 3600).toFixed(2); return `${deg}\u00b0${min}'${sec}"${dir}`; }; navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`); setCtxMenu(null); }}>Copy DMS</button>
+          <button onClick={() => { safeCopy(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy coordinates</button>
+          <button onClick={() => { safeCopy(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy compact</button>
+          <button onClick={() => { const toDms = (d: number, pos: string, neg: string) => { const dir = d >= 0 ? pos : neg; const a = Math.abs(d); const deg = Math.floor(a); const min = Math.floor((a - deg) * 60); const sec = ((a - deg - min / 60) * 3600).toFixed(2); return `${deg}\u00b0${min}'${sec}"${dir}`; }; safeCopy(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`); setCtxMenu(null); }}>Copy DMS</button>
           <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }} style={{ color: "var(--accent)" }}>Open in OSM</button>
-          <button onClick={async () => { try { const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`); const d = await r.json(); navigator.clipboard.writeText(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); } catch { /* */ } setCtxMenu(null); }} style={{ color: "var(--ok)" }}>Copy elevation</button>
+          <button onClick={async () => { try { const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`); const d = await r.json(); safeCopy(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); } catch { /* */ } setCtxMenu(null); }} style={{ color: "var(--ok)" }}>Copy elevation</button>
         </div>
       )}
 

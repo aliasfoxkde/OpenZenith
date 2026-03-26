@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 
 export const runtime = "edge";
 
@@ -71,11 +72,10 @@ export async function GET(request: NextRequest) {
   `;
 
   try {
-    const overpassUrl = "https://overpass-api.de/api/interpreter";
-    const res = await fetch(overpassUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
+    const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+    const res = await cachedFetch(overpassUrl, CACHE_TTL.WATERWAYS, {
+      signal: AbortSignal.timeout(30000),
+      headers: { Accept: "application/json" },
     });
 
     if (!res.ok) {

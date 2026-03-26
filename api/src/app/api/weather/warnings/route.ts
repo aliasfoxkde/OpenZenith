@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 
 export const runtime = "edge";
 
@@ -23,15 +24,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const resp = await fetch(url.toString(), {
-      signal: controller.signal,
+    const resp = await cachedFetch(url.toString(), CACHE_TTL.WARNINGS, {
+      signal: AbortSignal.timeout(10000),
       headers: { Accept: "application/json" },
     });
-
-    clearTimeout(timeout);
 
     const data = await resp.json();
 

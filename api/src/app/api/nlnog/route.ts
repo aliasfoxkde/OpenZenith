@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 
 export const runtime = "edge";
 
@@ -6,15 +7,10 @@ const NLNOG_API = "https://api.ring.nlnog.net/1.0";
 
 export async function GET() {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const resp = await fetch(`${NLNOG_API}/nodes`, {
-      signal: controller.signal,
+    const resp = await cachedFetch(`${NLNOG_API}/nodes`, CACHE_TTL.NLNOG, {
+      signal: AbortSignal.timeout(10000),
       headers: { Accept: "application/json", "User-Agent": "OpenZenith/1.0" },
     });
-
-    clearTimeout(timeout);
 
     if (!resp.ok) {
       return NextResponse.json(

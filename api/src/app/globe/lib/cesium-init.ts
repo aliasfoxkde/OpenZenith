@@ -91,6 +91,22 @@ export async function initCesiumViewer(
   viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10000;
   viewer.scene.screenSpaceCameraController.maximumZoomDistance = 100_000_000;
 
+  // Gesture / input configuration
+  const ssc = viewer.scene.screenSpaceCameraController;
+  ssc.minimumZoomRate = 5000;          // slow down zoom near surface
+  ssc.maximumZoomRate = 500000;        // fast zoom from orbit
+  ssc.zoomFactor = 3.0;                // scroll wheel zoom multiplier
+  ssc.inertiaSpin = 0.92;              // reduce rotation drift
+  ssc.inertiaTranslate = 0.92;         // reduce pan drift
+  ssc.inertiaZoom = 0.92;              // reduce zoom drift
+  ssc.enableRotate = true;
+  ssc.enableTranslate = true;
+  ssc.enableZoom = true;
+  ssc.enableTilt = true;
+  ssc.enableLook = true;
+  // Smooth zoom with momentum
+  ssc.minimumCollisionTerrainHeight = 10000;
+
   if (scene.skyBox) scene.skyBox.show = true;
 
   viewer.clock.shouldAnimate = true;

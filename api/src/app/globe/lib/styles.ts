@@ -152,4 +152,22 @@ export const STYLES = `
 .wv-sat-info .sat-label{color:var(--text-muted)}
 .wv-sat-info .sat-val{color:var(--text)}
 .wv-sat-info .sat-close{position:absolute;top:4px;right:6px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px}
+
+/* ── Elevation profile panel ── */
+.wv-profile-panel{position:absolute;left:12px;bottom:82px;z-index:30;background:rgba(0,0,0,0.9);border:1px solid var(--border);border-radius:8px;backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,0.5);overflow:hidden}
+.wv-profile-header{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)}
+.wv-profile-title{font-family:var(--font-mono);font-size:10px;font-weight:700;color:#ff4488;letter-spacing:1px}
+.wv-profile-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1}
+.wv-profile-close:hover{color:var(--text)}
+.wv-profile-chart{width:480px;height:180px}
+.wv-profile-chart canvas{display:block}
+.wv-profile-hint{padding:20px 24px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);white-space:nowrap}
+
+/* ── Coordinate formats panel ── */
+.wv-coord-panel{position:absolute;right:12px;top:110px;z-index:30;background:rgba(0,0,0,0.85);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:var(--font-mono);backdrop-filter:blur(12px);min-width:220px;box-shadow:0 4px 12px rgba(0,0,0,0.4)}
+.wv-coord-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 0}
+.wv-coord-row+.wv-coord-row{border-top:1px solid rgba(255,255,255,0.05)}
+.wv-coord-label{font-size:9px;font-weight:700;color:var(--accent);letter-spacing:0.5px;min-width:32px}
+.wv-coord-val{font-size:10px;color:var(--text-dim);cursor:pointer;transition:color .1s}
+.wv-coord-val:hover{color:var(--text)}
 `;

@@ -35,6 +35,8 @@ import { loadElevationColor } from "./lib/layers/elevation";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD, getZoneLabel } from "./lib/lod";
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
+import { createElevationProfile, renderProfileChart } from "./lib/tools/elevation-profile";
+import { getAllFormats } from "./lib/tools/measure";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -96,6 +98,10 @@ export default function Globe() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>("none");
   const toolManagerRef = useRef<any>(null);
+  const elevationProfileRef = useRef<any>(null);
+  const [profileData, setProfileData] = useState<any[] | null>(null);
+  const [coordFormats, setCoordFormats] = useState<Record<string, string> | null>(null);
+  const profileCanvasRef = useRef<HTMLDivElement>(null);
   const [selectedSat, setSelectedSat] = useState<{ name: string; alt: number; vel: number; lat: number; lon: number; orbit: string } | null>(null);
   const [followSat, setFollowSat] = useState(false);
 
@@ -112,6 +118,13 @@ export default function Globe() {
   useEffect(() => {
     try { localStorage.setItem("globe-theme", state.theme); } catch { /* tracking prevention */ }
   }, [state.theme]);
+
+  // Compute coordinate formats from cursor position
+  useEffect(() => {
+    if (cursorPos) {
+      setCoordFormats(getAllFormats(cursorPos[1], cursorPos[0]));
+    }
+  }, [cursorPos]);
 
   // Update hash
   useEffect(() => {
@@ -187,6 +200,14 @@ export default function Globe() {
             return;
           }
 
+          // Handle elevation profile clicks
+          if (activeTool === "elevation-profile" && elevationProfileRef.current) {
+            elevationProfileRef.current.addPoint(lng, lat).then(() => {
+              setProfileData([...elevationProfileRef.current.state.profile]);
+            });
+            return;
+          }
+
           fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`)
             .then((r) => r.json())
             .then((d) => setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation, lat, lon: lng }))
@@ -229,6 +250,7 @@ export default function Globe() {
       viewerRef.current = viewer;
       cesiumRef.current = Cesium;
       toolManagerRef.current = createToolManager(viewer, Cesium);
+      elevationProfileRef.current = createElevationProfile(viewer, Cesium);
       setLoading(false);
 
       // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
@@ -363,6 +385,15 @@ export default function Globe() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [zoomIn, zoomOut, resetView, toggleFullscreen]);
+
+  // Render elevation profile chart
+  useEffect(() => {
+    if (!profileCanvasRef.current || !profileData || profileData.length < 2) return;
+    const container = profileCanvasRef.current;
+    container.innerHTML = "";
+    const canvas = renderProfileChart(profileData, 480, 180);
+    container.appendChild(canvas);
+  }, [profileData]);
 
   const flyToOrbit = useCallback((altKm: number, _label?: string) => {
     const viewer = viewerRef.current;
@@ -646,6 +677,7 @@ export default function Globe() {
             const next = activeTool === "measure-distance" ? "none" : "measure-distance";
             setActiveTool(next);
             toolManagerRef.current?.setMode(next);
+            if (next === "none") { elevationProfileRef.current?.clear(); setProfileData(null); }
           }}
           title="Measure distance — click points on globe"
         >
@@ -658,22 +690,60 @@ export default function Globe() {
             const next = activeTool === "measure-area" ? "none" : "measure-area";
             setActiveTool(next);
             toolManagerRef.current?.setMode(next);
+            if (next === "none") { elevationProfileRef.current?.clear(); setProfileData(null); }
           }}
           title="Measure area — click 3+ points on globe"
         >
           <svg viewBox="0 0 16 16" width="14" height="14"><polygon points="2,14 8,2 14,14" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
           <span>Area</span>
         </button>
+        <button
+          className={`wv-tool-btn ${activeTool === "elevation-profile" ? "active" : ""}`}
+          onClick={() => {
+            const next = activeTool === "elevation-profile" ? "none" : "elevation-profile";
+            setActiveTool(next);
+            toolManagerRef.current?.setMode("none");
+            if (next === "none") { elevationProfileRef.current?.clear(); setProfileData(null); }
+          }}
+          title="Elevation profile — draw a line to see terrain cross-section"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 12 L4 8 L7 10 L10 4 L13 6 L15 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+          <span>Profile</span>
+        </button>
         {activeTool !== "none" && (
           <button
             className="wv-tool-btn clear"
-            onClick={() => { setActiveTool("none"); toolManagerRef.current?.clear(); }}
-            title="Clear measurement"
+            onClick={() => { setActiveTool("none"); toolManagerRef.current?.clear(); elevationProfileRef.current?.clear(); setProfileData(null); }}
+            title="Clear tool"
           >
             <span>Clear</span>
           </button>
         )}
       </div>
+
+      {/* Elevation profile chart */}
+      {activeTool === "elevation-profile" && (
+        <div className="wv-profile-panel">
+          <div className="wv-profile-header">
+            <span className="wv-profile-title">Elevation Profile</span>
+            <button className="wv-profile-close" onClick={() => { setActiveTool("none"); elevationProfileRef.current?.clear(); setProfileData(null); }}>&times;</button>
+          </div>
+          <div ref={profileCanvasRef} className="wv-profile-chart" />
+          {!profileData && <div className="wv-profile-hint">Click 2+ points on the globe to create a terrain cross-section</div>}
+        </div>
+      )}
+
+      {/* Coordinate formats panel */}
+      {coordFormats && (
+        <div className="wv-coord-panel">
+          {Object.entries(coordFormats).map(([fmt, val]) => (
+            <div key={fmt} className="wv-coord-row">
+              <span className="wv-coord-label">{fmt}</span>
+              <span className="wv-coord-val" title="Click to copy" onClick={() => { navigator.clipboard.writeText(val); }}>{val}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Orbital altitude presets */}
       <div className="wv-orbit-presets">

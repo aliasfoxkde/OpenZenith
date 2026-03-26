@@ -11,7 +11,7 @@ import {
   polylineLength, polygonArea,
 } from "./measure";
 
-export type ToolMode = "none" | "measure-distance" | "measure-area";
+export type ToolMode = "none" | "measure-distance" | "measure-area" | "elevation-profile";
 
 interface ToolState {
   mode: ToolMode;

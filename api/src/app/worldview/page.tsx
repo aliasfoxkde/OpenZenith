@@ -17,7 +17,12 @@ const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof LayerStat
   {
     title: "Real-Time Data",
     key: "realtime",
-    layerIds: ["earthquakes", "radar", "flights", "militaryFlights", "vessels", "warnings", "events", "satellites", "hurricaneTracks"],
+    layerIds: ["earthquakes", "radar", "flights", "militaryFlights", "vessels", "warnings", "events", "hurricaneTracks"],
+  },
+  {
+    title: "Space",
+    key: "space",
+    layerIds: ["satellites", "orbitalTracks", "groundTracks"],
   },
   {
     title: "Infrastructure",
@@ -47,6 +52,8 @@ interface LayerState {
   nightLights: boolean;
   nlnogNodes: boolean;
   flightArcs: boolean;
+  orbitalTracks: boolean;
+  groundTracks: boolean;
 }
 
 interface DashboardState {
@@ -95,6 +102,8 @@ const DEFAULT_LAYERS: LayerState = {
   nightLights: false,
   nlnogNodes: false,
   flightArcs: false,
+  orbitalTracks: false,
+  groundTracks: false,
 };
 
 const DEFAULT_STATE: DashboardState = {
@@ -424,6 +433,38 @@ const STYLES = `
 .indicator.off{background:var(--text-darker)}
 .wv-status-sep{width:1px;height:14px;background:var(--border)}
 .wv-coords{color:var(--text-muted);font-family:var(--font-mono)}
+
+/* ── Zoom controls ── */
+.wv-zoom-controls{position:absolute;right:12px;bottom:40px;z-index:30;display:flex;flex-direction:column;gap:2px}
+.wv-zoom-btn{width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:var(--bg-solid);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;backdrop-filter:blur(8px)}
+.wv-zoom-btn:hover{border-color:var(--border-hover);background:var(--bg-hover)}
+.wv-zoom-btn:active{transform:scale(0.95)}
+
+/* ── Orbital presets ── */
+.wv-orbit-presets{position:absolute;right:12px;bottom:180px;z-index:30;display:flex;flex-direction:column;gap:2px}
+.wv-orbit-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-solid);color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);white-space:nowrap;text-align:right}
+.wv-orbit-btn:hover{border-color:var(--accent);color:var(--accent)}
+.wv-orbit-btn .alt{font-size:8px;color:var(--text-muted);margin-left:4px}
+
+/* ── Compass ── */
+.wv-compass{position:absolute;right:12px;top:56px;z-index:30;width:48px;height:48px;border:1px solid var(--border);border-radius:50%;background:var(--bg-solid);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s}
+.wv-compass:hover{border-color:var(--border-hover)}
+.wv-compass-inner{position:relative;width:32px;height:32px;transition:transform .1s linear}
+.wv-compass-n{position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--err);font-family:var(--font-mono)}
+.wv-compass-s{position:absolute;bottom:0;left:50%;transform:translateX(-50%);font-size:8px;color:var(--text-muted);font-family:var(--font-mono)}
+.wv-compass-needle{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:0;height:14px;border-left:2px solid transparent;border-right:2px solid transparent;border-bottom:14px solid var(--err)}
+
+/* ── Space mode indicator ── */
+.wv-space-badge{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:30;padding:3px 12px;border:1px solid var(--accent);border-radius:4px;background:rgba(0,0,0,0.7);font-size:10px;font-family:var(--font-mono);color:var(--accent);letter-spacing:2px;backdrop-filter:blur(8px);display:none;pointer-events:none}
+.wv-space-badge.visible{display:block}
+
+/* ── Satellite info panel ── */
+.wv-sat-info{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:30;background:var(--bg-solid);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-family:var(--font-mono);font-size:11px;backdrop-filter:blur(12px);min-width:200px;display:flex;flex-direction:column;gap:4px;box-shadow:0 4px 16px rgba(0,0,0,0.5)}
+.wv-sat-info .sat-name{font-weight:700;color:var(--accent);font-size:12px}
+.wv-sat-info .sat-row{display:flex;justify-content:space-between;gap:12px}
+.wv-sat-info .sat-label{color:var(--text-muted)}
+.wv-sat-info .sat-val{color:var(--text)}
+.wv-sat-info .sat-close{position:absolute;top:4px;right:6px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px}
 `;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -478,6 +519,12 @@ export default function WorldView() {
   const [bgpPrefix, setBgpPrefix] = useState("");
   const [bgpResult, setBgpResult] = useState<string | null>(null);
   const [bgpLoading, setBgpLoading] = useState(false);
+  const [compassHeading, setCompassHeading] = useState(0);
+  const [cameraAlt, setCameraAlt] = useState(0);
+  const [isSpaceMode, setIsSpaceMode] = useState(false);
+  const [selectedSat, setSelectedSat] = useState<{ name: string; alt: number; vel: number; lat: number; lon: number; orbit: string } | null>(null);
+  const [followSat, setFollowSat] = useState(false);
+  const satDataRef = useRef<any[]>([]);
 
   // UTC clock for HUD themes
   useEffect(() => {
@@ -549,12 +596,22 @@ export default function WorldView() {
 
       // Set dark globe
       viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#0a0e17");
-      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#0a0e17");
+      viewer.scene.backgroundColor = Cesium.Color.BLACK;
       viewer.scene.skyAtmosphere.show = true;
-      viewer.scene.fog.enabled = true;
+      viewer.scene.fog.enabled = false;
       viewer.scene.globe.showGroundAtmosphere = true;
       viewer.scene.globe.enableLighting = true;
       viewer.scene.screenSpaceCameraController.enableCollisionDetection = true;
+
+      // Space scene configuration
+      viewer.camera.frustum.far = 50000000; // 50M meters for GEO visibility
+      viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10000; // 10km min
+      viewer.scene.screenSpaceCameraController.maximumZoomDistance = 100000000; // 100Mm max
+      if (viewer.scene.skyBox) viewer.scene.skyBox.show = true;
+
+      // Enable clock for satellite animation
+      viewer.clock.shouldAnimate = true;
+      viewer.clock.multiplier = 1; // real-time
 
       // Set initial view
       viewer.camera.setView({
@@ -610,6 +667,19 @@ export default function WorldView() {
       viewerRef.current = viewer;
       cesiumRef.current = Cesium;
       setLoading(false);
+
+      // Track camera heading, altitude, and space mode
+      const preRenderListener = () => {
+        const cg = viewer.camera.positionCartographic;
+        if (cg) {
+          const heightM = cg.height;
+          setCameraAlt(heightM);
+          setIsSpaceMode(heightM > 100000);
+          const heading = Cesium.Math.toDegrees(viewer.camera.heading);
+          setCompassHeading(-heading);
+        }
+      };
+      viewer.scene.preRender.addEventListener(preRenderListener);
     })();
 
     return () => {
@@ -658,6 +728,80 @@ export default function WorldView() {
       case "2d": viewer.scene.morphTo2D(1.5); break;
       case "columbus": viewer.scene.morphToColumbusView(1.5); break;
     }
+  }, []);
+
+  // ─── Zoom & Navigation Controls ───
+  const zoomIn = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const h = viewer.camera.positionCartographic.height;
+    viewer.camera.zoomIn(h * 0.5);
+    viewer.scene.requestRender();
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const h = viewer.camera.positionCartographic.height;
+    viewer.camera.zoomOut(h * 0.5);
+    viewer.scene.requestRender();
+  }, []);
+
+  const resetView = useCallback(() => {
+    const viewer = viewerRef.current;
+    const Cesium = cesiumRef.current;
+    if (!viewer || !Cesium) return;
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(0, 20, 15000000),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
+      duration: 1.5,
+    });
+  }, []);
+
+  const flyToOrbit = useCallback((altKm: number, label: string) => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const Cesium = cesiumRef.current;
+    if (!Cesium) return;
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(0, 0, altKm * 1000),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
+      duration: 2,
+    });
+  }, []);
+
+  const flyToISS = useCallback(async () => {
+    const Cesium = cesiumRef.current;
+    const viewer = viewerRef.current;
+    const satJs = (window as any).satellite;
+    if (!Cesium || !viewer || !satJs) return;
+    try {
+      const r = await fetch("https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json");
+      const data = await r.json();
+      if (!Array.isArray(data) || !data[0]?.TLE_LINE1) return;
+      const tle = data[0];
+      const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
+      const pos = satJs.propagate(satrec, new Date());
+      if (!pos.position) return;
+      const gmst = satJs.gstime(new Date());
+      const ecf = satJs.eciToEcf(pos.position, gmst);
+      const posM = new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000);
+      viewer.camera.flyTo({
+        destination: new Cesium.Cartesian3(posM.x * 1.1, posM.y * 1.1, posM.z * 1.1),
+        orientation: { heading: 0, pitch: Cesium.Math.toRadians(-45), roll: 0 },
+        duration: 2,
+      });
+    } catch { /* ISS position unavailable */ }
+  }, []);
+
+  const compassNorth = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.camera.flyTo({
+      destination: viewer.camera.positionWC,
+      orientation: { heading: 0, pitch: viewer.camera.pitch, roll: 0 },
+      duration: 0.5,
+    });
   }, []);
 
   // ─── Layer toggling ───
@@ -728,6 +872,12 @@ export default function WorldView() {
         case "elevationColor":
           if (on) loadElevationColor();
           else removeEntities("elev-"); break;
+        case "orbitalTracks":
+          if (on && !dataLoadedRef.current.orbitalTracks) loadOrbitalTracks();
+          if (!on) removeEntities("orbit-"); break;
+        case "groundTracks":
+          if (on && !dataLoadedRef.current.groundTracks) loadGroundTracks();
+          if (!on) removeEntities("gtrack-"); break;
       }
       return next;
     });
@@ -736,12 +886,17 @@ export default function WorldView() {
   function removeEntities(prefix: string) {
     const viewer = viewerRef.current;
     if (!viewer) return;
-    const ds = viewer.dataSources;
+    // Remove from entity collection
     const toRemove: any[] = [];
-    ds.forEach((dsItem: any) => {
-      if (dsItem.name && dsItem.name.startsWith(prefix)) toRemove.push(dsItem);
+    viewer.entities.values.forEach((e: any) => {
+      if (e.id && e.id.startsWith(prefix)) toRemove.push(e);
     });
-    toRemove.forEach((d: any) => ds.remove(d));
+    toRemove.forEach((e: any) => viewer.entities.remove(e));
+    // Remove primitives
+    if (prefix === "sat-" && entitiesRef.current["sat-points"]) {
+      viewer.scene.primitives.remove(entitiesRef.current["sat-points"]);
+      delete entitiesRef.current["sat-points"];
+    }
   }
 
   function toggleImageryOverlay(viewer: any, name: string, url?: string, opacity?: number) {
@@ -1001,40 +1156,243 @@ export default function WorldView() {
       const now = new Date();
       const features = tles.slice(0, 3000).filter((t: any) => t.TLE_LINE1 && t.TLE_LINE2).map((t: any) => {
         let coords: [number, number, number] | null = null;
+        let velocity = 0;
         if (satJs) {
           try {
             const satrec = satJs.twoline2satrec(t.TLE_LINE1, t.TLE_LINE2);
             const pos = satJs.propagate(satrec, now);
-            if (pos.position) {
+            if (pos.position && pos.velocity) {
               const gd = satJs.eciToGeodetic(pos.position, satJs.gstime(now));
-              coords = [satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude), (pos.position.z / 1000) - 6371];
+              // Fix: use gd.height instead of ECI Z-component
+              coords = [satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude), gd.height];
+              velocity = Math.sqrt(pos.velocity.x ** 2 + pos.velocity.y ** 2 + pos.velocity.z ** 2);
             }
           } catch { /* skip */ }
         }
-        return { tle: t.TLE_LINE1, name: t.NAME || t.OBJECT_NAME, coords };
+        return { tle1: t.TLE_LINE1, tle2: t.TLE_LINE2, name: t.NAME || t.OBJECT_NAME, coords, velocity };
       }).filter((f: any) => f.coords);
+      satDataRef.current = features;
       updateStatus("satellites", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f: any, i: number) => {
-        viewer.entities.add({
-          id: `sat-${i}`,
-          position: Cesium.Cartesian3.fromDegrees(f.coords[0], f.coords[1], Math.max(f.coords[2], 160)),
-          point: { pixelSize: 2, color: Cesium.Color.CYAN.withAlpha(0.5) },
-          properties: { type: "satellite" },
+
+      // Use PointPrimitiveCollection for performance with 1000+ satellites
+      const points = new Cesium.PointPrimitiveCollection();
+      viewer.scene.primitives.add(points);
+
+      let leoCount = 0, meoCount = 0, geoCount = 0;
+      features.forEach((f: any) => {
+        const altKm = f.coords[2];
+        const isLEO = altKm < 2000;
+        const isGEO = altKm > 30000;
+        if (isLEO) leoCount++;
+        else if (isGEO) geoCount++;
+        else meoCount++;
+        const color = isLEO ? Cesium.Color.CYAN : isGEO ? Cesium.Color.ORANGE : Cesium.Color.YELLOW;
+        points.add({
+          position: Cesium.Cartesian3.fromDegrees(f.coords[0], f.coords[1], Math.max(altKm * 1000, 160000)),
+          pixelSize: isGEO ? 4 : 3,
+          color: color.withAlpha(0.6),
+          outlineColor: color.withAlpha(0.2),
+          outlineWidth: 1,
+          scaleByDistance: new Cesium.NearFarScalar(1e6, 2.0, 5e7, 0.5),
+          translucencyByDistance: new Cesium.NearFarScalar(1e6, 1.0, 5e7, 0.3),
         });
       });
+      entitiesRef.current["sat-points"] = points;
       dataLoadedRef.current.satellites = true;
+
       const iv = setInterval(async () => {
         if (!state.layers.satellites) return;
         try {
-          const t = await fetchCelestrak(); if (!Array.isArray(t)) return; const sj = (window as any).satellite; const n = new Date();
-          removeEntities("sat-");
-          t.slice(0, 3000).filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2).map((x: any) => { let c: [number, number, number] | null = null; if (sj) { try { const sr = sj.twoline2satrec(x.TLE_LINE1, x.TLE_LINE2); const p = sj.propagate(sr, n); if (p.position) { const g = sj.eciToGeodetic(p.position, sj.gstime(n)); c = [sj.degreesLong(g.longitude), sj.degreesLat(g.latitude), (p.position.z / 1000) - 6371]; } } catch { /* skip */ } } return { tle: x.TLE_LINE1, coords: c }; }).filter((f: any) => f.coords).forEach((f: any, i: number) => { viewer.entities.add({ id: `sat-${i}`, position: Cesium.Cartesian3.fromDegrees(f.coords[0], f.coords[1], Math.max(f.coords[2], 160)), point: { pixelSize: 2, color: Cesium.Color.CYAN.withAlpha(0.5) } }); });
-          updateStatus("satellites", { lastUpdate: Date.now(), count: t.slice(0, 3000).filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2).length });
+          const t = await fetchCelestrak();
+          if (!Array.isArray(t)) return;
+          const sj = (window as any).satellite;
+          const n = new Date();
+          const updated = t.slice(0, 3000).filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2).map((x: any) => {
+            let c: [number, number, number] | null = null;
+            let v = 0;
+            if (sj) { try { const sr = sj.twoline2satrec(x.TLE_LINE1, x.TLE_LINE2); const p = sj.propagate(sr, n); if (p.position) { const g = sj.eciToGeodetic(p.position, sj.gstime(n)); c = [sj.degreesLong(g.longitude), sj.degreesLat(g.latitude), g.height]; if (p.velocity) v = Math.sqrt(p.velocity.x ** 2 + p.velocity.y ** 2 + p.velocity.z ** 2); } } catch { /* skip */ } }
+            return { tle1: x.TLE_LINE1, tle2: x.TLE_LINE2, name: x.NAME || x.OBJECT_NAME, coords: c, velocity: v };
+          }).filter((f: any) => f.coords);
+          satDataRef.current = updated;
+          // Update point positions
+          const pts = entitiesRef.current["sat-points"] as any;
+          if (pts) {
+            const count = Math.min(updated.length, pts.length);
+            for (let i = 0; i < count; i++) {
+              const f = updated[i];
+              if (!f.coords) continue;
+              pts.get(i).position = Cesium.Cartesian3.fromDegrees(f.coords[0], f.coords[1], Math.max(f.coords[2] * 1000, 160000));
+            }
+          }
+          updateStatus("satellites", { lastUpdate: Date.now(), count: updated.length });
         } catch { /* retry */ }
       }, 300000);
       intervalsRef.current.push(iv);
     } catch { updateStatus("satellites", { error: "fetch failed" }); }
   }, [updateStatus, state.layers.satellites]);
+
+  // ─── Orbital Track Paths (notable satellites with full orbital visualization) ───
+  const loadOrbitalTracks = useCallback(async () => {
+    const viewer = viewerRef.current;
+    const Cesium = cesiumRef.current;
+    const satJs = (window as any).satellite;
+    if (!Cesium || !viewer || !satJs) return;
+    updateStatus("satellites", { error: null });
+    try {
+      // Fetch notable satellite groups
+      const groups = [
+        { name: "ISS", catnr: 25544 },
+        { name: "Hubble", catnr: 20580 },
+        { name: "Tiangong", catnr: 48274 },
+        { name: "GPS Ops", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=gps-ops&FORMAT=json" },
+        { name: "Starlink", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=json" },
+      ];
+      const now = Date.now();
+      let trackCount = 0;
+
+      for (const group of groups) {
+        let tles: any[] = [];
+        if (group.url) {
+          try {
+            const r = await fetch(group.url);
+            tles = (await r.json()).slice(0, 50); // Limit for performance
+          } catch { continue; }
+        } else if (group.catnr) {
+          try {
+            const r = await fetch(`https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`);
+            const data = await r.json();
+            if (Array.isArray(data)) tles = data;
+          } catch { continue; }
+        }
+
+        for (const tle of tles) {
+          if (!tle.TLE_LINE1 || !tle.TLE_LINE2) continue;
+          try {
+            const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
+            const positionProperty = new Cesium.SampledPositionProperty();
+            positionProperty.setInterpolationOptions({
+              interpolationDegree: 5,
+              interpolationAlgorithm: Cesium.LagrangePolynomialApproximation,
+            });
+
+            // Sample 3-hour window at 120s intervals (90 samples)
+            for (let i = -90; i <= 90; i++) {
+              const date = new Date(now + i * 120000);
+              const posVel = satJs.propagate(satrec, date);
+              if (!posVel.position) continue;
+              const gmst = satJs.gstime(date);
+              const ecf = satJs.eciToEcf(posVel.position, gmst);
+              positionProperty.addSample(
+                Cesium.JulianDate.fromDate(date),
+                new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000)
+              );
+            }
+
+            const isISS = group.name === "ISS";
+            const isNotable = group.name === "Hubble" || group.name === "Tiangong";
+            const trackColor = group.name === "Starlink" ? Cesium.Color.CYAN.withAlpha(0.15) :
+              group.name === "GPS Ops" ? Cesium.Color.YELLOW.withAlpha(0.3) :
+              Cesium.Color.CYAN.withAlpha(0.5);
+
+            viewer.entities.add({
+              id: `orbit-${trackCount}`,
+              position: positionProperty,
+              point: {
+                pixelSize: isISS ? 8 : isNotable ? 6 : 3,
+                color: isISS ? Cesium.Color.WHITE : group.name === "Starlink" ? Cesium.Color.CYAN.withAlpha(0.3) : trackColor,
+                outlineColor: Cesium.Color.WHITE.withAlpha(isISS ? 0.8 : 0.2),
+                outlineWidth: isISS ? 2 : 1,
+                scaleByDistance: new Cesium.NearFarScalar(1e6, 2.0, 5e7, 0.5),
+              },
+              label: isISS || isNotable ? {
+                text: `${group.name} (NORAD ${tle.NORAD_CAT_ID || group.catnr})`,
+                font: "bold 11px 'JetBrains Mono', monospace",
+                fillColor: Cesium.Color.WHITE.withAlpha(0.9),
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2,
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                pixelOffset: new Cesium.Cartesian2(12, -8),
+                showBackground: true,
+                backgroundColor: Cesium.Color.BLACK.withAlpha(0.6),
+                backgroundPadding: new Cesium.Cartesian2(4, 3),
+                scaleByDistance: new Cesium.NearFarScalar(1e6, 1.0, 2e7, 0.4),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 30000000),
+              } : undefined,
+              path: {
+                resolution: 120,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                  glowPower: isISS ? 0.25 : 0.15,
+                  color: trackColor,
+                }),
+                width: isISS ? 2.5 : group.name === "Starlink" ? 0.5 : 1.5,
+                leadTime: 5400,
+                trailTime: 5400,
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 40000000),
+              },
+              properties: { type: "orbitalTrack", group: group.name },
+            });
+            trackCount++;
+          } catch { /* skip bad TLE */ }
+        }
+      }
+      dataLoadedRef.current.orbitalTracks = true;
+      updateStatus("satellites", { lastUpdate: Date.now(), count: trackCount });
+    } catch { updateStatus("satellites", { error: "orbital tracks failed" }); }
+  }, [updateStatus]);
+
+  // ─── Ground Tracks (projected on Earth surface for notable satellites) ───
+  const loadGroundTracks = useCallback(async () => {
+    const viewer = viewerRef.current;
+    const Cesium = cesiumRef.current;
+    const satJs = (window as any).satellite;
+    if (!Cesium || !viewer || !satJs) return;
+    try {
+      const notable = [
+        { name: "ISS", catnr: 25544 },
+        { name: "Hubble", catnr: 20580 },
+        { name: "Tiangong", catnr: 48274 },
+      ];
+      const now = Date.now();
+      let count = 0;
+
+      for (const sat of notable) {
+        try {
+          const r = await fetch(`https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`);
+          const data = await r.json();
+          if (!Array.isArray(data) || !data[0]?.TLE_LINE1) continue;
+          const tle = data[0];
+          const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
+          const positions: any[] = [];
+          // 100-minute ground track at 30s intervals
+          for (let i = 0; i <= 200; i++) {
+            const date = new Date(now + i * 30000);
+            const posVel = satJs.propagate(satrec, date);
+            if (!posVel.position) continue;
+            const gd = satJs.eciToGeodetic(posVel.position, satJs.gstime(date));
+            const lon = satJs.degreesLong(gd.longitude);
+            const lat = satJs.degreesLat(gd.latitude);
+            positions.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+          }
+          if (positions.length < 2) continue;
+          viewer.entities.add({
+            id: `gtrack-${count}`,
+            polyline: {
+              positions,
+              width: 1.5,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.CYAN.withAlpha(0.3),
+              }),
+              clampToGround: true,
+            },
+            properties: { type: "groundTrack", name: sat.name },
+          });
+          count++;
+        } catch { continue; }
+      }
+      dataLoadedRef.current.groundTracks = true;
+    } catch { /* silent */ }
+  }, []);
 
   const loadHurricanes = useCallback(async () => {
     updateStatus("hurricaneTracks", { error: null });
@@ -1262,6 +1620,37 @@ export default function WorldView() {
 
       <div ref={containerRef} className="wv-map" />
 
+      {/* Compass */}
+      <div className="wv-compass" onClick={compassNorth} title="Reset north">
+        <div className="wv-compass-inner" style={{ transform: `rotate(${compassHeading.toFixed(1)}deg)` }}>
+          <div className="wv-compass-n">N</div>
+          <div className="wv-compass-needle" />
+          <div className="wv-compass-s">S</div>
+        </div>
+      </div>
+
+      {/* Space mode badge */}
+      <div className={`wv-space-badge ${isSpaceMode ? "visible" : ""}`}>
+        {isSpaceMode && cameraAlt > 1000000 ? "DEEP SPACE" : isSpaceMode ? "LOW EARTH ORBIT" : ""}
+        {" "}{cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(0)} km` : `${cameraAlt.toFixed(0)} m`} ALT
+      </div>
+
+      {/* Zoom controls */}
+      <div className="wv-zoom-controls">
+        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in">+</button>
+        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out">&minus;</button>
+        <button className="wv-zoom-btn" onClick={resetView} title="Reset view" style={{ fontSize: "12px" }}>&#8962;</button>
+        <button className="wv-zoom-btn" onClick={flyToISS} title="Fly to ISS" style={{ fontSize: "10px", color: "var(--accent)" }}>&#9741;</button>
+      </div>
+
+      {/* Orbital altitude presets */}
+      <div className="wv-orbit-presets">
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(408, "ISS")}>ISS<span className="alt">408 km</span></button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(2000, "LEO")}>LEO<span className="alt">2,000 km</span></button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(20200, "MEO")}>MEO<span className="alt">20,200 km</span></button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(35786, "GEO")}>GEO<span className="alt">35,786 km</span></button>
+      </div>
+
       {/* Sidebar */}
       <div className={`wv-sidebar ${sidebarOpen ? "" : "collapsed"}`}>
         <div className="wv-sidebar-header">
@@ -1400,6 +1789,10 @@ export default function WorldView() {
         })}
         <span className="wv-status-sep" />
         <span className="wv-coords">{cursorPos ? `${cursorPos[0]}, ${cursorPos[1]}` : "--"}</span>
+        <span className="wv-status-sep" />
+        <span className="wv-coords" style={{ color: isSpaceMode ? "var(--accent)" : "var(--text-muted)" }}>
+          {isSpaceMode ? `${(cameraAlt / 1000).toFixed(0)} km` : cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(1)} km` : `${cameraAlt.toFixed(0)} m`}
+        </span>
       </div>
     </div>
   );

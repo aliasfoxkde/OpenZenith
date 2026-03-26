@@ -178,6 +178,24 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#ef4444",
     dataSource: "https://eonet.gsfc.nasa.gov/api/v3/events",
   },
+  {
+    id: "orbitalTracks",
+    name: "Orbital Tracks",
+    category: "space",
+    description: "Satellite orbital paths with glow trails for ISS, Hubble, Starlink, GPS",
+    defaultEnabled: false,
+    accent: "#00e5ff",
+    dataSource: "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
+  },
+  {
+    id: "groundTracks",
+    name: "Ground Tracks",
+    category: "space",
+    description: "Satellite ground track projections on Earth surface",
+    defaultEnabled: false,
+    accent: "#00b8d4",
+    dataSource: "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
+  },
 ];
 
 /* ═══════════════════════════════════════════════════════════════

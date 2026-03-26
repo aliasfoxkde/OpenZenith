@@ -33,6 +33,7 @@ import { loadOrbitalTracks } from "./lib/layers/orbital-tracks";
 import { loadGroundTracks } from "./lib/layers/ground-tracks";
 import { loadElevationColor } from "./lib/layers/elevation";
 import { initCesiumViewer } from "./lib/cesium-init";
+import { applyLOD, getZoneLabel } from "./lib/lod";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -90,6 +91,7 @@ export default function Globe() {
   const [compassHeading, setCompassHeading] = useState(0);
   const [cameraAlt, setCameraAlt] = useState(0);
   const [isSpaceMode, setIsSpaceMode] = useState(false);
+  const [lodZone, setLodZone] = useState<string>("SURFACE");
   const [selectedSat, setSelectedSat] = useState<{ name: string; alt: number; vel: number; lat: number; lon: number; orbit: string } | null>(null);
   const [followSat, setFollowSat] = useState(false);
 
@@ -204,6 +206,7 @@ export default function Globe() {
 
       // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
       let followEntity: any = null;
+      let currentLodZone: any = null;
       const preRenderListener = () => {
         const cg = viewer.camera.positionCartographic;
         if (cg) {
@@ -212,6 +215,13 @@ export default function Globe() {
           setIsSpaceMode(heightM > 100000);
           const heading = Cesium.Math.toDegrees(viewer.camera.heading);
           setCompassHeading(-heading);
+
+          // Apply LOD system
+          const newZone = applyLOD(viewer, Cesium, heightM, currentLodZone);
+          if (newZone.name !== currentLodZone?.name) {
+            currentLodZone = newZone;
+            setLodZone(newZone.label);
+          }
 
           const sa = viewer.scene.skyAtmosphere;
           if (heightM < 10000) {
@@ -561,10 +571,9 @@ export default function Globe() {
         </div>
       </div>
 
-      {/* Space mode badge */}
+      {/* LOD zone badge */}
       <div className={`wv-space-badge ${isSpaceMode ? "visible" : ""}`}>
-        {isSpaceMode && cameraAlt > 1000000 ? "DEEP SPACE" : isSpaceMode ? "LOW EARTH ORBIT" : ""}
-        {" "}{cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(0)} km` : `${cameraAlt.toFixed(0)} m`} ALT
+        {lodZone}{" "}{cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(0)} km` : `${cameraAlt.toFixed(0)} m`} ALT
       </div>
 
       {/* Zoom controls */}

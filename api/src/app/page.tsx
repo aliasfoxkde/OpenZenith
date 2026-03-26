@@ -1279,6 +1279,14 @@ export default function Home() {
               btn: "View on GitHub",
             },
             {
+              emoji: "\uD83D\uDC68\u200D\uD83D\uDCBB",
+              title: "Open Source",
+              desc: "MIT-licensed, fully open source. Browse the code, submit PRs, or fork and self-host your own instance.",
+              back: "MIT license on GitHub. Full transparency — every line of code is public. Contributions welcome.",
+              href: "https://github.com/aliasfoxkde/OpenZenith",
+              btn: "View Source",
+            },
+            {
               emoji: "\uD83D\uDEAB",
               title: "No Ads Ever",
               desc: "Clean, distraction-free experience. No ads, no trackers, no popups. Just data and tools.",

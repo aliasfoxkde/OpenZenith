@@ -92,6 +92,7 @@ export default function Globe() {
   const [cameraAlt, setCameraAlt] = useState(0);
   const [isSpaceMode, setIsSpaceMode] = useState(false);
   const [lodZone, setLodZone] = useState<string>("SURFACE");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedSat, setSelectedSat] = useState<{ name: string; alt: number; vel: number; lat: number; lon: number; orbit: string } | null>(null);
   const [followSat, setFollowSat] = useState(false);
 
@@ -176,7 +177,6 @@ export default function Globe() {
           const cg = Cesium.Cartographic.fromCartesian(cart);
           const lng = +Cesium.Math.toDegrees(cg.longitude);
           const lat = +Cesium.Math.toDegrees(cg.latitude);
-          setCtxMenu({ x: click.position.x, y: click.position.y, lng, lat });
           fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`)
             .then((r) => r.json())
             .then((d) => setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation, lat, lon: lng }))
@@ -184,7 +184,23 @@ export default function Globe() {
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+      // Right-click context menu
+      handler.setInputAction((click: any) => {
+        const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+        if (cart) {
+          const cg = Cesium.Cartographic.fromCartesian(cart);
+          const lng = +Cesium.Math.toDegrees(cg.longitude);
+          const lat = +Cesium.Math.toDegrees(cg.latitude);
+          setCtxMenu({ x: click.position.x, y: click.position.y, lng, lat });
+        }
+      }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+
       handler.setInputAction((click: any) => setCtxMenu(null), Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+      document.addEventListener("contextmenu", (e) => {
+        if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) {
+          e.preventDefault();
+        }
+      });
       document.addEventListener("click", (e) => {
         if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) setCtxMenu(null);
       });
@@ -310,6 +326,32 @@ export default function Globe() {
       duration: 1.5,
     });
   }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  // ─── Keyboard Bindings ───
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      switch (e.key) {
+        case "+": case "=": zoomIn(); break;
+        case "-": case "_": zoomOut(); break;
+        case "r": case "R": resetView(); break;
+        case "f": case "F": toggleFullscreen(); break;
+        case "Escape": setCtxMenu(null); break;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [zoomIn, zoomOut, resetView, toggleFullscreen]);
 
   const flyToOrbit = useCallback((altKm: number, _label?: string) => {
     const viewer = viewerRef.current;
@@ -578,10 +620,11 @@ export default function Globe() {
 
       {/* Zoom controls */}
       <div className="wv-zoom-controls">
-        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in">+</button>
-        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out">&minus;</button>
-        <button className="wv-zoom-btn" onClick={resetView} title="Reset view" style={{ fontSize: "12px" }}>&#8962;</button>
+        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in (+)">+</button>
+        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out (-)">&minus;</button>
+        <button className="wv-zoom-btn" onClick={resetView} title="Reset view (R)" style={{ fontSize: "12px" }}>&#8962;</button>
         <button className="wv-zoom-btn" onClick={flyToISS} title="Fly to ISS" style={{ fontSize: "10px", color: "var(--accent)" }}>&#9741;</button>
+        <button className="wv-zoom-btn" onClick={toggleFullscreen} title="Fullscreen (F)" style={{ fontSize: "12px" }}>{isFullscreen ? "\u29C9" : "\u26F6"}</button>
       </div>
 
       {/* Orbital altitude presets */}
@@ -695,14 +738,19 @@ export default function Globe() {
       {/* Close theme dropdown on outside click */}
       {themeDropdownOpen && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />}
 
-      {/* Context menu */}
+      {/* Context menu (right-click) */}
       {ctxMenu && (
-        <div className="wv-ctx-menu" style={{ position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 200, background: "var(--bg-solid)", border: "1px solid var(--border-hover)", borderRadius: 6, padding: "4px 0", minWidth: 190, boxShadow: "0 4px 12px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
+        <div className="wv-ctx-menu" style={{ position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 200, background: "var(--bg-solid)", border: "1px solid var(--border-hover)", borderRadius: 6, padding: "4px 0", minWidth: 210, boxShadow: "0 4px 12px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
           <button onClick={() => { safeCopy(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy coordinates</button>
           <button onClick={() => { safeCopy(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`); setCtxMenu(null); }}>Copy compact</button>
           <button onClick={() => { const toDms = (d: number, pos: string, neg: string) => { const dir = d >= 0 ? pos : neg; const a = Math.abs(d); const deg = Math.floor(a); const min = Math.floor((a - deg) * 60); const sec = ((a - deg - min / 60) * 3600).toFixed(2); return `${deg}\u00b0${min}'${sec}"${dir}`; }; safeCopy(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`); setCtxMenu(null); }}>Copy DMS</button>
-          <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }} style={{ color: "var(--accent)" }}>Open in OSM</button>
           <button onClick={async () => { try { const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`); const d = await r.json(); safeCopy(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`); } catch { /* */ } setCtxMenu(null); }} style={{ color: "var(--ok)" }}>Copy elevation</button>
+          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+          <button onClick={() => { const v = viewerRef.current; const C = cesiumRef.current; if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(ctxMenu.lng, ctxMenu.lat, 10000), orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 }, duration: 1.5 }); setCtxMenu(null); }} style={{ color: "var(--accent)" }}>Fly here (close)</button>
+          <button onClick={() => { const v = viewerRef.current; const C = cesiumRef.current; if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(ctxMenu.lng, ctxMenu.lat, 200000), orientation: { heading: 0, pitch: C.Math.toRadians(-60), roll: 0 }, duration: 2 }); setCtxMenu(null); }} style={{ color: "var(--accent)" }}>Fly here (overview)</button>
+          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+          <button onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`, "_blank"); setCtxMenu(null); }}>Open in OSM</button>
+          <button onClick={() => { window.open(`https://www.google.com/maps/@${ctxMenu.lat},${ctxMenu.lng},15z`, "_blank"); setCtxMenu(null); }}>Open in Google Maps</button>
         </div>
       )}
 

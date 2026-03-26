@@ -131,6 +131,15 @@ const LOCATIONS = [
   { name: "Copenhagen", lat: "55.6761", lon: "12.5683" },
 ];
 
+/** Convert lat/lon to slippy map tile coordinates at a given zoom. */
+function latLonToTile(lat: number, lon: number, zoom: number): { x: number; y: number } {
+  const n = Math.pow(2, zoom);
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+  return { x, y: Math.max(0, Math.min(y, n - 1)) };
+}
+
 function pickRandomLocations(count: number) {
   const shuffled = [...LOCATIONS].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
@@ -387,7 +396,7 @@ export default function Home() {
   const [mapLoading, setMapLoading] = useState(true);
   const [showTop, setShowTop] = useState(false);
   const [tooltip, setTooltip] = useState<string | null>(null);
-  const [snippetTab, setSnippetTab] = useState<"url" | "curl" | "js" | "python" | "result">("url");
+  const [snippetTab, setSnippetTab] = useState<"url" | "tile" | "curl" | "js" | "python" | "result">("url");
   const [snippetCopied, setSnippetCopied] = useState(false);
   const [userGeo, setUserGeo] = useState<{
     city: string | null;
@@ -857,6 +866,12 @@ export default function Home() {
                   API URL
                 </button>
                 <button
+                  className={`oz-snippet-tab ${snippetTab === "tile" ? "active" : ""}`}
+                  onClick={() => setSnippetTab("tile")}
+                >
+                  Tile
+                </button>
+                <button
                   className={`oz-snippet-tab ${snippetTab === "curl" ? "active" : ""}`}
                   onClick={() => setSnippetTab("curl")}
                 >
@@ -880,11 +895,14 @@ export default function Home() {
                 onClick={() => {
                   const la = lat || "28.0";
                   const lo = lon || "86.9";
+                  const t = latLonToTile(Number(la), Number(lo), 8);
                   const snippetText =
                     snippetTab === "result" && result
                       ? `${result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"}`
                       : snippetTab === "url"
                         ? `https://openzenith.pages.dev/api/elevation?lat=${la}&lon=${lo}`
+                        : snippetTab === "tile"
+                          ? `https://openzenith.pages.dev/api/tile/8/${t.x}/${t.y}`
                         : snippetTab === "curl"
                           ? `curl "https://openzenith.pages.dev/api/elevation?lat=${la}&lon=${lo}"`
                           : snippetTab === "js"
@@ -905,6 +923,8 @@ export default function Home() {
                   ? result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"
                   : snippetTab === "url"
                     ? `https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`
+                    : snippetTab === "tile"
+                      ? (() => { const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8); return `https://openzenith.pages.dev/api/tile/8/${t.x}/${t.y}`; })()
                     : snippetTab === "curl"
                       ? `curl "https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
                       : snippetTab === "js"
@@ -941,6 +961,32 @@ export default function Home() {
                   https://openzenith.pages.dev/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}
                 </a>
               )}
+              {snippetTab === "tile" && (() => {
+                const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8);
+                const tileUrl = `/api/tile/8/${t.x}/${t.y}`;
+                const mapUrl = `/map#lng=${(lat || "86.9")}&lat=${(lat || "28.0")}&zoom=10`;
+                return (
+                  <>
+                    <a className="oz-snippet-url" href={`https://openzenith.pages.dev${tileUrl}`} target="_blank" rel="noopener noreferrer">
+                      https://openzenith.pages.dev{tileUrl}
+                    </a>
+                    <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <a
+                        href={mapUrl}
+                        style={{
+                          fontSize: "0.68rem", color: "var(--oz-accent, #00e5ff)",
+                          textDecoration: "none", fontFamily: "var(--oz-font-mono, monospace)",
+                        }}
+                      >
+                        Open in Map &rarr;
+                      </a>
+                      <span style={{ fontSize: "0.65rem", color: "var(--oz-text-secondary, #64748b)", fontFamily: "var(--oz-font-mono, monospace)" }}>
+                        z8 &middot; {t.x}/{t.y} &middot; 256&times;256 Int16
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
               {snippetTab === "curl" && (
                 <div>
                   <span className="oz-syn-method">curl</span>{" "}

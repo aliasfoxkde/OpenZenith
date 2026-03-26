@@ -34,3 +34,9 @@
 - [ ] Integrate solar system, satellite tracking, space crafts, and orbital systems into the "Globe" app
   - Examples: https://eyes.nasa.gov/apps/orrery, https://spacein3d.com/universe-sandbox, 
               https://www.solarsystemscope.com, https://www.webglearth.com
+- [ ] Add Donation buttons with goals (setup custom PayPal account, etc.)
+- [ ] Add PWA Support, caching and Manifest.json file
+
+## Design and Styling
+- [ ] Create/improve favicon and app icons
+- [ ] Add map styling, symbology and etc.

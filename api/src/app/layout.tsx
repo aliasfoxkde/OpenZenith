@@ -53,11 +53,20 @@ export const metadata: Metadata = {
       { url: "/favicon.svg", type: "image/svg+xml" },
     ],
     apple: [
-      { url: "/icon-192.png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   },
   manifest: "/manifest.json",
   metadataBase: new URL(baseUrl),
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "OpenZenith",
+  },
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({
@@ -75,7 +84,7 @@ export default function RootLayout({
           WebkitFontSmoothing: "antialiased",
         }}
       >
-        <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");` }} />
+        <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js",{scope:"/"})})}` }} />
         {children}
       </body>
     </html>

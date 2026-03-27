@@ -77,6 +77,7 @@ export interface CesiumInitResult {
   viewer: any;
   Cesium: any;
   destroy: () => void;
+  addCloudOverlay: () => void;
 }
 
 /**
@@ -109,7 +110,7 @@ export async function initCesiumViewer(
     selectionIndicator: false,
     sceneMode: Cesium.SceneMode.SCENE3D,
     requestRenderMode: true,
-    maximumRenderTimeChange: 2.0,
+    maximumRenderTimeChange: Infinity,
     // Phase 17 fix: enable logarithmic depth buffer for correct rendering
     // at extreme zoom ranges (close terrain + far Earth visibility)
     logarithmicDepthBuffer: true,
@@ -120,9 +121,9 @@ export async function initCesiumViewer(
   scene.globe.baseColor = Cesium.Color.fromCssColorString("#0a0e17");
   scene.backgroundColor = Cesium.Color.fromCssColorString("#000000");
   scene.skyAtmosphere.show = true;
-  scene.skyAtmosphere.hueShift = 0.0;
-  scene.skyAtmosphere.saturationShift = 0.0;
-  scene.skyAtmosphere.brightnessShift = 0.0;
+  scene.skyAtmosphere.hueShift = -0.02;
+  scene.skyAtmosphere.saturationShift = 0.2;
+  scene.skyAtmosphere.brightnessShift = 0.1;
   scene.fog.enabled = false;
   scene.globe.showGroundAtmosphere = true;
   scene.globe.enableLighting = true;
@@ -144,23 +145,9 @@ export async function initCesiumViewer(
   // Our basemap system adds its own layers via switchBasemapOnViewer below
   viewer.imageryLayers.removeAll();
 
-  // ─── Custom globe material: depth-based coloring ───
-  // Shows bathymetry (ocean depth) in blue gradients and land in green/brown
-  try {
-    const elevationColorMaterial = new Cesium.Material({
-      fabric: {
-        type: "ElevationColorMap",
-        uniforms: {
-          image: createElevationColorMap(),
-          minimumHeight: -8000,
-          maximumHeight: 9000,
-        },
-      },
-    });
-    scene.globe.material = elevationColorMaterial;
-  } catch {
-    // Material not supported — continue with default
-  }
+  // NOTE: ElevationColorMap material removed — it was blocking imagery layer
+  // compositing with EllipsoidTerrainProvider in CesiumJS 1.119, causing a
+  // black sphere. The Carto basemap provides all visual detail needed.
 
   // Phase 17 fix: extend frustum far plane to 500M meters (5x max zoom distance)
   // Previously 50M which caused Earth to clip/disappear when zoomed out
@@ -206,9 +193,27 @@ export async function initCesiumViewer(
 
   switchBasemapOnViewer(viewer, initialState.basemap);
 
+  // ─── Cloud overlay (semi-transparent, always on) ───
+  function addCloudOverlay() {
+    const provider = new Cesium.UrlTemplateImageryProvider({
+      url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi"
+        + "?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.3.0"
+        + "&LAYER=MODIS_Terra_CorrectedReflectance_TrueColor"
+        + "&TILEMATRIXSET=GoogleMapsCompatible"
+        + "&TILECOL={z}&TILEROW={y}&TILEMATRIX={z}"
+        + "&FORMAT=image%2Fpng",
+      credit: "",
+      maximumLevel: 8,
+    });
+    const layer = viewer.imageryLayers.addImageryProvider(provider);
+    layer.alpha = 0.25;
+  }
+  addCloudOverlay();
+
   return {
     viewer,
     Cesium,
     destroy: () => viewer.destroy(),
+    addCloudOverlay,
   };
 }

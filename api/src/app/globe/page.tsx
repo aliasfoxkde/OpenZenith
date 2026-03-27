@@ -47,6 +47,7 @@ export default function Globe() {
   const entitiesRef = useRef<Record<string, any>>({});
   const satDataRef = useRef<any[]>([]);
   const loadLayerDynamicRef = useRef<(key: string) => Promise<void>>(undefined as unknown as (key: string) => Promise<void>);
+  const addCloudOverlayRef = useRef<(() => void) | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
 
@@ -233,7 +234,7 @@ export default function Globe() {
 
     const container = containerRef.current;
     (async () => {
-      const { viewer, Cesium } = await initCesiumViewer(container!, state);
+      const { viewer, Cesium, addCloudOverlay } = await initCesiumViewer(container!, state);
       if (destroyed) { viewer.destroy(); return; }
 
       const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
@@ -381,6 +382,7 @@ export default function Globe() {
 
       viewerRef.current = viewer;
       cesiumRef.current = Cesium;
+      addCloudOverlayRef.current = addCloudOverlay;
       toolManagerRef.current = createToolManager(viewer, Cesium);
       elevationProfileRef.current = createElevationProfile(viewer, Cesium);
       spaceSceneRef.current = createSpaceSceneManager(viewer, Cesium);
@@ -391,11 +393,8 @@ export default function Globe() {
       let currentLodZone: any = null;
       let lastUIUpdate = 0;
       let prevAlt = 0;
-      let prevSpaceMode = false;
-      let prevHeading = 0;
       const preRenderListener = () => {
-        const now = performance.now();
-
+        // Follow-entity needs per-frame update for smooth tracking
         if (followEntity) {
           const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
           if (pos) {
@@ -407,44 +406,43 @@ export default function Globe() {
           }
         }
 
+        // Throttle all other work to ~4Hz
+        const now = performance.now();
+        if (now - lastUIUpdate < 250) return;
+
         const cg = viewer.camera.positionCartographic;
         if (!cg) return;
-
         const heightM = cg.height;
-        const heading = Cesium.Math.toDegrees(viewer.camera.heading);
-        const spaceMode = heightM > 100000;
 
-        // Throttle React state updates to ~4Hz (250ms)
-        if (now - lastUIUpdate < 250) return;
-        if (heightM === prevAlt && spaceMode === prevSpaceMode && heading === prevHeading) return;
+        // Early return if altitude unchanged — skips LOD, atmosphere, React state
+        if (heightM === prevAlt) return;
         lastUIUpdate = now;
         prevAlt = heightM;
-        prevSpaceMode = spaceMode;
-        prevHeading = heading;
 
-        setCameraAlt(heightM);
-        setIsSpaceMode(spaceMode);
-        setCompassHeading(-heading);
-
-        // Apply LOD system
+        // LOD (only on altitude change)
         const newZone = applyLOD(viewer, Cesium, heightM, currentLodZone);
         if (newZone.name !== currentLodZone?.name) {
           currentLodZone = newZone;
           setLodZone(newZone.label);
         }
 
+        // Atmosphere brightness (only on altitude change, compare before assigning)
         const sa = viewer.scene.skyAtmosphere;
-        if (heightM < 10000) {
-          sa.brightnessShift = 0;
-        } else if (heightM < 200000) {
-          sa.brightnessShift = -0.7 * ((heightM - 10000) / 190000);
-        } else {
-          sa.brightnessShift = -0.7;
-        }
+        let newBrightness: number;
+        if (heightM < 10000) newBrightness = 0.1;
+        else if (heightM < 300000) newBrightness = 0.1 - 0.4 * ((heightM - 10000) / 290000);
+        else newBrightness = -0.3;
+        if (sa.brightnessShift !== newBrightness) sa.brightnessShift = newBrightness;
 
-        if (viewer.scene.globe.showGroundAtmosphere) {
-          viewer.scene.globe.showGroundAtmosphere = heightM < 500000;
-        }
+        const showGround = heightM < 500000;
+        if (viewer.scene.globe.showGroundAtmosphere !== showGround)
+          viewer.scene.globe.showGroundAtmosphere = showGround;
+
+        // React state (batched by React 18)
+        const heading = Cesium.Math.toDegrees(viewer.camera.heading);
+        setCameraAlt(heightM);
+        setIsSpaceMode(heightM > 100000);
+        setCompassHeading(-heading);
       };
 
       (window as any).__ozSetFollowEntity = (entity: any | null) => { followEntity = entity; };
@@ -466,7 +464,10 @@ export default function Globe() {
   // ─── Basemap switch ──
   const switchBasemap = useCallback((key: string) => {
     setState((prev) => ({ ...prev, basemap: key }));
-    if (viewerRef.current) switchBasemapOnViewer(viewerRef.current, key);
+    if (viewerRef.current) {
+      switchBasemapOnViewer(viewerRef.current, key);
+      addCloudOverlayRef.current?.();
+    }
   }, []);
 
   // ─── View mode switch ───

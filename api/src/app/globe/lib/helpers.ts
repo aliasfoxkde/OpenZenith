@@ -89,7 +89,7 @@ export function buildHash(s: DashboardState): string {
   parts.push(`${s.zoom.toFixed(1)}/${s.center[1].toFixed(4)}/${s.center[0].toFixed(4)}`);
 
   // Optional params
-  if (s.basemap !== "dark") parts.push(`bm=${s.basemap}`);
+  if (s.basemap !== "satellite") parts.push(`bm=${s.basemap}`);
   if (s.theme !== "default") parts.push(`theme=${s.theme}`);
   if (s.viewMode !== "3d") parts.push(`view=${s.viewMode}`);
 

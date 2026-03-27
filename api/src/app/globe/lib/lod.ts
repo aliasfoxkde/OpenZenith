@@ -74,6 +74,9 @@ const ENTITY_PREFIXES: Record<string, string[]> = {
   radar: ["radar-"],
 };
 
+/** Flat array of all managed prefixes for fast lookup (avoids nested loop) */
+const ALL_MANAGED_PREFIXES = Object.values(ENTITY_PREFIXES).flat();
+
 /** Get the LOD zone for a given camera altitude */
 export function getZoneForAltitude(alt: number): LODZone {
   return LOD_ZONES.find((z) => alt >= z.minAlt && alt < z.maxAlt) || LOD_ZONES[LOD_ZONES.length - 1];
@@ -113,16 +116,10 @@ export function applyLOD(
     const entity = entities[i];
     const id = entity.id || "";
 
-    // Only manage LOD for known entity types (ID prefix match)
+    // Only manage LOD for known entity types (flat prefix lookup)
     let managed = false;
-    for (const prefixes of Object.values(ENTITY_PREFIXES)) {
-      for (const prefix of prefixes) {
-        if (id.startsWith(prefix)) {
-          managed = true;
-          break;
-        }
-      }
-      if (managed) break;
+    for (const prefix of ALL_MANAGED_PREFIXES) {
+      if (id.startsWith(prefix)) { managed = true; break; }
     }
 
     if (!managed) continue;

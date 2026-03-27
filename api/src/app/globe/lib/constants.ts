@@ -56,7 +56,7 @@ export const DEFAULT_LAYERS: LayerState = {
 export const DEFAULT_STATE: DashboardState = {
   center: [0, 20],
   zoom: 2,
-  basemap: "dark",
+  basemap: "satellite",
   layers: { ...DEFAULT_LAYERS },
   theme: "default",
   viewMode: "3d",

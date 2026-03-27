@@ -3,28 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-// Convert raw Int16 elevation to terrarium-encoded RGBA for MapLibre
-function elevationToTerrarium(data: Int16Array): Uint8Array {
-  const pixels = new Uint8Array(data.length * 4);
-  for (let i = 0; i < data.length; i++) {
-    const elev = data[i];
-    const isNodata = elev === -32768;
-    if (isNodata) {
-      pixels[i * 4] = 0;
-      pixels[i * 4 + 1] = 0;
-      pixels[i * 4 + 2] = 0;
-      pixels[i * 4 + 3] = 0;
-    } else {
-      const h = elev + 32768;
-      pixels[i * 4] = Math.floor(h / 256);
-      pixels[i * 4 + 1] = h % 256;
-      pixels[i * 4 + 2] = 0;
-      pixels[i * 4 + 3] = 255;
-    }
-  }
-  return pixels;
-}
-
 function loadMapLibre(): Promise<void> {
   const w = window as any;
   if (w.maplibregl) return Promise.resolve();
@@ -64,48 +42,10 @@ function waitForMapLibre(timeoutMs = 10000): Promise<any> {
   );
 }
 
-function addElevationLayer(map: any, mlgl: any) {
-  mlgl.addProtocol("elevation", async (params: any, callback: any) => {
-    const { z, x, y } = params;
-    try {
-      const res = await fetch(`/api/tile/${z}/${x}/${y}`);
-      if (!res.ok) {
-        callback(null, null, null);
-        return { cancel: () => {} };
-      }
-      const buffer = await res.arrayBuffer();
-      const int16 = new Int16Array(buffer);
-      const terrarium = elevationToTerrarium(int16);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d")!;
-      const imageData = ctx.createImageData(256, 256);
-      imageData.data.set(terrarium);
-      ctx.putImageData(imageData, 0, 0);
-
-      canvas.toBlob(
-        (blob: Blob | null) => {
-          if (blob) {
-            callback(null, blob, null, null);
-          } else {
-            callback(new Error("Failed to create PNG"));
-          }
-        },
-        "image/png",
-      );
-
-      return { cancel: () => {} };
-    } catch (err) {
-      callback(err);
-      return { cancel: () => {} };
-    }
-  });
-
+function addElevationLayer(map: any, _mlgl: any) {
   map.addSource("elevation", {
     type: "raster-dem",
-    tiles: ["elevation://{z}/{x}/{y}"],
+    tiles: ["/api/dem-tile/{z}/{x}/{y}"],
     tileSize: 256,
     maxzoom: 12,
     encoding: "terrarium",

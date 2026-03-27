@@ -90,23 +90,6 @@ function buildDefaultLayers(): Record<string, boolean> {
 
 /* ─── Helpers ─── */
 
-function elevationToTerrarium(data: Int16Array): Uint8Array {
-  const pixels = new Uint8Array(data.length * 4);
-  for (let i = 0; i < data.length; i++) {
-    const elev = data[i];
-    if (elev === -32768) {
-      pixels[i * 4 + 3] = 0;
-    } else {
-      const h = elev + 32768;
-      pixels[i * 4] = (h / 256) | 0;
-      pixels[i * 4 + 1] = h % 256;
-      pixels[i * 4 + 2] = 0;
-      pixels[i * 4 + 3] = 255;
-    }
-  }
-  return pixels;
-}
-
 function loadMapLibre(): Promise<void> {
   const w = window as any;
   if (w.maplibregl) return Promise.resolve();
@@ -1028,42 +1011,13 @@ export default function MapPage() {
 
 /* ─── Map helpers ─── */
 
-function addElevationSource(map: any, mlgl: any) {
+function addElevationSource(map: any, _mlgl: any) {
   // Only add if not already present
   if (map.getSource("elevation")) return;
 
-  mlgl.addProtocol("elevation", async (params: any, callback: any) => {
-    const { z, x, y } = params;
-    try {
-      const res = await fetch(`/api/tile/${z}/${x}/${y}`);
-      if (!res.ok) {
-        callback(null, null, null);
-        return { cancel: () => {} };
-      }
-      const buffer = await res.arrayBuffer();
-      const int16 = new Int16Array(buffer);
-      const terrarium = elevationToTerrarium(int16);
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d")!;
-      const img = ctx.createImageData(256, 256);
-      img.data.set(terrarium);
-      ctx.putImageData(img, 0, 0);
-      canvas.toBlob((blob: Blob | null) => {
-        if (blob) callback(null, blob, null, null);
-        else callback(new Error("Failed to create tile PNG"));
-      }, "image/png");
-      return { cancel: () => {} };
-    } catch (err) {
-      callback(err);
-      return { cancel: () => {} };
-    }
-  });
-
   map.addSource("elevation", {
     type: "raster-dem",
-    tiles: ["elevation://{z}/{x}/{y}"],
+    tiles: ["/api/dem-tile/{z}/{x}/{y}"],
     tileSize: 256,
     maxzoom: 12,
     encoding: "terrarium",

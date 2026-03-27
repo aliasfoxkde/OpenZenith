@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { GetInTouch } from "@/components/GetInTouch";
@@ -146,17 +146,17 @@ function pickRandomLocations(count: number) {
 }
 
 function useTheme() {
-  const [dark, setDark] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-  useEffect(() => {
+  const subscribe = useCallback((callback: () => void) => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => setDark(e.matches);
+    const handler = (e: MediaQueryListEvent) => callback();
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
-  return dark;
+  const getSnapshot = useCallback(() => {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }, []);
+  const getServerSnapshot = useCallback(() => false, []);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 function elevationToTerrarium(data: Int16Array): Uint8Array {
@@ -382,7 +382,7 @@ export default function Home() {
   const dark = useTheme();
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
-  const [sampleLocations, setSampleLocations] = useState(() => pickRandomLocations(5));
+  const [sampleLocations, setSampleLocations] = useState(() => LOCATIONS.slice(0, 5));
   const [result, setResult] = useState<{
     elevation: number | null;
     unit: string;
@@ -423,6 +423,11 @@ export default function Home() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Randomize sample locations on mount (client-only to avoid hydration mismatch)
+  useEffect(() => {
+    setSampleLocations(pickRandomLocations(5));
   }, []);
 
   // Auto-detect user location via GeoIP and pre-populate

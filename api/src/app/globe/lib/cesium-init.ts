@@ -1,4 +1,5 @@
 import { switchBasemapOnViewer } from "./helpers";
+import { createTerrariumTerrainProvider } from "./terrarium-terrain";
 import type { DashboardState } from "./types";
 
 /**
@@ -135,11 +136,11 @@ export async function initCesiumViewer(
   scene.postProcessStages.fxaa.enabled = true;
   scene.globe.show = true;
 
-  // ─── Terrain: Use ellipsoid (no Ion dependency) ───
-  // Cesium Ion default token is expired; using fromIonAssetId causes 401 spam.
-  // The elevation color material handles visual terrain coloring without real DEM.
-  viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
-  scene.globe.depthTestAgainstTerrain = false;
+  // ─── Terrain: Load Terrarium PNG tiles from R2 as 3D heightmap ───
+  // Decodes Terrarium-encoded PNG tiles (Copernicus GLO-30 + GEBCO 2025)
+  // into CesiumJS HeightmapTerrainData for real 3D terrain on the globe.
+  viewer.terrainProvider = createTerrariumTerrainProvider(Cesium);
+  scene.globe.depthTestAgainstTerrain = true;
 
   // Remove default Cesium Ion imagery layer (causes 401 without valid token)
   // Our basemap system adds its own layers via switchBasemapOnViewer below

@@ -856,7 +856,6 @@ export default function Home() {
                 }}
                 style={{
                   ...inputStyle,
-                  width: "100%",
                   paddingLeft: "2rem",
                   paddingRight: searchQuery ? "2rem" : "0.75rem",
                 }}

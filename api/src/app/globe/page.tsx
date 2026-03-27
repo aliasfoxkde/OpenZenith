@@ -115,23 +115,25 @@ export default function Globe() {
     );
   };
 
-  const [state, setState] = useState<DashboardState>(() => {
-    if (typeof window === "undefined") return DEFAULT_STATE;
+  const [state, setState] = useState<DashboardState>(DEFAULT_STATE);
+  const [loading, setLoading] = useState(true);
+
+  // Apply hash/localStorage state on mount (client-only to avoid hydration mismatch)
+  useEffect(() => {
     let savedTheme: string | null = null;
     try { savedTheme = localStorage.getItem("globe-theme"); } catch { /* tracking prevention */ }
-    const clean: Partial<DashboardState> = {};
     const parsed = parseHash(window.location.hash);
+    const clean: Partial<DashboardState> = {};
     for (const [k, v] of Object.entries(parsed)) {
       if (v !== undefined) (clean as any)[k] = v;
     }
-    return {
+    setState({
       ...DEFAULT_STATE,
       ...clean,
       layers: { ...DEFAULT_LAYERS, ...(parsed.layers || {}) },
       theme: parsed.theme || savedTheme || DEFAULT_STATE.theme,
-    };
-  });
-  const [loading, setLoading] = useState(true);
+    });
+  }, []);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState<[number, number] | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus[]>([
@@ -202,7 +204,7 @@ export default function Globe() {
   }, []);
 
   const toggleImageryOverlay = useCallback((name: string, url?: string, opacity?: number, maximumLevel?: number) => {
-    if (viewerRef.current) toggleImageryOverlayHelper(viewerRef.current, cesiumRef.current, name, url, opacity);
+    if (viewerRef.current) toggleImageryOverlayHelper(viewerRef.current, cesiumRef.current, name, url, opacity, maximumLevel);
   }, []);
 
   // ─── Init Cesium Viewer ───

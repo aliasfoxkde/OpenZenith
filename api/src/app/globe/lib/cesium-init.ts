@@ -92,6 +92,9 @@ export async function initCesiumViewer(
 ): Promise<CesiumInitResult> {
   const { Cesium } = await loadScripts();
 
+  // Suppress Cesium Ion default token to prevent 401 spam
+  Cesium.Ion.defaultAccessToken = undefined;
+
   const viewer = new Cesium.Viewer(container, {
     baseLayerPicker: false,
     geocoder: false,
@@ -131,16 +134,15 @@ export async function initCesiumViewer(
   scene.postProcessStages.fxaa.enabled = true;
   scene.globe.show = true;
 
-  // ─── Terrain: Cesium World Terrain (includes GEBCO bathymetry) ───
-  try {
-    const terrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(1, {
-      requestVertexNormals: true,
-    });
-    viewer.terrainProvider = terrainProvider;
-    scene.globe.depthTestAgainstTerrain = false; // Don't depth-test entities against terrain
-  } catch {
-    // Cesium Ion not available — continue without terrain
-  }
+  // ─── Terrain: Use ellipsoid (no Ion dependency) ───
+  // Cesium Ion default token is expired; using fromIonAssetId causes 401 spam.
+  // The elevation color material handles visual terrain coloring without real DEM.
+  viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+  scene.globe.depthTestAgainstTerrain = false;
+
+  // Remove default Cesium Ion imagery layer (causes 401 without valid token)
+  // Our basemap system adds its own layers via switchBasemapOnViewer below
+  viewer.imageryLayers.removeAll();
 
   // ─── Custom globe material: depth-based coloring ───
   // Shows bathymetry (ocean depth) in blue gradients and land in green/brown

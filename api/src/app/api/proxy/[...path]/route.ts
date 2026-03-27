@@ -29,6 +29,19 @@ const ALLOWED_HOSTS = [
   "unpkg.com",
 ];
 
+/** Per-host Cache-Control max-age (seconds). Default: 30 */
+const HOST_CACHE_TTL: Record<string, number> = {
+  "earthquake.usgs.gov": 60,
+  "eonet.gsfc.nasa.gov": 300,
+  "celestrak.org": 600,
+  "api.rainviewer.com": 120,
+  "www.ncei.noaa.gov": 3600,
+  "ring.nlnog.net": 3600,
+  "api.ring.nlnog.net": 3600,
+  "lg.ring.nlnog.net": 3600,
+  "tilecache.rainviewer.com": 120,
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -67,7 +80,8 @@ export async function GET(
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
     headers.set("Access-Control-Allow-Headers", "Content-Type");
-    headers.set("Cache-Control", "public, max-age=30");
+    const ttl = HOST_CACHE_TTL[parsed.hostname] ?? 30;
+    headers.set("Cache-Control", `public, max-age=${ttl}`);
     headers.set("Content-Type", resp.headers.get("Content-Type") || "application/json");
 
     return new Response(data, { status: resp.status, headers });

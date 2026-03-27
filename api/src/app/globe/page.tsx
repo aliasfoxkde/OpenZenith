@@ -15,22 +15,11 @@ import {
 } from "./lib/helpers";
 import { STYLES } from "./lib/styles";
 import { loadEarthquakes } from "./lib/layers/earthquakes";
-import { loadRadar } from "./lib/layers/radar";
-import { loadFlights } from "./lib/layers/flights";
-import { loadMilitaryFlights } from "./lib/layers/military";
-import { loadVessels, cleanupVessels } from "./lib/layers/vessels";
-import { loadWarnings } from "./lib/layers/warnings";
 import { loadEvents } from "./lib/layers/events";
-import { loadSatellites } from "./lib/layers/satellites";
-import { loadHurricanes } from "./lib/layers/hurricanes";
-import { loadNlnogNodes } from "./lib/layers/nlnog";
-import { loadFlightArcs } from "./lib/layers/flight-arcs";
-import { loadOrbitalTracks } from "./lib/layers/orbital-tracks";
-import { loadGroundTracks } from "./lib/layers/ground-tracks";
-import { loadCurrents } from "./lib/layers/currents";
 import { loadElevationColor } from "./lib/layers/elevation";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD, getZoneLabel } from "./lib/lod";
+
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
 import { createElevationProfile, renderProfileChart } from "./lib/tools/elevation-profile";
 import { getAllFormats } from "./lib/tools/measure";
@@ -53,9 +42,11 @@ export default function Globe() {
   const viewerRef = useRef<any>(null);
   const cesiumRef = useRef<any>(null);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const layerModulesRef = useRef<Record<string, any>>({});
   const dataLoadedRef = useRef<Record<string, boolean>>({});
   const entitiesRef = useRef<Record<string, any>>({});
   const satDataRef = useRef<any[]>([]);
+  const loadLayerDynamicRef = useRef<(key: string) => Promise<void>>(undefined as unknown as (key: string) => Promise<void>);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
 
@@ -211,6 +202,34 @@ export default function Globe() {
   useEffect(() => {
     if (!containerRef.current) return;
     let destroyed = false;
+
+    // Visibility handler (outer scope so cleanup can access it)
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        intervalsRef.current.forEach(clearInterval);
+        intervalsRef.current = [];
+      } else {
+        const viewer = viewerRef.current;
+        const Cesium = cesiumRef.current;
+        const activeLayers = Object.entries(dataLoadedRef.current)
+          .filter(([, loaded]) => loaded)
+          .map(([key]) => key);
+        if (activeLayers.length > 0 && viewer && Cesium) {
+          activeLayers.forEach((key) => {
+            dataLoadedRef.current[key] = false;
+          });
+          if (activeLayers.includes("earthquakes") && state.layers.earthquakes) loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (activeLayers.includes("events") && state.layers.events) loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          const dynamicKeys = ["flights", "militaryFlights", "vessels", "warnings", "satellites", "radar", "hurricaneTracks", "nlnogNodes", "flightArcs", "orbitalTracks", "groundTracks", "currents"] as const;
+          for (const dk of dynamicKeys) {
+            if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {
+              loadLayerDynamicRef.current?.(dk);
+            }
+          }
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     const container = containerRef.current;
     (async () => {
@@ -370,35 +389,12 @@ export default function Globe() {
       // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
       let followEntity: any = null;
       let currentLodZone: any = null;
+      let lastUIUpdate = 0;
+      let prevAlt = 0;
+      let prevSpaceMode = false;
+      let prevHeading = 0;
       const preRenderListener = () => {
-        const cg = viewer.camera.positionCartographic;
-        if (cg) {
-          const heightM = cg.height;
-          setCameraAlt(heightM);
-          setIsSpaceMode(heightM > 100000);
-          const heading = Cesium.Math.toDegrees(viewer.camera.heading);
-          setCompassHeading(-heading);
-
-          // Apply LOD system
-          const newZone = applyLOD(viewer, Cesium, heightM, currentLodZone);
-          if (newZone.name !== currentLodZone?.name) {
-            currentLodZone = newZone;
-            setLodZone(newZone.label);
-          }
-
-          const sa = viewer.scene.skyAtmosphere;
-          if (heightM < 10000) {
-            sa.brightnessShift = 0;
-          } else if (heightM < 200000) {
-            sa.brightnessShift = -0.7 * ((heightM - 10000) / 190000);
-          } else {
-            sa.brightnessShift = -0.7;
-          }
-
-          if (viewer.scene.globe.showGroundAtmosphere) {
-            viewer.scene.globe.showGroundAtmosphere = heightM < 500000;
-          }
-        }
+        const now = performance.now();
 
         if (followEntity) {
           const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
@@ -410,6 +406,45 @@ export default function Globe() {
             );
           }
         }
+
+        const cg = viewer.camera.positionCartographic;
+        if (!cg) return;
+
+        const heightM = cg.height;
+        const heading = Cesium.Math.toDegrees(viewer.camera.heading);
+        const spaceMode = heightM > 100000;
+
+        // Throttle React state updates to ~4Hz (250ms)
+        if (now - lastUIUpdate < 250) return;
+        if (heightM === prevAlt && spaceMode === prevSpaceMode && heading === prevHeading) return;
+        lastUIUpdate = now;
+        prevAlt = heightM;
+        prevSpaceMode = spaceMode;
+        prevHeading = heading;
+
+        setCameraAlt(heightM);
+        setIsSpaceMode(spaceMode);
+        setCompassHeading(-heading);
+
+        // Apply LOD system
+        const newZone = applyLOD(viewer, Cesium, heightM, currentLodZone);
+        if (newZone.name !== currentLodZone?.name) {
+          currentLodZone = newZone;
+          setLodZone(newZone.label);
+        }
+
+        const sa = viewer.scene.skyAtmosphere;
+        if (heightM < 10000) {
+          sa.brightnessShift = 0;
+        } else if (heightM < 200000) {
+          sa.brightnessShift = -0.7 * ((heightM - 10000) / 190000);
+        } else {
+          sa.brightnessShift = -0.7;
+        }
+
+        if (viewer.scene.globe.showGroundAtmosphere) {
+          viewer.scene.globe.showGroundAtmosphere = heightM < 500000;
+        }
       };
 
       (window as any).__ozSetFollowEntity = (entity: any | null) => { followEntity = entity; };
@@ -418,6 +453,7 @@ export default function Globe() {
 
     return () => {
       destroyed = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       intervalsRef.current.forEach(clearInterval);
       if (viewerRef.current) {
         viewerRef.current.destroy();
@@ -562,6 +598,47 @@ export default function Globe() {
     });
   }, []);
 
+  // ─── Dynamic layer loader (lazy imports with cache) ───
+  const loadLayerDynamic = useCallback(async (key: string) => {
+    const Cesium = cesiumRef.current;
+    const viewer = viewerRef.current;
+    if (!Cesium || !viewer || dataLoadedRef.current[key]) return;
+
+    let mod: any;
+    switch (key) {
+      case "radar": mod = layerModulesRef.current.radar ??= await import("./lib/layers/radar"); break;
+      case "flights": mod = layerModulesRef.current.flights ??= await import("./lib/layers/flights"); break;
+      case "militaryFlights": mod = layerModulesRef.current.militaryFlights ??= await import("./lib/layers/military"); break;
+      case "vessels": mod = layerModulesRef.current.vessels ??= await import("./lib/layers/vessels"); break;
+      case "warnings": mod = layerModulesRef.current.warnings ??= await import("./lib/layers/warnings"); break;
+      case "satellites": mod = layerModulesRef.current.satellites ??= await import("./lib/layers/satellites"); break;
+      case "hurricaneTracks": mod = layerModulesRef.current.hurricaneTracks ??= await import("./lib/layers/hurricanes"); break;
+      case "nlnogNodes": mod = layerModulesRef.current.nlnogNodes ??= await import("./lib/layers/nlnog"); break;
+      case "flightArcs": mod = layerModulesRef.current.flightArcs ??= await import("./lib/layers/flight-arcs"); break;
+      case "orbitalTracks": mod = layerModulesRef.current.orbitalTracks ??= await import("./lib/layers/orbital-tracks"); break;
+      case "groundTracks": mod = layerModulesRef.current.groundTracks ??= await import("./lib/layers/ground-tracks"); break;
+      case "currents": mod = layerModulesRef.current.currents ??= await import("./lib/layers/currents"); break;
+    }
+    if (!mod) return;
+
+    switch (key) {
+      case "radar": mod.loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers); break;
+      case "flights": mod.loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "militaryFlights": mod.loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "vessels": mod.loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "warnings": mod.loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "satellites": mod.loadSatellites(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, satDataRef, state.layers); break;
+      case "hurricaneTracks": mod.loadHurricanes(viewer, Cesium, updateStatus); break;
+      case "nlnogNodes": mod.loadNlnogNodes(viewer, Cesium, updateStatus); break;
+      case "flightArcs": mod.loadFlightArcs(viewer, Cesium, updateStatus); break;
+      case "orbitalTracks": mod.loadOrbitalTracks(viewer, Cesium, updateStatus); break;
+      case "groundTracks": mod.loadGroundTracks(viewer, Cesium); break;
+      case "currents": mod.loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+    }
+    dataLoadedRef.current[key] = true;
+  }, [state.layers]);
+  loadLayerDynamicRef.current = loadLayerDynamic;
+
   // ─── Layer toggling ───
   const toggleLayer = useCallback((key: keyof LayerState) => {
     setState((prev) => {
@@ -577,28 +654,33 @@ export default function Globe() {
           if (!on) removeEntities("eq-");
           break;
         case "radar":
-          if (on && !dataLoadedRef.current.radar) loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers);
+          if (on) loadLayerDynamic("radar");
           if (!on) removeEntities("radar-"); break;
         case "flights":
-          if (on && !dataLoadedRef.current.flights) loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (on) loadLayerDynamic("flights");
           if (!on) removeEntities("flight-"); break;
         case "militaryFlights":
-          if (on && !dataLoadedRef.current.militaryFlights) loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (on) loadLayerDynamic("militaryFlights");
           if (!on) removeEntities("mil-"); break;
         case "vessels":
-          if (on && !dataLoadedRef.current.vessels) loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-          if (!on) { removeEntities("vessel-"); cleanupVessels(); } break;
+          if (on) loadLayerDynamic("vessels");
+          if (!on) {
+            removeEntities("vessel-");
+            const vesselMod = layerModulesRef.current.vessels;
+            if (vesselMod) vesselMod.cleanupVessels();
+          }
+          break;
         case "warnings":
-          if (on && !dataLoadedRef.current.warnings) loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (on) loadLayerDynamic("warnings");
           if (!on) removeEntities("warn-"); break;
         case "events":
           if (on && !dataLoadedRef.current.events) loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
           if (!on) removeEntities("event-"); break;
         case "satellites":
-          if (on && !dataLoadedRef.current.satellites) loadSatellites(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, satDataRef, state.layers);
+          if (on) loadLayerDynamic("satellites");
           if (!on) removeEntities("sat-"); break;
         case "hurricaneTracks":
-          if (on && !dataLoadedRef.current.hurricaneTracks) loadHurricanes(viewer, Cesium, updateStatus);
+          if (on) loadLayerDynamic("hurricaneTracks");
           if (!on) removeEntities("storm-"); break;
         case "satellite":
           if (on) toggleImageryOverlay("nasa-gibs",
@@ -619,10 +701,10 @@ export default function Globe() {
           );
           else toggleImageryOverlay("VIIRS_CityLights"); break;
         case "nlnogNodes":
-          if (on && !dataLoadedRef.current.nlnogNodes) loadNlnogNodes(viewer, Cesium, updateStatus);
+          if (on) loadLayerDynamic("nlnogNodes");
           if (!on) removeEntities("nlnog-"); break;
         case "flightArcs":
-          if (on && !dataLoadedRef.current.flightArcs) loadFlightArcs(viewer, Cesium, updateStatus);
+          if (on) loadLayerDynamic("flightArcs");
           if (!on) removeEntities("arc-"); break;
         case "hillshade":
           break;
@@ -637,18 +719,18 @@ export default function Globe() {
           }
           break;
         case "orbitalTracks":
-          if (on && !dataLoadedRef.current.orbitalTracks) loadOrbitalTracks(viewer, Cesium, updateStatus);
+          if (on) loadLayerDynamic("orbitalTracks");
           if (!on) removeEntities("orbit-"); break;
         case "groundTracks":
-          if (on && !dataLoadedRef.current.groundTracks) loadGroundTracks(viewer, Cesium);
+          if (on) loadLayerDynamic("groundTracks");
           if (!on) removeEntities("gtrack-"); break;
         case "currents":
-          if (on && !dataLoadedRef.current.currents) loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (on) loadLayerDynamic("currents");
           if (!on) removeEntities("current-"); break;
       }
       return next;
     });
-  }, []);
+  }, [loadLayerDynamic]);
 
   // ─── Section/theme toggles ───
   const switchTheme = useCallback((key: string) => {

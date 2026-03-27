@@ -57,9 +57,17 @@
   - [ ] Hurricane Mapping Tools
 - [ ] Create Widgets
   - [ ] Trace Downstream
-- [ ] NOAA Monitoring Notification Service with free signup
+- [ ] NOAA Monitoring Notification/Emailer Service with free signup
   - [ ] Include options such as region of interest, ability to opt-in/out/customize, etc.
   - [ ] Make options both drop down and interactive on the map and maybe even customizable
+  - [ ] Create a visually stunning PDF Hurricane Map with details, symbology, etc. to send
+  - [ ] Include a PDF copy of the NOAA advisory details
+  - [ ] Link back to the interactive map on the site
+- [ ] Revisit GIS Mapping Web forms for automated Mapping generation
+  - [ ] Map Package: Overview, Weather, Elevation, Situation Status, Trajectory, Heat/Plume, etc.
+- [ ] Create a series of Web Tools for mapping and creating hosted data/mapping services
+- [ ] Plan on deriving unknown data from known data, simulation and processing
+- [ ] Build out a series of calculators/converters: Unit2Unit, Spill Volume, etc./
 
 ## Research
 - [ ] OSM Available Data
@@ -74,6 +82,8 @@
 - [ ] Add disclaimer "This Application was Developed with TaskWizer AI technologies."
 - [ ] Add link to portfolio website with about, projects, etc.
 - [ ] Add Donation buttons with goals (setup custom PayPal account, etc.)
+- [ ] Revisit all old project and revamp/refine them and promote them
+- [ ] Create a portfolio to bring all projects, libraries, etc. together into one.
 
 ## Design and Styling
 - [ ] Create/improve favicon and app icons

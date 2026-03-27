@@ -370,6 +370,7 @@ export default function Home() {
     elevation: number | null;
     unit: string;
     srtmTile: string;
+    tile: string;
     source: string;
     resolution: number;
     location: { lat: number; lon: number };
@@ -435,8 +436,8 @@ export default function Home() {
 
         if (typeof userLat !== "number" || typeof userLon !== "number") return;
 
-        // Clamp to SRTM coverage
-        const clampedLat = Math.max(-60, Math.min(60, userLat));
+        // Clamp to valid coordinate range
+        const clampedLat = Math.max(-90, Math.min(90, userLat));
         const clampedLon = Math.max(-180, Math.min(180, userLon));
         const latStr = clampedLat.toFixed(4);
         const lonStr = clampedLon.toFixed(4);
@@ -1044,7 +1045,7 @@ export default function Home() {
                     )}
                   </div>
                   <div className="oz-result-meta">
-                    {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot; {result.srtmTile} &middot; {result.resolution}m
+                    {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot; {(result as any).tile || (result as any).srtmTile} &middot; {result.resolution}m
                   </div>
                   {placeName && (
                     <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.15rem", fontStyle: "italic" }}>
@@ -1161,34 +1162,34 @@ export default function Home() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: "0.75rem" }}>
           {[
             {
-              label: "SRTM tiles",
-              value: "14,296",
-              tip: "14,296 one-degree tiles covering all land between 60\u00b0N and 60\u00b0S. Each tile is a 3601\u00d73601 pixel GeoTIFF from NASA\u2019s Shuttle Radar Topography Mission.",
+              label: "Terrain tiles",
+              value: "87K+",
+              tip: "87,381 Terrarium PNG tiles at zoom 0\u20138 stored on Cloudflare R2. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry. Zoom 9 generating (~262K more).",
             },
             {
-              label: "Data chunks",
-              value: "3.2M",
-              tip: "Each 3601\u00d73601 SRTM tile is split into 256\u00d7256 chunks (15\u00d715 = 225 per tile). Chunks are compressed and served on demand for efficiency.",
+              label: "Storage",
+              value: "Cloudflare R2",
+              tip: "Tiles served from Cloudflare R2 object storage via edge runtime. No Node.js dependency \u2014 full Cloudflare Pages deployment with <50ms global latency.",
             },
             {
               label: "Resolution",
-              value: "~30m",
-              tip: "1 arc-second resolution means each pixel represents ~30\u00d730 meters on the ground. Bilinear interpolation provides sub-pixel accuracy for point queries.",
+              value: "~1.7km",
+              tip: "Copernicus GLO-30 at zoom 8 (\u22481.7km/pixel) for land. GEBCO 2025 15-arc-second for ocean bathymetry. Bilinear interpolation for point queries.",
             },
             {
-              label: "Land coverage",
-              value: "80%",
-              tip: "SRTM covers 80% of Earth\u2019s landmass between 60\u00b0N and 60\u00b0S. Polar regions and some small islands are excluded.",
+              label: "Coverage",
+              value: "100%",
+              tip: "Global coverage \u2014 all land and ocean. Copernicus GLO-30 covers global landmass. GEBCO 2025 provides full ocean bathymetry including polar regions.",
             },
             {
-              label: "World coverage",
-              value: "~29%",
-              tip: "Land (80%) covers ~29% of Earth\u2019s total surface. Ocean bathymetry and waterway elevations are planned for future coverage.",
+              label: "Ocean depth",
+              value: "~11km",
+              tip: "GEBCO 2025 bathymetry covers ocean depths up to ~11km (Mariana Trench). The merged dataset provides continuous elevation from deepest ocean to highest mountain.",
             },
             {
               label: "Lat range",
-              value: "60\u00b0N\u201360\u00b0S",
-              tip: "SRTM coverage spans from 60\u00b0N to 60\u00b0S latitude. That\u2019s roughly 120\u00b0 out of 180\u00b0 of latitude. No data for polar ice caps.",
+              value: "90\u00b0N\u201390\u00b0S",
+              tip: "Full latitude coverage from pole to pole. Copernicus GLO-30 extends beyond SRTM\u2019s 60\u00b0 limit. GEBCO covers all ocean areas.",
             },
             {
               label: "API endpoints",
@@ -1304,16 +1305,16 @@ export default function Home() {
             {
               emoji: "\u26F0\uFE0F",
               title: "Elevation API",
-              desc: "Query elevation by lat/lon. Returns height in meters with bilinear interpolation and SRTM tile metadata.",
-              back: "NASA SRTM 30m resolution with bilinear interpolation. Returns elevation, unit, source tile, and resolution metadata.",
+              desc: "Query elevation at any lat/lon. Global coverage with Copernicus GLO-30 land + GEBCO 2025 ocean.",
+              back: "Copernicus GLO-30 (land) merged with GEBCO 2025 (ocean). Bilinear interpolation, surface type detection, tile metadata.",
               href: "/api/docs",
               btn: "View API Docs",
             },
             {
               emoji: "\uD83D\uDDFA\uFE0F",
               title: "Tile Server",
-              desc: "Slippy map tiles (z/x/y) serving raw Int16 elevation data. Terrarium encoding for MapLibre GL hillshade.",
-              back: "256\u00d7256 Int16 tiles at zoom 0\u201315. Terrarium encoding compatible with MapLibre GL raster-dem sources.",
+              desc: "Terrarium PNG tiles (z/x/y) served from Cloudflare R2 via edge runtime. 87K+ tiles at zoom 0\u20138.",
+              back: "256\u00d7256 Terrarium PNG tiles on R2. Edge runtime with <50ms global latency. Compatible with MapLibre raster-dem and CesiumJS.",
               href: "/map",
               btn: "Open Map",
             },
@@ -1535,14 +1536,14 @@ export default function Home() {
             {
               emoji: "\u26F0\uFE0F",
               title: "Hillshade & 3D",
-              desc: "Terrain hillshade rendering with SRTM elevation data and 3D globe.",
+              desc: "Terrain hillshade rendering with Copernicus GLO-30 land elevation and 3D globe.",
               back: "Client-side hillshade from our elevation tiles. 3D terrain extrusion on the CesiumJS globe.",
               color: "#22c55e",
             },
             {
               emoji: "\uD83C\uDFA8",
               title: "Elevation Color",
-              desc: "Color-coded elevation grid sampled from the SRTM API.",
+              desc: "Color-coded elevation grid sampled from the global elevation API.",
               back: "Low-to-high gradient from deep green through yellow to brown and white for peaks.",
               color: "#8b5cf6",
             },
@@ -1867,7 +1868,7 @@ export default function Home() {
             <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Elevation lookup</div>
             <CodeBlock
               dark={dark}
-              code={`GET /api/elevation?lat={lat}&lon={lon}\n\n# Mount Everest\ncurl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"\n\n{"elevation": 8848, "unit": "meters", "srtmTile": "N28E086.tif"}`}
+              code={`GET /api/elevation?lat={lat}&lon={lon}\n\n# Mount Everest\ncurl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"\n\n{"elevation": 8233, "unit": "meters", "surface_type": "land", "tile": "8/217/151"}`}
             >
               <div>
                 <span style={{ color: accent }}>GET</span>{" "}
@@ -1882,7 +1883,7 @@ export default function Home() {
               </div>
               <div
                 style={{ marginTop: "0.3rem" }}
-              >{`{"elevation": 8848, "unit": "meters", "srtmTile": "N28E086.tif"}`}</div>
+              >{`{"elevation": 8233, "unit": "meters", "surface_type": "land", "tile": "8/217/151"}`}</div>
             </CodeBlock>
           </div>
           <div

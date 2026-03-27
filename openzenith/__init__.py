@@ -1,17 +1,21 @@
-"""OpenZenith - Elevation data compression, terrain analysis, and geospatial tools."""
+"""OpenZenith - Global elevation data tools.
 
-__version__ = "0.2.0"
+Provides:
+- Terrarium PNG tile encoding/decoding
+- Elevation queries at any lat/lon
+- OZT1 custom binary format for scientific use
+- GeoTIFF conversion tools
+"""
 
-from openzenith.geo_utils import (
-    classify_terrain,
-    compute_rmse,
-    compute_slope,
-    compute_slope_deviation,
-    elevation_to_latlon,
-    latlon_to_elevation_index,
-    load_geotiff,
-    srtm_filename_to_bounds,
+__version__ = "0.3.0"
+
+from openzenith.elevation import (
+    get_elevation,
+    get_elevation_batch,
+    get_tile_count,
+    load_tiles,
 )
+from openzenith.terrarium import decode_tile, encode_tile
 from openzenith.tile_format import (
     COMP_NONE,
     COMP_ZSTD,
@@ -29,15 +33,13 @@ __all__ = [
     "COMP_ZSTD_DELTA",
     "COMP_ZSTD_PREDICT",
     "TileError",
-    "classify_terrain",
-    "compute_rmse",
-    "compute_slope",
-    "compute_slope_deviation",
     "decode",
-    "elevation_to_latlon",
     "encode",
-    "latlon_to_elevation_index",
-    "load_geotiff",
-    "srtm_filename_to_bounds",
     "validate_roundtrip",
+    "decode_tile",
+    "encode_tile",
+    "get_elevation",
+    "get_elevation_batch",
+    "get_tile_count",
+    "load_tiles",
 ]

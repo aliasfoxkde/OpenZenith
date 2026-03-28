@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const PROD = "https://openzenith.pages.dev";
+const PROD = "https://openzenith.cyopsys.com";
 
 test("globe deep diagnostic", async ({ page }) => {
   const errors: string[] = [];

@@ -384,6 +384,40 @@
   gap: 0.75rem;
 }
 
+/* ─── Bottom Feature Cards ─── */
+.oz-features-bottom {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+/* ─── Mobile Responsive ─── */
+@media (max-width: 768px) {
+  .oz-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .oz-features-bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Footer Grid ─── */
+.oz-footer-grid {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, 1fr);
+  gap: 2rem;
+}
+
+@media (max-width: 640px) {
+  .oz-footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+  .oz-footer-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ─── Community / Support Card ─── */
 .oz-card {
   background: var(--oz-bg-card);

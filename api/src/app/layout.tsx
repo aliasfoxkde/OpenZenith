@@ -4,7 +4,7 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-const baseUrl = "https://openzenith.pages.dev";
+const baseUrl = "https://openzenith.cyopsys.com";
 
 export const metadata: Metadata = {
   title: {

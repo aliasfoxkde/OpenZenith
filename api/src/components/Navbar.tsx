@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
 
@@ -31,6 +31,21 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
   const textSecondary = dark ? "#888" : "#737373";
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = mobileMenu ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileMenu]);
+
+  // Close on escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenu(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   return (
     <>
@@ -73,7 +88,7 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
             )}
           </Link>
           {/* Desktop nav */}
-          <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }} className="desktop-nav">
+          <div style={{ display: "flex", gap: "1.2rem", alignItems: "center" }} className="oz-desktop-nav">
             {NAV_LINKS.map((l) => (
               <Link
                 key={l.label}
@@ -103,49 +118,39 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
             </a>
             {extra}
           </div>
-          {/* Mobile hamburger */}
+          {/* Mobile hamburger button */}
           <button
             onClick={() => setMobileMenu(!mobileMenu)}
-            style={{
-              display: "none",
-              background: "none",
-              border: "none",
-              color: text,
-              cursor: "pointer",
-              padding: "4px",
-            }}
-            aria-label="Menu"
+            className={`oz-hamburger${mobileMenu ? " oz-hamburger-open" : ""}`}
+            aria-label={mobileMenu ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenu}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d={mobileMenu ? "M5 5l10 10M15 5L5 15" : "M3 5h14M3 10h14M3 15h14"} />
-            </svg>
+            <span />
+            <span />
+            <span />
           </button>
         </div>
-        {/* Mobile menu dropdown */}
-        {mobileMenu && (
-          <div
-            style={{
-              padding: "0.5rem 1.5rem 1rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.6rem",
-              borderTop: `1px solid ${border}`,
-            }}
-          >
+      </nav>
+
+      {/* Full-screen mobile menu overlay */}
+      <div
+        className={`oz-mobile-menu${mobileMenu ? " oz-mobile-menu-open" : ""}`}
+        onClick={() => setMobileMenu(false)}
+        style={{
+          "--oz-mm-bg": dark ? "#0a0a0a" : "#fafafa",
+          "--oz-mm-text": text,
+          "--oz-mm-text-secondary": textSecondary,
+          "--oz-mm-border": border,
+        } as React.CSSProperties}
+      >
+        <div className="oz-mobile-menu-content" onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             {NAV_LINKS.map((l) => (
               <Link
                 key={l.label}
                 href={l.href}
                 onClick={() => setMobileMenu(false)}
-                style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem", padding: "0.3rem 0" }}
+                className="oz-mobile-menu-link"
               >
                 {l.label}
               </Link>
@@ -155,16 +160,97 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMobileMenu(false)}
-              style={{ color: textSecondary, textDecoration: "none", fontSize: "0.9rem", padding: "0.3rem 0" }}
+              className="oz-mobile-menu-link"
             >
               GitHub
             </a>
           </div>
-        )}
-      </nav>
+          {extra && <div style={{ marginTop: "1.5rem" }}>{extra}</div>}
+        </div>
+      </div>
+
       <style
         dangerouslySetInnerHTML={{
-          __html: `@media(max-width:768px){.desktop-nav{display:none!important}nav button{display:block!important}}`,
+          __html: `
+            /* ─── Desktop nav hidden on mobile ─── */
+            @media(max-width:768px){.oz-desktop-nav{display:none!important}.oz-hamburger{display:flex!important}}
+
+            /* ─── Hamburger button ─── */
+            .oz-hamburger {
+              display: none;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              width: 36px;
+              height: 36px;
+              padding: 6px;
+              background: none;
+              border: none;
+              cursor: pointer;
+              gap: 5px;
+              z-index: 200;
+            }
+            .oz-hamburger span {
+              display: block;
+              width: 20px;
+              height: 2px;
+              background: currentColor;
+              border-radius: 2px;
+              transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
+              transform-origin: center;
+            }
+            .oz-hamburger-open span:nth-child(1) {
+              transform: translateY(7px) rotate(45deg);
+            }
+            .oz-hamburger-open span:nth-child(2) {
+              opacity: 0;
+              transform: scaleX(0);
+            }
+            .oz-hamburger-open span:nth-child(3) {
+              transform: translateY(-7px) rotate(-45deg);
+            }
+
+            /* ─── Full-screen mobile menu overlay ─── */
+            .oz-mobile-menu {
+              position: fixed;
+              inset: 0;
+              z-index: 150;
+              background: var(--oz-mm-bg);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              opacity: 0;
+              pointer-events: none;
+              transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
+            }
+            .oz-mobile-menu-open {
+              opacity: 1;
+              pointer-events: auto;
+            }
+            .oz-mobile-menu-content {
+              text-align: center;
+              transform: translateY(12px);
+              transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            }
+            .oz-mobile-menu-open .oz-mobile-menu-content {
+              transform: translateY(0);
+            }
+            .oz-mobile-menu-link {
+              display: block;
+              color: var(--oz-mm-text-secondary);
+              text-decoration: none;
+              font-size: 1.3rem;
+              font-weight: 500;
+              padding: 0.6rem 1rem;
+              border-radius: 8px;
+              transition: color 0.15s, background 0.15s;
+            }
+            .oz-mobile-menu-link:hover,
+            .oz-mobile-menu-link:active {
+              color: var(--oz-mm-text);
+              background: var(--oz-mm-border);
+            }
+          `,
         }}
       />
     </>

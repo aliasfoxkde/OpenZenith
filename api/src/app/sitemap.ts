@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://openzenith.pages.dev";
+  const baseUrl = "https://openzenith.cyopsys.com";
 
   const routes = [
     "",

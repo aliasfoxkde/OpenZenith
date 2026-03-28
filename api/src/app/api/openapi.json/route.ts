@@ -19,7 +19,7 @@ const openApiSpec = {
   },
   servers: [
     {
-      url: "https://openzenith.pages.dev",
+      url: "https://openzenith.cyopsys.com",
       description: "Production (Cloudflare Pages)",
     },
   ],

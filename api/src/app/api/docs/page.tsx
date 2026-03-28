@@ -405,21 +405,21 @@ const CODE_EXAMPLES: { title: string; examples: CodeExample[] }[] = [
   {
     title: "Elevation Lookup",
     examples: [
-      { lang: "cURL", code: `curl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"` },
+      { lang: "cURL", code: `curl "https://openzenith.cyopsys.com/api/elevation?lat=28.0&lon=86.9"` },
       { lang: "JavaScript", code: `const res = await fetch("/api/elevation?lat=48.8566&lon=2.3522");\nconst { elevation, srtmTile } = await res.json();\nconsole.log(\`\${elevation}m (tile: \${srtmTile})\`);` },
-      { lang: "Python", code: `import requests\nr = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": 48.8566, "lon": 2.3522})\ndata = r.json()\nprint(f"{data['elevation']}m")` },
+      { lang: "Python", code: `import requests\nr = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": 48.8566, "lon": 2.3522})\ndata = r.json()\nprint(f"{data['elevation']}m")` },
     ],
   },
   {
     title: "MapLibre GL Elevation Source",
     examples: [
-      { lang: "JavaScript", code: `// Add elevation tiles as a raster-dem source\nmap.addSource("elevation", {\n  type: "raster-dem",\n  tiles: ["https://openzenith.pages.dev/api/tile/{z}/{x}/{y}"],\n  tileSize: 256,\n  maxzoom: 15,\n  encoding: "terrarium",\n});\n\n// Add hillshade layer\nmap.addLayer({\n  id: "hillshade",\n  type: "hillshade",\n  source: "elevation",\n});` },
+      { lang: "JavaScript", code: `// Add elevation tiles as a raster-dem source\nmap.addSource("elevation", {\n  type: "raster-dem",\n  tiles: ["https://openzenith.cyopsys.com/api/tile/{z}/{x}/{y}"],\n  tileSize: 256,\n  maxzoom: 15,\n  encoding: "terrarium",\n});\n\n// Add hillshade layer\nmap.addLayer({\n  id: "hillshade",\n  type: "hillshade",\n  source: "elevation",\n});` },
     ],
   },
   {
     title: "Flight Tracking",
     examples: [
-      { lang: "cURL", code: `curl "https://openzenith.pages.dev/api/flights?bbox=-122.5,37.7,-122.3,37.8"` },
+      { lang: "cURL", code: `curl "https://openzenith.cyopsys.com/api/flights?bbox=-122.5,37.7,-122.3,37.8"` },
       { lang: "JavaScript", code: `const res = await fetch("/api/flights?bbox=-122.5,37.7,-122.3,37.8");\nconst { states, time } = await res.json();\nconsole.log(\`\${states.length} aircraft at \${new Date(time * 1000).toISOString()}\`);` },
     ],
   },
@@ -432,14 +432,14 @@ const CODE_EXAMPLES: { title: string; examples: CodeExample[] }[] = [
   {
     title: "Weather Warnings",
     examples: [
-      { lang: "cURL", code: `curl "https://openzenith.pages.dev/api/weather/warnings?geometry=-125,25,-65,50"` },
+      { lang: "cURL", code: `curl "https://openzenith.cyopsys.com/api/weather/warnings?geometry=-125,25,-65,50"` },
       { lang: "JavaScript", code: `const res = await fetch("/api/weather/warnings?geometry=-125,25,-65,50");\nconst { type, features } = await res.json();\nconsole.log(\`\${features.length} active warnings\`);` },
     ],
   },
   {
     title: "CORS Proxy",
     examples: [
-      { lang: "cURL", code: `curl "https://openzenith.pages.dev/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"` },
+      { lang: "cURL", code: `curl "https://openzenith.cyopsys.com/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"` },
       { lang: "JavaScript", code: `// Fetch USGS earthquakes through the CORS proxy\nconst res = await fetch(\n  "/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"\n);\nconst data = await res.json();` },
     ],
   },

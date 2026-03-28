@@ -24,7 +24,7 @@ export async function GET() {
 
 **Generated:** ${now}
 **Version:** 2.0
-**Base URL:** https://openzenith.pages.dev/api
+**Base URL:** https://openzenith.cyopsys.com/api
 
 ---
 
@@ -74,16 +74,16 @@ The primary endpoint. Fetch multiple data types in a single request with filteri
 
 \`\`\`bash
 # Elevation only (default)
-curl "https://openzenith.pages.dev/api/query?lat=28.0&lon=86.9"
+curl "https://openzenith.cyopsys.com/api/query?lat=28.0&lon=86.9"
 
 # Elevation + address
-curl "https://openzenith.pages.dev/api/query?lat=40.7&lon=-74.0&include=elevation,address"
+curl "https://openzenith.cyopsys.com/api/query?lat=40.7&lon=-74.0&include=elevation,address"
 
 # Full data: elevation, address, weather, tides
-curl "https://openzenith.pages.dev/api/query?lat=28.0&lon=-80.6&include=elevation,address,weather,tides"
+curl "https://openzenith.cyopsys.com/api/query?lat=28.0&lon=-80.6&include=elevation,address,weather,tides"
 
 # Imperial units
-curl "https://openzenith.pages.dev/api/query?lat=51.5&lon=-0.1&include=weather&units=imperial"
+curl "https://openzenith.cyopsys.com/api/query?lat=51.5&lon=-0.1&include=weather&units=imperial"
 \`\`\`
 
 **Response format:**

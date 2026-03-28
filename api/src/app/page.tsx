@@ -781,7 +781,7 @@ export default function Home() {
             Free global geospatial API
           </h1>
           <p id="hero-subtitle" className="oz-hero-subtitle" style={{ fontSize: "0.88rem", color: textSecondary, margin: "0 0 1.25rem", lineHeight: 1.5 }}>
-            Elevation, weather, tides, and address data for any point on Earth. No API key required.
+            Elevation, weather, tides, and address data for any point on Earth. No API key or signup required.
           </p>
 
           {/* User location badge from GeoIP */}
@@ -1004,14 +1004,14 @@ export default function Home() {
                     snippetTab === "result" && result
                       ? `${result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"}`
                       : snippetTab === "url"
-                        ? `https://openzenith.pages.dev/api/elevation?lat=${la}&lon=${lo}`
+                        ? `https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}`
                         : snippetTab === "tile"
-                          ? `https://openzenith.pages.dev/api/tile/8/${t.x}/${t.y}`
+                          ? `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`
                         : snippetTab === "curl"
-                          ? `curl "https://openzenith.pages.dev/api/elevation?lat=${la}&lon=${lo}"`
+                          ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}"`
                           : snippetTab === "js"
                             ? `const res = await fetch('/api/elevation?lat=${la}&lon=${lo}')\nconst { elevation } = await res.json()`
-                            : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": ${la}, "lon": ${lo}})\nprint(res.json()["elevation"])`;
+                            : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${la}, "lon": ${lo}})\nprint(res.json()["elevation"])`;
                   navigator.clipboard.writeText(snippetText);
                   setSnippetCopied(true);
                   setTimeout(() => setSnippetCopied(false), 1500);
@@ -1026,14 +1026,14 @@ export default function Home() {
                 snippetTab === "result" && result
                   ? result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"
                   : snippetTab === "url"
-                    ? `https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`
+                    ? `https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`
                     : snippetTab === "tile"
-                      ? (() => { const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8); return `https://openzenith.pages.dev/api/tile/8/${t.x}/${t.y}`; })()
+                      ? (() => { const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8); return `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`; })()
                     : snippetTab === "curl"
-                      ? `curl "https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
+                      ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
                       : snippetTab === "js"
                         ? `const res = await fetch('/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}')\nconst { elevation } = await res.json()`
-                        : `import requests\nres = requests.get("https://openzenith.pages.dev/api/elevation", params={"lat": ${lat || "28.0"}, "lon": ${lon || "86.9"}})\nprint(res.json()["elevation"])`
+                        : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${lat || "28.0"}, "lon": ${lon || "86.9"}})\nprint(res.json()["elevation"])`
               }
             >
               {snippetTab === "result" && result && (
@@ -1058,11 +1058,11 @@ export default function Home() {
                 <a
                   id="snippet-api-url"
                   className="oz-snippet-url"
-                  href={`https://openzenith.pages.dev/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`}
+                  href={`https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  https://openzenith.pages.dev/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}
+                  https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}
                 </a>
               )}
               {snippetTab === "tile" && (() => {
@@ -1071,8 +1071,8 @@ export default function Home() {
                 const mapUrl = `/map#lng=${(lat || "86.9")}&lat=${(lat || "28.0")}&zoom=10`;
                 return (
                   <>
-                    <a className="oz-snippet-url" href={`https://openzenith.pages.dev${tileUrl}`} target="_blank" rel="noopener noreferrer">
-                      https://openzenith.pages.dev{tileUrl}
+                    <a className="oz-snippet-url" href={`https://openzenith.cyopsys.com${tileUrl}`} target="_blank" rel="noopener noreferrer">
+                      https://openzenith.cyopsys.com{tileUrl}
                     </a>
                     <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <a
@@ -1094,7 +1094,7 @@ export default function Home() {
               {snippetTab === "curl" && (
                 <div>
                   <span className="oz-syn-method">curl</span>{" "}
-                  <span style={{ color: text }}>"https://openzenith.pages.dev/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}"</span>
+                  <span style={{ color: text }}>"https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}"</span>
                 </div>
               )}
               {snippetTab === "js" && (
@@ -1118,7 +1118,7 @@ export default function Home() {
                   </div>
                   <div>
                     res = requests.<span className="oz-syn-function">get</span>(
-                    <span className="oz-syn-string">"https://openzenith.pages.dev/api/elevation"</span>,
+                    <span className="oz-syn-string">"https://openzenith.cyopsys.com/api/elevation"</span>,
                   </div>
                   <div>
                     &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span className="oz-syn-string">"lat"</span>:{" "}
@@ -1300,7 +1300,7 @@ export default function Home() {
         <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
           Core API &amp; Map Tools
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.75rem" }}>
+        <div className="oz-features-grid">
           {[
             {
               emoji: "\u26F0\uFE0F",
@@ -1377,8 +1377,8 @@ export default function Home() {
             {
               emoji: "\uD83D\uDD13",
               title: "No Authentication",
-              desc: "Completely free. No API keys, no rate limits, no sign-up required. Just query and go.",
-              back: "Zero friction. No accounts, no tokens, no billing. Every endpoint is open and free to use.",
+              desc: "Completely free. No API keys, no rate limits, no sign-up or account required. Just query and go.",
+              back: "Zero friction. No accounts, no tokens, no billing, no signup. Every endpoint is open and free to use.",
               href: "https://github.com/aliasfoxkde/OpenZenith",
               btn: "View on GitHub",
             },
@@ -1390,6 +1390,56 @@ export default function Home() {
               href: "https://github.com/aliasfoxkde/OpenZenith",
               btn: "View Source",
             },
+          ].map((f) => (
+            <FlipCard
+              key={f.title}
+              dark={dark}
+              cardBg={cardBg}
+              border={border}
+              text={text}
+              textSecondary={textSecondary}
+              accent={accent}
+              accentDim={accentDim}
+              minHeight={150}
+              front={
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
+                    <div style={{ fontSize: "1.5rem" }}>{f.emoji}</div>
+                    <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, textAlign: "center" }}>{f.title}</h3>
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45, textAlign: "center" }}>{f.desc}</p>
+                </>
+              }
+              back={
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "0.82rem", color: textSecondary, lineHeight: 1.55, marginBottom: "0.85rem" }}>
+                    {f.back}
+                  </div>
+                  <a
+                    href={f.href}
+                    target={f.href.startsWith("http") ? "_blank" : undefined}
+                    rel={f.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    style={{
+                      display: "inline-block",
+                      padding: "0.4rem 1rem",
+                      borderRadius: 6,
+                      background: accent,
+                      color: "#000",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    {f.btn}
+                  </a>
+                </div>
+              }
+            />
+          ))}
+        </div>
+        {/* Bottom feature cards — full-width on mobile */}
+        <div className="oz-features-bottom">
+          {[
             {
               emoji: "\uD83D\uDEAB",
               title: "No Ads Ever",
@@ -1868,7 +1918,7 @@ export default function Home() {
             <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Elevation lookup</div>
             <CodeBlock
               dark={dark}
-              code={`GET /api/elevation?lat={lat}&lon={lon}\n\n# Mount Everest\ncurl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"\n\n{"elevation": 8233, "unit": "meters", "surface_type": "land", "tile": "8/217/151"}`}
+              code={`GET /api/elevation?lat={lat}&lon={lon}\n\n# Mount Everest\ncurl "https://openzenith.cyopsys.com/api/elevation?lat=28.0&lon=86.9"\n\n{"elevation": 8233, "unit": "meters", "surface_type": "land", "tile": "8/217/151"}`}
             >
               <div>
                 <span style={{ color: accent }}>GET</span>{" "}
@@ -1879,7 +1929,7 @@ export default function Home() {
               </div>
               <div>
                 <span style={{ color: accent }}>curl</span>{" "}
-                <span style={{ color: text }}>"https://openzenith.pages.dev/api/elevation?lat=28.0&amp;lon=86.9"</span>
+                <span style={{ color: text }}>"https://openzenith.cyopsys.com/api/elevation?lat=28.0&amp;lon=86.9"</span>
               </div>
               <div
                 style={{ marginTop: "0.3rem" }}
@@ -1911,14 +1961,14 @@ export default function Home() {
             <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Python</div>
             <CodeBlock
               dark={dark}
-              code={`import requests\n\nres = requests.get(\n    "https://openzenith.pages.dev/api/elevation",\n    params={"lat": 48.8566, "lon": 2.3522})\ndata = res.json()\nprint(data["elevation"])  # 35`}
+              code={`import requests\n\nres = requests.get(\n    "https://openzenith.cyopsys.com/api/elevation",\n    params={"lat": 48.8566, "lon": 2.3522})\ndata = res.json()\nprint(data["elevation"])  # 35`}
             >
               <div>
                 <span style={{ color: "#c678dd" }}>import</span> requests
               </div>
               <div style={{ marginTop: "0.3rem" }}>
                 res = requests.<span style={{ color: "#61afef" }}>get</span>(
-                <span style={{ color: "#98c379" }}>"https://openzenith.pages.dev/api/elevation"</span>,
+                <span style={{ color: "#98c379" }}>"https://openzenith.cyopsys.com/api/elevation"</span>,
               </div>
               <div>
                 &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span style={{ color: "#98c379" }}>"lat"</span>:{" "}

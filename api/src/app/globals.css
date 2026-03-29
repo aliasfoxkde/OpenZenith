@@ -565,6 +565,15 @@
   line-height: 1.45;
 }
 
+/* ─── Disclaimer ─── */
+.oz-disclaimer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--oz-text-secondary);
+  margin-top: 2rem;
+  opacity: 0.7;
+}
+
 /* ─── Syntax Highlighting ─── */
 .oz-syn-keyword { color: #c678dd; }
 .oz-syn-function { color: #61afef; }

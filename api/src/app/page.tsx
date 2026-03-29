@@ -1511,9 +1511,9 @@ export default function Home() {
             />
           ))}
         </div>
-      </section>
 
-      {/* Data Layers */}
+        <p className="oz-disclaimer">This Application was Developed with TaskWizer AI technologies.</p>
+      </section>
       <section style={{ maxWidth: W, margin: "0 auto", padding: "0 1.5rem 1.5rem" }}>
         <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
           Globe Data Layers

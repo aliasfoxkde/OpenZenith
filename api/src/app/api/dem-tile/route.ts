@@ -24,7 +24,7 @@ const TERRAIN_METADATA = {
   tilejson: "3.0.0" as const,
   tiles: ["/api/dem-tile/{z}/{x}/{y}"],
   minzoom: 0,
-  maxzoom: 12,
+  maxzoom: 10,
   bounds: [-180, -90, 180, 90],
   center: [0, 0, 4],
   encoding: "terrarium" as const,
@@ -33,7 +33,7 @@ const TERRAIN_METADATA = {
   available: true,
   version: "1.0.0",
   name: "OpenZenith Global DEM",
-  description: "Merged Copernicus GLO-30 + GEBCO 2025 terrain",
+  description: "Merged Copernicus GLO-30 + GEBCO 2025 terrain (z0-10, ~156m)",
   attribution: "Copernicus DEM, GEBCO 2025",
   scheme: "xyz",
 };

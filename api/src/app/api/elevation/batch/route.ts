@@ -2,9 +2,7 @@
  * Batch elevation endpoint.
  *
  * Accepts multiple lat/lon points and returns elevations in a single request.
- * Key optimization: groups points by SRTM tile+chunk, fetches each chunk only once.
- * A 20x20 grid (400 points) typically hits only 4-9 unique chunks,
- * reducing 400 sequential HTTP fetches to 4-9 chunk fetches.
+ * Uses R2 Terrarium tiles (same as single-point elevation API).
  *
  * POST /api/elevation/batch
  * Body: { points: [{lat, lon, id?}, ...] }
@@ -13,16 +11,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { decompressSync } from "fflate";
-import {
-  latLonToSrtmName,
-  srtmNameToBounds,
-  latLonToPixel,
-  isWithinSRTM,
-} from "@/lib/srtm/tile-math";
-import { getDefaultBackend } from "@/lib/storage/backend";
-import { cacheGet, cachePut } from "@/lib/storage/cache";
-import { getCopernicusElevation } from "@/lib/copernicus/cog-reader";
-import { getCopernicusElevationFromMerged } from "@/lib/copernicus/merged-reader";
 
 export const runtime = "edge";
 
@@ -49,68 +37,122 @@ interface BatchResult {
   elevation: number | null;
 }
 
-const NODATA = -32768;
-
-/** Per-request chunk cache to deduplicate fetches within a batch. */
-type ChunkData = { data: Int16Array; chunkWidth: number; chunkHeight: number };
-
-/**
- * Fetch, decompress, and cache a single SRTM chunk.
- * Returns null if the chunk is not available.
- */
-async function fetchChunk(
-  srtmName: string,
-  chunkRow: number,
-  chunkCol: number,
-  storage: ReturnType<typeof getDefaultBackend>,
-  chunkCache: Map<string, ChunkData>,
-): Promise<ChunkData | null> {
-  const cacheKey = `oz:chunk:${srtmName}:${chunkRow}:${chunkCol}`;
-
-  // Check request-level cache first
-  const hit = chunkCache.get(cacheKey);
-  if (hit) return hit;
-
-  // Check persistent cache (Cloudflare Cache API or in-memory)
-  let compressed = await cacheGet(cacheKey);
-  if (!compressed) {
-    try {
-      compressed = await storage.fetchChunk(srtmName, chunkRow, chunkCol);
-      await cachePut(cacheKey, compressed);
-    } catch {
-      return null;
-    }
-  }
-
-  // Decompress
-  const raw = decompressSync(new Uint8Array(compressed));
-  const tilesAcross = 15;
-  const tilesDown = 15;
-  const cw = chunkCol < tilesAcross - 1 ? 256 : 3601 - (tilesAcross - 1) * 256;
-  const ch = chunkRow < tilesDown - 1 ? 256 : 3601 - (tilesDown - 1) * 256;
-  const pixels = cw * ch;
-  const rawData = new Int16Array(raw.buffer, raw.byteOffset, pixels);
-
-  // Undo TIFF horizontal predictor (predictor=2)
-  const data = new Int16Array(pixels);
-  for (let r = 0; r < ch; r++) {
-    const off = r * cw;
-    data[off] = rawData[off];
-    for (let c = 1; c < cw; c++) {
-      data[off + c] = data[off + c - 1] + rawData[off + c];
-    }
-  }
-
-  const result: ChunkData = { data, chunkWidth: cw, chunkHeight: ch };
-  chunkCache.set(cacheKey, result);
-  return result;
+function latLonToTile(lat: number, lon: number, zoom: number) {
+  const n = 2 ** zoom;
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
+  );
+  return { x, y };
 }
 
-/** Read a pixel value from a decompressed chunk, returning null for OOB/nodata. */
-function pixel(chunk: ChunkData, r: number, c: number): number | null {
-  if (r < 0 || r >= chunk.chunkHeight || c < 0 || c >= chunk.chunkWidth) return null;
-  const v = chunk.data[r * chunk.chunkWidth + c];
-  return v === NODATA ? null : v;
+interface TileCacheEntry {
+  width: number;
+  height: number;
+  pixels: Uint8Array;
+}
+
+declare class R2Bucket {
+  get(key: string): Promise<R2Object | null>;
+}
+interface R2Object {
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+function decodeTerrarium(r: number, g: number, b: number): number {
+  return r * 256 + g + b / 256 - 32768;
+}
+
+function decodePNG(data: Uint8Array): TileCacheEntry | null {
+  if (data[0] !== 137 || data[1] !== 80 || data[2] !== 78 || data[3] !== 71 ||
+      data[4] !== 13 || data[5] !== 10 || data[6] !== 26 || data[7] !== 10) {
+    return null;
+  }
+
+  let width = 0, height = 0, colorType = 0;
+  const idatChunks: Uint8Array[] = [];
+  let offset = 8;
+
+  while (offset < data.length) {
+    const len = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+    offset += 4;
+    const type = String.fromCharCode(data[offset], data[offset+1], data[offset+2], data[offset+3]);
+    offset += 4;
+    const chunkData = data.slice(offset, offset + len);
+    if (type === "IHDR") {
+      width = (chunkData[0]<<24)|(chunkData[1]<<16)|(chunkData[2]<<8)|chunkData[3];
+      height = (chunkData[4]<<24)|(chunkData[5]<<16)|(chunkData[6]<<8)|chunkData[7];
+      colorType = chunkData[9];
+      if (chunkData[8] !== 8 || (colorType !== 2 && colorType !== 6)) return null;
+    } else if (type === "IDAT") {
+      idatChunks.push(chunkData);
+    } else if (type === "IEND") break;
+    offset += len + 4;
+  }
+
+  if (!width || !height || !idatChunks.length) return null;
+
+  const totalLen = idatChunks.reduce((s, c) => s + c.length, 0);
+  const compressed = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const c of idatChunks) { compressed.set(c, pos); pos += c.length; }
+
+  let raw: Uint8Array;
+  try { raw = decompressSync(compressed); } catch { return null; }
+
+  const bpp = colorType === 2 ? 3 : 4;
+  const stride = width * bpp;
+  const pixels = new Uint8Array(width * height * 3);
+  const prevRow = new Uint8Array(stride);
+  let rawOffset = 0;
+
+  for (let y = 0; y < height; y++) {
+    const ft = raw[rawOffset++];
+    const cur = raw.slice(rawOffset, rawOffset + stride);
+    rawOffset += stride;
+
+    for (let i = 0; i < cur.length; i++) {
+      switch (ft) {
+        case 1: cur[i] = i >= bpp ? (cur[i] + cur[i-bpp]) & 0xFF : cur[i]; break;
+        case 2: cur[i] = (cur[i] + prevRow[i]) & 0xFF; break;
+        case 3: { const l = i >= bpp ? cur[i-bpp] : 0; cur[i] = (cur[i] + ((l + prevRow[i]) >> 1)) & 0xFF; } break;
+        case 4: { const l = i >= bpp ? cur[i-bpp] : 0; const a = prevRow[i]; const u = i >= bpp ? prevRow[i-bpp] : 0;
+          const p = l+a-u; const pa = Math.abs(p-l); const pb = Math.abs(p-a); const pc = Math.abs(p-u);
+          cur[i] = (cur[i] + (pa<=pb&&pa<=pc?l:pb<=pc?a:u)) & 0xFF; } break;
+      }
+    }
+    for (let x = 0; x < width; x++) {
+      const so = x * bpp;
+      const d = (y * width + x) * 3;
+      pixels[d] = cur[so]; pixels[d+1] = cur[so+1]; pixels[d+2] = cur[so+2];
+    }
+    prevRow.set(cur);
+  }
+
+  return { width, height, pixels };
+}
+
+function sampleElevation(png: TileCacheEntry, lat: number, lon: number, zoom: number): number | null {
+  const { x, y } = latLonToTile(lat, lon, zoom);
+  const n = 2 ** zoom;
+  const xFrac = ((lon + 180) / 360) * n - x;
+  const latRad = (lat * Math.PI) / 180;
+  const yFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n - y;
+
+  const px = xFrac * (png.width - 1);
+  const py = yFrac * (png.height - 1);
+  const x0 = Math.floor(px), y0 = Math.floor(py);
+  const x1 = Math.min(x0 + 1, png.width - 1), y1 = Math.min(y0 + 1, png.height - 1);
+  const fx = px - x0, fy = py - y0;
+
+  const get = (cx: number, cy: number) => {
+    const off = (cy * png.width + cx) * 3;
+    return decodeTerrarium(png.pixels[off], png.pixels[off+1], png.pixels[off+2]);
+  };
+
+  const h00 = get(x0, y0), h10 = get(x1, y0), h01 = get(x0, y1), h11 = get(x1, y1);
+  return h00 * (1-fx) * (1-fy) + h10 * fx * (1-fy) + h01 * (1-fx) * fy + h11 * fx * fy;
 }
 
 export async function POST(request: NextRequest) {
@@ -118,133 +160,70 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }
 
   const points = body.points;
   if (!Array.isArray(points) || points.length === 0 || points.length > 2000) {
-    return NextResponse.json(
-      { error: "Provide 1-2000 points as {points: [{lat, lon}]}" },
-      { status: 400, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Provide 1-2000 points as {points: [{lat, lon}]}" }, { status: 400, headers: CORS_HEADERS });
   }
 
   for (const p of points) {
-    if (
-      typeof p.lat !== "number" ||
-      typeof p.lon !== "number" ||
-      isNaN(p.lat) ||
-      isNaN(p.lon) ||
-      p.lat < -90 ||
-      p.lat > 90 ||
-      p.lon < -180 ||
-      p.lon > 180
-    ) {
-      return NextResponse.json(
-        { error: "Each point must have valid lat (-90..90) and lon (-180..180)" },
-        { status: 400, headers: CORS_HEADERS },
-      );
+    if (typeof p.lat !== "number" || typeof p.lon !== "number" ||
+        isNaN(p.lat) || isNaN(p.lon) || p.lat < -90 || p.lat > 90 || p.lon < -180 || p.lon > 180) {
+      return NextResponse.json({ error: "Each point must have valid lat (-90..90) and lon (-180..180)" }, { status: 400, headers: CORS_HEADERS });
     }
   }
 
   try {
-    const storage = getDefaultBackend();
-    const chunkCache = new Map<string, ChunkData>();
+    const env = process.env as { DEM_TILES?: R2Bucket };
+    const bucket = env.DEM_TILES;
     const results: BatchResult[] = [];
-    const copernicusIndices: number[] = [];
 
-    // ── Phase 1: Compute tile/chunk/pixel for each point ──
-    const meta = points.map((p, i) => {
-      const srtmName = latLonToSrtmName(p.lat, p.lon);
-      const bounds = srtmNameToBounds(srtmName);
-      const { row, col } = latLonToPixel(p.lat, p.lon, bounds);
-      return {
-        srtmName,
-        bounds,
-        chunkRow: Math.floor(row / 256),
-        chunkCol: Math.floor(col / 256),
-        localRow: row % 256,
-        localCol: col % 256,
-        inSRTM: isWithinSRTM(p.lat, p.lon),
-        idx: i,
-      };
-    });
-
-    // ── Phase 2: Batch SRTM lookups ──
-    for (const m of meta) {
-      if (!m.inSRTM) {
-        copernicusIndices.push(m.idx);
-        // Placeholder — may be overwritten by Copernicus fallback below
-        results.push({ id: points[m.idx].id, lat: points[m.idx].lat, lon: points[m.idx].lon, elevation: null });
-        continue;
+    if (!bucket) {
+      for (const p of points) {
+        results.push({ id: p.id, lat: p.lat, lon: p.lon, elevation: null });
       }
-
-      const chunk = await fetchChunk(m.srtmName, m.chunkRow, m.chunkCol, storage, chunkCache);
-      if (!chunk) {
-        results.push({ id: points[m.idx].id, lat: points[m.idx].lat, lon: points[m.idx].lon, elevation: null });
-        continue;
-      }
-
-      // Bilinear interpolation (same as single-point getElevation)
-      const p = points[m.idx];
-      const exactRow = (m.bounds.latMax - p.lat) * 3600;
-      const exactCol = (p.lon - m.bounds.lonMin) * 3600;
-      const fracRow = exactRow - m.chunkRow * 256;
-      const fracCol = exactCol - m.chunkCol * 256;
-      const r0 = Math.floor(fracRow);
-      const c0 = Math.floor(fracCol);
-      const fy = fracRow - r0;
-      const fx = fracCol - c0;
-
-      const v00 = pixel(chunk, r0, c0);
-      const v10 = pixel(chunk, r0 + 1, c0);
-      const v01 = pixel(chunk, r0, c0 + 1);
-      const v11 = pixel(chunk, r0 + 1, c0 + 1);
-
-      const hasNodata = v00 === null || v10 === null || v01 === null || v11 === null;
-      const elevation = hasNodata
-        ? pixel(chunk, m.localRow, m.localCol)
-        : Math.round(
-            v00! * (1 - fx) * (1 - fy) +
-            v01! * fx * (1 - fy) +
-            v10! * (1 - fx) * fy +
-            v11! * fx * fy,
-          );
-
-      results.push({ id: p.id, lat: p.lat, lon: p.lon, elevation });
+      return NextResponse.json({ results }, { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=60" } });
     }
 
-    // ── Phase 3: Copernicus fallback for non-SRTM points ──
-    // Try merged HuggingFace chunks first (fast), then COG reader (slow).
-    // Limited to 50 to avoid timeout.
-    const fallbackSlice = copernicusIndices.slice(0, 50);
-    await Promise.allSettled(
-      fallbackSlice.map(async (idx) => {
-        try {
-          const p = points[idx];
-          // Try merged HuggingFace reader first
-          const r = await getCopernicusElevationFromMerged(p.lat, p.lon);
-          if (r.elevation !== null && r.elevation >= -9000) {
-            results[idx] = { id: p.id, lat: p.lat, lon: p.lon, elevation: Math.round(r.elevation) };
-            return;
-          }
-          // Fall back to COG reader
-          const r2 = await getCopernicusElevation(p.lat, p.lon);
-          if (r2.elevation !== null && r2.elevation >= -9000) {
-            results[idx] = { id: p.id, lat: p.lat, lon: p.lon, elevation: Math.round(r2.elevation) };
-          }
-        } catch {
-          // Keep null placeholder
-        }
-      }),
-    );
+    const zoom = 8;
+    const tileCache = new Map<string, TileCacheEntry | null>();
 
-    return NextResponse.json({ results }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=60" },
-    });
+    // Group points by tile
+    const tileGroups = new Map<string, number[]>();
+    for (let i = 0; i < points.length; i++) {
+      const { x, y } = latLonToTile(points[i].lat, points[i].lon, zoom);
+      const key = `${x}/${y}`;
+      if (!tileGroups.has(key)) tileGroups.set(key, []);
+      tileGroups.get(key)!.push(i);
+    }
+
+    // Fetch and decode each unique tile
+    for (const [tileKey, indices] of tileGroups) {
+      if (!tileCache.has(tileKey)) {
+        const object = await bucket.get(`tiles/${zoom}/${tileKey}.png`);
+        if (!object) {
+          tileCache.set(tileKey, null);
+        } else {
+          const buf = new Uint8Array(await object.arrayBuffer());
+          tileCache.set(tileKey, decodePNG(buf));
+        }
+      }
+      const png = tileCache.get(tileKey);
+      for (const idx of indices) {
+        const p = points[idx];
+        const elevation = png ? sampleElevation(png, p.lat, p.lon, zoom) : null;
+        results[idx] = {
+          id: p.id,
+          lat: p.lat,
+          lon: p.lon,
+          elevation: elevation !== null ? Math.round(elevation * 10) / 10 : null,
+        };
+      }
+    }
+
+    return NextResponse.json({ results }, { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=60" } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGebcoElevation } from "@/lib/gebco/cog-reader";
+import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
 
 export const runtime = "edge";
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await getGebcoElevation(latNum, lonNum);
+    const result = await getElevationFromR2(latNum, lonNum);
 
     if (result.elevation === null) {
       return NextResponse.json(
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
           elevation: null,
           unit: "meters",
           surface_type: "unknown",
-          source: "gebco2025",
+          source: "r2-terrarium",
           tile: result.tile,
           location: { lat: latNum, lon: lonNum },
         },
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         elevation: isOcean ? 0 : result.elevation,
         unit: "meters",
         surface_type: result.surface_type,
-        source: "gebco2025",
+        source: "r2-terrarium",
         tile: result.tile,
         resolution: result.resolution,
         location: { lat: latNum, lon: lonNum },

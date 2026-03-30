@@ -84,3 +84,54 @@ export async function fetchHurricaneTracks(signal?: AbortSignal): Promise<any> {
   );
   return r.text();
 }
+
+/* ── Tier 1 new data sources ─────────────────────────────── */
+
+export async function fetchSWPCaurora(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_forecast_map.json", signal);
+  return r.json();
+}
+
+export async function fetchSWPCkpForecast(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json", signal);
+  return r.json();
+}
+
+export async function fetchAirQuality(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=0&longitude=0&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,carbon_monoxide", signal);
+  return r.json();
+}
+
+export async function fetchSigmets(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://aviationweather.gov/api/data/sigmet?format=json", signal);
+  return r.json();
+}
+
+export async function fetchAirmets(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://aviationweather.gov/api/data/airmet?format=json", signal);
+  return r.json();
+}
+
+export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://volcanoes.usgs.gov/feed/v0.1/all.geojson", signal);
+  return r.json();
+}
+
+export async function fetchGDACS(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://www.gdacs.org/gdacsapi/api/events/geteventlist/ATOM", signal);
+  return r.json();
+}
+
+export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {
+  const r = await dedupFetch("/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=0&longitude=0&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature", signal);
+  return r.json();
+}
+
+export async function fetchFIRMS(signal?: AbortSignal): Promise<any> {
+  const key = process.env.NEXT_PUBLIC_FIRMS_API_KEY || "";
+  if (!key) return { features: [] };
+  const bbox = "-180,-90,180,90";
+  const day = new Date().toISOString().slice(0, 10);
+  const r = await dedupFetch(`/api/proxy/https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${bbox}/${day}`, signal);
+  return r.text();
+}

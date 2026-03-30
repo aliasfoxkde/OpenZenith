@@ -1163,8 +1163,8 @@ export default function Home() {
           {[
             {
               label: "Terrain tiles",
-              value: "87K+",
-              tip: "87,381 Terrarium PNG tiles at zoom 0\u20138 stored on Cloudflare R2. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry. Zoom 9 generating (~262K more).",
+              value: "1.1M+",
+              tip: "87,381 Terrarium PNG tiles at zoom 0\u20138 + 1,046,712 at zoom 10 on Cloudflare R2. 32M Quantized Mesh tiles at zoom 13 (~1m precision) generated. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry.",
             },
             {
               label: "Storage",
@@ -1173,8 +1173,8 @@ export default function Home() {
             },
             {
               label: "Resolution",
-              value: "~1.7km",
-              tip: "Copernicus GLO-30 at zoom 8 (\u22481.7km/pixel) for land. GEBCO 2025 15-arc-second for ocean bathymetry. Bilinear interpolation for point queries.",
+              value: "~156m",
+              tip: "Terrarium PNG tiles at zoom 10 (\u2248156m/pixel) for global terrain. Quantized Mesh at zoom 13 (\u22481m precision) for land detail. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry.",
             },
             {
               label: "Coverage",
@@ -1193,13 +1193,13 @@ export default function Home() {
             },
             {
               label: "API endpoints",
-              value: "8",
-              tip: "Elevation, tiles, health, flights, weather warnings, overpass, proxy, and ArcGIS discovery. All documented in the OpenAPI 3.0 spec at /api/docs.",
+              value: "24",
+              tip: "Elevation, DEM tiles, bathymetry, GEBCO, flights, vessels, military, weather warnings, geocoding, reverse geocoding, BGP, NLNOG, waterways, overpass, proxy, and more. OpenAPI 3.0 spec at /api/docs.",
             },
             {
               label: "Data layers",
-              value: "12+",
-              tip: "Globe integrates 12+ real-time data layers including earthquakes, radar, flights, military ADS-B, vessels, weather warnings, satellites, hurricanes, and more.",
+              value: "20+",
+              tip: "Globe integrates 20+ real-time data layers including earthquakes, radar, flights, military ADS-B, vessels, weather warnings, satellites, space weather, air quality, volcanoes, wildfires, lightning, marine weather, disaster alerts, and more.",
             },
           ].map((s) => (
             <div
@@ -1313,8 +1313,8 @@ export default function Home() {
             {
               emoji: "\uD83D\uDDFA\uFE0F",
               title: "Tile Server",
-              desc: "Terrarium PNG tiles (z/x/y) served from Cloudflare R2 via edge runtime. 87K+ tiles at zoom 0\u20138.",
-              back: "256\u00d7256 Terrarium PNG tiles on R2. Edge runtime with <50ms global latency. Compatible with MapLibre raster-dem and CesiumJS.",
+              desc: "Terrarium PNG tiles (z/x/y) served from Cloudflare R2 via edge runtime. 1.1M+ tiles at zoom 0\u201310.",
+              back: "256\u00d7256 Terrarium PNG tiles on R2 (z0\u201310). 32M Quantized Mesh tiles at z13 (~1m). Edge runtime with <50ms global latency.",
               href: "/map",
               btn: "Open Map",
             },
@@ -1329,7 +1329,7 @@ export default function Home() {
             {
               emoji: "\uD83C\uDF0D",
               title: "Globe 3D",
-              desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, 5 themes, and 12+ real-time data layers.",
+              desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, 5 themes, and 20+ real-time data layers.",
               back: "Switch between 3D globe, Columbus 3D, and 2D map. Five built-in themes from Dark to Classified Intel HUD.",
               href: "/globe",
               btn: "Launch Globe",

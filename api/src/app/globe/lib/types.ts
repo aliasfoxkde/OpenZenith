@@ -18,6 +18,14 @@ export interface LayerState {
   orbitalTracks: boolean;
   groundTracks: boolean;
   currents: boolean;
+  spaceWeather: boolean;
+  airQuality: boolean;
+  aviationWeather: boolean;
+  volcanoes: boolean;
+  gdacs: boolean;
+  marineWeather: boolean;
+  wildfires: boolean;
+  lightning: boolean;
 }
 
 export interface DashboardState {

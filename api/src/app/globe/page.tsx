@@ -619,6 +619,14 @@ export default function Globe() {
       case "orbitalTracks": mod = layerModulesRef.current.orbitalTracks ??= await import("./lib/layers/orbital-tracks"); break;
       case "groundTracks": mod = layerModulesRef.current.groundTracks ??= await import("./lib/layers/ground-tracks"); break;
       case "currents": mod = layerModulesRef.current.currents ??= await import("./lib/layers/currents"); break;
+      case "spaceWeather": mod = layerModulesRef.current.spaceWeather ??= await import("./lib/layers/space-weather"); break;
+      case "airQuality": mod = layerModulesRef.current.airQuality ??= await import("./lib/layers/air-quality"); break;
+      case "aviationWeather": mod = layerModulesRef.current.aviationWeather ??= await import("./lib/layers/aviation-weather"); break;
+      case "volcanoes": mod = layerModulesRef.current.volcanoes ??= await import("./lib/layers/volcanoes"); break;
+      case "gdacs": mod = layerModulesRef.current.gdacs ??= await import("./lib/layers/gdacs"); break;
+      case "marineWeather": mod = layerModulesRef.current.marineWeather ??= await import("./lib/layers/marine-weather"); break;
+      case "wildfires": mod = layerModulesRef.current.wildfires ??= await import("./lib/layers/wildfires"); break;
+      case "lightning": mod = layerModulesRef.current.lightning ??= await import("./lib/layers/lightning"); break;
     }
     if (!mod) return;
 
@@ -635,6 +643,14 @@ export default function Globe() {
       case "orbitalTracks": mod.loadOrbitalTracks(viewer, Cesium, updateStatus); break;
       case "groundTracks": mod.loadGroundTracks(viewer, Cesium); break;
       case "currents": mod.loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "spaceWeather": mod.loadSpaceWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "airQuality": mod.loadAirQuality(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "aviationWeather": mod.loadAviationWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "volcanoes": mod.loadVolcanoes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "gdacs": mod.loadGDACS(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "marineWeather": mod.loadMarineWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "wildfires": mod.loadWildfires(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
+      case "lightning": mod.loadLightning(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
     }
     dataLoadedRef.current[key] = true;
   }, [state.layers]);

@@ -187,6 +187,95 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#ef4444",
     dataSource: "https://eonet.gsfc.nasa.gov/api/v3/events",
   },
+
+  /* ── Space Weather ────────────────────────────────────── */
+  {
+    id: "spaceWeather",
+    name: "Space Weather",
+    category: "weather",
+    description: "NOAA SWPC aurora forecast, Kp index, geomagnetic storm alerts",
+    defaultEnabled: false,
+    accent: "#00ff88",
+    dataSource: "https://services.swpc.noaa.gov/json/ovation_aurora_forecast_map.json",
+  },
+
+  /* ── Air Quality ──────────────────────────────────────── */
+  {
+    id: "airQuality",
+    name: "Air Quality",
+    category: "weather",
+    description: "Global AQI, PM2.5, PM10, NO₂, O₃ from Open-Meteo Air Quality API",
+    defaultEnabled: false,
+    accent: "#22c55e",
+    dataSource: "https://air-quality-api.open-meteo.com/v1/air-quality",
+  },
+
+  /* ── Aviation Weather ─────────────────────────────────── */
+  {
+    id: "aviationWeather",
+    name: "SIGMETs / AIRMETs",
+    category: "aviation",
+    description: "NOAA Aviation Weather Center — significant meteorological information and airmets",
+    defaultEnabled: false,
+    accent: "#ef4444",
+    dataSource: "https://aviationweather.gov/api/data/sigmet?format=json",
+  },
+
+  /* ── Volcanoes ────────────────────────────────────────── */
+  {
+    id: "volcanoes",
+    name: "Volcano Alerts",
+    category: "weather",
+    description: "USGS real-time volcano alert status (advisory, watch, warning)",
+    defaultEnabled: false,
+    accent: "#ff4444",
+    dataSource: "https://volcanoes.usgs.gov/feed/v0.1/all.geojson",
+  },
+
+  /* ── Disasters ────────────────────────────────────────── */
+  {
+    id: "gdacs",
+    name: "Disaster Alerts",
+    category: "weather",
+    description: "GDACS global disaster aggregation — earthquakes, cyclones, floods, volcanoes",
+    defaultEnabled: false,
+    accent: "#f59e0b",
+    dataSource: "https://www.gdacs.org/gdacsapi/api/events/geteventlist/ATOM",
+  },
+
+  /* ── Marine Weather ───────────────────────────────────── */
+  {
+    id: "marineWeather",
+    name: "Marine Weather",
+    category: "maritime",
+    description: "Global wave height, SST, wind waves from Open-Meteo Marine API",
+    defaultEnabled: false,
+    accent: "#0ea5e9",
+    dataSource: "https://marine-api.open-meteo.com/v1/marine",
+  },
+
+  /* ── Wildfires ────────────────────────────────────────── */
+  {
+    id: "wildfires",
+    name: "Wildfires",
+    category: "weather",
+    description: "NASA FIRMS active fire/hotspot detection (VIIRS satellite)",
+    defaultEnabled: false,
+    accent: "#ff6600",
+    dataSource: "https://firms.modaps.eosdis.nasa.gov/api/area/",
+  },
+
+  /* ── Lightning ────────────────────────────────────────── */
+  {
+    id: "lightning",
+    name: "Lightning",
+    category: "weather",
+    description: "Real-time global lightning strikes from Blitzortung.org",
+    defaultEnabled: false,
+    accent: "#fbbf24",
+    dataSource: "wss://ws.blitzortung.org:443/",
+  },
+
   {
     id: "orbitalTracks",
     name: "Orbital Tracks",

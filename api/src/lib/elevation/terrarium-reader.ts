@@ -1,13 +1,15 @@
 /**
- * Read elevation from Terrarium PNG tiles served from R2.
+ * Read elevation from Terrarium PNG tiles stored in R2.
  *
- * Fetches the tile containing the query point, decodes the Terrarium
- * encoding, and bilinearly interpolates to get the elevation at the exact lat/lon.
+ * Reads the tile directly from the R2 DEM_TILES binding (no HTTP fetch),
+ * decodes the Terrarium PNG, and bilinearly interpolates for precise elevation.
  *
  * Terrarium encoding: height_m = (R * 256 + G + B / 256) - 32768
+ *
+ * Pure JS PNG decoder — works in Cloudflare Workers edge runtime.
  */
 
-const DEM_TILE_BASE = "/api/dem-tile";
+import { decompressSync } from "fflate";
 
 interface ElevationResult {
   elevation: number | null;
@@ -20,7 +22,7 @@ interface ElevationResult {
 }
 
 /**
- * Get the tile coordinates and pixel offset for a given lat/lon at a zoom level.
+ * Get tile coordinates for a given lat/lon at a zoom level.
  */
 function latLonToTile(
   lat: number,
@@ -36,18 +38,15 @@ function latLonToTile(
   return { x, y };
 }
 
-/**
- * Decode a single pixel from ImageData using Terrarium encoding.
- */
 function decodeTerrarium(r: number, g: number, b: number): number {
   return r * 256 + g + b / 256 - 32768;
 }
 
 /**
- * Get elevation at a lat/lon by fetching the Terrarium PNG tile from R2
- * and decoding the relevant pixel.
+ * Get elevation at a lat/lon by reading the Terrarium PNG tile directly
+ * from R2 and decoding the relevant pixel.
  *
- * Uses zoom 8 tiles ( Copernicus GLO-30 + GEBCO 2025, ~1.7km resolution).
+ * Uses zoom 8 tiles (Copernicus GLO-30 + GEBCO 2025, ~1.7km resolution).
  * Falls back through lower zooms if the tile is not available.
  */
 export async function getElevationFromR2(
@@ -64,28 +63,26 @@ export async function getElevationFromR2(
     resolution: 1700,
   };
 
-  // Try zoom 8 first (best resolution available in R2), then fall back
+  // Get R2 bucket from env bindings
+  const env = process.env as { DEM_TILES?: R2Bucket };
+  const bucket = env.DEM_TILES;
+
+  if (!bucket) return nullResult;
+
+  // Try zoom 8 first, then fall back to lower zooms
   for (const zoom of [8, 7, 6, 5]) {
     const { x, y } = latLonToTile(lat, lon, zoom);
-    const tileUrl = `${DEM_TILE_BASE}/${zoom}/${x}/${y}`;
+    const key = `tiles/${zoom}/${x}/${y}.png`;
 
     try {
-      const res = await fetch(tileUrl);
-      if (!res.ok) continue;
+      const object = await bucket.get(key);
+      if (!object) continue;
 
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("image")) continue;
+      const buf = await object.arrayBuffer();
+      const png = decodePNG(new Uint8Array(buf));
+      if (!png) continue;
 
-      const source = res.headers.get("x-dem-tile-source") || "unknown";
-      if (source === "fallback-flat" || source === "fallback-missing") continue;
-
-      const imageBuf = await res.arrayBuffer();
-
-      // Decode PNG to ImageData
-      const imageData = await decodePNG(imageBuf);
-      if (!imageData) continue;
-
-      const { width, height, pixels } = imageData;
+      const { width, height, pixels } = png;
 
       // Convert lat/lon to fractional tile coordinates
       const n = 2 ** zoom;
@@ -137,36 +134,159 @@ export async function getElevationFromR2(
 }
 
 function decodeTerrariumPixel(
-  pixels: Uint8ClampedArray,
+  pixels: Uint8Array,
   width: number,
   x: number,
   y: number,
 ): number {
-  const offset = (y * width + x) * 4;
+  const offset = (y * width + x) * 3;
   return decodeTerrarium(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
 }
 
-/**
- * Decode a PNG buffer to ImageData using OffscreenCanvas.
- */
-async function decodePNG(
-  buffer: ArrayBuffer,
-): Promise<{ width: number; height: number; pixels: Uint8ClampedArray } | null> {
+// ---------------------------------------------------------------------------
+// Pure JS PNG decoder (edge-compatible)
+// Supports: 8-bit RGB (color type 2) and 8-bit RGBA (color type 6), non-interlaced.
+// ---------------------------------------------------------------------------
+
+function decodePNG(data: Uint8Array): { width: number; height: number; pixels: Uint8Array } | null {
+  if (
+    data[0] !== 137 || data[1] !== 80 || data[2] !== 78 ||
+    data[3] !== 71 || data[4] !== 13 || data[5] !== 10 ||
+    data[6] !== 26 || data[7] !== 10
+  ) {
+    return null;
+  }
+
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const idatChunks: Uint8Array[] = [];
+  let offset = 8;
+
+  while (offset < data.length) {
+    const chunkLen = (data[offset] << 24) | (data[offset + 1] << 16) |
+                     (data[offset + 2] << 8) | data[offset + 3];
+    offset += 4;
+
+    const type = String.fromCharCode(data[offset], data[offset + 1], data[offset + 2], data[offset + 3]);
+    offset += 4;
+
+    const chunkData = data.slice(offset, offset + chunkLen);
+
+    if (type === "IHDR") {
+      width = (chunkData[0] << 24) | (chunkData[1] << 16) | (chunkData[2] << 8) | chunkData[3];
+      height = (chunkData[4] << 24) | (chunkData[5] << 16) | (chunkData[6] << 8) | chunkData[7];
+      bitDepth = chunkData[8];
+      colorType = chunkData[9];
+      if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6)) return null;
+    } else if (type === "IDAT") {
+      idatChunks.push(chunkData);
+    } else if (type === "IEND") {
+      break;
+    }
+
+    offset += chunkLen + 4;
+  }
+
+  if (width === 0 || height === 0 || idatChunks.length === 0) return null;
+
+  const totalLen = idatChunks.reduce((sum, c) => sum + c.length, 0);
+  const compressed = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const chunk of idatChunks) {
+    compressed.set(chunk, pos);
+    pos += chunk.length;
+  }
+
+  let raw: Uint8Array;
   try {
-    const blob = new Blob([buffer], { type: "image/png" });
-    const bitmap = await createImageBitmap(blob);
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(bitmap, 0, 0);
-    const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-    bitmap.close();
-    return {
-      width: imageData.width,
-      height: imageData.height,
-      pixels: imageData.data,
-    };
+    raw = decompressSync(compressed);
   } catch {
     return null;
   }
+
+  const bpp = colorType === 2 ? 3 : 4;
+  const stride = width * bpp;
+  const pixels = new Uint8Array(width * height * 3);
+  const prevRow = new Uint8Array(stride);
+
+  let rawOffset = 0;
+  for (let y = 0; y < height; y++) {
+    const filterType = raw[rawOffset];
+    rawOffset++;
+
+    const curRow = raw.slice(rawOffset, rawOffset + stride);
+    rawOffset += stride;
+
+    unfilterScanline(filterType, curRow, prevRow, bpp);
+
+    for (let x = 0; x < width; x++) {
+      const srcOff = x * bpp;
+      const dstOff = (y * width + x) * 3;
+      pixels[dstOff] = curRow[srcOff];
+      pixels[dstOff + 1] = curRow[srcOff + 1];
+      pixels[dstOff + 2] = curRow[srcOff + 2];
+    }
+
+    prevRow.set(curRow);
+  }
+
+  return { width, height, pixels };
+}
+
+function unfilterScanline(
+  filterType: number,
+  cur: Uint8Array,
+  prev: Uint8Array,
+  bpp: number,
+): void {
+  switch (filterType) {
+    case 0: break;
+    case 1:
+      for (let i = bpp; i < cur.length; i++) {
+        cur[i] = (cur[i] + cur[i - bpp]) & 0xFF;
+      }
+      break;
+    case 2:
+      for (let i = 0; i < cur.length; i++) {
+        cur[i] = (cur[i] + prev[i]) & 0xFF;
+      }
+      break;
+    case 3:
+      for (let i = 0; i < cur.length; i++) {
+        const left = i >= bpp ? cur[i - bpp] : 0;
+        const above = prev[i];
+        cur[i] = (cur[i] + ((left + above) >> 1)) & 0xFF;
+      }
+      break;
+    case 4:
+      for (let i = 0; i < cur.length; i++) {
+        const left = i >= bpp ? cur[i - bpp] : 0;
+        const above = prev[i];
+        const upperLeft = i >= bpp ? prev[i - bpp] : 0;
+        cur[i] = (cur[i] + paethPredictor(left, above, upperLeft)) & 0xFF;
+      }
+      break;
+    default: break;
+  }
+}
+
+function paethPredictor(a: number, b: number, c: number): number {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  if (pb <= pc) return b;
+  return c;
+}
+
+// Cloudflare R2 types
+declare class R2Bucket {
+  get(key: string): Promise<R2Object | null>;
+}
+
+interface R2Object {
+  arrayBuffer(): Promise<ArrayBuffer>;
 }

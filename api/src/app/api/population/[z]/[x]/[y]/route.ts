@@ -59,10 +59,14 @@ export async function GET(
     return new Response(buffer, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400", // 1 day cache
+        "Cache-Control": "public, max-age=86400",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch {
-    return new Response("Failed to fetch tile", { status: 502 });
+    return new Response("Failed to fetch tile", {
+      status: 502,
+      headers: { "Access-Control-Allow-Origin": "*" },
+    });
   }
 }

@@ -77,7 +77,10 @@ export async function GET(
     }
 
     if (!assetUrl) {
-      return new Response("No recent Sentinel-2 imagery available", { status: 404 });
+      return new Response("No recent Sentinel-2 imagery available", {
+        status: 404,
+        headers: { "Access-Control-Allow-Origin": "*" },
+      });
     }
 
     // Fetch tile from TiTiler
@@ -100,9 +103,13 @@ export async function GET(
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch {
-    return new Response("Failed to fetch tile", { status: 502 });
+    return new Response("Failed to fetch tile", {
+      status: 502,
+      headers: { "Access-Control-Allow-Origin": "*" },
+    });
   }
 }

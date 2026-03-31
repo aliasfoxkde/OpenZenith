@@ -13,6 +13,7 @@ import {
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
 import { addBuildings, removeBuildings } from "../map/lib/layers";
+import { encodeMapHash, decodeMapHash, loadPreferences, savePreferences } from "./lib/map-state";
 
 /* ─── State ─── */
 
@@ -49,11 +50,34 @@ export default function StudioPage() {
   const layerHandleRef = useRef<{ intervals: ReturnType<typeof setInterval>[] }>({ intervals: [] });
 
   const [dark] = useState(true);
-  const [activeTab, setActiveTab] = useState<ToolTab>("elevation");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Restore from URL hash and localStorage
+  const [initialCenter] = useState<[number, number]>(() => {
+    const s = typeof window !== "undefined" ? decodeMapHash(window.location.hash) : null;
+    return s?.center ?? DEFAULT_CENTER;
+  });
+  const [initialZoom] = useState(() => {
+    const s = typeof window !== "undefined" ? decodeMapHash(window.location.hash) : null;
+    return s?.zoom ?? DEFAULT_ZOOM;
+  });
+  const [initialBasemap] = useState(() => {
+    const s = typeof window !== "undefined" ? decodeMapHash(window.location.hash) : null;
+    return s?.basemap ?? "dark";
+  });
+  const [initialTab] = useState<ToolTab>(() => {
+    const p = loadPreferences();
+    return (p.activeTab as ToolTab) || "elevation";
+  });
+  const [initialSidebar] = useState(() => {
+    const p = loadPreferences();
+    return p.sidebarOpen ?? true;
+  });
+
+  const [activeTab, setActiveTab] = useState<ToolTab>(initialTab);
+  const [sidebarOpen, setSidebarOpen] = useState(initialSidebar);
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
-  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [basemap, setBasemap] = useState("dark");
+  const [zoom, setZoom] = useState(initialZoom);
+  const [basemap, setBasemap] = useState(initialBasemap);
   const [layers, setLayers] = useState<StudioLayers>(buildDefaultLayers);
   const [datasets, setDatasets] = useState<UploadedDataset[]>([]);
   const [mapReady, setMapReady] = useState(false);
@@ -94,8 +118,8 @@ export default function StudioPage() {
             layers: [{ id: "basemap", type: "raster", source: "basemap" }],
             glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
           },
-          center: DEFAULT_CENTER,
-          zoom: DEFAULT_ZOOM,
+          center: initialCenter,
+          zoom: initialZoom,
           maxZoom: 15,
           antialias: true,
         });
@@ -354,6 +378,40 @@ export default function StudioPage() {
     },
     [overpassLayerId],
   );
+
+  /* ─── URL hash sync ─── */
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const updateHash = () => {
+      const center = map.getCenter();
+      const hash = encodeMapHash({
+        center: [center.lng, center.lat],
+        zoom: map.getZoom(),
+        basemap,
+      });
+      window.history.replaceState(null, "", hash);
+    };
+
+    map.on("moveend", updateHash);
+    map.on("zoomend", updateHash);
+    return () => {
+      map.off("moveend", updateHash);
+      map.off("zoomend", updateHash);
+    };
+  }, [mapReady, basemap]);
+
+  /* ─── Persist sidebar/tab preferences ─── */
+
+  useEffect(() => {
+    savePreferences({ sidebarOpen });
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    savePreferences({ activeTab });
+  }, [activeTab]);
 
   /* ─── Style vars ─── */
 

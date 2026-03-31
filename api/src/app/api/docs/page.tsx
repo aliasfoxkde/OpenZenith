@@ -454,7 +454,7 @@ export default function DocsPage() {
   useEffect(() => {
     fetch("/api/openapi.json")
       .then((r) => r.json())
-      .then(setSpec);
+      .then((data) => setSpec(data as OpenApiSpec));
   }, []);
 
   if (!spec) {

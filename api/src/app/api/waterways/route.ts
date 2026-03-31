@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await res.json();
+    const data = await res.json() as { elements?: Array<{ type: string; geometry?: Array<Array<number>>; id: number; tags?: Record<string, string> }> };
 
     // Convert to GeoJSON FeatureCollection
     const features: Array<Record<string, unknown>> = [];
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       if (features.length >= limit) break;
 
       if (el.type === "way" && el.geometry) {
-        const coords = el.geometry.map((c: Array<number>) => [c[1], c[0]]);
+        const coords = (el.geometry || []).map((c) => [c[1], c[0]]);
         if (coords.length < 2) continue;
 
         const isPolygon = el.tags?.natural === "water" && coords.length >= 3;

@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { decompressSync } from "fflate";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
@@ -176,8 +177,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const env = process.env as { DEM_TILES?: R2Bucket };
-    const bucket = env.DEM_TILES;
+    const { env } = getRequestContext();
+    const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
     const results: BatchResult[] = [];
 
     if (!bucket) {

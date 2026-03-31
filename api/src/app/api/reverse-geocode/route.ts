@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await res.json();
+    const data = await res.json() as Record<string, unknown>;
 
     if (data.error) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       {
         place: {
           display_name: data.display_name,
-          name: data.name || data.display_name?.split(",")[0],
+          name: data.name || (data.display_name as string)?.split(",")[0],
           type: data.type,
           address: data.address,
           osm_id: data.osm_id,

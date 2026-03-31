@@ -10,6 +10,7 @@
  */
 
 import { decompressSync } from "fflate";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 interface ElevationResult {
   elevation: number | null;
@@ -63,9 +64,9 @@ export async function getElevationFromR2(
     resolution: 1700,
   };
 
-  // Get R2 bucket from env bindings
-  const env = process.env as { DEM_TILES?: R2Bucket };
-  const bucket = env.DEM_TILES;
+  // Get R2 bucket from Cloudflare Pages bindings
+  const { env } = getRequestContext();
+  const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
 
   if (!bucket) return nullResult;
 

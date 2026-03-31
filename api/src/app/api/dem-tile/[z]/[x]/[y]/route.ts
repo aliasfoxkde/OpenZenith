@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 /**
  * DEM terrain tile endpoint.
@@ -49,9 +50,9 @@ export async function GET(
     );
   }
 
-  // Get R2 bucket from env bindings
-  const env = process.env as { DEM_TILES?: R2Bucket };
-  const bucket = env.DEM_TILES;
+  // Get R2 bucket from Cloudflare Pages bindings
+  const { env } = getRequestContext();
+  const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
 
   if (!bucket) {
     // Fallback: return a flat ocean tile (elevation = 0)

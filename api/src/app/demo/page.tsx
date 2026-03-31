@@ -122,7 +122,7 @@ export default function Demo() {
             const res = await fetch(
               `/api/elevation?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`,
             );
-            const data = await res.json();
+            const data = await res.json() as { elevation: number | null };
             setElevation({ lat, lon: lng, elevation: data.elevation });
           } catch {
             setElevation({ lat, lon: lng, elevation: null });

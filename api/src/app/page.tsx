@@ -1163,8 +1163,8 @@ export default function Home() {
           {[
             {
               label: "Terrain tiles",
-              value: "1.1M+",
-              tip: "87,381 Terrarium PNG tiles at zoom 0\u20138 + 1,046,712 at zoom 10 on Cloudflare R2. 32M Quantized Mesh tiles at zoom 13 (~1m precision) generated. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry.",
+              value: "33M+",
+              tip: "Multi-resolution pyramid: 87K tiles at z0\u20138, 1.1M at z10 on Cloudflare R2, plus 32M Quantized Mesh tiles at z13 (~1m precision) generated. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry.",
             },
             {
               label: "Storage",
@@ -1173,8 +1173,8 @@ export default function Home() {
             },
             {
               label: "Resolution",
-              value: "~156m",
-              tip: "Terrarium PNG tiles at zoom 10 (\u2248156m/pixel) for global terrain. Quantized Mesh at zoom 13 (\u22481m precision) for land detail. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry.",
+              value: "1.7km \u2192 156m",
+              tip: "Multi-resolution pyramid: zoom 0\u20138 (\u22481.7km/pixel) for global context + zoom 10 (\u2248156m/pixel) for regional detail. 32M Quantized Mesh tiles at z13 (\u22481m) generated for land. Copernicus GLO-30 + GEBCO 2025.",
             },
             {
               label: "Coverage",
@@ -1313,8 +1313,8 @@ export default function Home() {
             {
               emoji: "\uD83D\uDDFA\uFE0F",
               title: "Tile Server",
-              desc: "Terrarium PNG tiles (z/x/y) served from Cloudflare R2 via edge runtime. 1.1M+ tiles at zoom 0\u201310.",
-              back: "256\u00d7256 Terrarium PNG tiles on R2 (z0\u201310). 32M Quantized Mesh tiles at z13 (~1m). Edge runtime with <50ms global latency.",
+              desc: "Multi-resolution terrain tiles served from Cloudflare R2 via edge runtime. z0\u201310 Terrarium PNG + z13 Quantized Mesh.",
+              back: "Multi-resolution pyramid: z0\u20138 (1.7km) + z10 (156m) Terrarium PNG on R2. 32M z13 QM tiles (~1m) generated. Edge runtime with <50ms global latency.",
               href: "/map",
               btn: "Open Map",
             },

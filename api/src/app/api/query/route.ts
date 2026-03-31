@@ -101,13 +101,13 @@ export async function GET(request: NextRequest) {
               headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
             });
             if (res.ok) {
-              const data = await res.json();
+              const data = await res.json() as Record<string, unknown>;
               if (data.error) {
                 result.address = null;
               } else {
                 result.address = {
                   display_name: data.display_name || null,
-                  name: data.name || data.display_name?.split(",")[0] || null,
+                  name: data.name || (data.display_name as string)?.split(",")[0] || null,
                   type: data.type || null,
                   address: data.address || null,
                   osm_id: data.osm_id || null,
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
               body: `data=${encodeURIComponent(query)}`,
             });
             if (res.ok) {
-              const data = await res.json();
+              const data = await res.json() as { elements?: Record<string, unknown>[] };
               const elements = Array.isArray(data.elements) ? data.elements : [];
               result.waterways = {
                 count: elements.length,

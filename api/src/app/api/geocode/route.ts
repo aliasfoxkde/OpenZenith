@@ -36,11 +36,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await res.json();
+    const data = await res.json() as Record<string, unknown>[];
 
     return NextResponse.json(
       {
-        results: data.map((r: Record<string, unknown>) => ({
+        results: data.map((r) => ({
           display_name: r.display_name,
           lat: Number(r.lat),
           lon: Number(r.lon),

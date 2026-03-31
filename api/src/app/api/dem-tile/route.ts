@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 /**
  * DEM terrain provider metadata + health endpoint.
@@ -33,7 +34,7 @@ const TERRAIN_METADATA = {
   available: true,
   version: "1.0.0",
   name: "OpenZenith Global DEM",
-  description: "Merged Copernicus GLO-30 + GEBCO 2025 terrain (z0-10, ~156m)",
+  description: "Multi-resolution terrain: z0-8 (~1.7km) + z10 (~156m). Copernicus GLO-30 + GEBCO 2025.",
   attribution: "Copernicus DEM, GEBCO 2025",
   scheme: "xyz",
 };
@@ -66,8 +67,8 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleHealthCheck() {
-  const env = process.env as { DEM_TILES?: R2Bucket };
-  const bucket = env.DEM_TILES;
+  const { env } = getRequestContext();
+  const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
 
   if (!bucket) {
     return NextResponse.json(

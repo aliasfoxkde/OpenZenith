@@ -72,9 +72,14 @@ export default function StudioPage() {
     const p = loadPreferences();
     return p.sidebarOpen ?? true;
   });
+  const [initialImperial] = useState(() => {
+    const p = loadPreferences();
+    return p.imperial ?? false;
+  });
 
   const [activeTab, setActiveTab] = useState<ToolTab>(initialTab);
   const [sidebarOpen, setSidebarOpen] = useState(initialSidebar);
+  const [imperial, setImperial] = useState(initialImperial);
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
   const [zoom, setZoom] = useState(initialZoom);
   const [basemap, setBasemap] = useState(initialBasemap);
@@ -413,6 +418,10 @@ export default function StudioPage() {
     savePreferences({ activeTab });
   }, [activeTab]);
 
+  useEffect(() => {
+    savePreferences({ imperial });
+  }, [imperial]);
+
   /* ─── Style vars ─── */
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
@@ -498,6 +507,8 @@ export default function StudioPage() {
               onVisualizationChange={handleVisualizationChange}
               drawState={drawState}
               onDrawStateChange={setDrawState}
+              imperial={imperial}
+              onImperialChange={setImperial}
             />
           )}
         </div>

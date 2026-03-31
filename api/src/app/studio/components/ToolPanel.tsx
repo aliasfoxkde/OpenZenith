@@ -28,6 +28,8 @@ interface Props {
   onVisualizationChange?: (id: string, visualization: DatasetVisualization) => void;
   drawState?: import("../lib/types").DrawState;
   onDrawStateChange?: (state: import("../lib/types").DrawState) => void;
+  imperial?: boolean;
+  onImperialChange?: (imperial: boolean) => void;
 }
 
 const TABS: { id: ToolTab; label: string; icon: string }[] = [
@@ -121,6 +123,8 @@ export function ToolPanel(props: Props) {
             dark={dark}
             drawState={props.drawState}
             onDrawStateChange={props.onDrawStateChange}
+            imperial={props.imperial}
+            onImperialChange={props.onImperialChange}
           />
         )}
       </div>

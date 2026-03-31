@@ -14,6 +14,7 @@ export interface MapViewState {
 export interface UserPreferences {
   sidebarOpen: boolean;
   activeTab: string;
+  imperial: boolean;
 }
 
 const LS_KEY = "openzenith-studio-prefs";

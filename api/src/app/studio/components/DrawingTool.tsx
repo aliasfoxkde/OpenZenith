@@ -10,6 +10,8 @@ interface Props {
   dark: boolean;
   drawState: DrawState;
   onDrawStateChange: (state: DrawState) => void;
+  imperial?: boolean;
+  onImperialChange?: (imperial: boolean) => void;
 }
 
 const MODES: { id: DrawMode; label: string; desc: string }[] = [
@@ -18,7 +20,7 @@ const MODES: { id: DrawMode; label: string; desc: string }[] = [
   { id: "polygon", label: "Polygon", desc: "Click to add vertices, Enter to finish" },
 ];
 
-export function DrawingTool({ dark, drawState, onDrawStateChange }: Props) {
+export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onImperialChange }: Props) {
   const bg = dark ? "#0f0f0f" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
@@ -77,8 +79,8 @@ export function DrawingTool({ dark, drawState, onDrawStateChange }: Props) {
           {(() => {
             const m = measureDrawing(drawState.currentCoords, drawState.mode);
             if (!m) return null;
-            if (m.type === "distance") return <span> &middot; {formatDistance(m.value)}</span>;
-            if (m.type === "area") return <span> &middot; {formatArea(m.value)}</span>;
+            if (m.type === "distance") return <span> &middot; {formatDistance(m.value, imperial)}</span>;
+            if (m.type === "area") return <span> &middot; {formatArea(m.value, imperial)}</span>;
             return null;
           })()}
         </div>
@@ -151,6 +153,39 @@ export function DrawingTool({ dark, drawState, onDrawStateChange }: Props) {
         </button>
       </div>
 
+      {/* Units toggle */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+        <span style={{ color: textSec }}>Units:</span>
+        <button
+          onClick={() => onImperialChange?.(false)}
+          style={{
+            padding: "3px 10px",
+            background: imperial ? bg : "#3b82f6",
+            border: `1px solid ${imperial ? border : "#3b82f6"}`,
+            borderRadius: 3,
+            color: imperial ? text : "#fff",
+            cursor: "pointer",
+            fontSize: 11,
+          }}
+        >
+          Metric
+        </button>
+        <button
+          onClick={() => onImperialChange?.(true)}
+          style={{
+            padding: "3px 10px",
+            background: imperial ? "#3b82f6" : bg,
+            border: `1px solid ${imperial ? "#3b82f6" : border}`,
+            borderRadius: 3,
+            color: imperial ? "#fff" : text,
+            cursor: "pointer",
+            fontSize: 11,
+          }}
+        >
+          Imperial
+        </button>
+      </div>
+
       {/* Export */}
       {drawState.features.length > 0 && (
         <div style={{ display: "flex", gap: 4 }}>
@@ -196,8 +231,8 @@ export function DrawingTool({ dark, drawState, onDrawStateChange }: Props) {
             {(() => {
               const m = measureFeature(drawState.features[drawState.selectedFeatureIndex]);
               if (!m) return null;
-              if (m.type === "distance") return <span> &mdash; {formatDistance(m.value)}</span>;
-              if (m.type === "area") return <span> &mdash; {formatArea(m.value)}</span>;
+              if (m.type === "distance") return <span> &mdash; {formatDistance(m.value, imperial)}</span>;
+              if (m.type === "area") return <span> &mdash; {formatArea(m.value, imperial)}</span>;
               if (m.type === "point") {
                 const c = drawState.features[drawState.selectedFeatureIndex].geometry!.coordinates as [number, number];
                 return <span> &mdash; {c[1].toFixed(5)}, {c[0].toFixed(5)}</span>;

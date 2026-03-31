@@ -10,13 +10,16 @@ import type { ToolTab, UploadedDataset } from "./lib/types";
 import { addGeoJSONLayer, removeGeoJSONLayer } from "./lib/map-helpers";
 import {
   createDrawState, addDrawLayers, removeDrawLayers, updateDrawLayers,
-  finishDrawing, undo, redo, type DrawState, type DrawMode,
+  finishDrawing, undo, redo, moveVertex, addVertex, deleteVertex, enterEditMode, exitEditMode,
+  type DrawState, type DrawMode,
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
-import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "../map/lib/layers";
+import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS } from "../map/lib/layers";
 import { encodeMapHash, decodeMapHash, loadPreferences, savePreferences } from "./lib/map-state";
 import { exportMapScreenshot } from "@/lib/map-export";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
+import { ElevationProfile } from "./components/ElevationProfile";
+import { computeProfileInWorker } from "@/lib/worker-utils";
 
 /* ─── Component ─── */
 
@@ -74,10 +77,13 @@ export default function StudioPage() {
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [overpassLayerId, setOverpassLayerId] = useState<string | null>(null);
+  const [profileCoords, setProfileCoords] = useState<[number, number][] | null>(null);
+  const profileClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
 
   const [drawState, setDrawState] = useState<DrawState>(createDrawState());
   const drawStateRef = useRef<DrawState>(drawState);
   const drawKeyHandlerRef = useRef<((ev: KeyboardEvent) => void) | null>(null);
+  const dragRef = useRef<{ active: boolean; vertexIndex: number }>({ active: false, vertexIndex: -1 });
   drawStateRef.current = drawState;
 
   // Update draw layers when draw state changes
@@ -142,10 +148,63 @@ export default function StudioPage() {
           addDrawLayers(map);
         });
 
-        // Drawing mode click handler
+        // Drawing mode / profile mode click handler
         map.on("click", (e: any) => {
+          // Profile mode takes priority — delegate to ElevationTool
+          if (profileClickRef.current) {
+            profileClickRef.current(e.lngLat.lat, e.lngLat.lng);
+            return;
+          }
+
           const ds = drawStateRef.current;
-          if (ds.mode === "none") return;
+
+          // Edit mode: handle vertex selection and adding
+          if (ds.mode === "edit") {
+            // Check if clicked on a vertex
+            const vertexFeatures = map.queryRenderedFeatures(e.point, {
+              layers: ["draw-vertices", "draw-selected-vertex"],
+            });
+            if (vertexFeatures.length > 0) {
+              const vi = vertexFeatures[0].properties?.vertexIndex;
+              if (typeof vi === "number") {
+                setDrawState((prev) => ({ ...prev, selectedVertexIndex: vi }));
+                return;
+              }
+            }
+            // Clicked elsewhere — deselect vertex
+            setDrawState((prev) => ({ ...prev, selectedVertexIndex: -1 }));
+            return;
+          }
+
+          if (ds.mode === "none") {
+            // Feature selection: click on drawn features to select
+            const clicked = map.queryRenderedFeatures(e.point, {
+              layers: ["draw-line", "draw-fill", "draw-selected"],
+            });
+            if (clicked.length > 0) {
+              const clickedCoords = clicked[0].geometry?.coordinates;
+              if (clickedCoords) {
+                const idx = ds.features.findIndex((f) => {
+                  const fc = f.geometry?.coordinates;
+                  if (!fc) return false;
+                  return JSON.stringify(fc) === JSON.stringify(clickedCoords);
+                });
+                if (idx >= 0) {
+                  setDrawState((prev) => ({
+                    ...prev,
+                    selectedFeatureIndex: prev.selectedFeatureIndex === idx ? -1 : idx,
+                    selectedVertexIndex: -1,
+                  }));
+                  return;
+                }
+              }
+            }
+            // Clicked empty space — deselect
+            if (ds.selectedFeatureIndex >= 0) {
+              setDrawState((prev) => ({ ...prev, selectedFeatureIndex: -1, selectedVertexIndex: -1 }));
+            }
+            return;
+          }
 
           const pt: [number, number] = [e.lngLat.lng, e.lngLat.lat];
           setDrawState((prev) => {
@@ -160,10 +219,55 @@ export default function StudioPage() {
           });
         });
 
+        // Vertex drag support for edit mode
+        map.on("mousedown", (e: any) => {
+          const ds = drawStateRef.current;
+          if (ds.mode !== "edit" || ds.selectedVertexIndex < 0) return;
+
+          const vertexFeatures = map.queryRenderedFeatures(e.point, {
+            layers: ["draw-selected-vertex"],
+          });
+          if (vertexFeatures.length > 0) {
+            dragRef.current = { active: true, vertexIndex: ds.selectedVertexIndex };
+            map.dragPan.disable();
+          }
+        });
+
+        map.on("mousemove", (e: any) => {
+          setCursorPos({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+
+          if (!dragRef.current.active) return;
+          const pt: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+          setDrawState((prev) => moveVertex(prev, dragRef.current.vertexIndex, pt));
+        });
+
+        map.on("mouseup", () => {
+          if (dragRef.current.active) {
+            dragRef.current = { active: false, vertexIndex: -1 };
+            map.dragPan.enable();
+          }
+        });
+
         // Keyboard shortcuts for drawing
         const drawKeyHandler = (ev: KeyboardEvent) => {
           const ds = drawStateRef.current;
           if (ds.mode === "none") return;
+
+          if (ds.mode === "edit") {
+            if (ev.key === "Escape") {
+              setDrawState((prev) => exitEditMode(prev));
+            } else if ((ev.key === "Delete" || ev.key === "Backspace") && ds.selectedVertexIndex >= 0) {
+              ev.preventDefault();
+              setDrawState((prev) => deleteVertex(prev, prev.selectedVertexIndex));
+            } else if (ev.key === "z" && (ev.ctrlKey || ev.metaKey)) {
+              ev.preventDefault();
+              setDrawState((prev) => undo(prev));
+            } else if (ev.key === "y" && (ev.ctrlKey || ev.metaKey)) {
+              ev.preventDefault();
+              setDrawState((prev) => redo(prev));
+            }
+            return;
+          }
 
           if (ev.key === "Enter") {
             setDrawState((prev) => finishDrawing(prev));
@@ -179,10 +283,6 @@ export default function StudioPage() {
         };
         drawKeyHandlerRef.current = drawKeyHandler;
         document.addEventListener("keydown", drawKeyHandler);
-
-        map.on("mousemove", (e: any) => {
-          setCursorPos({ lat: e.lngLat.lat, lon: e.lngLat.lng });
-        });
 
         map.on("zoom", () => {
           setZoom(Math.round(map.getZoom() * 10) / 10);
@@ -390,6 +490,99 @@ export default function StudioPage() {
     savePreferences({ imperial });
   }, [imperial]);
 
+  /* ─── Elevation profile ─── */
+
+  const handleProfileChange = useCallback((coords: [number, number][] | null) => {
+    if (!coords || coords.length < 2) {
+      setProfileCoords(null);
+      return;
+    }
+
+    // Use Web Worker for interpolation computation
+    computeProfileInWorker(coords[0], coords[1])
+      .then(({ points }) => setProfileCoords(points))
+      .catch(() => {
+        // Fallback: simple interpolation on main thread
+        const interpolated: [number, number][] = [];
+        for (let i = 0; i <= 100; i++) {
+          const t = i / 100;
+          interpolated.push([
+            coords[0][0] + t * (coords[1][0] - coords[0][0]),
+            coords[0][1] + t * (coords[1][1] - coords[0][1]),
+          ]);
+        }
+        setProfileCoords(interpolated);
+      });
+
+    if (coords) {
+      // Draw a line on the map between profile endpoints
+      const map = mapRef.current;
+      if (!map) return;
+      if (map.getSource("profile-line")) {
+        (map.getSource("profile-line") as any).setData({
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: coords },
+          properties: {},
+        });
+      } else {
+        map.addSource("profile-line", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: coords },
+            properties: {},
+          },
+        });
+        map.addLayer({
+          id: "profile-line",
+          type: "line",
+          source: "profile-line",
+          paint: {
+            "line-color": "#3b82f6",
+            "line-width": 3,
+            "line-dasharray": [2, 2],
+          },
+        });
+      }
+      // Add endpoint markers
+      for (let i = 0; i < coords.length; i++) {
+        const markerId = `profile-marker-${i}`;
+        if (!map.getSource(markerId)) {
+          map.addSource(markerId, {
+            type: "geojson",
+            data: {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: coords[i] },
+              properties: {},
+            },
+          });
+          map.addLayer({
+            id: markerId,
+            type: "circle",
+            source: markerId,
+            paint: {
+              "circle-radius": 6,
+              "circle-color": i === 0 ? "#22c55e" : "#ef4444",
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#fff",
+            },
+          });
+        }
+      }
+    } else {
+      // Clean up profile layers
+      const map = mapRef.current;
+      if (map) {
+        try { map.removeLayer("profile-line"); } catch {}
+        try { map.removeSource("profile-line"); } catch {}
+        try { map.removeLayer("profile-marker-0"); } catch {}
+        try { map.removeSource("profile-marker-0"); } catch {}
+        try { map.removeLayer("profile-marker-1"); } catch {}
+        try { map.removeSource("profile-marker-1"); } catch {}
+      }
+    }
+  }, []);
+
   /* ─── Style vars ─── */
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
@@ -476,6 +669,27 @@ export default function StudioPage() {
               }}
             />
           )}
+
+          {/* Elevation profile overlay */}
+          {profileCoords && (
+            <ElevationProfile
+              dark={dark}
+              coordinates={profileCoords}
+              onClose={() => {
+                setProfileCoords(null);
+                // Clean up profile layers
+                const map = mapRef.current;
+                if (map) {
+                  try { map.removeLayer("profile-line"); } catch {}
+                  try { map.removeSource("profile-line"); } catch {}
+                  try { map.removeLayer("profile-marker-0"); } catch {}
+                  try { map.removeSource("profile-marker-0"); } catch {}
+                  try { map.removeLayer("profile-marker-1"); } catch {}
+                  try { map.removeSource("profile-marker-1"); } catch {}
+                }
+              }}
+            />
+          )}
         </div>
 
         {/* Sidebar */}
@@ -524,6 +738,8 @@ export default function StudioPage() {
               onDrawStateChange={setDrawState}
               imperial={imperial}
               onImperialChange={setImperial}
+              onProfileChange={handleProfileChange}
+              profileClickRef={profileClickRef}
             />
           )}
         </div>

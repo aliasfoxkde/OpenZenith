@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ElevationResult } from "../lib/types";
 
 interface Props {
   map: any;
   dark: boolean;
   cursorPos: { lat: number; lon: number } | null;
+  onProfileChange?: (coords: [number, number][] | null) => void;
+  profileClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
 }
 
-export function ElevationTool({ map, dark, cursorPos }: Props) {
+export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileClickRef }: Props) {
   const [results, setResults] = useState<ElevationResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [manualLat, setManualLat] = useState("");
@@ -50,18 +52,27 @@ export function ElevationTool({ map, dark, cursorPos }: Props) {
           setProfileStart({ lat, lon });
         } else if (!profileEnd) {
           setProfileEnd({ lat, lon });
+          onProfileChange?.([[profileStart.lon, profileStart.lat], [lon, lat]]);
         }
+        return; // Don't query single elevation in profile mode
       }
       queryElevation(lat, lon);
     },
-    [profileMode, profileStart, profileEnd, queryElevation],
+    [profileMode, profileStart, profileEnd, queryElevation, onProfileChange],
   );
+
+  // Expose click handler to parent via ref for map click interception
+  useEffect(() => {
+    if (profileClickRef) profileClickRef.current = handleMapClick;
+    return () => { if (profileClickRef) profileClickRef.current = null; };
+  }, [handleMapClick, profileClickRef]);
 
   const handleClear = () => {
     setResults([]);
     setProfileStart(null);
     setProfileEnd(null);
     setProfileMode(false);
+    onProfileChange?.(null);
   };
 
   const copyCSV = () => {
@@ -130,9 +141,11 @@ export function ElevationTool({ map, dark, cursorPos }: Props) {
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <button
           onClick={() => {
-            setProfileMode(!profileMode);
+            const next = !profileMode;
+            setProfileMode(next);
             setProfileStart(null);
             setProfileEnd(null);
+            if (!next) onProfileChange?.(null);
           }}
           style={{
             padding: "4px 10px",

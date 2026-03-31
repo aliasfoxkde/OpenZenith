@@ -5,13 +5,14 @@
  * undo/redo, and GeoJSON export.
  */
 
-export type DrawMode = "none" | "point" | "line" | "polygon";
+export type DrawMode = "none" | "point" | "line" | "polygon" | "edit";
 
 export interface DrawState {
   mode: DrawMode;
   features: GeoJSON.Feature[];
   currentCoords: [number, number][];
   selectedFeatureIndex: number;
+  selectedVertexIndex: number; // for vertex editing (-1 = none)
   history: GeoJSON.Feature[][]; // for undo
   redoStack: GeoJSON.Feature[][];
 }
@@ -22,6 +23,7 @@ export function createDrawState(): DrawState {
     features: [],
     currentCoords: [],
     selectedFeatureIndex: -1,
+    selectedVertexIndex: -1,
     history: [],
     redoStack: [],
   };
@@ -29,6 +31,7 @@ export function createDrawState(): DrawState {
 
 const drawSourceId = "draw-source";
 const drawVertexLayerId = "draw-vertices";
+const drawSelectedVertexLayerId = "draw-selected-vertex";
 const drawLineLayerId = "draw-line";
 const drawFillLayerId = "draw-fill";
 const drawSelectedLayerId = "draw-selected";
@@ -71,6 +74,20 @@ export function addDrawLayers(map: any) {
       "circle-stroke-width": 2,
       "circle-stroke-color": "#00e5ff",
     },
+    filter: ["==", ["get", "vertex"], true],
+  });
+
+  map.addLayer({
+    id: drawSelectedVertexLayerId,
+    type: "circle",
+    source: drawSourceId,
+    paint: {
+      "circle-radius": 7,
+      "circle-color": "#fbbf24",
+      "circle-stroke-width": 3,
+      "circle-stroke-color": "#fff",
+    },
+    filter: ["==", ["get", "selectedVertex"], true],
   });
 
   map.addLayer({
@@ -107,6 +124,7 @@ export function addDrawLayers(map: any) {
 export function removeDrawLayers(map: any) {
   try { map.removeLayer(drawLabelLayerId); } catch {}
   try { map.removeLayer(drawSelectedLayerId); } catch {}
+  try { map.removeLayer(drawSelectedVertexLayerId); } catch {}
   try { map.removeLayer(drawFillLayerId); } catch {}
   try { map.removeLayer(drawLineLayerId); } catch {}
   try { map.removeLayer(drawVertexLayerId); } catch {}
@@ -124,6 +142,24 @@ export function updateDrawLayers(map: any, state: DrawState) {
       ...state.features[i],
       properties: { ...state.features[i].properties, selected: i === state.selectedFeatureIndex },
     });
+
+    // Show vertices on selected feature when in edit mode
+    if (i === state.selectedFeatureIndex && state.mode === "edit") {
+      const coords = getFeatureCoords(state.features[i]);
+      if (coords) {
+        for (let vi = 0; vi < coords.length; vi++) {
+          features.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: coords[vi] },
+            properties: {
+              vertex: true,
+              vertexIndex: vi,
+              selectedVertex: vi === state.selectedVertexIndex,
+            },
+          });
+        }
+      }
+    }
   }
 
   // Current in-progress drawing
@@ -270,9 +306,120 @@ export function deleteSelected(state: DrawState): DrawState {
     ...state,
     features: newFeatures,
     selectedFeatureIndex: -1,
+    selectedVertexIndex: -1,
     history: [...state.history, state.features],
     redoStack: [],
   };
+}
+
+/** Get coordinates array from a feature (for vertex editing) */
+function getFeatureCoords(feature: GeoJSON.Feature): [number, number][] | null {
+  const g = feature.geometry;
+  if (!g) return null;
+  if (g.type === "LineString") return g.coordinates as [number, number][];
+  if (g.type === "Polygon") {
+    // Edit the outer ring (exclude closing duplicate)
+    const ring = g.coordinates[0] as [number, number][];
+    return ring.slice(0, -1); // remove closing vertex
+  }
+  return null;
+}
+
+/** Set coordinates back on a feature */
+function setFeatureCoords(feature: GeoJSON.Feature, coords: [number, number][]): GeoJSON.Feature {
+  const g = feature.geometry!;
+  if (g.type === "LineString") {
+    return { ...feature, geometry: { type: "LineString", coordinates: [...coords] } };
+  }
+  if (g.type === "Polygon") {
+    return { ...feature, geometry: { type: "Polygon", coordinates: [[...coords, coords[0]]] } };
+  }
+  return feature;
+}
+
+/** Move a vertex on the selected feature */
+export function moveVertex(state: DrawState, vertexIndex: number, newCoord: [number, number]): DrawState {
+  const fi = state.selectedFeatureIndex;
+  if (fi < 0 || vertexIndex < 0) return state;
+  const feature = state.features[fi];
+  const coords = getFeatureCoords(feature);
+  if (!coords || vertexIndex >= coords.length) return state;
+
+  const newCoords = [...coords];
+  newCoords[vertexIndex] = newCoord;
+  const newFeatures = [...state.features];
+  newFeatures[fi] = setFeatureCoords(feature, newCoords);
+
+  return {
+    ...state,
+    features: newFeatures,
+    history: [...state.history, state.features],
+    redoStack: [],
+  };
+}
+
+/** Delete a vertex from the selected feature */
+export function deleteVertex(state: DrawState, vertexIndex: number): DrawState {
+  const fi = state.selectedFeatureIndex;
+  if (fi < 0 || vertexIndex < 0) return state;
+  const feature = state.features[fi];
+  const coords = getFeatureCoords(feature);
+  if (!coords || vertexIndex >= coords.length) return state;
+  // Don't allow deleting below minimum vertices
+  if (coords.length <= (feature.geometry!.type === "LineString" ? 2 : 3)) return state;
+
+  const newCoords = coords.filter((_, i) => i !== vertexIndex);
+  const newFeatures = [...state.features];
+  newFeatures[fi] = setFeatureCoords(feature, newCoords);
+
+  return {
+    ...state,
+    features: newFeatures,
+    selectedVertexIndex: -1,
+    history: [...state.history, state.features],
+    redoStack: [],
+  };
+}
+
+/** Add a vertex after the specified index (or at the end if -1) */
+export function addVertex(state: DrawState, afterIndex: number, coord: [number, number]): DrawState {
+  const fi = state.selectedFeatureIndex;
+  if (fi < 0) return state;
+  const feature = state.features[fi];
+  const coords = getFeatureCoords(feature);
+  if (!coords) return state;
+
+  const newCoords = [...coords];
+  if (afterIndex >= 0 && afterIndex < coords.length) {
+    newCoords.splice(afterIndex + 1, 0, coord);
+  } else {
+    newCoords.push(coord);
+  }
+  const newFeatures = [...state.features];
+  newFeatures[fi] = setFeatureCoords(feature, newCoords);
+
+  return {
+    ...state,
+    features: newFeatures,
+    selectedVertexIndex: afterIndex >= 0 ? afterIndex + 1 : newCoords.length - 1,
+    history: [...state.history, state.features],
+    redoStack: [],
+  };
+}
+
+/** Enter edit mode for the selected feature */
+export function enterEditMode(state: DrawState): DrawState {
+  if (state.selectedFeatureIndex < 0) return state;
+  const feature = state.features[state.selectedFeatureIndex];
+  if (!feature.geometry) return state;
+  const editable = feature.geometry.type === "LineString" || feature.geometry.type === "Polygon";
+  if (!editable) return state;
+  return { ...state, mode: "edit", selectedVertexIndex: -1 };
+}
+
+/** Exit edit mode */
+export function exitEditMode(state: DrawState): DrawState {
+  return { ...state, mode: "none", selectedVertexIndex: -1 };
 }
 
 /** Export all features as GeoJSON FeatureCollection */

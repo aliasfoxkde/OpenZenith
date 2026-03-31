@@ -4,6 +4,7 @@ import type { DrawMode, DrawState } from "../lib/drawing";
 import {
   createDrawState, finishDrawing, undo, redo, deleteSelected, exportGeoJSONString,
   measureFeature, measureDrawing, formatDistance, formatArea,
+  enterEditMode, exitEditMode, deleteVertex, addVertex,
 } from "../lib/drawing";
 
 interface Props {
@@ -73,7 +74,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
       </div>
 
       {/* Active drawing info */}
-      {drawState.mode !== "none" && drawState.currentCoords.length > 0 && (
+      {drawState.mode !== "none" && drawState.mode !== "edit" && drawState.currentCoords.length > 0 && (
         <div style={{ fontSize: 11, color: "#3b82f6" }}>
           {drawState.currentCoords.length} point{drawState.currentCoords.length > 1 ? "s" : ""} placed
           {(() => {
@@ -83,6 +84,43 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
             if (m.type === "area") return <span> &middot; {formatArea(m.value, imperial)}</span>;
             return null;
           })()}
+        </div>
+      )}
+
+      {/* Edit mode controls */}
+      {drawState.mode === "edit" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11 }}>
+          <div style={{ color: "#fbbf24", fontWeight: 600 }}>
+            Edit Mode &mdash; {drawState.selectedVertexIndex >= 0
+              ? `Vertex #${drawState.selectedVertexIndex + 1} selected (drag to move)`
+              : "Click a vertex to select, drag to move"}
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              onClick={() => {
+                if (drawState.selectedVertexIndex >= 0) {
+                  onDrawStateChange(deleteVertex(drawState, drawState.selectedVertexIndex));
+                }
+              }}
+              disabled={drawState.selectedVertexIndex < 0}
+              style={{
+                flex: 1, padding: "5px", background: bg, border: `1px solid ${border}`,
+                borderRadius: 4, color: drawState.selectedVertexIndex < 0 ? textSec : "#ef4444",
+                cursor: drawState.selectedVertexIndex < 0 ? "default" : "pointer", fontSize: 11,
+              }}
+            >
+              Delete Vertex
+            </button>
+            <button
+              onClick={() => onDrawStateChange(exitEditMode(drawState))}
+              style={{
+                flex: 1, padding: "5px", background: bg, border: `1px solid ${border}`,
+                borderRadius: 4, color: text, cursor: "pointer", fontSize: 11,
+              }}
+            >
+              Done Editing
+            </button>
+          </div>
         </div>
       )}
 
@@ -135,6 +173,28 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           }}
         >
           Delete
+        </button>
+        <button
+          onClick={() => {
+            if (drawState.mode === "edit") {
+              onDrawStateChange(exitEditMode(drawState));
+            } else {
+              onDrawStateChange(enterEditMode(drawState));
+            }
+          }}
+          disabled={drawState.selectedFeatureIndex < 0}
+          style={{
+            flex: 1,
+            padding: "6px",
+            background: drawState.mode === "edit" ? "#fbbf24" : bg,
+            border: `1px solid ${drawState.mode === "edit" ? "#fbbf24" : border}`,
+            borderRadius: 4,
+            color: drawState.selectedFeatureIndex < 0 ? textSec : (drawState.mode === "edit" ? "#000" : "#fbbf24"),
+            cursor: drawState.selectedFeatureIndex < 0 ? "default" : "pointer",
+            fontSize: 11,
+          }}
+        >
+          {drawState.mode === "edit" ? "Done" : "Edit"}
         </button>
         <button
           onClick={() => onDrawStateChange(createDrawState())}

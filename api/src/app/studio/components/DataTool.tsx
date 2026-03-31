@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { UploadedDataset, DatasetVisualization, VisualizationMode, ColorRamp } from "../lib/types";
 import { SUPPORTED_FORMATS } from "../lib/constants";
-import { parseFile, createDataset } from "../lib/parsers";
+import { parseFile, createDataset, parseBinaryFile } from "../lib/parsers";
 import { DataTable } from "./DataTable";
 
 interface Props {
@@ -70,25 +70,40 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
     (files: FileList | File[]) => {
       setError(null);
       const newDatasets: UploadedDataset[] = [];
+      const fileArray = Array.from(files);
+      let processed = 0;
 
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            setParsing(true);
-            const text = reader.result as string;
+      const processFile = async (file: File) => {
+        try {
+          setParsing(true);
+          const ext = file.name.toLowerCase().split(".").pop();
+          const isBinary = ext === "zip";
+
+          if (isBinary) {
+            const buffer = await file.arrayBuffer();
+            const { data, format } = await parseBinaryFile(buffer, file.name);
+            const ds = createDataset(data, file.name, format);
+            newDatasets.push(ds);
+          } else {
+            const text = await file.text();
             const { data, format } = parseFile(text, file.name);
             const ds = createDataset(data, file.name, format);
             newDatasets.push(ds);
-            onDatasetsChange([...datasets, ...newDatasets]);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : `Failed to parse ${file.name}`);
-          } finally {
-            setParsing(false);
           }
-        };
-        reader.readAsText(file);
-      });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : `Failed to parse ${file.name}`);
+        } finally {
+          processed++;
+          if (processed === fileArray.length) {
+            setParsing(false);
+            if (newDatasets.length > 0) {
+              onDatasetsChange([...datasets, ...newDatasets]);
+            }
+          }
+        }
+      };
+
+      fileArray.forEach(processFile);
     },
     [datasets, onDatasetsChange],
   );
@@ -138,7 +153,7 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
       <div style={{ color: textSec, fontSize: 11 }}>
-        Drag & drop files to visualize on the map. Supported: GeoJSON, CSV, GPX, KML.
+        Drag & drop files to visualize on the map. Supported: GeoJSON, CSV, GPX, KML, Shapefile (.zip).
       </div>
 
       {/* Drop zone */}

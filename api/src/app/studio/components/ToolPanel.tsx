@@ -1,14 +1,16 @@
 "use client";
 
+import { lazy, Suspense } from "react";
 import type { ToolTab } from "../lib/types";
-import { ElevationTool } from "./ElevationTool";
-import { GeocodeTool } from "./GeocodeTool";
-import { OverpassTool } from "./OverpassTool";
-import { WeatherTool } from "./WeatherTool";
-import { DataTool } from "./DataTool";
-import { LayersTool } from "./LayersTool";
-import { DrawingTool } from "./DrawingTool";
 import type { UploadedDataset, DatasetVisualization } from "../lib/types";
+
+const ElevationTool = lazy(() => import("./ElevationTool").then((m) => ({ default: m.ElevationTool })));
+const GeocodeTool = lazy(() => import("./GeocodeTool").then((m) => ({ default: m.GeocodeTool })));
+const OverpassTool = lazy(() => import("./OverpassTool").then((m) => ({ default: m.OverpassTool })));
+const WeatherTool = lazy(() => import("./WeatherTool").then((m) => ({ default: m.WeatherTool })));
+const DataTool = lazy(() => import("./DataTool").then((m) => ({ default: m.DataTool })));
+const LayersTool = lazy(() => import("./LayersTool").then((m) => ({ default: m.LayersTool })));
+const DrawingTool = lazy(() => import("./DrawingTool").then((m) => ({ default: m.DrawingTool })));
 
 interface Props {
   activeTab: ToolTab;
@@ -30,6 +32,8 @@ interface Props {
   onDrawStateChange?: (state: import("../lib/types").DrawState) => void;
   imperial?: boolean;
   onImperialChange?: (imperial: boolean) => void;
+  onProfileChange?: (coords: [number, number][] | null) => void;
+  profileClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
 }
 
 const TABS: { id: ToolTab; label: string; icon: string }[] = [
@@ -41,6 +45,14 @@ const TABS: { id: ToolTab; label: string; icon: string }[] = [
   { id: "layers", label: "Layers", icon: "\ud83d\udcda" },
   { id: "draw", label: "Draw", icon: "\u270f" },
 ];
+
+function ToolFallback({ dark }: { dark: boolean }) {
+  return (
+    <div style={{ padding: 12, color: dark ? "#666" : "#999", fontSize: 12 }}>
+      Loading...
+    </div>
+  );
+}
 
 export function ToolPanel(props: Props) {
   const { activeTab, onTabChange, dark } = props;
@@ -94,57 +106,77 @@ export function ToolPanel(props: Props) {
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeTab === "elevation" && (
           <div role="tabpanel" id="panel-elevation" aria-label="Elevation tool">
-            <ElevationTool map={props.map} dark={dark} cursorPos={props.cursorPos} />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <ElevationTool
+                map={props.map}
+                dark={dark}
+                cursorPos={props.cursorPos}
+                onProfileChange={props.onProfileChange}
+                profileClickRef={props.profileClickRef}
+              />
+            </Suspense>
           </div>
         )}
         {activeTab === "geocode" && (
           <div role="tabpanel" id="panel-geocode" aria-label="Geocode tool">
-            <GeocodeTool map={props.map} dark={dark} />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <GeocodeTool map={props.map} dark={dark} />
+            </Suspense>
           </div>
         )}
         {activeTab === "overpass" && (
           <div role="tabpanel" id="panel-overpass" aria-label="OSM query tool">
-            <OverpassTool map={props.map} dark={dark} onResult={props.onOverpassResult} />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <OverpassTool map={props.map} dark={dark} onResult={props.onOverpassResult} />
+            </Suspense>
           </div>
         )}
         {activeTab === "weather" && (
           <div role="tabpanel" id="panel-weather" aria-label="Weather tool">
-            <WeatherTool dark={dark} onToggleLayer={props.onToggleLayer} layers={props.layers} />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <WeatherTool dark={dark} onToggleLayer={props.onToggleLayer} layers={props.layers} />
+            </Suspense>
           </div>
         )}
         {activeTab === "data" && (
           <div role="tabpanel" id="panel-data" aria-label="Data upload tool">
-            <DataTool
-              dark={dark}
-              datasets={props.datasets}
-              onDatasetsChange={props.onDatasetsChange}
-              onToggleDataset={props.onToggleDataset}
-              onRemoveDataset={props.onRemoveDataset}
-              onVisualizationChange={props.onVisualizationChange}
-            />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <DataTool
+                dark={dark}
+                datasets={props.datasets}
+                onDatasetsChange={props.onDatasetsChange}
+                onToggleDataset={props.onToggleDataset}
+                onRemoveDataset={props.onRemoveDataset}
+                onVisualizationChange={props.onVisualizationChange}
+              />
+            </Suspense>
           </div>
         )}
         {activeTab === "layers" && (
           <div role="tabpanel" id="panel-layers" aria-label="Layers tool">
-            <LayersTool
-              dark={dark}
-              basemap={props.basemap}
-              onBasemapChange={props.onBasemapChange}
-              layers={props.layers}
-              onToggleLayer={props.onToggleLayer}
-              datasets={props.datasets}
-            />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <LayersTool
+                dark={dark}
+                basemap={props.basemap}
+                onBasemapChange={props.onBasemapChange}
+                layers={props.layers}
+                onToggleLayer={props.onToggleLayer}
+                datasets={props.datasets}
+              />
+            </Suspense>
           </div>
         )}
         {activeTab === "draw" && props.drawState && props.onDrawStateChange && (
           <div role="tabpanel" id="panel-draw" aria-label="Drawing tool">
-          <DrawingTool
-            dark={dark}
-            drawState={props.drawState}
-            onDrawStateChange={props.onDrawStateChange}
-            imperial={props.imperial}
-            onImperialChange={props.onImperialChange}
-          />
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <DrawingTool
+                dark={dark}
+                drawState={props.drawState}
+                onDrawStateChange={props.onDrawStateChange}
+                imperial={props.imperial}
+                onImperialChange={props.onImperialChange}
+              />
+            </Suspense>
           </div>
         )}
       </div>

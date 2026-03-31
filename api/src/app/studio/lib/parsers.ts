@@ -1,6 +1,48 @@
 import type { UploadedDataset } from "./types";
 import { DATASET_COLORS } from "./constants";
 
+/** Parse a Shapefile (zip buffer) into a GeoJSON FeatureCollection */
+export async function parseShapefile(buffer: ArrayBuffer): Promise<GeoJSON.FeatureCollection> {
+  const shp = await import("shpjs");
+  const geojson = shp.default.parseZip(buffer);
+  // shpjs can return a FeatureCollection or an array of FeatureCollections
+  if (Array.isArray(geojson)) {
+    // Merge all layers into one
+    const features: GeoJSON.Feature[] = [];
+    for (const layer of geojson) {
+      if (layer.type === "FeatureCollection") {
+        features.push(...layer.features);
+      } else if (layer.type === "Feature") {
+        features.push(layer);
+      }
+    }
+    return { type: "FeatureCollection", features };
+  }
+  if (geojson.type === "FeatureCollection") return geojson;
+  if (geojson.type === "Feature") return { type: "FeatureCollection", features: [geojson] };
+  throw new Error("Unexpected shapefile output format");
+}
+
+/** Parse a binary file (shapefile zip) */
+export async function parseBinaryFile(
+  buffer: ArrayBuffer,
+  fileName: string,
+): Promise<{ data: GeoJSON.FeatureCollection; format: string }> {
+  const ext = fileName.toLowerCase().split(".").pop();
+
+  if (ext === "zip") {
+    // Try as shapefile
+    try {
+      const data = await parseShapefile(buffer);
+      return { data, format: "Shapefile" };
+    } catch (err) {
+      throw new Error(`Failed to parse shapefile: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  throw new Error(`Unsupported binary format: .${ext}`);
+}
+
 let datasetCounter = 0;
 
 /** Parse a GeoJSON string into a FeatureCollection */

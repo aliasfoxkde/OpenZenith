@@ -3,3 +3,8 @@
 interface Response {
   json(): Promise<any>;
 }
+
+declare module "shpjs" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export function parseZip(buffer: ArrayBuffer): any;
+}

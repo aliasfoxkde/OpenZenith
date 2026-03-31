@@ -79,6 +79,7 @@ export const SUPPORTED_FORMATS = [
   { ext: ".tsv", label: "TSV", mime: "text/tab-separated-values" },
   { ext: ".gpx", label: "GPX", mime: "application/gpx+xml" },
   { ext: ".kml", label: "KML", mime: "application/vnd.google-earth.kml+xml" },
+  { ext: ".zip", label: "Shapefile", mime: "application/zip" },
 ];
 
 export const DATASET_COLORS = [

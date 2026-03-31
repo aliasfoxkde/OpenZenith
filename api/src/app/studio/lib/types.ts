@@ -58,13 +58,14 @@ export interface MarkerPin {
   elevation?: number | null;
 }
 
-export type DrawMode = "none" | "point" | "line" | "polygon";
+export type DrawMode = "none" | "point" | "line" | "polygon" | "edit";
 
 export interface DrawState {
   mode: DrawMode;
   features: GeoJSON.Feature[];
   currentCoords: [number, number][];
   selectedFeatureIndex: number;
+  selectedVertexIndex: number;
   history: GeoJSON.Feature[][];
   redoStack: GeoJSON.Feature[][];
 }

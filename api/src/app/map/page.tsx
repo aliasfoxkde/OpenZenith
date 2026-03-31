@@ -7,6 +7,7 @@ import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } fr
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MapLoading } from "@/components/MapLoading";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "./lib/layers";
 import {
   createMeasureController, type MeasureMode,
@@ -921,45 +922,11 @@ export default function MapPage() {
         </ErrorBoundary>
 
         {/* Loading */}
-        {loading && !loadError && (
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%,-50%)",
-              background: T.panel,
-              border: `1px solid ${T.border}`,
-              color: T.accent,
-              padding: "1rem 2rem",
-              borderRadius: 6,
-              fontSize: "0.85rem",
-              fontFamily: T.fontMono,
-              boxShadow: T.glow,
-            }}
-          >
-            Loading map...
-          </div>
+        {!loading && loadError && (
+          <MapLoading error dark message="Failed to load MapLibre GL" />
         )}
-
-        {loadError && (
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%,-50%)",
-              background: "rgba(180,0,0,0.9)",
-              border: `1px solid ${T.red}`,
-              color: "#fff",
-              padding: "1rem 2rem",
-              borderRadius: 6,
-              fontSize: "0.85rem",
-              fontFamily: T.fontMono,
-            }}
-          >
-            Failed to load MapLibre GL. Refresh the page.
-          </div>
+        {loading && !loadError && (
+          <MapLoading dark message="Initializing map..." />
         )}
 
         {/* Sidebar */}

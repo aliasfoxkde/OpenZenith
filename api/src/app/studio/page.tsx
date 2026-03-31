@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MapLoading } from "@/components/MapLoading";
 import { waitForMapLibre } from "./lib/load-map";
 import { BASEMAPS, DEFAULT_CENTER, DEFAULT_ZOOM } from "./lib/constants";
 import type { ToolTab, UploadedDataset } from "./lib/types";
@@ -436,24 +437,12 @@ export default function StudioPage() {
 
           {/* Loading */}
           {!mapReady && !loadError && (
-            <div style={{
-              position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-              background: "rgba(0,0,0,0.8)", color: "#fff", padding: "12px 24px",
-              borderRadius: 8, fontSize: 14, zIndex: 5,
-            }}>
-              Loading Studio...
-            </div>
+            <MapLoading dark message="Loading Studio..." />
           )}
 
           {/* Error */}
           {loadError && (
-            <div style={{
-              position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-              background: "rgba(180,0,0,0.8)", color: "#fff", padding: "16px 24px",
-              borderRadius: 8, fontSize: 14, zIndex: 5, textAlign: "center",
-            }}>
-              Failed to load MapLibre GL. Please refresh the page.
-            </div>
+            <MapLoading error dark message="Failed to load MapLibre GL" />
           )}
 
           {/* Sidebar toggle */}

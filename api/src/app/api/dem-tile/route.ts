@@ -25,7 +25,7 @@ const TERRAIN_METADATA = {
   tilejson: "3.0.0" as const,
   tiles: ["/api/dem-tile/{z}/{x}/{y}"],
   minzoom: 0,
-  maxzoom: 10,
+  maxzoom: 10,  // z0-8 (~1.7km) + z10 (~156m)
   bounds: [-180, -90, 180, 90],
   center: [0, 0, 4],
   encoding: "terrarium" as const,
@@ -49,6 +49,7 @@ const EXPECTED_TILES: Record<number, number> = {
   6: 4096,
   7: 16384,
   8: 65536,
+  10: 1046700,
 };
 
 export async function GET(request: NextRequest) {

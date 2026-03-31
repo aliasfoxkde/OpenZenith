@@ -34,7 +34,7 @@ export async function GET(
   // Strip .png extension from y parameter (Next.js includes it in the catch-all)
   const tileYStr = y.replace(/\.png$/, "");
 
-  // Validate zoom level (we only generate up to zoom 12)
+  // Validate zoom level (we have z0-8 + z10 tiles)
   const zoom = parseInt(z, 10);
   if (isNaN(zoom) || zoom < 0 || zoom > 14) {
     return NextResponse.json(

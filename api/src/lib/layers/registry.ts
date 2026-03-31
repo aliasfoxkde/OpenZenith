@@ -148,6 +148,15 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#fbbf24",
     dataSource: "/api/population/{z}/{x}/{y}",
   },
+  {
+    id: "landCover",
+    name: "Land Cover",
+    category: "infrastructure",
+    description: "CORINE Land Cover 2018 — European land use classification (44 classes, 100m)",
+    defaultEnabled: false,
+    accent: "#22c55e",
+    dataSource: "/api/landcover/{z}/{x}/{y}",
+  },
 
   /* ── Hydro ────────────────────────────────────────────── */
   {

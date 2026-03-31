@@ -575,6 +575,34 @@ export function removePopulationDensity(map: any): void {
   try { map.removeSource("population-density"); } catch {}
 }
 
+/* ─── CORINE Land Cover ─── */
+
+export function addLandCover(map: any, _handle: LayerHandle): void {
+  if (map.getSource("land-cover")) return;
+
+  map.addSource("land-cover", {
+    type: "raster",
+    tiles: ["/api/landcover/{z}/{x}/{y}"],
+    tileSize: 256,
+    minzoom: 4,
+    maxzoom: 13,
+  });
+
+  map.addLayer({
+    id: "land-cover-layer",
+    type: "raster",
+    source: "land-cover",
+    paint: {
+      "raster-opacity": 0.5,
+    },
+  });
+}
+
+export function removeLandCover(map: any): void {
+  try { map.removeLayer("land-cover-layer"); } catch {}
+  try { map.removeSource("land-cover"); } catch {}
+}
+
 /* ─── Master add/remove dispatcher ─── */
 
 const LAYER_HANDLERS: Record<string, {
@@ -591,6 +619,7 @@ const LAYER_HANDLERS: Record<string, {
   wildfires: { add: addWildfires, remove: removeWildfires },
   buildings: { add: addBuildings, remove: removeBuildings },
   populationDensity: { add: addPopulationDensity, remove: removePopulationDensity },
+  landCover: { add: addLandCover, remove: removeLandCover },
 };
 
 export function addDataLayer(map: any, handle: LayerHandle, layerId: string): void {

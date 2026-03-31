@@ -9,7 +9,7 @@ import type { ToolTab, UploadedDataset } from "./lib/types";
 import { addGeoJSONLayer, removeGeoJSONLayer } from "./lib/map-helpers";
 import {
   createDrawState, addDrawLayers, removeDrawLayers, updateDrawLayers,
-  finishDrawing, type DrawState, type DrawMode,
+  finishDrawing, undo, redo, type DrawState, type DrawMode,
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
 
@@ -59,15 +59,16 @@ export default function StudioPage() {
   const [loadError, setLoadError] = useState(false);
   const [overpassLayerId, setOverpassLayerId] = useState<string | null>(null);
 
+  const [drawState, setDrawState] = useState<DrawState>(createDrawState());
+  const drawStateRef = useRef<DrawState>(drawState);
+  const drawKeyHandlerRef = useRef<((ev: KeyboardEvent) => void) | null>(null);
+  drawStateRef.current = drawState;
+
   // Update draw layers when draw state changes
   useEffect(() => {
     const map = mapRef.current;
     if (map && mapReady) updateDrawLayers(map, drawState);
   }, [drawState, mapReady]);
-  const [drawState, setDrawState] = useState<DrawState>(createDrawState());
-  const drawStateRef = useRef<DrawState>(drawState);
-  const drawKeyHandlerRef = useRef<((ev: KeyboardEvent) => void) | null>(null);
-  drawStateRef.current = drawState;
 
   /* ─── Map init ─── */
 
@@ -266,7 +267,7 @@ export default function StudioPage() {
       for (const ds of newDatasets) {
         if (ds.visible) {
           try {
-            addGeoJSONLayer(map, ds.id, ds.data, ds.color);
+            addGeoJSONLayer(map, ds.id, ds.data, ds.color, ds.visualization);
           } catch {
             // Layer might already exist
           }
@@ -284,10 +285,26 @@ export default function StudioPage() {
       const ds = datasets.find((d) => d.id === id);
       if (!ds) return;
       if (visible) {
-        addGeoJSONLayer(map, id, ds.data, ds.color);
+        addGeoJSONLayer(map, id, ds.data, ds.color, ds.visualization);
       } else {
         removeGeoJSONLayer(map, id);
       }
+    },
+    [datasets],
+  );
+
+  const handleVisualizationChange = useCallback(
+    (id: string, visualization: UploadedDataset["visualization"]) => {
+      setDatasets((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, visualization } : d)),
+      );
+      const map = mapRef.current;
+      if (!map) return;
+      const ds = datasets.find((d) => d.id === id);
+      if (!ds || !ds.visible) return;
+      // Re-add layer with new visualization
+      removeGeoJSONLayer(map, id);
+      addGeoJSONLayer(map, id, ds.data, ds.color, visualization);
     },
     [datasets],
   );
@@ -416,6 +433,7 @@ export default function StudioPage() {
               onToggleDataset={handleToggleDataset}
               onRemoveDataset={handleRemoveDataset}
               onOverpassResult={handleOverpassResult}
+              onVisualizationChange={handleVisualizationChange}
               drawState={drawState}
               onDrawStateChange={setDrawState}
             />

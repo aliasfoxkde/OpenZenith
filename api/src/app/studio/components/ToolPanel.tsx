@@ -8,7 +8,7 @@ import { WeatherTool } from "./WeatherTool";
 import { DataTool } from "./DataTool";
 import { LayersTool } from "./LayersTool";
 import { DrawingTool } from "./DrawingTool";
-import type { UploadedDataset } from "../lib/types";
+import type { UploadedDataset, DatasetVisualization } from "../lib/types";
 
 interface Props {
   activeTab: ToolTab;
@@ -25,6 +25,7 @@ interface Props {
   onToggleDataset: (id: string, visible: boolean) => void;
   onRemoveDataset: (id: string) => void;
   onOverpassResult: (data: GeoJSON.FeatureCollection, name: string) => void;
+  onVisualizationChange?: (id: string, visualization: DatasetVisualization) => void;
   drawState?: import("../lib/types").DrawState;
   onDrawStateChange?: (state: import("../lib/types").DrawState) => void;
 }
@@ -102,6 +103,7 @@ export function ToolPanel(props: Props) {
             onDatasetsChange={props.onDatasetsChange}
             onToggleDataset={props.onToggleDataset}
             onRemoveDataset={props.onRemoveDataset}
+            onVisualizationChange={props.onVisualizationChange}
           />
         )}
         {activeTab === "layers" && (

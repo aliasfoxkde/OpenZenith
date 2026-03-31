@@ -350,6 +350,7 @@ export function createDataset(
     visible: true,
     color: DATASET_COLORS[colorIndex],
     data,
+    visualization: { mode: "simple", property: null, colorRamp: "sequential" },
     ...(headers ? { headers } : {}),
   };
 }

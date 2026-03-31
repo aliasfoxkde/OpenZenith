@@ -687,7 +687,7 @@ export default function MapPage() {
           <div
             style={{
               position: "absolute",
-              top: measureMode !== "none" ? 86 : 8,
+              top: 86,
               left: 8,
               zIndex: 10,
               background: T.panel,

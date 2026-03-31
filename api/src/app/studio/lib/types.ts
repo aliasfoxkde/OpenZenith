@@ -8,6 +8,16 @@ export interface StudioState {
   zoom: number;
 }
 
+export type ColorRamp = "sequential" | "diverging" | "categorical";
+
+export type VisualizationMode = "simple" | "choropleth" | "heatmap";
+
+export interface DatasetVisualization {
+  mode: VisualizationMode;
+  property: string | null;
+  colorRamp: ColorRamp;
+}
+
 export interface UploadedDataset {
   id: string;
   name: string;
@@ -16,6 +26,7 @@ export interface UploadedDataset {
   visible: boolean;
   color: string;
   data: GeoJSON.FeatureCollection;
+  visualization: DatasetVisualization;
 }
 
 export interface ElevationResult {

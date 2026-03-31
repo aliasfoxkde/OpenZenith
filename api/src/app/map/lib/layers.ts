@@ -659,6 +659,35 @@ export function removeLandCover(map: any): void {
   try { map.removeSource("land-cover"); } catch {}
 }
 
+/* ─── Sentinel-2 Imagery ─── */
+
+export function addSentinel2(map: any, _handle: LayerHandle): void {
+  if (map.getSource("sentinel2")) return;
+
+  map.addSource("sentinel2", {
+    type: "raster",
+    tiles: ["/api/sentinel2/{z}/{x}/{y}"],
+    tileSize: 256,
+    minzoom: 3,
+    maxzoom: 14,
+  });
+
+  map.addLayer({
+    id: "sentinel2-layer",
+    type: "raster",
+    source: "sentinel2",
+    paint: {
+      "raster-opacity": 0.8,
+      "raster-saturation": 0.3,
+    },
+  });
+}
+
+export function removeSentinel2(map: any): void {
+  try { map.removeLayer("sentinel2-layer"); } catch {}
+  try { map.removeSource("sentinel2"); } catch {}
+}
+
 /* ─── Master add/remove dispatcher ─── */
 
 const LAYER_HANDLERS: Record<string, {
@@ -676,6 +705,7 @@ const LAYER_HANDLERS: Record<string, {
   buildings: { add: addBuildings, remove: removeBuildings },
   populationDensity: { add: addPopulationDensity, remove: removePopulationDensity },
   landCover: { add: addLandCover, remove: removeLandCover },
+  sentinel2: { add: addSentinel2, remove: removeSentinel2 },
 };
 
 export function addDataLayer(map: any, handle: LayerHandle, layerId: string): void {

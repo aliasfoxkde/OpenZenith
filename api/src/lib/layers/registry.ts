@@ -157,6 +157,15 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#22c55e",
     dataSource: "/api/landcover/{z}/{x}/{y}",
   },
+  {
+    id: "sentinel2",
+    name: "Satellite Imagery",
+    category: "imagery",
+    description: "Sentinel-2 recent satellite imagery via Planetary Computer (10m resolution)",
+    defaultEnabled: false,
+    accent: "#a78bfa",
+    dataSource: "/api/sentinel2/{z}/{x}/{y}",
+  },
 
   /* ── Hydro ────────────────────────────────────────────── */
   {

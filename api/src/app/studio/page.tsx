@@ -50,6 +50,7 @@ export default function StudioPage() {
   const layerHandleRef = useRef<{ intervals: ReturnType<typeof setInterval>[] }>({ intervals: [] });
 
   const [dark] = useState(true);
+  const [isMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
 
   // Restore from URL hash and localStorage
   const [initialCenter] = useState<[number, number]>(() => {
@@ -70,7 +71,8 @@ export default function StudioPage() {
   });
   const [initialSidebar] = useState(() => {
     const p = loadPreferences();
-    return p.sidebarOpen ?? true;
+    const mobile = typeof window !== "undefined" && window.innerWidth < 768;
+    return mobile ? false : (p.sidebarOpen ?? true);
   });
   const [initialImperial] = useState(() => {
     const p = loadPreferences();
@@ -469,7 +471,9 @@ export default function StudioPage() {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{
-                position: "absolute", top: 10, right: sidebarOpen ? 380 : 10, zIndex: 10,
+                position: "absolute", top: 10,
+                right: isMobile ? 10 : (sidebarOpen ? 380 : 10),
+                zIndex: isMobile && sidebarOpen ? 60 : 10,
                 background: "rgba(0,0,0,0.6)", border: "none", color: "#fff",
                 padding: "6px 10px", borderRadius: 4, cursor: "pointer", fontSize: 16,
                 transition: "right 0.2s",
@@ -478,14 +482,39 @@ export default function StudioPage() {
               {sidebarOpen ? "\u276F" : "\u276E"}
             </button>
           )}
+
+          {/* Mobile overlay backdrop */}
+          {isMobile && sidebarOpen && (
+            <div
+              onClick={() => setSidebarOpen(false)}
+              style={{
+                position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)",
+                zIndex: 50,
+              }}
+            />
+          )}
         </div>
 
         {/* Sidebar */}
         <div
           style={{
-            width: 380, borderLeft: `1px solid ${border}`, overflow: "hidden",
-            flexShrink: 0, transition: "margin-right 0.2s, opacity 0.2s",
-            marginRight: sidebarOpen ? 0 : -380, opacity: sidebarOpen ? 1 : 0,
+            width: isMobile ? "100%" : 380,
+            maxWidth: isMobile ? 380 : undefined,
+            borderLeft: `1px solid ${border}`, overflow: "hidden",
+            flexShrink: 0,
+            transition: isMobile ? "transform 0.2s, opacity 0.2s" : "margin-right 0.2s, opacity 0.2s",
+            ...(isMobile
+              ? {
+                  position: "absolute", top: 0, right: 0, bottom: 0,
+                  transform: sidebarOpen ? "translateX(0)" : "translateX(100%)",
+                  opacity: sidebarOpen ? 1 : 0,
+                  zIndex: 55,
+                  background: "#0a0a0a",
+                }
+              : {
+                  marginRight: sidebarOpen ? 0 : -380,
+                  opacity: sidebarOpen ? 1 : 0,
+                }),
           }}
         >
           {mapReady && (

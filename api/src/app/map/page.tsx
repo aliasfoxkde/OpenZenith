@@ -13,6 +13,7 @@ import {
   createMeasureController, type MeasureMode,
   pathDistance, sphericalPolygonArea, formatDistance, formatArea,
 } from "./lib/measure";
+import { exportMapScreenshot } from "@/lib/map-export";
 
 /* ─── Types ─── */
 
@@ -731,6 +732,18 @@ export default function MapPage() {
           <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
             <StatusIndicator color={loading ? T.amber : T.green} label={loading ? "LOADING" : "READY"} pulse={loading} />
             {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}
+            <button
+              onClick={() => exportMapScreenshot(mapRef.current!, "openzenith-map")}
+              title="Export screenshot"
+              aria-label="Export map screenshot as PNG"
+              style={{
+                background: "none", border: `1px solid ${T.border}`, color: T.textMuted,
+                padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontSize: 12,
+                fontFamily: T.fontMono, letterSpacing: "0.05em",
+              }}
+            >
+              EXPORT
+            </button>
           </SurveillancePanel>
         </div>
 

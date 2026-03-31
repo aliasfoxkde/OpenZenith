@@ -15,6 +15,7 @@ import {
 import { ToolPanel } from "./components/ToolPanel";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "../map/lib/layers";
 import { encodeMapHash, decodeMapHash, loadPreferences, savePreferences } from "./lib/map-state";
+import { exportMapScreenshot } from "@/lib/map-export";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
 
 /* ─── Component ─── */
@@ -549,6 +550,18 @@ export default function StudioPage() {
         <span>{basemap}</span>
         {datasets.length > 0 && <span>{datasets.length} dataset{datasets.length > 1 ? "s" : ""}</span>}
         {overpassLayerId && <span style={{ color: "#8b5cf6" }}>OSM query</span>}
+        <span style={{ flex: 1 }} />
+        <button
+          onClick={() => exportMapScreenshot(mapRef.current!, "openzenith-studio")}
+          title="Export screenshot"
+          aria-label="Export map screenshot as PNG"
+          style={{
+            background: "none", border: `1px solid ${border}`, color: textSec,
+            padding: "1px 8px", borderRadius: 3, cursor: "pointer", fontSize: 10,
+          }}
+        >
+          EXPORT
+        </button>
       </div>
 
       {/* Onboarding overlay */}

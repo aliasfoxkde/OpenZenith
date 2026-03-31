@@ -32,6 +32,7 @@ let drawVertexLayerId = "draw-vertices";
 let drawLineLayerId = "draw-line";
 let drawFillLayerId = "draw-fill";
 let drawSelectedLayerId = "draw-selected";
+let drawLabelLayerId = "draw-label";
 
 export function addDrawLayers(map: any) {
   if (map.getSource(drawSourceId)) return;
@@ -82,9 +83,29 @@ export function addDrawLayers(map: any) {
     },
     filter: ["==", ["get", "selected"], true],
   });
+
+  map.addLayer({
+    id: drawLabelLayerId,
+    type: "symbol",
+    source: drawSourceId,
+    layout: {
+      "text-field": ["get", "measurement"],
+      "text-size": 12,
+      "text-anchor": "center",
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#00e5ff",
+      "text-halo-color": "#000",
+      "text-halo-width": 1.5,
+    },
+    filter: ["has", "measurement"],
+  });
 }
 
 export function removeDrawLayers(map: any) {
+  try { map.removeLayer(drawLabelLayerId); } catch {}
   try { map.removeLayer(drawSelectedLayerId); } catch {}
   try { map.removeLayer(drawFillLayerId); } catch {}
   try { map.removeLayer(drawLineLayerId); } catch {}
@@ -121,12 +142,22 @@ export function updateDrawLayers(map: any, state: DrawState) {
         geometry: { type: "LineString", coordinates: [...state.currentCoords] },
         properties: { drawing: true },
       });
-      // Add vertices
       for (const c of state.currentCoords) {
         features.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: c },
           properties: { vertex: true },
+        });
+      }
+      // Measurement label at midpoint
+      const m = measureDrawing(state.currentCoords, "line");
+      if (m) {
+        const mid = Math.floor(state.currentCoords.length / 2);
+        const p = state.currentCoords[mid];
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: p },
+          properties: { measurement: formatDistance(m.value) },
         });
       }
     } else if (state.mode === "polygon" && state.currentCoords.length >= 3) {
@@ -142,8 +173,18 @@ export function updateDrawLayers(map: any, state: DrawState) {
           properties: { vertex: true },
         });
       }
+      // Measurement label at centroid
+      const m = measureDrawing(state.currentCoords, "polygon");
+      if (m) {
+        const cx = state.currentCoords.reduce((s, c) => s + c[0], 0) / state.currentCoords.length;
+        const cy = state.currentCoords.reduce((s, c) => s + c[1], 0) / state.currentCoords.length;
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [cx, cy] },
+          properties: { measurement: formatArea(m.value) },
+        });
+      }
     } else {
-      // Single point being placed
       for (const c of state.currentCoords) {
         features.push({
           type: "Feature",
@@ -245,4 +286,92 @@ export function exportGeoJSON(state: DrawState): GeoJSON.FeatureCollection {
 /** Export all features as GeoJSON string */
 export function exportGeoJSONString(state: DrawState): string {
   return JSON.stringify(exportGeoJSON(state), null, 2);
+}
+
+/* ─── Measurement ─── */
+
+/** Haversine distance between two [lon, lat] coordinates in meters */
+function haversine(a: [number, number], b: [number, number]): number {
+  const R = 6371000;
+  const dLat = ((b[1] - a[1]) * Math.PI) / 180;
+  const dLon = ((b[0] - a[0]) * Math.PI) / 180;
+  const la = (a[1] * Math.PI) / 180;
+  const lb = (b[1] * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la) * Math.cos(lb) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+/** Total length of a polyline in meters */
+function lineLength(coords: [number, number][]): number {
+  let d = 0;
+  for (let i = 1; i < coords.length; i++) d += haversine(coords[i - 1], coords[i]);
+  return d;
+}
+
+/** Signed area of a polygon ring in square meters (Shoelace on sphere) */
+function ringArea(ring: [number, number][]): number {
+  const n = ring.length;
+  if (n < 3) return 0;
+  let area = 0;
+  const R = 6371000;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const lat1 = (ring[i][1] * Math.PI) / 180;
+    const lat2 = (ring[j][1] * Math.PI) / 180;
+    const dLng = ((ring[j][0] - ring[i][0]) * Math.PI) / 180;
+    area += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
+  }
+  return Math.abs((area * R * R) / 2);
+}
+
+export interface Measurement {
+  type: "distance" | "area" | "point";
+  value: number; // meters or sq meters
+}
+
+/** Measure a GeoJSON feature */
+export function measureFeature(feature: GeoJSON.Feature): Measurement | null {
+  const g = feature.geometry;
+  if (!g) return null;
+
+  if (g.type === "LineString") {
+    const d = lineLength(g.coordinates as [number, number][]);
+    return { type: "distance", value: d };
+  }
+  if (g.type === "Polygon") {
+    const a = ringArea(g.coordinates[0] as [number, number][]);
+    return { type: "area", value: a };
+  }
+  if (g.type === "Point") {
+    return { type: "point", value: 0 };
+  }
+  return null;
+}
+
+/** Measure in-progress drawing (currentCoords) */
+export function measureDrawing(coords: [number, number][], mode: DrawMode): Measurement | null {
+  if (coords.length === 0) return null;
+  if (mode === "line" && coords.length >= 2) {
+    return { type: "distance", value: lineLength(coords) };
+  }
+  if (mode === "polygon" && coords.length >= 3) {
+    return { type: "area", value: ringArea([...coords, coords[0]]) };
+  }
+  if (mode === "point") {
+    return { type: "point", value: 0 };
+  }
+  return null;
+}
+
+/** Format a distance for display */
+export function formatDistance(meters: number): string {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(2)} km`;
+  return `${meters.toFixed(1)} m`;
+}
+
+/** Format an area for display */
+export function formatArea(sqMeters: number): string {
+  if (sqMeters >= 1e6) return `${(sqMeters / 1e6).toFixed(2)} km\u00B2`;
+  if (sqMeters >= 1e4) return `${(sqMeters / 1e4).toFixed(2)} ha`;
+  return `${sqMeters.toFixed(1)} m\u00B2`;
 }

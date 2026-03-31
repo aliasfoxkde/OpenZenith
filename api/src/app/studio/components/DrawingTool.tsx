@@ -1,7 +1,10 @@
 "use client";
 
 import type { DrawMode, DrawState } from "../lib/drawing";
-import { createDrawState, finishDrawing, undo, redo, deleteSelected, exportGeoJSONString } from "../lib/drawing";
+import {
+  createDrawState, finishDrawing, undo, redo, deleteSelected, exportGeoJSONString,
+  measureFeature, measureDrawing, formatDistance, formatArea,
+} from "../lib/drawing";
 
 interface Props {
   dark: boolean;
@@ -71,6 +74,13 @@ export function DrawingTool({ dark, drawState, onDrawStateChange }: Props) {
       {drawState.mode !== "none" && drawState.currentCoords.length > 0 && (
         <div style={{ fontSize: 11, color: "#3b82f6" }}>
           {drawState.currentCoords.length} point{drawState.currentCoords.length > 1 ? "s" : ""} placed
+          {(() => {
+            const m = measureDrawing(drawState.currentCoords, drawState.mode);
+            if (!m) return null;
+            if (m.type === "distance") return <span> &middot; {formatDistance(m.value)}</span>;
+            if (m.type === "area") return <span> &middot; {formatArea(m.value)}</span>;
+            return null;
+          })()}
         </div>
       )}
 
@@ -177,11 +187,24 @@ export function DrawingTool({ dark, drawState, onDrawStateChange }: Props) {
         </div>
       )}
 
-      {/* Feature count */}
+      {/* Feature count + selected measurement */}
       <div style={{ fontSize: 11, color: textSec }}>
         {drawState.features.length} feature{drawState.features.length !== 1 ? "s" : ""}
         {drawState.selectedFeatureIndex >= 0 && (
-          <span style={{ color: "#fbbf24" }}> (#{drawState.selectedFeatureIndex + 1} selected)</span>
+          <span style={{ color: "#fbbf24" }}>
+            {" "}(#<span style={{ color: text }}>{drawState.selectedFeatureIndex + 1}</span> selected)
+            {(() => {
+              const m = measureFeature(drawState.features[drawState.selectedFeatureIndex]);
+              if (!m) return null;
+              if (m.type === "distance") return <span> &mdash; {formatDistance(m.value)}</span>;
+              if (m.type === "area") return <span> &mdash; {formatArea(m.value)}</span>;
+              if (m.type === "point") {
+                const c = drawState.features[drawState.selectedFeatureIndex].geometry!.coordinates as [number, number];
+                return <span> &mdash; {c[1].toFixed(5)}, {c[0].toFixed(5)}</span>;
+              }
+              return null;
+            })()}
+          </span>
         )}
       </div>
     </div>

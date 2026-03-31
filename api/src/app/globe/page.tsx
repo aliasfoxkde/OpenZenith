@@ -708,13 +708,13 @@ export default function Globe() {
           else toggleImageryOverlay("nasa-gibs"); break;
         case "blueMarble":
           if (on) toggleImageryOverlay("BlueMarble_ShadedRelief",
-            "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlueMarble_ShadedRelief/default/{z}/{y}/{x}.jpg",
+            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
             0.85, 8
           );
           else toggleImageryOverlay("BlueMarble_ShadedRelief"); break;
         case "nightLights":
           if (on) toggleImageryOverlay("VIIRS_CityLights",
-            "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default/{z}/{y}/{x}.jpg",
+            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
             1.0
           );
           else toggleImageryOverlay("VIIRS_CityLights"); break;

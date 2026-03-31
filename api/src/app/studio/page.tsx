@@ -14,6 +14,7 @@ import {
 import { ToolPanel } from "./components/ToolPanel";
 import { addBuildings, removeBuildings } from "../map/lib/layers";
 import { encodeMapHash, decodeMapHash, loadPreferences, savePreferences } from "./lib/map-state";
+import { OnboardingOverlay } from "./components/OnboardingOverlay";
 
 /* ─── State ─── */
 
@@ -51,6 +52,10 @@ export default function StudioPage() {
 
   const [dark] = useState(true);
   const [isMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !localStorage.getItem("openzenith-studio-onboarded");
+  });
 
   // Restore from URL hash and localStorage
   const [initialCenter] = useState<[number, number]>(() => {
@@ -562,6 +567,19 @@ export default function StudioPage() {
         {datasets.length > 0 && <span>{datasets.length} dataset{datasets.length > 1 ? "s" : ""}</span>}
         {overpassLayerId && <span style={{ color: "#8b5cf6" }}>OSM query</span>}
       </div>
+
+      {/* Onboarding overlay */}
+      {showOnboarding && (
+        <OnboardingOverlay
+          dark={dark}
+          onDismiss={() => {
+            setShowOnboarding(false);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("openzenith-studio-onboarded", "1");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -54,6 +54,8 @@ export function ToolPanel(props: Props) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: bg }}>
       {/* Tab bar */}
       <div
+        role="tablist"
+        aria-label="Studio tool tabs"
         style={{
           display: "flex", borderBottom: `1px solid ${border}`, flexShrink: 0,
           overflowX: "auto", scrollbarWidth: "none",
@@ -62,6 +64,10 @@ export function ToolPanel(props: Props) {
         {TABS.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
+            tabIndex={activeTab === tab.id ? 0 : -1}
             onClick={() => onTabChange(tab.id)}
             style={{
               padding: "10px 12px",
@@ -87,38 +93,51 @@ export function ToolPanel(props: Props) {
       {/* Tab content */}
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeTab === "elevation" && (
-          <ElevationTool map={props.map} dark={dark} cursorPos={props.cursorPos} />
+          <div role="tabpanel" id="panel-elevation" aria-label="Elevation tool">
+            <ElevationTool map={props.map} dark={dark} cursorPos={props.cursorPos} />
+          </div>
         )}
         {activeTab === "geocode" && (
-          <GeocodeTool map={props.map} dark={dark} />
+          <div role="tabpanel" id="panel-geocode" aria-label="Geocode tool">
+            <GeocodeTool map={props.map} dark={dark} />
+          </div>
         )}
         {activeTab === "overpass" && (
-          <OverpassTool map={props.map} dark={dark} onResult={props.onOverpassResult} />
+          <div role="tabpanel" id="panel-overpass" aria-label="OSM query tool">
+            <OverpassTool map={props.map} dark={dark} onResult={props.onOverpassResult} />
+          </div>
         )}
         {activeTab === "weather" && (
-          <WeatherTool dark={dark} onToggleLayer={props.onToggleLayer} layers={props.layers} />
+          <div role="tabpanel" id="panel-weather" aria-label="Weather tool">
+            <WeatherTool dark={dark} onToggleLayer={props.onToggleLayer} layers={props.layers} />
+          </div>
         )}
         {activeTab === "data" && (
-          <DataTool
-            dark={dark}
-            datasets={props.datasets}
-            onDatasetsChange={props.onDatasetsChange}
-            onToggleDataset={props.onToggleDataset}
-            onRemoveDataset={props.onRemoveDataset}
-            onVisualizationChange={props.onVisualizationChange}
-          />
+          <div role="tabpanel" id="panel-data" aria-label="Data upload tool">
+            <DataTool
+              dark={dark}
+              datasets={props.datasets}
+              onDatasetsChange={props.onDatasetsChange}
+              onToggleDataset={props.onToggleDataset}
+              onRemoveDataset={props.onRemoveDataset}
+              onVisualizationChange={props.onVisualizationChange}
+            />
+          </div>
         )}
         {activeTab === "layers" && (
-          <LayersTool
-            dark={dark}
-            basemap={props.basemap}
-            onBasemapChange={props.onBasemapChange}
-            layers={props.layers}
-            onToggleLayer={props.onToggleLayer}
-            datasets={props.datasets}
-          />
+          <div role="tabpanel" id="panel-layers" aria-label="Layers tool">
+            <LayersTool
+              dark={dark}
+              basemap={props.basemap}
+              onBasemapChange={props.onBasemapChange}
+              layers={props.layers}
+              onToggleLayer={props.onToggleLayer}
+              datasets={props.datasets}
+            />
+          </div>
         )}
         {activeTab === "draw" && props.drawState && props.onDrawStateChange && (
+          <div role="tabpanel" id="panel-draw" aria-label="Drawing tool">
           <DrawingTool
             dark={dark}
             drawState={props.drawState}
@@ -126,6 +145,7 @@ export function ToolPanel(props: Props) {
             imperial={props.imperial}
             onImperialChange={props.onImperialChange}
           />
+          </div>
         )}
       </div>
     </div>

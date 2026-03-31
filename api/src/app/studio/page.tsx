@@ -440,13 +440,39 @@ export default function StudioPage() {
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: bg }}>
+      {/* Skip links for accessibility */}
+      <a
+        href="#studio-sidebar"
+        style={{
+          position: "absolute", top: -100, left: 8, zIndex: 9999,
+          padding: "4px 8px", background: "#3b82f6", color: "#fff",
+          borderRadius: 4, fontSize: 12, textDecoration: "none",
+        }}
+        onFocus={(e) => { (e.target as HTMLElement).style.top = "8px"; }}
+        onBlur={(e) => { (e.target as HTMLElement).style.top = "-100px"; }}
+      >
+        Skip to sidebar
+      </a>
+      <a
+        href="#studio-map"
+        style={{
+          position: "absolute", top: -100, left: 120, zIndex: 9999,
+          padding: "4px 8px", background: "#3b82f6", color: "#fff",
+          borderRadius: 4, fontSize: 12, textDecoration: "none",
+        }}
+        onFocus={(e) => { (e.target as HTMLElement).style.top = "8px"; }}
+        onBlur={(e) => { (e.target as HTMLElement).style.top = "-100px"; }}
+      >
+        Skip to map
+      </a>
+
       <Navbar dark={dark} breadcrumb="Studio" />
 
       <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Map */}
         <div style={{ flex: 1, position: "relative" }}>
           <ErrorBoundary>
-          <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+          <div ref={containerRef} id="studio-map" role="application" aria-label="Interactive map canvas" tabIndex={0} style={{ width: "100%", height: "100%" }} />
           </ErrorBoundary>
 
           {/* Loading */}
@@ -475,6 +501,9 @@ export default function StudioPage() {
           {mapReady && (
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? "Close sidebar panel" : "Open sidebar panel"}
+              aria-expanded={sidebarOpen}
+              aria-controls="studio-sidebar"
               style={{
                 position: "absolute", top: 10,
                 right: isMobile ? 10 : (sidebarOpen ? 380 : 10),
@@ -502,6 +531,9 @@ export default function StudioPage() {
 
         {/* Sidebar */}
         <div
+          id="studio-sidebar"
+          role="complementary"
+          aria-label="Studio tools panel"
           style={{
             width: isMobile ? "100%" : 380,
             maxWidth: isMobile ? 380 : undefined,
@@ -550,6 +582,9 @@ export default function StudioPage() {
 
       {/* Status bar */}
       <div
+        role="status"
+        aria-label="Map status bar"
+        aria-live="polite"
         style={{
           height: 28, flexShrink: 0, display: "flex", alignItems: "center", gap: 16,
           padding: "0 16px", background: dark ? "#080808" : "#f0f0f0",

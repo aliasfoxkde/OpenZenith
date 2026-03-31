@@ -30,15 +30,13 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT_MAX;
 }
 
-// Cleanup old entries every 5 minutes
-setInterval(() => {
+export function middleware(request: NextRequest) {
+  // Lazy cleanup of expired rate limit entries (runs inline, no timers)
   const now = Date.now();
   for (const [key, entry] of rateLimitMap) {
     if (now > entry.resetAt) rateLimitMap.delete(key);
   }
-}, 300_000);
 
-export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Only apply to API routes

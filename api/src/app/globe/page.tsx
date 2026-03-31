@@ -702,8 +702,8 @@ export default function Globe() {
           if (!on) removeEntities("storm-"); break;
         case "satellite":
           if (on) toggleImageryOverlay("nasa-gibs",
-            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.3.0&LAYER=MODIS_Terra_CorrectedReflectance_TrueColor&TILEMATRIXSET=GoogleMapsCompatible&TILECOL={z}&TILEROW={y}&TILEMATRIX={z}&FORMAT=image%2Fpng",
-            0.7, 8
+            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
+            0.7, 9
           );
           else toggleImageryOverlay("nasa-gibs"); break;
         case "blueMarble":

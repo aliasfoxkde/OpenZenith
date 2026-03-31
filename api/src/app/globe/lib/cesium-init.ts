@@ -197,14 +197,11 @@ export async function initCesiumViewer(
   // ─── Cloud overlay (semi-transparent, always on) ───
   function addCloudOverlay() {
     const provider = new Cesium.UrlTemplateImageryProvider({
-      url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi"
-        + "?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.3.0"
-        + "&LAYER=MODIS_Terra_CorrectedReflectance_TrueColor"
-        + "&TILEMATRIXSET=GoogleMapsCompatible"
-        + "&TILECOL={z}&TILEROW={y}&TILEMATRIX={z}"
-        + "&FORMAT=image%2Fpng",
+      url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best"
+        + "/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31"
+        + "/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
       credit: "",
-      maximumLevel: 8,
+      maximumLevel: 9,
     });
     const layer = viewer.imageryLayers.addImageryProvider(provider);
     layer.alpha = 0.25;

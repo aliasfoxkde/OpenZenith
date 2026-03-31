@@ -7,6 +7,10 @@ import { waitForMapLibre } from "./lib/load-map";
 import { BASEMAPS, DEFAULT_CENTER, DEFAULT_ZOOM } from "./lib/constants";
 import type { ToolTab, UploadedDataset } from "./lib/types";
 import { addGeoJSONLayer, removeGeoJSONLayer } from "./lib/map-helpers";
+import {
+  createDrawState, addDrawLayers, removeDrawLayers, updateDrawLayers,
+  finishDrawing, type DrawState, type DrawMode,
+} from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
 
 /* ─── State ─── */
@@ -54,6 +58,16 @@ export default function StudioPage() {
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [overpassLayerId, setOverpassLayerId] = useState<string | null>(null);
+
+  // Update draw layers when draw state changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && mapReady) updateDrawLayers(map, drawState);
+  }, [drawState, mapReady]);
+  const [drawState, setDrawState] = useState<DrawState>(createDrawState());
+  const drawStateRef = useRef<DrawState>(drawState);
+  const drawKeyHandlerRef = useRef<((ev: KeyboardEvent) => void) | null>(null);
+  drawStateRef.current = drawState;
 
   /* ─── Map init ─── */
 
@@ -108,7 +122,46 @@ export default function StudioPage() {
           });
 
           setMapReady(true);
+          addDrawLayers(map);
         });
+
+        // Drawing mode click handler
+        map.on("click", (e: any) => {
+          const ds = drawStateRef.current;
+          if (ds.mode === "none") return;
+
+          const pt: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+          setDrawState((prev) => {
+            const next = { ...prev, currentCoords: [...prev.currentCoords, pt] };
+
+            // Auto-finish for point mode (each click is a separate feature)
+            if (prev.mode === "point") {
+              return finishDrawing(next);
+            }
+
+            return next;
+          });
+        });
+
+        // Keyboard shortcuts for drawing
+        const drawKeyHandler = (ev: KeyboardEvent) => {
+          const ds = drawStateRef.current;
+          if (ds.mode === "none") return;
+
+          if (ev.key === "Enter") {
+            setDrawState((prev) => finishDrawing(prev));
+          } else if (ev.key === "Escape") {
+            setDrawState((prev) => ({ ...prev, currentCoords: [], mode: "none" as DrawMode }));
+          } else if (ev.key === "z" && (ev.ctrlKey || ev.metaKey)) {
+            ev.preventDefault();
+            setDrawState((prev) => undo(prev));
+          } else if (ev.key === "y" && (ev.ctrlKey || ev.metaKey)) {
+            ev.preventDefault();
+            setDrawState((prev) => redo(prev));
+          }
+        };
+        drawKeyHandlerRef.current = drawKeyHandler;
+        document.addEventListener("keydown", drawKeyHandler);
 
         map.on("mousemove", (e: any) => {
           setCursorPos({ lat: e.lngLat.lat, lon: e.lngLat.lng });
@@ -134,7 +187,11 @@ export default function StudioPage() {
       // Clear intervals
       for (const interval of layerHandleRef.current.intervals) clearInterval(interval);
       layerHandleRef.current.intervals = [];
+      if (drawKeyHandlerRef.current) {
+        document.removeEventListener("keydown", drawKeyHandlerRef.current);
+      }
       if (mapRef.current) {
+        removeDrawLayers(mapRef.current);
         mapRef.current.remove();
         mapRef.current = null;
       }
@@ -359,6 +416,8 @@ export default function StudioPage() {
               onToggleDataset={handleToggleDataset}
               onRemoveDataset={handleRemoveDataset}
               onOverpassResult={handleOverpassResult}
+              drawState={drawState}
+              onDrawStateChange={setDrawState}
             />
           )}
         </div>

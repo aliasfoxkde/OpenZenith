@@ -1,4 +1,4 @@
-export type ToolTab = "elevation" | "geocode" | "overpass" | "weather" | "data" | "layers";
+export type ToolTab = "elevation" | "geocode" | "overpass" | "weather" | "data" | "layers" | "draw";
 
 export interface StudioState {
   activeTab: ToolTab;
@@ -47,9 +47,13 @@ export interface MarkerPin {
   elevation?: number | null;
 }
 
-export type DrawMode = "none" | "point" | "line" | "polygon" | "measure";
+export type DrawMode = "none" | "point" | "line" | "polygon";
 
 export interface DrawState {
   mode: DrawMode;
-  points: Array<{ lat: number; lon: number }>;
+  features: GeoJSON.Feature[];
+  currentCoords: [number, number][];
+  selectedFeatureIndex: number;
+  history: GeoJSON.Feature[][];
+  redoStack: GeoJSON.Feature[][];
 }

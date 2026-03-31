@@ -7,6 +7,7 @@ import { OverpassTool } from "./OverpassTool";
 import { WeatherTool } from "./WeatherTool";
 import { DataTool } from "./DataTool";
 import { LayersTool } from "./LayersTool";
+import { DrawingTool } from "./DrawingTool";
 import type { UploadedDataset } from "../lib/types";
 
 interface Props {
@@ -24,6 +25,8 @@ interface Props {
   onToggleDataset: (id: string, visible: boolean) => void;
   onRemoveDataset: (id: string) => void;
   onOverpassResult: (data: GeoJSON.FeatureCollection, name: string) => void;
+  drawState?: import("../lib/types").DrawState;
+  onDrawStateChange?: (state: import("../lib/types").DrawState) => void;
 }
 
 const TABS: { id: ToolTab; label: string; icon: string }[] = [
@@ -33,6 +36,7 @@ const TABS: { id: ToolTab; label: string; icon: string }[] = [
   { id: "weather", label: "Weather", icon: "\u26c8" },
   { id: "data", label: "Data", icon: "\ud83d\udcc1" },
   { id: "layers", label: "Layers", icon: "\ud83d\udcda" },
+  { id: "draw", label: "Draw", icon: "\u270f" },
 ];
 
 export function ToolPanel(props: Props) {
@@ -108,6 +112,13 @@ export function ToolPanel(props: Props) {
             layers={props.layers}
             onToggleLayer={props.onToggleLayer}
             datasets={props.datasets}
+          />
+        )}
+        {activeTab === "draw" && props.drawState && props.onDrawStateChange && (
+          <DrawingTool
+            dark={dark}
+            drawState={props.drawState}
+            onDrawStateChange={props.onDrawStateChange}
           />
         )}
       </div>

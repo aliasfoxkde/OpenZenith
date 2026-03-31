@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Navbar } from "@/components/Navbar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { waitForMapLibre } from "./lib/load-map";
 import { BASEMAPS, DEFAULT_CENTER, DEFAULT_ZOOM } from "./lib/constants";
 import type { ToolTab, UploadedDataset } from "./lib/types";
@@ -292,7 +293,9 @@ export default function StudioPage() {
       <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Map */}
         <div style={{ flex: 1, position: "relative" }}>
+          <ErrorBoundary>
           <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+          </ErrorBoundary>
 
           {/* Loading */}
           {!mapReady && !loadError && (

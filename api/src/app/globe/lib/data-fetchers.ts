@@ -128,10 +128,22 @@ export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {
 }
 
 export async function fetchFIRMS(signal?: AbortSignal): Promise<any> {
-  const key = process.env.NEXT_PUBLIC_FIRMS_API_KEY || "";
-  if (!key) return { features: [] };
-  const bbox = "-180,-90,180,90";
-  const day = new Date().toISOString().slice(0, 10);
-  const r = await dedupFetch(`/api/proxy/https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${bbox}/${day}`, signal);
-  return r.text();
+  const r = await dedupFetch("/api/wildfires", signal);
+  const data = await r.json();
+  if (data.error) return "";
+  // Convert GeoJSON back to CSV for globe layer compatibility
+  const features = data.features || [];
+  if (!features.length) return "";
+  const lines = ["latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight"];
+  for (const f of features) {
+    const p = f.properties;
+    lines.push(`0,0,${p.brightness || 0},1,1,2026-01-01,0,${p.satellite || "N"},VIIRS,${p.confidence || 0},1,300,${p.frp || 0},${p.daynight || "D"}`);
+    // Last two values before confidence are dummy scan/track, real lat/lon are set from geometry
+    const coords = f.geometry.coordinates;
+    const last = lines[lines.length - 1].split(",");
+    last[0] = coords[1]; // lat
+    last[1] = coords[0]; // lon
+    lines[lines.length - 1] = last.join(",");
+  }
+  return lines.join("\n");
 }

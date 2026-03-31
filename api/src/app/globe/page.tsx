@@ -21,6 +21,7 @@ import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD, getZoneLabel } from "./lib/lod";
 
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { createElevationProfile, renderProfileChart } from "./lib/tools/elevation-profile";
 import { getAllFormats } from "./lib/tools/measure";
 import { useWidgetManager } from "./lib/widgets/useWidgetManager";
@@ -901,7 +902,9 @@ export default function Globe() {
         }
       />
 
+      <ErrorBoundary>
       <div ref={containerRef} className="wv-map" />
+      </ErrorBoundary>
 
       {/* Compass */}
       <div className="wv-compass" onClick={compassNorth} title="Reset north">

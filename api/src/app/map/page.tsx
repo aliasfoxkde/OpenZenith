@@ -6,7 +6,12 @@ import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "./lib/layers";
+import {
+  createMeasureController, type MeasureMode,
+  pathDistance, sphericalPolygonArea, formatDistance, formatArea,
+} from "./lib/measure";
 
 /* ─── Types ─── */
 
@@ -244,6 +249,11 @@ export default function MapPage() {
   const pinsRef = useRef<any[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const layerHandleRef = useRef<LayerHandle>({ intervals: [] });
+  const measureRef = useRef(createMeasureController());
+  const [measureMode, setMeasureMode] = useState<MeasureMode>("none");
+  const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
+  const measureModeRef = useRef<MeasureMode>("none");
+  const measurePointsRef = useRef<[number, number][]>([]);
 
   // Sync hash on state change
   useEffect(() => {
@@ -252,6 +262,52 @@ export default function MapPage() {
       window.history.replaceState(null, "", buildHash(mapState));
     }, 300);
   }, [mapState]);
+
+  // Measure mode handlers
+  const clearMeasure = useCallback(() => {
+    setMeasureMode("none");
+    setMeasurePoints([]);
+    const map = mapRef.current;
+    if (map) measureRef.current.removeLayers(map);
+  }, []);
+
+  const toggleMeasureMode = useCallback((mode: MeasureMode) => {
+    if (measureMode === mode) {
+      clearMeasure();
+      measureModeRef.current = "none";
+      return;
+    }
+    measureModeRef.current = mode;
+    setMeasureMode(mode);
+    setMeasurePoints([]);
+    measurePointsRef.current = [];
+    const map = mapRef.current;
+    if (map) {
+      measureRef.current.removeLayers(map);
+      measureRef.current.addLayers(map);
+    }
+  }, [measureMode, clearMeasure]);
+
+  // Update measure layers when points change
+  useEffect(() => {
+    if (measureMode === "none") return;
+    const map = mapRef.current;
+    if (map) measureRef.current.updateMap(map, measurePoints, measureMode);
+  }, [measurePoints, measureMode]);
+
+  // Keyboard shortcut: Escape to cancel measure
+  useEffect(() => {
+    if (measureMode === "none") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") clearMeasure();
+      if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setMeasurePoints((prev) => prev.slice(0, -1));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [measureMode, clearMeasure]);
 
   // Initialize map
   useEffect(() => {
@@ -302,6 +358,14 @@ export default function MapPage() {
 
         map.on("click", async (e: any) => {
           const { lat, lng } = e.lngLat;
+
+          // Measure mode: add point instead of elevation pin
+          if (measureModeRef.current !== "none") {
+            const pt: [number, number] = [lng, lat];
+            measurePointsRef.current = [...measurePointsRef.current, pt];
+            setMeasurePoints([...measurePointsRef.current]);
+            return;
+          }
           setFetchingElevation(true);
           setCtxMenu(null);
 
@@ -562,6 +626,100 @@ export default function MapPage() {
           <Toolbar onSearch={handleSearch} onJumpTo={handleJumpTo} onScreenshot={handleScreenshot} />
         </div>
 
+        {/* Measure tools */}
+        <div style={{ position: "absolute", top: 52, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
+          <button
+            onClick={() => toggleMeasureMode("distance")}
+            title="Measure distance (Esc to cancel)"
+            style={{
+              background: measureMode === "distance" ? T.accent : T.panel,
+              border: `1px solid ${measureMode === "distance" ? T.accent : T.border}`,
+              borderRadius: 4,
+              color: measureMode === "distance" ? "#0a0f1a" : T.textMuted,
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              fontFamily: T.fontMono,
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            RULER
+          </button>
+          <button
+            onClick={() => toggleMeasureMode("area")}
+            title="Measure area (Esc to cancel)"
+            style={{
+              background: measureMode === "area" ? T.accent : T.panel,
+              border: `1px solid ${measureMode === "area" ? T.accent : T.border}`,
+              borderRadius: 4,
+              color: measureMode === "area" ? "#0a0f1a" : T.textMuted,
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              fontFamily: T.fontMono,
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            AREA
+          </button>
+          {measureMode !== "none" && (
+            <button
+              onClick={clearMeasure}
+              title="Clear measurement"
+              style={{
+                background: "transparent",
+                border: `1px solid ${T.border}`,
+                borderRadius: 4,
+                color: T.red,
+                padding: "4px 8px",
+                cursor: "pointer",
+                fontSize: "0.72rem",
+                fontFamily: T.fontMono,
+              }}
+            >
+              CLR
+            </button>
+          )}
+        </div>
+
+        {/* Measure result */}
+        {measureMode !== "none" && measurePoints.length >= 2 && (
+          <div
+            style={{
+              position: "absolute",
+              top: measureMode !== "none" ? 86 : 8,
+              left: 8,
+              zIndex: 10,
+              background: T.panel,
+              border: `1px solid ${T.border}`,
+              borderRadius: 4,
+              padding: "6px 10px",
+              fontFamily: T.fontMono,
+              fontSize: "0.75rem",
+              color: T.accent,
+              backdropFilter: "blur(8px)",
+              boxShadow: T.glowSubtle,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <div>
+              {measureMode === "distance"
+                ? `Distance: ${formatDistance(pathDistance(measurePoints))}`
+                : `Area: ${formatArea(sphericalPolygonArea(measurePoints))}`}
+            </div>
+            {measureMode === "distance" && measurePoints.length >= 2 && (
+              <div style={{ fontSize: "0.65rem", color: T.textMuted }}>
+                Segments: {measurePoints.length - 1}
+              </div>
+            )}
+            <div style={{ fontSize: "0.65rem", color: T.textMuted }}>
+              {measurePoints.length} point{measurePoints.length > 1 ? "s" : ""} | Esc to cancel | Ctrl+Z undo
+            </div>
+          </div>
+        )}
+
         {/* Coordinate readout */}
         <div style={{ position: "absolute", bottom: 8, left: 8, zIndex: 10 }}>
           <SurveillancePanel style={{ padding: "0.3rem 0.6rem" }}>
@@ -759,14 +917,16 @@ export default function MapPage() {
             </button>
           </div>
         )}
+        <ErrorBoundary>
         <div
           ref={containerRef}
           style={{
             width: "100%",
             height: "100%",
-            cursor: "crosshair",
+            cursor: measureMode !== "none" ? "cell" : "crosshair",
           }}
         />
+        </ErrorBoundary>
 
         {/* Loading */}
         {loading && !loadError && (

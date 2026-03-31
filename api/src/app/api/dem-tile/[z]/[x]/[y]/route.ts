@@ -71,7 +71,12 @@ export async function GET(
   const key = `tiles/${z}/${x}/${tileYStr}.png`;
 
   try {
-    const object = await bucket.get(key);
+    const object = await Promise.race([
+      bucket.get(key),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error("R2 timeout")), 5000),
+      ),
+    ]);
 
     if (!object) {
       // Return flat ocean tile for missing tiles

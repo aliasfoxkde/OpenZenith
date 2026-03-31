@@ -183,22 +183,87 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
       }
     }
 
-    // Polygon
-    const poly = pm.querySelector("Polygon outerBoundaryIs LinearRing coordinates");
-    if (poly) {
-      const coords = poly
-        .textContent!.trim()
-        .split(/\s+/)
-        .reduce((acc: [number, number][], _, i, arr) => {
+    // Polygon (with inner boundary / hole support)
+    const outerRing = pm.querySelector("Polygon outerBoundaryIs LinearRing coordinates");
+    if (outerRing) {
+      const parseRing = (el: Element): [number, number][] =>
+        el.textContent!.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
           if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
           return acc;
         }, []);
-      if (coords.length > 3) {
+
+      const outerCoords = parseRing(outerRing);
+      if (outerCoords.length > 3) {
+        const innerRings = [...pm.querySelectorAll("Polygon innerBoundaryIs LinearRing coordinates")]
+          .map(parseRing)
+          .filter((r) => r.length > 3);
         features.push({
           type: "Feature",
-          geometry: { type: "Polygon", coordinates: [coords] },
+          geometry: { type: "Polygon", coordinates: [outerCoords, ...innerRings] },
           properties: { name, description: desc },
         });
+      }
+      continue;
+    }
+
+    // MultiGeometry
+    const multi = pm.querySelector("MultiGeometry");
+    if (multi) {
+      const extractGeoms = (container: Element): GeoJSON.Geometry[] => {
+        const geoms: GeoJSON.Geometry[] = [];
+        for (const child of Array.from(container.children)) {
+          const tag = child.tagName;
+          if (tag === "Point") {
+            const coords = child.querySelector("coordinates")?.textContent?.trim().split(/\s+/).map(Number);
+            if (coords && coords.length >= 2) geoms.push({ type: "Point", coordinates: [coords[0], coords[1]] });
+          } else if (tag === "LineString") {
+            const lineCoords = child.querySelector("coordinates")?.textContent?.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
+              if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
+              return acc;
+            }, []);
+            if (lineCoords && lineCoords.length > 1) geoms.push({ type: "LineString", coordinates: lineCoords });
+          } else if (tag === "Polygon") {
+            const outer = child.querySelector("outerBoundaryIs LinearRing coordinates");
+            if (outer) {
+              const outerCoords = outer.textContent!.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
+                if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
+                return acc;
+              }, []);
+              const inners = [...child.querySelectorAll("innerBoundaryIs LinearRing coordinates")].map((el) =>
+                el.textContent!.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
+                  if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
+                  return acc;
+                }, []),
+              ).filter((r) => r.length > 3);
+              if (outerCoords.length > 3) geoms.push({ type: "Polygon", coordinates: [outerCoords, ...inners] });
+            }
+          } else if (tag === "MultiGeometry") {
+            geoms.push(...extractGeoms(child));
+          }
+        }
+        return geoms;
+      };
+
+      const geoms = extractGeoms(multi);
+      if (geoms.length > 0) {
+        // Determine unified type
+        const types = new Set(geoms.map((g) => g.type));
+        if (types.size === 1) {
+          const t = geoms[0].type as "Point" | "LineString" | "Polygon";
+          features.push({
+            type: "Feature",
+            geometry: {
+              type: `Multi${t}` as "MultiPoint" | "MultiLineString" | "MultiPolygon",
+              coordinates: geoms.map((g) => g.coordinates),
+            },
+            properties: { name, description: desc },
+          });
+        } else {
+          // Mixed types — emit as separate features
+          for (const geom of geoms) {
+            features.push({ type: "Feature", geometry: geom, properties: { name, description: desc } });
+          }
+        }
       }
     }
   }

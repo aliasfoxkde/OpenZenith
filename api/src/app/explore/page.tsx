@@ -1431,7 +1431,7 @@ export default function ExplorePage() {
           <>
             <div className="ex-toolbar">
               <input
-                placeholder="https://servicesX.arcgis.com/XXXX/ArcGIS/rest/services"
+                placeholder="https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services"
                 value={customUrl}
                 onChange={(e) => setCustomUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCustomHost()}

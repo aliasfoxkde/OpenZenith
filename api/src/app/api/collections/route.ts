@@ -45,6 +45,7 @@ const FEATURE_COLLECTIONS = [
 ];
 
 export async function GET() {
+  try {
   const collections = FEATURE_COLLECTIONS.map((col) => ({
     id: col.id,
     title: col.title,
@@ -88,4 +89,11 @@ export async function GET() {
       },
     },
   );
+  } catch (error) {
+    console.error("Collections endpoint failed:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch collections" },
+      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } },
+    );
+  }
 }

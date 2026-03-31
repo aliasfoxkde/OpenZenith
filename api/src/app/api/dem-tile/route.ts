@@ -68,56 +68,64 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleHealthCheck() {
-  const { env } = getRequestContext();
-  const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
+  try {
+    const { env } = getRequestContext();
+    const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
 
-  if (!bucket) {
+    if (!bucket) {
+      return NextResponse.json(
+        { status: "error", error: "R2 bucket not bound" },
+        { status: 503, headers: { "Access-Control-Allow-Origin": "*" } },
+      );
+    }
+
+    const zoomCounts: Record<string, { found: number; expected: number }> = {};
+    let totalFound = 0;
+    let totalExpected = 0;
+
+    for (const [z, expected] of Object.entries(EXPECTED_TILES)) {
+      const prefix = `tiles/${z}/`;
+      let found = 0;
+      let cursor: string | undefined;
+
+      // Count objects with this prefix using R2 list (max 1000 per call)
+      do {
+        const listed = await bucket.list({ prefix, cursor, limit: 1000 });
+        found += listed.objects.length;
+        cursor = listed.truncated ? listed.cursor : undefined;
+      } while (cursor);
+
+      zoomCounts[z] = { found, expected };
+      totalFound += found;
+      totalExpected += expected;
+    }
+
+    const allComplete = Object.values(zoomCounts).every(
+      (v) => v.found >= v.expected,
+    );
+
     return NextResponse.json(
-      { status: "error", error: "R2 bucket not bound" },
-      { status: 503, headers: { "Access-Control-Allow-Origin": "*" } },
+      {
+        status: allComplete ? "ok" : "incomplete",
+        total_tiles: totalFound,
+        total_expected: totalExpected,
+        coverage_percent: Math.round((totalFound / totalExpected) * 100),
+        zooms: zoomCounts,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-cache",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
+    );
+  } catch (error) {
+    console.error("DEM tile health check failed:", error);
+    return NextResponse.json(
+      { status: "error", error: "Health check failed" },
+      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } },
     );
   }
-
-  const zoomCounts: Record<string, { found: number; expected: number }> = {};
-  let totalFound = 0;
-  let totalExpected = 0;
-
-  for (const [z, expected] of Object.entries(EXPECTED_TILES)) {
-    const prefix = `tiles/${z}/`;
-    let found = 0;
-    let cursor: string | undefined;
-
-    // Count objects with this prefix using R2 list (max 1000 per call)
-    do {
-      const listed = await bucket.list({ prefix, cursor, limit: 1000 });
-      found += listed.objects.length;
-      cursor = listed.truncated ? listed.cursor : undefined;
-    } while (cursor);
-
-    zoomCounts[z] = { found, expected };
-    totalFound += found;
-    totalExpected += expected;
-  }
-
-  const allComplete = Object.values(zoomCounts).every(
-    (v) => v.found >= v.expected,
-  );
-
-  return NextResponse.json(
-    {
-      status: allComplete ? "ok" : "incomplete",
-      total_tiles: totalFound,
-      total_expected: totalExpected,
-      coverage_percent: Math.round((totalFound / totalExpected) * 100),
-      zooms: zoomCounts,
-    },
-    {
-      headers: {
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
-      },
-    },
-  );
 }
 
 interface R2Bucket {

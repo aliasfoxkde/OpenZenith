@@ -57,6 +57,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // DEM terrain tiles: cache first with long TTL (tiles are immutable)
+  if (url.pathname.startsWith("/api/dem-tile/") || url.pathname.startsWith("/api/tile/")) {
+    event.respondWith(cacheFirst(event.request));
+    return;
+  }
+
   // API routes: stale while revalidate
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(staleWhileRevalidate(event.request));

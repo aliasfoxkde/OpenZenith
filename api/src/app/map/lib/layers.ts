@@ -762,12 +762,35 @@ export function removeAirQuality(map: any): void {
   try { map.removeSource("air-quality"); } catch {}
 }
 
+/* ─── Hillshade (terrain overlay) ─── */
+
+export function addHillshade(map: any, _handle: LayerHandle): void {
+  if (map.getLayer("hillshade")) return;
+  if (!map.getSource("elevation")) return;
+  map.addLayer({
+    id: "hillshade",
+    type: "hillshade",
+    source: "elevation",
+    paint: {
+      "hillshade-shadow-color": "#000000",
+      "hillshade-highlight-color": "#ffffff",
+      "hillshade-accent-color": "#333333",
+      "hillshade-exaggeration": 0.5,
+    },
+  });
+}
+
+export function removeHillshade(map: any): void {
+  try { map.removeLayer("hillshade"); } catch {}
+}
+
 /* ─── Master add/remove dispatcher ─── */
 
 const LAYER_HANDLERS: Record<string, {
   add: (map: any, handle: LayerHandle) => void;
   remove: (map: any) => void;
 }> = {
+  hillshade: { add: addHillshade, remove: removeHillshade },
   earthquakes: { add: addEarthquakes, remove: removeEarthquakes },
   warnings: { add: addWarnings, remove: removeWarnings },
   events: { add: addNaturalEvents, remove: removeNaturalEvents },

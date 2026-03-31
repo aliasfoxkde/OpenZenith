@@ -460,7 +460,7 @@ export default function MapPage() {
       map.once("styledata", () => {
         addElevationSource(map, mlgl);
         // Re-add hillshade/terrain/boundaries if enabled
-        if (mapState.layers.hillshade) addHillshadeLayer(map);
+        if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
         if (mapState.layers.terrain3d) enable3DTerrain(map);
         if (mapState.layers.boundaries) addBoundaryLayers(map);
       });
@@ -478,14 +478,6 @@ export default function MapPage() {
 
     setMapState((prev) => {
       const layers = { ...prev.layers, [layerName]: enabled };
-
-      if (layerName === "hillshade") {
-        if (enabled) addHillshadeLayer(map);
-        else {
-          try { map.removeLayer("hillshade"); } catch {}
-          try { map.removeSource("elevation"); } catch {}
-        }
-      }
 
       if (layerName === "terrain3d") {
         if (enabled) enable3DTerrain(map);
@@ -1225,25 +1217,6 @@ function removeBoundaryLayers(map: any) {
     try { map.removeLayer(id); } catch {}
   });
   try { map.removeSource("boundaries"); } catch {}
-}
-
-function addHillshadeLayer(map: any) {
-  if (map.getLayer("hillshade")) return;
-  if (!map.getSource("elevation")) return;
-  map.addLayer(
-    {
-      id: "hillshade",
-      type: "hillshade",
-      source: "elevation",
-      paint: {
-        "hillshade-shadow-color": "#000000",
-        "hillshade-highlight-color": "#ffffff",
-        "hillshade-accent-color": "#333333",
-        "hillshade-exaggeration": 0.5,
-      },
-    },
-    "basemap",
-  );
 }
 
 function enable3DTerrain(map: any) {

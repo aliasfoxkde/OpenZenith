@@ -12,35 +12,9 @@ import {
   finishDrawing, undo, redo, type DrawState, type DrawMode,
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
-import { addBuildings, removeBuildings } from "../map/lib/layers";
+import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "../map/lib/layers";
 import { encodeMapHash, decodeMapHash, loadPreferences, savePreferences } from "./lib/map-state";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
-
-/* ─── State ─── */
-
-interface StudioLayers {
-  hillshade: boolean;
-  boundaries: boolean;
-  earthquakes: boolean;
-  warnings: boolean;
-  waterways: boolean;
-  nlnog: boolean;
-  radar: boolean;
-  weather_warnings: boolean;
-}
-
-function buildDefaultLayers(): StudioLayers {
-  return {
-    hillshade: true,
-    boundaries: true,
-    earthquakes: false,
-    warnings: false,
-    waterways: false,
-    nlnog: false,
-    radar: false,
-    weather_warnings: false,
-  };
-}
 
 /* ─── Component ─── */
 
@@ -90,7 +64,10 @@ export default function StudioPage() {
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
   const [zoom, setZoom] = useState(initialZoom);
   const [basemap, setBasemap] = useState(initialBasemap);
-  const [layers, setLayers] = useState<StudioLayers>(buildDefaultLayers);
+  const [layers, setLayers] = useState<Record<string, boolean>>(() => ({
+    hillshade: true,
+    boundaries: true,
+  }));
   const [datasets, setDatasets] = useState<UploadedDataset[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -244,27 +221,9 @@ export default function StudioPage() {
     const map = mapRef.current;
     if (!map) return;
 
-    if (id === "hillshade") {
-      if (enabled) {
-        if (!map.getLayer("hillshade")) {
-          map.addLayer({
-            id: "hillshade",
-            type: "hillshade",
-            source: "elevation",
-            paint: {
-              "hillshade-shadow-color": "#000000",
-              "hillshade-highlight-color": "#ffffff",
-              "hillshade-accent-color": "#333333",
-              "hillshade-exaggeration": 0.3,
-            },
-          });
-        }
-      } else {
-        if (map.getLayer("hillshade")) map.removeLayer("hillshade");
-      }
-    } else if (id === "buildings") {
-      if (enabled) addBuildings(map, layerHandleRef.current);
-      else removeBuildings(map);
+    if (MAP_2D_LAYER_IDS.has(id)) {
+      if (enabled) addDataLayer(map, layerHandleRef.current, id);
+      else removeDataLayer(map, id);
     }
   }, []);
 

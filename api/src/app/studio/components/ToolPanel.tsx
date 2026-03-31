@@ -16,7 +16,7 @@ interface Props {
   dark: boolean;
   map: any;
   cursorPos: { lat: number; lon: number } | null;
-  layers: Record<string, boolean> | { hillshade: boolean; boundaries: boolean; earthquakes: boolean; warnings: boolean; waterways: boolean; nlnog: boolean; radar: boolean; weather_warnings: boolean };
+  layers: Record<string, boolean>;
   onToggleLayer: (id: string, enabled: boolean) => void;
   basemap: string;
   onBasemapChange: (key: string) => void;

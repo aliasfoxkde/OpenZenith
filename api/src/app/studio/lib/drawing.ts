@@ -27,12 +27,12 @@ export function createDrawState(): DrawState {
   };
 }
 
-let drawSourceId = "draw-source";
-let drawVertexLayerId = "draw-vertices";
-let drawLineLayerId = "draw-line";
-let drawFillLayerId = "draw-fill";
-let drawSelectedLayerId = "draw-selected";
-let drawLabelLayerId = "draw-label";
+const drawSourceId = "draw-source";
+const drawVertexLayerId = "draw-vertices";
+const drawLineLayerId = "draw-line";
+const drawFillLayerId = "draw-fill";
+const drawSelectedLayerId = "draw-selected";
+const drawLabelLayerId = "draw-label";
 
 export function addDrawLayers(map: any) {
   if (map.getSource(drawSourceId)) return;

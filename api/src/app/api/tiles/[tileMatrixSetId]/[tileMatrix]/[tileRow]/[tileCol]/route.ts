@@ -12,7 +12,7 @@ export const runtime = "edge";
  * Maps to internal DEM tile endpoint: /api/dem-tile/{z}/{x}/{y}
  */
 
-export const CACHE_HEADERS = {
+const CACHE_HEADERS: Record<string, string> = {
   "Cache-Control": "public, max-age=31536000, immutable",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",

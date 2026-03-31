@@ -92,7 +92,23 @@ export async function GET(
     const data = await res.json();
 
     // Normalize to GeoJSON FeatureCollection
+    // NLNOG returns { nodes: [...] } — convert to GeoJSON
     let features = data.features || [];
+    if (id === "nlnog_nodes" && data.nodes) {
+      features = data.nodes
+        .filter((n: any) => n.lat != null && n.lon != null)
+        .map((n: any) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [n.lon, n.lat] },
+          properties: {
+            id: n.id,
+            hostname: n.hostname,
+            asn: n.asn,
+            city: n.city,
+            country: n.country,
+          },
+        }));
+    }
 
     // Bbox filtering: bbox=minLon,minLat,maxLon,maxLat
     if (bbox) {

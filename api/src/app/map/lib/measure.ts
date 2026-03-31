@@ -89,10 +89,10 @@ export interface MeasureState {
 }
 
 export function createMeasureController() {
-  let sourceId = "measure-points";
-  let lineLayerId = "measure-line";
-  let fillLayerId = "measure-fill";
-  let vertexLayerId = "measure-vertices";
+  const sourceId = "measure-points";
+  const lineLayerId = "measure-line";
+  const fillLayerId = "measure-fill";
+  const vertexLayerId = "measure-vertices";
 
   function addLayers(map: any) {
     if (map.getSource(sourceId)) return;

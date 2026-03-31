@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import type { UploadedDataset, DatasetVisualization, VisualizationMode, ColorRamp } from "../lib/types";
 import { SUPPORTED_FORMATS } from "../lib/constants";
 import { parseFile, createDataset } from "../lib/parsers";
+import { DataTable } from "./DataTable";
 
 interface Props {
   dark: boolean;
@@ -62,6 +63,7 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
   const [error, setError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedPanel, setExpandedPanel] = useState<"style" | "table">("style");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = useCallback(
@@ -211,11 +213,14 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                   <span style={{ color: textSec, fontSize: 10, flexShrink: 0 }}>
                     {ds.format} &middot; {ds.featureCount}
                   </span>
-                  {props.length > 0 && onVisualizationChange && (
+                  {(props.length > 0 || onVisualizationChange) && (
                     <button
-                      onClick={() => setExpandedId(isExpanded ? null : ds.id)}
+                      onClick={() => {
+                        if (isExpanded) { setExpandedId(null); }
+                        else { setExpandedId(ds.id); setExpandedPanel("style"); }
+                      }}
                       style={{
-                        background: "none", border: "none", color: viz.mode !== "simple" ? "#3b82f6" : textSec,
+                        background: "none", border: "none", color: isExpanded ? "#3b82f6" : textSec,
                         cursor: "pointer", fontSize: 10, padding: "0 2px", lineHeight: 1,
                       }}
                       title="Style options"
@@ -232,76 +237,114 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                   </button>
                 </div>
 
-                {/* Visualization options */}
-                {isExpanded && props.length > 0 && onVisualizationChange && (
+                {/* Expanded panel with tabs */}
+                {isExpanded && (
                   <div style={{
                     display: "flex", flexDirection: "column", gap: 6,
-                    padding: "8px 10px", marginLeft: 18,
+                    padding: "6px 10px", marginLeft: 18,
                     borderLeft: `2px solid ${border}`,
                   }}>
-                    {/* Style mode */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Style</span>
-                      <div style={{ display: "flex", gap: 2 }}>
-                        {(Object.entries(MODE_LABELS) as [VisualizationMode, string][])
-                          .filter(([mode]) => mode !== "heatmap" || isPointData)
-                          .map(([mode, label]) => (
-                            <button
-                              key={mode}
-                              onClick={() => handleVizChange(ds, { mode })}
-                              style={{
-                                padding: "2px 8px", fontSize: 10,
-                                background: viz.mode === mode ? "#3b82f6" : inputBg,
-                                border: `1px solid ${viz.mode === mode ? "#3b82f6" : border}`,
-                                borderRadius: 3, color: viz.mode === mode ? "#fff" : text,
-                                cursor: "pointer",
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                      </div>
+                    {/* Tab bar */}
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button
+                        onClick={() => setExpandedPanel("style")}
+                        style={{
+                          padding: "2px 10px", fontSize: 10,
+                          background: expandedPanel === "style" ? "#3b82f6" : inputBg,
+                          border: `1px solid ${expandedPanel === "style" ? "#3b82f6" : border}`,
+                          borderRadius: 3, color: expandedPanel === "style" ? "#fff" : text,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Style
+                      </button>
+                      <button
+                        onClick={() => setExpandedPanel("table")}
+                        style={{
+                          padding: "2px 10px", fontSize: 10,
+                          background: expandedPanel === "table" ? "#3b82f6" : inputBg,
+                          border: `1px solid ${expandedPanel === "table" ? "#3b82f6" : border}`,
+                          borderRadius: 3, color: expandedPanel === "table" ? "#fff" : text,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Table
+                      </button>
                     </div>
 
-                    {/* Property selector (for choropleth/heatmap) */}
-                    {viz.mode !== "simple" && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Property</span>
-                        <select
-                          value={viz.property ?? ""}
-                          onChange={(e) => handleVizChange(ds, { property: e.target.value || null })}
-                          style={selectStyle}
-                        >
-                          <option value="">-- select --</option>
-                          {props.map((p) => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
+                    {/* Style tab */}
+                    {expandedPanel === "style" && props.length > 0 && onVisualizationChange && (
+                      <>
+                        {/* Style mode */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Style</span>
+                          <div style={{ display: "flex", gap: 2 }}>
+                            {(Object.entries(MODE_LABELS) as [VisualizationMode, string][])
+                              .filter(([mode]) => mode !== "heatmap" || isPointData)
+                              .map(([mode, label]) => (
+                                <button
+                                  key={mode}
+                                  onClick={() => handleVizChange(ds, { mode })}
+                                  style={{
+                                    padding: "2px 8px", fontSize: 10,
+                                    background: viz.mode === mode ? "#3b82f6" : inputBg,
+                                    border: `1px solid ${viz.mode === mode ? "#3b82f6" : border}`,
+                                    borderRadius: 3, color: viz.mode === mode ? "#fff" : text,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        {/* Property selector */}
+                        {viz.mode !== "simple" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Property</span>
+                            <select
+                              value={viz.property ?? ""}
+                              onChange={(e) => handleVizChange(ds, { property: e.target.value || null })}
+                              style={selectStyle}
+                            >
+                              <option value="">-- select --</option>
+                              {props.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Color ramp */}
+                        {viz.mode === "choropleth" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Ramp</span>
+                            <div style={{ display: "flex", gap: 2 }}>
+                              {(Object.entries(RAMP_LABELS) as [ColorRamp, string][]).map(([ramp, label]) => (
+                                <button
+                                  key={ramp}
+                                  onClick={() => handleVizChange(ds, { colorRamp: ramp })}
+                                  style={{
+                                    padding: "2px 8px", fontSize: 10,
+                                    background: viz.colorRamp === ramp ? "#3b82f6" : inputBg,
+                                    border: `1px solid ${viz.colorRamp === ramp ? "#3b82f6" : border}`,
+                                    borderRadius: 3, color: viz.colorRamp === ramp ? "#fff" : text,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
-                    {/* Color ramp (for choropleth) */}
-                    {viz.mode === "choropleth" && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Ramp</span>
-                        <div style={{ display: "flex", gap: 2 }}>
-                          {(Object.entries(RAMP_LABELS) as [ColorRamp, string][]).map(([ramp, label]) => (
-                            <button
-                              key={ramp}
-                              onClick={() => handleVizChange(ds, { colorRamp: ramp })}
-                              style={{
-                                padding: "2px 8px", fontSize: 10,
-                                background: viz.colorRamp === ramp ? "#3b82f6" : inputBg,
-                                border: `1px solid ${viz.colorRamp === ramp ? "#3b82f6" : border}`,
-                                borderRadius: 3, color: viz.colorRamp === ramp ? "#fff" : text,
-                                cursor: "pointer",
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                    {/* Table tab */}
+                    {expandedPanel === "table" && (
+                      <DataTable dark={dark} dataset={ds} />
                     )}
                   </div>
                 )}

@@ -31,6 +31,9 @@ export async function GET(
 ) {
   const { z, x, y } = await params;
 
+  // Strip .png extension from y parameter (Next.js includes it in the catch-all)
+  const tileYStr = y.replace(/\.png$/, "");
+
   // Validate zoom level (we only generate up to zoom 12)
   const zoom = parseInt(z, 10);
   if (isNaN(zoom) || zoom < 0 || zoom > 14) {
@@ -42,7 +45,7 @@ export async function GET(
 
   // Validate tile coordinates
   const tileX = parseInt(x, 10);
-  const tileY = parseInt(y, 10);
+  const tileY = parseInt(tileYStr, 10);
   if (isNaN(tileX) || isNaN(tileY)) {
     return NextResponse.json(
       { error: "Invalid tile coordinates" },
@@ -65,7 +68,7 @@ export async function GET(
     });
   }
 
-  const key = `tiles/${z}/${x}/${y}.png`;
+  const key = `tiles/${z}/${x}/${tileYStr}.png`;
 
   try {
     const object = await bucket.get(key);

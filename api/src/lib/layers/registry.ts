@@ -139,6 +139,15 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#d4c5a9",
     dataSource: "https://tiles.overturemaps.org/",
   },
+  {
+    id: "populationDensity",
+    name: "Population Density",
+    category: "infrastructure",
+    description: "Global population density from JRC GHSL (2025, 100m resolution)",
+    defaultEnabled: false,
+    accent: "#fbbf24",
+    dataSource: "/api/population/{z}/{x}/{y}",
+  },
 
   /* ── Hydro ────────────────────────────────────────────── */
   {

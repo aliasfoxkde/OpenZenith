@@ -542,6 +542,39 @@ export function removeBuildings(map: any): void {
   try { map.removeSource("overture-buildings"); } catch {}
 }
 
+/* ─── Population Density (GHSL) ─── */
+
+export function addPopulationDensity(map: any, _handle: LayerHandle): void {
+  if (map.getSource("population-density")) return;
+
+  map.addSource("population-density", {
+    type: "raster",
+    tiles: ["/api/population/{z}/{x}/{y}"],
+    tileSize: 256,
+    minzoom: 2,
+    maxzoom: 14,
+  });
+
+  map.addLayer({
+    id: "population-density-layer",
+    type: "raster",
+    source: "population-density",
+    paint: {
+      "raster-opacity": 0.6,
+      "raster-color-mix": [
+        "multiply",
+        ["rgba(0,0,0,0.7)"],
+        ["rgba(255,200,0,1)"],
+      ],
+    },
+  });
+}
+
+export function removePopulationDensity(map: any): void {
+  try { map.removeLayer("population-density-layer"); } catch {}
+  try { map.removeSource("population-density"); } catch {}
+}
+
 /* ─── Master add/remove dispatcher ─── */
 
 const LAYER_HANDLERS: Record<string, {
@@ -557,6 +590,7 @@ const LAYER_HANDLERS: Record<string, {
   nlnogNodes: { add: addNLNOGNodes, remove: removeNLNOGNodes },
   wildfires: { add: addWildfires, remove: removeWildfires },
   buildings: { add: addBuildings, remove: removeBuildings },
+  populationDensity: { add: addPopulationDensity, remove: removePopulationDensity },
 };
 
 export function addDataLayer(map: any, handle: LayerHandle, layerId: string): void {

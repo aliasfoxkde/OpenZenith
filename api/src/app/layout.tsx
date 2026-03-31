@@ -42,6 +42,15 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: baseUrl,
     siteName: "OpenZenith",
+    images: [
+      {
+        url: "/og-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "OpenZenith - Global Geospatial Intelligence Platform",
+        type: "image/svg+xml",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",

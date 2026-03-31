@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0f1a"/>
+      <stop offset="100%" style="stop-color:#0a1628"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Grid pattern -->
+  <g stroke="#1a2a3a" stroke-width="0.5" opacity="0.5">
+    <line x1="0" y1="0" x2="0" y2="630"/><line x1="60" y1="0" x2="60" y2="630"/>
+    <line x1="120" y1="0" x2="120" y2="630"/><line x1="180" y1="0" x2="180" y2="630"/>
+    <line x1="240" y1="0" x2="240" y2="630"/><line x1="300" y1="0" x2="300" y2="630"/>
+    <line x1="360" y1="0" x2="360" y2="630"/><line x1="420" y1="0" x2="420" y2="630"/>
+    <line x1="480" y1="0" x2="480" y2="630"/><line x1="540" y1="0" x2="540" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/><line x1="660" y1="0" x2="660" y2="630"/>
+    <line x1="720" y1="0" x2="720" y2="630"/><line x1="780" y1="0" x2="780" y2="630"/>
+    <line x1="840" y1="0" x2="840" y2="630"/><line x1="900" y1="0" x2="900" y2="630"/>
+    <line x1="960" y1="0" x2="960" y2="630"/><line x1="1020" y1="0" x2="1020" y2="630"/>
+    <line x1="1080" y1="0" x2="1080" y2="630"/><line x1="1140" y1="0" x2="1140" y2="630"/>
+    <line x1="1200" y1="0" x2="1200" y2="630"/>
+    <line x1="0" y1="0" x2="1200" y2="0"/><line x1="0" y1="60" x2="1200" y2="60"/>
+    <line x1="0" y1="120" x2="1200" y2="120"/><line x1="0" y1="180" x2="1200" y2="180"/>
+    <line x1="0" y1="240" x2="1200" y2="240"/><line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="360" x2="1200" y2="360"/><line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="0" y1="480" x2="1200" y2="480"/><line x1="0" y1="540" x2="1200" y2="540"/>
+    <line x1="0" y1="600" x2="1200" y2="600"/><line x1="0" y1="630" x2="1200" y2="630"/>
+  </g>
+
+  <!-- Logo triangle -->
+  <polygon points="100,100 160,210 40,210" fill="url(#accent)" opacity="0.9"/>
+
+  <!-- Title -->
+  <text x="190" y="165" fill="#e5e5e5" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="700" letter-spacing="-1">OpenZenith</text>
+
+  <!-- Subtitle -->
+  <text x="190" y="210" fill="#888" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="400">Global Geospatial Intelligence Platform</text>
+
+  <!-- Feature pills -->
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="15">
+    <rect x="100" y="280" width="140" height="34" rx="17" fill="#22c55e" fill-opacity="0.15" stroke="#22c55e" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="170" y="302" fill="#22c55e" text-anchor="middle">30+ Data Layers</text>
+
+    <rect x="260" y="280" width="130" height="34" rx="17" fill="#38bdf8" fill-opacity="0.15" stroke="#38bdf8" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="325" y="302" fill="#38bdf8" text-anchor="middle">Real-Time API</text>
+
+    <rect x="410" y="280" width="155" height="34" rx="17" fill="#f97316" fill-opacity="0.15" stroke="#f97316" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="487" y="302" fill="#f97316" text-anchor="middle">No API Key Required</text>
+
+    <rect x="585" y="280" width="130" height="34" rx="17" fill="#a78bfa" fill-opacity="0.15" stroke="#a78bfa" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="650" y="302" fill="#a78bfa" text-anchor="middle">3D Globe</text>
+
+    <rect x="735" y="280" width="120" height="34" rx="17" fill="#fbbf24" fill-opacity="0.15" stroke="#fbbf24" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="795" y="302" fill="#fbbf24" text-anchor="middle">Free &amp; Open</text>
+  </g>
+
+  <!-- Data sources list -->
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#999">
+    <text x="100" y="375">Elevation  |  Earthquakes  |  Flights  |  Satellites  |  Weather  |  Vessels  |  Hurricanes  |  Air Quality  |  Terrain Tiles</text>
+  </g>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="590" width="1200" height="40" fill="#0d1520"/>
+  <text x="100" y="616" fill="#555" font-family="system-ui, -apple-system, sans-serif" font-size="14">openzenith.cyopsys.com</text>
+  <text x="1100" y="616" fill="#555" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="end">OGC STAC 1.0 Compliant</text>
+
+  <!-- Decorative dots (simulating data points on a map) -->
+  <g fill="#22c55e" opacity="0.4">
+    <circle cx="850" cy="400" r="3"/><circle cx="900" cy="350" r="2"/>
+    <circle cx="950" cy="420" r="4"/><circle cx="1000" cy="380" r="2"/>
+    <circle cx="1050" cy="450" r="3"/><circle cx="1100" cy="400" r="2"/>
+    <circle cx="870" cy="480" r="2"/><circle cx="930" cy="500" r="3"/>
+    <circle cx="1020" cy="470" r="2"/><circle cx="1080" cy="520" r="3"/>
+    <circle cx="850" cy="530" r="2"/><circle cx="960" cy="550" r="2"/>
+  </g>
+  <g fill="#ef4444" opacity="0.5">
+    <circle cx="920" cy="390" r="4"/><circle cx="1030" cy="430" r="3"/>
+    <circle cx="880" cy="450" r="3"/><circle cx="1070" cy="480" r="4"/>
+  </g>
+</svg>

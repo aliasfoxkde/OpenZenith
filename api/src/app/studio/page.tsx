@@ -12,6 +12,7 @@ import {
   finishDrawing, undo, redo, type DrawState, type DrawMode,
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
+import { addBuildings, removeBuildings } from "../map/lib/layers";
 
 /* ─── State ─── */
 
@@ -225,6 +226,9 @@ export default function StudioPage() {
       } else {
         if (map.getLayer("hillshade")) map.removeLayer("hillshade");
       }
+    } else if (id === "buildings") {
+      if (enabled) addBuildings(map, layerHandleRef.current);
+      else removeBuildings(map);
     }
   }, []);
 

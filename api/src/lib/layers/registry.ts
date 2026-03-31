@@ -130,6 +130,15 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#f97316",
     dataSource: "/api/nlnog",
   },
+  {
+    id: "buildings",
+    name: "Building Footprints",
+    category: "infrastructure",
+    description: "Global building footprints from Overture Maps Foundation (Microsoft + OSM)",
+    defaultEnabled: false,
+    accent: "#d4c5a9",
+    dataSource: "https://tiles.overturemaps.org/",
+  },
 
   /* ── Hydro ────────────────────────────────────────────── */
   {

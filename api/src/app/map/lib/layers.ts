@@ -309,7 +309,6 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
       const csv = await res.text();
       if (!map.getSource) return;
 
-      // Parse CSV into GeoJSON LineString features
       const lines = csv.trim().split("\n");
       if (lines.length < 3) return;
       const headers = lines[0].replace(/^"/, "").split(",").map((h: string) => h.trim());
@@ -319,11 +318,19 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
       const nameIdx = headers.indexOf("NAME");
       const seasonIdx = headers.indexOf("SEASON");
       const windIdx = headers.indexOf("WMO_WIND");
+      const timeIdx = headers.indexOf("ISO_TIME");
 
       if (sidIdx < 0 || latIdx < 0 || lonIdx < 0) return;
 
-      // Group by storm ID
-      const storms: Record<string, { coords: [number, number][]; name: string; season: string; maxWind: number }> = {};
+      // Group by storm ID with timestamps
+      const storms: Record<string, {
+        coords: [number, number][];
+        name: string;
+        season: string;
+        maxWind: number;
+        times: string[];
+      }> = {};
+
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(",");
         const sid = cols[sidIdx]?.trim();
@@ -331,13 +338,35 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
         const lon = parseFloat(cols[lonIdx]);
         if (!sid || isNaN(lat) || isNaN(lon)) continue;
 
-        if (!storms[sid]) storms[sid] = { coords: [], name: cols[nameIdx]?.replace(/"/g, "") || "UNNAMED", season: cols[seasonIdx]?.trim() || "", maxWind: 0 };
+        if (!storms[sid]) storms[sid] = { coords: [], name: cols[nameIdx]?.replace(/"/g, "") || "UNNAMED", season: cols[seasonIdx]?.trim() || "", maxWind: 0, times: [] };
         storms[sid].coords.push([lon, lat]);
+        storms[sid].times.push(cols[timeIdx]?.trim() || "");
         const wind = parseFloat(cols[windIdx]);
         if (!isNaN(wind) && wind > storms[sid].maxWind) storms[sid].maxWind = wind;
       }
 
-      const features = Object.values(storms)
+      // Create point features with time for animation
+      const pointFeatures: GeoJSON.Feature[] = [];
+      for (const s of Object.values(storms)) {
+        if (s.coords.length < 3) continue;
+        for (let j = 0; j < s.coords.length; j++) {
+          const ts = new Date(s.times[j]).getTime();
+          pointFeatures.push({
+            type: "Feature",
+            properties: {
+              name: s.name,
+              season: s.season,
+              maxWind: s.maxWind,
+              timestamp: isNaN(ts) ? 0 : ts,
+              wind: parseFloat(lines.find((l) => l.includes(s.coords[j][0].toString()))?.split(",")[windIdx] || "0"),
+            },
+            geometry: { type: "Point", coordinates: s.coords[j] },
+          });
+        }
+      }
+
+      // LineString features for tracks
+      const lineFeatures = Object.values(storms)
         .filter((s) => s.coords.length > 3)
         .map((s) => ({
           type: "Feature" as const,
@@ -345,11 +374,13 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
           geometry: { type: "LineString" as const, coordinates: s.coords },
         }));
 
-      const geojson = { type: "FeatureCollection" as const, features };
+      const geojson = { type: "FeatureCollection" as const, features: [...lineFeatures, ...pointFeatures] };
 
       try {
         if (!map.getSource("hurricanes")) {
           map.addSource("hurricanes", { type: "geojson", data: geojson });
+        } else {
+          (map.getSource("hurricanes") as any).setData(geojson);
         }
 
         if (!map.getLayer("hurricanes-line")) {
@@ -357,10 +388,34 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
             id: "hurricanes-line",
             type: "line",
             source: "hurricanes",
+            filter: ["==", ["geometry-type"], "LineString"],
             paint: {
               "line-color": "#f97316",
               "line-width": 1.5,
-              "line-opacity": 0.6,
+              "line-opacity": 0.5,
+            },
+          });
+        }
+
+        // Animated point markers — filtered by timestamp
+        if (!map.getLayer("hurricanes-points")) {
+          map.addLayer({
+            id: "hurricanes-points",
+            type: "circle",
+            source: "hurricanes",
+            filter: ["==", ["geometry-type"], "Point"],
+            paint: {
+              "circle-radius": [
+                "interpolate", ["linear"], ["get", "wind"],
+                0, 2, 64, 4, 96, 5, 130, 7,
+              ],
+              "circle-color": [
+                "interpolate", ["linear"], ["get", "wind"],
+                0, "#fbbf24", 64, "#f97316", 96, "#ef4444", 130, "#dc2626",
+              ],
+              "circle-opacity": 0.8,
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#fff",
             },
           });
         }
@@ -373,6 +428,7 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
 }
 
 export function removeHurricaneTracks(map: any): void {
+  try { map.removeLayer("hurricanes-points"); } catch {}
   try { map.removeLayer("hurricanes-line"); } catch {}
   try { map.removeSource("hurricanes"); } catch {}
 }
@@ -634,3 +690,67 @@ export function removeDataLayer(map: any, layerId: string): void {
 
 /** Layer IDs that are available in MapLibre 2D context. */
 export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_HANDLERS));
+
+/* ─── Hurricane Animation ─── */
+
+export function startHurricaneAnimation(
+  map: any,
+  handle: LayerHandle,
+  callback: (progress: number) => void,
+): void {
+  // Get timestamp range from source data
+  const source = map.getSource("hurricanes") as any;
+  if (!source?._data?.features) return;
+
+  const times = source._data.features
+    .filter((f: any) => f.geometry?.type === "Point" && f.properties?.timestamp)
+    .map((f: any) => f.properties.timestamp as number)
+    .filter((t: number) => t > 0)
+    .sort((a: number, b: number) => a - b);
+
+  if (times.length === 0) return;
+
+  const minTime = times[0];
+  const maxTime = times[times.length - 1];
+  const duration = 15000; // 15 second animation cycle
+  const startTime = Date.now();
+
+  const animate = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = (elapsed % duration) / duration;
+    const currentTime = minTime + progress * (maxTime - minTime);
+
+    callback(progress);
+
+    // Update filter to show only points up to current time
+    try {
+      if (map.getLayer("hurricanes-points")) {
+        map.setFilter("hurricanes-points", [
+          "all",
+          ["==", ["geometry-type"], "Point"],
+          ["<=", ["get", "timestamp"], currentTime],
+        ]);
+      }
+    } catch {}
+  };
+
+  animate();
+  handle.intervals.push(setInterval(animate, 100));
+}
+
+export function stopHurricaneAnimation(
+  map: any,
+  handle: LayerHandle,
+): void {
+  // Clear animation intervals (last one is the animation)
+  while (handle.intervals.length > 0) {
+    clearInterval(handle.intervals.pop()!);
+  }
+
+  // Reset filter to show all points
+  try {
+    if (map.getLayer("hurricanes-points")) {
+      map.setFilter("hurricanes-points", ["==", ["geometry-type"], "Point"]);
+    }
+  } catch {}
+}

@@ -1,8 +1,8 @@
 # Phase 2 Experiment Report: SRTM 30m Compression Analysis
 
 **Category:** Experiment Results  
-**Last Updated:** 2026-03-24  
-**Status:** Complete  
+**Last Updated:** 2026-04-01
+**Status:** Complete (v2 benchmark added)
 **Experiment:** Compression strategy benchmark for SRTM 30m global DEM  
 
 ---
@@ -367,7 +367,42 @@ The brainstorm doc proposes using AVIF/HEIF as compression codecs within a custo
 
 ---
 
-**Experiment conducted:** 2026-03-24  
-**Tools:** Python 3.13, numpy, Pillow 12.1, pillow-heif 1.3, zstandard 0.25  
-**Test hardware:** Linux 6.12, x86_64  
+**Experiment conducted:** 2026-03-24
+**Tools:** Python 3.13, numpy, Pillow 12.1, pillow-heif 1.3, zstandard 0.25
+**Test hardware:** Linux 6.12, x86_64
 **Source data:** NASA SRTM 30m via `/nas/Temp/DEMs/data/srtm30m/`
+
+---
+
+## Phase 3: Delivery Optimization Benchmark (2026-04-01)
+
+**Script:** `scripts/benchmark_v2.py`
+**Results:** `tests/results/benchmark_v2_results.json`
+**Plan:** `docs/DELIVERY_OPTIMIZATION_PLAN.md`
+
+### Scope
+
+Tested 46 strategies across 12 terrain types (ocean, lowland, desert, hills, mountain, urban). Four optimization axes:
+
+1. WebP lossless vs Terrarium PNG for tile delivery
+2. Paeth/gradient/avg prediction filters vs left-prediction
+3. Terrain-adaptive vs fixed quantization
+4. Brotli vs Zstd for residual compression
+
+### Key Results
+
+**WebP lossless beats Terrarium PNG:**
+- 37% smaller on average (4,257 KB vs 6,732 KB)
+- 4.3x faster decode (215ms vs 924ms)
+- Lossless 16-bit precision preserved
+- Natively supported by MapLibre GL JS 3.x+ and CesiumJS 1.100+
+
+**Brotli-11 beats Zstd-19 by 2-8%** on compressed size (left-prediction), but 3x slower encode (45s vs 15s per 3601x3601 tile). Acceptable for batch processing.
+
+**Gradient predictor outperforms left-prediction by 5x** on 256x256 tiles (24 KB vs 129 KB with Brotli-11). Decode 17x faster (40ms vs 679ms). Requires compiled implementation (current Python is pixel-by-pixel).
+
+**Terrain-adaptive quantization provides no meaningful improvement** over fixed Q12. The adaptive selector picks Q12 for most terrains, making it nearly identical to fixed Q12.
+
+### Recommendation
+
+Switch production tile delivery from Terrarium PNG to WebP lossless. See `docs/DELIVERY_OPTIMIZATION_PLAN.md` for full implementation plan.

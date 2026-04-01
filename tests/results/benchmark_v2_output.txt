@@ -1,0 +1,720 @@
+Benchmarking 46 strategies across 12 terrain types
+
+
+================================================================================
+  N00E172.tif (ocean_pacific) — flat_lowland
+  Shape: (3601, 3601), Range: 24m, Std: 0.2m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                        50.1K    N/A   656ms   366ms        0       0     LOSSLESS
+  webp_lossless                    7.1K    N/A   111ms    66ms        0       0     LOSSLESS
+  left_zstd-9                      5.4K 4683.8x    82ms   129ms        0       0     LOSSLESS
+  left_zstd-19                     5.1K 4929.6x   121ms   117ms        0       0     LOSSLESS
+  left_brotli-4                    4.7K 5429.0x    82ms   172ms        0       0     LOSSLESS
+  left_brotli-9                    4.4K 5727.6x   103ms   160ms        0       0     LOSSLESS
+  left_brotli-11                   3.9K 6467.4x   748ms   148ms        0       0     LOSSLESS
+  paeth_zstd-9                     0.0K 6241.5x     0ms    40ms        0       0     LOSSLESS
+  paeth_zstd-19                    0.0K 6241.5x     1ms    39ms        0       0     LOSSLESS
+  paeth_brotli-4                   0.0K 10082.5x     0ms    39ms        0       0     LOSSLESS
+  paeth_brotli-9                   0.0K 10082.5x     0ms    40ms        0       0     LOSSLESS
+  paeth_brotli-11                  0.0K 9362.3x     8ms    40ms        0       0     LOSSLESS
+  avg_zstd-9                       0.0K 6241.5x     0ms    28ms        0       0     LOSSLESS
+  avg_zstd-19                      0.0K 6241.5x     0ms    28ms        0       0     LOSSLESS
+  avg_brotli-4                     0.0K 10082.5x     0ms    28ms        0       0     LOSSLESS
+  avg_brotli-9                     0.0K 10082.5x     0ms    28ms        0       0     LOSSLESS
+  avg_brotli-11                    0.0K 9362.3x     8ms    28ms        0       0     LOSSLESS
+  gradient_zstd-9                  0.0K 6241.5x     0ms    35ms        0       0     LOSSLESS
+  gradient_zstd-19                 0.0K 6241.5x     0ms    34ms        0       0     LOSSLESS
+  gradient_brotli-4                0.0K 10082.5x     0ms    35ms        0       0     LOSSLESS
+  gradient_brotli-9                0.0K 10082.5x     0ms    35ms        0       0     LOSSLESS
+  gradient_brotli-11               0.0K 9362.3x     8ms    35ms        0       0     LOSSLESS
+  left_zstd-9_q8                   5.9K 4310.9x    78ms   116ms   0.015m   0.02°           Q8
+  left_zstd-9_q10                  5.7K 4427.9x    78ms   118ms   0.015m   0.02°          Q10
+  left_zstd-9_q12                  5.8K 4329.6x    79ms   118ms   0.015m   0.02°          Q12
+  left_zstd-19_q8                  5.6K 4497.8x   123ms   119ms   0.015m   0.02°           Q8
+  left_zstd-19_q10                 5.4K 4679.6x   120ms   118ms   0.015m   0.02°          Q10
+  left_zstd-19_q12                 5.6K 4550.7x   120ms   117ms   0.015m   0.02°          Q12
+  left_brotli-11_q8                4.4K 5796.7x   740ms   146ms   0.015m   0.02°           Q8
+  left_brotli-11_q10               4.3K 5872.8x   835ms   155ms   0.015m   0.02°          Q10
+  left_brotli-11_q12               4.4K 5725.0x   751ms   146ms   0.015m   0.02°          Q12
+  paeth_zstd-9_q8                  0.0K 6241.5x     0ms    42ms        0       0           Q8
+  paeth_zstd-9_q10                 0.0K 6241.5x     0ms    41ms        0       0          Q10
+  paeth_zstd-9_q12                 0.0K 6241.5x     0ms    43ms        0       0          Q12
+  paeth_zstd-19_q8                 0.0K 6241.5x     1ms    42ms        0       0           Q8
+  paeth_zstd-19_q10                0.0K 6241.5x     1ms    42ms        0       0          Q10
+  paeth_zstd-19_q12                0.0K 6241.5x     1ms    41ms        0       0          Q12
+  paeth_brotli-11_q8               0.0K 9362.3x     8ms    42ms        0       0           Q8
+  paeth_brotli-11_q10              0.0K 9362.3x     8ms    42ms        0       0          Q10
+  paeth_brotli-11_q12              0.0K 9362.3x     8ms    43ms        0       0          Q12
+  left_zstd-9_q0                   5.9K 4310.9x    86ms   125ms   0.015m   0.02°           Q8
+  left_zstd-19_q0                  5.6K 4497.8x   118ms   129ms   0.015m   0.02°           Q8
+  left_brotli-11_q0                4.4K 5796.7x   736ms   146ms   0.015m   0.02°           Q8
+  paeth_zstd-9_q0                  0.0K 6241.5x     0ms    42ms        0       0           Q8
+  paeth_zstd-19_q0                 0.0K 6241.5x     1ms    42ms        0       0           Q8
+  paeth_brotli-11_q0               0.0K 9362.3x     8ms    42ms        0       0           Q8
+
+================================================================================
+  N00W050.tif (coast_flat) — lowland
+  Shape: (3601, 3601), Range: 52m, Std: 4.3m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                       954.5K    N/A   960ms   386ms        0       0     LOSSLESS
+  webp_lossless                  529.2K    N/A  3088ms    95ms        0       0     LOSSLESS
+  left_zstd-9                    862.8K  29.4x   156ms   122ms        0       0     LOSSLESS
+  left_zstd-19                   729.9K  34.7x  1912ms   126ms        0       0     LOSSLESS
+  left_brotli-4                  884.5K  28.6x   125ms   163ms        0       0     LOSSLESS
+  left_brotli-9                  811.7K  31.2x   420ms   153ms        0       0     LOSSLESS
+  left_brotli-11                 720.2K  35.2x  8392ms   150ms        0       0     LOSSLESS
+  paeth_zstd-9                     0.0K 6241.5x     0ms    42ms        0       0     LOSSLESS
+  paeth_zstd-19                    0.0K 6241.5x     1ms    41ms        0       0     LOSSLESS
+  paeth_brotli-4                   0.0K 10082.5x     0ms    41ms        0       0     LOSSLESS
+  paeth_brotli-9                   0.0K 10082.5x     0ms    41ms        0       0     LOSSLESS
+  paeth_brotli-11                  0.0K 9362.3x     8ms    42ms        0       0     LOSSLESS
+  avg_zstd-9                       0.0K 6241.5x     0ms    30ms        0       0     LOSSLESS
+  avg_zstd-19                      0.0K 6241.5x     0ms    29ms        0       0     LOSSLESS
+  avg_brotli-4                     0.0K 10082.5x     0ms    29ms        0       0     LOSSLESS
+  avg_brotli-9                     0.0K 10082.5x     0ms    29ms        0       0     LOSSLESS
+  avg_brotli-11                    0.0K 9362.3x     8ms    29ms        0       0     LOSSLESS
+  gradient_zstd-9                  0.0K 6241.5x     0ms    36ms        0       0     LOSSLESS
+  gradient_zstd-19                 0.0K 6241.5x     1ms    36ms        0       0     LOSSLESS
+  gradient_brotli-4                0.0K 10082.5x     0ms    36ms        0       0     LOSSLESS
+  gradient_brotli-9                0.0K 10082.5x     0ms    36ms        0       0     LOSSLESS
+  gradient_brotli-11               0.0K 9362.3x     8ms    36ms        0       0     LOSSLESS
+  left_zstd-9_q8                 956.6K  26.5x   153ms   122ms   0.273m   0.27°           Q8
+  left_zstd-9_q10                951.6K  26.6x   161ms   122ms   0.268m   0.27°          Q10
+  left_zstd-9_q12                976.8K  25.9x   152ms   121ms   0.223m   0.27°          Q12
+  left_zstd-19_q8                813.5K  31.1x  1849ms   136ms   0.273m   0.27°           Q8
+  left_zstd-19_q10               807.7K  31.4x  1884ms   133ms   0.268m   0.27°          Q10
+  left_zstd-19_q12               818.1K  31.0x  1816ms   126ms   0.223m   0.27°          Q12
+  left_brotli-11_q8              793.1K  31.9x  8093ms   137ms   0.273m   0.27°           Q8
+  left_brotli-11_q10             792.4K  32.0x  8058ms   137ms   0.268m   0.27°          Q10
+  left_brotli-11_q12             816.1K  31.0x  7916ms   137ms   0.223m   0.27°          Q12
+  paeth_zstd-9_q8                  0.0K 6241.5x     0ms    42ms        0       0           Q8
+  paeth_zstd-9_q10                 0.0K 6241.5x     0ms    42ms        0       0          Q10
+  paeth_zstd-9_q12                 0.0K 6241.5x     0ms    41ms        0       0          Q12
+  paeth_zstd-19_q8                 0.0K 6241.5x     1ms    42ms        0       0           Q8
+  paeth_zstd-19_q10                0.0K 6241.5x     1ms    43ms        0       0          Q10
+  paeth_zstd-19_q12                0.0K 6241.5x     1ms    42ms        0       0          Q12
+  paeth_brotli-11_q8               0.0K 9362.3x     8ms    41ms        0       0           Q8
+  paeth_brotli-11_q10              0.0K 9362.3x     8ms    42ms        0       0          Q10
+  paeth_brotli-11_q12              0.0K 9362.3x     8ms    42ms        0       0          Q12
+  left_zstd-9_q0                 956.6K  26.5x   154ms   121ms   0.273m   0.27°           Q8
+  left_zstd-19_q0                813.5K  31.1x  1772ms   127ms   0.273m   0.27°           Q8
+  left_brotli-11_q0              793.1K  31.9x  8007ms   138ms   0.273m   0.27°           Q8
+  paeth_zstd-9_q0                  0.0K 6241.5x     0ms    42ms        0       0           Q8
+  paeth_zstd-19_q0                 0.0K 6241.5x     1ms    42ms        0       0           Q8
+  paeth_brotli-11_q0               0.0K 9362.3x     8ms    42ms        0       0           Q8
+
+================================================================================
+  S05W060.tif (lowland_amazon) — lowland
+  Shape: (3601, 3601), Range: 171m, Std: 13.8m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                      6263.3K    N/A  2645ms   450ms        0       0     LOSSLESS
+  webp_lossless                 3826.4K    N/A  5898ms   191ms        0       0     LOSSLESS
+  left_zstd-9                   6081.5K   4.2x   624ms   140ms        0       0     LOSSLESS
+  left_zstd-19                  4971.2K   5.1x 18544ms   159ms        0       0     LOSSLESS
+  left_brotli-4                 6194.9K   4.1x   445ms   167ms        0       0     LOSSLESS
+  left_brotli-9                 5714.9K   4.4x  2738ms   158ms        0       0     LOSSLESS
+  left_brotli-11                5040.7K   5.0x 56599ms   171ms        0       0     LOSSLESS
+  paeth_zstd-9                    30.9K   4.1x     5ms    43ms        0       0     LOSSLESS
+  paeth_zstd-19                   27.0K   4.7x    64ms    43ms        0       0     LOSSLESS
+  paeth_brotli-4                  32.2K   4.0x     2ms    44ms        0       0     LOSSLESS
+  paeth_brotli-9                  29.0K   4.4x    14ms    43ms        0       0     LOSSLESS
+  paeth_brotli-11                 23.8K   5.4x   245ms    44ms        0       0     LOSSLESS
+  avg_zstd-9                      29.7K   4.3x     4ms    30ms        0       0     LOSSLESS
+  avg_zstd-19                     25.6K   5.0x    64ms    29ms        0       0     LOSSLESS
+  avg_brotli-4                    31.1K   4.1x     2ms    30ms        0       0     LOSSLESS
+  avg_brotli-9                    27.9K   4.6x    11ms    30ms        0       0     LOSSLESS
+  avg_brotli-11                   25.1K   5.1x   222ms    30ms        0       0     LOSSLESS
+  gradient_zstd-9                 30.1K   4.2x     4ms    36ms        0       0     LOSSLESS
+  gradient_zstd-19                26.1K   4.9x    65ms    37ms        0       0     LOSSLESS
+  gradient_brotli-4               31.4K   4.1x     2ms    37ms        0       0     LOSSLESS
+  gradient_brotli-9               28.3K   4.5x    11ms    37ms        0       0     LOSSLESS
+  gradient_brotli-11              23.5K   5.5x   248ms    38ms        0       0     LOSSLESS
+  left_zstd-9_q8                6449.3K   3.9x   675ms   144ms   0.708m   0.68°           Q8
+  left_zstd-9_q10               6556.3K   3.9x   704ms   153ms   0.800m   0.44°          Q10
+  left_zstd-9_q12               6662.9K   3.8x   672ms   141ms   0.747m   0.62°          Q12
+  left_zstd-19_q8               5258.5K   4.8x 18039ms   167ms   0.708m   0.68°           Q8
+  left_zstd-19_q10              5427.7K   4.7x 18305ms   165ms   0.800m   0.44°          Q10
+  left_zstd-19_q12              5497.6K   4.6x 18218ms   164ms   0.747m   0.62°          Q12
+  left_brotli-11_q8             5283.7K   4.8x 55862ms   170ms   0.708m   0.68°           Q8
+  left_brotli-11_q10            5422.0K   4.7x 56020ms   171ms   0.800m   0.44°          Q10
+  left_brotli-11_q12            5510.3K   4.6x 56170ms   174ms   0.747m   0.62°          Q12
+  paeth_zstd-9_q8                 36.5K   3.5x     5ms    45ms   0.747m   0.77°           Q8
+  paeth_zstd-9_q10                36.9K   3.5x     5ms    50ms   0.618m   0.74°          Q10
+  paeth_zstd-9_q12                34.9K   3.7x     5ms    51ms   0.728m   0.73°          Q12
+  paeth_zstd-19_q8                32.8K   3.9x    58ms    45ms   0.747m   0.77°           Q8
+  paeth_zstd-19_q10               33.2K   3.9x    56ms    49ms   0.618m   0.74°          Q10
+  paeth_zstd-19_q12               29.7K   4.3x    59ms    50ms   0.728m   0.73°          Q12
+  paeth_brotli-11_q8              31.2K   4.1x   212ms    46ms   0.747m   0.77°           Q8
+  paeth_brotli-11_q10             31.8K   4.0x   217ms    56ms   0.618m   0.74°          Q10
+  paeth_brotli-11_q12             29.8K   4.3x   213ms    50ms   0.728m   0.73°          Q12
+  left_zstd-9_q0                6556.3K   3.9x   662ms   144ms   0.800m   0.44°          Q10
+  left_zstd-19_q0               5427.7K   4.7x 18349ms   177ms   0.800m   0.44°          Q10
+  left_brotli-11_q0             5422.0K   4.7x 55038ms   167ms   0.800m   0.44°          Q10
+  paeth_zstd-9_q0                 36.5K   3.5x     5ms    48ms   0.747m   0.77°           Q8
+  paeth_zstd-19_q0                32.8K   3.9x    74ms    58ms   0.747m   0.77°           Q8
+  paeth_brotli-11_q0              31.2K   4.1x   234ms    47ms   0.747m   0.77°           Q8
+
+================================================================================
+  N35W090.tif (lowland_us) — hills
+  Shape: (3601, 3601), Range: 218m, Std: 25.0m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                      5742.3K    N/A  2616ms   433ms        0       0     LOSSLESS
+  webp_lossless                 3508.6K    N/A  5922ms   186ms        0       0     LOSSLESS
+  left_zstd-9                   5430.6K   4.7x   617ms   140ms        0       0     LOSSLESS
+  left_zstd-19                  4271.4K   5.9x 18455ms   178ms        0       0     LOSSLESS
+  left_brotli-4                 5583.8K   4.5x   364ms   160ms        0       0     LOSSLESS
+  left_brotli-9                 5069.7K   5.0x  2336ms   167ms        0       0     LOSSLESS
+  left_brotli-11                4355.5K   5.8x 59099ms   162ms        0       0     LOSSLESS
+  paeth_zstd-9                    27.7K   4.6x     5ms    43ms        0       0     LOSSLESS
+  paeth_zstd-19                   23.7K   5.4x    70ms    43ms        0       0     LOSSLESS
+  paeth_brotli-4                  29.4K   4.3x     2ms    43ms        0       0     LOSSLESS
+  paeth_brotli-9                  26.1K   4.9x    11ms    44ms        0       0     LOSSLESS
+  paeth_brotli-11                 23.2K   5.5x   236ms    43ms        0       0     LOSSLESS
+  avg_zstd-9                      26.4K   4.8x     4ms    30ms        0       0     LOSSLESS
+  avg_zstd-19                     22.2K   5.8x    71ms    30ms        0       0     LOSSLESS
+  avg_brotli-4                    28.1K   4.5x     2ms    29ms        0       0     LOSSLESS
+  avg_brotli-9                    24.7K   5.2x    11ms    30ms        0       0     LOSSLESS
+  avg_brotli-11                   21.9K   5.8x   226ms    30ms        0       0     LOSSLESS
+  gradient_zstd-9                 27.4K   4.7x     4ms    37ms        0       0     LOSSLESS
+  gradient_zstd-19                23.2K   5.5x    70ms    37ms        0       0     LOSSLESS
+  gradient_brotli-4               29.0K   4.4x     2ms    37ms        0       0     LOSSLESS
+  gradient_brotli-9               25.7K   5.0x    11ms    37ms        0       0     LOSSLESS
+  gradient_brotli-11              22.6K   5.7x   252ms    39ms        0       0     LOSSLESS
+  left_zstd-9_q8                5855.8K   4.3x   651ms   141ms   0.698m   0.79°           Q8
+  left_zstd-9_q10               6067.1K   4.2x   633ms   142ms   0.706m   0.74°          Q10
+  left_zstd-9_q12               6088.5K   4.2x   636ms   141ms   0.695m   0.78°          Q12
+  left_zstd-19_q8               4654.7K   5.4x 18689ms   158ms   0.698m   0.79°           Q8
+  left_zstd-19_q10              4762.9K   5.3x 18348ms   160ms   0.706m   0.74°          Q10
+  left_zstd-19_q12              4827.1K   5.2x 18545ms   164ms   0.695m   0.78°          Q12
+  left_brotli-11_q8             4728.3K   5.4x 58640ms   170ms   0.698m   0.79°           Q8
+  left_brotli-11_q10            4803.1K   5.3x 55235ms   160ms   0.706m   0.74°          Q10
+  left_brotli-11_q12            4824.7K   5.2x 55115ms   159ms   0.695m   0.78°          Q12
+  paeth_zstd-9_q8                 33.1K   3.9x     5ms    44ms   0.808m   0.92°           Q8
+  paeth_zstd-9_q10                33.1K   3.9x     5ms    48ms   0.832m   0.93°          Q10
+  paeth_zstd-9_q12                33.4K   3.8x     5ms    49ms   0.846m   0.92°          Q12
+  paeth_zstd-19_q8                29.1K   4.4x    60ms    43ms   0.808m   0.92°           Q8
+  paeth_zstd-19_q10               29.0K   4.4x    60ms    46ms   0.832m   0.93°          Q10
+  paeth_zstd-19_q12               28.9K   4.4x    60ms    48ms   0.846m   0.92°          Q12
+  paeth_brotli-11_q8              28.0K   4.6x   215ms    44ms   0.808m   0.92°           Q8
+  paeth_brotli-11_q10             28.0K   4.6x   214ms    46ms   0.832m   0.93°          Q10
+  paeth_brotli-11_q12             28.8K   4.5x   212ms    49ms   0.846m   0.92°          Q12
+  left_zstd-9_q0                6067.1K   4.2x   639ms   139ms   0.706m   0.74°          Q10
+  left_zstd-19_q0               4762.9K   5.3x 18196ms   157ms   0.706m   0.74°          Q10
+  left_brotli-11_q0             4803.1K   5.3x 58766ms   164ms   0.706m   0.74°          Q10
+  paeth_zstd-9_q0                 33.1K   3.9x     5ms    44ms   0.808m   0.92°           Q8
+  paeth_zstd-19_q0                29.1K   4.4x    60ms    44ms   0.808m   0.92°           Q8
+  paeth_brotli-11_q0              28.0K   4.6x   215ms    44ms   0.808m   0.92°           Q8
+
+================================================================================
+  N25E010.tif (desert_sahara) — hills
+  Shape: (3601, 3601), Range: 768m, Std: 108.7m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                      7885.5K    N/A  2951ms   454ms        0       0     LOSSLESS
+  webp_lossless                 4916.2K    N/A  6222ms   195ms        0       0     LOSSLESS
+  left_zstd-9                   7332.5K   3.5x   665ms   150ms        0       0     LOSSLESS
+  left_zstd-19                  6282.6K   4.0x 18862ms   164ms        0       0     LOSSLESS
+  left_brotli-4                 7404.6K   3.4x   535ms   166ms        0       0     LOSSLESS
+  left_brotli-9                 6914.6K   3.7x  3270ms   162ms        0       0     LOSSLESS
+  left_brotli-11                6212.4K   4.1x 58376ms   178ms        0       0     LOSSLESS
+  paeth_zstd-9                    44.3K   2.9x     5ms    51ms        0       0     LOSSLESS
+  paeth_zstd-19                   41.3K   3.1x    52ms    48ms        0       0     LOSSLESS
+  paeth_brotli-4                  43.7K   2.9x     2ms    54ms        0       0     LOSSLESS
+  paeth_brotli-9                  41.3K   3.1x    12ms    57ms        0       0     LOSSLESS
+  paeth_brotli-11                 37.2K   3.4x   210ms    48ms        0       0     LOSSLESS
+  avg_zstd-9                      42.0K   3.0x     5ms    32ms        0       0     LOSSLESS
+  avg_zstd-19                     38.9K   3.3x    48ms    32ms        0       0     LOSSLESS
+  avg_brotli-4                    42.0K   3.0x     2ms    33ms        0       0     LOSSLESS
+  avg_brotli-9                    38.9K   3.3x     9ms    33ms        0       0     LOSSLESS
+  avg_brotli-11                   36.0K   3.5x   188ms    33ms        0       0     LOSSLESS
+  gradient_zstd-9                 41.3K   3.1x     5ms    39ms        0       0     LOSSLESS
+  gradient_zstd-19                39.0K   3.3x    52ms    40ms        0       0     LOSSLESS
+  gradient_brotli-4               41.0K   3.1x     2ms    40ms        0       0     LOSSLESS
+  gradient_brotli-9               38.4K   3.3x    10ms    40ms        0       0     LOSSLESS
+  gradient_brotli-11              31.5K   4.1x   242ms    42ms        0       0     LOSSLESS
+  left_zstd-9_q8                4945.9K   5.1x   608ms   139ms   1.058m   1.18°           Q8
+  left_zstd-9_q10               7854.9K   3.2x   726ms   146ms   0.706m   0.66°          Q10
+  left_zstd-9_q12               7959.7K   3.2x   721ms   145ms   0.706m   0.66°          Q12
+  left_zstd-19_q8               3818.7K   6.6x 17992ms   151ms   1.058m   1.18°           Q8
+  left_zstd-19_q10              6698.7K   3.8x 18963ms   169ms   0.706m   0.66°          Q10
+  left_zstd-19_q12              6805.3K   3.7x 18708ms   170ms   0.706m   0.66°          Q12
+  left_brotli-11_q8             3806.3K   6.7x 61037ms   155ms   1.058m   1.18°           Q8
+  left_brotli-11_q10            6631.0K   3.8x 56236ms   177ms   0.706m   0.66°          Q10
+  left_brotli-11_q12            6666.1K   3.8x 53722ms   174ms   0.706m   0.66°          Q12
+  paeth_zstd-9_q8                 42.8K   3.0x     5ms    43ms   2.988m   0.87°           Q8
+  paeth_zstd-9_q10                51.2K   2.5x     5ms    47ms   2.995m   0.85°          Q10
+  paeth_zstd-9_q12                51.2K   2.5x     5ms    50ms   2.993m   0.85°          Q12
+  paeth_zstd-19_q8                39.8K   3.2x    50ms    44ms   2.988m   0.87°           Q8
+  paeth_zstd-19_q10               47.9K   2.7x    43ms    49ms   2.995m   0.85°          Q10
+  paeth_zstd-19_q12               47.7K   2.7x    43ms    49ms   2.993m   0.85°          Q12
+  paeth_brotli-11_q8              36.5K   3.5x   214ms    44ms   2.988m   0.87°           Q8
+  paeth_brotli-11_q10             43.4K   3.0x   194ms    48ms   2.995m   0.85°          Q10
+  paeth_brotli-11_q12             44.5K   2.9x   197ms    48ms   2.993m   0.85°          Q12
+  left_zstd-9_q0                7959.7K   3.2x   735ms   144ms   0.706m   0.66°          Q12
+  left_zstd-19_q0               6805.3K   3.7x 18714ms   170ms   0.706m   0.66°          Q12
+  left_brotli-11_q0             6666.1K   3.8x 53387ms   174ms   0.706m   0.66°          Q12
+  paeth_zstd-9_q0                 51.2K   2.5x     5ms    46ms   2.995m   0.85°          Q10
+  paeth_zstd-19_q0                47.9K   2.7x    42ms    48ms   2.995m   0.85°          Q10
+  paeth_brotli-11_q0              43.4K   3.0x   191ms    46ms   2.995m   0.85°          Q10
+
+================================================================================
+  S25E135.tif (desert_australia) — hills
+  Shape: (3601, 3601), Range: 345m, Std: 42.0m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                      5811.0K    N/A  2608ms   434ms        0       0     LOSSLESS
+  webp_lossless                 3452.2K    N/A  6072ms   186ms        0       0     LOSSLESS
+  left_zstd-9                   5497.4K   4.6x   597ms   136ms        0       0     LOSSLESS
+  left_zstd-19                  4323.9K   5.9x 18653ms   153ms        0       0     LOSSLESS
+  left_brotli-4                 5658.2K   4.5x   352ms   156ms        0       0     LOSSLESS
+  left_brotli-9                 5122.5K   4.9x  2172ms   150ms        0       0     LOSSLESS
+  left_brotli-11                4420.1K   5.7x 58704ms   164ms        0       0     LOSSLESS
+  paeth_zstd-9                    28.4K   4.5x     5ms    43ms        0       0     LOSSLESS
+  paeth_zstd-19                   24.2K   5.3x    69ms    44ms        0       0     LOSSLESS
+  paeth_brotli-4                  29.9K   4.3x     2ms    44ms        0       0     LOSSLESS
+  paeth_brotli-9                  26.7K   4.8x    12ms    44ms        0       0     LOSSLESS
+  paeth_brotli-11                 22.1K   5.8x   256ms    44ms        0       0     LOSSLESS
+  avg_zstd-9                      25.5K   5.0x     4ms    30ms        0       0     LOSSLESS
+  avg_zstd-19                     21.2K   6.0x    72ms    30ms        0       0     LOSSLESS
+  avg_brotli-4                    27.1K   4.7x     2ms    30ms        0       0     LOSSLESS
+  avg_brotli-9                    23.9K   5.4x    11ms    30ms        0       0     LOSSLESS
+  avg_brotli-11                   21.0K   6.1x   230ms    30ms        0       0     LOSSLESS
+  gradient_zstd-9                 27.7K   4.6x     4ms    37ms        0       0     LOSSLESS
+  gradient_zstd-19                23.6K   5.4x    68ms    37ms        0       0     LOSSLESS
+  gradient_brotli-4               29.3K   4.4x     2ms    38ms        0       0     LOSSLESS
+  gradient_brotli-9               26.0K   4.9x    11ms    38ms        0       0     LOSSLESS
+  gradient_brotli-11              22.9K   5.6x   234ms    37ms        0       0     LOSSLESS
+  left_zstd-9_q8                4993.4K   5.1x   618ms   138ms   0.695m   0.80°           Q8
+  left_zstd-9_q10               5851.2K   4.3x   648ms   142ms   0.713m   0.44°          Q10
+  left_zstd-9_q12               6128.6K   4.1x   640ms   142ms   0.696m   0.77°          Q12
+  left_zstd-19_q8               3799.6K   6.7x 18583ms   150ms   0.695m   0.80°           Q8
+  left_zstd-19_q10              4609.6K   5.5x 18678ms   165ms   0.713m   0.44°          Q10
+  left_zstd-19_q12              4866.2K   5.2x 18679ms   160ms   0.696m   0.77°          Q12
+  left_brotli-11_q8             3859.7K   6.6x 61167ms   155ms   0.695m   0.80°           Q8
+  left_brotli-11_q10            4648.3K   5.5x 57108ms   162ms   0.713m   0.44°          Q10
+  left_brotli-11_q12            4859.0K   5.2x 56908ms   162ms   0.696m   0.77°          Q12
+  paeth_zstd-9_q8                 33.8K   3.8x     5ms    44ms   1.611m   1.22°           Q8
+  paeth_zstd-9_q10                32.0K   4.0x     5ms    48ms   1.659m   1.10°          Q10
+  paeth_zstd-9_q12                33.2K   3.9x     5ms    50ms   1.611m   1.22°          Q12
+  paeth_zstd-19_q8                29.6K   4.3x    61ms    45ms   1.611m   1.22°           Q8
+  paeth_zstd-19_q10               27.2K   4.7x    62ms    47ms   1.659m   1.10°          Q10
+  paeth_zstd-19_q12               27.9K   4.6x    65ms    55ms   1.611m   1.22°          Q12
+  paeth_brotli-11_q8              28.4K   4.5x   256ms    47ms   1.611m   1.22°           Q8
+  paeth_brotli-11_q10             26.9K   4.8x   214ms    48ms   1.659m   1.10°          Q10
+  paeth_brotli-11_q12             28.2K   4.5x   215ms    53ms   1.611m   1.22°          Q12
+  left_zstd-9_q0                5851.2K   4.3x   635ms   140ms   0.713m   0.44°          Q10
+  left_zstd-19_q0               4609.6K   5.5x 18803ms   164ms   0.713m   0.44°          Q10
+  left_brotli-11_q0             4648.3K   5.5x 62420ms  2342ms   0.713m   0.44°          Q10
+  paeth_zstd-9_q0                 33.8K   3.8x     5ms    48ms   1.611m   1.22°           Q8
+  paeth_zstd-19_q0                29.6K   4.3x    69ms    50ms   1.611m   1.22°           Q8
+  paeth_brotli-11_q0              28.4K   4.5x   243ms    49ms   1.611m   1.22°           Q8
+
+================================================================================
+  N38W085.tif (hills_us) — hills
+  Shape: (3601, 3601), Range: 224m, Std: 34.6m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                      6892.8K    N/A  7665ms  2304ms        0       0     LOSSLESS
+  webp_lossless                 4192.4K    N/A  7541ms   304ms        0       0     LOSSLESS
+  left_zstd-9                   6010.3K   4.2x  1117ms  1254ms        0       0     LOSSLESS
+  left_zstd-19                  4862.4K   5.2x 22831ms   160ms        0       0     LOSSLESS
+  left_brotli-4                 6160.6K   4.1x   388ms   164ms        0       0     LOSSLESS
+  left_brotli-9                 5616.5K   4.5x  2576ms   155ms        0       0     LOSSLESS
+  left_brotli-11                4930.2K   5.1x 64994ms  3321ms        0       0     LOSSLESS
+  paeth_zstd-9                    32.3K   4.0x     6ms    51ms        0       0     LOSSLESS
+  paeth_zstd-19                   29.0K   4.4x    69ms    49ms        0       0     LOSSLESS
+  paeth_brotli-4                  33.4K   3.8x     2ms    50ms        0       0     LOSSLESS
+  paeth_brotli-9                  30.2K   4.2x    12ms    51ms        0       0     LOSSLESS
+  paeth_brotli-11                 27.5K   4.7x   250ms    51ms        0       0     LOSSLESS
+  avg_zstd-9                      29.3K   4.4x     5ms    34ms        0       0     LOSSLESS
+  avg_zstd-19                     25.3K   5.1x    70ms    34ms        0       0     LOSSLESS
+  avg_brotli-4                    30.8K   4.2x     2ms    35ms        0       0     LOSSLESS
+  avg_brotli-9                    27.3K   4.7x    12ms    35ms        0       0     LOSSLESS
+  avg_brotli-11                   24.6K   5.2x   235ms    35ms        0       0     LOSSLESS
+  gradient_zstd-9                 29.8K   4.3x     5ms    43ms        0       0     LOSSLESS
+  gradient_zstd-19                26.0K   4.9x    74ms    43ms        0       0     LOSSLESS
+  gradient_brotli-4               31.1K   4.1x     2ms    43ms        0       0     LOSSLESS
+  gradient_brotli-9               27.9K   4.6x    12ms    44ms        0       0     LOSSLESS
+  gradient_brotli-11              24.9K   5.1x   266ms    43ms        0       0     LOSSLESS
+  left_zstd-9_q8                6424.1K   3.9x   811ms  1131ms   0.707m   0.77°           Q8
+  left_zstd-9_q10               6740.2K   3.8x   821ms  1060ms   0.707m   0.69°          Q10
+  left_zstd-9_q12               6741.4K   3.8x   791ms  1082ms   0.697m   0.72°          Q12
+  left_zstd-19_q8               5292.3K   4.8x 18721ms   164ms   0.707m   0.77°           Q8
+  left_zstd-19_q10              5496.0K   4.6x 18085ms   173ms   0.707m   0.69°          Q10
+  left_zstd-19_q12              5489.1K   4.6x 19966ms  2468ms   0.697m   0.72°          Q12
+  left_brotli-11_q8             5305.4K   4.8x 71678ms   314ms   0.707m   0.77°           Q8
+  left_brotli-11_q10            5467.6K   4.6x 60346ms  1675ms   0.707m   0.69°          Q10
+  left_brotli-11_q12            5461.5K   4.6x 56431ms   181ms   0.697m   0.72°          Q12
+  paeth_zstd-9_q8                 37.5K   3.4x     5ms    45ms   1.361m   1.06°           Q8
+  paeth_zstd-9_q10                38.8K   3.3x     5ms    48ms   1.341m   0.95°          Q10
+  paeth_zstd-9_q12                38.3K   3.3x     5ms    49ms   1.361m   0.95°          Q12
+  paeth_zstd-19_q8                33.8K   3.8x    56ms    44ms   1.361m   1.06°           Q8
+  paeth_zstd-19_q10               35.2K   3.6x    54ms    48ms   1.341m   0.95°          Q10
+  paeth_zstd-19_q12               34.7K   3.7x    54ms    49ms   1.361m   0.95°          Q12
+  paeth_brotli-11_q8              31.9K   4.0x   204ms    44ms   1.361m   1.06°           Q8
+  paeth_brotli-11_q10             33.2K   3.9x   198ms    47ms   1.341m   0.95°          Q10
+  paeth_brotli-11_q12             33.6K   3.8x   198ms    50ms   1.361m   0.95°          Q12
+  left_zstd-9_q0                6740.2K   3.8x   676ms   142ms   0.707m   0.69°          Q10
+  left_zstd-19_q0               5496.0K   4.6x 17960ms   163ms   0.707m   0.69°          Q10
+  left_brotli-11_q0             5467.6K   4.6x 52976ms   164ms   0.707m   0.69°          Q10
+  paeth_zstd-9_q0                 37.5K   3.4x     5ms    45ms   1.361m   1.06°           Q8
+  paeth_zstd-19_q0                33.8K   3.8x    56ms    46ms   1.361m   1.06°           Q8
+  paeth_brotli-11_q0              31.9K   4.0x   210ms    45ms   1.361m   1.06°           Q8
+
+================================================================================
+  N46E010.tif (mountain_alps) — high_mountain
+  Shape: (3601, 3601), Range: 3758m, Std: 632.5m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                     10547.4K    N/A  3398ms   455ms        0       0     LOSSLESS
+  webp_lossless                 6670.5K    N/A  7839ms   184ms        0       0     LOSSLESS
+  left_zstd-9                   8808.9K   2.9x   881ms   155ms        0       0     LOSSLESS
+  left_zstd-19                  7982.7K   3.2x 17676ms   176ms        0       0     LOSSLESS
+  left_brotli-4                 8826.1K   2.9x   811ms   183ms        0       0     LOSSLESS
+  left_brotli-9                 8263.5K   3.1x  5001ms   179ms        0       0     LOSSLESS
+  left_brotli-11                7537.7K   3.4x 49930ms   192ms        0       0     LOSSLESS
+  paeth_zstd-9                    52.5K   2.4x     5ms    49ms        0       0     LOSSLESS
+  paeth_zstd-19                   49.4K   2.6x    43ms    50ms        0       0     LOSSLESS
+  paeth_brotli-4                  51.5K   2.5x     3ms    49ms        0       0     LOSSLESS
+  paeth_brotli-9                  49.4K   2.6x     9ms    49ms        0       0     LOSSLESS
+  paeth_brotli-11                 44.4K   2.9x   227ms    49ms        0       0     LOSSLESS
+  avg_zstd-9                      49.2K   2.6x     5ms    35ms        0       0     LOSSLESS
+  avg_zstd-19                     45.7K   2.8x    42ms    34ms        0       0     LOSSLESS
+  avg_brotli-4                    48.8K   2.6x     2ms    34ms        0       0     LOSSLESS
+  avg_brotli-9                    45.9K   2.8x     8ms    34ms        0       0     LOSSLESS
+  avg_brotli-11                   41.5K   3.1x   198ms    34ms        0       0     LOSSLESS
+  gradient_zstd-9                 49.4K   2.6x     5ms    43ms        0       0     LOSSLESS
+  gradient_zstd-19                46.4K   2.8x    46ms    41ms        0       0     LOSSLESS
+  gradient_brotli-4               48.4K   2.6x     2ms    42ms        0       0     LOSSLESS
+  gradient_brotli-9               46.6K   2.8x    10ms    41ms        0       0     LOSSLESS
+  gradient_brotli-11              39.9K   3.2x   262ms    41ms        0       0     LOSSLESS
+  left_zstd-9_q8                3443.6K   7.3x   602ms   146ms   4.302m   4.95°           Q8
+  left_zstd-9_q10               5813.7K   4.4x   677ms   148ms   1.189m   1.20°          Q10
+  left_zstd-9_q12               9083.9K   2.8x   841ms   159ms   0.708m   0.57°          Q12
+  left_zstd-19_q8               2397.5K  10.6x 17395ms   141ms   4.302m   4.95°           Q8
+  left_zstd-19_q10              4614.8K   5.5x 17475ms  1035ms   1.189m   1.20°          Q10
+  left_zstd-19_q12              8279.8K   3.1x 17474ms  1185ms   0.708m   0.57°          Q12
+  left_brotli-11_q8             2403.3K  10.5x 63066ms  1229ms   4.302m   4.95°           Q8
+  left_brotli-11_q10            4606.1K   5.5x 53725ms  1237ms   1.189m   1.20°          Q10
+  left_brotli-11_q12            7822.2K   3.2x 49524ms  1122ms   0.708m   0.57°          Q12
+  paeth_zstd-9_q8                 26.7K   4.8x     4ms    43ms  12.479m   2.55°           Q8
+  paeth_zstd-9_q10                43.1K   3.0x     5ms    47ms   6.162m   0.79°          Q10
+  paeth_zstd-9_q12                56.9K   2.2x     5ms    49ms   6.161m   0.87°          Q12
+  paeth_zstd-19_q8                22.7K   5.6x    72ms    43ms  12.479m   2.55°           Q8
+  paeth_zstd-19_q10               39.9K   3.2x    49ms    47ms   6.162m   0.79°          Q10
+  paeth_zstd-19_q12               53.5K   2.4x    38ms    49ms   6.161m   0.87°          Q12
+  paeth_brotli-11_q8              21.9K   5.8x   237ms    43ms  12.479m   2.55°           Q8
+  paeth_brotli-11_q10             36.4K   3.5x   211ms    47ms   6.162m   0.79°          Q10
+  paeth_brotli-11_q12             48.3K   2.6x   229ms    48ms   6.161m   0.87°          Q12
+  left_zstd-9_q0                9083.9K   2.8x   891ms  1056ms   0.708m   0.57°          Q12
+  left_zstd-19_q0               8279.8K   3.1x 19817ms  1741ms   0.708m   0.57°          Q12
+  left_brotli-11_q0             7822.2K   3.2x 48161ms  1088ms   0.708m   0.57°          Q12
+  paeth_zstd-9_q0                 56.9K   2.2x     5ms    48ms   6.161m   0.87°          Q12
+  paeth_zstd-19_q0                53.5K   2.4x    38ms    48ms   6.161m   0.87°          Q12
+  paeth_brotli-11_q0              48.3K   2.6x   227ms    47ms   6.161m   0.87°          Q12
+
+================================================================================
+  S15W070.tif (mountain_andes) — high_mountain
+  Shape: (3601, 3601), Range: 5198m, Std: 1048.9m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                     10492.7K    N/A  6019ms  1587ms        0       0     LOSSLESS
+  webp_lossless                 6629.7K    N/A  8027ms   285ms        0       0     LOSSLESS
+  left_zstd-9                   9354.5K   2.7x   913ms  1014ms        0       0     LOSSLESS
+  left_zstd-19                  8550.2K   3.0x 18735ms  1176ms        0       0     LOSSLESS
+  left_brotli-4                 9363.7K   2.7x   987ms  1012ms        0       0     LOSSLESS
+  left_brotli-9                 8788.2K   2.9x  5394ms  1042ms        0       0     LOSSLESS
+  left_brotli-11                8097.8K   3.1x 50471ms  1053ms        0       0     LOSSLESS
+  paeth_zstd-9                    50.5K   2.5x     5ms    47ms        0       0     LOSSLESS
+  paeth_zstd-19                   47.6K   2.7x    43ms    47ms        0       0     LOSSLESS
+  paeth_brotli-4                  49.3K   2.6x     3ms    48ms        0       0     LOSSLESS
+  paeth_brotli-9                  47.4K   2.7x     9ms    48ms        0       0     LOSSLESS
+  paeth_brotli-11                 39.9K   3.2x   271ms    53ms        0       0     LOSSLESS
+  avg_zstd-9                      47.8K   2.7x     5ms    35ms        0       0     LOSSLESS
+  avg_zstd-19                     44.5K   2.9x    46ms    32ms        0       0     LOSSLESS
+  avg_brotli-4                    47.3K   2.7x     2ms    34ms        0       0     LOSSLESS
+  avg_brotli-9                    44.4K   2.9x     9ms    32ms        0       0     LOSSLESS
+  avg_brotli-11                   40.5K   3.2x   190ms    33ms        0       0     LOSSLESS
+  gradient_zstd-9                 46.9K   2.7x     5ms    44ms        0       0     LOSSLESS
+  gradient_zstd-19                43.8K   2.9x    50ms    43ms        0       0     LOSSLESS
+  gradient_brotli-4               46.0K   2.8x     2ms    43ms        0       0     LOSSLESS
+  gradient_brotli-9               43.8K   2.9x    10ms    44ms        0       0     LOSSLESS
+  gradient_brotli-11              35.5K   3.6x   275ms    44ms        0       0     LOSSLESS
+  left_zstd-9_q8                3187.3K   8.0x   700ms   984ms   6.062m   7.58°           Q8
+  left_zstd-9_q10               5543.6K   4.6x   709ms  1006ms   1.669m   1.85°          Q10
+  left_zstd-9_q12               8763.2K   2.9x   907ms   928ms   0.744m   0.60°          Q12
+  left_zstd-19_q8               2225.3K  11.4x 16270ms   991ms   6.062m   7.58°           Q8
+  left_zstd-19_q10              4390.0K   5.8x 17897ms   983ms   1.669m   1.85°          Q10
+  left_zstd-19_q12              7912.9K   3.2x 18762ms  1004ms   0.744m   0.60°          Q12
+  left_brotli-11_q8             2206.2K  11.5x 62764ms   977ms   6.062m   7.58°           Q8
+  left_brotli-11_q10            4377.1K   5.8x 57227ms  1125ms   1.669m   1.85°          Q10
+  left_brotli-11_q12            7535.5K   3.4x 52761ms   846ms   0.744m   0.60°          Q12
+  paeth_zstd-9_q8                 28.4K   4.5x     5ms    46ms  13.410m   2.00°           Q8
+  paeth_zstd-9_q10                45.5K   2.8x     5ms    51ms  13.316m   0.80°          Q10
+  paeth_zstd-9_q12                57.7K   2.2x     5ms    53ms  13.314m   0.80°          Q12
+  paeth_zstd-19_q8                24.4K   5.2x    75ms    44ms  13.410m   2.00°           Q8
+  paeth_zstd-19_q10               42.5K   3.0x    48ms    51ms  13.316m   0.80°          Q10
+  paeth_zstd-19_q12               54.6K   2.4x    40ms    52ms  13.314m   0.80°          Q12
+  paeth_brotli-11_q8              23.5K   5.4x   250ms    50ms  13.410m   2.00°           Q8
+  paeth_brotli-11_q10             37.7K   3.4x   257ms    49ms  13.316m   0.80°          Q10
+  paeth_brotli-11_q12             49.4K   2.6x   242ms    56ms  13.314m   0.80°          Q12
+  left_zstd-9_q0                8763.2K   2.9x  1149ms   747ms   0.744m   0.60°          Q12
+  left_zstd-19_q0               7912.9K   3.2x 19984ms   960ms   0.744m   0.60°          Q12
+  left_brotli-11_q0             7535.5K   3.4x 54064ms   876ms   0.744m   0.60°          Q12
+  paeth_zstd-9_q0                 57.7K   2.2x     5ms    52ms  13.314m   0.80°          Q12
+  paeth_zstd-19_q0                54.6K   2.4x    39ms    51ms  13.314m   0.80°          Q12
+  paeth_brotli-11_q0              49.4K   2.6x   235ms    50ms  13.314m   0.80°          Q12
+
+================================================================================
+  N28E084.tif (mountain_himalaya) — high_mountain
+  Shape: (3601, 3601), Range: 7667m, Std: 1831.5m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                     11701.4K    N/A  5949ms  1681ms        0       0     LOSSLESS
+  webp_lossless                 7730.8K    N/A  9629ms   286ms        0       0     LOSSLESS
+  left_zstd-9                  10109.4K   2.5x  1160ms   966ms        0       0     LOSSLESS
+  left_zstd-19                  9330.5K   2.7x 18849ms  1096ms        0       0     LOSSLESS
+  left_brotli-4                10148.9K   2.5x  1061ms   800ms        0       0     LOSSLESS
+  left_brotli-9                 9524.7K   2.7x  6590ms   966ms        0       0     LOSSLESS
+  left_brotli-11                8881.0K   2.9x 51195ms   699ms        0       0     LOSSLESS
+  paeth_zstd-9                    59.5K   2.1x     5ms    48ms        0       0     LOSSLESS
+  paeth_zstd-19                   56.4K   2.3x    35ms    48ms        0       0     LOSSLESS
+  paeth_brotli-4                  58.0K   2.2x     3ms    49ms        0       0     LOSSLESS
+  paeth_brotli-9                  56.4K   2.3x     9ms    49ms        0       0     LOSSLESS
+  paeth_brotli-11                 45.2K   2.8x   298ms    49ms        0       0     LOSSLESS
+  avg_zstd-9                      57.1K   2.2x     4ms    34ms        0       0     LOSSLESS
+  avg_zstd-19                     55.0K   2.3x    38ms    33ms        0       0     LOSSLESS
+  avg_brotli-4                    55.7K   2.3x     2ms    33ms        0       0     LOSSLESS
+  avg_brotli-9                    53.5K   2.4x     8ms    34ms        0       0     LOSSLESS
+  avg_brotli-11                   42.7K   3.0x   346ms    34ms        0       0     LOSSLESS
+  gradient_zstd-9                 57.0K   2.2x     5ms    42ms        0       0     LOSSLESS
+  gradient_zstd-19                54.1K   2.4x    39ms    43ms        0       0     LOSSLESS
+  gradient_brotli-4               55.2K   2.3x     2ms    43ms        0       0     LOSSLESS
+  gradient_brotli-9               53.9K   2.4x     9ms    44ms        0       0     LOSSLESS
+  gradient_brotli-11              45.8K   2.8x   274ms    43ms        0       0     LOSSLESS
+  left_zstd-9_q8                3109.9K   8.1x   764ms   601ms   9.311m  10.56°           Q8
+  left_zstd-9_q10               5377.0K   4.7x   767ms   676ms   2.355m   2.36°          Q10
+  left_zstd-9_q12               8511.7K   3.0x  1010ms   556ms   0.724m   0.54°          Q12
+  left_zstd-19_q8               2155.9K  11.8x 17407ms   750ms   9.311m  10.56°           Q8
+  left_zstd-19_q10              4235.0K   6.0x 19005ms   724ms   2.355m   2.36°          Q10
+  left_zstd-19_q12              7504.1K   3.4x 18832ms   709ms   0.724m   0.54°          Q12
+  left_brotli-11_q8             2118.5K  11.9x 65316ms   938ms   9.311m  10.56°           Q8
+  left_brotli-11_q10            4249.8K   6.0x 59110ms   961ms   2.355m   2.36°          Q10
+  left_brotli-11_q12            7349.8K   3.5x 52641ms  1038ms   0.724m   0.54°          Q12
+  paeth_zstd-9_q8                 26.1K   4.9x     5ms    43ms  25.377m   3.92°           Q8
+  paeth_zstd-9_q10                43.1K   3.0x     5ms    47ms  14.520m   1.14°          Q10
+  paeth_zstd-9_q12                62.3K   2.0x     5ms    49ms  14.494m   0.73°          Q12
+  paeth_zstd-19_q8                22.3K   5.7x    76ms    44ms  25.377m   3.92°           Q8
+  paeth_zstd-19_q10               39.9K   3.2x    51ms    47ms  14.520m   1.14°          Q10
+  paeth_zstd-19_q12               59.9K   2.1x    33ms    49ms  14.494m   0.73°          Q12
+  paeth_brotli-11_q8              21.3K   6.0x   249ms    46ms  25.377m   3.92°           Q8
+  paeth_brotli-11_q10             36.1K   3.5x   250ms    47ms  14.520m   1.14°          Q10
+  paeth_brotli-11_q12             48.2K   2.6x   310ms    49ms  14.494m   0.73°          Q12
+  left_zstd-9_q0                8511.7K   3.0x   881ms   548ms   0.724m   0.54°          Q12
+  left_zstd-19_q0               7504.1K   3.4x 17912ms   811ms   0.724m   0.54°          Q12
+  left_brotli-11_q0             7349.8K   3.5x 52633ms   820ms   0.724m   0.54°          Q12
+  paeth_zstd-9_q0                 62.3K   2.0x     5ms    50ms  14.494m   0.73°          Q12
+  paeth_zstd-19_q0                59.9K   2.1x    34ms    51ms  14.494m   0.73°          Q12
+  paeth_brotli-11_q0              48.2K   2.6x   319ms    52ms  14.494m   0.73°          Q12
+
+================================================================================
+  N40W074.tif (mixed_urban_nyc) — hills
+  Shape: (3601, 3601), Range: 253m, Std: 19.1m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                      1798.3K    N/A  2775ms  1114ms        0       0     LOSSLESS
+  webp_lossless                 1050.6K    N/A  4156ms   226ms        0       0     LOSSLESS
+  left_zstd-9                   1635.0K  15.5x   454ms   865ms        0       0     LOSSLESS
+  left_zstd-19                  1300.9K  19.5x  5214ms   667ms        0       0     LOSSLESS
+  left_brotli-4                 1683.7K  15.0x   303ms   600ms        0       0     LOSSLESS
+  left_brotli-9                 1513.1K  16.7x   903ms   813ms        0       0     LOSSLESS
+  left_brotli-11                1290.8K  19.6x 20824ms   785ms        0       0     LOSSLESS
+  paeth_zstd-9                     0.0K 6241.5x     0ms    44ms        0       0     LOSSLESS
+  paeth_zstd-19                    0.0K 6241.5x     1ms    45ms        0       0     LOSSLESS
+  paeth_brotli-4                   0.0K 10082.5x     0ms    45ms        0       0     LOSSLESS
+  paeth_brotli-9                   0.0K 10082.5x     0ms    45ms        0       0     LOSSLESS
+  paeth_brotli-11                  0.0K 9362.3x     9ms    46ms        0       0     LOSSLESS
+  avg_zstd-9                       0.0K 6241.5x     0ms    32ms        0       0     LOSSLESS
+  avg_zstd-19                      0.0K 6241.5x     1ms    33ms        0       0     LOSSLESS
+  avg_brotli-4                     0.0K 10082.5x     0ms    33ms        0       0     LOSSLESS
+  avg_brotli-9                     0.0K 10082.5x     0ms    34ms        0       0     LOSSLESS
+  avg_brotli-11                    0.0K 9362.3x     9ms    33ms        0       0     LOSSLESS
+  gradient_zstd-9                  0.0K 6241.5x     0ms    39ms        0       0     LOSSLESS
+  gradient_zstd-19                 0.0K 6241.5x     1ms    39ms        0       0     LOSSLESS
+  gradient_brotli-4                0.0K 10082.5x     0ms    39ms        0       0     LOSSLESS
+  gradient_brotli-9                0.0K 10082.5x     0ms    38ms        0       0     LOSSLESS
+  gradient_brotli-11               0.0K 9362.3x     8ms    38ms        0       0     LOSSLESS
+  left_zstd-9_q8                1658.4K  15.3x   456ms   762ms   0.264m   0.19°           Q8
+  left_zstd-9_q10               1756.5K  14.4x   476ms   699ms   0.347m   0.27°          Q10
+  left_zstd-9_q12               1827.1K  13.9x   454ms   558ms   0.370m   0.41°          Q12
+  left_zstd-19_q8               1327.2K  19.1x  5388ms   663ms   0.264m   0.19°           Q8
+  left_zstd-19_q10              1407.7K  18.0x  5396ms   637ms   0.347m   0.27°          Q10
+  left_zstd-19_q12              1458.1K  17.4x  5508ms   680ms   0.370m   0.41°          Q12
+  left_brotli-11_q8             1312.3K  19.3x 20949ms   967ms   0.264m   0.19°           Q8
+  left_brotli-11_q10            1389.0K  18.2x 20303ms   916ms   0.347m   0.27°          Q10
+  left_brotli-11_q12            1435.2K  17.6x 19573ms   704ms   0.370m   0.41°          Q12
+  paeth_zstd-9_q8                  0.0K 6241.5x     0ms    44ms        0       0           Q8
+  paeth_zstd-9_q10                 0.0K 6241.5x     0ms    47ms        0       0          Q10
+  paeth_zstd-9_q12                 0.0K 6241.5x     0ms    51ms        0       0          Q12
+  paeth_zstd-19_q8                 0.0K 6241.5x     1ms    49ms        0       0           Q8
+  paeth_zstd-19_q10                0.0K 6241.5x     1ms    48ms        0       0          Q10
+  paeth_zstd-19_q12                0.0K 6241.5x     1ms    47ms        0       0          Q12
+  paeth_brotli-11_q8               0.0K 9362.3x     9ms    46ms        0       0           Q8
+  paeth_brotli-11_q10              0.0K 9362.3x     8ms    46ms        0       0          Q10
+  paeth_brotli-11_q12              0.0K 9362.3x     9ms    48ms        0       0          Q12
+  left_zstd-9_q0                1756.5K  14.4x   416ms   538ms   0.347m   0.27°          Q10
+  left_zstd-19_q0               1407.7K  18.0x  5374ms   503ms   0.347m   0.27°          Q10
+  left_brotli-11_q0             1389.0K  18.2x 20195ms   908ms   0.347m   0.27°          Q10
+  paeth_zstd-9_q0                  0.0K 6241.5x     0ms    45ms        0       0           Q8
+  paeth_zstd-19_q0                 0.0K 6241.5x     1ms    50ms        0       0           Q8
+  paeth_brotli-11_q0               0.0K 9362.3x    10ms    53ms        0       0           Q8
+
+================================================================================
+  N28E096.tif (user_test_china) — high_mountain
+  Shape: (3601, 3601), Range: 5092m, Std: 1031.3m
+  Strategy                         Size  Ratio     Enc     Dec     RMSE  Slope°         Type
+  --------------------------------------------------------------------------------
+  terrapng                     12639.4K    N/A  5637ms  1420ms        0       0     LOSSLESS
+  webp_lossless                 8568.0K    N/A 11521ms   377ms        0       0     LOSSLESS
+  left_zstd-9                  10879.6K   2.3x  1209ms   607ms        0       0     LOSSLESS
+  left_zstd-19                 10103.9K   2.5x 20262ms  1013ms        0       0     LOSSLESS
+  left_brotli-4                10947.9K   2.3x  1329ms   884ms        0       0     LOSSLESS
+  left_brotli-9                10243.4K   2.5x  8085ms  1022ms        0       0     LOSSLESS
+  left_brotli-11                9608.7K   2.6x 55084ms  1128ms        0       0     LOSSLESS
+  paeth_zstd-9                    57.1K   2.2x     7ms    67ms        0       0     LOSSLESS
+  paeth_zstd-19                   54.3K   2.4x    54ms    63ms        0       0     LOSSLESS
+  paeth_brotli-4                  55.8K   2.3x     3ms    60ms        0       0     LOSSLESS
+  paeth_brotli-9                  54.2K   2.4x    10ms    50ms        0       0     LOSSLESS
+  paeth_brotli-11                 43.5K   2.9x   321ms    50ms        0       0     LOSSLESS
+  avg_zstd-9                      54.1K   2.4x     5ms    35ms        0       0     LOSSLESS
+  avg_zstd-19                     51.2K   2.5x    41ms    34ms        0       0     LOSSLESS
+  avg_brotli-4                    53.2K   2.4x     2ms    35ms        0       0     LOSSLESS
+  avg_brotli-9                    50.7K   2.5x     8ms    36ms        0       0     LOSSLESS
+  avg_brotli-11                   46.8K   2.7x   226ms    34ms        0       0     LOSSLESS
+  gradient_zstd-9                 54.4K   2.4x     5ms    42ms        0       0     LOSSLESS
+  gradient_zstd-19                51.8K   2.5x    41ms    42ms        0       0     LOSSLESS
+  gradient_brotli-4               52.9K   2.4x     2ms    42ms        0       0     LOSSLESS
+  gradient_brotli-9               51.5K   2.5x     9ms    43ms        0       0     LOSSLESS
+  gradient_brotli-11              42.0K   3.0x   280ms    42ms        0       0     LOSSLESS
+  left_zstd-9_q8                4049.6K   6.2x   810ms   610ms   5.961m   5.74°           Q8
+  left_zstd-9_q10               6839.0K   3.7x   930ms   586ms   1.590m   1.42°          Q10
+  left_zstd-9_q12              10290.3K   2.5x  1185ms   739ms   0.710m   0.49°          Q12
+  left_zstd-19_q8               2930.7K   8.6x 19674ms   711ms   5.961m   5.74°           Q8
+  left_zstd-19_q10              5706.3K   4.4x 19679ms  1180ms   1.590m   1.42°          Q10
+  left_zstd-19_q12              9527.3K   2.7x 20416ms   901ms   0.710m   0.49°          Q12
+  left_brotli-11_q8             2951.2K   8.6x 66597ms  1164ms   5.961m   5.74°           Q8
+  left_brotli-11_q10            5685.3K   4.5x 58393ms  1156ms   1.590m   1.42°          Q10
+  left_brotli-11_q12            9070.5K   2.8x 54690ms   867ms   0.710m   0.49°          Q12
+  paeth_zstd-9_q8                 28.9K   4.4x     5ms    46ms  11.092m   2.68°           Q8
+  paeth_zstd-9_q10                46.0K   2.8x     5ms    51ms  10.795m   0.91°          Q10
+  paeth_zstd-9_q12                63.8K   2.0x     5ms    54ms  10.785m   0.78°          Q12
+  paeth_zstd-19_q8                24.8K   5.2x    75ms    47ms  11.092m   2.68°           Q8
+  paeth_zstd-19_q10               43.3K   3.0x    52ms    51ms  10.795m   0.91°          Q10
+  paeth_zstd-19_q12               60.9K   2.1x    34ms    53ms  10.785m   0.78°          Q12
+  paeth_brotli-11_q8              22.8K   5.6x   288ms    48ms  11.092m   2.68°           Q8
+  paeth_brotli-11_q10             38.8K   3.3x   247ms    51ms  10.795m   0.91°          Q10
+  paeth_brotli-11_q12             54.1K   2.4x   310ms    52ms  10.785m   0.78°          Q12
+  left_zstd-9_q0               10290.3K   2.5x  1118ms   642ms   0.710m   0.49°          Q12
+  left_zstd-19_q0               9527.3K   2.7x 19066ms   645ms   0.710m   0.49°          Q12
+  left_brotli-11_q0             9070.5K   2.8x 51257ms   678ms   0.710m   0.49°          Q12
+  paeth_zstd-9_q0                 63.8K   2.0x     4ms    49ms  10.785m   0.78°          Q12
+  paeth_zstd-19_q0                60.9K   2.1x    33ms    50ms  10.785m   0.78°          Q12
+  paeth_brotli-11_q0              54.1K   2.4x   305ms    50ms  10.785m   0.78°          Q12
+
+
+Full results: /home/mkinney/repos/OpenZenith/tests/results/benchmark_v2_results.json
+
+====================================================================================================
+CROSS-TERRAIN SUMMARY
+====================================================================================================
+
+Strategy                       Avg KB  Ratio     RMSE  MaxRMSE  Slope°     Enc     Dec  LL
+-----------------------------------------------------------------------------------------------
+webp_lossless                 4256.8K   6.0x        0        0       0   6336ms    215ms   Y
+gradient_brotli-11              24.0K   5.3x        0        0       0    196ms     40ms   Y
+avg_brotli-11                   25.0K   5.1x        0        0       0    174ms     32ms   Y
+paeth_brotli-11                 25.6K   5.0x        0        0       0    195ms     47ms   Y
+left_brotli-11                5091.6K   5.0x        0        0       0  44535ms    679ms   Y
+left_zstd-19                  5226.2K   4.8x        0        0       0  15010ms    432ms   Y
+avg_zstd-19                     27.5K   4.7x        0        0       0     41ms     31ms   Y
+gradient_zstd-19                27.8K   4.6x        0        0       0     42ms     39ms   Y
+avg_brotli-9                    28.1K   4.6x        0        0       0      7ms     32ms   Y
+left_brotli-9                 5632.3K   4.5x        0        0       0   3299ms    427ms   Y
+gradient_brotli-9               28.5K   4.5x        0        0       0      8ms     40ms   Y
+paeth_zstd-19                   29.4K   4.3x        0        0       0     42ms     47ms   Y
+paeth_brotli-9                  30.1K   4.3x        0        0       0      8ms     47ms   Y
+avg_zstd-9                      30.1K   4.2x        0        0       0      4ms     32ms   Y
+avg_brotli-4                    30.4K   4.2x        0        0       0      2ms     32ms   Y
+gradient_zstd-9                 30.3K   4.2x        0        0       0      4ms     39ms   Y
+left_zstd-9                   6000.7K   4.2x        0        0       0    706ms    473ms   Y
+gradient_brotli-4               30.4K   4.2x        0        0       0      2ms     40ms   Y
+left_brotli-4                 6071.8K   4.2x        0        0       0    565ms    386ms   Y
+paeth_brotli-4                  31.9K   4.0x        0        0       0      2ms     47ms   Y
+paeth_zstd-9                    31.9K   4.0x        0        0       0      4ms     47ms   Y
+terrapng                      6731.6K   3.8x        0        0       0   3656ms    924ms   Y
+left_brotli-11_q12            5112.9K   5.0x   0.586m   0.747m   0.54°  43017ms    476ms   N
+left_zstd-19_q12              5249.3K   4.8x   0.586m   0.747m   0.54°  14754ms    654ms   N
+left_zstd-9_q12               6086.6K   4.2x   0.586m   0.747m   0.54°    674ms    403ms   N
+left_brotli-11_q0             5081.0K   5.0x   0.596m   0.800m   0.48°  43137ms    639ms   N
+left_zstd-19_q0               5212.7K   4.9x   0.596m   0.800m   0.48°  14672ms    479ms   N
+left_zstd-9_q0                6045.2K   4.2x   0.596m   0.800m   0.48°    670ms    374ms   N
+left_brotli-11_q10            4006.3K   6.3x   0.922m   2.355m   0.86°  45216ms    669ms   N
+left_zstd-19_q10              4013.5K   6.3x   0.922m   2.355m   0.86°  14486ms    470ms   N
+left_zstd-9_q10               4946.4K   5.1x   0.922m   2.355m   0.86°    611ms    416ms   N
+left_brotli-11_q8             2897.7K   8.7x   2.505m   9.311m   2.79°  49659ms    544ms   N
+left_zstd-19_q8               2890.0K   8.8x   2.505m   9.311m   2.79°  14178ms    358ms   N
+left_zstd-9_q8                3756.6K   6.7x   2.505m   9.311m   2.79°    577ms    420ms   N
+paeth_brotli-11_q10             26.0K   4.9x   4.353m  14.520m   0.68°    169ms     48ms   N
+paeth_zstd-9_q10                30.8K   4.2x   4.353m  14.520m   0.68°      4ms     47ms   N
+paeth_zstd-19_q10               28.2K   4.5x   4.353m  14.520m   0.68°     40ms     47ms   N
+paeth_brotli-11_q0              30.2K   4.2x   4.356m  14.494m   0.67°    184ms     47ms   N
+paeth_zstd-9_q0                 36.1K   3.5x   4.356m  14.494m   0.67°      4ms     47ms   N
+paeth_zstd-19_q0                33.5K   3.8x   4.356m  14.494m   0.67°     37ms     48ms   N
+paeth_brotli-11_q12             30.4K   4.2x   4.358m  14.494m   0.66°    179ms     49ms   N
+paeth_zstd-9_q12                36.0K   3.6x   4.358m  14.494m   0.66°      4ms     49ms   N
+paeth_zstd-19_q12               33.1K   3.9x   4.358m  14.494m   0.66°     36ms     48ms   N
+paeth_brotli-11_q8              20.5K   6.2x   5.823m  25.377m   1.33°    179ms     45ms   N
+paeth_zstd-9_q8                 24.5K   5.2x   5.823m  25.377m   1.33°      4ms     44ms   N
+paeth_zstd-19_q8                21.6K   5.9x   5.823m  25.377m   1.33°     49ms     44ms   N
+
+====================================================================================================
+RECOMMENDATIONS
+====================================================================================================
+
+  BEST LOSSLESS:          gradient_brotli-11
+    Average size: 24.0KB (5.3x ratio)
+    Encode: 196ms, Decode: 40ms
+
+  BEST NEAR-LOSSLESS (<1m): left_brotli-11_q10
+    Average size: 4006.3KB, RMSE: 0.922m
+
+  BEST BALANCED (1-6m):    paeth_brotli-11_q8
+    Average size: 20.5KB, RMSE: 5.823m
+
+  PREDICTOR COMPARISON (lossless, zstd-19):
+    left            5226.2KB (4.8x)
+    avg             27.5KB (4.7x)
+    gradient        27.8KB (4.6x)
+    paeth           29.4KB (4.3x)
+
+  COMPRESSOR COMPARISON (lossless, left-predict):
+    brotli-11       5091.6KB (5.0x)
+    zstd-19         5226.2KB (4.8x)
+    brotli-9        5632.3KB (4.5x)
+    zstd-9          6000.7KB (4.2x)
+    brotli-4        6071.8KB (4.2x)
+
+  IMAGE FORMAT COMPARISON:
+    webp_lossless   4256.8KB (6.0x)
+    terrapng        6731.6KB (3.8x)
+
+  ADAPTIVE vs FIXED QUANTIZATION (paeth + brotli-11):
+    Q16             25.6KB, RMSE: 0.000m
+    Q10             26.0KB, RMSE: 4.353m
+    adaptive        30.2KB, RMSE: 4.356m
+    Q12             30.4KB, RMSE: 4.358m
+    Q8              20.5KB, RMSE: 5.823m

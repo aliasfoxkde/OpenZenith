@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const aqUrl = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
     aqUrl.searchParams.set("latitude", lat.toString());
     aqUrl.searchParams.set("longitude", lon.toString());
-    aqUrl.searchParams.set("current", "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi,eu_aqi");
+    aqUrl.searchParams.set("current", "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi");
     aqUrl.searchParams.set("timezone", "auto");
 
     const res = await fetch(aqUrl.toString());
@@ -46,9 +46,8 @@ export async function GET(request: Request) {
         so2: current.sulphur_dioxide,
         o3: current.ozone,
         us_aqi: current.us_aqi,
-        eu_aqi: current.eu_aqi,
         time: current.time,
-        aqi_level: getAqiLevel(current.us_aqi || current.eu_aqi || 0),
+        aqi_level: getAqiLevel(current.us_aqi || 0),
       },
     };
 

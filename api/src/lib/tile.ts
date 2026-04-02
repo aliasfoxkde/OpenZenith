@@ -8,7 +8,7 @@
  * 4. Sample/interpolate to produce a 256x256 Int16Array
  */
 
-import { decompressSync } from "fflate";
+import { unzlibSync } from "fflate";
 import {
   latLonToSrtmName,
   srtmNameToBounds,
@@ -156,7 +156,7 @@ async function fillTileFromSrtm(
       }
 
       // Decompress
-      const rawBytes = decompressSync(new Uint8Array(compressedData));
+      const rawBytes = unzlibSync(new Uint8Array(compressedData));
 
       // Compute chunk dimensions (edge tiles may be smaller)
       const chunkWidth =

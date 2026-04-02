@@ -179,7 +179,7 @@ abstract class BaseChunkBackend implements ChunkBackend {
   }
 }
 
-class HuggingFaceChunkBackend extends BaseChunkBackend {
+export class HuggingFaceChunkBackend extends BaseChunkBackend {
   constructor(
     private repo: string,
     tryMerged: boolean,

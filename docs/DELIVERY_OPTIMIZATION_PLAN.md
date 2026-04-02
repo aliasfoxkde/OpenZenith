@@ -67,23 +67,88 @@ Production serves ~1.3M Terrarium PNG tiles from Cloudflare R2. Custom OZT1 form
 
 **Challenge:** Current Python implementation uses pixel-by-pixel reconstruction (65K iterations per 256x256 tile). Needs vectorized or compiled implementation.
 
+#### WASM Client-Side Decoding (Recommended Path)
+
+The gradient predictor can be compiled to WebAssembly for client-side execution in the browser. This eliminates the need for a server-side decode step and works seamlessly on Cloudflare Pages.
+
+**Why WASM works here:**
+- Computation is pure integer arithmetic: `p = left + above - upper_left` per pixel
+- Sequential, cache-friendly memory access on a flat `Int16Array`
+- No external dependencies, no I/O — pure computation
+- Brotli decompression available via `DecompressionStream('brotli')` (Chrome/Edge) or `fflate` polyfill (Firefox)
+
+**Rust → WASM reference implementation:**
+```rust
+#[wasm_bindgen]
+pub fn decode_gradient(residuals: &[i16], width: usize, height: usize) -> Vec<i16> {
+    let mut out = Vec::with_capacity(width * height);
+    // First row: left predictor
+    out.push(residuals[0]);
+    for j in 1..width { out.push(residuals[j] + out[j-1]); }
+    // Remaining rows: gradient predictor
+    for i in 1..height {
+        out.push(residuals[i*width] + out[(i-1)*width]);
+        for j in 1..width {
+            let left = out[i*width + j - 1];
+            let above = out[(i-1)*width + j];
+            let upper_left = out[(i-1)*width + j - 1];
+            out.push(residuals[i*width + j] + (left + above - upper_left));
+        }
+    }
+    out
+}
+```
+
+Compile with: `wasm-pack build --target web` — produces a 3-5KB WASM module.
+
+**Performance expectations:**
+
+| Platform | 256x256 decode | 3601x3601 decode |
+|----------|---------------|-----------------|
+| Python (current) | ~40ms | ~13s |
+| WASM (Rust) | ~0.5ms | ~80ms |
+| WASM + SIMD | ~0.2ms | ~30ms |
+
+**Cloudflare Pages compatibility:**
+- **Client-side**: WASM runs natively in all modern browsers. Ship as a static asset alongside JS bundle.
+- **Worker-side**: Cloudflare Workers also support WASM modules via `wasm` binding in `wrangler.toml`.
+- **CSR-First**: Lazy-load the WASM module only when terrain is enabled — keeps initial bundle small.
+- **Progressive decoding**: Can decode first N rows for a low-res preview, then continue in background.
+
+**Client-side pipeline:**
+1. Fetch compressed `.ozt1` tile from R2 (~24KB for 256x256 vs ~129KB left-predict)
+2. `DecompressionStream('brotli')` or `fflate` → raw residuals
+3. WASM `decode_gradient(residuals, width, height)` → elevation grid (~0.5ms)
+4. Feed into CesiumJS/MapLibre custom terrain provider
+
+**Brotli decode browser support:**
+- `DecompressionStream('brotli')`: Chrome 80+, Edge 80+, Safari 16.4+
+- Firefox: Not yet native — polyfill with `fflate` or `brotli-wasm` (~15KB)
+
 **Implementation:**
 
-1. Implement gradient predictor in Rust (via PyO3 for Python integration, or standalone)
-2. Vectorize the reconstruction: gradient predictor is fully parallelizable (each pixel depends only on 3 neighbors)
-3. Update `tile_format.py` to add `COMP_ZSTD_GRADIENT` mode
-4. Benchmark: verify Rust implementation matches Python output exactly
-5. Re-encode all tiles with new mode
+1. Create Rust crate with `wasm-bindgen` for gradient decode + Brotli decompress
+2. Build WASM module with `wasm-pack build --target web`
+3. Create JS wrapper class (`OZT1Decoder`) that lazy-loads the WASM module
+4. Implement custom MapLibre/Cesium terrain provider using OZT1 tiles
+5. Update tile serving endpoint to serve `.ozt1` files with proper content type
+6. Re-encode all tiles with gradient predictor + Brotli-11
+7. Dual-format period: serve OZT1 to capable clients, WebP/PNG fallback to others
 
-**Files to modify:**
-- `openzenith/tile_format.py` (add gradient predictor, update header)
-- `scripts/converter.py` (use new compression mode)
-- New Rust crate or C extension for vectorized reconstruction
-- Client-side decoder updates if OZT1 is used for delivery
+**Files to create/modify:**
+- `openzenith/wasm/` — Rust crate with gradient predictor decoder
+- `openzenith/wasm/pkg/` — Built WASM module (3-5KB)
+- `api/src/lib/ozt1-decoder.ts` — JS wrapper for WASM module
+- `api/src/lib/ozt1-terrain-provider.ts` — Custom terrain provider for MapLibre/Cesium
+- `api/src/app/api/dem-tile/[z]/[x]/[y]/route.ts` — Serve `.ozt1` with content negotiation
+- `openzenith/tile_format.py` — Add gradient predictor + Brotli encoder
+- `scripts/converter.py` — Use new compression mode for batch re-encoding
 
 **Verification:**
-- Roundtrip fidelity test on all 12 representative tiles
-- Speed benchmark: encode/decode time comparison
+- Roundtrip fidelity: `decode_wasm(encode_gradient(tile)) == original` for 1000 random tiles
+- WASM decode speed benchmark (256x256 and 3601x3601)
+- Browser compatibility test (Chrome, Firefox, Safari, Edge)
+- A/B test: OZT1+WASM vs WebP on 50% of traffic
 
 ---
 
@@ -137,7 +202,9 @@ Production serves ~1.3M Terrarium PNG tiles from Cloudflare R2. Custom OZT1 form
 | Brotli vs Zstd-19 | 1.13M (OZT1) | ~26 GB | ~25 GB | ~1 GB |
 | **Combined (WebP)** | **1.13M** | **~26 GB** | **~16.4 GB** | **~9.6 GB (37%)** |
 
-**Note:** OZT1+gradient+brotli would require a custom client-side decoder (MapLibre/Cesium don't support it natively). WebP lossless works with existing map libraries out of the box. **WebP is the recommended path.**
+**Note:** OZT1+gradient+brotli requires a custom client-side decoder (MapLibre/Cesium don't support it natively), but this can be compiled to WASM (~5KB) for browser-side execution. **Two viable paths exist:**
+- **Path A (WebP):** Works with existing map libraries out of the box. 37% savings. Lowest risk. Recommended first step.
+- **Path B (OZT1+Gradient+Brotli+WASM):** 5x smaller tiles, ~0.5ms WASM decode. Requires custom terrain provider. Higher effort, bigger payoff. Recommended as Phase 2.
 
 ---
 
@@ -179,8 +246,8 @@ WebP encoding is the current encode bottleneck (6.3s per 3601x3601 tile). GPU-ac
 
 ## Implementation Order
 
-1. **Phase 1:** WebP lossless tile generation + delivery (biggest win, lowest risk)
-2. **Phase 2:** Gradient predictor in Rust/compiled form (for OZT1 path)
-3. **Phase 3:** Brotli-11 compressor option (marginal gain, easy add)
-4. **Phase 4:** Per-tile encoding selection (optimization pass)
-5. **Phase 5:** Progressive loading (UX improvement)
+1. **Phase 1:** WebP lossless tile generation + delivery (biggest quick win, lowest risk)
+2. **Phase 2:** Gradient predictor → Rust → WASM + Brotli-11 (5x compression, custom terrain provider)
+3. **Phase 3:** Per-tile encoding selection (WebP for flat, OZT1 for mountains — best of both)
+4. **Phase 4:** Brotli-11 compressor option for OZT1 (marginal gain, easy add)
+5. **Phase 5:** Progressive loading via WASM row-by-row decode (UX improvement)

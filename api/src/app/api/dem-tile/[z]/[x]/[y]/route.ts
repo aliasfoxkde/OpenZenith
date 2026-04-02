@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from "@cloudflare/next-on-pages";
+import { compressSync } from "fflate";
+import { getTileData } from "@/lib/tile";
+import { getDefaultBackend } from "@/lib/storage/backend";
 
 /**
  * DEM terrain tile endpoint.
  *
- * Serves Terrarium-encoded PNG tiles from Cloudflare R2.
+ * Serves Terrarium-encoded PNG tiles. Tries R2 first, falls back to
+ * HuggingFace chunk backend for on-the-fly tile assembly.
+ *
  * Used by CesiumJS terrain provider and MapLibre raster-dem source.
  *
  * Tile URL pattern: /api/dem-tile/{z}/{x}/{y}
@@ -15,8 +20,8 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 export const runtime = "edge";
 
 // Cache headers for immutable terrain tiles
-const CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=31536000, immutable",
+const CACHE_HEADERS: Record<string, string> = {
+  "Cache-Control": "public, max-age=86400, s-maxage=86400",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
@@ -34,7 +39,7 @@ export async function GET(
   // Strip .png extension from y parameter (Next.js includes it in the catch-all)
   const tileYStr = y.replace(/\.png$/, "");
 
-  // Validate zoom level (we have z0-8 + z10 tiles)
+  // Validate zoom level
   const zoom = parseInt(z, 10);
   if (isNaN(zoom) || zoom < 0 || zoom > 14) {
     return NextResponse.json(
@@ -53,191 +58,127 @@ export async function GET(
     );
   }
 
-  // Get R2 bucket from Cloudflare Pages bindings
-  const { env } = getRequestContext();
-  const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
+  // Try R2 first
+  try {
+    const { env } = getRequestContext();
+    const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
 
-  if (!bucket) {
-    // Fallback: return a flat ocean tile (elevation = 0)
-    return new Response(generateFlatTile(0).buffer as ArrayBuffer, {
-      headers: {
-        ...CACHE_HEADERS,
-        "Content-Type": "image/png",
-        "X-Dem-Tile-Source": "fallback-flat",
-      },
-    });
+    if (bucket) {
+      const key = `tiles/${z}/${x}/${tileYStr}.png`;
+      const object = await Promise.race([
+        bucket.get(key),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error("R2 timeout")), 3000),
+        ),
+      ]);
+
+      if (object) {
+        return new Response(object.body, {
+          headers: {
+            ...CACHE_HEADERS,
+            "Content-Type": "image/png",
+            "Content-Length": String(object.size),
+            "ETag": object.etag || "",
+            "X-Dem-Tile-Source": "r2",
+          },
+        });
+      }
+    }
+  } catch {
+    // R2 unavailable or timed out — fall through to HuggingFace
   }
 
-  const key = `tiles/${z}/${x}/${tileYStr}.png`;
-
+  // Fallback: assemble tile from HuggingFace chunks
   try {
-    const object = await Promise.race([
-      bucket.get(key),
-      new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error("R2 timeout")), 5000),
-      ),
-    ]);
+    const storage = getDefaultBackend();
+    const tileData = await getTileData(zoom, tileX, tileY, storage);
+    const png = encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
 
-    if (!object) {
-      // Return flat ocean tile for missing tiles
-      return new Response(generateFlatTile(-100).buffer as ArrayBuffer, {
-        headers: {
-          ...CACHE_HEADERS,
-          "Content-Type": "image/png",
-          "X-Dem-Tile-Source": "fallback-missing",
-        },
-      });
-    }
-
-    return new Response(object.body, {
+    return new Response(png.buffer as ArrayBuffer, {
       headers: {
         ...CACHE_HEADERS,
         "Content-Type": "image/png",
-        "Content-Length": String(object.size),
-        "ETag": object.etag || "",
-        "X-Dem-Tile-Source": "r2",
+        "Content-Length": String(png.byteLength),
+        "X-Dem-Tile-Source": "huggingface",
       },
     });
   } catch (error) {
-    console.error(`DEM tile error: ${key}`, error);
-    return new Response(generateFlatTile(-100).buffer as ArrayBuffer, {
+    console.error(`DEM tile assembly error: ${zoom}/${tileX}/${tileY}`, error);
+    // Return ocean tile for out-of-coverage or errors
+    const oceanPng = encodeTerrariumPNG(new Int16Array(256 * 256), 256, 256);
+    return new Response(oceanPng.buffer as ArrayBuffer, {
       status: 200,
       headers: {
         ...CACHE_HEADERS,
         "Content-Type": "image/png",
-        "X-Dem-Tile-Source": "fallback-error",
+        "X-Dem-Tile-Source": "fallback-ocean",
       },
     });
   }
 }
 
-/**
- * Generate a minimal flat PNG tile with a constant elevation.
- * Terrarium encoding: height_m = (R * 256 + G + B / 256) - 32768
- */
-function generateFlatTile(elevation_m: number): Uint8Array {
-  const enc = Math.max(0, Math.min(65535, elevation_m + 32768));
-  const r = Math.min(255, Math.floor(enc / 256));
-  const g = Math.floor(enc % 256);
-  const b = Math.floor((enc * 256) % 256);
-
-  // Minimal valid PNG (1x1 pixel, uncompressed)
-  // For a proper 256x256 tile we'd need a real PNG encoder,
-  // but for fallback a small one is fine
-  return createMinimalPNG(r, g, b);
-}
+// ---------------------------------------------------------------------------
+// Terrarium PNG encoder (edge-compatible)
+// ---------------------------------------------------------------------------
 
 /**
- * Create a minimal 1x1 PNG with the given RGB color.
- * This is used as a fallback when R2 is not available.
+ * Encode an Int16Array elevation grid as a 256x256 Terrarium PNG.
+ * Terrarium: height_m = (R * 256 + G + B / 256) - 32768
  */
-function createMinimalPNG(r: number, g: number, b: number): Uint8Array {
-  // PNG signature
+function encodeTerrariumPNG(data: Int16Array, width: number, height: number): Uint8Array {
+  // Build raw scanlines: filter byte (0 = None) + RGB per pixel
+  const raw = new Uint8Array(height * (1 + width * 3));
+  for (let py = 0; py < height; py++) {
+    const rowOff = py * (1 + width * 3);
+    raw[rowOff] = 0; // filter = None
+    for (let px = 0; px < width; px++) {
+      const elev = data[py * width + px];
+      const enc = elev + 32768; // 0..65535
+      const pixOff = rowOff + 1 + px * 3;
+      raw[pixOff] = (enc >> 8) & 0xFF;     // R
+      raw[pixOff + 1] = enc & 0xFF;        // G
+      raw[pixOff + 2] = 0;                  // B (integer elevations have no sub-meter component)
+    }
+  }
+
+  const compressed = compressSync(raw, { level: 1 }); // fast compression
+
+  // Assemble PNG
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
-  // IHDR chunk (1x1, 8-bit RGB)
   const ihdrData = new Uint8Array(13);
-  ihdrData[0] = 0; // width high byte
-  ihdrData[1] = 1; // width low byte
-  ihdrData[2] = 0; // height high byte
-  ihdrData[3] = 1; // height low byte
-  ihdrData[4] = 8; // bit depth
-  ihdrData[5] = 2; // color type (RGB)
-  // rest is zeros (compression, filter, interlace)
-  const ihdr = createChunk("IHDR", ihdrData);
+  const ihdrView = new DataView(ihdrData.buffer);
+  ihdrView.setUint32(0, width);
+  ihdrView.setUint32(4, height);
+  ihdrData[8] = 8;  // bit depth
+  ihdrData[9] = 2;  // color type RGB
 
-  // IDAT chunk (compressed pixel data: filter byte 0 + RGB)
-  const rawData = new Uint8Array([0, r, g, b]); // filter=none + RGB
-  const idat = createChunk("IDAT", deflateSync(rawData));
+  const ihdr = pngChunk("IHDR", ihdrData);
+  const idat = pngChunk("IDAT", compressed);
+  const iend = pngChunk("IEND", new Uint8Array(0));
 
-  // IEND chunk
-  const iend = createChunk("IEND", new Uint8Array(0));
-
-  // Concatenate
-  const total = signature.length + ihdr.length + idat.length + iend.length;
-  const result = new Uint8Array(total);
-  let offset = 0;
-  result.set(signature, offset); offset += signature.length;
-  result.set(ihdr, offset); offset += ihdr.length;
-  result.set(idat, offset); offset += idat.length;
-  result.set(iend, offset);
-
+  const result = new Uint8Array(signature.length + ihdr.length + idat.length + iend.length);
+  let off = 0;
+  result.set(signature, off); off += signature.length;
+  result.set(ihdr, off); off += ihdr.length;
+  result.set(idat, off); off += idat.length;
+  result.set(iend, off);
   return result;
 }
 
-function createChunk(type: string, data: Uint8Array): Uint8Array {
-  const length = data.length;
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
   const typeBytes = new TextEncoder().encode(type);
-  const crcData = new Uint8Array(typeBytes.length + data.length);
-  crcData.set(typeBytes);
-  crcData.set(data, typeBytes.length);
-  const crc = crc32(crcData);
+  const crcInput = new Uint8Array(typeBytes.length + data.length);
+  crcInput.set(typeBytes);
+  crcInput.set(data, typeBytes.length);
 
   const chunk = new Uint8Array(4 + 4 + data.length + 4);
   const view = new DataView(chunk.buffer);
-  view.setUint32(0, length); // length (big-endian)
-  chunk.set(typeBytes, 4);  // type
-  chunk.set(data, 8);        // data
-  view.setUint32(8 + data.length, crc); // CRC (big-endian)
+  view.setUint32(0, data.length);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  view.setUint32(8 + data.length, crc32(crcInput));
   return chunk;
-}
-
-function deflateSync(data: Uint8Array): Uint8Array {
-  // Minimal deflate wrapper - store block (no compression)
-  // This is valid DEFLATE format
-  const cmf = 0x78; // CM=8 (deflate), CINFO=7 (32K window)
-  const flg = 0x01; // FCHECK makes (CMF*256+FLG) divisible by 31
-
-  const maxBlock = 65535;
-  const blocks: Uint8Array[] = [];
-
-  let offset = 0;
-  while (offset < data.length) {
-    const remaining = data.length - offset;
-    const blockSize = Math.min(remaining, maxBlock);
-    const isFinal = offset + blockSize >= data.length;
-
-    // Block header: BFINAL + BTYPE=00 (stored)
-    const header = new Uint8Array(5);
-    header[0] = isFinal ? 1 : 0; // BFINAL
-    header[1] = 0; // BTYPE=00 (no compression)
-    header[2] = blockSize & 0xFF; // LEN
-    header[3] = (blockSize >> 8) & 0xFF; // NLEN
-    header[4] = (~blockSize) & 0xFF; // NLEN (complement)
-
-    const block = new Uint8Array(5 + blockSize);
-    block.set(header);
-    block.set(data.slice(offset, offset + blockSize), 5);
-    blocks.push(block);
-    offset += blockSize;
-  }
-
-  // Combine: CMF + FLG + blocks + Adler32
-  const blockData = new Uint8Array(blocks.reduce((s, b) => s + b.length, 0));
-  let off = 0;
-  for (const b of blocks) {
-    blockData.set(b, off);
-    off += b.length;
-  }
-
-  const adler = adler32(data);
-  const result = new Uint8Array(2 + blockData.length + 4);
-  result[0] = cmf;
-  result[1] = flg;
-  result.set(blockData, 2);
-  const view = new DataView(result.buffer);
-  view.setUint32(2 + blockData.length, adler, false); // big-endian
-  return result;
-}
-
-function adler32(data: Uint8Array): number {
-  let a = 1;
-  let b = 0;
-  for (let i = 0; i < data.length; i++) {
-    a = (a + data[i]) % 65521;
-    b = (b + a) % 65521;
-  }
-  return (b << 16) | a;
 }
 
 function crc32(data: Uint8Array): number {
@@ -245,11 +186,7 @@ function crc32(data: Uint8Array): number {
   for (let i = 0; i < data.length; i++) {
     crc ^= data[i];
     for (let j = 0; j < 8; j++) {
-      if (crc & 1) {
-        crc = (crc >>> 1) ^ 0xEDB88320;
-      } else {
-        crc = crc >>> 1;
-      }
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
     }
   }
   return (crc ^ 0xFFFFFFFF) >>> 0;
@@ -258,37 +195,10 @@ function crc32(data: Uint8Array): number {
 // Cloudflare R2 bucket type
 declare class R2Bucket {
   get(key: string): Promise<R2Object | null>;
-  put(key: string, value: ArrayBuffer | ReadableStream, options?: R2PutOptions): Promise<void>;
-  delete(key: string): Promise<void>;
-  list(options?: R2ListOptions): Promise<R2Objects>;
 }
 
 interface R2Object {
   body: ReadableStream;
   size: number;
   etag: string;
-  httpMetadata?: Record<string, string>;
-  customMetadata?: Record<string, string>;
-}
-
-interface R2PutOptions {
-  httpMetadata?: Record<string, string>;
-  customMetadata?: Record<string, string>;
-}
-
-interface R2Objects {
-  objects: Array<{
-    key: string;
-    size: number;
-    etag: string;
-  }>;
-  truncated: boolean;
-  cursor?: string;
-}
-
-interface R2ListOptions {
-  prefix?: string;
-  cursor?: string;
-  limit?: number;
-  include?: Array<"httpMetadata" | "customMetadata">;
 }

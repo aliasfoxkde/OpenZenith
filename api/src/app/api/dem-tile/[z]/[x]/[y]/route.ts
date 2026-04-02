@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from "@cloudflare/next-on-pages";
-import { compressSync } from "fflate";
+import { zlibSync } from "fflate";
 import { getTileData } from "@/lib/tile";
 import { getDefaultBackend } from "@/lib/storage/backend";
 
@@ -141,7 +141,7 @@ function encodeTerrariumPNG(data: Int16Array, width: number, height: number): Ui
     }
   }
 
-  const compressed = compressSync(raw, { level: 1 }); // fast compression
+  const compressed = zlibSync(raw, { level: 1 }); // zlib-wrapped deflate for PNG IDAT
 
   // Assemble PNG
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);

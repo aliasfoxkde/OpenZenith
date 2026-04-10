@@ -12,8 +12,8 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-/** Default TTL: 1 day — elevation data is static. */
-const TTL = 24 * 3600;
+/** Default TTL: 30 days — elevation data is static and never changes. */
+const TTL = 30 * 24 * 3600;
 
 /**
  * Try to get a cached entry.

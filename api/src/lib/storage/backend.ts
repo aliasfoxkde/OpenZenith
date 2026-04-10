@@ -120,7 +120,7 @@ function getTileBase(srtmName: string): string {
 // --- Cache for merged files ---
 
 const mergedFileCache = new Map<string, { data: Uint8Array; index: MergedIndex; timestamp: number }>();
-const MERGED_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MERGED_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (SRTM data is static)
 
 // --- Implementations ---
 
@@ -140,16 +140,25 @@ abstract class BaseChunkBackend implements ChunkBackend {
     const base = getTileBase(srtmName);
     const url = this.buildUrl(`${latDir}/${base}.merged`);
 
-    const response = await fetch(url);
-    if (!response.ok) return null;
+    // Timeout HuggingFace fetches to avoid CPU limit on cold starts
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!response.ok) return null;
 
-    const buffer = await response.arrayBuffer();
-    const data = new Uint8Array(buffer);
-    const index = parseMergedHeader(data);
-    if (!index) return null;
+      const buffer = await response.arrayBuffer();
+      const data = new Uint8Array(buffer);
+      const index = parseMergedHeader(data);
+      if (!index) return null;
 
-    mergedFileCache.set(cacheKey, { data, index, timestamp: Date.now() });
-    return { data, index };
+      mergedFileCache.set(cacheKey, { data, index, timestamp: Date.now() });
+      return { data, index };
+    } catch {
+      clearTimeout(timeout);
+      return null;
+    }
   }
 
   async fetchChunk(srtmName: string, row: number, col: number): Promise<ArrayBuffer> {
@@ -169,7 +178,10 @@ abstract class BaseChunkBackend implements ChunkBackend {
     const colStr = String(col).padStart(2, "0");
     const url = this.buildUrl(`${latDir}/${base}_${rowStr}_${colStr}.deflate`);
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!response.ok) {
       throw new Error(
         `Chunk not found: ${srtmName} row=${row} col=${col} (${response.status})`,

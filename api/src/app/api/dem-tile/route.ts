@@ -24,7 +24,7 @@ const TERRAIN_METADATA = {
   tilejson: "3.0.0" as const,
   tiles: ["/api/dem-tile/{z}/{x}/{y}"],
   minzoom: 0,
-  maxzoom: 14,
+  maxzoom: 10,
   bounds: [-180, -90, 180, 90],
   center: [0, 0, 4],
   encoding: "terrarium" as const,
@@ -56,15 +56,16 @@ export async function GET(request: NextRequest) {
 async function handleHealthCheck() {
   // Verify HuggingFace backend is reachable by requesting a known chunk
   try {
-    const url = "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N00/N00E000.merged";
+    const url = "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N35/N35W120.merged";
     const res = await fetch(url, { method: "HEAD" });
 
-    if (res.ok) {
+    if (res.ok || res.status === 302) {
       return NextResponse.json(
         {
           status: "ok",
           backend: "huggingface",
           repo: "aliasfox/srtm30m-merged",
+          http_status: res.status,
           message: "HuggingFace SRTM 30m chunk backend is reachable",
         },
         {

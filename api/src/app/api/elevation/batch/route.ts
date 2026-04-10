@@ -2,7 +2,10 @@
  * Batch elevation endpoint.
  *
  * Accepts multiple lat/lon points and returns elevations in a single request.
- * Uses HuggingFace SRTM 30m chunk backend via getTileData().
+ * Uses HuggingFace SRTM 30m chunk backend via getTileData() at zoom 8 (~1.7km).
+ *
+ * For sub-tile precision with multi-zoom fallback, use the single-point
+ * /api/elevation endpoint instead.
  *
  * POST /api/elevation/batch
  * Body: { points: [{lat, lon, id?}, ...] }

@@ -14,6 +14,7 @@ import {
   pathDistance, sphericalPolygonArea, formatDistance, formatArea,
 } from "./lib/measure";
 import { exportMapScreenshot } from "@/lib/map-export";
+import { getClientElevation } from "@/lib/client-elevation";
 
 /* ─── Types ─── */
 
@@ -372,9 +373,8 @@ export default function MapPage() {
           setCtxMenu(null);
 
           try {
-            const res = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`);
-            const data = await res.json();
-            const pin: ElevationPin = { lat, lon: lng, elevation: data.elevation };
+            const data = await getClientElevation(lat, lng);
+            const pin: ElevationPin = { lat, lon: lng, elevation: data?.elevation ?? null };
             setPins((prev) => [...prev.slice(-49), pin]);
             setActivePin(pin);
             addPinMarker(map, mlgl, pin, pinsRef);
@@ -897,10 +897,9 @@ export default function MapPage() {
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch(`/api/elevation?lat=${ctxMenu.lat.toFixed(6)}&lon=${ctxMenu.lng.toFixed(6)}`);
-                  const d = await r.json();
+                  const d = await getClientElevation(ctxMenu.lat, ctxMenu.lng);
                   navigator.clipboard.writeText(
-                    `${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`,
+                    `${d?.elevation !== null && d?.elevation !== undefined ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`,
                   );
                 } catch {
                   /* ignore */

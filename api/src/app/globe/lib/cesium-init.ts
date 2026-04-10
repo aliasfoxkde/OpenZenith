@@ -1,5 +1,5 @@
 import { switchBasemapOnViewer } from "./helpers";
-import { createTerrariumTerrainProvider } from "./terrarium-terrain";
+import { createCSRTerrainProvider } from "./terrain-csr";
 import type { DashboardState } from "./types";
 
 /**
@@ -136,10 +136,11 @@ export async function initCesiumViewer(
   scene.postProcessStages.fxaa.enabled = true;
   scene.globe.show = true;
 
-  // ─── Terrain: Load Terrarium PNG tiles from R2 as 3D heightmap ───
-  // Decodes Terrarium-encoded PNG tiles (Copernicus GLO-30 + GEBCO 2025)
-  // into CesiumJS HeightmapTerrainData for real 3D terrain on the globe.
-  viewer.terrainProvider = createTerrariumTerrainProvider(Cesium);
+  // ─── Terrain: CSR-first heightmap from HuggingFace ───
+  // Fetches SRTM chunks directly from HuggingFace in the browser,
+  // assembles Float32Array heightmaps. Falls back to server PNG
+  // tiles when HuggingFace is unreachable.
+  viewer.terrainProvider = createCSRTerrainProvider(Cesium);
   scene.globe.depthTestAgainstTerrain = true;
 
   // Remove default Cesium Ion imagery layer (causes 401 without valid token)

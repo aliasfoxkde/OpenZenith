@@ -1,4 +1,5 @@
 import { elevationColor } from "../helpers";
+import { getClientElevationBatch } from "@/lib/client-elevation";
 
 export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: Record<string, any>) {
   if (!Cesium || !viewer) return;
@@ -26,14 +27,8 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
   }
 
   try {
-    const r = await fetch("/api/elevation/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ points }),
-    });
-    if (!r.ok) return; // Batch endpoint unavailable — skip silently
-    const data = await r.json();
-    if (!data.results) return;
+    const results = await getClientElevationBatch(points);
+    if (!results) return;
 
     if (entitiesRef.current["elev-points"]) {
       viewer.scene.primitives.remove(entitiesRef.current["elev-points"]);
@@ -42,7 +37,7 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
     const pointCollection = new Cesium.PointPrimitiveCollection();
     viewer.scene.primitives.add(pointCollection);
 
-    for (const pt of data.results) {
+    for (const pt of results) {
       if (pt.elevation === null || pt.elevation < -9000) continue;
       const color = Cesium.Color.fromCssColorString(elevationColor(pt.elevation));
       pointCollection.add({

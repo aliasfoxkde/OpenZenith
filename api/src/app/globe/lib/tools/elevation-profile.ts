@@ -7,6 +7,7 @@
  */
 
 import { formatDistance, haversineDistance, polylineLength } from "./measure";
+import { getClientElevationBatch } from "@/lib/client-elevation";
 
 export interface ProfilePoint {
   lng: number;
@@ -155,7 +156,7 @@ export function createElevationProfile(viewer: any, Cesium: any) {
     const stepDist = totalDist / (numSamples - 1);
 
     const profile: ProfilePoint[] = [];
-    let cumulativeDist = 0;
+    const samplePoints: Array<{ lat: number; lon: number; dist: number }> = [];
 
     for (let i = 0; i < numSamples; i++) {
       const targetDist = i * stepDist;
@@ -180,24 +181,22 @@ export function createElevationProfile(viewer: any, Cesium: any) {
         lat = coords[j + 1][1];
       }
 
-      // Fetch elevation
-      try {
-        const res = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`);
-        const data = await res.json();
-        profile.push({ lng, lat, elev: data.elevation, dist: cumulativeDist });
-      } catch {
-        profile.push({ lng, lat, elev: null, dist: cumulativeDist });
-      }
-      cumulativeDist = targetDist;
+      samplePoints.push({ lat, lon: lng, dist: targetDist });
     }
 
     // Fix: ensure last point is exact endpoint
     const lastPt = pts[pts.length - 1];
-    try {
-      const res = await fetch(`/api/elevation?lat=${lastPt.lat.toFixed(6)}&lon=${lastPt.lng.toFixed(6)}`);
-      const data = await res.json();
-      profile[profile.length - 1] = { ...profile[profile.length - 1], lng: lastPt.lng, lat: lastPt.lat, elev: data.elevation, dist: totalDist };
-    } catch { /* keep last sampled value */ }
+    samplePoints[samplePoints.length - 1] = { lat: lastPt.lat, lon: lastPt.lng, dist: totalDist };
+
+    // Batch fetch all elevations in one call
+    const batchResults = await getClientElevationBatch(
+      samplePoints.map((p, i) => ({ lat: p.lat, lon: p.lon, id: String(i) })),
+    );
+
+    for (let i = 0; i < batchResults.length; i++) {
+      const r = batchResults[i];
+      profile.push({ lng: r.lon, lat: r.lat, elev: r.elevation, dist: samplePoints[i].dist });
+    }
 
     state.profile = profile;
   };

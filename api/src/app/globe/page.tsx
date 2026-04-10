@@ -33,6 +33,7 @@ import { ToolsWidget } from "./lib/widgets/ToolsWidget";
 import { SettingsWidget } from "./lib/widgets/SettingsWidget";
 import { createSpaceSceneManager } from "./lib/space-scene";
 import type { GlobeContext } from "./lib/widgets/types";
+import { getClientElevation } from "@/lib/client-elevation";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -337,9 +338,8 @@ export default function Globe() {
             return;
           }
 
-          fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`)
-            .then((r) => r.json())
-            .then((d) => setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation, lat, lon: lng }))
+          getClientElevation(lat, lng)
+            .then((d) => setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }))
             .catch(() => {});
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -1112,7 +1112,7 @@ export default function Globe() {
                   closeCtx();
                 }} />
                 <CtxMenuItem label="Elevation" color="var(--ok)" onClick={async () => {
-                  try { const r = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`); const d = await r.json(); safeCopy(`${d.elevation !== null ? d.elevation + "m" : "No data"} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`); } catch { /* */ }
+                  try { const d = await getClientElevation(lat, lng); safeCopy(`${d?.elevation !== null && d?.elevation !== undefined ? d.elevation + "m" : "No data"} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`); } catch { /* */ }
                   closeCtx();
                 }} />
               </CtxSubMenu>

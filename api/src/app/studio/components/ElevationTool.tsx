@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { ElevationResult } from "../lib/types";
+import { getClientElevation } from "@/lib/client-elevation";
 
 interface Props {
   map: any;
@@ -24,13 +25,12 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
     async (lat: number, lon: number) => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/elevation?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`);
-        const data = await res.json();
-        const result: ElevationResult = { lat, lon, elevation: data.elevation, surfaceType: data.surface_type };
+        const data = await getClientElevation(lat, lon);
+        const result: ElevationResult = { lat, lon, elevation: data?.elevation ?? null, surfaceType: data?.surfaceType ?? "unknown" };
         setResults((prev) => [result, ...prev].slice(0, 50));
         return result;
       } catch {
-        setResults((prev) => [{ lat, lon, elevation: null }, ...prev].slice(0, 50));
+        setResults((prev) => [{ lat, lon, elevation: null, surfaceType: "unknown" }, ...prev].slice(0, 50));
         return null;
       } finally {
         setLoading(false);

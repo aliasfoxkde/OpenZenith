@@ -5,21 +5,12 @@
  * 1. Individual .deflate chunks (one 256x256 chunk per file)
  * 2. Merged .merged files (all chunks for one tile in one file)
  *
- * The merged format uses a simple binary layout:
- *   [8 bytes] Magic: "OZCHNK01"
- *   [2 bytes] Version: 1 (SRTM Int16) or 2 (Copernicus Float32)
- *   [1 byte]  Rows (chunks per tile row)
- *   [1 byte]  Cols (chunks per tile col)
- *   [N * 8 bytes] Index: [4-byte offset LE, 4-byte size LE] per chunk
- *   [variable] Concatenated deflate-compressed chunk data
- *
- * Version 1 (SRTM): 15x15 grid, Int16, 3601x3601 tiles
- * Version 2 (Copernicus): variable grid, Float32, 3600x3600 tiles
- *
  * URL patterns:
  *   Individual: {base}/{base}_{row:02d}_{col:02d}.deflate
  *   Merged:     {base}/{base}.merged
  */
+
+import { parseMergedHeader, extractChunkFromMerged, getLatDir, getTileBase, type MergedIndex } from "@/lib/srtm/merged-parser";
 
 export type BackendType = "huggingface" | "http";
 
@@ -55,66 +46,6 @@ export function getDefaultBackend(): ChunkBackend {
     baseUrl: process.env.TILES_BASE_URL || "",
     useMerged: process.env.USE_MERGED || "true",
   });
-}
-
-// --- Merged file parsing ---
-
-const MERGED_MAGIC = new Uint8Array([0x4f, 0x5a, 0x43, 0x48, 0x4e, 0x4b, 0x30, 0x31]); // "OZCHNK01"
-const HEADER_SIZE = 12; // 8 magic + 2 version + 1 rows + 1 cols
-const INDEX_ENTRY_SIZE = 8; // 4-byte offset + 4-byte size
-
-interface MergedIndex {
-  rows: number;
-  cols: number;
-  entries: Array<{ offset: number; size: number }>;
-}
-
-function parseMergedHeader(data: Uint8Array): MergedIndex | null {
-  if (data.length < HEADER_SIZE) return null;
-
-  // Check magic
-  for (let i = 0; i < 8; i++) {
-    if (data[i] !== MERGED_MAGIC[i]) return null;
-  }
-
-  const view = new DataView(data.buffer, data.byteOffset);
-  const version = view.getUint16(8, true);
-  if (version !== 1 && version !== 2) return null;
-
-  const rows = data[10];
-  const cols = data[11];
-
-  const entries: Array<{ offset: number; size: number }> = [];
-  for (let i = 0; i < rows * cols; i++) {
-    const off = HEADER_SIZE + i * INDEX_ENTRY_SIZE;
-    entries.push({
-      offset: view.getUint32(off, true),
-      size: view.getUint32(off + 4, true),
-    });
-  }
-
-  return { rows, cols, entries };
-}
-
-function extractChunkFromMerged(
-  mergedData: Uint8Array,
-  index: MergedIndex,
-  row: number,
-  col: number,
-): Uint8Array {
-  const idx = row * index.cols + col;
-  const entry = index.entries[idx];
-  return mergedData.slice(entry.offset, entry.offset + entry.size);
-}
-
-// --- Helper to build paths ---
-
-function getLatDir(srtmName: string): string {
-  return srtmName.substring(0, 3);
-}
-
-function getTileBase(srtmName: string): string {
-  return srtmName.replace(".tif", "");
 }
 
 // --- Cache for merged files ---

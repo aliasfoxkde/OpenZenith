@@ -1150,7 +1150,7 @@ function addElevationSource(map: any, _mlgl: any) {
     type: "raster-dem",
     tiles: ["/api/dem-tile/{z}/{x}/{y}"],
     tileSize: 256,
-    maxzoom: 12,
+    maxzoom: 10,
     encoding: "terrarium",
   });
 }

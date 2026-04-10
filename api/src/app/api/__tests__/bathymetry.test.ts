@@ -20,12 +20,23 @@ describe("Bathymetry endpoint", () => {
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
   });
 
-  it("returns ocean surface_type for ocean coordinates", async () => {
+  it("returns ocean surface_type for ocean coordinates via GEBCO", async () => {
     const res = await fetch(`${BASE}/api/bathymetry?lat=0&lon=0`);
     expect(res.status).toBe(200);
 
     const data = await res.json();
     expect(data.surface_type).toBe("ocean");
+    expect(data.source).toBe("gebco2025");
+    expect(data.depth).toBeGreaterThan(0);
+  });
+
+  it("returns depth > 0 for deep ocean", async () => {
+    const res = await fetch(`${BASE}/api/bathymetry?lat=11.3&lon=142.2`);
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.surface_type).toBe("ocean");
+    expect(data.depth).toBeGreaterThan(8000); // Mariana Trench area
   });
 
   it("returns 400 for missing parameters", async () => {

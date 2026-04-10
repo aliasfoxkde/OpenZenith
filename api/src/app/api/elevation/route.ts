@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 
 export const runtime = "edge";
 
@@ -14,6 +15,7 @@ const CORS_HEADERS = {
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 async function getElevation(lat: number, lon: number) {
+  // Try SRTM (land elevation, 30m resolution) first
   try {
     const result = await getPointElevation(lat, lon, HF_BACKEND);
     if (result) {
@@ -28,7 +30,25 @@ async function getElevation(lat: number, lon: number) {
       };
     }
   } catch {
-    // Fall through to null
+    // Fall through to GEBCO
+  }
+
+  // SRTM returned null (ocean or outside -60..61 lat) — fall back to GEBCO 2025
+  try {
+    const gebco = await getGebcoElevation(lat, lon);
+    if (gebco.elevation !== null) {
+      return {
+        elevation: gebco.elevation,
+        surface_type: gebco.surface_type,
+        unit: "meters" as const,
+        location: { lat, lon },
+        source: "gebco2025" as const,
+        tile: gebco.tile,
+        resolution: 450,
+      };
+    }
+  } catch {
+    // Both sources failed
   }
 
   return {
@@ -38,7 +58,7 @@ async function getElevation(lat: number, lon: number) {
     location: { lat, lon },
     source: "none" as const,
     tile: "",
-    resolution: 30,
+    resolution: 0,
   };
 }
 

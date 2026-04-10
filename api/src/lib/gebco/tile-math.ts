@@ -4,7 +4,7 @@
  * GEBCO 2025 grid is 15 arc-second resolution (~450m at equator).
  * The data is organized as 8 quadrant files (90°x90°), each 21600x21600 pixels.
  *
- * Quadrant naming: gebco_2025_sub_ice_n{north}_s{south}_w{west}_e{east}.tif
+ * CEDA naming: gebco_2025_n{north}_s{south}_w{west}_e{east}.tif
  *   Northern hemisphere: n90.0_s0.0
  *   Southern hemisphere: n0.0_s-90.0
  *   Longitude bands: w-180.0_e-90.0, w-90.0_e0.0, w0.0_e90.0, w90.0_e180.0
@@ -27,7 +27,7 @@ export function latLonToQuadName(lat: number, lon: number): string {
   else if (lon < 90) lonBand = "w0.0_e90.0";
   else lonBand = "w90.0_e180.0";
 
-  return `gebco_2025_sub_ice_${latBand}_${lonBand}.tif`;
+  return `gebco_2025_${latBand}_${lonBand}.tif`;
 }
 
 /**
@@ -40,7 +40,7 @@ export function quadNameToBounds(quadName: string): {
   lonMax: number;
 } | null {
   const m = quadName.match(
-    /gebco_2025_sub_ice_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/,
+    /gebco_2025_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/,
   );
   if (!m) return null;
 

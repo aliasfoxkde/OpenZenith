@@ -21,10 +21,10 @@ import {
 const BYTES_PER_PIXEL = 2; // Int16
 
 // Base URL for GEBCO tile files.
-// Production: set GEBCO_TILE_URL env var (e.g., R2 bucket or external server).
-// Dev: defaults to localhost:9006 (requires the tile server route).
+// Production: CEDA hosts GEBCO 2025 GeoTIFFs with CORS + range request support.
+// Override with GEBCO_TILE_URL env var for self-hosted files.
 function getBaseUrl(): string {
-  return process.env.GEBCO_TILE_URL || "http://localhost:9006/api/gebco-tile";
+  return process.env.GEBCO_TILE_URL || "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff";
 }
 
 // Cache parsed TIFF headers to avoid re-fetching

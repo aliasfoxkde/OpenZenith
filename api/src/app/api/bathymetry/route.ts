@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
+import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 
 export const runtime = "edge";
 
@@ -35,34 +36,55 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Try SRTM (land elevation) first
     const result = await getElevationFromR2(latNum, lonNum);
 
-    if (result.elevation === null) {
+    if (result.elevation !== null) {
+      const isOcean = result.elevation < -0.5;
       return NextResponse.json(
         {
-          depth: null,
-          elevation: null,
+          depth: isOcean ? Math.abs(result.elevation) : 0,
+          elevation: isOcean ? 0 : result.elevation,
           unit: "meters",
-          surface_type: "unknown",
+          surface_type: result.surface_type,
           source: result.source,
           tile: result.tile,
+          resolution: result.resolution,
           location: { lat: latNum, lon: lonNum },
         },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },
       );
     }
 
-    const isOcean = result.elevation < -0.5;
+    // SRTM returned null (ocean or outside coverage) — fall back to GEBCO 2025
+    const gebco = await getGebcoElevation(latNum, lonNum);
 
+    if (gebco.elevation !== null) {
+      const isOcean = gebco.elevation < -0.5;
+      return NextResponse.json(
+        {
+          depth: isOcean ? Math.abs(gebco.elevation) : 0,
+          elevation: isOcean ? 0 : gebco.elevation,
+          unit: "meters",
+          surface_type: gebco.surface_type,
+          source: gebco.source,
+          tile: gebco.tile,
+          resolution: gebco.resolution,
+          location: { lat: latNum, lon: lonNum },
+        },
+        { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },
+      );
+    }
+
+    // Both sources returned null
     return NextResponse.json(
       {
-        depth: isOcean ? Math.abs(result.elevation) : 0,
-        elevation: isOcean ? 0 : result.elevation,
+        depth: null,
+        elevation: null,
         unit: "meters",
-        surface_type: result.surface_type,
-        source: result.source,
-        tile: result.tile,
-        resolution: result.resolution,
+        surface_type: "unknown",
+        source: "none",
+        tile: "",
         location: { lat: latNum, lon: lonNum },
       },
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
           elevation: null,
           unit: "meters",
           surface_type: "unknown",
-          source: "r2-terrarium",
+          source: result.source,
           tile: result.tile,
           location: { lat: latNum, lon: lonNum },
         },

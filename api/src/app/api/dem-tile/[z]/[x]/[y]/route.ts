@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
 import { zlibSync } from "fflate";
 import { getTileData } from "@/lib/tile";
-import { getDefaultBackend } from "@/lib/storage/backend";
+import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 
 /**
  * DEM terrain tile endpoint.
  *
- * Serves Terrarium-encoded PNG tiles. Tries R2 first, falls back to
- * HuggingFace chunk backend for on-the-fly tile assembly.
+ * Serves Terrarium-encoded PNG tiles by assembling them on-the-fly
+ * from HuggingFace SRTM 30m chunk datasets.
  *
  * Used by CesiumJS terrain provider and MapLibre raster-dem source.
  *
@@ -16,6 +15,9 @@ import { getDefaultBackend } from "@/lib/storage/backend";
  * Format: Terrarium PNG (256x256)
  * Encoding: height_m = (R * 256 + G + B / 256) - 32768
  */
+
+// Direct backend instance — avoids process.env which may not work on edge
+const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 export const runtime = "edge";
 
@@ -58,40 +60,9 @@ export async function GET(
     );
   }
 
-  // Try R2 first
+  // Assemble tile from HuggingFace chunks
   try {
-    const { env } = getRequestContext();
-    const bucket = (env as Record<string, unknown>).DEM_TILES as R2Bucket | undefined;
-
-    if (bucket) {
-      const key = `tiles/${z}/${x}/${tileYStr}.png`;
-      const object = await Promise.race([
-        bucket.get(key),
-        new Promise<null>((_, reject) =>
-          setTimeout(() => reject(new Error("R2 timeout")), 3000),
-        ),
-      ]);
-
-      if (object) {
-        return new Response(object.body, {
-          headers: {
-            ...CACHE_HEADERS,
-            "Content-Type": "image/png",
-            "Content-Length": String(object.size),
-            "ETag": object.etag || "",
-            "X-Dem-Tile-Source": "r2",
-          },
-        });
-      }
-    }
-  } catch {
-    // R2 unavailable or timed out — fall through to HuggingFace
-  }
-
-  // Fallback: assemble tile from HuggingFace chunks
-  try {
-    const storage = getDefaultBackend();
-    const tileData = await getTileData(zoom, tileX, tileY, storage);
+    const tileData = await getTileData(zoom, tileX, tileY, HF_BACKEND);
     const png = encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
 
     return new Response(png.buffer as ArrayBuffer, {
@@ -192,13 +163,3 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
-// Cloudflare R2 bucket type
-declare class R2Bucket {
-  get(key: string): Promise<R2Object | null>;
-}
-
-interface R2Object {
-  body: ReadableStream;
-  size: number;
-  etag: string;
-}

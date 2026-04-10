@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
-import { getDefaultBackend } from "@/lib/storage/backend";
+import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 
 export const runtime = "edge";
+
+// Direct HuggingFace backend — avoids process.env which may not work on edge
+const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 const TILE_SIZE = 256;
 
@@ -50,8 +53,7 @@ export async function GET(
   }
 
   try {
-    const storage = getDefaultBackend();
-    const result = await getTileData(zoom, tileX, tileY, storage);
+    const result = await getTileData(zoom, tileX, tileY, HF_BACKEND);
 
     const buffer = result.data.buffer.slice(
       result.data.byteOffset,

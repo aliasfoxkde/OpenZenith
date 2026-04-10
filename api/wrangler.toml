@@ -14,8 +14,3 @@ OPENSKY_CLIENT_SECRET = "GXJMhLWuATBGxPoxJz9m7A6KA4NFLYgz"
 
 # AISstream.io (free vessel tracking WebSocket)
 AISSTREAM_KEY = "6f699e3655fd824a0f6a03eda802d19526305d0e"
-
-# R2 bucket for DEM terrain tiles
-[[r2_buckets]]
-binding = "DEM_TILES"
-bucket_name = "openzenith-dem"

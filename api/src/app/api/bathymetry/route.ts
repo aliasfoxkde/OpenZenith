@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         elevation: isOcean ? 0 : result.elevation,
         unit: "meters",
         surface_type: result.surface_type,
-        source: "r2-terrarium",
+        source: result.source,
         tile: result.tile,
         resolution: result.resolution,
         location: { lat: latNum, lon: lonNum },

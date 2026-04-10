@@ -57,9 +57,15 @@ export async function GET(request: NextRequest) {
     }
 
     // SRTM returned null (ocean or outside coverage) — fall back to GEBCO 2025
-    const gebco = await getGebcoElevation(latNum, lonNum);
+    let gebco;
+    try {
+      gebco = await getGebcoElevation(latNum, lonNum);
+    } catch {
+      // GEBCO fetch failed (e.g. Workers memory limit on deep range requests)
+      gebco = null;
+    }
 
-    if (gebco.elevation !== null) {
+    if (gebco && gebco.elevation !== null) {
       const isOcean = gebco.elevation < -0.5;
       return NextResponse.json(
         {

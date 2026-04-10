@@ -19,6 +19,11 @@ import {
 } from "./srtm/tile-math";
 import { tileToLatLon } from "./srtm/zoom-math";
 import { parseMergedHeader, extractChunkFromMerged, getLatDir, getTileBase, type MergedIndex } from "./srtm/merged-parser";
+import {
+  latLonToQuadName,
+  quadNameToBounds,
+  latLonToPixel as gebcoLatLonToPixel,
+} from "./gebco/tile-math";
 
 // --- Types ---
 
@@ -33,6 +38,13 @@ interface TileResult {
   width: number;
   height: number;
 }
+
+// --- GEBCO 2025 client-side constants ---
+
+const GEBCO_CEDA_BASE = "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff";
+const GEBCO_STRIP_DATA_START = 135948;
+const GEBCO_STRIP_BYTES = 21600 * 2; // 43,200 bytes per row (Int16)
+const gebcoStripCache = new Map<string, { strip: Uint8Array; ts: number }>();
 
 // --- HuggingFace URL -- same pattern as server backend ---
 
@@ -147,6 +159,68 @@ function readPixel(chunk: DecodedChunk, srtmBounds: ReturnType<typeof srtmNameTo
   return val === -32768 ? null : val;
 }
 
+// --- GEBCO 2025 client-side strip fetch and pixel decode ---
+
+async function fetchGebcoStrip(quadName: string, row: number): Promise<Uint8Array | null> {
+  const cacheKey = `${quadName}:${row}`;
+  const cached = gebcoStripCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CHUNK_TTL) return cached.strip;
+
+  const stripOffset = GEBCO_STRIP_DATA_START + row * GEBCO_STRIP_BYTES;
+  const url = `${GEBCO_CEDA_BASE}/${quadName}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Range: `bytes=${stripOffset}-${stripOffset + GEBCO_STRIP_BYTES - 1}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.status !== 206 && res.status !== 200) return null;
+
+    const strip = new Uint8Array(await res.arrayBuffer());
+    cacheEvict(gebcoStripCache);
+    gebcoStripCache.set(cacheKey, { strip, ts: Date.now() });
+    return strip;
+  } catch {
+    return null;
+  }
+}
+
+function readGebcoPixel(strip: Uint8Array, col: number): number | null {
+  const byteOffset = col * 2;
+  if (byteOffset + 2 > strip.length) return null;
+
+  const lowByte = strip[byteOffset];
+  const highByte = strip[byteOffset + 1];
+  const value = (highByte << 8) | lowByte;
+  const signedValue = value >= 32768 ? value - 65536 : value;
+
+  if (signedValue > 8850 || signedValue < -11000) return null;
+  return signedValue;
+}
+
+async function clientGebcoElevation(lat: number, lon: number): Promise<{
+  elevation: number;
+  surfaceType: "land" | "ocean";
+  tile: string;
+} | null> {
+  const quadName = latLonToQuadName(lat, lon);
+  const bounds = quadNameToBounds(quadName);
+  if (!bounds) return null;
+
+  const { row, col } = gebcoLatLonToPixel(lat, lon, bounds);
+  const strip = await fetchGebcoStrip(quadName, row);
+  if (!strip) return null;
+
+  const elevation = readGebcoPixel(strip, col);
+  if (elevation === null) return null;
+
+  return {
+    elevation,
+    surfaceType: elevation < 0 ? "ocean" : "land",
+    tile: quadName,
+  };
+}
+
 // --- Public API: single point elevation ---
 
 export async function getClientElevation(lat: number, lon: number): Promise<{
@@ -200,7 +274,16 @@ async function clientElevationDirect(lat: number, lon: number): Promise<{
   if (!chunk) return null;
 
   const elevation = readPixel(chunk, srtmBounds, pixel);
-  if (elevation === null) return null;
+  if (elevation === null) {
+    // SRTM NODATA = ocean or outside coverage — try GEBCO 2025
+    try {
+      const gebco = await clientGebcoElevation(lat, lon);
+      if (gebco) return gebco;
+    } catch {
+      // GEBCO unavailable, fall through
+    }
+    return null;
+  }
 
   return {
     elevation,
@@ -272,9 +355,31 @@ async function clientBatchDirect(
       const chunk = chunkCache.get(ck);
       if (chunk) {
         const elev = readPixel(chunk, srtmBounds, pixel);
-        results[pt.idx] = { ...pt, elevation: elev };
+        if (elev !== null) {
+          results[pt.idx] = { ...pt, elevation: elev };
+        } else {
+          // SRTM NODATA — try GEBCO for this point
+          try {
+            const gebco = await clientGebcoElevation(pt.lat, pt.lon);
+            if (gebco) {
+              results[pt.idx] = { ...pt, elevation: gebco.elevation };
+            }
+          } catch { /* skip */ }
+        }
       }
     }
+  }
+
+  // For points outside SRTM coverage, try GEBCO
+  for (let i = 0; i < points.length; i++) {
+    if (results[i].elevation !== null) continue;
+    const p = points[i];
+    try {
+      const gebco = await clientGebcoElevation(p.lat, p.lon);
+      if (gebco) {
+        results[i] = { ...results[i], elevation: gebco.elevation };
+      }
+    } catch { /* skip */ }
   }
 
   return results;
@@ -383,4 +488,5 @@ async function clientTileDataDirect(
 export function clearElevationCache(): void {
   chunkCache.clear();
   mergedCache.clear();
+  gebcoStripCache.clear();
 }

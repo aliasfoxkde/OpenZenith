@@ -1,59 +1,109 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mockRequest } from "./helpers";
 
-const BASE = "http://localhost:9006";
+// Mock the cache module — cachedFetch falls through to real fetch
+vi.mock("@/lib/cache", () => ({
+  cachedFetch: vi.fn((url: string, _ttl: number, opts?: RequestInit) => fetch(url, opts)),
+  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600, WATERWAYS: 3600 },
+}));
+
+const mockOverpassResponse = {
+  elements: [
+    {
+      type: "way",
+      id: 123,
+      tags: { name: "Hudson River", waterway: "river" },
+      geometry: [[40.7, -74.0], [40.8, -73.9], [40.9, -73.8]],
+    },
+  ],
+};
 
 describe("Waterways endpoint", () => {
-  it("returns GeoJSON for valid bbox (or 502 if Overpass unavailable)", async () => {
-    const res = await fetch(`${BASE}/api/waterways?bbox=-74.1,40.6,-73.9,40.8`);
-    expect([200, 502]).toContain(res.status);
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data.type).toBe("FeatureCollection");
-      expect(Array.isArray(data.features)).toBe(true);
-    } else {
-      const data = await res.json();
-      expect(data.error).toBeDefined();
-    }
-  }, 30000);
+  it("returns GeoJSON for valid bbox", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockOverpassResponse), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8");
+    const resp = await GET(req);
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.type).toBe("FeatureCollection");
+    expect(Array.isArray(data.features)).toBe(true);
+    expect(data.features.length).toBe(1);
+  });
 
   it("includes CORS headers", async () => {
-    const res = await fetch(`${BASE}/api/waterways?bbox=-74.1,40.6,-73.9,40.8`);
-    expect(res.headers.get("access-control-allow-origin")).toBe("*");
-  }, 30000);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockOverpassResponse), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8");
+    const resp = await GET(req);
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
+  });
 
   it("returns 400 for missing bbox", async () => {
-    const res = await fetch(`${BASE}/api/waterways`);
-    expect(res.status).toBe(400);
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways");
+    const resp = await GET(req);
+    expect(resp.status).toBe(400);
   });
 
   it("returns 400 for invalid bbox format", async () => {
-    const res = await fetch(`${BASE}/api/waterways?bbox=invalid`);
-    expect(res.status).toBe(400);
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways?bbox=invalid");
+    const resp = await GET(req);
+    expect(resp.status).toBe(400);
   });
 
   it("returns 400 for oversized bbox", async () => {
-    const res = await fetch(`${BASE}/api/waterways?bbox=-180,-90,180,90`);
-    expect(res.status).toBe(400);
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways?bbox=-180,-90,180,90");
+    const resp = await GET(req);
+    expect(resp.status).toBe(400);
   });
 
-  it("filters by type=rivers (or 502 if Overpass unavailable)", async () => {
-    const res = await fetch(`${BASE}/api/waterways?bbox=-74.1,40.6,-73.9,40.8&type=rivers`);
-    expect([200, 502]).toContain(res.status);
+  it("filters by type=rivers", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockOverpassResponse), { status: 200 }),
+    );
 
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data.type).toBe("FeatureCollection");
-    }
-  }, 30000);
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8&type=rivers");
+    const resp = await GET(req);
+    expect(resp.status).toBe(200);
 
-  it("respects limit parameter (or 502 if Overpass unavailable)", async () => {
-    const res = await fetch(`${BASE}/api/waterways?bbox=-74.1,40.6,-73.9,40.8&limit=2`);
-    expect([200, 502]).toContain(res.status);
+    const data = await resp.json();
+    expect(data.type).toBe("FeatureCollection");
+  });
 
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data.count).toBeLessThanOrEqual(2);
-    }
-  }, 30000);
+  it("respects limit parameter", async () => {
+    const manyElements = {
+      elements: Array.from({ length: 10 }, (_, i) => ({
+        type: "way",
+        id: 100 + i,
+        tags: { name: `River ${i}`, waterway: "river" },
+        geometry: [[40.6, -74.0 + i * 0.01], [40.7, -74.0 + i * 0.01]],
+      })),
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(manyElements), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/waterways/route");
+    const req = mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8&limit=2");
+    const resp = await GET(req);
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.count).toBeLessThanOrEqual(2);
+  });
 });

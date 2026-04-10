@@ -7,22 +7,6 @@ import { Navbar } from "@/components/Navbar";
    Types
    ═══════════════════════════════════════════════════════════════ */
 
-interface ArcGISService {
-  name: string;
-  type: string;
-  url: string;
-}
-
-interface ArcGISTarget {
-  host: string;
-  id: string;
-  url: string;
-  serviceCount?: number;
-  services?: ArcGISService[];
-  loading?: boolean;
-  error?: string;
-}
-
 interface OverpassResult {
   elements: any[];
   osm3s?: { timestamp_osm_base: string };
@@ -32,63 +16,11 @@ interface OverpassResult {
    Constants
    ═══════════════════════════════════════════════════════════════ */
 
-const KNOWN_HOSTS: ArcGISTarget[] = [
-  {
-    host: "services9.arcgis.com",
-    id: "RHVPKKiFTONKtxq3",
-    url: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services",
-  },
-  {
-    host: "services7.arcgis.com",
-    id: "WHDO3oT6B54vXxsx",
-    url: "https://services7.arcgis.com/WHDO3oT6B54vXxsx/ArcGIS/rest/services",
-  },
-  {
-    host: "services6.arcgis.com",
-    id: "P0j8gBhkWyUvGMOJ",
-    url: "https://services6.arcgis.com/P0j8gBhkWyUvGMOJ/ArcGIS/rest/services",
-  },
-  {
-    host: "services3.arcgis.com",
-    id: "NV3gBKL1xPmJ6h8V",
-    url: "https://services3.arcgis.com/NV3gBKL1xPmJ6h8V/ArcGIS/rest/services",
-  },
-  {
-    host: "services1.arcgis.com",
-    id: "Wl7Y1mXPaBnJF4o4",
-    url: "https://services1.arcgis.com/Wl7Y1mXPaBnJF4o4/ArcGIS/rest/services",
-  },
-  {
-    host: "services.arcgis.com",
-    id: "6tLsIO2BUcJ2mKgv",
-    url: "https://services.arcgis.com/6tLsIO2BUcJ2mKgv/ArcGIS/rest/services",
-  },
-  {
-    host: "services2.arcgis.com",
-    id: "jDGuO8AoQLB0zqXz",
-    url: "https://services2.arcgis.com/jDGuO8AoQLB0zqXz/ArcGIS/rest/services",
-  },
-  {
-    host: "services8.arcgis.com",
-    id: "HEYY8eQgKtITtGVcc",
-    url: "https://services8.arcgis.com/HEYY8eQgKtITtGVcc/ArcGIS/rest/services",
-  },
-  {
-    host: "services10.arcgis.com",
-    id: "jDGuO8AoQLB0zqXz",
-    url: "https://services10.arcgis.com/jDGuO8AoQLB0zqXz/ArcGIS/rest/services",
-  },
-  {
-    host: "services11.arcgis.com",
-    id: "6tLsIO2BUcJ2mKgv",
-    url: "https://services11.arcgis.com/6tLsIO2BUcJ2mKgv/ArcGIS/rest/services",
-  },
-  {
-    host: "services12.arcgis.com",
-    id: "rJILGiHnLq1MxPsB",
-    url: "https://services12.arcgis.com/rJILGiHnLq1MxPsB/ArcGIS/rest/services",
-  },
-  { host: "opendata.arcgis.com", id: "zNFqk4i7h0oYAdW4", url: "https://opendata.arcgis.com/datasets/zNFqk4i7h0oYAdW4" },
+const OVERTURE_THEMES = [
+  { id: "places", label: "Places", desc: "Points of interest, businesses, landmarks", types: ["place"] },
+  { id: "buildings", label: "Buildings", desc: "Building footprints with height and type", types: ["building"] },
+  { id: "transportation", label: "Transportation", desc: "Roads, paths, and transit segments", types: ["segment"] },
+  { id: "base_geography", label: "Base Geography", desc: "Land, water, and administrative boundaries", types: ["land", "water"] },
 ];
 
 const OVERPASS_QUERIES = [
@@ -292,18 +224,18 @@ function magBg(mag: number): string {
    Component
    ═══════════════════════════════════════════════════════════════ */
 
-type TabId = "arcgis" | "overpass" | "noaa" | "flights" | "earthquakes" | "satellites" | "marine";
+type TabId = "overture" | "overpass" | "noaa" | "flights" | "earthquakes" | "satellites" | "marine";
 
 export default function ExplorePage() {
   const [tab, setTab] = useState<TabId>("noaa");
 
-  // ArcGIS state
-  const [hosts, setHosts] = useState<ArcGISTarget[]>(KNOWN_HOSTS);
-  const [selectedHost, setSelectedHost] = useState<string | null>(null);
-  const [serviceDetails, setServiceDetails] = useState<any>(null);
-  const [serviceFields, setServiceFields] = useState<any[]>([]);
-  const [arcLoading, setArcLoading] = useState(false);
-  const [customUrl, setCustomUrl] = useState("");
+  // Overture Maps state
+  const [ovTheme, setOvTheme] = useState("places");
+  const [ovType, setOvType] = useState("place");
+  const [ovBbox, setOvBbox] = useState("-74.02,40.70,-73.95,40.78");
+  const [ovLoading, setOvLoading] = useState(false);
+  const [ovData, setOvData] = useState<any>(null);
+  const [ovError, setOvError] = useState("");
 
   // Overpass state
   const [opQuery, setOpQuery] = useState("");
@@ -356,63 +288,27 @@ export default function ExplorePage() {
   const [marLat, setMarLat] = useState("40.7128");
   const [marLon, setMarLon] = useState("-74.0060");
 
-  // ─── ArcGIS ───
-  const discoverHost = useCallback(async (host: ArcGISTarget) => {
-    setHosts((prev) => prev.map((h) => (h.id === host.id ? { ...h, loading: true, error: undefined } : h)));
+  // ─── Overture Maps ───
+  const fetchOverture = useCallback(async () => {
+    if (!ovBbox.trim()) return;
+    setOvLoading(true);
+    setOvError("");
+    setOvData(null);
     try {
-      const resp = await fetch(`/api/arcgis?url=${encodeURIComponent(host.url + "?f=pjson")}`);
+      const parts = ovBbox.split(",").map(Number);
+      if (parts.length !== 4 || parts.some(isNaN)) throw new Error("Invalid bbox. Use: west,south,east,north");
+      const [west, south, east, north] = parts;
+      const url = `https://api.overturemaps.org/v0/${ovTheme}/${ovType}?bbox=${west},${south},${east},${north}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Overture API returned ${resp.status}`);
       const data = await resp.json();
-      if (data.error) throw new Error(data.error);
-      const services = (data.services || []).map((s: any) => ({ name: s.name, type: s.type, url: s.url }));
-      setHosts((prev) =>
-        prev.map((h) => (h.id === host.id ? { ...h, serviceCount: services.length, services, loading: false } : h)),
-      );
+      setOvData(data);
     } catch (e: any) {
-      setHosts((prev) =>
-        prev.map((h) => (h.id === host.id ? { ...h, loading: false, error: e.message || "failed" } : h)),
-      );
+      setOvError(e.message || "Overture Maps fetch failed");
+    } finally {
+      setOvLoading(false);
     }
-  }, []);
-
-  const discoverAll = useCallback(async () => {
-    setArcLoading(true);
-    const undiscovered = hosts.filter((h) => h.serviceCount == null && !h.loading);
-    for (let i = 0; i < undiscovered.length; i += 4) {
-      await Promise.all(undiscovered.slice(i, i + 4).map(discoverHost));
-    }
-    setArcLoading(false);
-  }, [hosts, discoverHost]);
-
-  const fetchServiceInfo = useCallback(async (service: ArcGISService) => {
-    setSelectedHost(service.url);
-    setServiceDetails(null);
-    setServiceFields([]);
-    try {
-      const resp = await fetch(`/api/arcgis?url=${encodeURIComponent(service.url + "?f=pjson")}`);
-      const data = await resp.json();
-      if (data.error) throw new Error(data.error);
-      setServiceDetails(data);
-      if (data.layers?.length > 0) {
-        const layerId = data.layers[0].id;
-        const layerResp = await fetch(`/api/arcgis?url=${encodeURIComponent(service.url + `/${layerId}?f=pjson`)}`);
-        const layerData = await layerResp.json();
-        setServiceFields(layerData.fields || []);
-      }
-    } catch (e: any) {
-      setServiceDetails({ error: e.message });
-    }
-  }, []);
-
-  const addCustomHost = useCallback(() => {
-    if (!customUrl.trim()) return;
-    const match = customUrl.match(/https?:\/\/([a-z0-9.-]+)\/([A-Za-z0-9_-]+)\/ArcGIS\/rest\/services/);
-    if (!match) return;
-    const [_, host, id] = match;
-    const newHost: ArcGISTarget = { host, id, url: customUrl.replace(/\/$/, "") };
-    setHosts((prev) => [...prev, newHost]);
-    setCustomUrl("");
-    discoverHost(newHost);
-  }, [customUrl, discoverHost]);
+  }, [ovTheme, ovType, ovBbox]);
 
   // ─── Overpass ───
   const runOverpass = useCallback(async () => {
@@ -605,17 +501,7 @@ export default function ExplorePage() {
   }, [marLat, marLon]);
 
   // ─── Helpers ───
-  const typeBadge = (type: string) => {
-    const t = (type || "").toLowerCase();
-    if (t.includes("feature")) return "fs";
-    if (t.includes("map")) return "ms";
-    if (t.includes("tile")) return "ts";
-    if (t.includes("image")) return "is";
-    if (t.includes("wms")) return "wms";
-    return t.substring(0, 4);
-  };
-
-  const totalServices = hosts.reduce((sum, h) => sum + (h.serviceCount || 0), 0);
+  const selectedOvertureTheme = OVERTURE_THEMES.find((t) => t.id === ovTheme);
 
   // Tab configs
   const TABS: { id: TabId; label: string; icon: string }[] = [
@@ -625,7 +511,7 @@ export default function ExplorePage() {
     { id: "satellites", label: "Satellites", icon: "\uD83D\uDEF0\uFE0F" },
     { id: "marine", label: "Marine", icon: "\uD83D\uDEA2" },
     { id: "overpass", label: "Overpass / OSM", icon: "\uD83D\uDD0D" },
-    { id: "arcgis", label: "ArcGIS", icon: "\uD83D\uDD27" },
+    { id: "overture", label: "Overture Maps", icon: "\uD83C\uDF10" },
   ];
 
   return (
@@ -1426,192 +1312,84 @@ export default function ExplorePage() {
           </>
         )}
 
-        {/* ═══ ARCGIS TAB ═══ */}
-        {tab === "arcgis" && (
+        {/* ═══ OVERTURE MAPS TAB ═══ */}
+        {tab === "overture" && (
           <>
-            <div className="ex-toolbar">
-              <input
-                placeholder="https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services"
-                value={customUrl}
-                onChange={(e) => setCustomUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addCustomHost()}
-              />
-              <button className="primary" onClick={addCustomHost}>
-                Add Host
-              </button>
-              <button className="secondary" onClick={discoverAll} disabled={arcLoading}>
-                {arcLoading ? "Scanning..." : "Scan All"}
-              </button>
-            </div>
+            <h2>Overture Maps</h2>
+            <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+              Open map data from the Overture Maps Foundation. Select a theme and type, then enter a bounding box to query features.
+            </p>
 
-            <div className="ex-info-bar">
-              <span>
-                <span className="num">{hosts.filter((h) => h.serviceCount != null).length}</span> hosts scanned
-              </span>
-              <span className="ex-sep" />
-              <span>
-                <span className="num">{totalServices.toLocaleString()}</span> services found
-              </span>
-            </div>
-
-            <h2>Hosts ({hosts.length})</h2>
-            <div className="ex-grid">
-              {hosts.map((h) => (
-                <div key={h.id} className="ex-card">
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{h.host}</div>
-                      <div style={{ fontSize: "0.7rem", color: "#444", fontFamily: "'JetBrains Mono',monospace" }}>
-                        {h.id}
-                      </div>
-                    </div>
-                    <div className="ex-row">
-                      {h.serviceCount != null && <span className="ex-badge fs">{h.serviceCount} services</span>}
-                      {h.loading && (
-                        <span className="ex-badge" style={{ background: "rgba(234,179,8,0.12)", color: "#eab308" }}>
-                          scanning...
-                        </span>
-                      )}
-                      {h.error && <span className="ex-badge err">{h.error.substring(0, 30)}</span>}
-                    </div>
-                  </div>
-                  <div className="ex-row">
-                    <button
-                      className="secondary"
-                      style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
-                      onClick={() => discoverHost(h)}
-                      disabled={h.loading}
-                    >
-                      {h.serviceCount != null ? "Refresh" : "Scan"}
-                    </button>
-                    {h.services && h.services.length > 0 && (
-                      <button
-                        className="secondary"
-                        style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
-                        onClick={() => {
-                          setSelectedHost(h.url);
-                          setServiceDetails(null);
-                          setServiceFields([]);
-                        }}
-                      >
-                        View Services ({h.services.length})
-                      </button>
-                    )}
+            <div className="ex-ds-grid" style={{ marginBottom: "1rem" }}>
+              {OVERTURE_THEMES.map((theme) => (
+                <div
+                  key={theme.id}
+                  className={`ex-ds-card ${ovTheme === theme.id ? "selected" : ""}`}
+                  onClick={() => {
+                    setOvTheme(theme.id);
+                    setOvType(theme.types[0]);
+                    setOvData(null);
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{theme.label}</div>
+                  <div style={{ fontSize: "0.78rem", color: "#666", lineHeight: 1.45 }}>{theme.desc}</div>
+                  <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
+                    {theme.types.map((t) => (
+                      <span key={t} className="ex-tag">{t}</span>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
 
-            {selectedHost &&
-              !serviceDetails &&
-              (() => {
-                const host = hosts.find((h) => h.url === selectedHost);
-                if (!host?.services?.length) return null;
-                return (
-                  <div style={{ marginTop: "1rem" }}>
-                    <h3>Services: {host.host}</h3>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.3rem",
-                        maxHeight: 600,
-                        overflow: "auto",
-                      }}
-                    >
-                      {host.services.map((s, i) => (
-                        <div
-                          key={i}
-                          className="ex-card"
-                          style={{ padding: "0.6rem 0.8rem", cursor: "pointer" }}
-                          onClick={() => fetchServiceInfo(s)}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <span className={`ex-badge ${typeBadge(s.type)}`}>{s.type.replace("Server", "")}</span>
-                            <span style={{ fontSize: "0.8rem", color: "#bbb" }}>{s.name}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+            <div className="ex-toolbar">
+              <label style={{ fontSize: "0.75rem", color: "#666", whiteSpace: "nowrap" }}>Type</label>
+              <select
+                value={ovType}
+                onChange={(e) => setOvType(e.target.value)}
+                style={{ width: "auto", minWidth: 120 }}
+              >
+                {selectedOvertureTheme?.types.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <input
+                placeholder="west,south,east,north (e.g. -74.02,40.70,-73.95,40.78)"
+                value={ovBbox}
+                onChange={(e) => setOvBbox(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && fetchOverture()}
+              />
+              <button className="primary" onClick={fetchOverture} disabled={ovLoading}>
+                {ovLoading ? "Fetching..." : "Query"}
+              </button>
+            </div>
 
-            {serviceDetails && (
+            <div className="ex-info-bar">
+              <span style={{ fontSize: "0.72rem", color: "#444" }}>
+                API: api.overturemaps.org/v0/{ovTheme}/{ovType}
+              </span>
+            </div>
+
+            {ovError && (
+              <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)", marginTop: "1rem" }}>
+                <span className="ex-badge err">Error</span> {ovError}
+              </div>
+            )}
+
+            {ovData && (
               <div style={{ marginTop: "1rem" }}>
-                <h3 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <button
-                    className="secondary"
-                    style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
-                    onClick={() => {
-                      setServiceDetails(null);
-                      setServiceFields([]);
-                    }}
-                  >
-                    &larr;
-                  </button>
-                  Service Details
-                </h3>
-                {serviceDetails.error ? (
-                  <div className="ex-card" style={{ borderColor: "rgba(239,68,68,0.3)" }}>
-                    <span className="ex-badge err">Error</span> {serviceDetails.error}
-                  </div>
-                ) : (
-                  <div className="ex-card">
-                    <div className="ex-stat">
-                      <span style={{ color: "#555" }}>Description:</span>{" "}
-                      {serviceDetails.description || serviceDetails.serviceDescription || "(none)"}
-                    </div>
-                    <div className="ex-stat">
-                      <span style={{ color: "#555" }}>Copyright:</span> {serviceDetails.copyrightText || "(none)"}
-                    </div>
-                    <div className="ex-stat">
-                      <span style={{ color: "#555" }}>Layers:</span>{" "}
-                      <span className="num">{serviceDetails.layers?.length || 0}</span>
-                    </div>
-                    <div className="ex-stat">
-                      <span style={{ color: "#555" }}>Capabilities:</span> {serviceDetails.capabilities || "N/A"}
-                    </div>
-                    <div className="ex-stat">
-                      <span style={{ color: "#555" }}>Max Records:</span>{" "}
-                      {serviceDetails.maxRecordCount?.toLocaleString() || "N/A"}
-                    </div>
-                    {serviceDetails.layers?.length > 0 && (
-                      <div style={{ marginTop: "0.75rem" }}>
-                        <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>Layers</div>
-                        {serviceDetails.layers.map((l: any) => (
-                          <div key={l.id} style={{ fontSize: "0.78rem", padding: "0.2rem 0", color: "#888" }}>
-                            <span style={{ color: "#4a9eff", marginRight: "0.4rem" }}>{l.id}</span>
-                            {l.name} <span className="ex-tag">{l.geometryType}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {serviceFields.length > 0 && (
-                      <div style={{ marginTop: "0.75rem" }}>
-                        <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-                          Fields (Layer {serviceDetails.layers?.[0]?.id})
-                        </div>
-                        <pre style={{ maxHeight: 300, fontSize: "0.72rem" }}>
-                          {serviceFields
-                            .map((f: any) => `${f.name.padEnd(25)} ${f.type.padEnd(20)} ${f.alias || ""}`)
-                            .join("\n")}
-                        </pre>
-                      </div>
-                    )}
-                    <div style={{ marginTop: "0.75rem" }}>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem" }}>Query URL</div>
-                      <pre style={{ fontSize: "0.72rem", wordBreak: "break-all" }}>
-                        {selectedHost}/0/query?f=json&where=1%3D1&outFields=*&returnGeometry=true&resultRecordCount=10
-                      </pre>
-                    </div>
+                <h3>Results: {ovTheme}/{ovType}</h3>
+                <div className="ex-stat">
+                  <span className="num">{ovData.features?.length || 0}</span> features
+                </div>
+                {ovData.features?.length > 0 && (
+                  <pre style={{ maxHeight: 500, marginTop: "0.5rem" }}>
+                    {JSON.stringify(ovData.features.slice(0, 20), null, 2)}
+                  </pre>
+                )}
+                {ovData.features?.length > 20 && (
+                  <div className="ex-empty" style={{ padding: "0.75rem" }}>
+                    ...and {(ovData.features.length - 20).toLocaleString()} more features
                   </div>
                 )}
               </div>

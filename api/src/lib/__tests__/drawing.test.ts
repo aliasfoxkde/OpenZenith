@@ -214,9 +214,9 @@ describe("measureFeature", () => {
   });
 
   it("returns null for null geometry", () => {
-    const feature: GeoJSON.Feature = {
-      type: "Feature",
-      geometry: null,
+    const feature = {
+      type: "Feature" as const,
+      geometry: null as unknown as GeoJSON.Geometry,
       properties: {},
     };
     expect(measureFeature(feature)).toBeNull();

@@ -29,7 +29,7 @@ describe("exportMapScreenshot", () => {
 
   it("returns early when canvas is null", async () => {
     const { exportMapScreenshot } = await import("../map-export");
-    const result = exportMapScreenshot({ getCanvas: () => null });
+    const result = exportMapScreenshot({ getCanvas: () => null as unknown as HTMLCanvasElement });
     expect(result).toBeUndefined();
   });
 });

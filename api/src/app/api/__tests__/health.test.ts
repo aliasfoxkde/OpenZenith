@@ -2,10 +2,11 @@ import { describe, it, expect } from "vitest";
 
 describe("Health endpoint", () => {
   it("returns 200 with expected shape", async () => {
-    const res = await fetch("http://localhost:9006/api/health");
-    expect(res.status).toBe(200);
+    const { GET } = await import("@/app/api/health/route");
+    const resp = await GET();
+    expect(resp.status).toBe(200);
 
-    const data = await res.json();
+    const data = await resp.json();
     expect(data.status).toBe("healthy");
     expect(data.storage).toBeDefined();
     expect(data.storage.backend).toBeDefined();
@@ -15,7 +16,8 @@ describe("Health endpoint", () => {
   });
 
   it("includes CORS headers", async () => {
-    const res = await fetch("http://localhost:9006/api/health");
-    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    const { GET } = await import("@/app/api/health/route");
+    const resp = await GET();
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });
 });

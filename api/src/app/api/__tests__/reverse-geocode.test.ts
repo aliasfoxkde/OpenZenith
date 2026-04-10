@@ -1,36 +1,74 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mockRequest } from "./helpers";
 
-const BASE = "http://localhost:9006";
+const mockReverseResult = {
+  display_name: "White House, 1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States",
+  name: "White House",
+  type: "tourism",
+  address: { city: "Washington", state: "District of Columbia", country: "United States" },
+  osm_id: 123456,
+  osm_type: "way",
+};
 
 describe("Reverse Geocode endpoint", () => {
-  it("returns place data for known coordinates", async () => {
-    const res = await fetch(`${BASE}/api/reverse-geocode?lat=38.8977&lon=-77.0365`);
-    expect(res.status).toBe(200);
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    const data = await res.json();
-    expect(data.location).toBeDefined();
-    expect(data.location.lat).toBeCloseTo(38.8977, 3);
-    expect(data.location.lon).toBeCloseTo(-77.0365, 3);
-  }, 15000);
+  it("returns place data for known coordinates", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockReverseResult), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const req = mockRequest("/api/reverse-geocode?lat=38.8977&lon=-77.0365");
+    const resp = await GET(req);
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.place).toBeDefined();
+    expect(data.place.display_name).toContain("White House");
+    expect(data.location.lat).toBe(38.8977);
+    expect(data.location.lon).toBe(-77.0365);
+  });
 
   it("includes CORS headers", async () => {
-    const res = await fetch(`${BASE}/api/reverse-geocode?lat=0&lon=0`);
-    expect(res.headers.get("access-control-allow-origin")).toBe("*");
-  }, 15000);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockReverseResult), { status: 200 }),
+    );
 
-  it("returns place null for ocean coordinates", async () => {
-    const res = await fetch(`${BASE}/api/reverse-geocode?lat=0&lon=0`);
-    expect(res.status).toBe(200);
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const req = mockRequest("/api/reverse-geocode?lat=0&lon=0");
+    const resp = await GET(req);
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
+  });
 
-    const data = await res.json();
+  it("returns place null for ocean coordinates (Nominatim error)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "Unable to geocode" }), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const req = mockRequest("/api/reverse-geocode?lat=0&lon=0");
+    const resp = await GET(req);
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.place).toBeNull();
     expect(data.location).toBeDefined();
-  }, 15000);
+  });
 
   it("accepts zoom parameter", async () => {
-    const res = await fetch(`${BASE}/api/reverse-geocode?lat=48.8566&lon=2.3522&zoom=10`);
-    expect(res.status).toBe(200);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockReverseResult), { status: 200 }),
+    );
 
-    const data = await res.json();
-    expect(data.location).toBeDefined();
-  }, 15000);
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const req = mockRequest("/api/reverse-geocode?lat=48.8566&lon=2.3522&zoom=10");
+    const resp = await GET(req);
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.place).toBeDefined();
+  });
 });

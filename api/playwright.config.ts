@@ -5,16 +5,10 @@ export default defineConfig({
   timeout: 30000,
   retries: 1,
   use: {
-    baseURL: "http://localhost:9006",
+    baseURL: "https://openzenith.cyopsys.com",
     trace: "on-first-retry",
   },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
   ],
-  webServer: {
-    command: "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01 --port 9006 --ip 0.0.0.0",
-    port: 9006,
-    reuseExistingServer: true,
-    timeout: 30000,
-  },
 });

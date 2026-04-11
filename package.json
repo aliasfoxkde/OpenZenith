@@ -1,8 +1,5 @@
 {
   "scripts": {
     "vercel-build": "next build"
-  },
-  "dependencies": {
-    "@aws-sdk/client-s3": "^3.1018.0"
   }
 }

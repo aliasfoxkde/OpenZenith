@@ -467,6 +467,45 @@ const openApiSpec = {
         tags: ["System"],
       },
     },
+    "/api/airquality": {
+      get: {
+        summary: "Get current air quality data",
+        description:
+          "Returns current air quality measurements from the Open-Meteo Air Quality API. Includes PM2.5, PM10, CO, NO2, SO2, O3, and US AQI. Data is from nearby monitoring stations.",
+        parameters: [
+          {
+            name: "lat",
+            in: "query",
+            schema: { type: "number", example: 40.7 },
+            required: false,
+            description: "Latitude",
+          },
+          {
+            name: "lon",
+            in: "query",
+            schema: { type: "number", example: -74.0 },
+            required: false,
+            description: "Longitude",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Air quality data",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    type: { type: "string", example: "FeatureCollection" },
+                    features: { type: "array", description: "GeoJSON point features with AQI data" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/nlnog": {
       get: {
         summary: "Get NLNOG Ring network nodes",

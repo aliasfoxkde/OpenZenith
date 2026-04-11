@@ -9,7 +9,7 @@ test("globe deep diagnostic", async ({ page }) => {
     if (msg.type() === "error") errors.push("CONSOLE:" + msg.text());
   });
 
-  await page.goto(`${PROD}/globe`, { waitUntil: "networkidle", timeout: 30000 });
+  await page.goto(`${PROD}/globe`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(8000);
 
   const diag = await page.evaluate(() => {

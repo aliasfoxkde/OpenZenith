@@ -6,10 +6,7 @@
  */
 
 import type { DataStatus } from "../types";
-import {
-  haversineDistance, formatDistance, formatArea,
-  polylineLength, polygonArea,
-} from "./measure";
+import { haversineDistance, formatDistance, formatArea, polylineLength, polygonArea } from "./measure";
 
 export type ToolMode = "none" | "measure-distance" | "measure-area" | "elevation-profile";
 
@@ -20,10 +17,7 @@ interface ToolState {
   resultEntities: any[];
 }
 
-export function createToolManager(
-  viewer: any,
-  Cesium: any,
-) {
+export function createToolManager(viewer: any, Cesium: any) {
   const state: ToolState = {
     mode: "none",
     points: [],
@@ -57,7 +51,10 @@ export function createToolManager(
     // Remove old entities
     state.resultEntities.forEach((e) => viewer.entities.remove(e));
     state.resultEntities = [];
-    if (state.tempEntity) { viewer.entities.remove(state.tempEntity); state.tempEntity = null; }
+    if (state.tempEntity) {
+      viewer.entities.remove(state.tempEntity);
+      state.tempEntity = null;
+    }
 
     const pts = state.points;
     if (pts.length < 1) return;
@@ -129,10 +126,7 @@ export function createToolManager(
 
     // Segment distances
     for (let i = 1; i < pts.length; i++) {
-      const segDist = haversineDistance(
-        pts[i - 1].lat, pts[i - 1].lng,
-        pts[i].lat, pts[i].lng,
-      );
+      const segDist = haversineDistance(pts[i - 1].lat, pts[i - 1].lng, pts[i].lat, pts[i].lng);
       const mid = {
         lng: (pts[i - 1].lng + pts[i].lng) / 2,
         lat: (pts[i - 1].lat + pts[i].lat) / 2,
@@ -190,9 +184,7 @@ export function createToolManager(
     const polygon = viewer.entities.add({
       id: "tool-area-polygon",
       polygon: {
-        hierarchy: new Cesium.PolygonHierarchy(
-          Cesium.Cartesian3.fromDegreesArray(positions),
-        ),
+        hierarchy: new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(positions)),
         material: Cesium.Color.fromCssColorString("#ff8800").withAlpha(0.2),
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString("#ff8800"),

@@ -21,44 +21,29 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ z: string; x: string; y: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
   const zoom = parseInt(z);
   const tileX = parseInt(x);
   const tileY = parseInt(y);
 
   if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json(
-      { error: "z, x, y must be integers" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "z, x, y must be integers" }, { status: 400 });
   }
 
   if (zoom < 0 || zoom > 15) {
-    return NextResponse.json(
-      { error: "zoom must be between 0 and 15" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "zoom must be between 0 and 15" }, { status: 400 });
   }
 
   const maxTile = Math.pow(2, zoom) - 1;
   if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
-    return NextResponse.json(
-      { error: `x,y must be between 0 and ${maxTile} at zoom ${zoom}` },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: `x,y must be between 0 and ${maxTile} at zoom ${zoom}` }, { status: 400 });
   }
 
   try {
     const result = await getTileData(zoom, tileX, tileY, HF_BACKEND);
 
-    const buffer = result.data.buffer.slice(
-      result.data.byteOffset,
-      result.data.byteOffset + result.data.byteLength,
-    );
+    const buffer = result.data.buffer.slice(result.data.byteOffset, result.data.byteOffset + result.data.byteLength);
 
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {

@@ -39,9 +39,7 @@ export function quadNameToBounds(quadName: string): {
   latMax: number;
   lonMax: number;
 } | null {
-  const m = quadName.match(
-    /gebco_2025_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/,
-  );
+  const m = quadName.match(/gebco_2025_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/);
   if (!m) return null;
 
   return {
@@ -67,15 +65,4 @@ export function latLonToPixel(
     row: Math.max(0, Math.min(QUAD_PIXELS - 1, row)),
     col: Math.max(0, Math.min(QUAD_PIXELS - 1, col)),
   };
-}
-
-/**
- * URL for a GEBCO quadrant file.
- * Used by the tile server route to locate files.
- */
-export function quadNameToUrl(quadName: string): string {
-  if (process.env.GEBCO_TILE_URL) {
-    return `${process.env.GEBCO_TILE_URL}/${quadName}`;
-  }
-  return quadName;
 }

@@ -7,8 +7,13 @@ export function waitForCesium(timeout = 20000): Promise<any> {
     if (w.Cesium) return res(w.Cesium);
     const s = Date.now();
     const iv = setInterval(() => {
-      if (w.Cesium) { clearInterval(iv); res(w.Cesium); }
-      else if (Date.now() - s > timeout) { clearInterval(iv); rej(new Error("CesiumJS failed to load")); }
+      if (w.Cesium) {
+        clearInterval(iv);
+        res(w.Cesium);
+      } else if (Date.now() - s > timeout) {
+        clearInterval(iv);
+        rej(new Error("CesiumJS failed to load"));
+      }
     }, 100);
   });
 }
@@ -72,7 +77,9 @@ export function parseHash(h: string): Partial<DashboardState> {
         ...Object.fromEntries(activeLayers.map((l) => [l, true])),
       },
     };
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -94,7 +101,9 @@ export function buildHash(s: DashboardState): string {
   if (s.viewMode !== "3d") parts.push(`view=${s.viewMode}`);
 
   // Layers: use category shortcuts when ALL layers in a category are active
-  const active = Object.entries(s.layers).filter(([, v]) => v).map(([k]) => k);
+  const active = Object.entries(s.layers)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
   if (active.length > 0) {
     // Check if all layers in a category are active
     const usedCategories: string[] = [];
@@ -135,7 +144,9 @@ export function safeCopy(text: string) {
       document.execCommand("copy");
       document.body.removeChild(ta);
     }
-  } catch { /* clipboard unavailable */ }
+  } catch {
+    /* clipboard unavailable */
+  }
 }
 
 export function elevationColor(elev: number): string {
@@ -158,11 +169,13 @@ export function switchBasemapOnViewer(viewer: any, key: string) {
   }
 
   if (bm?.url) {
-    imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-      url: bm.url,
-      credit: "",
-      maximumLevel: 18,
-    }));
+    imageryLayers.addImageryProvider(
+      new Cesium.UrlTemplateImageryProvider({
+        url: bm.url,
+        credit: "",
+        maximumLevel: 18,
+      }),
+    );
   }
 }
 
@@ -184,7 +197,14 @@ export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<
   viewer.scene.requestRender();
 }
 
-export function toggleImageryOverlay(viewer: any, cesiumRef: any, name: string, url?: string, opacity?: number, maximumLevel?: number) {
+export function toggleImageryOverlay(
+  viewer: any,
+  cesiumRef: any,
+  name: string,
+  url?: string,
+  opacity?: number,
+  maximumLevel?: number,
+) {
   const Cesium = cesiumRef;
   if (!Cesium) return;
   const layers = viewer.imageryLayers;

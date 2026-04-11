@@ -3,7 +3,8 @@ import type { DataStatus } from "../types";
 const LIGHTNING_ICON = `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`;
 
 export function loadLightning(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -52,7 +53,11 @@ export function loadLightning(
 
     // Auto-remove after 30s
     setTimeout(() => {
-      try { viewer.entities.removeById(id); } catch { /* already removed */ }
+      try {
+        viewer.entities.removeById(id);
+      } catch {
+        /* already removed */
+      }
     }, 35000);
   };
 
@@ -76,7 +81,9 @@ export function loadLightning(
               }
             }
           }
-        } catch { /* ignore parse errors */ }
+        } catch {
+          /* ignore parse errors */
+        }
       };
 
       ws.onerror = () => {
@@ -99,11 +106,13 @@ export function loadLightning(
   connectWs();
 
   // Cleanup on unmount is handled by the interval system
-  intervalsRef.current.push(setInterval(() => {
-    // Periodic status update
-    const count = viewer?.entities?.values?.filter(
-      (e: any) => e.properties?.type?.getValue?.() === "lightning-strike"
-    )?.length || 0;
-    updateStatus("lightning", { lastUpdate: Date.now(), count });
-  }, 10000));
+  intervalsRef.current.push(
+    setInterval(() => {
+      // Periodic status update
+      const count =
+        viewer?.entities?.values?.filter((e: any) => e.properties?.type?.getValue?.() === "lightning-strike")?.length ||
+        0;
+      updateStatus("lightning", { lastUpdate: Date.now(), count });
+    }, 10000),
+  );
 }

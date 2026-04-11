@@ -69,22 +69,20 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  const ip = request.headers.get("cf-connecting-ip") ||
+  const ip =
+    request.headers.get("cf-connecting-ip") ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "unknown";
 
   if (isRateLimited(ip)) {
-    return new NextResponse(
-      JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
-      {
-        status: 429,
-        headers: {
-          "Content-Type": "application/json",
-          "Retry-After": "60",
-          ...Object.fromEntries(response.headers),
-        },
+    return new NextResponse(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": "60",
+        ...Object.fromEntries(response.headers),
       },
-    );
+    });
   }
 
   return response;

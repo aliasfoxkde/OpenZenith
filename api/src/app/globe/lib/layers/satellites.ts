@@ -32,18 +32,26 @@ function classifyOrbit(altKm: number): string {
 /** Purpose-based color */
 function purposeColor(purpose: string, Cesium: any): any {
   switch (purpose) {
-    case "communication": return Cesium.Color.LIME;
-    case "navigation": return Cesium.Color.YELLOW;
-    case "weather": return Cesium.Color.CYAN;
-    case "military": return Cesium.Color.RED;
-    case "scientific": return Cesium.Color.MAGENTA;
-    case "station": return Cesium.Color.WHITE;
-    default: return Cesium.Color.GRAY;
+    case "communication":
+      return Cesium.Color.LIME;
+    case "navigation":
+      return Cesium.Color.YELLOW;
+    case "weather":
+      return Cesium.Color.CYAN;
+    case "military":
+      return Cesium.Color.RED;
+    case "scientific":
+      return Cesium.Color.MAGENTA;
+    case "station":
+      return Cesium.Color.WHITE;
+    default:
+      return Cesium.Color.GRAY;
   }
 }
 
 export function loadSatellites(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -59,29 +67,38 @@ export function loadSatellites(
       if (!Cesium || !viewer || !Array.isArray(tles)) return;
       const satJs = (window as any).satellite;
       const now = new Date();
-      const features = tles.slice(0, 3000).filter((t: any) => t.TLE_LINE1 && t.TLE_LINE2).map((t: any) => {
-        let coords: [number, number, number] | null = null;
-        let velocity = 0;
-        if (satJs) {
-          try {
-            const satrec = satJs.twoline2satrec(t.TLE_LINE1, t.TLE_LINE2);
-            const pos = satJs.propagate(satrec, now);
-            if (pos.position && pos.velocity) {
-              const gd = satJs.eciToGeodetic(pos.position, satJs.gstime(now));
-              coords = [satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude), gd.height];
-              velocity = Math.sqrt(pos.velocity.x ** 2 + pos.velocity.y ** 2 + pos.velocity.z ** 2);
+      const features = tles
+        .slice(0, 3000)
+        .filter((t: any) => t.TLE_LINE1 && t.TLE_LINE2)
+        .map((t: any) => {
+          let coords: [number, number, number] | null = null;
+          let velocity = 0;
+          if (satJs) {
+            try {
+              const satrec = satJs.twoline2satrec(t.TLE_LINE1, t.TLE_LINE2);
+              const pos = satJs.propagate(satrec, now);
+              if (pos.position && pos.velocity) {
+                const gd = satJs.eciToGeodetic(pos.position, satJs.gstime(now));
+                coords = [satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude), gd.height];
+                velocity = Math.sqrt(pos.velocity.x ** 2 + pos.velocity.y ** 2 + pos.velocity.z ** 2);
+              }
+            } catch {
+              /* skip */
             }
-          } catch { /* skip */ }
-        }
-        const name = t.NAME || t.OBJECT_NAME || "";
-        return {
-          tle1: t.TLE_LINE1, tle2: t.TLE_LINE2, name,
-          coords, velocity,
-          purpose: classifySatellite(name),
-          orbit: coords ? classifyOrbit(coords[2]) : "Unknown",
-          noradId: t.NORAD_CAT_ID,
-        };
-      }).filter((f: any) => f.coords);
+          }
+          const name = t.NAME || t.OBJECT_NAME || "";
+          return {
+            tle1: t.TLE_LINE1,
+            tle2: t.TLE_LINE2,
+            name,
+            coords,
+            velocity,
+            purpose: classifySatellite(name),
+            orbit: coords ? classifyOrbit(coords[2]) : "Unknown",
+            noradId: t.NORAD_CAT_ID,
+          };
+        })
+        .filter((f: any) => f.coords);
       satDataRef.current = features;
       updateStatus("satellites", { lastUpdate: Date.now(), count: features.length });
 
@@ -91,11 +108,7 @@ export function loadSatellites(
           id: `orbit-shell-${shell.name}`,
           position: Cesium.Cartesian3.fromDegrees(0, 0, 0),
           ellipsoid: {
-            radii: new Cesium.Cartesian3(
-              6_371_000 + shell.maxAlt,
-              6_371_000 + shell.maxAlt,
-              6_371_000 + shell.maxAlt,
-            ),
+            radii: new Cesium.Cartesian3(6_371_000 + shell.maxAlt, 6_371_000 + shell.maxAlt, 6_371_000 + shell.maxAlt),
             material: Cesium.Color.fromCssColorString(shell.color).withAlpha(shell.alpha),
             outline: true,
             outlineColor: Cesium.Color.fromCssColorString(shell.color).withAlpha(shell.alpha * 3),
@@ -138,12 +151,18 @@ export function loadSatellites(
 
       // ─── Notable satellite entities with labels and ground tracks ───
       const notablePatterns = [
-        /ISS\b|ZARYA/, /HUBBLE/, /STARLINK/i, /GPS\b/, /GOES\b/,
-        /METEOSAT/, /TERRA\b/, /AQUA\b/, /JWST/, /TIANGONG/,
+        /ISS\b|ZARYA/,
+        /HUBBLE/,
+        /STARLINK/i,
+        /GPS\b/,
+        /GOES\b/,
+        /METEOSAT/,
+        /TERRA\b/,
+        /AQUA\b/,
+        /JWST/,
+        /TIANGONG/,
       ];
-      const notableSats = features.filter((f: any) =>
-        notablePatterns.some((p) => p.test(f.name)),
-      );
+      const notableSats = features.filter((f: any) => notablePatterns.some((p) => p.test(f.name)));
 
       for (const sat of notableSats.slice(0, 50)) {
         if (!sat.coords) continue;
@@ -184,7 +203,9 @@ export function loadSatellites(
             `Vel: ${Math.round(sat.velocity * 1000)} m/s`,
             `Type: ${sat.purpose}`,
             sat.noradId ? `NORAD: ${sat.noradId}` : null,
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
           properties: { type: "sat-notable", ...sat },
         });
 
@@ -200,12 +221,11 @@ export function loadSatellites(
                 const pos = satJs.propagate(satrec, t);
                 if (pos.position) {
                   const gd = satJs.eciToGeodetic(pos.position, satJs.gstime(t));
-                  trackPts.push(
-                    satJs.degreesLong(gd.longitude),
-                    satJs.degreesLat(gd.latitude),
-                  );
+                  trackPts.push(satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude));
                 }
-              } catch { /* skip bad propagation */ }
+              } catch {
+                /* skip bad propagation */
+              }
             }
             if (trackPts.length >= 4) {
               viewer.entities.add({
@@ -225,7 +245,9 @@ export function loadSatellites(
                 properties: { type: "sat-ground-track", name: sat.name },
               });
             }
-          } catch { /* skip track for this sat */ }
+          } catch {
+            /* skip track for this sat */
+          }
         }
       }
 
@@ -237,13 +259,38 @@ export function loadSatellites(
           if (!Array.isArray(t)) return;
           const sj = (window as any).satellite;
           const n = new Date();
-          const updated = t.slice(0, 3000).filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2).map((x: any) => {
-            let c: [number, number, number] | null = null;
-            let v = 0;
-            if (sj) { try { const sr = sj.twoline2satrec(x.TLE_LINE1, x.TLE_LINE2); const p = sj.propagate(sr, n); if (p.position) { const g = sj.eciToGeodetic(p.position, sj.gstime(n)); c = [sj.degreesLong(g.longitude), sj.degreesLat(g.latitude), g.height]; if (p.velocity) v = Math.sqrt(p.velocity.x ** 2 + p.velocity.y ** 2 + p.velocity.z ** 2); } } catch { /* skip */ } }
-            const name = x.NAME || x.OBJECT_NAME || "";
-            return { tle1: x.TLE_LINE1, tle2: x.TLE_LINE2, name, coords: c, velocity: v, purpose: classifySatellite(name), orbit: c ? classifyOrbit(c[2]) : "Unknown", noradId: x.NORAD_CAT_ID };
-          }).filter((f: any) => f.coords);
+          const updated = t
+            .slice(0, 3000)
+            .filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2)
+            .map((x: any) => {
+              let c: [number, number, number] | null = null;
+              let v = 0;
+              if (sj) {
+                try {
+                  const sr = sj.twoline2satrec(x.TLE_LINE1, x.TLE_LINE2);
+                  const p = sj.propagate(sr, n);
+                  if (p.position) {
+                    const g = sj.eciToGeodetic(p.position, sj.gstime(n));
+                    c = [sj.degreesLong(g.longitude), sj.degreesLat(g.latitude), g.height];
+                    if (p.velocity) v = Math.sqrt(p.velocity.x ** 2 + p.velocity.y ** 2 + p.velocity.z ** 2);
+                  }
+                } catch {
+                  /* skip */
+                }
+              }
+              const name = x.NAME || x.OBJECT_NAME || "";
+              return {
+                tle1: x.TLE_LINE1,
+                tle2: x.TLE_LINE2,
+                name,
+                coords: c,
+                velocity: v,
+                purpose: classifySatellite(name),
+                orbit: c ? classifyOrbit(c[2]) : "Unknown",
+                noradId: x.NORAD_CAT_ID,
+              };
+            })
+            .filter((f: any) => f.coords);
           satDataRef.current = updated;
 
           // Update point positions
@@ -253,26 +300,36 @@ export function loadSatellites(
             for (let i = 0; i < count; i++) {
               const f = updated[i];
               if (!f.coords) continue;
-              pts.get(i).position = Cesium.Cartesian3.fromDegrees(f.coords[0], f.coords[1], Math.max(f.coords[2] * 1000, 160_000));
+              pts.get(i).position = Cesium.Cartesian3.fromDegrees(
+                f.coords[0],
+                f.coords[1],
+                Math.max(f.coords[2] * 1000, 160_000),
+              );
             }
           }
 
           // Update notable satellite positions
-          const newNotable = updated.filter((f: any) =>
-            notablePatterns.some((p) => p.test(f.name)),
-          );
+          const newNotable = updated.filter((f: any) => notablePatterns.some((p) => p.test(f.name)));
           for (const sat of newNotable.slice(0, 50)) {
             const entity = viewer.entities.getById(`sat-notable-${sat.noradId || sat.name}`);
             if (entity && sat.coords) {
-              entity.position = Cesium.Cartesian3.fromDegrees(sat.coords[0], sat.coords[1], Math.max(sat.coords[2] * 1000, 160_000));
+              entity.position = Cesium.Cartesian3.fromDegrees(
+                sat.coords[0],
+                sat.coords[1],
+                Math.max(sat.coords[2] * 1000, 160_000),
+              );
             }
           }
 
           updateStatus("satellites", { lastUpdate: Date.now(), count: updated.length });
-        } catch { /* retry */ }
+        } catch {
+          /* retry */
+        }
       }, 300000);
       intervalsRef.current.push(iv);
-    } catch { updateStatus("satellites", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("satellites", { error: "fetch failed" });
+    }
   };
 
   doLoad();

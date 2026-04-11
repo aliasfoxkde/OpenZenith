@@ -25,7 +25,7 @@ async function fetchToken(): Promise<{ access_token: string; expires_at: number 
 
     if (!resp.ok) return null;
 
-    const data = await resp.json() as { access_token: string; expires_in: number };
+    const data = (await resp.json()) as { access_token: string; expires_in: number };
     // Refresh 5 min before expiry
     const expires_at = Date.now() + (data.expires_in - 300) * 1000;
     return { access_token: data.access_token, expires_at };
@@ -47,10 +47,7 @@ export async function GET() {
   // Fetch new token
   const result = await fetchToken();
   if (!result) {
-    return NextResponse.json(
-      { error: "Failed to obtain OpenSky token", authenticated: false },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: "Failed to obtain OpenSky token", authenticated: false }, { status: 503 });
   }
 
   cachedToken = result;

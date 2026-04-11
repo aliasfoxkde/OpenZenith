@@ -25,10 +25,7 @@ interface ElevationResult {
  * Get elevation at a lat/lon using HuggingFace SRTM 30m chunks.
  * Uses lightweight point lookup (single chunk fetch, not full tile assembly).
  */
-export async function getElevationFromR2(
-  lat: number,
-  lon: number,
-): Promise<ElevationResult> {
+export async function getElevationFromR2(lat: number, lon: number): Promise<ElevationResult> {
   try {
     const result = await getPointElevation(lat, lon, HF_BACKEND);
     if (result) {

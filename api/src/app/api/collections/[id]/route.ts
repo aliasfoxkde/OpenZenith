@@ -31,10 +31,7 @@ const COLLECTIONS: Record<string, { title: string; description: string }> = {
   },
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const col = COLLECTIONS[id];
 

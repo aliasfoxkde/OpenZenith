@@ -38,11 +38,18 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
     (async () => {
       try {
         // Compute distances between consecutive points
-        const pointsWithDist: ElevationPoint[] = [{ lat: coordinates[0][1], lon: coordinates[0][0], elevation: null, distance: 0 }];
+        const pointsWithDist: ElevationPoint[] = [
+          { lat: coordinates[0][1], lon: coordinates[0][0], elevation: null, distance: 0 },
+        ];
         for (let i = 1; i < coordinates.length; i++) {
           const prev = pointsWithDist[i - 1];
           const d = haversine(prev.lat, prev.lon, coordinates[i][1], coordinates[i][0]);
-          pointsWithDist.push({ lat: coordinates[i][1], lon: coordinates[i][0], elevation: null, distance: pointsWithDist[i - 1].distance + d });
+          pointsWithDist.push({
+            lat: coordinates[i][1],
+            lon: coordinates[i][0],
+            elevation: null,
+            distance: pointsWithDist[i - 1].distance + d,
+          });
         }
 
         // Sample points for batch API (max 500)
@@ -63,9 +70,7 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
         // Interpolate elevations back onto all points
         const results = data.results as { lat: number; lon: number; elevation: number | null }[];
         for (const p of pointsWithDist) {
-          const match = results.find(
-            (r) => Math.abs(r.lat - p.lat) < 0.0001 && Math.abs(r.lon - p.lon) < 0.0001,
-          );
+          const match = results.find((r) => Math.abs(r.lat - p.lat) < 0.0001 && Math.abs(r.lon - p.lon) < 0.0001);
           p.elevation = match?.elevation ?? null;
         }
 
@@ -77,7 +82,9 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [coordinates]);
 
   const totalDist = points.length > 0 ? points[points.length - 1].distance : 0;
@@ -105,27 +112,38 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
     return `${Math.round(e)} m`;
   }, []);
 
-  const handleMouse = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    const svg = svgRef.current;
-    if (!svg || points.length === 0) return;
-    const rect = svg.getBoundingClientRect();
-    const mx = e.clientX - rect.left - pad.left;
-    const my = e.clientY - rect.top - pad.top;
-    const dist = Math.max(0, Math.min(totalDist, mx / xScale));
-    const elev = Math.max(minElev, Math.min(maxElev, maxElev - my / yScale));
-    // Update tooltip via title element
-    const titleEl = svg.querySelector("title");
-    if (titleEl) titleEl.textContent = `${formatDist(dist)}, ${formatElev(elev)}`;
-  }, [points, xScale, yScale, totalDist, minElev, maxElev, formatDist, formatElev]);
+  const handleMouse = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      const svg = svgRef.current;
+      if (!svg || points.length === 0) return;
+      const rect = svg.getBoundingClientRect();
+      const mx = e.clientX - rect.left - pad.left;
+      const my = e.clientY - rect.top - pad.top;
+      const dist = Math.max(0, Math.min(totalDist, mx / xScale));
+      const elev = Math.max(minElev, Math.min(maxElev, maxElev - my / yScale));
+      // Update tooltip via title element
+      const titleEl = svg.querySelector("title");
+      if (titleEl) titleEl.textContent = `${formatDist(dist)}, ${formatElev(elev)}`;
+    },
+    [points, xScale, yScale, totalDist, minElev, maxElev, formatDist, formatElev],
+  );
 
   if (coordinates.length < 2) return null;
 
   return (
     <div
       style={{
-        position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)",
-        width, background: bg, border: `1px solid ${border}`, borderRadius: 8,
-        padding: 8, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+        position: "absolute",
+        bottom: 40,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width,
+        background: bg,
+        border: `1px solid ${border}`,
+        borderRadius: 8,
+        padding: 8,
+        zIndex: 20,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -167,7 +185,9 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
             return (
               <g key={frac}>
                 <line x1={pad.left} y1={y} x2={pad.left + chartW} y2={y} stroke={border} strokeWidth={0.5} />
-                <text x={pad.left - 6} y={y + 4} textAnchor="end" fill={textSec} fontSize={9}>{formatElev(elev)}</text>
+                <text x={pad.left - 6} y={y + 4} textAnchor="end" fill={textSec} fontSize={9}>
+                  {formatElev(elev)}
+                </text>
               </g>
             );
           })}
@@ -179,7 +199,9 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
             return (
               <g key={frac}>
                 <line x1={x} y1={pad.top} x2={x} y2={pad.top + chartH} stroke={border} strokeWidth={0.5} />
-                <text x={x} y={height - 5} textAnchor="middle" fill={textSec} fontSize={9}>{formatDist(dist)}</text>
+                <text x={x} y={height - 5} textAnchor="middle" fill={textSec} fontSize={9}>
+                  {formatDist(dist)}
+                </text>
               </g>
             );
           })}
@@ -188,7 +210,10 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
           <polygon
             points={[
               `${pad.left},${pad.top + chartH}`,
-              ...points.map((p) => `${pad.left + (totalDist > 0 ? p.distance * xScale : 0)},${pad.top + (maxElev - (p.elevation ?? minElev)) * yScale}`),
+              ...points.map(
+                (p) =>
+                  `${pad.left + (totalDist > 0 ? p.distance * xScale : 0)},${pad.top + (maxElev - (p.elevation ?? minElev)) * yScale}`,
+              ),
               `${pad.left + (totalDist > 0 ? points[points.length - 1].distance * xScale : 0)},${pad.top + chartH}`,
             ].join(" ")}
             fill={fillColor}
@@ -197,7 +222,12 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
 
           {/* Elevation line */}
           <polyline
-            points={points.map((p) => `${pad.left + (totalDist > 0 ? p.distance * xScale : 0)},${pad.top + (maxElev - (p.elevation ?? minElev)) * yScale}`).join(" ")}
+            points={points
+              .map(
+                (p) =>
+                  `${pad.left + (totalDist > 0 ? p.distance * xScale : 0)},${pad.top + (maxElev - (p.elevation ?? minElev)) * yScale}`,
+              )
+              .join(" ")}
             fill="none"
             stroke={lineColor}
             strokeWidth={2}

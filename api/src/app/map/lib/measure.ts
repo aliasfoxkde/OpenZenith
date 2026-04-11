@@ -7,16 +7,11 @@
 const R = 6371000; // Earth radius in meters
 
 /** Haversine distance between two lat/lon points in meters. */
-export function haversineDistance(
-  lat1: number, lon1: number,
-  lat2: number, lon2: number,
-): number {
+export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -24,10 +19,7 @@ export function haversineDistance(
 export function pathDistance(coords: [number, number][]): number {
   let total = 0;
   for (let i = 1; i < coords.length; i++) {
-    total += haversineDistance(
-      coords[i - 1][1], coords[i - 1][0],
-      coords[i][1], coords[i][0],
-    );
+    total += haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
   }
   return total;
 }
@@ -48,7 +40,7 @@ export function sphericalPolygonArea(coords: [number, number][]): number {
     const dLon = toRad(coords[j][0] - coords[i][0]);
     sum += dLon * (2 + Math.sin(lat1) + Math.sin(lat2));
   }
-  return Math.abs(sum * R * R / 2);
+  return Math.abs((sum * R * R) / 2);
 }
 
 /** Format meters into human-readable distance string. */
@@ -67,17 +59,13 @@ export function formatArea(sqMeters: number): string {
 }
 
 /** Initial bearing between two points in degrees (0 = north). */
-export function bearing(
-  lat1: number, lon1: number,
-  lat2: number, lon2: number,
-): number {
+export function bearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const toDeg = (r: number) => (r * 180) / Math.PI;
   const dLon = toRad(lon2 - lon1);
   const y = Math.sin(dLon) * Math.cos(toRad(lat2));
   const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
@@ -173,10 +161,18 @@ export function createMeasureController() {
   }
 
   function removeLayers(map: any) {
-    try { map.removeLayer(fillLayerId); } catch {}
-    try { map.removeLayer(lineLayerId); } catch {}
-    try { map.removeLayer(vertexLayerId); } catch {}
-    try { map.removeSource(sourceId); } catch {}
+    try {
+      map.removeLayer(fillLayerId);
+    } catch {}
+    try {
+      map.removeLayer(lineLayerId);
+    } catch {}
+    try {
+      map.removeLayer(vertexLayerId);
+    } catch {}
+    try {
+      map.removeSource(sourceId);
+    } catch {}
   }
 
   return { addLayers, updateMap, removeLayers };

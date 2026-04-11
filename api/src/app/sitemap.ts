@@ -19,9 +19,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return routes.map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
-    changeFrequency: route === "/map" || route === "/globe" || route === "/studio"
-      ? ("daily" as const)
-      : ("weekly" as const),
+    changeFrequency:
+      route === "/map" || route === "/globe" || route === "/studio" ? ("daily" as const) : ("weekly" as const),
     priority: route === "" ? 1 : route.startsWith("/api") ? 0.7 : 0.8,
   }));
 }

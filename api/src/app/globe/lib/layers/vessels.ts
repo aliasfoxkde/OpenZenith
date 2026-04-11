@@ -39,13 +39,37 @@ function vesselColor(shipType: number, Cesium: any): any {
 /** Vessel type label */
 function vesselTypeLabel(shipType: number): string {
   const types: Record<number, string> = {
-    30: "Fishing", 31: "Towing", 32: "Towing", 33: "Dredge",
-    34: "Dive", 35: "Military", 36: "Sailing", 37: "Pleasure",
-    60: "Passenger", 61: "Passenger", 62: "Passenger", 63: "Passenger",
-    64: "RoRo", 65: "RoRo", 66: "RoRo", 67: "RoRo", 68: "Cargo", 69: "Cargo",
-    70: "Cargo", 71: "Cargo", 72: "Cargo", 73: "Cargo", 74: "Cargo",
-    75: "Cargo", 76: "Cargo", 77: "Cargo",
-    80: "Tanker", 81: "Tanker", 82: "Tanker", 83: "Tanker", 84: "Tanker",
+    30: "Fishing",
+    31: "Towing",
+    32: "Towing",
+    33: "Dredge",
+    34: "Dive",
+    35: "Military",
+    36: "Sailing",
+    37: "Pleasure",
+    60: "Passenger",
+    61: "Passenger",
+    62: "Passenger",
+    63: "Passenger",
+    64: "RoRo",
+    65: "RoRo",
+    66: "RoRo",
+    67: "RoRo",
+    68: "Cargo",
+    69: "Cargo",
+    70: "Cargo",
+    71: "Cargo",
+    72: "Cargo",
+    73: "Cargo",
+    74: "Cargo",
+    75: "Cargo",
+    76: "Cargo",
+    77: "Cargo",
+    80: "Tanker",
+    81: "Tanker",
+    82: "Tanker",
+    83: "Tanker",
+    84: "Tanker",
   };
   return types[shipType] || "Other";
 }
@@ -87,20 +111,23 @@ export function loadVessels(
         color: color.withAlpha(0.9),
         scaleByDistance: new Cesium.NearFarScalar(5e4, 1.2, 2e6, 0.3),
       },
-      label: name.length > 0 ? {
-        text: name,
-        font: "9px sans-serif",
-        fillColor: Cesium.Color.WHITE.withAlpha(0.7),
-        outlineColor: Cesium.Color.BLACK,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(10, -8),
-        verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        showBackground: true,
-        backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
-        backgroundPadding: new Cesium.Cartesian2(3, 2),
-        scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e5, 0.0),
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 400000),
-      } : undefined,
+      label:
+        name.length > 0
+          ? {
+              text: name,
+              font: "9px sans-serif",
+              fillColor: Cesium.Color.WHITE.withAlpha(0.7),
+              outlineColor: Cesium.Color.BLACK,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              pixelOffset: new Cesium.Cartesian2(10, -8),
+              verticalOrigin: Cesium.VerticalOrigin.CENTER,
+              showBackground: true,
+              backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
+              backgroundPadding: new Cesium.Cartesian2(3, 2),
+              scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e5, 0.0),
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 400000),
+            }
+          : undefined,
       properties: {
         type: "vessel",
         mmsi: v.MMSI,
@@ -119,15 +146,17 @@ export function loadVessels(
     if (spd > 0.5 && hdg > 0) {
       const vecLen = Math.min(spd * 15, 5000);
       const hdgRad = Cesium.Math.toRadians(hdg);
-      const dLat = vecLen * Math.cos(hdgRad) / 111320;
-      const dLon = vecLen * Math.sin(hdgRad) / (111320 * Math.cos(Cesium.Math.toRadians(v.Latitude)));
+      const dLat = (vecLen * Math.cos(hdgRad)) / 111320;
+      const dLon = (vecLen * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(v.Latitude)));
       viewer.entities.add({
         id: `vessel-vec-${i}`,
         position: Cesium.Cartesian3.fromDegrees(v.Longitude, v.Latitude),
         polyline: {
           positions: Cesium.Cartesian3.fromDegreesArray([
-            v.Longitude, v.Latitude,
-            v.Longitude + dLon, v.Latitude + dLat,
+            v.Longitude,
+            v.Latitude,
+            v.Longitude + dLon,
+            v.Latitude + dLat,
           ]),
           width: 1.5,
           material: color.withAlpha(0.35),
@@ -171,11 +200,16 @@ export function loadVessels(
 
       ws.onopen = () => {
         // Subscribe to global vessel positions
-        ws?.send(JSON.stringify({
-          Apikey: config.apiKey,
-          BoundingBoxes: [[-90, -180], [90, 180]],
-          FilterMessageTypes: ["PositionReport"],
-        }));
+        ws?.send(
+          JSON.stringify({
+            Apikey: config.apiKey,
+            BoundingBoxes: [
+              [-90, -180],
+              [90, 180],
+            ],
+            FilterMessageTypes: ["PositionReport"],
+          }),
+        );
       };
 
       ws.onmessage = (event) => {

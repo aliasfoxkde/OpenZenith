@@ -10,8 +10,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MapLoading } from "@/components/MapLoading";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "./lib/layers";
 import {
-  createMeasureController, type MeasureMode,
-  pathDistance, sphericalPolygonArea, formatDistance, formatArea,
+  createMeasureController,
+  type MeasureMode,
+  pathDistance,
+  sphericalPolygonArea,
+  formatDistance,
+  formatArea,
 } from "./lib/measure";
 import { exportMapScreenshot } from "@/lib/map-export";
 import { getClientElevation } from "@/lib/client-elevation";
@@ -122,18 +126,19 @@ function waitForMapLibre(timeoutMs = 15000): Promise<any> {
   const w = window as any;
   if (w.maplibregl) return Promise.resolve(w.maplibregl);
   return loadMapLibre().then(
-    () => new Promise((resolve, reject) => {
-      const start = Date.now();
-      const iv = setInterval(() => {
-        if (w.maplibregl) {
-          clearInterval(iv);
-          resolve(w.maplibregl);
-        } else if (Date.now() - start > timeoutMs) {
-          clearInterval(iv);
-          reject(new Error("MapLibre GL failed to load"));
-        }
-      }, 100);
-    })
+    () =>
+      new Promise((resolve, reject) => {
+        const start = Date.now();
+        const iv = setInterval(() => {
+          if (w.maplibregl) {
+            clearInterval(iv);
+            resolve(w.maplibregl);
+          } else if (Date.now() - start > timeoutMs) {
+            clearInterval(iv);
+            reject(new Error("MapLibre GL failed to load"));
+          }
+        }, 100);
+      }),
   );
 }
 
@@ -149,7 +154,10 @@ async function loadTopojsonLib(): Promise<any> {
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = "https://unpkg.com/topojson-client@3/dist/topojson-client.min.js";
-    s.onload = () => { topojsonLib = w.topojson; resolve(topojsonLib); };
+    s.onload = () => {
+      topojsonLib = w.topojson;
+      resolve(topojsonLib);
+    };
     s.onerror = reject;
     document.head.appendChild(s);
   });
@@ -164,7 +172,9 @@ async function loadBoundariesData(): Promise<any> {
     const world = await res.json();
     boundariesGeoJSON = topo.feature(world, world.objects.countries);
     return boundariesGeoJSON;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function parseHash(hash: string): Partial<MapViewState> {
@@ -274,22 +284,25 @@ export default function MapPage() {
     if (map) measureRef.current.removeLayers(map);
   }, []);
 
-  const toggleMeasureMode = useCallback((mode: MeasureMode) => {
-    if (measureMode === mode) {
-      clearMeasure();
-      measureModeRef.current = "none";
-      return;
-    }
-    measureModeRef.current = mode;
-    setMeasureMode(mode);
-    setMeasurePoints([]);
-    measurePointsRef.current = [];
-    const map = mapRef.current;
-    if (map) {
-      measureRef.current.removeLayers(map);
-      measureRef.current.addLayers(map);
-    }
-  }, [measureMode, clearMeasure]);
+  const toggleMeasureMode = useCallback(
+    (mode: MeasureMode) => {
+      if (measureMode === mode) {
+        clearMeasure();
+        measureModeRef.current = "none";
+        return;
+      }
+      measureModeRef.current = mode;
+      setMeasureMode(mode);
+      setMeasurePoints([]);
+      measurePointsRef.current = [];
+      const map = mapRef.current;
+      if (map) {
+        measureRef.current.removeLayers(map);
+        measureRef.current.addLayers(map);
+      }
+    },
+    [measureMode, clearMeasure],
+  );
 
   // Update measure layers when points change
   useEffect(() => {
@@ -533,7 +546,9 @@ export default function MapPage() {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [Number(r.lon), Number(r.lat)], zoom: 12, duration: 1500 });
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   // Jump to coordinates
@@ -579,7 +594,16 @@ export default function MapPage() {
               >
                 {activePin.elevation !== null ? (
                   <span>
-                    <span style={{ color: T.green, fontWeight: 600, letterSpacing: "0.03em", textShadow: "0 0 8px rgba(34, 197, 94, 0.4)" }}>{activePin.elevation.toLocaleString()}m</span>
+                    <span
+                      style={{
+                        color: T.green,
+                        fontWeight: 600,
+                        letterSpacing: "0.03em",
+                        textShadow: "0 0 8px rgba(34, 197, 94, 0.4)",
+                      }}
+                    >
+                      {activePin.elevation.toLocaleString()}m
+                    </span>
                     <span style={{ color: T.textMuted, marginLeft: "0.5rem", letterSpacing: "0.02em" }}>
                       {activePin.lat.toFixed(4)}, {activePin.lon.toFixed(4)}
                     </span>
@@ -704,9 +728,7 @@ export default function MapPage() {
                 : `Area: ${formatArea(sphericalPolygonArea(measurePoints))}`}
             </div>
             {measureMode === "distance" && measurePoints.length >= 2 && (
-              <div style={{ fontSize: "0.65rem", color: T.textMuted }}>
-                Segments: {measurePoints.length - 1}
-              </div>
+              <div style={{ fontSize: "0.65rem", color: T.textMuted }}>Segments: {measurePoints.length - 1}</div>
             )}
             <div style={{ fontSize: "0.65rem", color: T.textMuted }}>
               {measurePoints.length} point{measurePoints.length > 1 ? "s" : ""} | Esc to cancel | Ctrl+Z undo
@@ -720,7 +742,9 @@ export default function MapPage() {
             {cursorPos ? (
               <CoordinateReadout lat={cursorPos.lat} lon={cursorPos.lon} zoom={mapState.zoom} />
             ) : (
-              <span style={{ fontFamily: T.fontMono, fontSize: "0.75rem", color: T.textMuted, letterSpacing: "0.05em" }}>
+              <span
+                style={{ fontFamily: T.fontMono, fontSize: "0.75rem", color: T.textMuted, letterSpacing: "0.05em" }}
+              >
                 LAT ----.----- | LON ----.-----
               </span>
             )}
@@ -730,16 +754,26 @@ export default function MapPage() {
         {/* Status indicators */}
         <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
           <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
-            <StatusIndicator color={loading ? T.amber : T.green} label={loading ? "LOADING" : "READY"} pulse={loading} />
+            <StatusIndicator
+              color={loading ? T.amber : T.green}
+              label={loading ? "LOADING" : "READY"}
+              pulse={loading}
+            />
             {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}
             <button
               onClick={() => exportMapScreenshot(mapRef.current!, "openzenith-map")}
               title="Export screenshot"
               aria-label="Export map screenshot as PNG"
               style={{
-                background: "none", border: `1px solid ${T.border}`, color: T.textMuted,
-                padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontSize: 12,
-                fontFamily: T.fontMono, letterSpacing: "0.05em",
+                background: "none",
+                border: `1px solid ${T.border}`,
+                color: T.textMuted,
+                padding: "2px 8px",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: T.fontMono,
+                letterSpacing: "0.05em",
               }}
             >
               EXPORT
@@ -923,23 +957,19 @@ export default function MapPage() {
           </div>
         )}
         <ErrorBoundary>
-        <div
-          ref={containerRef}
-          style={{
-            width: "100%",
-            height: "100%",
-            cursor: measureMode !== "none" ? "cell" : "crosshair",
-          }}
-        />
+          <div
+            ref={containerRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              cursor: measureMode !== "none" ? "cell" : "crosshair",
+            }}
+          />
         </ErrorBoundary>
 
         {/* Loading */}
-        {!loading && loadError && (
-          <MapLoading error dark message="Failed to load MapLibre GL" />
-        )}
-        {loading && !loadError && (
-          <MapLoading dark message="Initializing map..." />
-        )}
+        {!loading && loadError && <MapLoading error dark message="Failed to load MapLibre GL" />}
+        {loading && !loadError && <MapLoading dark message="Initializing map..." />}
 
         {/* Sidebar */}
         {sidebarOpen && (
@@ -960,14 +990,33 @@ export default function MapPage() {
             }}
           >
             <div
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "0.75rem",
+              }}
             >
-              <span style={{ fontWeight: 700, color: T.text, fontSize: "0.85rem", fontFamily: T.fontMono, letterSpacing: "0.05em" }}>
+              <span
+                style={{
+                  fontWeight: 700,
+                  color: T.text,
+                  fontSize: "0.85rem",
+                  fontFamily: T.fontMono,
+                  letterSpacing: "0.05em",
+                }}
+              >
                 MAP CONTROLS
               </span>
               <button
                 onClick={() => setSidebarOpen(false)}
-                style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: "1.2rem" }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: T.textMuted,
+                  cursor: "pointer",
+                  fontSize: "1.2rem",
+                }}
               >
                 &times;
               </button>
@@ -1001,7 +1050,9 @@ export default function MapPage() {
             {/* Layer toggles — registry-driven */}
             {CATEGORY_ORDER.filter((cat) => cat !== "space" && cat !== "imagery").map((cat) => {
               const layers = LAYERS.filter(
-                (l) => l.category === cat && (MAP_2D_LAYER_IDS.has(l.id) || ["hillshade", "terrain3d", "boundaries", "contour"].includes(l.id)),
+                (l) =>
+                  l.category === cat &&
+                  (MAP_2D_LAYER_IDS.has(l.id) || ["hillshade", "terrain3d", "boundaries", "contour"].includes(l.id)),
               );
               if (layers.length === 0) return null;
               return (
@@ -1045,7 +1096,10 @@ export default function MapPage() {
             <SurveillancePanel title="Position" style={{ marginBottom: "0.75rem" }}>
               <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
                 <div>
-                  Center: <span style={{ color: T.accent }}>{mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}</span>
+                  Center:{" "}
+                  <span style={{ color: T.accent }}>
+                    {mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}
+                  </span>
                 </div>
                 <div>
                   Zoom: <span style={{ color: T.accent }}>{mapState.zoom.toFixed(1)}</span>
@@ -1187,15 +1241,21 @@ function addBoundaryLayers(map: any) {
           paint: { "line-color": "#00e5ff", "line-width": 1, "line-opacity": 0.8 },
         });
       }
-    } catch { /* map may have been removed */ }
+    } catch {
+      /* map may have been removed */
+    }
   });
 }
 
 function removeBoundaryLayers(map: any) {
   ["boundaries-core", "boundaries-glow-inner", "boundaries-glow"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("boundaries"); } catch {}
+  try {
+    map.removeSource("boundaries");
+  } catch {}
 }
 
 function enable3DTerrain(map: any) {

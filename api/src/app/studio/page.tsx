@@ -9,9 +9,20 @@ import { BASEMAPS, DEFAULT_CENTER, DEFAULT_ZOOM } from "./lib/constants";
 import type { ToolTab, UploadedDataset } from "./lib/types";
 import { addGeoJSONLayer, removeGeoJSONLayer } from "./lib/map-helpers";
 import {
-  createDrawState, addDrawLayers, removeDrawLayers, updateDrawLayers,
-  finishDrawing, undo, redo, moveVertex, addVertex, deleteVertex, enterEditMode, exitEditMode,
-  type DrawState, type DrawMode,
+  createDrawState,
+  addDrawLayers,
+  removeDrawLayers,
+  updateDrawLayers,
+  finishDrawing,
+  undo,
+  redo,
+  moveVertex,
+  addVertex,
+  deleteVertex,
+  enterEditMode,
+  exitEditMode,
+  type DrawState,
+  type DrawMode,
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS } from "../map/lib/layers";
@@ -331,22 +342,19 @@ export default function StudioPage() {
 
   /* ─── Basemap switch ─── */
 
-  const handleBasemapChange = useCallback(
-    (key: string) => {
-      setBasemap(key);
-      const map = mapRef.current;
-      if (!map) return;
-      const bm = BASEMAPS[key];
-      if (!bm) return;
-      map.setStyle({
-        version: 8,
-        sources: { basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution } },
-        layers: [{ id: "basemap", type: "raster", source: "basemap" }],
-        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-      });
-    },
-    [],
-  );
+  const handleBasemapChange = useCallback((key: string) => {
+    setBasemap(key);
+    const map = mapRef.current;
+    if (!map) return;
+    const bm = BASEMAPS[key];
+    if (!bm) return;
+    map.setStyle({
+      version: 8,
+      sources: { basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution } },
+      layers: [{ id: "basemap", type: "raster", source: "basemap" }],
+      glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    });
+  }, []);
 
   /* ─── Dataset management ─── */
 
@@ -396,9 +404,7 @@ export default function StudioPage() {
 
   const handleVisualizationChange = useCallback(
     (id: string, visualization: UploadedDataset["visualization"]) => {
-      setDatasets((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, visualization } : d)),
-      );
+      setDatasets((prev) => prev.map((d) => (d.id === id ? { ...d, visualization } : d)));
       const map = mapRef.current;
       if (!map) return;
       const ds = datasets.find((d) => d.id === id);
@@ -410,14 +416,11 @@ export default function StudioPage() {
     [datasets],
   );
 
-  const handleRemoveDataset = useCallback(
-    (id: string) => {
-      const map = mapRef.current;
-      if (map) removeGeoJSONLayer(map, id);
-      setDatasets((prev) => prev.filter((d) => d.id !== id));
-    },
-    [],
-  );
+  const handleRemoveDataset = useCallback((id: string) => {
+    const map = mapRef.current;
+    if (map) removeGeoJSONLayer(map, id);
+    setDatasets((prev) => prev.filter((d) => d.id !== id));
+  }, []);
 
   /* ─── Overpass results ─── */
 
@@ -573,12 +576,24 @@ export default function StudioPage() {
       // Clean up profile layers
       const map = mapRef.current;
       if (map) {
-        try { map.removeLayer("profile-line"); } catch {}
-        try { map.removeSource("profile-line"); } catch {}
-        try { map.removeLayer("profile-marker-0"); } catch {}
-        try { map.removeSource("profile-marker-0"); } catch {}
-        try { map.removeLayer("profile-marker-1"); } catch {}
-        try { map.removeSource("profile-marker-1"); } catch {}
+        try {
+          map.removeLayer("profile-line");
+        } catch {}
+        try {
+          map.removeSource("profile-line");
+        } catch {}
+        try {
+          map.removeLayer("profile-marker-0");
+        } catch {}
+        try {
+          map.removeSource("profile-marker-0");
+        } catch {}
+        try {
+          map.removeLayer("profile-marker-1");
+        } catch {}
+        try {
+          map.removeSource("profile-marker-1");
+        } catch {}
       }
     }
   }, []);
@@ -598,24 +613,46 @@ export default function StudioPage() {
       <a
         href="#studio-sidebar"
         style={{
-          position: "absolute", top: -100, left: 8, zIndex: 9999,
-          padding: "4px 8px", background: "#3b82f6", color: "#fff",
-          borderRadius: 4, fontSize: 12, textDecoration: "none",
+          position: "absolute",
+          top: -100,
+          left: 8,
+          zIndex: 9999,
+          padding: "4px 8px",
+          background: "#3b82f6",
+          color: "#fff",
+          borderRadius: 4,
+          fontSize: 12,
+          textDecoration: "none",
         }}
-        onFocus={(e) => { (e.target as HTMLElement).style.top = "8px"; }}
-        onBlur={(e) => { (e.target as HTMLElement).style.top = "-100px"; }}
+        onFocus={(e) => {
+          (e.target as HTMLElement).style.top = "8px";
+        }}
+        onBlur={(e) => {
+          (e.target as HTMLElement).style.top = "-100px";
+        }}
       >
         Skip to sidebar
       </a>
       <a
         href="#studio-map"
         style={{
-          position: "absolute", top: -100, left: 120, zIndex: 9999,
-          padding: "4px 8px", background: "#3b82f6", color: "#fff",
-          borderRadius: 4, fontSize: 12, textDecoration: "none",
+          position: "absolute",
+          top: -100,
+          left: 120,
+          zIndex: 9999,
+          padding: "4px 8px",
+          background: "#3b82f6",
+          color: "#fff",
+          borderRadius: 4,
+          fontSize: 12,
+          textDecoration: "none",
         }}
-        onFocus={(e) => { (e.target as HTMLElement).style.top = "8px"; }}
-        onBlur={(e) => { (e.target as HTMLElement).style.top = "-100px"; }}
+        onFocus={(e) => {
+          (e.target as HTMLElement).style.top = "8px";
+        }}
+        onBlur={(e) => {
+          (e.target as HTMLElement).style.top = "-100px";
+        }}
       >
         Skip to map
       </a>
@@ -626,18 +663,21 @@ export default function StudioPage() {
         {/* Map */}
         <div style={{ flex: 1, position: "relative" }}>
           <ErrorBoundary>
-          <div ref={containerRef} id="studio-map" role="application" aria-label="Interactive map canvas" tabIndex={0} style={{ width: "100%", height: "100%" }} />
+            <div
+              ref={containerRef}
+              id="studio-map"
+              role="application"
+              aria-label="Interactive map canvas"
+              tabIndex={0}
+              style={{ width: "100%", height: "100%" }}
+            />
           </ErrorBoundary>
 
           {/* Loading */}
-          {!mapReady && !loadError && (
-            <MapLoading dark message="Loading Studio..." />
-          )}
+          {!mapReady && !loadError && <MapLoading dark message="Loading Studio..." />}
 
           {/* Error */}
-          {loadError && (
-            <MapLoading error dark message="Failed to load MapLibre GL" />
-          )}
+          {loadError && <MapLoading error dark message="Failed to load MapLibre GL" />}
 
           {/* Sidebar toggle */}
           {mapReady && (
@@ -647,11 +687,17 @@ export default function StudioPage() {
               aria-expanded={sidebarOpen}
               aria-controls="studio-sidebar"
               style={{
-                position: "absolute", top: 10,
-                right: isMobile ? 10 : (sidebarOpen ? 380 : 10),
+                position: "absolute",
+                top: 10,
+                right: isMobile ? 10 : sidebarOpen ? 380 : 10,
                 zIndex: isMobile && sidebarOpen ? 60 : 10,
-                background: "rgba(0,0,0,0.6)", border: "none", color: "#fff",
-                padding: "6px 10px", borderRadius: 4, cursor: "pointer", fontSize: 16,
+                background: "rgba(0,0,0,0.6)",
+                border: "none",
+                color: "#fff",
+                padding: "6px 10px",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 16,
                 transition: "right 0.2s",
               }}
             >
@@ -664,7 +710,9 @@ export default function StudioPage() {
             <div
               onClick={() => setSidebarOpen(false)}
               style={{
-                position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)",
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0,0,0,0.4)",
                 zIndex: 50,
               }}
             />
@@ -680,12 +728,24 @@ export default function StudioPage() {
                 // Clean up profile layers
                 const map = mapRef.current;
                 if (map) {
-                  try { map.removeLayer("profile-line"); } catch {}
-                  try { map.removeSource("profile-line"); } catch {}
-                  try { map.removeLayer("profile-marker-0"); } catch {}
-                  try { map.removeSource("profile-marker-0"); } catch {}
-                  try { map.removeLayer("profile-marker-1"); } catch {}
-                  try { map.removeSource("profile-marker-1"); } catch {}
+                  try {
+                    map.removeLayer("profile-line");
+                  } catch {}
+                  try {
+                    map.removeSource("profile-line");
+                  } catch {}
+                  try {
+                    map.removeLayer("profile-marker-0");
+                  } catch {}
+                  try {
+                    map.removeSource("profile-marker-0");
+                  } catch {}
+                  try {
+                    map.removeLayer("profile-marker-1");
+                  } catch {}
+                  try {
+                    map.removeSource("profile-marker-1");
+                  } catch {}
                 }
               }}
             />
@@ -700,12 +760,16 @@ export default function StudioPage() {
           style={{
             width: isMobile ? "100%" : 380,
             maxWidth: isMobile ? 380 : undefined,
-            borderLeft: `1px solid ${border}`, overflow: "hidden",
+            borderLeft: `1px solid ${border}`,
+            overflow: "hidden",
             flexShrink: 0,
             transition: isMobile ? "transform 0.2s, opacity 0.2s" : "margin-right 0.2s, opacity 0.2s",
             ...(isMobile
               ? {
-                  position: "absolute", top: 0, right: 0, bottom: 0,
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
                   transform: sidebarOpen ? "translateX(0)" : "translateX(100%)",
                   opacity: sidebarOpen ? 1 : 0,
                   zIndex: 55,
@@ -751,20 +815,33 @@ export default function StudioPage() {
         aria-label="Map status bar"
         aria-live="polite"
         style={{
-          height: 28, flexShrink: 0, display: "flex", alignItems: "center", gap: 16,
-          padding: "0 16px", background: dark ? "#080808" : "#f0f0f0",
-          borderTop: `1px solid ${border}`, fontSize: 11, fontFamily: "monospace",
+          height: 28,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "0 16px",
+          background: dark ? "#080808" : "#f0f0f0",
+          borderTop: `1px solid ${border}`,
+          fontSize: 11,
+          fontFamily: "monospace",
           color: textSec,
         }}
       >
         {cursorPos ? (
-          <span>{cursorPos.lat.toFixed(5)}, {cursorPos.lon.toFixed(5)}</span>
+          <span>
+            {cursorPos.lat.toFixed(5)}, {cursorPos.lon.toFixed(5)}
+          </span>
         ) : (
           <span>-</span>
         )}
         <span>z{zoom}</span>
         <span>{basemap}</span>
-        {datasets.length > 0 && <span>{datasets.length} dataset{datasets.length > 1 ? "s" : ""}</span>}
+        {datasets.length > 0 && (
+          <span>
+            {datasets.length} dataset{datasets.length > 1 ? "s" : ""}
+          </span>
+        )}
         {overpassLayerId && <span style={{ color: "#8b5cf6" }}>OSM query</span>}
         <span style={{ flex: 1 }} />
         <button
@@ -772,8 +849,13 @@ export default function StudioPage() {
           title="Export screenshot"
           aria-label="Export map screenshot as PNG"
           style={{
-            background: "none", border: `1px solid ${border}`, color: textSec,
-            padding: "1px 8px", borderRadius: 3, cursor: "pointer", fontSize: 10,
+            background: "none",
+            border: `1px solid ${border}`,
+            color: textSec,
+            padding: "1px 8px",
+            borderRadius: 3,
+            cursor: "pointer",
+            fontSize: 10,
           }}
         >
           EXPORT

@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
               headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
             });
             if (res.ok) {
-              const data = await res.json() as Record<string, unknown>;
+              const data = (await res.json()) as Record<string, unknown>;
               if (data.error) {
                 result.address = null;
               } else {
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
           const weatherData = await getWeather(lat, lon, forecastDays);
           if (weatherData) {
             if (units === "imperial") {
-              const toF = (c: number) => Math.round((c * 9 / 5 + 32) * 10) / 10;
+              const toF = (c: number) => Math.round(((c * 9) / 5 + 32) * 10) / 10;
               const toMph = (kmh: number) => Math.round(kmh * 0.621371 * 10) / 10;
               const toMi = (m: number) => Math.round(m * 0.000621371 * 10) / 10;
               const toIn = (mm: number) => Math.round(mm * 0.0393701 * 100) / 100;
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
               body: `data=${encodeURIComponent(query)}`,
             });
             if (res.ok) {
-              const data = await res.json() as { elements?: Record<string, unknown>[] };
+              const data = (await res.json()) as { elements?: Record<string, unknown>[] };
               const elements = Array.isArray(data.elements) ? data.elements : [];
               result.waterways = {
                 count: elements.length,

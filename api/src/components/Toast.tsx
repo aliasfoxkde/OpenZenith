@@ -56,13 +56,7 @@ const VARIANT_STYLES: Record<ToastVariant, { bg: string; border: string; icon: s
   info: { bg: "rgba(59,130,246,0.15)", border: "#3b82f6", icon: "\u2139" },
 };
 
-function ToastContainer({
-  toasts,
-  onDismiss,
-}: {
-  toasts: Toast[];
-  onDismiss: (id: string) => void;
-}) {
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
   if (toasts.length === 0) return null;
 
   return (

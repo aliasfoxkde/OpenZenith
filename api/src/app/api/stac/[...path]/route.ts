@@ -28,8 +28,18 @@ function rootCatalog() {
     type: "Catalog",
     id: "openzenith",
     title: "OpenZenith Geospatial Intelligence Platform",
-    description: "Global monitoring platform with real-time data layers including earthquakes, flights, vessels, satellites, weather, and terrain elevation.",
-    keywords: ["geospatial", "intelligence", "monitoring", "earthquakes", "flights", "satellites", "terrain", "weather"],
+    description:
+      "Global monitoring platform with real-time data layers including earthquakes, flights, vessels, satellites, weather, and terrain elevation.",
+    keywords: [
+      "geospatial",
+      "intelligence",
+      "monitoring",
+      "earthquakes",
+      "flights",
+      "satellites",
+      "terrain",
+      "weather",
+    ],
     license: "proprietary",
     providers: [
       {
@@ -62,10 +72,8 @@ interface StacCollection {
   links: Array<{ rel: string; href: string; type?: string }>;
 }
 
-function layerToCollection(layer: typeof LAYERS[number]): StacCollection {
-  const bbox: number[][] = layer.id === "satellites"
-    ? [[-180, -90, 180, 90]]
-    : [[-180, -85, 180, 85]];
+function layerToCollection(layer: (typeof LAYERS)[number]): StacCollection {
+  const bbox: number[][] = layer.id === "satellites" ? [[-180, -90, 180, 90]] : [[-180, -85, 180, 85]];
 
   const hasMapLibreLayer = MAP_2D_LAYER_IDS.has(layer.id);
 

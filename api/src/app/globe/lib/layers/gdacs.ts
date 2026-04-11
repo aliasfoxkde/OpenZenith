@@ -5,15 +5,29 @@ const GDACS_ICON = `<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="
 
 function severityColor(severity: string): string {
   switch (severity) {
-    case "Red": case "red": case "3": case "Extreme": return "#ff0000";
-    case "Orange": case "orange": case "2": case "Severe": return "#ff8800";
-    case "Green": case "green": case "1": case "Moderate": return "#00cc44";
-    default: return "#888888";
+    case "Red":
+    case "red":
+    case "3":
+    case "Extreme":
+      return "#ff0000";
+    case "Orange":
+    case "orange":
+    case "2":
+    case "Severe":
+      return "#ff8800";
+    case "Green":
+    case "green":
+    case "1":
+    case "Moderate":
+      return "#00cc44";
+    default:
+      return "#888888";
   }
 }
 
 export function loadGDACS(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -75,12 +89,9 @@ export function loadGDACS(
             scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 5e6, 0.0),
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 5e6),
           },
-          description: [
-            name,
-            `Type: ${eventType}`,
-            `Severity: ${severity}`,
-            `Source: GDACS`,
-          ].filter(Boolean).join("\n"),
+          description: [name, `Type: ${eventType}`, `Severity: ${severity}`, `Source: GDACS`]
+            .filter(Boolean)
+            .join("\n"),
           properties: { type: "gdacs", severity, eventType },
         });
         count++;
@@ -94,7 +105,9 @@ export function loadGDACS(
         doLoad();
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
-    } catch { updateStatus("gdacs", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("gdacs", { error: "fetch failed" });
+    }
   };
 
   doLoad();

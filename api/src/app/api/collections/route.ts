@@ -46,49 +46,49 @@ const FEATURE_COLLECTIONS = [
 
 export async function GET() {
   try {
-  const collections = FEATURE_COLLECTIONS.map((col) => ({
-    id: col.id,
-    title: col.title,
-    description: col.description,
-    links: [
-      {
-        rel: "self",
-        type: "application/geo+json",
-        href: `${BASE_URL}/api/collections/${col.id}`,
-      },
-      {
-        rel: "items",
-        type: "application/geo+json",
-        href: `${BASE_URL}/api/collections/${col.id}/items`,
-      },
-    ],
-    extent: {
-      spatial: {
-        bbox: [-180, -90, 180, 90],
-        crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
-      },
-    },
-    crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
-    itemType: col.itemType,
-  }));
-
-  return NextResponse.json(
-    {
+    const collections = FEATURE_COLLECTIONS.map((col) => ({
+      id: col.id,
+      title: col.title,
+      description: col.description,
       links: [
-        { rel: "self", type: "application/json", href: `${BASE_URL}/api/collections` },
-        { rel: "root", type: "application/json", href: `${BASE_URL}/api` },
+        {
+          rel: "self",
+          type: "application/geo+json",
+          href: `${BASE_URL}/api/collections/${col.id}`,
+        },
+        {
+          rel: "items",
+          type: "application/geo+json",
+          href: `${BASE_URL}/api/collections/${col.id}/items`,
+        },
       ],
-      collections,
-      timeStamp: new Date().toISOString(),
-    },
-    {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=3600",
+      extent: {
+        spatial: {
+          bbox: [-180, -90, 180, 90],
+          crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        },
       },
-    },
-  );
+      crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+      itemType: col.itemType,
+    }));
+
+    return NextResponse.json(
+      {
+        links: [
+          { rel: "self", type: "application/json", href: `${BASE_URL}/api/collections` },
+          { rel: "root", type: "application/json", href: `${BASE_URL}/api` },
+        ],
+        collections,
+        timeStamp: new Date().toISOString(),
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=3600",
+        },
+      },
+    );
   } catch (error) {
     console.error("Collections endpoint failed:", error);
     return NextResponse.json(

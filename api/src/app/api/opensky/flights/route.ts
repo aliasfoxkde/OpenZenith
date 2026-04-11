@@ -49,7 +49,7 @@ async function getToken(): Promise<string | null> {
       body: "grant_type=client_credentials",
     });
     if (!resp.ok) return null;
-    const data = await resp.json() as { access_token: string; expires_in: number };
+    const data = (await resp.json()) as { access_token: string; expires_in: number };
     cachedToken = { access_token: data.access_token, expires_at: Date.now() + (data.expires_in - 300) * 1000 };
     return data.access_token;
   } catch {

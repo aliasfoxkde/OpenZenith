@@ -75,9 +75,6 @@ export const SRTM_BOUNDS = {
  */
 export function isWithinSRTM(lat: number, lon: number): boolean {
   return (
-    lat >= SRTM_BOUNDS.latMin &&
-    lat <= SRTM_BOUNDS.latMax &&
-    lon >= SRTM_BOUNDS.lonMin &&
-    lon <= SRTM_BOUNDS.lonMax
+    lat >= SRTM_BOUNDS.latMin && lat <= SRTM_BOUNDS.latMax && lon >= SRTM_BOUNDS.lonMin && lon <= SRTM_BOUNDS.lonMax
   );
 }

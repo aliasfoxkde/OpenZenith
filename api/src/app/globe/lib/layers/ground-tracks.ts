@@ -10,7 +10,7 @@ export function loadGroundTracks(viewer: any, Cesium: any) {
   const now = Date.now();
   let count = 0;
 
-  const loadTrack = async (sat: typeof notable[0]) => {
+  const loadTrack = async (sat: (typeof notable)[0]) => {
     try {
       const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`);
       const data = await r.json();
@@ -33,13 +33,18 @@ export function loadGroundTracks(viewer: any, Cesium: any) {
         polyline: {
           positions,
           width: 1.5,
-          material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.CYAN.withAlpha(0.3) }),
+          material: new Cesium.PolylineGlowMaterialProperty({
+            glowPower: 0.1,
+            color: Cesium.Color.CYAN.withAlpha(0.3),
+          }),
           clampToGround: true,
         },
         properties: { type: "groundTrack", name: sat.name },
       });
       count++;
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   };
 
   Promise.all(notable.map(loadTrack));

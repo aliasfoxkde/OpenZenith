@@ -12,7 +12,8 @@ function waveColor(height: number): string {
 }
 
 export function loadMarineWeather(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -82,11 +83,15 @@ export function loadMarineWeather(
               current.wind_wave_direction != null ? `Wave Dir: ${current.wind_wave_direction.toFixed(0)}°` : null,
               sst != null ? `SST: ${sst.toFixed(1)}°C` : null,
               `Source: Open-Meteo Marine API`,
-            ].filter(Boolean).join("\n"),
+            ]
+              .filter(Boolean)
+              .join("\n"),
             properties: { type: "marine", waveHeight: waveH },
           });
           count++;
-        } catch { /* skip point */ }
+        } catch {
+          /* skip point */
+        }
       }
 
       updateStatus("marineWeather", { lastUpdate: Date.now(), count });
@@ -97,7 +102,9 @@ export function loadMarineWeather(
         doLoad();
       }, 3600000); // 1 hour
       intervalsRef.current.push(iv);
-    } catch { updateStatus("marineWeather", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("marineWeather", { error: "fetch failed" });
+    }
   };
 
   doLoad();

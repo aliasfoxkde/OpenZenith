@@ -23,11 +23,7 @@ const LS_KEY = "openzenith-studio-prefs";
 
 export function encodeMapHash(state: MapViewState): string {
   const { center, zoom, basemap } = state;
-  const parts = [
-    `${center[1].toFixed(4)},${center[0].toFixed(4)}`,
-    `${zoom.toFixed(1)}`,
-    basemap,
-  ];
+  const parts = [`${center[1].toFixed(4)},${center[0].toFixed(4)}`, `${zoom.toFixed(1)}`, basemap];
   return `#${parts.join("/")}`;
 }
 

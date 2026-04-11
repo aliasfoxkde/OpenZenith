@@ -21,31 +21,37 @@ export function WidgetShell({ config, state, onStateChange, children }: WidgetSh
     onStateChange({ zIndex: current + 1 });
   }, [state.zIndex, onStateChange]);
 
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
-    e.preventDefault();
-    setDragging(true);
-    dragOffset.current = {
-      x: e.clientX - state.position.x,
-      y: e.clientY - state.position.y,
-    };
-    bringToFront();
-    if (headerRef.current) {
-      headerRef.current.setPointerCapture(e.pointerId);
-    }
-  }, [state.position, bringToFront]);
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
+      e.preventDefault();
+      setDragging(true);
+      dragOffset.current = {
+        x: e.clientX - state.position.x,
+        y: e.clientY - state.position.y,
+      };
+      bringToFront();
+      if (headerRef.current) {
+        headerRef.current.setPointerCapture(e.pointerId);
+      }
+    },
+    [state.position, bringToFront],
+  );
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging) return;
-    const maxX = Math.max(100, (typeof window !== "undefined" ? window.innerWidth : 800)) - (config.minWidth || 220);
-    const maxY = Math.max(60, (typeof window !== "undefined" ? window.innerHeight : 600)) - 40;
-    onStateChange({
-      position: {
-        x: Math.max(0, Math.min(e.clientX - dragOffset.current.x, maxX)),
-        y: Math.max(0, Math.min(e.clientY - dragOffset.current.y, maxY)),
-      },
-    });
-  }, [dragging, config.minWidth, onStateChange]);
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragging) return;
+      const maxX = Math.max(100, typeof window !== "undefined" ? window.innerWidth : 800) - (config.minWidth || 220);
+      const maxY = Math.max(60, typeof window !== "undefined" ? window.innerHeight : 600) - 40;
+      onStateChange({
+        position: {
+          x: Math.max(0, Math.min(e.clientX - dragOffset.current.x, maxX)),
+          y: Math.max(0, Math.min(e.clientY - dragOffset.current.y, maxY)),
+        },
+      });
+    },
+    [dragging, config.minWidth, onStateChange],
+  );
 
   const onPointerUp = useCallback(() => {
     setDragging(false);
@@ -72,17 +78,17 @@ export function WidgetShell({ config, state, onStateChange, children }: WidgetSh
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <span className="wv-widget-title">{config.icon ? `${config.icon} ` : ""}{config.title}</span>
+        <span className="wv-widget-title">
+          {config.icon ? `${config.icon} ` : ""}
+          {config.title}
+        </span>
         <button
           onClick={() => onStateChange({ collapsed: !state.collapsed })}
           title={state.collapsed ? "Expand" : "Collapse"}
         >
           {state.collapsed ? "▼" : "▲"}
         </button>
-        <button
-          onClick={() => onStateChange({ visible: false })}
-          title="Close"
-        >
+        <button onClick={() => onStateChange({ visible: false })} title="Close">
           ×
         </button>
       </div>

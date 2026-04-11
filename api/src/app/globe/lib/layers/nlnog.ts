@@ -1,9 +1,6 @@
 import type { DataStatus } from "../types";
 
-export function loadNlnogNodes(
-  viewer: any, Cesium: any,
-  updateStatus: (key: string, u: Partial<DataStatus>) => void,
-) {
+export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   if (!Cesium || !viewer) return;
 
   const doLoad = async () => {
@@ -11,7 +8,10 @@ export function loadNlnogNodes(
       updateStatus("nlnogNodes", { error: null });
       const res = await fetch("/api/nlnog");
       const data = await res.json();
-      if (!data.nodes) { updateStatus("nlnogNodes", { error: "no data" }); return; }
+      if (!data.nodes) {
+        updateStatus("nlnogNodes", { error: "no data" });
+        return;
+      }
       const nodes = data.nodes as any[];
       const ds = Cesium.CustomDataSource("NLNOG Ring Nodes");
 
@@ -29,10 +29,14 @@ export function loadNlnogNodes(
             scaleByDistance: new Cesium.NearFarScalar(1e5, 2.0, 5e6, 0.5),
           },
           label: {
-            text: node.city || node.hostname, font: "10px sans-serif",
-            style: Cesium.LabelStyle.FILL, fillColor: Cesium.Color.WHITE.withAlpha(0.8),
-            outlineColor: Cesium.Color.BLACK, outlineWidth: 1,
-            pixelOffset: new Cesium.Cartesian2(0, -10), showBackground: true,
+            text: node.city || node.hostname,
+            font: "10px sans-serif",
+            style: Cesium.LabelStyle.FILL,
+            fillColor: Cesium.Color.WHITE.withAlpha(0.8),
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 1,
+            pixelOffset: new Cesium.Cartesian2(0, -10),
+            showBackground: true,
             backgroundColor: new Cesium.Color(0, 0, 0, 0.6),
             backgroundPadding: new Cesium.Cartesian2(4, 3),
             scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 3e6, 0.0),
@@ -45,7 +49,8 @@ export function loadNlnogNodes(
       let lineCount = 0;
       for (let i = 0; i < nodes.length && lineCount < 200; i++) {
         for (let j = i + 1; j < nodes.length && lineCount < 200; j++) {
-          const a = nodes[i], b = nodes[j];
+          const a = nodes[i],
+            b = nodes[j];
           const dLat = (b.lat - a.lat) * 111;
           const dLon = (b.lon - a.lon) * 111 * Math.cos(Cesium.Math.toRadians((a.lat + b.lat) / 2));
           const dist = Math.sqrt(dLat * dLat + dLon * dLon);
@@ -55,7 +60,10 @@ export function loadNlnogNodes(
               polyline: {
                 positions: Cesium.Cartesian3.fromDegreesArray([a.lon, a.lat, b.lon, b.lat]),
                 width: 1,
-                material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.fromCssColorString("#f97316").withAlpha(0.2) }),
+                material: new Cesium.PolylineGlowMaterialProperty({
+                  glowPower: 0.1,
+                  color: Cesium.Color.fromCssColorString("#f97316").withAlpha(0.2),
+                }),
                 clampToGround: true,
               },
               properties: { type: "nlnog-line" },
@@ -67,7 +75,9 @@ export function loadNlnogNodes(
 
       viewer.dataSources.add(ds);
       updateStatus("nlnogNodes", { lastUpdate: Date.now(), count: nodes.length });
-    } catch { updateStatus("nlnogNodes", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("nlnogNodes", { error: "fetch failed" });
+    }
   };
 
   doLoad();

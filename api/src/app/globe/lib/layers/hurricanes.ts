@@ -6,23 +6,34 @@ import { fetchHurricaneTracks } from "../data-fetchers";
  * Full category set from Tropical Depression to Category 5.
  */
 const SS_COLORS: Record<string, string> = {
-  TD: "#888888",  // Tropical Depression
-  TS: "#00aaff",  // Tropical Storm
+  TD: "#888888", // Tropical Depression
+  TS: "#00aaff", // Tropical Storm
   STS: "#00aaff", // Sub-Tropical Storm
   Cat1: "#ffff00", // Category 1
   Cat2: "#ffcc00", // Category 2
   Cat3: "#ff8800", // Category 3
   Cat4: "#ff4400", // Category 4
   Cat5: "#ff0000", // Category 5
-  SD: "#666666",  // Subtropical Depression
-  SS: "#888888",  // Subtropical Storm
-  EX: "#aaaaaa",  // Extratropical
-  HU: "#ff6600",  // Hurricane (generic)
+  SD: "#666666", // Subtropical Depression
+  SS: "#888888", // Subtropical Storm
+  EX: "#aaaaaa", // Extratropical
+  HU: "#ff6600", // Hurricane (generic)
 };
 
 /** Category order for determining max intensity */
 const CAT_ORDER: Record<string, number> = {
-  TD: 0, SD: 1, TS: 2, STS: 2, SS: 2, Cat1: 3, Cat2: 4, Cat3: 5, Cat4: 6, Cat5: 7, HU: 5, EX: 0,
+  TD: 0,
+  SD: 1,
+  TS: 2,
+  STS: 2,
+  SS: 2,
+  Cat1: 3,
+  Cat2: 4,
+  Cat3: 5,
+  Cat4: 6,
+  Cat5: 7,
+  HU: 5,
+  EX: 0,
 };
 
 /** Category → wind speed range (kt) */
@@ -52,10 +63,7 @@ function categoryFromWind(wind: number): string {
   return "TD";
 }
 
-export function loadHurricanes(
-  viewer: any, Cesium: any,
-  updateStatus: (key: string, u: Partial<DataStatus>) => void,
-) {
+export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   updateStatus("hurricaneTracks", { error: null });
 
   const doLoad = async () => {
@@ -93,16 +101,12 @@ export function loadHurricanes(
 
       for (const [, track] of Object.entries(storms)) {
         if (track.length < 2) continue;
-        const positions = track.map((pt: any) =>
-          Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]),
-        );
+        const positions = track.map((pt: any) => Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]));
         const lastPt = track[track.length - 1];
         const maxCat = track.reduce((best: string, pt: any) =>
           (CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best,
         );
-        const maxWind = track.reduce((best: number, pt: any) =>
-          pt.wind > best ? pt.wind : best, 0,
-        );
+        const maxWind = track.reduce((best: number, pt: any) => (pt.wind > best ? pt.wind : best), 0);
         const color = Cesium.Color.fromCssColorString(SS_COLORS[maxCat] || lastPt.color);
         const stormName = lastPt.name || "Unnamed";
         const isCat3Plus = CAT_ORDER[maxCat] >= 5;
@@ -177,7 +181,9 @@ export function loadHurricanes(
             lastPt.pressure > 0 ? `Min Pressure: ${Math.round(lastPt.pressure)} hPa` : null,
             `Season: ${lastPt.season}`,
             `Track Points: ${track.length}`,
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
           properties: { type: "storm-marker", name: stormName, category: maxCat, wind: maxWind },
         });
 
@@ -197,7 +203,9 @@ export function loadHurricanes(
               const angle = armOffset + (s / steps) * Math.PI * 2 + rotAngle;
               const radius = (s / steps) * maxRadius;
               const lat = lastPt.coordinates[1] + (radius * Math.cos(angle)) / 111320;
-              const lon = lastPt.coordinates[0] + (radius * Math.sin(angle)) / (111320 * Math.cos(Cesium.Math.toRadians(lastPt.coordinates[1])));
+              const lon =
+                lastPt.coordinates[0] +
+                (radius * Math.sin(angle)) / (111320 * Math.cos(Cesium.Math.toRadians(lastPt.coordinates[1])));
               pts.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
             }
             return pts;

@@ -13,10 +13,7 @@ export async function GET() {
     });
 
     if (!resp.ok) {
-      return NextResponse.json(
-        { error: `NLNOG API returned ${resp.status}` },
-        { status: 502 },
-      );
+      return NextResponse.json({ error: `NLNOG API returned ${resp.status}` }, { status: 502 });
     }
 
     const data = await resp.json();

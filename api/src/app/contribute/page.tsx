@@ -260,8 +260,8 @@ export default function ContributePage() {
           <div className="ct-step">
             <h4>Real-Time Feeds (WMS/WFS/WCS)</h4>
             <p>
-              Weather data, satellite imagery, and other OGC-standard services can be added as live layers to Globe
-              with configurable refresh intervals.
+              Weather data, satellite imagery, and other OGC-standard services can be added as live layers to Globe with
+              configurable refresh intervals.
             </p>
           </div>
           <div className="ct-step">
@@ -306,8 +306,8 @@ export default function ContributePage() {
           <div className="ct-step">
             <h4>Add a Route or Layer</h4>
             <p>
-              Create a new API route in <code>src/app/api/</code> or add your data as a layer in the Globe
-              component. Include proper attribution.
+              Create a new API route in <code>src/app/api/</code> or add your data as a layer in the Globe component.
+              Include proper attribution.
             </p>
           </div>
           <div className="ct-step">

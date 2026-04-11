@@ -9,7 +9,24 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
   {
     title: "Real-Time Data",
     key: "realtime",
-    layerIds: ["earthquakes", "radar", "flights", "militaryFlights", "vessels", "warnings", "events", "hurricaneTracks", "currents", "spaceWeather", "airQuality", "aviationWeather", "volcanoes", "gdacs", "wildfires", "lightning"],
+    layerIds: [
+      "earthquakes",
+      "radar",
+      "flights",
+      "militaryFlights",
+      "vessels",
+      "warnings",
+      "events",
+      "hurricaneTracks",
+      "currents",
+      "spaceWeather",
+      "airQuality",
+      "aviationWeather",
+      "volcanoes",
+      "gdacs",
+      "wildfires",
+      "lightning",
+    ],
   },
   {
     title: "Maritime",
@@ -30,7 +47,10 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
 
 export const BASEMAPS: Record<string, { label: string; url: string }> = {
   dark: { label: "Dark", url: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png" },
-  satellite: { label: "Satellite", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" },
+  satellite: {
+    label: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  },
   osm: { label: "OSM", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" },
   voyager: { label: "Voyager", url: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" },
   topo: { label: "Topo", url: "https://tile.opentopomap.org/{z}/{x}/{y}.png" },

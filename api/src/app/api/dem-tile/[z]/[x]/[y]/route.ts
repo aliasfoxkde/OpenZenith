@@ -32,10 +32,7 @@ export async function OPTIONS() {
   return new Response(null, { headers: CACHE_HEADERS });
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ z: string; x: string; y: string }> },
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
   // Strip .png extension from y parameter (Next.js includes it in the catch-all)
@@ -44,20 +41,14 @@ export async function GET(
   // Validate zoom level
   const zoom = parseInt(z, 10);
   if (isNaN(zoom) || zoom < 0 || zoom > 14) {
-    return NextResponse.json(
-      { error: "Invalid zoom level" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid zoom level" }, { status: 400 });
   }
 
   // Validate tile coordinates
   const tileX = parseInt(x, 10);
   const tileY = parseInt(tileYStr, 10);
   if (isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json(
-      { error: "Invalid tile coordinates" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400 });
   }
 
   // Assemble tile from HuggingFace chunks

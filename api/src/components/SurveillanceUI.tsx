@@ -67,7 +67,15 @@ export function StatusIndicator({ color = T.green, label, pulse = false }: Statu
         }}
       />
       {label && (
-        <span style={{ fontSize: "0.75rem", color: T.textMuted, fontFamily: T.fontMono, letterSpacing: "0.05em", textShadow: "0 0 4px rgba(100, 116, 139, 0.3)" }}>
+        <span
+          style={{
+            fontSize: "0.75rem",
+            color: T.textMuted,
+            fontFamily: T.fontMono,
+            letterSpacing: "0.05em",
+            textShadow: "0 0 4px rgba(100, 116, 139, 0.3)",
+          }}
+        >
           {label}
         </span>
       )}

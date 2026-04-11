@@ -69,7 +69,8 @@ function generateStars(Cesium: any): Array<{
 
     // Pixel size based on magnitude
     let pixelSize: number;
-    if (magnitude < 1) pixelSize = 3 + rand() * 2; // bright: 3-5px
+    if (magnitude < 1)
+      pixelSize = 3 + rand() * 2; // bright: 3-5px
     else if (magnitude < 2) pixelSize = 2 + rand() * 1.5;
     else if (magnitude < 3) pixelSize = 1.5 + rand();
     else if (magnitude < 4.5) pixelSize = 1 + rand() * 0.5;
@@ -78,11 +79,16 @@ function generateStars(Cesium: any): Array<{
     // Color selection weighted toward cooler stars
     let colorIdx: number;
     const colorRand = rand();
-    if (colorRand < 0.03) colorIdx = 0; // O/B blue
-    else if (colorRand < 0.10) colorIdx = 1; // A white
-    else if (colorRand < 0.20) colorIdx = 2; // F yellow-white
-    else if (colorRand < 0.40) colorIdx = 3; // G yellow
-    else if (colorRand < 0.65) colorIdx = 4; // K orange
+    if (colorRand < 0.03)
+      colorIdx = 0; // O/B blue
+    else if (colorRand < 0.1)
+      colorIdx = 1; // A white
+    else if (colorRand < 0.2)
+      colorIdx = 2; // F yellow-white
+    else if (colorRand < 0.4)
+      colorIdx = 3; // G yellow
+    else if (colorRand < 0.65)
+      colorIdx = 4; // K orange
     else colorIdx = 5; // M red
 
     stars.push({
@@ -142,7 +148,11 @@ export function createSpaceSceneManager(viewer: any, Cesium: any) {
   };
 
   const removeEntity = (e: any) => {
-    try { viewer.entities.remove(e); } catch { /* already removed */ }
+    try {
+      viewer.entities.remove(e);
+    } catch {
+      /* already removed */
+    }
   };
 
   const clear = () => {

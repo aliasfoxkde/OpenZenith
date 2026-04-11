@@ -10,10 +10,7 @@ export const runtime = "edge";
 
 const BASE_URL = "https://openzenith.cyopsys.com";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ tileMatrixSetId: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ tileMatrixSetId: string }> }) {
   const { tileMatrixSetId } = await params;
 
   const validSets = ["WebMercatorQuad", "WorldCRS84Quad"];
@@ -27,24 +24,23 @@ export async function GET(
   const maxZoom = 14;
   const tileWidth = 256;
   const tileHeight = 256;
-  const wellKnownScaleSet = tileMatrixSetId === "WebMercatorQuad"
-    ? "http://www.opengis.net/def/wkss/OGC/1.0/GoogleMapsCompatible"
-    : "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad";
+  const wellKnownScaleSet =
+    tileMatrixSetId === "WebMercatorQuad"
+      ? "http://www.opengis.net/def/wkss/OGC/1.0/GoogleMapsCompatible"
+      : "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad";
 
   const tileMatrices = [];
   for (let z = 0; z <= maxZoom; z++) {
     const matrixWidth = Math.pow(2, z);
     const matrixHeight = Math.pow(2, z);
-    const scaleDenominator = tileMatrixSetId === "WebMercatorQuad"
-      ? 559082264.0287178 / Math.pow(2, z)
-      : 279541132.0143589 / Math.pow(2, z);
+    const scaleDenominator =
+      tileMatrixSetId === "WebMercatorQuad" ? 559082264.0287178 / Math.pow(2, z) : 279541132.0143589 / Math.pow(2, z);
     tileMatrices.push({
       id: String(z),
       title: `Zoom level ${z}`,
       scaleDenominator,
-      pointOfOrigin: tileMatrixSetId === "WebMercatorQuad"
-        ? { x: -20037508.3427892, y: 20037508.3427892 }
-        : { x: -180, y: 90 },
+      pointOfOrigin:
+        tileMatrixSetId === "WebMercatorQuad" ? { x: -20037508.3427892, y: 20037508.3427892 } : { x: -180, y: 90 },
       tileWidth,
       tileHeight,
       matrixWidth,
@@ -56,9 +52,10 @@ export async function GET(
     {
       id: tileMatrixSetId,
       title: tileMatrixSetId === "WebMercatorQuad" ? "Google Web Mercator" : "WGS 84",
-      crs: tileMatrixSetId === "WebMercatorQuad"
-        ? "http://www.opengis.net/def/crs/EPSG/0/3857"
-        : "http://www.opengis.net/def/crs/EPSG/0/4326",
+      crs:
+        tileMatrixSetId === "WebMercatorQuad"
+          ? "http://www.opengis.net/def/crs/EPSG/0/3857"
+          : "http://www.opengis.net/def/crs/EPSG/0/4326",
       wellKnownScaleSet,
       tileMatrices,
       links: [

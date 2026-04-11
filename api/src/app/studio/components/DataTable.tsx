@@ -60,7 +60,9 @@ export function DataTable({ dark, dataset }: Props) {
       }
     }
     // Show first 8 property columns
-    const propCols = Array.from(propKeys).slice(0, 8).map((k) => ({ key: k, label: k }));
+    const propCols = Array.from(propKeys)
+      .slice(0, 8)
+      .map((k) => ({ key: k, label: k }));
     return [geomCol, ...propCols];
   }, [dataset.data.features]);
 
@@ -86,34 +88,41 @@ export function DataTable({ dark, dataset }: Props) {
     const props = Object.keys(dataset.data.features[0]?.properties ?? {});
     const header = props.join(",");
     const rows = dataset.data.features.map((f) =>
-      props.map((p) => {
-        const v = f.properties?.[p];
-        if (typeof v === "string" && (v.includes(",") || v.includes('"'))) return `"${v.replace(/"/g, '""')}"`;
-        return v ?? "";
-      }).join(","),
+      props
+        .map((p) => {
+          const v = f.properties?.[p];
+          if (typeof v === "string" && (v.includes(",") || v.includes('"'))) return `"${v.replace(/"/g, '""')}"`;
+          return v ?? "";
+        })
+        .join(","),
     );
     downloadFile([header, ...rows].join("\n"), `${dataset.name}.csv`, "text/csv");
   }, [dataset]);
 
   const handleExportKML = useCallback(() => {
-    const placemarks = dataset.data.features.map((f) => {
-      const name = f.properties?.name ?? "";
-      const desc = f.properties?.description ?? "";
-      const geom = f.geometry;
-      let geomXml = "";
-      if (geom.type === "Point") {
-        geomXml = `<Point><coordinates>${geom.coordinates[0]},${geom.coordinates[1]},0</coordinates></Point>`;
-      } else if (geom.type === "LineString") {
-        const coords = geom.coordinates.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ");
-        geomXml = `<LineString><coordinates>${coords}</coordinates></LineString>`;
-      } else if (geom.type === "Polygon") {
-        const rings = geom.coordinates.map(
-          (ring: number[][]) => `<outerBoundaryIs><LinearRing><coordinates>${ring.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs>`,
-        ).join("");
-        geomXml = `<Polygon>${rings}</Polygon>`;
-      }
-      return `<Placemark><name>${escapeXml(name)}</name>${desc ? `<description>${escapeXml(desc)}</description>` : ""}${geomXml}</Placemark>`;
-    }).join("\n");
+    const placemarks = dataset.data.features
+      .map((f) => {
+        const name = f.properties?.name ?? "";
+        const desc = f.properties?.description ?? "";
+        const geom = f.geometry;
+        let geomXml = "";
+        if (geom.type === "Point") {
+          geomXml = `<Point><coordinates>${geom.coordinates[0]},${geom.coordinates[1]},0</coordinates></Point>`;
+        } else if (geom.type === "LineString") {
+          const coords = geom.coordinates.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ");
+          geomXml = `<LineString><coordinates>${coords}</coordinates></LineString>`;
+        } else if (geom.type === "Polygon") {
+          const rings = geom.coordinates
+            .map(
+              (ring: number[][]) =>
+                `<outerBoundaryIs><LinearRing><coordinates>${ring.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs>`,
+            )
+            .join("");
+          geomXml = `<Polygon>${rings}</Polygon>`;
+        }
+        return `<Placemark><name>${escapeXml(name)}</name>${desc ? `<description>${escapeXml(desc)}</description>` : ""}${geomXml}</Placemark>`;
+      })
+      .join("\n");
     const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document><name>${escapeXml(dataset.name)}</name>
@@ -134,9 +143,15 @@ ${placemarks}
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {/* Export buttons */}
       <div style={{ display: "flex", gap: 4 }}>
-        <button onClick={handleExportGeoJSON} style={btnStyle(inputBg, border, text)}>GeoJSON</button>
-        <button onClick={handleExportCSV} style={btnStyle(inputBg, border, text)}>CSV</button>
-        <button onClick={handleExportKML} style={btnStyle(inputBg, border, text)}>KML</button>
+        <button onClick={handleExportGeoJSON} style={btnStyle(inputBg, border, text)}>
+          GeoJSON
+        </button>
+        <button onClick={handleExportCSV} style={btnStyle(inputBg, border, text)}>
+          CSV
+        </button>
+        <button onClick={handleExportKML} style={btnStyle(inputBg, border, text)}>
+          KML
+        </button>
       </div>
 
       {/* Search */}
@@ -144,10 +159,19 @@ ${placemarks}
         type="text"
         placeholder="Filter features..."
         value={filterText}
-        onChange={(e) => { setFilterText(e.target.value); setPage(0); }}
+        onChange={(e) => {
+          setFilterText(e.target.value);
+          setPage(0);
+        }}
         style={{
-          background: inputBg, border: `1px solid ${border}`, borderRadius: 3,
-          color: text, fontSize: 11, padding: "4px 8px", outline: "none", width: "100%",
+          background: inputBg,
+          border: `1px solid ${border}`,
+          borderRadius: 3,
+          color: text,
+          fontSize: 11,
+          padding: "4px 8px",
+          outline: "none",
+          width: "100%",
         }}
       />
 
@@ -161,8 +185,13 @@ ${placemarks}
                   key={col.key}
                   onClick={() => handleSort(col.key)}
                   style={{
-                    padding: "4px 6px", textAlign: "left", borderBottom: `1px solid ${border}`,
-                    cursor: "pointer", whiteSpace: "nowrap", color: textSec, fontWeight: 600,
+                    padding: "4px 6px",
+                    textAlign: "left",
+                    borderBottom: `1px solid ${border}`,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    color: textSec,
+                    fontWeight: 600,
                     userSelect: "none",
                   }}
                 >
@@ -175,13 +204,21 @@ ${placemarks}
           <tbody>
             {paged.map((f, i) => (
               <tr key={i} style={{ borderBottom: `1px solid ${border}` }}>
-                <td style={{ padding: "2px 6px", color: textSec }}>
-                  {f.geometry?.type?.replace("Multi", "") ?? "-"}
-                </td>
+                <td style={{ padding: "2px 6px", color: textSec }}>{f.geometry?.type?.replace("Multi", "") ?? "-"}</td>
                 {columns.slice(1).map((col) => {
                   const v = f.properties?.[col.key];
                   return (
-                    <td key={col.key} style={{ padding: "2px 6px", color: text, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <td
+                      key={col.key}
+                      style={{
+                        padding: "2px 6px",
+                        color: text,
+                        maxWidth: 120,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {v != null ? (typeof v === "number" ? v.toLocaleString() : String(v)) : ""}
                     </td>
                   );
@@ -189,7 +226,11 @@ ${placemarks}
               </tr>
             ))}
             {paged.length === 0 && (
-              <tr><td colSpan={columns.length} style={{ padding: "12px", textAlign: "center", color: textSec }}>No matching features</td></tr>
+              <tr>
+                <td colSpan={columns.length} style={{ padding: "12px", textAlign: "center", color: textSec }}>
+                  No matching features
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -198,11 +239,33 @@ ${placemarks}
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: textSec, fontSize: 10 }}>
-          <button onClick={() => setPage(0)} disabled={page === 0} style={btnStyle(inputBg, border, text)}>First</button>
-          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} style={btnStyle(inputBg, border, text)}>Prev</button>
-          <span>{page + 1} / {totalPages}</span>
-          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} style={btnStyle(inputBg, border, text)}>Next</button>
-          <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1} style={btnStyle(inputBg, border, text)}>Last</button>
+          <button onClick={() => setPage(0)} disabled={page === 0} style={btnStyle(inputBg, border, text)}>
+            First
+          </button>
+          <button
+            onClick={() => setPage(Math.max(0, page - 1))}
+            disabled={page === 0}
+            style={btnStyle(inputBg, border, text)}
+          >
+            Prev
+          </button>
+          <span>
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+            disabled={page >= totalPages - 1}
+            style={btnStyle(inputBg, border, text)}
+          >
+            Next
+          </button>
+          <button
+            onClick={() => setPage(totalPages - 1)}
+            disabled={page >= totalPages - 1}
+            style={btnStyle(inputBg, border, text)}
+          >
+            Last
+          </button>
           <span style={{ marginLeft: "auto" }}>{features.length} features</span>
         </div>
       )}
@@ -212,8 +275,13 @@ ${placemarks}
 
 function btnStyle(bg: string, border: string, color: string): React.CSSProperties {
   return {
-    background: bg, border: `1px solid ${border}`, borderRadius: 3,
-    color, cursor: "pointer", fontSize: 10, padding: "2px 8px",
+    background: bg,
+    border: `1px solid ${border}`,
+    borderRadius: 3,
+    color,
+    cursor: "pointer",
+    fontSize: 10,
+    padding: "2px 8px",
   };
 }
 

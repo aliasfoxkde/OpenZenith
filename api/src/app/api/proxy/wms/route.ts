@@ -21,11 +21,32 @@ export async function OPTIONS() {
 }
 
 const ALLOWED_PARAMS = new Set([
-  "service", "version", "request", "layers", "styles", "srs", "crs",
-  "bbox", "width", "height", "format", "transparent", "bgcolor",
-  "exceptions", "time", "elevation", "featureid", "filter",
-  "cql_filter", "buffer", "dpi", "map_resolution", "format_options",
-  "sld", "sld_body", "legend_options",
+  "service",
+  "version",
+  "request",
+  "layers",
+  "styles",
+  "srs",
+  "crs",
+  "bbox",
+  "width",
+  "height",
+  "format",
+  "transparent",
+  "bgcolor",
+  "exceptions",
+  "time",
+  "elevation",
+  "featureid",
+  "filter",
+  "cql_filter",
+  "buffer",
+  "dpi",
+  "map_resolution",
+  "format_options",
+  "sld",
+  "sld_body",
+  "legend_options",
 ]);
 
 export async function GET(request: NextRequest) {

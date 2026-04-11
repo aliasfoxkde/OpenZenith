@@ -53,10 +53,7 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const source = COLLECTION_SOURCES[id];
 
@@ -155,16 +152,28 @@ export async function GET(
 
     // Build next/prev links
     const links = [
-      { rel: "self", type: "application/geo+json", href: `${BASE_URL}/api/collections/${id}/items?limit=${limit}&offset=${offset}` },
+      {
+        rel: "self",
+        type: "application/geo+json",
+        href: `${BASE_URL}/api/collections/${id}/items?limit=${limit}&offset=${offset}`,
+      },
       { rel: "collection", type: "application/json", href: `${BASE_URL}/api/collections/${id}` },
       { rel: "root", type: "application/json", href: `${BASE_URL}/api` },
     ];
 
     if (hasNext) {
-      links.push({ rel: "next", type: "application/geo+json", href: `${BASE_URL}/api/collections/${id}/items?limit=${limit}&offset=${offset + limit}` });
+      links.push({
+        rel: "next",
+        type: "application/geo+json",
+        href: `${BASE_URL}/api/collections/${id}/items?limit=${limit}&offset=${offset + limit}`,
+      });
     }
     if (offset > 0) {
-      links.push({ rel: "prev", type: "application/geo+json", href: `${BASE_URL}/api/collections/${id}/items?limit=${limit}&offset=${Math.max(0, offset - limit)}` });
+      links.push({
+        rel: "prev",
+        type: "application/geo+json",
+        href: `${BASE_URL}/api/collections/${id}/items?limit=${limit}&offset=${Math.max(0, offset - limit)}`,
+      });
     }
 
     return NextResponse.json(
@@ -186,9 +195,6 @@ export async function GET(
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch features";
-    return NextResponse.json(
-      { error: message },
-      { status: 502, headers: { "Access-Control-Allow-Origin": "*" } },
-    );
+    return NextResponse.json({ error: message }, { status: 502, headers: { "Access-Control-Allow-Origin": "*" } });
   }
 }

@@ -11,10 +11,38 @@ export interface WidgetEntry {
 }
 
 const WIDGET_CONFIGS: WidgetConfig[] = [
-  { id: "basemaps", title: "Basemaps", icon: "🗺", defaultPosition: { x: 12, y: 56 }, defaultCollapsed: false, minWidth: 230 },
-  { id: "layers", title: "Layers", icon: "📊", defaultPosition: { x: 12, y: 290 }, defaultCollapsed: false, minWidth: 230 },
-  { id: "tools", title: "Tools", icon: "🔧", defaultPosition: { x: 12, y: 540 }, defaultCollapsed: true, minWidth: 230 },
-  { id: "settings", title: "Settings", icon: "⚙", defaultPosition: { x: 12, y: 720 }, defaultCollapsed: true, minWidth: 230 },
+  {
+    id: "basemaps",
+    title: "Basemaps",
+    icon: "🗺",
+    defaultPosition: { x: 12, y: 56 },
+    defaultCollapsed: false,
+    minWidth: 230,
+  },
+  {
+    id: "layers",
+    title: "Layers",
+    icon: "📊",
+    defaultPosition: { x: 12, y: 290 },
+    defaultCollapsed: false,
+    minWidth: 230,
+  },
+  {
+    id: "tools",
+    title: "Tools",
+    icon: "🔧",
+    defaultPosition: { x: 12, y: 540 },
+    defaultCollapsed: true,
+    minWidth: 230,
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    icon: "⚙",
+    defaultPosition: { x: 12, y: 720 },
+    defaultCollapsed: true,
+    minWidth: 230,
+  },
 ];
 
 const STORAGE_KEY = "globe-widgets";
@@ -64,11 +92,17 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
           zIndex: w.state.zIndex,
         };
       }
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* tracking prevention */ }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch {
+        /* tracking prevention */
+      }
     };
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(persist, 500);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [widgets]);
 
   const updateWidget = useCallback((id: string, patch: Partial<WidgetState>) => {
@@ -82,13 +116,19 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
     });
   }, []);
 
-  const toggleWidget = useCallback((id: string) => {
-    updateWidget(id, { visible: !widgets[id]?.state.visible });
-  }, [widgets, updateWidget]);
+  const toggleWidget = useCallback(
+    (id: string) => {
+      updateWidget(id, { visible: !widgets[id]?.state.visible });
+    },
+    [widgets, updateWidget],
+  );
 
-  const showWidget = useCallback((id: string) => {
-    updateWidget(id, { visible: true });
-  }, [updateWidget]);
+  const showWidget = useCallback(
+    (id: string) => {
+      updateWidget(id, { visible: true });
+    },
+    [updateWidget],
+  );
 
   const resetLayout = useCallback(() => {
     setWidgets(() => {
@@ -108,7 +148,11 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
       }
       return entries;
     });
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* */ }
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* */
+    }
   }, [components]);
 
   return { widgets, updateWidget, toggleWidget, showWidget, resetLayout };

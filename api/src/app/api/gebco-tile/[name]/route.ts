@@ -16,25 +16,20 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ name: string }> },
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
 
   // Validate filename
   if (!/^gebco_2025_sub_ice_[a-z0-9_.-]+\.tif$/.test(name)) {
-    return NextResponse.json(
-      { error: "Invalid tile name" },
-      { status: 400, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Invalid tile name" }, { status: 400, headers: CORS_HEADERS });
   }
 
   // In edge runtime, GEBCO COG files are not accessible.
   // Use /api/dem-tile/{z}/{x}/{y} for terrain tiles or /api/elevation for point queries.
   return NextResponse.json(
     {
-      error: "GEBCO COG tiles require Node.js runtime (local dev only). Use /api/dem-tile/{z}/{x}/{y} for terrain tiles.",
+      error:
+        "GEBCO COG tiles require Node.js runtime (local dev only). Use /api/dem-tile/{z}/{x}/{y} for terrain tiles.",
     },
     { status: 501, headers: CORS_HEADERS },
   );

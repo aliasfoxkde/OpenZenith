@@ -17,9 +17,7 @@ describe("NLNOG endpoint", () => {
   });
 
   it("returns nodes array with count", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(mockNlnogNodes), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
@@ -33,9 +31,7 @@ describe("NLNOG endpoint", () => {
   });
 
   it("nodes have required fields", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(mockNlnogNodes), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
@@ -51,9 +47,7 @@ describe("NLNOG endpoint", () => {
   });
 
   it("includes CORS and cache headers", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(mockNlnogNodes), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();

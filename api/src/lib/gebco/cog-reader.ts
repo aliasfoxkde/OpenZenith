@@ -16,11 +16,7 @@
  * are computed arithmetically — no header parsing needed.
  */
 
-import {
-  latLonToQuadName,
-  quadNameToBounds,
-  latLonToPixel,
-} from "./tile-math";
+import { latLonToQuadName, quadNameToBounds, latLonToPixel } from "./tile-math";
 
 const BYTES_PER_PIXEL = 2; // Int16
 const STRIP_BYTES = 21600 * BYTES_PER_PIXEL; // 43,200 bytes per row
@@ -30,7 +26,9 @@ const STRIP_DATA_START = 135948; // All strips are contiguous starting at this b
 // Production: CEDA hosts GEBCO 2025 GeoTIFFs with CORS + range request support.
 // Override with GEBCO_TILE_URL env var for self-hosted files.
 function getBaseUrl(): string {
-  return process.env.GEBCO_TILE_URL || "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff";
+  return (
+    process.env.GEBCO_TILE_URL || "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff"
+  );
 }
 
 /**

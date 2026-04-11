@@ -5,24 +5,33 @@ const VOLCANO_ICON = `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M
 
 function alertColor(alert: string): string {
   switch (alert) {
-    case "warning": return "#ff0000";
-    case "watch": return "#ff8800";
-    case "advisory": return "#ffcc00";
-    default: return "#00cc44";
+    case "warning":
+      return "#ff0000";
+    case "watch":
+      return "#ff8800";
+    case "advisory":
+      return "#ffcc00";
+    default:
+      return "#00cc44";
   }
 }
 
 function alertLabel(alert: string): string {
   switch (alert) {
-    case "warning": return "WARNING";
-    case "watch": return "WATCH";
-    case "advisory": return "ADVISORY";
-    default: return "NORMAL";
+    case "warning":
+      return "WARNING";
+    case "watch":
+      return "WATCH";
+    case "advisory":
+      return "ADVISORY";
+    default:
+      return "NORMAL";
   }
 }
 
 export function loadVolcanoes(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -90,7 +99,9 @@ export function loadVolcanoes(
             props.url || null,
             coords ? `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}` : null,
             `Source: USGS Volcano Hazards Program`,
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
           properties: { type: "volcano", alert, ...props },
         });
 
@@ -144,18 +155,41 @@ export function loadVolcanoes(
               id: `vol-${j}`,
               name: nm,
               position: Cesium.Cartesian3.fromDegrees(co[0], co[1], 0),
-              billboard: { image: VOLCANO_ICON, width: 22, height: 22, scaleByDistance: new Cesium.NearFarScalar(5e5, 1.5, 2e7, 0.4) },
+              billboard: {
+                image: VOLCANO_ICON,
+                width: 22,
+                height: 22,
+                scaleByDistance: new Cesium.NearFarScalar(5e5, 1.5, 2e7, 0.4),
+              },
               point: { pixelSize: 6, color: cc, outlineColor: Cesium.Color.WHITE.withAlpha(0.4), outlineWidth: 1 },
-              label: { text: nm.substring(0, 25), font: "10px 'JetBrains Mono', monospace", fillColor: cc.withAlpha(0.9), outlineColor: Cesium.Color.BLACK, outlineWidth: 2, style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(14, -10), verticalOrigin: Cesium.VerticalOrigin.CENTER, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.65), backgroundPadding: new Cesium.Cartesian2(4, 2), scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 5e6, 0.0), distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 5e6) },
+              label: {
+                text: nm.substring(0, 25),
+                font: "10px 'JetBrains Mono', monospace",
+                fillColor: cc.withAlpha(0.9),
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2,
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                pixelOffset: new Cesium.Cartesian2(14, -10),
+                verticalOrigin: Cesium.VerticalOrigin.CENTER,
+                showBackground: true,
+                backgroundColor: Cesium.Color.BLACK.withAlpha(0.65),
+                backgroundPadding: new Cesium.Cartesian2(4, 2),
+                scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 5e6, 0.0),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 5e6),
+              },
               properties: { type: "volcano", alert: al },
             });
             c2++;
           }
           updateStatus("volcanoes", { lastUpdate: Date.now(), count: c2 });
-        } catch { /* retry */ }
+        } catch {
+          /* retry */
+        }
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
-    } catch { updateStatus("volcanoes", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("volcanoes", { error: "fetch failed" });
+    }
   };
 
   doLoad();

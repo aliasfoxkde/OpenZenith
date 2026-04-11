@@ -42,20 +42,14 @@ const HOST_CACHE_TTL: Record<string, number> = {
   "tilecache.rainviewer.com": 120,
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await params;
   const targetUrl = segments.join("/");
 
   try {
     const parsed = new URL(targetUrl);
     if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
-      return NextResponse.json(
-        { error: "Domain not allowed" },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: "Domain not allowed" }, { status: 403 });
     }
 
     const url = new URL(request.url);

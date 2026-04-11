@@ -22,7 +22,8 @@ function aqiLabel(aqi: number): string {
 }
 
 export function loadAirQuality(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -36,7 +37,7 @@ export function loadAirQuality(
       const cities = [
         { name: "New York", lat: 40.71, lon: -74.01 },
         { name: "London", lat: 51.51, lon: -0.13 },
-        { name: "Beijing", lat: 39.90, lon: 116.40 },
+        { name: "Beijing", lat: 39.9, lon: 116.4 },
         { name: "Delhi", lat: 28.61, lon: 77.21 },
         { name: "Tokyo", lat: 35.68, lon: 139.69 },
         { name: "São Paulo", lat: -23.55, lon: -46.63 },
@@ -48,9 +49,9 @@ export function loadAirQuality(
         { name: "Paris", lat: 48.86, lon: 2.35 },
         { name: "Mexico City", lat: 19.43, lon: -99.13 },
         { name: "Jakarta", lat: -6.21, lon: 106.85 },
-        { name: "Bangkok", lat: 13.76, lon: 100.50 },
+        { name: "Bangkok", lat: 13.76, lon: 100.5 },
         { name: "Istanbul", lat: 41.01, lon: 28.98 },
-        { name: "Dubai", lat: 25.20, lon: 55.27 },
+        { name: "Dubai", lat: 25.2, lon: 55.27 },
         { name: "Singapore", lat: 1.35, lon: 103.82 },
         { name: "Mumbai", lat: 19.08, lon: 72.88 },
         { name: "Lima", lat: -12.05, lon: -77.04 },
@@ -114,11 +115,15 @@ export function loadAirQuality(
               no2 != null ? `NO₂: ${no2.toFixed(1)} µg/m³` : null,
               o3 != null ? `O₃: ${o3.toFixed(1)} µg/m³` : null,
               `Source: Open-Meteo Air Quality API`,
-            ].filter(Boolean).join("\n"),
+            ]
+              .filter(Boolean)
+              .join("\n"),
             properties: { type: "air-quality", aqi, city: city.name },
           });
           loaded++;
-        } catch { /* skip city */ }
+        } catch {
+          /* skip city */
+        }
       }
 
       updateStatus("airQuality", { lastUpdate: Date.now(), count: loaded });
@@ -129,7 +134,9 @@ export function loadAirQuality(
         doLoad();
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
-    } catch { updateStatus("airQuality", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("airQuality", { error: "fetch failed" });
+    }
   };
 
   doLoad();

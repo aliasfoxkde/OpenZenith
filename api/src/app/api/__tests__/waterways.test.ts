@@ -13,7 +13,11 @@ const mockOverpassResponse = {
       type: "way",
       id: 123,
       tags: { name: "Hudson River", waterway: "river" },
-      geometry: [[40.7, -74.0], [40.8, -73.9], [40.9, -73.8]],
+      geometry: [
+        [40.7, -74.0],
+        [40.8, -73.9],
+        [40.9, -73.8],
+      ],
     },
   ],
 };
@@ -91,12 +95,13 @@ describe("Waterways endpoint", () => {
         type: "way",
         id: 100 + i,
         tags: { name: `River ${i}`, waterway: "river" },
-        geometry: [[40.6, -74.0 + i * 0.01], [40.7, -74.0 + i * 0.01]],
+        geometry: [
+          [40.6, -74.0 + i * 0.01],
+          [40.7, -74.0 + i * 0.01],
+        ],
       })),
     };
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(manyElements), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(manyElements), { status: 200 }));
 
     const { GET } = await import("@/app/api/waterways/route");
     const req = mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8&limit=2");

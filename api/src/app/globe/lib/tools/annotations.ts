@@ -38,7 +38,11 @@ export function createAnnotationManager(viewer: any, Cesium: any): AnnotationMan
 
   const removeAnnotationEntities = (ann: Annotation) => {
     ann.entities.forEach((e) => {
-      try { viewer.entities.remove(e); } catch { /* already removed */ }
+      try {
+        viewer.entities.remove(e);
+      } catch {
+        /* already removed */
+      }
     });
   };
 
@@ -170,11 +174,15 @@ export function createAnnotationManager(viewer: any, Cesium: any): AnnotationMan
   const exportGeoJSON = () => {
     const features = annotations.map((ann) => ({
       type: "Feature" as const,
-      geometry: ann.type === "marker"
-        ? { type: "Point" as const, coordinates: [ann.points[0].lng, ann.points[0].lat] }
-        : ann.type === "line"
-          ? { type: "LineString" as const, coordinates: ann.points.map((p) => [p.lng, p.lat]) }
-          : { type: "Polygon" as const, coordinates: [[...ann.points.map((p) => [p.lng, p.lat]), ann.points[0]?.lng, ann.points[0]?.lat]] },
+      geometry:
+        ann.type === "marker"
+          ? { type: "Point" as const, coordinates: [ann.points[0].lng, ann.points[0].lat] }
+          : ann.type === "line"
+            ? { type: "LineString" as const, coordinates: ann.points.map((p) => [p.lng, p.lat]) }
+            : {
+                type: "Polygon" as const,
+                coordinates: [[...ann.points.map((p) => [p.lng, p.lat]), ann.points[0]?.lng, ann.points[0]?.lat]],
+              },
       properties: { annotationType: ann.type, label: ann.label },
     }));
     return JSON.stringify({ type: "FeatureCollection", features }, null, 2);

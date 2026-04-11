@@ -14,16 +14,7 @@ export const COLOR_RAMPS = {
     [0.75, "#91bfdb"],
     [1, "#4575b4"],
   ] as [number, string][],
-  categorical: [
-    "#3b82f6",
-    "#ef4444",
-    "#22c55e",
-    "#f59e0b",
-    "#8b5cf6",
-    "#06b6d4",
-    "#f97316",
-    "#ec4899",
-  ],
+  categorical: ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"],
 } as const;
 
 /** Extract numeric property values from features */
@@ -71,16 +62,10 @@ function buildChoroplethExpression(
 }
 
 /** Build a MapLibre match expression for categorical coloring */
-function buildCategoricalExpression(
-  data: GeoJSON.FeatureCollection,
-  property: string,
-): any[] {
+function buildCategoricalExpression(data: GeoJSON.FeatureCollection, property: string): any[] {
   const values = getUniqueValues(data, property);
   const ramp = COLOR_RAMPS.categorical;
-  const expr: any[] = [
-    "match",
-    ["to-string", ["get", property]],
-  ];
+  const expr: any[] = ["match", ["to-string", ["get", property]]];
   for (let i = 0; i < values.length; i++) {
     expr.push(values[i]);
     expr.push(ramp[i % ramp.length]);
@@ -106,15 +91,11 @@ export function addGeoJSONLayer(
   });
 
   // Detect geometry types in features
-  const hasPolygons = data.features.some(
-    (f) => f.geometry?.type === "Polygon" || f.geometry?.type === "MultiPolygon",
-  );
+  const hasPolygons = data.features.some((f) => f.geometry?.type === "Polygon" || f.geometry?.type === "MultiPolygon");
   const hasLines = data.features.some(
     (f) => f.geometry?.type === "LineString" || f.geometry?.type === "MultiLineString",
   );
-  const hasPoints = data.features.some(
-    (f) => f.geometry?.type === "Point" || f.geometry?.type === "MultiPoint",
-  );
+  const hasPoints = data.features.some((f) => f.geometry?.type === "Point" || f.geometry?.type === "MultiPoint");
 
   const vizMode = visualization?.mode ?? "simple";
   const vizProp = visualization?.property;
@@ -168,20 +149,24 @@ export function addGeoJSONLayer(
       type: "heatmap",
       source: id,
       paint: {
-        "heatmap-weight": vizProp
-          ? ["interpolate", ["linear"], ["to-number", ["get", vizProp]], 0, 0, 1, 1]
-          : 1,
+        "heatmap-weight": vizProp ? ["interpolate", ["linear"], ["to-number", ["get", vizProp]], 0, 0, 1, 1] : 1,
         "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 9, 3],
         "heatmap-color": [
           "interpolate",
           ["linear"],
           ["heatmap-density"],
-          0, "rgba(0,0,0,0)",
-          0.2, "rgba(59,130,246,0.3)",
-          0.4, "rgba(59,130,246,0.6)",
-          0.6, "rgba(245,158,11,0.7)",
-          0.8, "rgba(239,68,68,0.8)",
-          1, "rgba(220,38,38,1)",
+          0,
+          "rgba(0,0,0,0)",
+          0.2,
+          "rgba(59,130,246,0.3)",
+          0.4,
+          "rgba(59,130,246,0.6)",
+          0.6,
+          "rgba(245,158,11,0.7)",
+          0.8,
+          "rgba(239,68,68,0.8)",
+          1,
+          "rgba(220,38,38,1)",
         ],
         "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 10, 15, 30],
         "heatmap-opacity": 0.8,
@@ -193,9 +178,7 @@ export function addGeoJSONLayer(
       type: "circle",
       source: id,
       paint: {
-        "circle-radius": vizProp
-          ? ["interpolate", ["linear"], ["to-number", ["get", vizProp]], 0, 3, 1, 8]
-          : 4,
+        "circle-radius": vizProp ? ["interpolate", ["linear"], ["to-number", ["get", vizProp]], 0, 3, 1, 8] : 4,
         "circle-color": color,
         "circle-stroke-width": 1,
         "circle-stroke-color": "#fff",
@@ -208,14 +191,18 @@ export function addGeoJSONLayer(
       type: "circle",
       source: id,
       paint: {
-        "circle-radius": usePropertyColor && vizProp
-          ? ["interpolate", ["linear"], ["to-number", ["get", vizProp]],
-              useCategorical ? 0 : (getPropertyRange(data, vizProp)?.min ?? 0),
-              4,
-              useCategorical ? 1 : (getPropertyRange(data, vizProp)?.max ?? 1),
-              10,
-            ]
-          : 5,
+        "circle-radius":
+          usePropertyColor && vizProp
+            ? [
+                "interpolate",
+                ["linear"],
+                ["to-number", ["get", vizProp]],
+                useCategorical ? 0 : (getPropertyRange(data, vizProp)?.min ?? 0),
+                4,
+                useCategorical ? 1 : (getPropertyRange(data, vizProp)?.max ?? 1),
+                10,
+              ]
+            : 5,
         "circle-color": fillColor,
         "circle-stroke-width": 1.5,
         "circle-stroke-color": "#fff",
@@ -262,19 +249,12 @@ export function fitToGeoJSON(map: any, data: GeoJSON.FeatureCollection) {
 }
 
 /** Add a marker to the map */
-export function addMarker(
-  map: any,
-  id: string,
-  lat: number,
-  lon: number,
-  popup?: string,
-): any {
+export function addMarker(map: any, id: string, lat: number, lon: number, popup?: string): any {
   removeMarker(map, id);
   const el = document.createElement("div");
-  el.style.cssText = "width:12px;height:12px;background:#ef4444;border:2px solid #fff;border-radius:50%;cursor:pointer;";
-  const marker = new (map as any).Marker({ element: el })
-    .setLngLat([lon, lat])
-    .addTo(map);
+  el.style.cssText =
+    "width:12px;height:12px;background:#ef4444;border:2px solid #fff;border-radius:50%;cursor:pointer;";
+  const marker = new (map as any).Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
   if (popup) {
     marker.setPopup(new (map as any).Popup({ offset: 14 }).setHTML(popup));
   }
@@ -295,20 +275,12 @@ export function getOverpassBBox(map: any): string {
 }
 
 /** Calculate distance between two lat/lon points (Haversine, meters) */
-export function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
+export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

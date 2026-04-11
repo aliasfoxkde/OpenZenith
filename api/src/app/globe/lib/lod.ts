@@ -7,8 +7,8 @@
 
 export interface LODZone {
   name: string;
-  minAlt: number;  // meters
-  maxAlt: number;  // meters
+  minAlt: number; // meters
+  maxAlt: number; // meters
   /** Entity prefixes that should be visible in this zone */
   visible: string[];
   /** Label for status bar */
@@ -23,9 +23,22 @@ export const LOD_ZONES: LODZone[] = [
     maxAlt: 500_000,
     label: "SURFACE",
     visible: [
-      "eq-", "warn-", "event-", "flight-", "flight-vec-", "flight-trail-",
-      "vessel-", "nlnog-", "mil-", "storm-dot-", "storm-", "storm-label-",
-      "storm-spiral-", "storm-eye-", "storm-ring-", "radar-",
+      "eq-",
+      "warn-",
+      "event-",
+      "flight-",
+      "flight-vec-",
+      "flight-trail-",
+      "vessel-",
+      "nlnog-",
+      "mil-",
+      "storm-dot-",
+      "storm-",
+      "storm-label-",
+      "storm-spiral-",
+      "storm-eye-",
+      "storm-ring-",
+      "radar-",
     ],
   },
   {
@@ -34,9 +47,20 @@ export const LOD_ZONES: LODZone[] = [
     maxAlt: 5_000_000,
     label: "LOW ORBIT",
     visible: [
-      "eq-", "warn-", "event-", "flight-", "flight-vec-", "flight-trail-",
-      "vessel-", "nlnog-", "storm-", "storm-label-",
-      "storm-spiral-", "storm-eye-", "storm-ring-", "sat-",
+      "eq-",
+      "warn-",
+      "event-",
+      "flight-",
+      "flight-vec-",
+      "flight-trail-",
+      "vessel-",
+      "nlnog-",
+      "storm-",
+      "storm-label-",
+      "storm-spiral-",
+      "storm-eye-",
+      "storm-ring-",
+      "sat-",
     ],
   },
   {
@@ -44,19 +68,14 @@ export const LOD_ZONES: LODZone[] = [
     minAlt: 5_000_000,
     maxAlt: 50_000_000,
     label: "HIGH ORBIT",
-    visible: [
-      "eq-", "event-", "storm-", "storm-label-",
-      "sat-", "sat-notable-", "sat-track-", "orbit-shell-",
-    ],
+    visible: ["eq-", "event-", "storm-", "storm-label-", "sat-", "sat-notable-", "sat-track-", "orbit-shell-"],
   },
   {
     name: "deep-space",
     minAlt: 50_000_000,
     maxAlt: Infinity,
     label: "DEEP SPACE",
-    visible: [
-      "sat-", "sat-notable-", "sat-track-", "orbit-shell-",
-    ],
+    visible: ["sat-", "sat-notable-", "sat-track-", "orbit-shell-"],
   },
 ];
 
@@ -96,12 +115,7 @@ export function getZoneLabel(alt: number): string {
 }
 
 /** Apply LOD to all entities in the viewer */
-export function applyLOD(
-  viewer: any,
-  Cesium: any,
-  currentAlt: number,
-  currentZone: LODZone | null,
-): LODZone {
+export function applyLOD(viewer: any, Cesium: any, currentAlt: number, currentZone: LODZone | null): LODZone {
   const zone = getZoneForAltitude(currentAlt);
 
   // Skip if zone hasn't changed
@@ -119,7 +133,10 @@ export function applyLOD(
     // Only manage LOD for known entity types (flat prefix lookup)
     let managed = false;
     for (const prefix of ALL_MANAGED_PREFIXES) {
-      if (id.startsWith(prefix)) { managed = true; break; }
+      if (id.startsWith(prefix)) {
+        managed = true;
+        break;
+      }
     }
 
     if (!managed) continue;

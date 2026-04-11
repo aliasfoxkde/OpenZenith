@@ -10,7 +10,13 @@
  *   Merged:     {base}/{base}.merged
  */
 
-import { parseMergedHeader, extractChunkFromMerged, getLatDir, getTileBase, type MergedIndex } from "@/lib/srtm/merged-parser";
+import {
+  parseMergedHeader,
+  extractChunkFromMerged,
+  getLatDir,
+  getTileBase,
+  type MergedIndex,
+} from "@/lib/srtm/merged-parser";
 
 export type BackendType = "huggingface" | "http";
 
@@ -19,10 +25,7 @@ export interface ChunkBackend {
   fetchChunk(srtmName: string, row: number, col: number): Promise<ArrayBuffer>;
 }
 
-export function createChunkBackend(
-  type: BackendType,
-  config: Record<string, string>,
-): ChunkBackend {
+export function createChunkBackend(type: BackendType, config: Record<string, string>): ChunkBackend {
   switch (type) {
     case "huggingface":
       return new HuggingFaceChunkBackend(
@@ -30,10 +33,7 @@ export function createChunkBackend(
         config.useMerged !== "false", // default: try merged first
       );
     case "http":
-      return new HttpChunkBackend(
-        config.baseUrl || "",
-        config.useMerged !== "false",
-      );
+      return new HttpChunkBackend(config.baseUrl || "", config.useMerged !== "false");
     default:
       throw new Error(`Unknown backend type: ${type}`);
   }
@@ -114,9 +114,7 @@ abstract class BaseChunkBackend implements ChunkBackend {
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!response.ok) {
-      throw new Error(
-        `Chunk not found: ${srtmName} row=${row} col=${col} (${response.status})`,
-      );
+      throw new Error(`Chunk not found: ${srtmName} row=${row} col=${col} (${response.status})`);
     }
     return response.arrayBuffer();
   }

@@ -7,10 +7,7 @@ const NLNOG_LG = "https://lg.ring.nlnog.net/api";
 export async function GET(request: NextRequest) {
   const prefix = request.nextUrl.searchParams.get("prefix");
   if (!prefix) {
-    return NextResponse.json(
-      { error: "Missing required parameter: prefix (e.g. 8.8.8.0/24)" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Missing required parameter: prefix (e.g. 8.8.8.0/24)" }, { status: 400 });
   }
 
   try {
@@ -25,10 +22,7 @@ export async function GET(request: NextRequest) {
     clearTimeout(timeout);
 
     if (!resp.ok) {
-      return NextResponse.json(
-        { error: `NLNOG Looking Glass returned ${resp.status}` },
-        { status: 502 },
-      );
+      return NextResponse.json({ error: `NLNOG Looking Glass returned ${resp.status}` }, { status: 502 });
     }
 
     const data = await resp.json();

@@ -36,11 +36,7 @@ const spinner = `
 `;
 
 export function MapLoading({ message, error, errorMessage, dark, onRetry }: Props) {
-  const bg = error
-    ? "rgba(180,0,0,0.9)"
-    : dark
-      ? "rgba(0,0,0,0.85)"
-      : "rgba(255,255,255,0.95)";
+  const bg = error ? "rgba(180,0,0,0.9)" : dark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.95)";
   const color = error ? "#fff" : dark ? "#e5e5e5" : "#171717";
   const borderColor = error ? "#ef4444" : dark ? "#333" : "#e5e5e5";
 

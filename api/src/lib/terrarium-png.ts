@@ -15,8 +15,8 @@ export function encodeTerrariumPNG(data: Int16Array, width: number, height: numb
       const elev = data[py * width + px];
       const enc = elev + 32768;
       const pixOff = rowOff + 1 + px * 3;
-      raw[pixOff] = (enc >> 8) & 0xFF;
-      raw[pixOff + 1] = enc & 0xFF;
+      raw[pixOff] = (enc >> 8) & 0xff;
+      raw[pixOff + 1] = enc & 0xff;
       raw[pixOff + 2] = 0;
     }
   }
@@ -38,9 +38,12 @@ export function encodeTerrariumPNG(data: Int16Array, width: number, height: numb
 
   const result = new Uint8Array(signature.length + ihdr.length + idat.length + iend.length);
   let off = 0;
-  result.set(signature, off); off += signature.length;
-  result.set(ihdr, off); off += ihdr.length;
-  result.set(idat, off); off += idat.length;
+  result.set(signature, off);
+  off += signature.length;
+  result.set(ihdr, off);
+  off += ihdr.length;
+  result.set(idat, off);
+  off += idat.length;
   result.set(iend, off);
   return result;
 }
@@ -61,12 +64,12 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
 }
 
 function crc32(data: Uint8Array): number {
-  let crc = 0xFFFFFFFF;
+  let crc = 0xffffffff;
   for (let i = 0; i < data.length; i++) {
     crc ^= data[i];
     for (let j = 0; j < 8; j++) {
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
     }
   }
-  return (crc ^ 0xFFFFFFFF) >>> 0;
+  return (crc ^ 0xffffffff) >>> 0;
 }

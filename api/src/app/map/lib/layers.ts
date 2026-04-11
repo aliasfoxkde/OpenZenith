@@ -38,13 +38,19 @@ export function addEarthquakes(map: any, handle: LayerHandle): void {
             type: "circle",
             source: "earthquakes",
             paint: {
-              "circle-radius": [
-                "interpolate", ["linear"], ["get", "mag"],
-                0, 3, 3, 6, 5, 10, 7, 16,
-              ],
+              "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 0, 3, 3, 6, 5, 10, 7, 16],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "mag"],
-                0, "#22c55e", 3, "#eab308", 5, "#f97316", 7, "#ef4444",
+                "interpolate",
+                ["linear"],
+                ["get", "mag"],
+                0,
+                "#22c55e",
+                3,
+                "#eab308",
+                5,
+                "#f97316",
+                7,
+                "#ef4444",
               ],
               "circle-opacity": 0.7,
               "circle-stroke-width": 1,
@@ -60,20 +66,30 @@ export function addEarthquakes(map: any, handle: LayerHandle): void {
             type: "circle",
             source: "earthquakes",
             paint: {
-              "circle-radius": [
-                "interpolate", ["linear"], ["get", "mag"],
-                0, 6, 3, 12, 5, 20, 7, 32,
-              ],
+              "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 0, 6, 3, 12, 5, 20, 7, 32],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "mag"],
-                0, "rgba(34,197,94,0.15)", 3, "rgba(234,179,8,0.15)", 5, "rgba(249,115,22,0.15)", 7, "rgba(239,68,68,0.2)",
+                "interpolate",
+                ["linear"],
+                ["get", "mag"],
+                0,
+                "rgba(34,197,94,0.15)",
+                3,
+                "rgba(234,179,8,0.15)",
+                5,
+                "rgba(249,115,22,0.15)",
+                7,
+                "rgba(239,68,68,0.2)",
               ],
               "circle-blur": 1,
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -82,9 +98,13 @@ export function addEarthquakes(map: any, handle: LayerHandle): void {
 
 export function removeEarthquakes(map: any): void {
   ["earthquakes-glow", "earthquakes-circles"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("earthquakes"); } catch {}
+  try {
+    map.removeSource("earthquakes");
+  } catch {}
 }
 
 /* ─── Weather Warnings ─── */
@@ -113,9 +133,12 @@ export function addWarnings(map: any, handle: LayerHandle): void {
             source: "warnings",
             paint: {
               "fill-color": [
-                "match", ["downcase", ["get", "Event"]],
-                ["tornado warning", "extreme wind warning"], "#ef4444",
-                ["severe thunderstorm warning", "flash flood warning"], "#f97316",
+                "match",
+                ["downcase", ["get", "Event"]],
+                ["tornado warning", "extreme wind warning"],
+                "#ef4444",
+                ["severe thunderstorm warning", "flash flood warning"],
+                "#f97316",
                 "#eab308",
               ],
               "fill-opacity": 0.15,
@@ -131,9 +154,12 @@ export function addWarnings(map: any, handle: LayerHandle): void {
             source: "warnings",
             paint: {
               "line-color": [
-                "match", ["downcase", ["get", "Event"]],
-                ["tornado warning", "extreme wind warning"], "#ef4444",
-                ["severe thunderstorm warning", "flash flood warning"], "#f97316",
+                "match",
+                ["downcase", ["get", "Event"]],
+                ["tornado warning", "extreme wind warning"],
+                "#ef4444",
+                ["severe thunderstorm warning", "flash flood warning"],
+                "#f97316",
                 "#eab308",
               ],
               "line-width": 2,
@@ -142,8 +168,12 @@ export function addWarnings(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -152,9 +182,13 @@ export function addWarnings(map: any, handle: LayerHandle): void {
 
 export function removeWarnings(map: any): void {
   ["warnings-outline", "warnings-fill"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("warnings"); } catch {}
+  try {
+    map.removeSource("warnings");
+  } catch {}
 }
 
 /* ─── Natural Events (NASA EONET) ─── */
@@ -197,8 +231,12 @@ export function addNaturalEvents(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -206,8 +244,12 @@ export function addNaturalEvents(map: any, handle: LayerHandle): void {
 }
 
 export function removeNaturalEvents(map: any): void {
-  try { map.removeLayer("natural-events-points"); } catch {}
-  try { map.removeSource("natural-events"); } catch {}
+  try {
+    map.removeLayer("natural-events-points");
+  } catch {}
+  try {
+    map.removeSource("natural-events");
+  } catch {}
 }
 
 /* ─── Weather Radar (RainViewer) ─── */
@@ -239,8 +281,12 @@ export function addRadar(map: any, handle: LayerHandle): void {
             paint: { "raster-opacity": 0.5 },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -248,8 +294,12 @@ export function addRadar(map: any, handle: LayerHandle): void {
 }
 
 export function removeRadar(map: any): void {
-  try { map.removeLayer("radar-layer"); } catch {}
-  try { map.removeSource("radar"); } catch {}
+  try {
+    map.removeLayer("radar-layer");
+  } catch {}
+  try {
+    map.removeSource("radar");
+  } catch {}
 }
 
 /* ─── Waterways ─── */
@@ -284,8 +334,12 @@ export function addWaterways(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -294,8 +348,12 @@ export function addWaterways(map: any, handle: LayerHandle): void {
 }
 
 export function removeWaterways(map: any): void {
-  try { map.removeLayer("waterways-line"); } catch {}
-  try { map.removeSource("waterways"); } catch {}
+  try {
+    map.removeLayer("waterways-line");
+  } catch {}
+  try {
+    map.removeSource("waterways");
+  } catch {}
 }
 
 /* ─── Hurricane Tracks ─── */
@@ -305,13 +363,18 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
 
   const doLoad = async () => {
     try {
-      const res = await fetch("https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv");
+      const res = await fetch(
+        "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv",
+      );
       const csv = await res.text();
       if (!map.getSource) return;
 
       const lines = csv.trim().split("\n");
       if (lines.length < 3) return;
-      const headers = lines[0].replace(/^"/, "").split(",").map((h: string) => h.trim());
+      const headers = lines[0]
+        .replace(/^"/, "")
+        .split(",")
+        .map((h: string) => h.trim());
       const sidIdx = headers.indexOf("SID");
       const latIdx = headers.indexOf("LAT");
       const lonIdx = headers.indexOf("LON");
@@ -323,13 +386,16 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
       if (sidIdx < 0 || latIdx < 0 || lonIdx < 0) return;
 
       // Group by storm ID with timestamps
-      const storms: Record<string, {
-        coords: [number, number][];
-        name: string;
-        season: string;
-        maxWind: number;
-        times: string[];
-      }> = {};
+      const storms: Record<
+        string,
+        {
+          coords: [number, number][];
+          name: string;
+          season: string;
+          maxWind: number;
+          times: string[];
+        }
+      > = {};
 
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(",");
@@ -338,7 +404,14 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
         const lon = parseFloat(cols[lonIdx]);
         if (!sid || isNaN(lat) || isNaN(lon)) continue;
 
-        if (!storms[sid]) storms[sid] = { coords: [], name: cols[nameIdx]?.replace(/"/g, "") || "UNNAMED", season: cols[seasonIdx]?.trim() || "", maxWind: 0, times: [] };
+        if (!storms[sid])
+          storms[sid] = {
+            coords: [],
+            name: cols[nameIdx]?.replace(/"/g, "") || "UNNAMED",
+            season: cols[seasonIdx]?.trim() || "",
+            maxWind: 0,
+            times: [],
+          };
         storms[sid].coords.push([lon, lat]);
         storms[sid].times.push(cols[timeIdx]?.trim() || "");
         const wind = parseFloat(cols[windIdx]);
@@ -405,13 +478,19 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
             source: "hurricanes",
             filter: ["==", ["geometry-type"], "Point"],
             paint: {
-              "circle-radius": [
-                "interpolate", ["linear"], ["get", "wind"],
-                0, 2, 64, 4, 96, 5, 130, 7,
-              ],
+              "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 2, 64, 4, 96, 5, 130, 7],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "wind"],
-                0, "#fbbf24", 64, "#f97316", 96, "#ef4444", 130, "#dc2626",
+                "interpolate",
+                ["linear"],
+                ["get", "wind"],
+                0,
+                "#fbbf24",
+                64,
+                "#f97316",
+                96,
+                "#ef4444",
+                130,
+                "#dc2626",
               ],
               "circle-opacity": 0.8,
               "circle-stroke-width": 1,
@@ -419,8 +498,12 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -428,9 +511,15 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
 }
 
 export function removeHurricaneTracks(map: any): void {
-  try { map.removeLayer("hurricanes-points"); } catch {}
-  try { map.removeLayer("hurricanes-line"); } catch {}
-  try { map.removeSource("hurricanes"); } catch {}
+  try {
+    map.removeLayer("hurricanes-points");
+  } catch {}
+  try {
+    map.removeLayer("hurricanes-line");
+  } catch {}
+  try {
+    map.removeSource("hurricanes");
+  } catch {}
 }
 
 /* ─── NLNOG Nodes ─── */
@@ -465,8 +554,12 @@ export function addNLNOGNodes(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -474,8 +567,12 @@ export function addNLNOGNodes(map: any, handle: LayerHandle): void {
 }
 
 export function removeNLNOGNodes(map: any): void {
-  try { map.removeLayer("nlnog-circles"); } catch {}
-  try { map.removeSource("nlnog-nodes"); } catch {}
+  try {
+    map.removeLayer("nlnog-circles");
+  } catch {}
+  try {
+    map.removeSource("nlnog-nodes");
+  } catch {}
 }
 
 /* ─── Wildfires (NASA FIRMS) ─── */
@@ -506,13 +603,21 @@ export function addWildfires(map: any, handle: LayerHandle): void {
               "heatmap-weight": ["interpolate", ["linear"], ["get", "confidence"], 0, 0.1, 100, 1],
               "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 9, 3],
               "heatmap-color": [
-                "interpolate", ["linear"], ["heatmap-density"],
-                0, "rgba(0,0,0,0)",
-                0.2, "rgba(255,170,0,0.4)",
-                0.4, "rgba(255,136,0,0.6)",
-                0.6, "rgba(255,102,0,0.8)",
-                0.8, "rgba(255,0,0,0.9)",
-                1, "rgba(255,0,0,1)",
+                "interpolate",
+                ["linear"],
+                ["heatmap-density"],
+                0,
+                "rgba(0,0,0,0)",
+                0.2,
+                "rgba(255,170,0,0.4)",
+                0.4,
+                "rgba(255,136,0,0.6)",
+                0.6,
+                "rgba(255,102,0,0.8)",
+                0.8,
+                "rgba(255,0,0,0.9)",
+                1,
+                "rgba(255,0,0,1)",
               ],
               "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 8, 9, 20],
               "heatmap-opacity": 0.7,
@@ -527,13 +632,19 @@ export function addWildfires(map: any, handle: LayerHandle): void {
             source: "wildfires",
             minzoom: 6,
             paint: {
-              "circle-radius": [
-                "interpolate", ["linear"], ["get", "confidence"],
-                0, 2, 30, 3, 50, 4, 80, 6, 100, 8,
-              ],
+              "circle-radius": ["interpolate", ["linear"], ["get", "confidence"], 0, 2, 30, 3, 50, 4, 80, 6, 100, 8],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "confidence"],
-                0, "#ffaa00", 30, "#ff8800", 50, "#ff6600", 80, "#ff0000",
+                "interpolate",
+                ["linear"],
+                ["get", "confidence"],
+                0,
+                "#ffaa00",
+                30,
+                "#ff8800",
+                50,
+                "#ff6600",
+                80,
+                "#ff0000",
               ],
               "circle-opacity": 0.85,
               "circle-stroke-width": 0.5,
@@ -541,8 +652,12 @@ export function addWildfires(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -550,9 +665,15 @@ export function addWildfires(map: any, handle: LayerHandle): void {
 }
 
 export function removeWildfires(map: any): void {
-  try { map.removeLayer("wildfires-circles"); } catch {}
-  try { map.removeLayer("wildfires-heat"); } catch {}
-  try { map.removeSource("wildfires"); } catch {}
+  try {
+    map.removeLayer("wildfires-circles");
+  } catch {}
+  try {
+    map.removeLayer("wildfires-heat");
+  } catch {}
+  try {
+    map.removeSource("wildfires");
+  } catch {}
 }
 
 /* ─── Buildings (Overture Maps) ─── */
@@ -593,9 +714,15 @@ export function addBuildings(map: any, _handle: LayerHandle): void {
 }
 
 export function removeBuildings(map: any): void {
-  try { map.removeLayer("buildings-outline"); } catch {}
-  try { map.removeLayer("buildings-fill"); } catch {}
-  try { map.removeSource("overture-buildings"); } catch {}
+  try {
+    map.removeLayer("buildings-outline");
+  } catch {}
+  try {
+    map.removeLayer("buildings-fill");
+  } catch {}
+  try {
+    map.removeSource("overture-buildings");
+  } catch {}
 }
 
 /* ─── Population Density (GHSL) ─── */
@@ -617,18 +744,18 @@ export function addPopulationDensity(map: any, _handle: LayerHandle): void {
     source: "population-density",
     paint: {
       "raster-opacity": 0.6,
-      "raster-color-mix": [
-        "multiply",
-        ["rgba(0,0,0,0.7)"],
-        ["rgba(255,200,0,1)"],
-      ],
+      "raster-color-mix": ["multiply", ["rgba(0,0,0,0.7)"], ["rgba(255,200,0,1)"]],
     },
   });
 }
 
 export function removePopulationDensity(map: any): void {
-  try { map.removeLayer("population-density-layer"); } catch {}
-  try { map.removeSource("population-density"); } catch {}
+  try {
+    map.removeLayer("population-density-layer");
+  } catch {}
+  try {
+    map.removeSource("population-density");
+  } catch {}
 }
 
 /* ─── CORINE Land Cover ─── */
@@ -655,8 +782,12 @@ export function addLandCover(map: any, _handle: LayerHandle): void {
 }
 
 export function removeLandCover(map: any): void {
-  try { map.removeLayer("land-cover-layer"); } catch {}
-  try { map.removeSource("land-cover"); } catch {}
+  try {
+    map.removeLayer("land-cover-layer");
+  } catch {}
+  try {
+    map.removeSource("land-cover");
+  } catch {}
 }
 
 /* ─── Sentinel-2 Imagery ─── */
@@ -684,8 +815,12 @@ export function addSentinel2(map: any, _handle: LayerHandle): void {
 }
 
 export function removeSentinel2(map: any): void {
-  try { map.removeLayer("sentinel2-layer"); } catch {}
-  try { map.removeSource("sentinel2"); } catch {}
+  try {
+    map.removeLayer("sentinel2-layer");
+  } catch {}
+  try {
+    map.removeSource("sentinel2");
+  } catch {}
 }
 
 /* ─── Air Quality ─── */
@@ -715,13 +850,31 @@ export function addAirQuality(map: any, handle: LayerHandle): void {
             paint: {
               "circle-radius": 12,
               "circle-color": [
-                "interpolate", ["linear"], ["get", "us_aqi"],
-                0, "#22c55e", 50, "#22c55e",
-                51, "#eab308", 100, "#eab308",
-                101, "#f97316", 150, "#f97316",
-                151, "#ef4444", 200, "#ef4444",
-                201, "#a855f7", 300, "#a855f7",
-                301, "#7f1d1d",
+                "interpolate",
+                ["linear"],
+                ["get", "us_aqi"],
+                0,
+                "#22c55e",
+                50,
+                "#22c55e",
+                51,
+                "#eab308",
+                100,
+                "#eab308",
+                101,
+                "#f97316",
+                150,
+                "#f97316",
+                151,
+                "#ef4444",
+                200,
+                "#ef4444",
+                201,
+                "#a855f7",
+                300,
+                "#a855f7",
+                301,
+                "#7f1d1d",
               ],
               "circle-opacity": 0.7,
               "circle-stroke-width": 2,
@@ -748,8 +901,12 @@ export function addAirQuality(map: any, handle: LayerHandle): void {
             },
           });
         }
-      } catch { /* style may have changed */ }
-    } catch { /* fetch failed */ }
+      } catch {
+        /* style may have changed */
+      }
+    } catch {
+      /* fetch failed */
+    }
   };
 
   doLoad();
@@ -757,9 +914,15 @@ export function addAirQuality(map: any, handle: LayerHandle): void {
 }
 
 export function removeAirQuality(map: any): void {
-  try { map.removeLayer("air-quality-label"); } catch {}
-  try { map.removeLayer("air-quality-circle"); } catch {}
-  try { map.removeSource("air-quality"); } catch {}
+  try {
+    map.removeLayer("air-quality-label");
+  } catch {}
+  try {
+    map.removeLayer("air-quality-circle");
+  } catch {}
+  try {
+    map.removeSource("air-quality");
+  } catch {}
 }
 
 /* ─── Hillshade (terrain overlay) ─── */
@@ -781,15 +944,20 @@ export function addHillshade(map: any, _handle: LayerHandle): void {
 }
 
 export function removeHillshade(map: any): void {
-  try { map.removeLayer("hillshade"); } catch {}
+  try {
+    map.removeLayer("hillshade");
+  } catch {}
 }
 
 /* ─── Master add/remove dispatcher ─── */
 
-const LAYER_HANDLERS: Record<string, {
-  add: (map: any, handle: LayerHandle) => void;
-  remove: (map: any) => void;
-}> = {
+const LAYER_HANDLERS: Record<
+  string,
+  {
+    add: (map: any, handle: LayerHandle) => void;
+    remove: (map: any) => void;
+  }
+> = {
   hillshade: { add: addHillshade, remove: removeHillshade },
   earthquakes: { add: addEarthquakes, remove: removeEarthquakes },
   warnings: { add: addWarnings, remove: removeWarnings },
@@ -821,11 +989,7 @@ export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_HANDLERS));
 
 /* ─── Hurricane Animation ─── */
 
-export function startHurricaneAnimation(
-  map: any,
-  handle: LayerHandle,
-  callback: (progress: number) => void,
-): void {
+export function startHurricaneAnimation(map: any, handle: LayerHandle, callback: (progress: number) => void): void {
   // Get timestamp range from source data
   const source = map.getSource("hurricanes") as any;
   if (!source?._data?.features) return;
@@ -866,10 +1030,7 @@ export function startHurricaneAnimation(
   handle.intervals.push(setInterval(animate, 100));
 }
 
-export function stopHurricaneAnimation(
-  map: any,
-  handle: LayerHandle,
-): void {
+export function stopHurricaneAnimation(map: any, handle: LayerHandle): void {
   // Clear animation intervals (last one is the animation)
   while (handle.intervals.length > 0) {
     clearInterval(handle.intervals.pop()!);

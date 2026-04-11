@@ -58,7 +58,14 @@ const RAMP_LABELS: Record<ColorRamp, string> = {
   categorical: "Categorical",
 };
 
-export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, onRemoveDataset, onVisualizationChange }: Props) {
+export function DataTool({
+  dark,
+  datasets,
+  onDatasetsChange,
+  onToggleDataset,
+  onRemoveDataset,
+  onVisualizationChange,
+}: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -195,9 +202,7 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
       {/* Dataset list */}
       {datasets.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ color: textSec, fontSize: 11, fontWeight: 600 }}>
-            Datasets ({datasets.length})
-          </span>
+          <span style={{ color: textSec, fontSize: 11, fontWeight: 600 }}>Datasets ({datasets.length})</span>
           {datasets.map((ds) => {
             const geomType = getPrimaryGeometryType(ds.data);
             const props = getPropertyNames(ds.data);
@@ -210,18 +215,34 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                 {/* Dataset row */}
                 <div
                   style={{
-                    display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
-                    background: inputBg, border: `1px solid ${border}`, borderRadius: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    background: inputBg,
+                    border: `1px solid ${border}`,
+                    borderRadius: 4,
                   }}
                 >
                   <div style={{ width: 10, height: 10, borderRadius: 2, background: ds.color, flexShrink: 0 }} />
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", flex: 1, minWidth: 0 }}>
+                  <label
+                    style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", flex: 1, minWidth: 0 }}
+                  >
                     <input
                       type="checkbox"
                       checked={ds.visible}
                       onChange={(e) => onToggleDataset(ds.id, e.target.checked)}
                     />
-                    <span style={{ color: text, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={ds.name}>
+                    <span
+                      style={{
+                        color: text,
+                        fontSize: 11,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={ds.name}
+                    >
                       {ds.name}
                     </span>
                   </label>
@@ -231,12 +252,21 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                   {(props.length > 0 || onVisualizationChange) && (
                     <button
                       onClick={() => {
-                        if (isExpanded) { setExpandedId(null); }
-                        else { setExpandedId(ds.id); setExpandedPanel("style"); }
+                        if (isExpanded) {
+                          setExpandedId(null);
+                        } else {
+                          setExpandedId(ds.id);
+                          setExpandedPanel("style");
+                        }
                       }}
                       style={{
-                        background: "none", border: "none", color: isExpanded ? "#3b82f6" : textSec,
-                        cursor: "pointer", fontSize: 10, padding: "0 2px", lineHeight: 1,
+                        background: "none",
+                        border: "none",
+                        color: isExpanded ? "#3b82f6" : textSec,
+                        cursor: "pointer",
+                        fontSize: 10,
+                        padding: "0 2px",
+                        lineHeight: 1,
                       }}
                       title="Style options"
                     >
@@ -245,7 +275,15 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                   )}
                   <button
                     onClick={() => onRemoveDataset(ds.id)}
-                    style={{ background: "none", border: "none", color: textSec, cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1 }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: textSec,
+                      cursor: "pointer",
+                      fontSize: 14,
+                      padding: "0 2px",
+                      lineHeight: 1,
+                    }}
                     title="Remove"
                   >
                     &times;
@@ -254,20 +292,27 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
 
                 {/* Expanded panel with tabs */}
                 {isExpanded && (
-                  <div style={{
-                    display: "flex", flexDirection: "column", gap: 6,
-                    padding: "6px 10px", marginLeft: 18,
-                    borderLeft: `2px solid ${border}`,
-                  }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      padding: "6px 10px",
+                      marginLeft: 18,
+                      borderLeft: `2px solid ${border}`,
+                    }}
+                  >
                     {/* Tab bar */}
                     <div style={{ display: "flex", gap: 4 }}>
                       <button
                         onClick={() => setExpandedPanel("style")}
                         style={{
-                          padding: "2px 10px", fontSize: 10,
+                          padding: "2px 10px",
+                          fontSize: 10,
                           background: expandedPanel === "style" ? "#3b82f6" : inputBg,
                           border: `1px solid ${expandedPanel === "style" ? "#3b82f6" : border}`,
-                          borderRadius: 3, color: expandedPanel === "style" ? "#fff" : text,
+                          borderRadius: 3,
+                          color: expandedPanel === "style" ? "#fff" : text,
                           cursor: "pointer",
                         }}
                       >
@@ -276,10 +321,12 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                       <button
                         onClick={() => setExpandedPanel("table")}
                         style={{
-                          padding: "2px 10px", fontSize: 10,
+                          padding: "2px 10px",
+                          fontSize: 10,
                           background: expandedPanel === "table" ? "#3b82f6" : inputBg,
                           border: `1px solid ${expandedPanel === "table" ? "#3b82f6" : border}`,
-                          borderRadius: 3, color: expandedPanel === "table" ? "#fff" : text,
+                          borderRadius: 3,
+                          color: expandedPanel === "table" ? "#fff" : text,
                           cursor: "pointer",
                         }}
                       >
@@ -301,10 +348,12 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                                   key={mode}
                                   onClick={() => handleVizChange(ds, { mode })}
                                   style={{
-                                    padding: "2px 8px", fontSize: 10,
+                                    padding: "2px 8px",
+                                    fontSize: 10,
                                     background: viz.mode === mode ? "#3b82f6" : inputBg,
                                     border: `1px solid ${viz.mode === mode ? "#3b82f6" : border}`,
-                                    borderRadius: 3, color: viz.mode === mode ? "#fff" : text,
+                                    borderRadius: 3,
+                                    color: viz.mode === mode ? "#fff" : text,
                                     cursor: "pointer",
                                   }}
                                 >
@@ -325,7 +374,9 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                             >
                               <option value="">-- select --</option>
                               {props.map((p) => (
-                                <option key={p} value={p}>{p}</option>
+                                <option key={p} value={p}>
+                                  {p}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -341,10 +392,12 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                                   key={ramp}
                                   onClick={() => handleVizChange(ds, { colorRamp: ramp })}
                                   style={{
-                                    padding: "2px 8px", fontSize: 10,
+                                    padding: "2px 8px",
+                                    fontSize: 10,
                                     background: viz.colorRamp === ramp ? "#3b82f6" : inputBg,
                                     border: `1px solid ${viz.colorRamp === ramp ? "#3b82f6" : border}`,
-                                    borderRadius: 3, color: viz.colorRamp === ramp ? "#fff" : text,
+                                    borderRadius: 3,
+                                    color: viz.colorRamp === ramp ? "#fff" : text,
                                     cursor: "pointer",
                                   }}
                                 >
@@ -358,9 +411,7 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
                     )}
 
                     {/* Table tab */}
-                    {expandedPanel === "table" && (
-                      <DataTable dark={dark} dataset={ds} />
-                    )}
+                    {expandedPanel === "table" && <DataTable dark={dark} dataset={ds} />}
                   </div>
                 )}
               </div>
@@ -370,8 +421,19 @@ export function DataTool({ dark, datasets, onDatasetsChange, onToggleDataset, on
       )}
 
       {/* CSV format hint */}
-      <div style={{ color: textSec, fontSize: 10, lineHeight: 1.4, padding: "8px 10px", background: inputBg, borderRadius: 4, border: `1px solid ${border}` }}>
-        <strong style={{ color: text }}>CSV:</strong> Must have <code style={{ fontFamily: "monospace" }}>lat</code> and <code style={{ fontFamily: "monospace" }}>lon</code> columns. Other columns become point properties.
+      <div
+        style={{
+          color: textSec,
+          fontSize: 10,
+          lineHeight: 1.4,
+          padding: "8px 10px",
+          background: inputBg,
+          borderRadius: 4,
+          border: `1px solid ${border}`,
+        }}
+      >
+        <strong style={{ color: text }}>CSV:</strong> Must have <code style={{ fontFamily: "monospace" }}>lat</code> and{" "}
+        <code style={{ fontFamily: "monospace" }}>lon</code> columns. Other columns become point properties.
       </div>
     </div>
   );

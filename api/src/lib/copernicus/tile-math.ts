@@ -45,9 +45,7 @@ export function tileDirToBounds(tileDir: string): {
   tileWidth: number;
   tileHeight: number;
 } | null {
-  const m = tileDir.match(
-    /_([NS])(\d{2})_00_([EW])(\d{3})_00_DEM$/,
-  );
+  const m = tileDir.match(/_([NS])(\d{2})_00_([EW])(\d{3})_00_DEM$/);
   if (!m) return null;
 
   const latSign = m[1] === "N" ? 1 : -1;

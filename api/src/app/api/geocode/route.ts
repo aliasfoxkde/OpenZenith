@@ -17,10 +17,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(request.nextUrl.searchParams.get("limit")) || 5, 10);
 
   if (!query) {
-    return NextResponse.json(
-      { error: "Missing required parameter: query" },
-      { status: 400, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Missing required parameter: query" }, { status: 400, headers: CORS_HEADERS });
   }
 
   try {
@@ -36,7 +33,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await res.json() as Record<string, unknown>[];
+    const data = (await res.json()) as Record<string, unknown>[];
 
     return NextResponse.json(
       {
@@ -53,9 +50,6 @@ export async function GET(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch {
-    return NextResponse.json(
-      { error: "Geocoding request failed" },
-      { status: 500, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Geocoding request failed" }, { status: 500, headers: CORS_HEADERS });
   }
 }

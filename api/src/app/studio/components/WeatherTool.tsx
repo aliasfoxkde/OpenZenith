@@ -25,9 +25,14 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
       {/* Warnings layer */}
       <label
         style={{
-          display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-          padding: "8px 10px", background: dark ? "#1a1a1a" : "#f5f5f5",
-          border: `1px solid ${border}`, borderRadius: 4,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+          padding: "8px 10px",
+          background: dark ? "#1a1a1a" : "#f5f5f5",
+          border: `1px solid ${border}`,
+          borderRadius: 4,
         }}
       >
         <input
@@ -44,23 +49,32 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
       {/* Auto refresh */}
       <label
         style={{
-          display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-          color: textSec, fontSize: 11,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+          color: textSec,
+          fontSize: 11,
         }}
       >
-        <input
-          type="checkbox"
-          checked={autoRefresh}
-          onChange={(e) => setAutoRefresh(e.target.checked)}
-        />
+        <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
         Auto-refresh (2 min)
       </label>
 
       {/* Info */}
-      <div style={{ color: textSec, fontSize: 10, lineHeight: 1.4, padding: "8px 10px", background: dark ? "#1a1a1a" : "#f5f5f5", borderRadius: 4, border: `1px solid ${border}` }}>
-        <strong style={{ color: text }}>Data source:</strong> NOAA National Weather Service via ArcGIS.
-        Warnings include severe thunderstorms, tornadoes, floods, winter storms, and marine hazards.
-        Coverage is US-only.
+      <div
+        style={{
+          color: textSec,
+          fontSize: 10,
+          lineHeight: 1.4,
+          padding: "8px 10px",
+          background: dark ? "#1a1a1a" : "#f5f5f5",
+          borderRadius: 4,
+          border: `1px solid ${border}`,
+        }}
+      >
+        <strong style={{ color: text }}>Data source:</strong> NOAA National Weather Service via ArcGIS. Warnings include
+        severe thunderstorms, tornadoes, floods, winter storms, and marine hazards. Coverage is US-only.
       </div>
     </div>
   );

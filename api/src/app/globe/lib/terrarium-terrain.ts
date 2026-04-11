@@ -32,9 +32,7 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
   ) {
     // Beyond our tile zoom, fall back to flat ellipsoid
     if (level > MAX_TERRAIN_ZOOM) {
-      return origRequest
-        ? origRequest(x, y, level, request)
-        : Promise.resolve(null);
+      return origRequest ? origRequest(x, y, level, request) : Promise.resolve(null);
     }
 
     const url = `${TERRAIN_URL}/${level}/${x}/${y}`;
@@ -102,11 +100,7 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
   };
 
   // Override getTileDataAvailable to report availability
-  provider.getTileDataAvailable = function (
-    x: number,
-    y: number,
-    level: number,
-  ) {
+  provider.getTileDataAvailable = function (x: number, y: number, level: number) {
     if (level > MAX_TERRAIN_ZOOM) return false;
     return undefined; // Cesium interprets as "assume available"
   };

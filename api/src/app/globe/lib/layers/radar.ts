@@ -64,10 +64,14 @@ export function loadRadar(
           radarFrames = [...past, ...forecast];
           frameIndex = 0;
           updateStatus("radar", { lastUpdate: Date.now(), count: radarFrames.length });
-        } catch { /* retry */ }
+        } catch {
+          /* retry */
+        }
       }, 600000);
       intervalsRef.current.push(iv);
-    } catch { updateStatus("radar", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("radar", { error: "fetch failed" });
+    }
   };
 
   doLoad();

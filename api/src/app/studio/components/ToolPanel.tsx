@@ -47,11 +47,7 @@ const TABS: { id: ToolTab; label: string; icon: string }[] = [
 ];
 
 function ToolFallback({ dark }: { dark: boolean }) {
-  return (
-    <div style={{ padding: 12, color: dark ? "#666" : "#999", fontSize: 12 }}>
-      Loading...
-    </div>
-  );
+  return <div style={{ padding: 12, color: dark ? "#666" : "#999", fontSize: 12 }}>Loading...</div>;
 }
 
 export function ToolPanel(props: Props) {
@@ -69,8 +65,11 @@ export function ToolPanel(props: Props) {
         role="tablist"
         aria-label="Studio tool tabs"
         style={{
-          display: "flex", borderBottom: `1px solid ${border}`, flexShrink: 0,
-          overflowX: "auto", scrollbarWidth: "none",
+          display: "flex",
+          borderBottom: `1px solid ${border}`,
+          flexShrink: 0,
+          overflowX: "auto",
+          scrollbarWidth: "none",
         }}
       >
         {TABS.map((tab) => (

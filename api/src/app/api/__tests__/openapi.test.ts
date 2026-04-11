@@ -20,13 +20,7 @@ describe("OpenAPI spec endpoint", () => {
     const resp = await GET();
     const spec = await resp.json();
 
-    const expectedPaths = [
-      "/api/elevation",
-      "/api/health",
-      "/api/geoip",
-      "/api/nlnog",
-      "/api/bgp",
-    ];
+    const expectedPaths = ["/api/elevation", "/api/health", "/api/geoip", "/api/nlnog", "/api/bgp"];
 
     for (const path of expectedPaths) {
       expect(spec.paths[path]).toBeDefined();

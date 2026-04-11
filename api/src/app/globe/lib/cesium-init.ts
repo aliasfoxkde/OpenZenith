@@ -20,20 +20,20 @@ function createElevationColorMap(): HTMLCanvasElement {
   const ctx = canvas.getContext("2d")!;
 
   const gradient = ctx.createLinearGradient(0, 0, 256, 0);
-  gradient.addColorStop(0.0, "#0a1628");   // Deep ocean
-  gradient.addColorStop(0.15, "#0d2847");   // Mid ocean
-  gradient.addColorStop(0.35, "#1a5276");   // Shallow ocean
-  gradient.addColorStop(0.44, "#2980b9");   // Coastal water
-  gradient.addColorStop(0.48, "#5dade2");   // Near shore
-  gradient.addColorStop(0.50, "#aed6f1");   // Shoreline
-  gradient.addColorStop(0.52, "#f9e79f");   // Beach
-  gradient.addColorStop(0.55, "#82e0aa");   // Lowland green
-  gradient.addColorStop(0.62, "#27ae60");   // Mid elevation
-  gradient.addColorStop(0.72, "#f4d03f");   // Highland yellow
-  gradient.addColorStop(0.82, "#e67e22");   // Mountain orange
-  gradient.addColorStop(0.90, "#a04000");   // High mountain
-  gradient.addColorStop(0.96, "#d35400");   // Alpine
-  gradient.addColorStop(1.0, "#f0f0f0");   // Snow/peak
+  gradient.addColorStop(0.0, "#0a1628"); // Deep ocean
+  gradient.addColorStop(0.15, "#0d2847"); // Mid ocean
+  gradient.addColorStop(0.35, "#1a5276"); // Shallow ocean
+  gradient.addColorStop(0.44, "#2980b9"); // Coastal water
+  gradient.addColorStop(0.48, "#5dade2"); // Near shore
+  gradient.addColorStop(0.5, "#aed6f1"); // Shoreline
+  gradient.addColorStop(0.52, "#f9e79f"); // Beach
+  gradient.addColorStop(0.55, "#82e0aa"); // Lowland green
+  gradient.addColorStop(0.62, "#27ae60"); // Mid elevation
+  gradient.addColorStop(0.72, "#f4d03f"); // Highland yellow
+  gradient.addColorStop(0.82, "#e67e22"); // Mountain orange
+  gradient.addColorStop(0.9, "#a04000"); // High mountain
+  gradient.addColorStop(0.96, "#d35400"); // Alpine
+  gradient.addColorStop(1.0, "#f0f0f0"); // Snow/peak
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 256, 1);
@@ -160,12 +160,12 @@ export async function initCesiumViewer(
 
   // Gesture / input configuration
   const ssc = viewer.scene.screenSpaceCameraController;
-  ssc.minimumZoomRate = 5000;          // slow down zoom near surface
-  ssc.maximumZoomRate = 500000;        // fast zoom from orbit
-  ssc.zoomFactor = 3.0;                // scroll wheel zoom multiplier
-  ssc.inertiaSpin = 0.92;              // reduce rotation drift
-  ssc.inertiaTranslate = 0.92;         // reduce pan drift
-  ssc.inertiaZoom = 0.92;              // reduce zoom drift
+  ssc.minimumZoomRate = 5000; // slow down zoom near surface
+  ssc.maximumZoomRate = 500000; // fast zoom from orbit
+  ssc.zoomFactor = 3.0; // scroll wheel zoom multiplier
+  ssc.inertiaSpin = 0.92; // reduce rotation drift
+  ssc.inertiaTranslate = 0.92; // reduce pan drift
+  ssc.inertiaZoom = 0.92; // reduce zoom drift
   ssc.enableRotate = true;
   ssc.enableTranslate = true;
   ssc.enableZoom = true;
@@ -181,11 +181,7 @@ export async function initCesiumViewer(
 
   // ─── Initial camera position ───
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(
-      initialState.center[0],
-      initialState.center[1],
-      15000000,
-    ),
+    destination: Cesium.Cartesian3.fromDegrees(initialState.center[0], initialState.center[1], 15000000),
     orientation: {
       heading: 0,
       pitch: Cesium.Math.toRadians(-90),
@@ -198,9 +194,10 @@ export async function initCesiumViewer(
   // ─── Cloud overlay (semi-transparent, always on) ───
   function addCloudOverlay() {
     const provider = new Cesium.UrlTemplateImageryProvider({
-      url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best"
-        + "/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31"
-        + "/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
+      url:
+        "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best" +
+        "/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31" +
+        "/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
       credit: "",
       maximumLevel: 9,
     });

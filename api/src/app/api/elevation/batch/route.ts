@@ -48,9 +48,7 @@ function latLonToTile(lat: number, lon: number, zoom: number) {
   const n = 2 ** zoom;
   const x = Math.floor(((lon + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(
-    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
-  );
+  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
   return { x, y };
 }
 
@@ -64,8 +62,7 @@ function sampleElevation(
   const n = 2 ** zoom;
   const xFrac = ((lon + 180) / 360) * n - x;
   const latRad = (lat * Math.PI) / 180;
-  const yFrac =
-    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n - y;
+  const yFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n - y;
 
   const w = tileData.width;
   const h = tileData.height;
@@ -101,13 +98,27 @@ export async function POST(request: NextRequest) {
 
   const points = body.points;
   if (!Array.isArray(points) || points.length === 0 || points.length > 2000) {
-    return NextResponse.json({ error: "Provide 1-2000 points as {points: [{lat, lon}]}" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json(
+      { error: "Provide 1-2000 points as {points: [{lat, lon}]}" },
+      { status: 400, headers: CORS_HEADERS },
+    );
   }
 
   for (const p of points) {
-    if (typeof p.lat !== "number" || typeof p.lon !== "number" ||
-        isNaN(p.lat) || isNaN(p.lon) || p.lat < -90 || p.lat > 90 || p.lon < -180 || p.lon > 180) {
-      return NextResponse.json({ error: "Each point must have valid lat (-90..90) and lon (-180..180)" }, { status: 400, headers: CORS_HEADERS });
+    if (
+      typeof p.lat !== "number" ||
+      typeof p.lon !== "number" ||
+      isNaN(p.lat) ||
+      isNaN(p.lon) ||
+      p.lat < -90 ||
+      p.lat > 90 ||
+      p.lon < -180 ||
+      p.lon > 180
+    ) {
+      return NextResponse.json(
+        { error: "Each point must have valid lat (-90..90) and lon (-180..180)" },
+        { status: 400, headers: CORS_HEADERS },
+      );
     }
   }
 
@@ -140,9 +151,7 @@ export async function POST(request: NextRequest) {
       const tileData = tileCache.get(tileKey);
       for (const idx of indices) {
         const p = points[idx];
-        const elevation = tileData
-          ? sampleElevation(tileData, p.lat, p.lon, zoom)
-          : null;
+        const elevation = tileData ? sampleElevation(tileData, p.lat, p.lon, zoom) : null;
         results[idx] = {
           id: p.id,
           lat: p.lat,

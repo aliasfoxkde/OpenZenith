@@ -8,13 +8,26 @@ export const runtime = "edge";
  */
 
 const ALLOWED_HOSTS = [
-  "services1.arcgis.com", "services2.arcgis.com", "services3.arcgis.com",
-  "services4.arcgis.com", "services5.arcgis.com", "services6.arcgis.com",
-  "services7.arcgis.com", "services8.arcgis.com", "services9.arcgis.com",
-  "services10.arcgis.com", "services11.arcgis.com", "services12.arcgis.com",
-  "services.arcgis.com", "gis.fema.gov", "gis.psu.edu",
-  "services.nationalmap.gov", "opendata.arcgis.com",
-  "www.arcgis.com", "terrain.arcgis.com", "elevation.arcgis.com",
+  "services1.arcgis.com",
+  "services2.arcgis.com",
+  "services3.arcgis.com",
+  "services4.arcgis.com",
+  "services5.arcgis.com",
+  "services6.arcgis.com",
+  "services7.arcgis.com",
+  "services8.arcgis.com",
+  "services9.arcgis.com",
+  "services10.arcgis.com",
+  "services11.arcgis.com",
+  "services12.arcgis.com",
+  "services.arcgis.com",
+  "gis.fema.gov",
+  "gis.psu.edu",
+  "services.nationalmap.gov",
+  "opendata.arcgis.com",
+  "www.arcgis.com",
+  "terrain.arcgis.com",
+  "elevation.arcgis.com",
 ];
 
 export async function GET(request: NextRequest) {

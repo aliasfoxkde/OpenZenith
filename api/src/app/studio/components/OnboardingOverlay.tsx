@@ -8,13 +8,37 @@ interface Props {
 }
 
 const TIPS = [
-  { icon: "\u26f0", title: "Elevation", desc: "Click the map to get terrain elevation. Draw a line for a cross-section profile." },
-  { icon: "\ud83d\udccd", title: "Geocode", desc: "Search for addresses and places. Results are shown on the map with markers." },
-  { icon: "\ud83d\uddfa", title: "OSM Query", desc: "Query OpenStreetMap data in the current view. Use presets or write custom Overpass QL." },
+  {
+    icon: "\u26f0",
+    title: "Elevation",
+    desc: "Click the map to get terrain elevation. Draw a line for a cross-section profile.",
+  },
+  {
+    icon: "\ud83d\udccd",
+    title: "Geocode",
+    desc: "Search for addresses and places. Results are shown on the map with markers.",
+  },
+  {
+    icon: "\ud83d\uddfa",
+    title: "OSM Query",
+    desc: "Query OpenStreetMap data in the current view. Use presets or write custom Overpass QL.",
+  },
   { icon: "\u26c8", title: "Weather", desc: "Check weather warnings, radar, and forecasts for the map area." },
-  { icon: "\ud83d\udcc1", title: "Data Upload", desc: "Drag & drop GeoJSON, CSV, GPX, or KML files. Visualize with choropleth and heatmap styles." },
-  { icon: "\ud83d\udcda", title: "Layers", desc: "Toggle data layers like earthquakes, buildings, population density, and more." },
-  { icon: "\u270f", title: "Draw", desc: "Draw points, lines, and polygons on the map. Measurements shown in real-time." },
+  {
+    icon: "\ud83d\udcc1",
+    title: "Data Upload",
+    desc: "Drag & drop GeoJSON, CSV, GPX, or KML files. Visualize with choropleth and heatmap styles.",
+  },
+  {
+    icon: "\ud83d\udcda",
+    title: "Layers",
+    desc: "Toggle data layers like earthquakes, buildings, population density, and more.",
+  },
+  {
+    icon: "\u270f",
+    title: "Draw",
+    desc: "Draw points, lines, and polygons on the map. Measurements shown in real-time.",
+  },
   { icon: "\u2316", title: "Measure", desc: "Distances and areas calculated automatically while drawing." },
 ];
 
@@ -37,8 +61,12 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
     <div
       onClick={dismiss}
       style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         zIndex: 1000,
       }}
     >
@@ -66,13 +94,13 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
             <div
               key={tip.title}
               style={{
-                display: "flex", gap: 12, padding: "8px 0",
+                display: "flex",
+                gap: 12,
+                padding: "8px 0",
                 borderBottom: `1px solid ${border}`,
               }}
             >
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: "center" }}>
-                {tip.icon}
-              </span>
+              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: "center" }}>{tip.icon}</span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: text }}>{tip.title}</div>
                 <div style={{ fontSize: 12, color: textSec, marginTop: 2 }}>{tip.desc}</div>
@@ -84,9 +112,16 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
         <button
           onClick={dismiss}
           style={{
-            marginTop: 16, width: "100%", padding: "10px",
-            background: "#3b82f6", border: "none", borderRadius: 6,
-            color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600,
+            marginTop: 16,
+            width: "100%",
+            padding: "10px",
+            background: "#3b82f6",
+            border: "none",
+            borderRadius: 6,
+            color: "#fff",
+            cursor: "pointer",
+            fontSize: 14,
+            fontWeight: 600,
           }}
         >
           Get Started

@@ -207,7 +207,8 @@ const openApiSpec = {
             in: "path",
             required: true,
             schema: { type: "string" },
-            description: "Full URL path to the target API (e.g., https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson)",
+            description:
+              "Full URL path to the target API (e.g., https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson)",
             example: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
           },
         ],
@@ -285,7 +286,8 @@ const openApiSpec = {
                     time: { type: "integer", description: "Server timestamp (Unix)" },
                     states: {
                       type: "array",
-                      description: "Array of aircraft state vectors. Each vector: [icao24, callsign, origin_country, time_position, last_contact, longitude, latitude, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors, geo_altitude, squawk, spi, position_source]",
+                      description:
+                        "Array of aircraft state vectors. Each vector: [icao24, callsign, origin_country, time_position, last_contact, longitude, latitude, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors, geo_altitude, squawk, spi, position_source]",
                       items: { type: "array", items: {} },
                     },
                   },
@@ -404,7 +406,8 @@ const openApiSpec = {
             required: true,
             schema: { type: "string", format: "uri" },
             description: "ArcGIS REST service URL",
-            example: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/NWS_Watch_Warn_Advisory/FeatureServer",
+            example:
+              "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/NWS_Watch_Warn_Advisory/FeatureServer",
           },
         ],
         responses: {
@@ -576,7 +579,11 @@ const openApiSpec = {
                       items: {
                         type: "object",
                         properties: {
-                          display_name: { type: "string", example: "White House, 1600, Pennsylvania Avenue Northwest, Washington, DC, 20500, United States" },
+                          display_name: {
+                            type: "string",
+                            example:
+                              "White House, 1600, Pennsylvania Avenue Northwest, Washington, DC, 20500, United States",
+                          },
                           lat: { type: "number", example: 38.8977 },
                           lon: { type: "number", example: -77.0365 },
                           type: { type: "string", example: "way" },
@@ -639,7 +646,11 @@ const openApiSpec = {
                     place: {
                       type: ["object", "null"],
                       properties: {
-                        display_name: { type: "string", example: "White House, 1600, Pennsylvania Avenue Northwest, Washington, DC, 20500, United States" },
+                        display_name: {
+                          type: "string",
+                          example:
+                            "White House, 1600, Pennsylvania Avenue Northwest, Washington, DC, 20500, United States",
+                        },
                         name: { type: "string", example: "White House" },
                         type: { type: "string", example: "way" },
                         address: { type: "object" },

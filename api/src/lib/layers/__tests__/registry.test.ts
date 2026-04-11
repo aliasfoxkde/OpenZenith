@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { LAYERS, getLayersByCategory, getDefaultToggleState, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
+import {
+  LAYERS,
+  getLayersByCategory,
+  getDefaultToggleState,
+  CATEGORY_ORDER,
+  CATEGORY_LABELS,
+} from "@/lib/layers/registry";
 
 describe("Layer Registry", () => {
   it("exports all expected layers", () => {

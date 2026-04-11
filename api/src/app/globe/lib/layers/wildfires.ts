@@ -11,7 +11,8 @@ function fireColor(confidence: number): string {
 }
 
 export function loadWildfires(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -72,7 +73,9 @@ export function loadWildfires(
             daynight === "N" ? "Night detection" : "Day detection",
             `Lat: ${lat.toFixed(3)}, Lon: ${lon.toFixed(3)}`,
             `Source: NASA FIRMS (VIIRS)`,
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
           properties: { type: "wildfire", confidence, frp },
         });
         count++;
@@ -86,7 +89,9 @@ export function loadWildfires(
         doLoad();
       }, 21600000); // 6 hours
       intervalsRef.current.push(iv);
-    } catch { updateStatus("wildfires", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("wildfires", { error: "fetch failed" });
+    }
   };
 
   doLoad();

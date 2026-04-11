@@ -5,12 +5,15 @@ import { Navbar } from "@/components/Navbar";
 
 /* ─── Imports from extracted modules ─── */
 import type { LayerState, DashboardState, DataStatus } from "./lib/types";
+import { DEFAULT_LAYERS, DEFAULT_STATE, THEMES } from "./lib/constants";
 import {
-  DEFAULT_LAYERS, DEFAULT_STATE, THEMES,
-} from "./lib/constants";
-import {
-  parseHash, buildHash, fmtTime, safeCopy, elevationColor,
-  removeEntities as removeEntitiesHelper, toggleImageryOverlay as toggleImageryOverlayHelper,
+  parseHash,
+  buildHash,
+  fmtTime,
+  safeCopy,
+  elevationColor,
+  removeEntities as removeEntitiesHelper,
+  toggleImageryOverlay as toggleImageryOverlayHelper,
   switchBasemapOnViewer,
 } from "./lib/helpers";
 import { STYLES } from "./lib/styles";
@@ -48,13 +51,18 @@ export default function Globe() {
   const dataLoadedRef = useRef<Record<string, boolean>>({});
   const entitiesRef = useRef<Record<string, any>>({});
   const satDataRef = useRef<any[]>([]);
-  const loadLayerDynamicRef = useRef<(key: string) => Promise<void>>(undefined as unknown as (key: string) => Promise<void>);
+  const loadLayerDynamicRef = useRef<(key: string) => Promise<void>>(
+    undefined as unknown as (key: string) => Promise<void>,
+  );
   const addCloudOverlayRef = useRef<(() => void) | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
 
   // ─── Context menu sub-components ───
-  const closeCtx = () => { setCtxMenu(null); setExpandedGroup(null); };
+  const closeCtx = () => {
+    setCtxMenu(null);
+    setExpandedGroup(null);
+  };
 
   const CtxDivider = () => <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />;
 
@@ -62,22 +70,51 @@ export default function Globe() {
     <div style={{ padding: "2px 0" }}>{children}</div>
   );
 
-  const CtxMenuItem = ({ label, icon, accent, color, shortcut, onClick }: { label: string; icon?: string; accent?: boolean; color?: string; shortcut?: string; onClick: () => void }) => (
+  const CtxMenuItem = ({
+    label,
+    icon,
+    accent,
+    color,
+    shortcut,
+    onClick,
+  }: {
+    label: string;
+    icon?: string;
+    accent?: boolean;
+    color?: string;
+    shortcut?: string;
+    onClick: () => void;
+  }) => (
     <button
       onClick={onClick}
       style={{
-        display: "flex", alignItems: "center", gap: 8, width: "100%",
-        padding: "5px 12px", border: "none", background: "transparent",
-        color: accent ? "var(--accent)" : color || "var(--text)", cursor: "pointer",
-        textAlign: "left", fontFamily: "inherit", fontSize: "12px",
-        borderRadius: 4, transition: "background .1s",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        padding: "5px 12px",
+        border: "none",
+        background: "transparent",
+        color: accent ? "var(--accent)" : color || "var(--text)",
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: "inherit",
+        fontSize: "12px",
+        borderRadius: 4,
+        transition: "background .1s",
       }}
-      onMouseEnter={(e) => { (e.currentTarget.style.background = "var(--bg-hover)"); }}
-      onMouseLeave={(e) => { (e.currentTarget.style.background = "transparent"); }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--bg-hover)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
     >
       {icon && <span style={{ width: 16, textAlign: "center", fontSize: "13px", flexShrink: 0 }}>{icon}</span>}
       <span style={{ flex: 1 }}>{label}</span>
-      {shortcut && <span style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{shortcut}</span>}
+      {shortcut && (
+        <span style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{shortcut}</span>
+      )}
     </button>
   );
 
@@ -88,17 +125,41 @@ export default function Globe() {
         <button
           onClick={() => setExpandedGroup(isOpen ? null : label)}
           style={{
-            display: "flex", alignItems: "center", gap: 8, width: "100%",
-            padding: "5px 12px", border: "none", background: "transparent",
-            color: "var(--text)", cursor: "pointer", textAlign: "left",
-            fontFamily: "inherit", fontSize: "12px", borderRadius: 4, transition: "background .1s",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            width: "100%",
+            padding: "5px 12px",
+            border: "none",
+            background: "transparent",
+            color: "var(--text)",
+            cursor: "pointer",
+            textAlign: "left",
+            fontFamily: "inherit",
+            fontSize: "12px",
+            borderRadius: 4,
+            transition: "background .1s",
           }}
-          onMouseEnter={(e) => { (e.currentTarget.style.background = "var(--bg-hover)"); }}
-          onMouseLeave={(e) => { (e.currentTarget.style.background = "transparent"); }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--bg-hover)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
         >
           {icon && <span style={{ width: 16, textAlign: "center", fontSize: "13px", flexShrink: 0 }}>{icon}</span>}
           <span style={{ flex: 1 }}>{label}</span>
-          <span style={{ fontSize: "9px", transition: "transform 0.2s", transform: isOpen ? "rotate(90deg)" : "rotate(0)", display: "inline-block", color: "var(--text-muted)" }}>&#9654;</span>
+          <span
+            style={{
+              fontSize: "9px",
+              transition: "transform 0.2s",
+              transform: isOpen ? "rotate(90deg)" : "rotate(0)",
+              display: "inline-block",
+              color: "var(--text-muted)",
+            }}
+          >
+            &#9654;
+          </span>
         </button>
         {isOpen && (
           <div style={{ paddingLeft: 16, borderLeft: "1px solid var(--border)", margin: "1px 0 1px 12px" }}>
@@ -115,7 +176,11 @@ export default function Globe() {
   // Apply hash/localStorage state on mount (client-only to avoid hydration mismatch)
   useEffect(() => {
     let savedTheme: string | null = null;
-    try { savedTheme = localStorage.getItem("globe-theme"); } catch { /* tracking prevention */ }
+    try {
+      savedTheme = localStorage.getItem("globe-theme");
+    } catch {
+      /* tracking prevention */
+    }
     const parsed = parseHash(window.location.hash);
     const clean: Partial<DashboardState> = {};
     for (const [k, v] of Object.entries(parsed)) {
@@ -144,8 +209,21 @@ export default function Globe() {
     { key: "flightArcs", label: "Flight Arcs", lastUpdate: null, count: 0, error: null },
     { key: "currents", label: "Currents", lastUpdate: null, count: 0, error: null },
   ]);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number; elev?: number | null; entity?: any } | null>(null);
-  const [elevPopup, setElevPopup] = useState<{ x: number; y: number; elev: number | null; lat: number; lon: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number;
+    y: number;
+    lng: number;
+    lat: number;
+    elev?: number | null;
+    entity?: any;
+  } | null>(null);
+  const [elevPopup, setElevPopup] = useState<{
+    x: number;
+    y: number;
+    elev: number | null;
+    lat: number;
+    lon: number;
+  } | null>(null);
   const [clock, setClock] = useState("");
   const [compassHeading, setCompassHeading] = useState(0);
   const [cameraAlt, setCameraAlt] = useState(0);
@@ -159,7 +237,14 @@ export default function Globe() {
   const [profileData, setProfileData] = useState<any[] | null>(null);
   const [coordFormats, setCoordFormats] = useState<Record<string, string> | null>(null);
   const profileCanvasRef = useRef<HTMLDivElement>(null);
-  const [selectedSat, setSelectedSat] = useState<{ name: string; alt: number; vel: number; lat: number; lon: number; orbit: string } | null>(null);
+  const [selectedSat, setSelectedSat] = useState<{
+    name: string;
+    alt: number;
+    vel: number;
+    lat: number;
+    lon: number;
+    orbit: string;
+  } | null>(null);
   const [followSat, setFollowSat] = useState(false);
 
   // UTC clock for HUD themes
@@ -173,7 +258,11 @@ export default function Globe() {
 
   // Persist theme
   useEffect(() => {
-    try { localStorage.setItem("globe-theme", state.theme); } catch { /* tracking prevention */ }
+    try {
+      localStorage.setItem("globe-theme", state.theme);
+    } catch {
+      /* tracking prevention */
+    }
   }, [state.theme]);
 
   // Compute coordinate formats from cursor position
@@ -198,7 +287,8 @@ export default function Globe() {
   }, []);
 
   const toggleImageryOverlay = useCallback((name: string, url?: string, opacity?: number, maximumLevel?: number) => {
-    if (viewerRef.current) toggleImageryOverlayHelper(viewerRef.current, cesiumRef.current, name, url, opacity, maximumLevel);
+    if (viewerRef.current)
+      toggleImageryOverlayHelper(viewerRef.current, cesiumRef.current, name, url, opacity, maximumLevel);
   }, []);
 
   // ─── Init Cesium Viewer ───
@@ -221,9 +311,24 @@ export default function Globe() {
           activeLayers.forEach((key) => {
             dataLoadedRef.current[key] = false;
           });
-          if (activeLayers.includes("earthquakes") && state.layers.earthquakes) loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-          if (activeLayers.includes("events") && state.layers.events) loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-          const dynamicKeys = ["flights", "militaryFlights", "vessels", "warnings", "satellites", "radar", "hurricaneTracks", "nlnogNodes", "flightArcs", "orbitalTracks", "groundTracks", "currents"] as const;
+          if (activeLayers.includes("earthquakes") && state.layers.earthquakes)
+            loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          if (activeLayers.includes("events") && state.layers.events)
+            loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          const dynamicKeys = [
+            "flights",
+            "militaryFlights",
+            "vessels",
+            "warnings",
+            "satellites",
+            "radar",
+            "hurricaneTracks",
+            "nlnogNodes",
+            "flightArcs",
+            "orbitalTracks",
+            "groundTracks",
+            "currents",
+          ] as const;
           for (const dk of dynamicKeys) {
             if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {
               loadLayerDynamicRef.current?.(dk);
@@ -237,14 +342,20 @@ export default function Globe() {
     const container = containerRef.current;
     (async () => {
       const { viewer, Cesium, addCloudOverlay } = await initCesiumViewer(container!, state);
-      if (destroyed) { viewer.destroy(); return; }
+      if (destroyed) {
+        viewer.destroy();
+        return;
+      }
 
       const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
       handler.setInputAction((movement: any) => {
         const cart = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
         if (cart) {
           const cg = Cesium.Cartographic.fromCartesian(cart);
-          setCursorPos([+Cesium.Math.toDegrees(cg.longitude).toFixed(4), +Cesium.Math.toDegrees(cg.latitude).toFixed(4)]);
+          setCursorPos([
+            +Cesium.Math.toDegrees(cg.longitude).toFixed(4),
+            +Cesium.Math.toDegrees(cg.latitude).toFixed(4),
+          ]);
         }
         // Entity hover detection
         const picked = viewer.scene.pick(movement.endPosition);
@@ -312,7 +423,14 @@ export default function Globe() {
               else if (altKm > 30000) orbitType = "GEO";
               else orbitType = "MEO";
               const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
-              setSelectedSat({ name, alt: altKm, vel: velKms, lat: +lat.toFixed(2), lon: +lon.toFixed(2), orbit: orbitType });
+              setSelectedSat({
+                name,
+                alt: altKm,
+                vel: velKms,
+                lat: +lat.toFixed(2),
+                lon: +lon.toFixed(2),
+                orbit: orbitType,
+              });
               setFollowSat(false);
             }
             return;
@@ -339,7 +457,9 @@ export default function Globe() {
           }
 
           getClientElevation(lat, lng)
-            .then((d) => setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }))
+            .then((d) =>
+              setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }),
+            )
             .catch(() => {});
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -356,7 +476,15 @@ export default function Globe() {
           const lat = +Cesium.Math.toDegrees(cg.latitude);
           const entityProps = entity?.properties;
           const entityType = entityProps?.type?.getValue?.() || entityProps?.type;
-          setCtxMenu({ x: click.position.x, y: click.position.y, lng, lat, entity: entity ? { id: entity.id, name: entity.name, type: entityType, properties: entityProps } : undefined });
+          setCtxMenu({
+            x: click.position.x,
+            y: click.position.y,
+            lng,
+            lat,
+            entity: entity
+              ? { id: entity.id, name: entity.name, type: entityType, properties: entityProps }
+              : undefined,
+          });
         }
       }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
@@ -446,7 +574,9 @@ export default function Globe() {
         setCompassHeading(-heading);
       };
 
-      (window as any).__ozSetFollowEntity = (entity: any | null) => { followEntity = entity; };
+      (window as any).__ozSetFollowEntity = (entity: any | null) => {
+        followEntity = entity;
+      };
       viewer.scene.preRender.addEventListener(preRenderListener);
     })();
 
@@ -478,9 +608,15 @@ export default function Globe() {
     const Cesium = cesiumRef.current;
     if (!viewer || !Cesium) return;
     switch (mode) {
-      case "3d": viewer.scene.morphTo3D(1.5); break;
-      case "2d": viewer.scene.morphTo2D(1.5); break;
-      case "columbus": viewer.scene.morphToColumbusView(1.5); break;
+      case "3d":
+        viewer.scene.morphTo3D(1.5);
+        break;
+      case "2d":
+        viewer.scene.morphTo2D(1.5);
+        break;
+      case "columbus":
+        viewer.scene.morphToColumbusView(1.5);
+        break;
     }
   }, []);
 
@@ -516,9 +652,15 @@ export default function Globe() {
     const wrap = document.querySelector(".wv-wrap");
     if (!wrap) return;
     if (!document.fullscreenElement) {
-      wrap.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      wrap
+        .requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(() => {});
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      document
+        .exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(() => {});
     }
   }, []);
 
@@ -527,11 +669,25 @@ export default function Globe() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       switch (e.key) {
-        case "+": case "=": zoomIn(); break;
-        case "-": case "_": zoomOut(); break;
-        case "r": case "R": resetView(); break;
-        case "f": case "F": toggleFullscreen(); break;
-        case "Escape": setCtxMenu(null); break;
+        case "+":
+        case "=":
+          zoomIn();
+          break;
+        case "-":
+        case "_":
+          zoomOut();
+          break;
+        case "r":
+        case "R":
+          resetView();
+          break;
+        case "f":
+        case "F":
+          toggleFullscreen();
+          break;
+        case "Escape":
+          setCtxMenu(null);
+          break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -587,7 +743,9 @@ export default function Globe() {
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-45), roll: 0 },
         duration: 2,
       });
-    } catch { /* ISS position unavailable */ }
+    } catch {
+      /* ISS position unavailable */
+    }
   }, []);
 
   const compassNorth = useCallback(() => {
@@ -601,154 +759,274 @@ export default function Globe() {
   }, []);
 
   // ─── Dynamic layer loader (lazy imports with cache) ───
-  const loadLayerDynamic = useCallback(async (key: string) => {
-    const Cesium = cesiumRef.current;
-    const viewer = viewerRef.current;
-    if (!Cesium || !viewer || dataLoadedRef.current[key]) return;
+  const loadLayerDynamic = useCallback(
+    async (key: string) => {
+      const Cesium = cesiumRef.current;
+      const viewer = viewerRef.current;
+      if (!Cesium || !viewer || dataLoadedRef.current[key]) return;
 
-    let mod: any;
-    switch (key) {
-      case "radar": mod = layerModulesRef.current.radar ??= await import("./lib/layers/radar"); break;
-      case "flights": mod = layerModulesRef.current.flights ??= await import("./lib/layers/flights"); break;
-      case "militaryFlights": mod = layerModulesRef.current.militaryFlights ??= await import("./lib/layers/military"); break;
-      case "vessels": mod = layerModulesRef.current.vessels ??= await import("./lib/layers/vessels"); break;
-      case "warnings": mod = layerModulesRef.current.warnings ??= await import("./lib/layers/warnings"); break;
-      case "satellites": mod = layerModulesRef.current.satellites ??= await import("./lib/layers/satellites"); break;
-      case "hurricaneTracks": mod = layerModulesRef.current.hurricaneTracks ??= await import("./lib/layers/hurricanes"); break;
-      case "nlnogNodes": mod = layerModulesRef.current.nlnogNodes ??= await import("./lib/layers/nlnog"); break;
-      case "flightArcs": mod = layerModulesRef.current.flightArcs ??= await import("./lib/layers/flight-arcs"); break;
-      case "orbitalTracks": mod = layerModulesRef.current.orbitalTracks ??= await import("./lib/layers/orbital-tracks"); break;
-      case "groundTracks": mod = layerModulesRef.current.groundTracks ??= await import("./lib/layers/ground-tracks"); break;
-      case "currents": mod = layerModulesRef.current.currents ??= await import("./lib/layers/currents"); break;
-      case "spaceWeather": mod = layerModulesRef.current.spaceWeather ??= await import("./lib/layers/space-weather"); break;
-      case "airQuality": mod = layerModulesRef.current.airQuality ??= await import("./lib/layers/air-quality"); break;
-      case "aviationWeather": mod = layerModulesRef.current.aviationWeather ??= await import("./lib/layers/aviation-weather"); break;
-      case "volcanoes": mod = layerModulesRef.current.volcanoes ??= await import("./lib/layers/volcanoes"); break;
-      case "gdacs": mod = layerModulesRef.current.gdacs ??= await import("./lib/layers/gdacs"); break;
-      case "marineWeather": mod = layerModulesRef.current.marineWeather ??= await import("./lib/layers/marine-weather"); break;
-      case "wildfires": mod = layerModulesRef.current.wildfires ??= await import("./lib/layers/wildfires"); break;
-      case "lightning": mod = layerModulesRef.current.lightning ??= await import("./lib/layers/lightning"); break;
-    }
-    if (!mod) return;
+      let mod: any;
+      switch (key) {
+        case "radar":
+          mod = layerModulesRef.current.radar ??= await import("./lib/layers/radar");
+          break;
+        case "flights":
+          mod = layerModulesRef.current.flights ??= await import("./lib/layers/flights");
+          break;
+        case "militaryFlights":
+          mod = layerModulesRef.current.militaryFlights ??= await import("./lib/layers/military");
+          break;
+        case "vessels":
+          mod = layerModulesRef.current.vessels ??= await import("./lib/layers/vessels");
+          break;
+        case "warnings":
+          mod = layerModulesRef.current.warnings ??= await import("./lib/layers/warnings");
+          break;
+        case "satellites":
+          mod = layerModulesRef.current.satellites ??= await import("./lib/layers/satellites");
+          break;
+        case "hurricaneTracks":
+          mod = layerModulesRef.current.hurricaneTracks ??= await import("./lib/layers/hurricanes");
+          break;
+        case "nlnogNodes":
+          mod = layerModulesRef.current.nlnogNodes ??= await import("./lib/layers/nlnog");
+          break;
+        case "flightArcs":
+          mod = layerModulesRef.current.flightArcs ??= await import("./lib/layers/flight-arcs");
+          break;
+        case "orbitalTracks":
+          mod = layerModulesRef.current.orbitalTracks ??= await import("./lib/layers/orbital-tracks");
+          break;
+        case "groundTracks":
+          mod = layerModulesRef.current.groundTracks ??= await import("./lib/layers/ground-tracks");
+          break;
+        case "currents":
+          mod = layerModulesRef.current.currents ??= await import("./lib/layers/currents");
+          break;
+        case "spaceWeather":
+          mod = layerModulesRef.current.spaceWeather ??= await import("./lib/layers/space-weather");
+          break;
+        case "airQuality":
+          mod = layerModulesRef.current.airQuality ??= await import("./lib/layers/air-quality");
+          break;
+        case "aviationWeather":
+          mod = layerModulesRef.current.aviationWeather ??= await import("./lib/layers/aviation-weather");
+          break;
+        case "volcanoes":
+          mod = layerModulesRef.current.volcanoes ??= await import("./lib/layers/volcanoes");
+          break;
+        case "gdacs":
+          mod = layerModulesRef.current.gdacs ??= await import("./lib/layers/gdacs");
+          break;
+        case "marineWeather":
+          mod = layerModulesRef.current.marineWeather ??= await import("./lib/layers/marine-weather");
+          break;
+        case "wildfires":
+          mod = layerModulesRef.current.wildfires ??= await import("./lib/layers/wildfires");
+          break;
+        case "lightning":
+          mod = layerModulesRef.current.lightning ??= await import("./lib/layers/lightning");
+          break;
+      }
+      if (!mod) return;
 
-    switch (key) {
-      case "radar": mod.loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers); break;
-      case "flights": mod.loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "militaryFlights": mod.loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "vessels": mod.loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "warnings": mod.loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "satellites": mod.loadSatellites(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, satDataRef, state.layers); break;
-      case "hurricaneTracks": mod.loadHurricanes(viewer, Cesium, updateStatus); break;
-      case "nlnogNodes": mod.loadNlnogNodes(viewer, Cesium, updateStatus); break;
-      case "flightArcs": mod.loadFlightArcs(viewer, Cesium, updateStatus); break;
-      case "orbitalTracks": mod.loadOrbitalTracks(viewer, Cesium, updateStatus); break;
-      case "groundTracks": mod.loadGroundTracks(viewer, Cesium); break;
-      case "currents": mod.loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "spaceWeather": mod.loadSpaceWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "airQuality": mod.loadAirQuality(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "aviationWeather": mod.loadAviationWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "volcanoes": mod.loadVolcanoes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "gdacs": mod.loadGDACS(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "marineWeather": mod.loadMarineWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "wildfires": mod.loadWildfires(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-      case "lightning": mod.loadLightning(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers); break;
-    }
-    dataLoadedRef.current[key] = true;
-  }, [state.layers]);
+      switch (key) {
+        case "radar":
+          mod.loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers);
+          break;
+        case "flights":
+          mod.loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "militaryFlights":
+          mod.loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "vessels":
+          mod.loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "warnings":
+          mod.loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "satellites":
+          mod.loadSatellites(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            entitiesRef,
+            satDataRef,
+            state.layers,
+          );
+          break;
+        case "hurricaneTracks":
+          mod.loadHurricanes(viewer, Cesium, updateStatus);
+          break;
+        case "nlnogNodes":
+          mod.loadNlnogNodes(viewer, Cesium, updateStatus);
+          break;
+        case "flightArcs":
+          mod.loadFlightArcs(viewer, Cesium, updateStatus);
+          break;
+        case "orbitalTracks":
+          mod.loadOrbitalTracks(viewer, Cesium, updateStatus);
+          break;
+        case "groundTracks":
+          mod.loadGroundTracks(viewer, Cesium);
+          break;
+        case "currents":
+          mod.loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "spaceWeather":
+          mod.loadSpaceWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "airQuality":
+          mod.loadAirQuality(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "aviationWeather":
+          mod.loadAviationWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "volcanoes":
+          mod.loadVolcanoes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "gdacs":
+          mod.loadGDACS(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "marineWeather":
+          mod.loadMarineWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "wildfires":
+          mod.loadWildfires(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "lightning":
+          mod.loadLightning(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+      }
+      dataLoadedRef.current[key] = true;
+    },
+    [state.layers],
+  );
   loadLayerDynamicRef.current = loadLayerDynamic;
 
   // ─── Layer toggling ───
-  const toggleLayer = useCallback((key: keyof LayerState) => {
-    setState((prev) => {
-      const next = { ...prev, layers: { ...prev.layers, [key]: !prev.layers[key] } };
-      const on = next.layers[key];
-      const Cesium = cesiumRef.current;
-      const viewer = viewerRef.current;
-      if (!Cesium || !viewer) return next;
+  const toggleLayer = useCallback(
+    (key: keyof LayerState) => {
+      setState((prev) => {
+        const next = { ...prev, layers: { ...prev.layers, [key]: !prev.layers[key] } };
+        const on = next.layers[key];
+        const Cesium = cesiumRef.current;
+        const viewer = viewerRef.current;
+        if (!Cesium || !viewer) return next;
 
-      switch (key) {
-        case "earthquakes":
-          if (on && !dataLoadedRef.current.earthquakes) loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-          if (!on) removeEntities("eq-");
-          break;
-        case "radar":
-          if (on) loadLayerDynamic("radar");
-          if (!on) removeEntities("radar-"); break;
-        case "flights":
-          if (on) loadLayerDynamic("flights");
-          if (!on) removeEntities("flight-"); break;
-        case "militaryFlights":
-          if (on) loadLayerDynamic("militaryFlights");
-          if (!on) removeEntities("mil-"); break;
-        case "vessels":
-          if (on) loadLayerDynamic("vessels");
-          if (!on) {
-            removeEntities("vessel-");
-            const vesselMod = layerModulesRef.current.vessels;
-            if (vesselMod) vesselMod.cleanupVessels();
-          }
-          break;
-        case "warnings":
-          if (on) loadLayerDynamic("warnings");
-          if (!on) removeEntities("warn-"); break;
-        case "events":
-          if (on && !dataLoadedRef.current.events) loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-          if (!on) removeEntities("event-"); break;
-        case "satellites":
-          if (on) loadLayerDynamic("satellites");
-          if (!on) removeEntities("sat-"); break;
-        case "hurricaneTracks":
-          if (on) loadLayerDynamic("hurricaneTracks");
-          if (!on) removeEntities("storm-"); break;
-        case "satellite":
-          if (on) toggleImageryOverlay("nasa-gibs",
-            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
-            0.7, 9
-          );
-          else toggleImageryOverlay("nasa-gibs"); break;
-        case "blueMarble":
-          if (on) toggleImageryOverlay("BlueMarble_ShadedRelief",
-            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
-            0.85, 8
-          );
-          else toggleImageryOverlay("BlueMarble_ShadedRelief"); break;
-        case "nightLights":
-          if (on) toggleImageryOverlay("VIIRS_CityLights",
-            "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
-            1.0
-          );
-          else toggleImageryOverlay("VIIRS_CityLights"); break;
-        case "nlnogNodes":
-          if (on) loadLayerDynamic("nlnogNodes");
-          if (!on) removeEntities("nlnog-"); break;
-        case "flightArcs":
-          if (on) loadLayerDynamic("flightArcs");
-          if (!on) removeEntities("arc-"); break;
-        case "hillshade":
-          break;
-        case "elevationColor":
-          // Toggle elevation color material on the globe
-          if (on && !dataLoadedRef.current.elevationColor) {
-            doLoadElevationColor();
-            dataLoadedRef.current.elevationColor = true;
-          } else if (!on) {
-            removeEntities("elev-");
-            dataLoadedRef.current.elevationColor = false;
-          }
-          break;
-        case "orbitalTracks":
-          if (on) loadLayerDynamic("orbitalTracks");
-          if (!on) removeEntities("orbit-"); break;
-        case "groundTracks":
-          if (on) loadLayerDynamic("groundTracks");
-          if (!on) removeEntities("gtrack-"); break;
-        case "currents":
-          if (on) loadLayerDynamic("currents");
-          if (!on) removeEntities("current-"); break;
-      }
-      return next;
-    });
-  }, [loadLayerDynamic]);
+        switch (key) {
+          case "earthquakes":
+            if (on && !dataLoadedRef.current.earthquakes)
+              loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+            if (!on) removeEntities("eq-");
+            break;
+          case "radar":
+            if (on) loadLayerDynamic("radar");
+            if (!on) removeEntities("radar-");
+            break;
+          case "flights":
+            if (on) loadLayerDynamic("flights");
+            if (!on) removeEntities("flight-");
+            break;
+          case "militaryFlights":
+            if (on) loadLayerDynamic("militaryFlights");
+            if (!on) removeEntities("mil-");
+            break;
+          case "vessels":
+            if (on) loadLayerDynamic("vessels");
+            if (!on) {
+              removeEntities("vessel-");
+              const vesselMod = layerModulesRef.current.vessels;
+              if (vesselMod) vesselMod.cleanupVessels();
+            }
+            break;
+          case "warnings":
+            if (on) loadLayerDynamic("warnings");
+            if (!on) removeEntities("warn-");
+            break;
+          case "events":
+            if (on && !dataLoadedRef.current.events)
+              loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+            if (!on) removeEntities("event-");
+            break;
+          case "satellites":
+            if (on) loadLayerDynamic("satellites");
+            if (!on) removeEntities("sat-");
+            break;
+          case "hurricaneTracks":
+            if (on) loadLayerDynamic("hurricaneTracks");
+            if (!on) removeEntities("storm-");
+            break;
+          case "satellite":
+            if (on)
+              toggleImageryOverlay(
+                "nasa-gibs",
+                "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
+                0.7,
+                9,
+              );
+            else toggleImageryOverlay("nasa-gibs");
+            break;
+          case "blueMarble":
+            if (on)
+              toggleImageryOverlay(
+                "BlueMarble_ShadedRelief",
+                "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
+                0.85,
+                8,
+              );
+            else toggleImageryOverlay("BlueMarble_ShadedRelief");
+            break;
+          case "nightLights":
+            if (on)
+              toggleImageryOverlay(
+                "VIIRS_CityLights",
+                "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
+                1.0,
+              );
+            else toggleImageryOverlay("VIIRS_CityLights");
+            break;
+          case "nlnogNodes":
+            if (on) loadLayerDynamic("nlnogNodes");
+            if (!on) removeEntities("nlnog-");
+            break;
+          case "flightArcs":
+            if (on) loadLayerDynamic("flightArcs");
+            if (!on) removeEntities("arc-");
+            break;
+          case "hillshade":
+            break;
+          case "elevationColor":
+            // Toggle elevation color material on the globe
+            if (on && !dataLoadedRef.current.elevationColor) {
+              doLoadElevationColor();
+              dataLoadedRef.current.elevationColor = true;
+            } else if (!on) {
+              removeEntities("elev-");
+              dataLoadedRef.current.elevationColor = false;
+            }
+            break;
+          case "orbitalTracks":
+            if (on) loadLayerDynamic("orbitalTracks");
+            if (!on) removeEntities("orbit-");
+            break;
+          case "groundTracks":
+            if (on) loadLayerDynamic("groundTracks");
+            if (!on) removeEntities("gtrack-");
+            break;
+          case "currents":
+            if (on) loadLayerDynamic("currents");
+            if (!on) removeEntities("current-");
+            break;
+        }
+        return next;
+      });
+    },
+    [loadLayerDynamic],
+  );
 
   // ─── Section/theme toggles ───
   const switchTheme = useCallback((key: string) => {
@@ -769,22 +1047,54 @@ export default function Globe() {
   }, []);
 
   // ─── Widget system ───
-  const widgetComponents = useMemo(() => ({
-    basemaps: BasemapWidget,
-    layers: LayersWidget,
-    tools: ToolsWidget,
-    settings: SettingsWidget,
-  }), []);
+  const widgetComponents = useMemo(
+    () => ({
+      basemaps: BasemapWidget,
+      layers: LayersWidget,
+      tools: ToolsWidget,
+      settings: SettingsWidget,
+    }),
+    [],
+  );
 
   const { widgets, updateWidget, toggleWidget, resetLayout } = useWidgetManager(widgetComponents);
 
-  const globeContext: GlobeContext = useMemo(() => ({
-    viewerRef, cesiumRef, state, setState,
-    toggleLayer, switchBasemap, switchTheme, switchViewMode,
-    activeTool, setActiveTool,
-    toolManagerRef, elevationProfileRef,
-    cursorPos, dataStatus, flyTo,
-  }), [viewerRef, cesiumRef, state, setState, toggleLayer, switchBasemap, switchTheme, switchViewMode, activeTool, setActiveTool, toolManagerRef, elevationProfileRef, cursorPos, dataStatus, flyTo]);
+  const globeContext: GlobeContext = useMemo(
+    () => ({
+      viewerRef,
+      cesiumRef,
+      state,
+      setState,
+      toggleLayer,
+      switchBasemap,
+      switchTheme,
+      switchViewMode,
+      activeTool,
+      setActiveTool,
+      toolManagerRef,
+      elevationProfileRef,
+      cursorPos,
+      dataStatus,
+      flyTo,
+    }),
+    [
+      viewerRef,
+      cesiumRef,
+      state,
+      setState,
+      toggleLayer,
+      switchBasemap,
+      switchTheme,
+      switchViewMode,
+      activeTool,
+      setActiveTool,
+      toolManagerRef,
+      elevationProfileRef,
+      cursorPos,
+      dataStatus,
+      flyTo,
+    ],
+  );
 
   // ─── Elevation Color (batched) ───
   const elevTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -821,8 +1131,10 @@ export default function Globe() {
   // ─── Load initial layers ───
   useEffect(() => {
     if (!loading) {
-      if (state.layers.earthquakes) loadEarthquakes(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
-      if (state.layers.events) loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
+      if (state.layers.earthquakes)
+        loadEarthquakes(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
+      if (state.layers.events)
+        loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
     }
   }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
 
@@ -846,17 +1158,23 @@ export default function Globe() {
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
 
       {loading && (
-        <div className="wv-loading-overlay"><div className="spinner" /></div>
+        <div className="wv-loading-overlay">
+          <div className="spinner" />
+        </div>
       )}
 
       <div className="wv-scanlines" />
       <div className="wv-grid-overlay" />
-      <div className="wv-hud-corners"><div className="wv-hud-inner" /></div>
+      <div className="wv-hud-corners">
+        <div className="wv-hud-inner" />
+      </div>
 
       {isHud && (
         <div className="wv-classification">
           {state.theme === "classified" ? "TOP SECRET // SCI" : "RESTRICTED // OPERATIONAL"}
-          <span className="wv-blink" style={{ marginLeft: 12, fontSize: 9, opacity: 0.5 }}>●</span>
+          <span className="wv-blink" style={{ marginLeft: 12, fontSize: 9, opacity: 0.5 }}>
+            ●
+          </span>
         </div>
       )}
 
@@ -864,9 +1182,12 @@ export default function Globe() {
         <div className="wv-ticker">
           <div className="wv-ticker-inner">
             SIGINT FEED ACTIVE ◆ GEOSPATIAL INTEL COLLECTION IN PROGRESS ◆ ALL SOURCES NOMINAL ◆
-            {dataStatus.filter((d) => d.lastUpdate).map((d) => `${d.label.toUpperCase()}: ${d.count} OBJECTS`).join(" ◆ ")} ◆
-            LAT {cursorPos ? cursorPos[1] : "----"} LON {cursorPos ? cursorPos[0] : "----"} ◆
-            ZOOM {state.zoom.toFixed(1)} ◆ VIEW {state.viewMode.toUpperCase()} ◆ {clock}
+            {dataStatus
+              .filter((d) => d.lastUpdate)
+              .map((d) => `${d.label.toUpperCase()}: ${d.count} OBJECTS`)
+              .join(" ◆ ")}{" "}
+            ◆ LAT {cursorPos ? cursorPos[1] : "----"} LON {cursorPos ? cursorPos[0] : "----"} ◆ ZOOM{" "}
+            {state.zoom.toFixed(1)} ◆ VIEW {state.viewMode.toUpperCase()} ◆ {clock}
           </div>
         </div>
       )}
@@ -879,19 +1200,47 @@ export default function Globe() {
           <>
             <div className="wv-view-toggle">
               {(["3d", "columbus", "2d"] as const).map((mode) => (
-                <button key={mode} className={`wv-view-btn ${state.viewMode === mode ? "active" : ""}`} onClick={() => switchViewMode(mode)}>
+                <button
+                  key={mode}
+                  className={`wv-view-btn ${state.viewMode === mode ? "active" : ""}`}
+                  onClick={() => switchViewMode(mode)}
+                >
                   {mode === "3d" ? "3D" : mode === "columbus" ? "CB" : "2D"}
                 </button>
               ))}
             </div>
             {isHud && <span className="wv-nav-time">{clock}</span>}
             <div className="wv-theme-switcher">
-              <button className="wv-theme-btn" onClick={() => setThemeDropdownOpen(!themeDropdownOpen)} title="Change theme">{currentTheme.icon}</button>
+              <button
+                className="wv-theme-btn"
+                onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+                title="Change theme"
+              >
+                {currentTheme.icon}
+              </button>
               {themeDropdownOpen && (
                 <div className="wv-theme-dropdown">
                   {Object.entries(THEMES).map(([k, v]) => (
-                    <button key={k} className={`wv-theme-option ${state.theme === k ? "active" : ""}`} onClick={() => switchTheme(k)}>
-                      <span className="swatch" style={{ background: k === "default" ? "#4a9eff" : k === "classified" ? "#00ff41" : k === "amber" ? "#ffb000" : k === "arctic" ? "#00ccff" : "#ff2222" }} />
+                    <button
+                      key={k}
+                      className={`wv-theme-option ${state.theme === k ? "active" : ""}`}
+                      onClick={() => switchTheme(k)}
+                    >
+                      <span
+                        className="swatch"
+                        style={{
+                          background:
+                            k === "default"
+                              ? "#4a9eff"
+                              : k === "classified"
+                                ? "#00ff41"
+                                : k === "amber"
+                                  ? "#ffb000"
+                                  : k === "arctic"
+                                    ? "#00ccff"
+                                    : "#ff2222",
+                        }}
+                      />
                       {v.icon} {v.label}
                     </button>
                   ))}
@@ -903,7 +1252,7 @@ export default function Globe() {
       />
 
       <ErrorBoundary>
-      <div ref={containerRef} className="wv-map" />
+        <div ref={containerRef} className="wv-map" />
       </ErrorBoundary>
 
       {/* Compass */}
@@ -917,16 +1266,31 @@ export default function Globe() {
 
       {/* LOD zone badge */}
       <div className={`wv-space-badge ${isSpaceMode ? "visible" : ""}`}>
-        {lodZone}{" "}{cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(0)} km` : `${cameraAlt.toFixed(0)} m`} ALT
+        {lodZone} {cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(0)} km` : `${cameraAlt.toFixed(0)} m`} ALT
       </div>
 
       {/* Zoom controls */}
       <div className="wv-zoom-controls">
-        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in (+)">+</button>
-        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out (-)">&minus;</button>
-        <button className="wv-zoom-btn" onClick={resetView} title="Reset view (R)" style={{ fontSize: "12px" }}>&#8962;</button>
-        <button className="wv-zoom-btn" onClick={flyToISS} title="Fly to ISS" style={{ fontSize: "10px", color: "var(--accent)" }}>&#9741;</button>
-        <button className="wv-zoom-btn" onClick={toggleFullscreen} title="Fullscreen (F)" style={{ fontSize: "12px" }}>{isFullscreen ? "\u29C9" : "\u26F6"}</button>
+        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in (+)">
+          +
+        </button>
+        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out (-)">
+          &minus;
+        </button>
+        <button className="wv-zoom-btn" onClick={resetView} title="Reset view (R)" style={{ fontSize: "12px" }}>
+          &#8962;
+        </button>
+        <button
+          className="wv-zoom-btn"
+          onClick={flyToISS}
+          title="Fly to ISS"
+          style={{ fontSize: "10px", color: "var(--accent)" }}
+        >
+          &#9741;
+        </button>
+        <button className="wv-zoom-btn" onClick={toggleFullscreen} title="Fullscreen (F)" style={{ fontSize: "12px" }}>
+          {isFullscreen ? "\u29C9" : "\u26F6"}
+        </button>
       </div>
 
       {/* Elevation profile chart */}
@@ -934,10 +1298,21 @@ export default function Globe() {
         <div className="wv-profile-panel">
           <div className="wv-profile-header">
             <span className="wv-profile-title">Elevation Profile</span>
-            <button className="wv-profile-close" onClick={() => { setActiveTool("none"); elevationProfileRef.current?.clear(); setProfileData(null); }}>&times;</button>
+            <button
+              className="wv-profile-close"
+              onClick={() => {
+                setActiveTool("none");
+                elevationProfileRef.current?.clear();
+                setProfileData(null);
+              }}
+            >
+              &times;
+            </button>
           </div>
           <div ref={profileCanvasRef} className="wv-profile-chart" />
-          {!profileData && <div className="wv-profile-hint">Click 2+ points on the globe to create a terrain cross-section</div>}
+          {!profileData && (
+            <div className="wv-profile-hint">Click 2+ points on the globe to create a terrain cross-section</div>
+          )}
         </div>
       )}
 
@@ -947,7 +1322,15 @@ export default function Globe() {
           {Object.entries(coordFormats).map(([fmt, val]) => (
             <div key={fmt} className="wv-coord-row">
               <span className="wv-coord-label">{fmt}</span>
-              <span className="wv-coord-val" title="Click to copy" onClick={() => { navigator.clipboard.writeText(val); }}>{val}</span>
+              <span
+                className="wv-coord-val"
+                title="Click to copy"
+                onClick={() => {
+                  navigator.clipboard.writeText(val);
+                }}
+              >
+                {val}
+              </span>
             </div>
           ))}
         </div>
@@ -955,11 +1338,21 @@ export default function Globe() {
 
       {/* Orbital altitude presets */}
       <div className="wv-orbit-presets">
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(408, "ISS")}>ISS<span className="alt">408 km</span></button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(2000, "LEO")}>LEO<span className="alt">2,000 km</span></button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(20200, "MEO")}>MEO<span className="alt">20,200 km</span></button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(35786, "GEO")}>GEO<span className="alt">35,786 km</span></button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(45000, "Moon")}>Moon<span className="alt">384,400 km</span></button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(408, "ISS")}>
+          ISS<span className="alt">408 km</span>
+        </button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(2000, "LEO")}>
+          LEO<span className="alt">2,000 km</span>
+        </button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(20200, "MEO")}>
+          MEO<span className="alt">20,200 km</span>
+        </button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(35786, "GEO")}>
+          GEO<span className="alt">35,786 km</span>
+        </button>
+        <button className="wv-orbit-btn" onClick={() => flyToOrbit(45000, "Moon")}>
+          Moon<span className="alt">384,400 km</span>
+        </button>
       </div>
 
       {/* Widget bar */}
@@ -978,275 +1371,739 @@ export default function Globe() {
       ))}
 
       {/* Close theme dropdown on outside click */}
-      {themeDropdownOpen && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />}
+      {themeDropdownOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />
+      )}
 
       {/* Context menu (right-click) — grouped with expandable sub-menus */}
-      {ctxMenu && (() => {
-        const { x, y, lng, lat, entity } = ctxMenu;
-        const entType = entity?.type as string | undefined;
-        const entName = entity?.name as string | undefined;
-        const entId = entity?.id as string | undefined;
-        const entProps = entity?.properties;
-        const isEq = entId?.startsWith("eq-");
-        const isFlight = entId?.startsWith("flight-") || entId?.startsWith("mil-");
-        const isVessel = entId?.startsWith("vessel-");
-        const isSat = entId?.startsWith("sat-") || entType === "orbitalTrack";
-        const isStorm = entId?.startsWith("storm-");
-        const isEvent = entId?.startsWith("event-");
-        const isEntity = isEq || isFlight || isVessel || isSat || isStorm || isEvent;
+      {ctxMenu &&
+        (() => {
+          const { x, y, lng, lat, entity } = ctxMenu;
+          const entType = entity?.type as string | undefined;
+          const entName = entity?.name as string | undefined;
+          const entId = entity?.id as string | undefined;
+          const entProps = entity?.properties;
+          const isEq = entId?.startsWith("eq-");
+          const isFlight = entId?.startsWith("flight-") || entId?.startsWith("mil-");
+          const isVessel = entId?.startsWith("vessel-");
+          const isSat = entId?.startsWith("sat-") || entType === "orbitalTrack";
+          const isStorm = entId?.startsWith("storm-");
+          const isEvent = entId?.startsWith("event-");
+          const isEntity = isEq || isFlight || isVessel || isSat || isStorm || isEvent;
 
-        // Keep menu within viewport (safe for SSR — only runs client-side since ctxMenu is client-set)
-        const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
-        const vh = typeof window !== "undefined" ? window.innerHeight : 768;
-        const menuW = 240;
-        const adjustedX = x + menuW > vw ? vw - menuW - 8 : x;
-        const adjustedY = Math.min(y, vh - 8);
+          // Keep menu within viewport (safe for SSR — only runs client-side since ctxMenu is client-set)
+          const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+          const vh = typeof window !== "undefined" ? window.innerHeight : 768;
+          const menuW = 240;
+          const adjustedX = x + menuW > vw ? vw - menuW - 8 : x;
+          const adjustedY = Math.min(y, vh - 8);
 
-        return (
-          <div className="wv-ctx-menu" style={{
-            position: "fixed", top: adjustedY, left: adjustedX, zIndex: 200,
-            background: "var(--bg-solid)", border: "1px solid var(--border-hover)",
-            borderRadius: 8, padding: "4px 0", minWidth: menuW, maxHeight: "70vh",
-            overflowY: "auto", boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
-            backdropFilter: "blur(12px)", fontFamily: "var(--font-ui)", fontSize: "12px",
-          }}>
-            {/* Entity header */}
-            {entity && (
-              <div style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)", marginBottom: 2, fontSize: "11px", color: "var(--text-muted)" }}>
-                <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "12px", marginBottom: 2 }}>{entName || entId}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: isEq ? "var(--err)" : isFlight ? "var(--warn)" : isVessel ? "#4488ff" : isSat ? "#aa44ff" : isStorm ? "#ff00ff" : "var(--accent)", flexShrink: 0 }} />
-                  <span>{entType || "Entity"}</span>
+          return (
+            <div
+              className="wv-ctx-menu"
+              style={{
+                position: "fixed",
+                top: adjustedY,
+                left: adjustedX,
+                zIndex: 200,
+                background: "var(--bg-solid)",
+                border: "1px solid var(--border-hover)",
+                borderRadius: 8,
+                padding: "4px 0",
+                minWidth: menuW,
+                maxHeight: "70vh",
+                overflowY: "auto",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+                backdropFilter: "blur(12px)",
+                fontFamily: "var(--font-ui)",
+                fontSize: "12px",
+              }}
+            >
+              {/* Entity header */}
+              {entity && (
+                <div
+                  style={{
+                    padding: "6px 12px",
+                    borderBottom: "1px solid var(--border)",
+                    marginBottom: 2,
+                    fontSize: "11px",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "12px", marginBottom: 2 }}>
+                    {entName || entId}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: isEq
+                          ? "var(--err)"
+                          : isFlight
+                            ? "var(--warn)"
+                            : isVessel
+                              ? "#4488ff"
+                              : isSat
+                                ? "#aa44ff"
+                                : isStorm
+                                  ? "#ff00ff"
+                                  : "var(--accent)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{entType || "Entity"}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ── Zoom ── */}
-            <CtxSection>
-              <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>NAVIGATE</div>
-              <CtxMenuItem label="Fly here (close)" icon="&#x1F50D;" accent onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 10000), orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 }, duration: 1.5 });
-                closeCtx();
-              }} />
-              <CtxMenuItem label="Fly here (overview)" icon="&#x1F30D;" accent onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 200000), orientation: { heading: 0, pitch: C.Math.toRadians(-60), roll: 0 }, duration: 2 });
-                closeCtx();
-              }} />
-              <CtxMenuItem label="Fly here (orbital)" icon="&#x1F680;" accent onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 5000000), orientation: { heading: 0, pitch: C.Math.toRadians(-75), roll: 0 }, duration: 3 });
-                closeCtx();
-              }} />
-              <CtxMenuItem label="Zoom to ISS" icon="&#x1F6F0;" accent onClick={() => { flyToISS(); closeCtx(); }} />
-            </CtxSection>
-
-            <CtxDivider />
-
-            {/* ── Create ── */}
-            <CtxSection>
-              <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>CREATE</div>
-              <CtxMenuItem label="Add marker" icon="&#x1F4CD;" color="var(--err)" onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (v && C) v.entities.add({ id: `marker-${Date.now()}`, position: C.Cartesian3.fromDegrees(lng, lat), point: { pixelSize: 10, color: C.Color.fromCssColorString("#ff4444") }, label: { text: "Marker", font: "11px sans-serif", fillColor: C.Color.WHITE, style: C.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, outlineColor: C.Color.BLACK, verticalOrigin: C.VerticalOrigin.BOTTOM, pixelOffset: new C.Cartesian2(0, -12) } });
-                v.scene.requestRender(); closeCtx();
-              }} />
-              <CtxMenuItem label="Add annotation" icon="&#x270D;" color="#44aaff" onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (v && C) v.entities.add({ id: `ann-text-${Date.now()}`, position: C.Cartesian3.fromDegrees(lng, lat), label: { text: "Double-click to edit", font: "12px sans-serif", fillColor: C.Color.fromCssColorString("#44aaff"), style: C.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, outlineColor: C.Color.BLACK, verticalOrigin: C.VerticalOrigin.BOTTOM, pixelOffset: new C.Cartesian2(0, -14), showBackground: true, backgroundColor: new C.Color(0, 0, 0, 0.7), backgroundPadding: new C.Cartesian2(6, 4) } });
-                v.scene.requestRender(); closeCtx();
-              }} />
-              <CtxMenuItem label="Place range rings" icon="&#x25CE;" color="var(--warn)" onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (!v || !C) { closeCtx(); return; }
-                for (const r of [50, 100, 200, 500]) {
-                  const rDeg = r / 111.32;
-                  v.entities.add({ id: `ring-${r}km-${Date.now()}`, position: C.Cartesian3.fromDegrees(lng, lat), ellipse: { semiMajorAxis: rDeg, semiMinorAxis: rDeg, material: C.Color.fromCssColorString("#eab308").withAlpha(0.08), outline: true, outlineColor: C.Color.fromCssColorString("#eab308").withAlpha(0.3) } });
-                }
-                v.scene.requestRender(); closeCtx();
-              }} />
-              <CtxMenuItem label="Add bookmark" icon="&#x2606;" color="var(--warn)" onClick={() => {
-                const v = viewerRef.current; const C = cesiumRef.current;
-                if (!v || !C) { closeCtx(); return; }
-                const cam = v.camera; const cg = cam.positionCartographic;
-                const bm = { id: `bm-${Date.now()}`, name: `Bookmark @ ${lat.toFixed(2)}, ${lng.toFixed(2)}`, lat, lon: lng, alt: cg.height, heading: C.Math.toDegrees(cam.heading), pitch: C.Math.toDegrees(cam.pitch), timestamp: Date.now() };
-                try { const existing = JSON.parse(localStorage.getItem("globe-bookmarks") || "[]"); existing.push(bm); localStorage.setItem("globe-bookmarks", JSON.stringify(existing)); } catch { /* */ }
-                closeCtx();
-              }} />
-            </CtxSection>
-
-            <CtxDivider />
-
-            {/* ── Measure ── */}
-            <CtxSection>
-              <CtxSubMenu label="Measure" icon="&#x1F4CF;">
-                <CtxMenuItem label="Distance from here" icon="&#x2194;" onClick={() => {
-                  setActiveTool("measure-distance");
-                  if (toolManagerRef.current) { toolManagerRef.current.setMode("measure-distance"); toolManagerRef.current.handleClick(lng, lat); }
-                  closeCtx();
-                }} />
-                <CtxMenuItem label="Area from here" icon="&#x25A1;" onClick={() => {
-                  setActiveTool("measure-area");
-                  if (toolManagerRef.current) { toolManagerRef.current.setMode("measure-area"); toolManagerRef.current.handleClick(lng, lat); }
-                  closeCtx();
-                }} />
-                <CtxMenuItem label="Elevation profile" icon="&#x26F0;" onClick={() => {
-                  setActiveTool("elevation-profile");
-                  if (elevationProfileRef.current) elevationProfileRef.current.addPoint(lng, lat);
-                  closeCtx();
-                }} />
-              </CtxSubMenu>
-            </CtxSection>
-
-            <CtxDivider />
-
-            {/* ── Copy ── */}
-            <CtxSection>
-              <CtxSubMenu label="Copy" icon="&#x2398;">
-                <CtxMenuItem label="Coordinates (DD)" onClick={() => { safeCopy(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); closeCtx(); }} />
-                <CtxMenuItem label="Compact" onClick={() => { safeCopy(`${lat.toFixed(4)},${lng.toFixed(4)}`); closeCtx(); }} />
-                <CtxMenuItem label="DMS" onClick={() => {
-                  const toDms = (d: number, pos: string, neg: string) => { const dir = d >= 0 ? pos : neg; const a = Math.abs(d); const deg = Math.floor(a); const min = Math.floor((a - deg) * 60); const sec = ((a - deg - min / 60) * 3600).toFixed(2); return `${deg}\u00b0${min}'${sec}"${dir}`; };
-                  safeCopy(`${toDms(lat, "N", "S")} ${toDms(lng, "E", "W")}`);
-                  closeCtx();
-                }} />
-                <CtxMenuItem label="Elevation" color="var(--ok)" onClick={async () => {
-                  try { const d = await getClientElevation(lat, lng); safeCopy(`${d?.elevation !== null && d?.elevation !== undefined ? d.elevation + "m" : "No data"} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`); } catch { /* */ }
-                  closeCtx();
-                }} />
-              </CtxSubMenu>
-            </CtxSection>
-
-            <CtxDivider />
-
-            {/* ── Edit / Manage ── */}
-            <CtxSection>
-              <CtxSubMenu label="Edit" icon="&#x270E;">
-                <CtxMenuItem label="Clear measurements" color="var(--err)" onClick={() => {
-                  if (toolManagerRef.current) toolManagerRef.current.clear();
-                  setActiveTool("none"); closeCtx();
-                }} />
-                <CtxMenuItem label="Clear annotations" color="var(--err)" onClick={() => {
-                  const v = viewerRef.current; if (!v) return;
-                  const toRemove: any[] = [];
-                  v.entities.values.forEach((e: any) => { if (e.id && (e.id.startsWith("marker-") || e.id.startsWith("ann-text-") || e.id.startsWith("ann-line-") || e.id.startsWith("ann-poly-"))) toRemove.push(e); });
-                  toRemove.forEach((e) => v.entities.remove(e));
-                  v.scene.requestRender(); closeCtx();
-                }} />
-                <CtxMenuItem label="Clear range rings" color="var(--err)" onClick={() => {
-                  const v = viewerRef.current; if (!v) return;
-                  const toRemove: any[] = [];
-                  v.entities.values.forEach((e: any) => { if (e.id && e.id.startsWith("ring-")) toRemove.push(e); });
-                  toRemove.forEach((e) => v.entities.remove(e));
-                  v.scene.requestRender(); closeCtx();
-                }} />
-                <CtxMenuItem label="Clear all custom" color="var(--err)" onClick={() => {
-                  const v = viewerRef.current; if (!v) return;
-                  const toRemove: any[] = [];
-                  v.entities.values.forEach((e: any) => { if (e.id && (e.id.startsWith("marker-") || e.id.startsWith("ann-") || e.id.startsWith("ring-") || e.id.startsWith("bm-"))) toRemove.push(e); });
-                  toRemove.forEach((e) => v.entities.remove(e));
-                  if (toolManagerRef.current) toolManagerRef.current.clear();
-                  setActiveTool("none"); v.scene.requestRender(); closeCtx();
-                }} />
-              </CtxSubMenu>
-            </CtxSection>
-
-            <CtxDivider />
-
-            {/* ── Entity-specific actions ── */}
-            {isEq && (
+              {/* ── Zoom ── */}
               <CtxSection>
-                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>EARTHQUAKE</div>
-                <CtxMenuItem label="USGS details" icon="&#x1F517;" accent onClick={() => {
-                  const usgsId = entId?.replace("eq-", "");
-                  window.open(`https://earthquake.usgs.gov/earthquakes/eventpage/${usgsId}`, "_blank"); closeCtx();
-                }} />
-                <CtxMenuItem label="Copy coordinates" onClick={() => { safeCopy(`${lat.toFixed(6)}, ${lng.toFixed(6)}`); closeCtx(); }} />
+                <div
+                  style={{
+                    padding: "2px 12px 1px",
+                    fontSize: "9px",
+                    color: "var(--text-muted)",
+                    fontWeight: 700,
+                    letterSpacing: "1px",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  NAVIGATE
+                </div>
+                <CtxMenuItem
+                  label="Fly here (close)"
+                  icon="&#x1F50D;"
+                  accent
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (v && C)
+                      v.camera.flyTo({
+                        destination: C.Cartesian3.fromDegrees(lng, lat, 10000),
+                        orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 },
+                        duration: 1.5,
+                      });
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Fly here (overview)"
+                  icon="&#x1F30D;"
+                  accent
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (v && C)
+                      v.camera.flyTo({
+                        destination: C.Cartesian3.fromDegrees(lng, lat, 200000),
+                        orientation: { heading: 0, pitch: C.Math.toRadians(-60), roll: 0 },
+                        duration: 2,
+                      });
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Fly here (orbital)"
+                  icon="&#x1F680;"
+                  accent
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (v && C)
+                      v.camera.flyTo({
+                        destination: C.Cartesian3.fromDegrees(lng, lat, 5000000),
+                        orientation: { heading: 0, pitch: C.Math.toRadians(-75), roll: 0 },
+                        duration: 3,
+                      });
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Zoom to ISS"
+                  icon="&#x1F6F0;"
+                  accent
+                  onClick={() => {
+                    flyToISS();
+                    closeCtx();
+                  }}
+                />
               </CtxSection>
-            )}
-            {isFlight && (
+
+              <CtxDivider />
+
+              {/* ── Create ── */}
               <CtxSection>
-                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>AIRCRAFT</div>
-                <CtxMenuItem label="FlightAware" icon="&#x1F517;" accent onClick={() => {
-                  const callsign = entName || entId?.replace("flight-", "") || "";
-                  window.open(`https://flightaware.com/live/flight/${callsign}`, "_blank"); closeCtx();
-                }} />
-                <CtxMenuItem label="Copy callsign" onClick={() => { safeCopy(entName || entId || ""); closeCtx(); }} />
-              </CtxSection>
-            )}
-            {isVessel && (
-              <CtxSection>
-                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>VESSEL</div>
-                <CtxMenuItem label="MarineTraffic" icon="&#x1F517;" accent onClick={() => {
-                  const mmsi = entId?.replace("vessel-", "") || "";
-                  window.open(`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`, "_blank"); closeCtx();
-                }} />
-                <CtxMenuItem label="Copy MMSI" onClick={() => { safeCopy(entId?.replace("vessel-", "") || ""); closeCtx(); }} />
-              </CtxSection>
-            )}
-            {isSat && (
-              <CtxSection>
-                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>SATELLITE</div>
-                <CtxMenuItem label="Show orbit info" icon="&#x1F6F0;" accent onClick={() => {
-                  // Trigger the left-click satellite info flow
-                  const v = viewerRef.current; const C = cesiumRef.current;
-                  if (v && C && entity) {
-                    const found = v.entities.values.find((e: any) => e.id === entId || (entName && e.name?.includes(entName)));
-                    if (found) {
-                      const pos = found.position?.getValue(C.JulianDate.now());
-                      if (pos) {
-                        const cg = C.Cartographic.fromCartesian(pos);
-                        const altKm = +(cg.height / 1000).toFixed(1);
-                        const group = found.properties?.group?.getValue?.() || entName || "Unknown";
-                        let orbitType = "Unknown";
-                        if (altKm < 2000) orbitType = "LEO"; else if (altKm > 30000) orbitType = "GEO"; else orbitType = "MEO";
-                        const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
-                        setSelectedSat({ name: entName || group, alt: altKm, vel: velKms, lat: +C.Math.toDegrees(cg.latitude).toFixed(2), lon: +C.Math.toDegrees(cg.longitude).toFixed(2), orbit: orbitType });
-                      }
+                <div
+                  style={{
+                    padding: "2px 12px 1px",
+                    fontSize: "9px",
+                    color: "var(--text-muted)",
+                    fontWeight: 700,
+                    letterSpacing: "1px",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  CREATE
+                </div>
+                <CtxMenuItem
+                  label="Add marker"
+                  icon="&#x1F4CD;"
+                  color="var(--err)"
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (v && C)
+                      v.entities.add({
+                        id: `marker-${Date.now()}`,
+                        position: C.Cartesian3.fromDegrees(lng, lat),
+                        point: { pixelSize: 10, color: C.Color.fromCssColorString("#ff4444") },
+                        label: {
+                          text: "Marker",
+                          font: "11px sans-serif",
+                          fillColor: C.Color.WHITE,
+                          style: C.LabelStyle.FILL_AND_OUTLINE,
+                          outlineWidth: 2,
+                          outlineColor: C.Color.BLACK,
+                          verticalOrigin: C.VerticalOrigin.BOTTOM,
+                          pixelOffset: new C.Cartesian2(0, -12),
+                        },
+                      });
+                    v.scene.requestRender();
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Add annotation"
+                  icon="&#x270D;"
+                  color="#44aaff"
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (v && C)
+                      v.entities.add({
+                        id: `ann-text-${Date.now()}`,
+                        position: C.Cartesian3.fromDegrees(lng, lat),
+                        label: {
+                          text: "Double-click to edit",
+                          font: "12px sans-serif",
+                          fillColor: C.Color.fromCssColorString("#44aaff"),
+                          style: C.LabelStyle.FILL_AND_OUTLINE,
+                          outlineWidth: 2,
+                          outlineColor: C.Color.BLACK,
+                          verticalOrigin: C.VerticalOrigin.BOTTOM,
+                          pixelOffset: new C.Cartesian2(0, -14),
+                          showBackground: true,
+                          backgroundColor: new C.Color(0, 0, 0, 0.7),
+                          backgroundPadding: new C.Cartesian2(6, 4),
+                        },
+                      });
+                    v.scene.requestRender();
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Place range rings"
+                  icon="&#x25CE;"
+                  color="var(--warn)"
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (!v || !C) {
+                      closeCtx();
+                      return;
                     }
-                  }
-                  closeCtx();
-                }} />
-                <CtxMenuItem label="Follow satellite" icon="&#x1F440;" onClick={() => {
-                  const v = viewerRef.current;
-                  if (v) {
-                    const found = v.entities.values.find((e: any) => e.id === entId || (entName && e.name?.includes(entName)));
-                    (window as any).__ozSetFollowEntity?.(found || null);
-                    setFollowSat(true);
-                  }
-                  closeCtx();
-                }} />
+                    for (const r of [50, 100, 200, 500]) {
+                      const rDeg = r / 111.32;
+                      v.entities.add({
+                        id: `ring-${r}km-${Date.now()}`,
+                        position: C.Cartesian3.fromDegrees(lng, lat),
+                        ellipse: {
+                          semiMajorAxis: rDeg,
+                          semiMinorAxis: rDeg,
+                          material: C.Color.fromCssColorString("#eab308").withAlpha(0.08),
+                          outline: true,
+                          outlineColor: C.Color.fromCssColorString("#eab308").withAlpha(0.3),
+                        },
+                      });
+                    }
+                    v.scene.requestRender();
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Add bookmark"
+                  icon="&#x2606;"
+                  color="var(--warn)"
+                  onClick={() => {
+                    const v = viewerRef.current;
+                    const C = cesiumRef.current;
+                    if (!v || !C) {
+                      closeCtx();
+                      return;
+                    }
+                    const cam = v.camera;
+                    const cg = cam.positionCartographic;
+                    const bm = {
+                      id: `bm-${Date.now()}`,
+                      name: `Bookmark @ ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+                      lat,
+                      lon: lng,
+                      alt: cg.height,
+                      heading: C.Math.toDegrees(cam.heading),
+                      pitch: C.Math.toDegrees(cam.pitch),
+                      timestamp: Date.now(),
+                    };
+                    try {
+                      const existing = JSON.parse(localStorage.getItem("globe-bookmarks") || "[]");
+                      existing.push(bm);
+                      localStorage.setItem("globe-bookmarks", JSON.stringify(existing));
+                    } catch {
+                      /* */
+                    }
+                    closeCtx();
+                  }}
+                />
               </CtxSection>
-            )}
-            {isStorm && (
-              <CtxSection>
-                <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>STORM</div>
-                <CtxMenuItem label="NHC advisory" icon="&#x1F517;" accent onClick={() => {
-                  window.open("https://www.nhc.noaa.gov/", "_blank"); closeCtx();
-                }} />
-                <CtxMenuItem label="Zoom to track" onClick={() => {
-                  const v = viewerRef.current; const C = cesiumRef.current;
-                  if (v && C) v.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lng, lat, 3000000), orientation: { heading: 0, pitch: C.Math.toRadians(-70), roll: 0 }, duration: 2 });
-                  closeCtx();
-                }} />
-              </CtxSection>
-            )}
 
-            {/* ── External links ── */}
-            <CtxSection>
-              <div style={{ padding: "2px 12px 1px", fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "1px", fontFamily: "var(--font-mono)" }}>EXTERNAL</div>
-              <CtxMenuItem label="Open in OSM" icon="&#x1F5FA;" onClick={() => { window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`, "_blank"); closeCtx(); }} />
-              <CtxMenuItem label="Open in Google Maps" icon="&#x1F5FA;" onClick={() => { window.open(`https://www.google.com/maps/@${lat},${lng},15z`, "_blank"); closeCtx(); }} />
-              <CtxMenuItem label="Open in Google Earth" icon="&#x1F30C;" onClick={() => { window.open(`https://earth.google.com/web/@${lat},${lng},1000a,300d,35y,0h,0t,0r`, "_blank"); closeCtx(); }} />
-              {isEq && <CtxMenuItem label="Open in USGS" icon="&#x1F517;" onClick={() => {
-                const usgsId = entId?.replace("eq-", "");
-                window.open(`https://earthquake.usgs.gov/earthquakes/eventpage/${usgsId}`, "_blank"); closeCtx();
-              }} />}
-            </CtxSection>
-          </div>
-        );
-      })()}
+              <CtxDivider />
+
+              {/* ── Measure ── */}
+              <CtxSection>
+                <CtxSubMenu label="Measure" icon="&#x1F4CF;">
+                  <CtxMenuItem
+                    label="Distance from here"
+                    icon="&#x2194;"
+                    onClick={() => {
+                      setActiveTool("measure-distance");
+                      if (toolManagerRef.current) {
+                        toolManagerRef.current.setMode("measure-distance");
+                        toolManagerRef.current.handleClick(lng, lat);
+                      }
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Area from here"
+                    icon="&#x25A1;"
+                    onClick={() => {
+                      setActiveTool("measure-area");
+                      if (toolManagerRef.current) {
+                        toolManagerRef.current.setMode("measure-area");
+                        toolManagerRef.current.handleClick(lng, lat);
+                      }
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Elevation profile"
+                    icon="&#x26F0;"
+                    onClick={() => {
+                      setActiveTool("elevation-profile");
+                      if (elevationProfileRef.current) elevationProfileRef.current.addPoint(lng, lat);
+                      closeCtx();
+                    }}
+                  />
+                </CtxSubMenu>
+              </CtxSection>
+
+              <CtxDivider />
+
+              {/* ── Copy ── */}
+              <CtxSection>
+                <CtxSubMenu label="Copy" icon="&#x2398;">
+                  <CtxMenuItem
+                    label="Coordinates (DD)"
+                    onClick={() => {
+                      safeCopy(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Compact"
+                    onClick={() => {
+                      safeCopy(`${lat.toFixed(4)},${lng.toFixed(4)}`);
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="DMS"
+                    onClick={() => {
+                      const toDms = (d: number, pos: string, neg: string) => {
+                        const dir = d >= 0 ? pos : neg;
+                        const a = Math.abs(d);
+                        const deg = Math.floor(a);
+                        const min = Math.floor((a - deg) * 60);
+                        const sec = ((a - deg - min / 60) * 3600).toFixed(2);
+                        return `${deg}\u00b0${min}'${sec}"${dir}`;
+                      };
+                      safeCopy(`${toDms(lat, "N", "S")} ${toDms(lng, "E", "W")}`);
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Elevation"
+                    color="var(--ok)"
+                    onClick={async () => {
+                      try {
+                        const d = await getClientElevation(lat, lng);
+                        safeCopy(
+                          `${d?.elevation !== null && d?.elevation !== undefined ? d.elevation + "m" : "No data"} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                        );
+                      } catch {
+                        /* */
+                      }
+                      closeCtx();
+                    }}
+                  />
+                </CtxSubMenu>
+              </CtxSection>
+
+              <CtxDivider />
+
+              {/* ── Edit / Manage ── */}
+              <CtxSection>
+                <CtxSubMenu label="Edit" icon="&#x270E;">
+                  <CtxMenuItem
+                    label="Clear measurements"
+                    color="var(--err)"
+                    onClick={() => {
+                      if (toolManagerRef.current) toolManagerRef.current.clear();
+                      setActiveTool("none");
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Clear annotations"
+                    color="var(--err)"
+                    onClick={() => {
+                      const v = viewerRef.current;
+                      if (!v) return;
+                      const toRemove: any[] = [];
+                      v.entities.values.forEach((e: any) => {
+                        if (
+                          e.id &&
+                          (e.id.startsWith("marker-") ||
+                            e.id.startsWith("ann-text-") ||
+                            e.id.startsWith("ann-line-") ||
+                            e.id.startsWith("ann-poly-"))
+                        )
+                          toRemove.push(e);
+                      });
+                      toRemove.forEach((e) => v.entities.remove(e));
+                      v.scene.requestRender();
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Clear range rings"
+                    color="var(--err)"
+                    onClick={() => {
+                      const v = viewerRef.current;
+                      if (!v) return;
+                      const toRemove: any[] = [];
+                      v.entities.values.forEach((e: any) => {
+                        if (e.id && e.id.startsWith("ring-")) toRemove.push(e);
+                      });
+                      toRemove.forEach((e) => v.entities.remove(e));
+                      v.scene.requestRender();
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Clear all custom"
+                    color="var(--err)"
+                    onClick={() => {
+                      const v = viewerRef.current;
+                      if (!v) return;
+                      const toRemove: any[] = [];
+                      v.entities.values.forEach((e: any) => {
+                        if (
+                          e.id &&
+                          (e.id.startsWith("marker-") ||
+                            e.id.startsWith("ann-") ||
+                            e.id.startsWith("ring-") ||
+                            e.id.startsWith("bm-"))
+                        )
+                          toRemove.push(e);
+                      });
+                      toRemove.forEach((e) => v.entities.remove(e));
+                      if (toolManagerRef.current) toolManagerRef.current.clear();
+                      setActiveTool("none");
+                      v.scene.requestRender();
+                      closeCtx();
+                    }}
+                  />
+                </CtxSubMenu>
+              </CtxSection>
+
+              <CtxDivider />
+
+              {/* ── Entity-specific actions ── */}
+              {isEq && (
+                <CtxSection>
+                  <div
+                    style={{
+                      padding: "2px 12px 1px",
+                      fontSize: "9px",
+                      color: "var(--text-muted)",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    EARTHQUAKE
+                  </div>
+                  <CtxMenuItem
+                    label="USGS details"
+                    icon="&#x1F517;"
+                    accent
+                    onClick={() => {
+                      const usgsId = entId?.replace("eq-", "");
+                      window.open(`https://earthquake.usgs.gov/earthquakes/eventpage/${usgsId}`, "_blank");
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Copy coordinates"
+                    onClick={() => {
+                      safeCopy(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                      closeCtx();
+                    }}
+                  />
+                </CtxSection>
+              )}
+              {isFlight && (
+                <CtxSection>
+                  <div
+                    style={{
+                      padding: "2px 12px 1px",
+                      fontSize: "9px",
+                      color: "var(--text-muted)",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    AIRCRAFT
+                  </div>
+                  <CtxMenuItem
+                    label="FlightAware"
+                    icon="&#x1F517;"
+                    accent
+                    onClick={() => {
+                      const callsign = entName || entId?.replace("flight-", "") || "";
+                      window.open(`https://flightaware.com/live/flight/${callsign}`, "_blank");
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Copy callsign"
+                    onClick={() => {
+                      safeCopy(entName || entId || "");
+                      closeCtx();
+                    }}
+                  />
+                </CtxSection>
+              )}
+              {isVessel && (
+                <CtxSection>
+                  <div
+                    style={{
+                      padding: "2px 12px 1px",
+                      fontSize: "9px",
+                      color: "var(--text-muted)",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    VESSEL
+                  </div>
+                  <CtxMenuItem
+                    label="MarineTraffic"
+                    icon="&#x1F517;"
+                    accent
+                    onClick={() => {
+                      const mmsi = entId?.replace("vessel-", "") || "";
+                      window.open(`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`, "_blank");
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Copy MMSI"
+                    onClick={() => {
+                      safeCopy(entId?.replace("vessel-", "") || "");
+                      closeCtx();
+                    }}
+                  />
+                </CtxSection>
+              )}
+              {isSat && (
+                <CtxSection>
+                  <div
+                    style={{
+                      padding: "2px 12px 1px",
+                      fontSize: "9px",
+                      color: "var(--text-muted)",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    SATELLITE
+                  </div>
+                  <CtxMenuItem
+                    label="Show orbit info"
+                    icon="&#x1F6F0;"
+                    accent
+                    onClick={() => {
+                      // Trigger the left-click satellite info flow
+                      const v = viewerRef.current;
+                      const C = cesiumRef.current;
+                      if (v && C && entity) {
+                        const found = v.entities.values.find(
+                          (e: any) => e.id === entId || (entName && e.name?.includes(entName)),
+                        );
+                        if (found) {
+                          const pos = found.position?.getValue(C.JulianDate.now());
+                          if (pos) {
+                            const cg = C.Cartographic.fromCartesian(pos);
+                            const altKm = +(cg.height / 1000).toFixed(1);
+                            const group = found.properties?.group?.getValue?.() || entName || "Unknown";
+                            let orbitType = "Unknown";
+                            if (altKm < 2000) orbitType = "LEO";
+                            else if (altKm > 30000) orbitType = "GEO";
+                            else orbitType = "MEO";
+                            const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
+                            setSelectedSat({
+                              name: entName || group,
+                              alt: altKm,
+                              vel: velKms,
+                              lat: +C.Math.toDegrees(cg.latitude).toFixed(2),
+                              lon: +C.Math.toDegrees(cg.longitude).toFixed(2),
+                              orbit: orbitType,
+                            });
+                          }
+                        }
+                      }
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Follow satellite"
+                    icon="&#x1F440;"
+                    onClick={() => {
+                      const v = viewerRef.current;
+                      if (v) {
+                        const found = v.entities.values.find(
+                          (e: any) => e.id === entId || (entName && e.name?.includes(entName)),
+                        );
+                        (window as any).__ozSetFollowEntity?.(found || null);
+                        setFollowSat(true);
+                      }
+                      closeCtx();
+                    }}
+                  />
+                </CtxSection>
+              )}
+              {isStorm && (
+                <CtxSection>
+                  <div
+                    style={{
+                      padding: "2px 12px 1px",
+                      fontSize: "9px",
+                      color: "var(--text-muted)",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    STORM
+                  </div>
+                  <CtxMenuItem
+                    label="NHC advisory"
+                    icon="&#x1F517;"
+                    accent
+                    onClick={() => {
+                      window.open("https://www.nhc.noaa.gov/", "_blank");
+                      closeCtx();
+                    }}
+                  />
+                  <CtxMenuItem
+                    label="Zoom to track"
+                    onClick={() => {
+                      const v = viewerRef.current;
+                      const C = cesiumRef.current;
+                      if (v && C)
+                        v.camera.flyTo({
+                          destination: C.Cartesian3.fromDegrees(lng, lat, 3000000),
+                          orientation: { heading: 0, pitch: C.Math.toRadians(-70), roll: 0 },
+                          duration: 2,
+                        });
+                      closeCtx();
+                    }}
+                  />
+                </CtxSection>
+              )}
+
+              {/* ── External links ── */}
+              <CtxSection>
+                <div
+                  style={{
+                    padding: "2px 12px 1px",
+                    fontSize: "9px",
+                    color: "var(--text-muted)",
+                    fontWeight: 700,
+                    letterSpacing: "1px",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  EXTERNAL
+                </div>
+                <CtxMenuItem
+                  label="Open in OSM"
+                  icon="&#x1F5FA;"
+                  onClick={() => {
+                    window.open(
+                      `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`,
+                      "_blank",
+                    );
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Open in Google Maps"
+                  icon="&#x1F5FA;"
+                  onClick={() => {
+                    window.open(`https://www.google.com/maps/@${lat},${lng},15z`, "_blank");
+                    closeCtx();
+                  }}
+                />
+                <CtxMenuItem
+                  label="Open in Google Earth"
+                  icon="&#x1F30C;"
+                  onClick={() => {
+                    window.open(`https://earth.google.com/web/@${lat},${lng},1000a,300d,35y,0h,0t,0r`, "_blank");
+                    closeCtx();
+                  }}
+                />
+                {isEq && (
+                  <CtxMenuItem
+                    label="Open in USGS"
+                    icon="&#x1F517;"
+                    onClick={() => {
+                      const usgsId = entId?.replace("eq-", "");
+                      window.open(`https://earthquake.usgs.gov/earthquakes/eventpage/${usgsId}`, "_blank");
+                      closeCtx();
+                    }}
+                  />
+                )}
+              </CtxSection>
+            </div>
+          );
+        })()}
 
       {/* Entity hover tooltip */}
       {hoverTooltip && (
@@ -1259,22 +2116,54 @@ export default function Globe() {
       {elevPopup && (
         <div className="wv-elev-popup" style={{ left: elevPopup.x + 16, top: elevPopup.y - 10 }}>
           <div className="val">{elevPopup.elev != null ? `${elevPopup.elev}m` : "No data"}</div>
-          <div className="coords">{elevPopup.lat.toFixed(4)}, {elevPopup.lon.toFixed(4)}</div>
+          <div className="coords">
+            {elevPopup.lat.toFixed(4)}, {elevPopup.lon.toFixed(4)}
+          </div>
         </div>
       )}
 
       {/* Satellite info panel */}
       {selectedSat && (
         <div className="wv-sat-info">
-          <button className="sat-close" onClick={() => { setSelectedSat(null); setFollowSat(false); (window as any).__ozSetFollowEntity?.(null); }}>&times;</button>
+          <button
+            className="sat-close"
+            onClick={() => {
+              setSelectedSat(null);
+              setFollowSat(false);
+              (window as any).__ozSetFollowEntity?.(null);
+            }}
+          >
+            &times;
+          </button>
           <div className="sat-name">{selectedSat.name}</div>
-          <div className="sat-row"><span className="sat-label">Altitude</span><span className="sat-val">{selectedSat.alt.toLocaleString()} km</span></div>
-          <div className="sat-row"><span className="sat-label">Velocity</span><span className="sat-val">{selectedSat.vel} km/s</span></div>
-          <div className="sat-row"><span className="sat-label">Orbit</span><span className="sat-val">{selectedSat.orbit}</span></div>
-          <div className="sat-row"><span className="sat-label">Position</span><span className="sat-val">{selectedSat.lat}, {selectedSat.lon}</span></div>
+          <div className="sat-row">
+            <span className="sat-label">Altitude</span>
+            <span className="sat-val">{selectedSat.alt.toLocaleString()} km</span>
+          </div>
+          <div className="sat-row">
+            <span className="sat-label">Velocity</span>
+            <span className="sat-val">{selectedSat.vel} km/s</span>
+          </div>
+          <div className="sat-row">
+            <span className="sat-label">Orbit</span>
+            <span className="sat-val">{selectedSat.orbit}</span>
+          </div>
+          <div className="sat-row">
+            <span className="sat-label">Position</span>
+            <span className="sat-val">
+              {selectedSat.lat}, {selectedSat.lon}
+            </span>
+          </div>
           <button
             className="wv-btn"
-            style={{ marginTop: 4, padding: "4px 10px", fontSize: 10, width: "100%", background: followSat ? "var(--accent)" : "var(--bg-hover)", border: "1px solid var(--border)" }}
+            style={{
+              marginTop: 4,
+              padding: "4px 10px",
+              fontSize: 10,
+              width: "100%",
+              background: followSat ? "var(--accent)" : "var(--bg-hover)",
+              border: "1px solid var(--border)",
+            }}
             onClick={() => {
               if (followSat) {
                 setFollowSat(false);
@@ -1285,7 +2174,11 @@ export default function Globe() {
                 const viewer = viewerRef.current;
                 if (viewer) {
                   const Cesium = cesiumRef.current;
-                  const found = viewer.entities.values.find((e: any) => e.properties?.type?.getValue() === "orbitalTrack" && (e.name?.includes(selectedSat.name) || e.properties?.group?.getValue() === selectedSat.name));
+                  const found = viewer.entities.values.find(
+                    (e: any) =>
+                      e.properties?.type?.getValue() === "orbitalTrack" &&
+                      (e.name?.includes(selectedSat.name) || e.properties?.group?.getValue() === selectedSat.name),
+                  );
                   (window as any).__ozSetFollowEntity?.(found || null);
                 }
               }
@@ -1314,7 +2207,11 @@ export default function Globe() {
         <span className="wv-coords">{cursorPos ? `${cursorPos[0]}, ${cursorPos[1]}` : "--"}</span>
         <span className="wv-status-sep" />
         <span className="wv-coords" style={{ color: isSpaceMode ? "var(--accent)" : "var(--text-muted)" }}>
-          {isSpaceMode ? `${(cameraAlt / 1000).toFixed(0)} km` : cameraAlt > 1000 ? `${(cameraAlt / 1000).toFixed(1)} km` : `${cameraAlt.toFixed(0)} m`}
+          {isSpaceMode
+            ? `${(cameraAlt / 1000).toFixed(0)} km`
+            : cameraAlt > 1000
+              ? `${(cameraAlt / 1000).toFixed(1)} km`
+              : `${cameraAlt.toFixed(0)} m`}
         </span>
       </div>
     </div>

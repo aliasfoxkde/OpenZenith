@@ -122,13 +122,27 @@ export function addDrawLayers(map: any) {
 }
 
 export function removeDrawLayers(map: any) {
-  try { map.removeLayer(drawLabelLayerId); } catch {}
-  try { map.removeLayer(drawSelectedLayerId); } catch {}
-  try { map.removeLayer(drawSelectedVertexLayerId); } catch {}
-  try { map.removeLayer(drawFillLayerId); } catch {}
-  try { map.removeLayer(drawLineLayerId); } catch {}
-  try { map.removeLayer(drawVertexLayerId); } catch {}
-  try { map.removeSource(drawSourceId); } catch {}
+  try {
+    map.removeLayer(drawLabelLayerId);
+  } catch {}
+  try {
+    map.removeLayer(drawSelectedLayerId);
+  } catch {}
+  try {
+    map.removeLayer(drawSelectedVertexLayerId);
+  } catch {}
+  try {
+    map.removeLayer(drawFillLayerId);
+  } catch {}
+  try {
+    map.removeLayer(drawLineLayerId);
+  } catch {}
+  try {
+    map.removeLayer(drawVertexLayerId);
+  } catch {}
+  try {
+    map.removeSource(drawSourceId);
+  } catch {}
 }
 
 export function updateDrawLayers(map: any, state: DrawState) {

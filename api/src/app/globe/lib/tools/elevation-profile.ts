@@ -166,10 +166,7 @@ export function createElevationProfile(viewer: any, Cesium: any) {
 
       // Find the segment for this distance
       for (let j = 0; j < coords.length - 1; j++) {
-        const segDist = haversineDistance(
-          coords[j][1], coords[j][0],
-          coords[j + 1][1], coords[j + 1][0],
-        );
+        const segDist = haversineDistance(coords[j][1], coords[j][0], coords[j + 1][1], coords[j + 1][0]);
         if (currentDist + segDist >= targetDist || j === coords.length - 2) {
           const frac = segDist > 0 ? (targetDist - currentDist) / segDist : 0;
           lng = coords[j][0] + frac * (coords[j + 1][0] - coords[j][0]);
@@ -208,11 +205,7 @@ export function createElevationProfile(viewer: any, Cesium: any) {
  * Render an elevation profile chart onto a canvas element.
  * Returns the canvas element (caller appends to DOM).
  */
-export function renderProfileChart(
-  profile: ProfilePoint[],
-  width: number,
-  height: number,
-): HTMLCanvasElement {
+export function renderProfileChart(profile: ProfilePoint[], width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = width * (window.devicePixelRatio || 1);
   canvas.height = height * (window.devicePixelRatio || 1);
@@ -327,11 +320,16 @@ export function renderProfileChart(
   ctx.beginPath();
   let firstValid = true;
   for (const pt of profile) {
-    if (pt.elev == null) { firstValid = true; continue; }
+    if (pt.elev == null) {
+      firstValid = true;
+      continue;
+    }
     const x = pad.left + (pt.dist / maxDist) * chartW;
     const y = pad.top + chartH - ((pt.elev - minElev) / elevRange) * chartH;
-    if (firstValid) { ctx.moveTo(x, y); firstValid = false; }
-    else ctx.lineTo(x, y);
+    if (firstValid) {
+      ctx.moveTo(x, y);
+      firstValid = false;
+    } else ctx.lineTo(x, y);
   }
   // Close fill to bottom
   const lastValidX = pad.left + ((profile[profile.length - 1].dist || 0) / maxDist) * chartW;
@@ -382,7 +380,10 @@ export function renderProfileChart(
     let prevUnderwater = false;
 
     for (const pt of profile) {
-      if (pt.elev == null) { prevValid = false; continue; }
+      if (pt.elev == null) {
+        prevValid = false;
+        continue;
+      }
       const x = pad.left + (pt.dist / maxDist) * chartW;
       const y = pad.top + chartH - ((pt.elev - minElev) / elevRange) * chartH;
       const underwater = pt.elev < 0;
@@ -409,11 +410,16 @@ export function renderProfileChart(
     ctx.beginPath();
     firstValid = true;
     for (const pt of profile) {
-      if (pt.elev == null) { firstValid = true; continue; }
+      if (pt.elev == null) {
+        firstValid = true;
+        continue;
+      }
       const x = pad.left + (pt.dist / maxDist) * chartW;
       const y = pad.top + chartH - ((pt.elev - minElev) / elevRange) * chartH;
-      if (firstValid) { ctx.moveTo(x, y); firstValid = false; }
-      else ctx.lineTo(x, y);
+      if (firstValid) {
+        ctx.moveTo(x, y);
+        firstValid = false;
+      } else ctx.lineTo(x, y);
     }
     ctx.strokeStyle = hasUnderwater ? "#3b82f6" : "#22c55e";
     ctx.lineWidth = 2;

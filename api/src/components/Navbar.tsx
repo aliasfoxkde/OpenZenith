@@ -35,7 +35,9 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
   // Lock body scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = mobileMenu ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [mobileMenu]);
 
   // Close on escape
@@ -136,22 +138,19 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
       <div
         className={`oz-mobile-menu${mobileMenu ? " oz-mobile-menu-open" : ""}`}
         onClick={() => setMobileMenu(false)}
-        style={{
-          "--oz-mm-bg": dark ? "#0a0a0a" : "#fafafa",
-          "--oz-mm-text": text,
-          "--oz-mm-text-secondary": textSecondary,
-          "--oz-mm-border": border,
-        } as React.CSSProperties}
+        style={
+          {
+            "--oz-mm-bg": dark ? "#0a0a0a" : "#fafafa",
+            "--oz-mm-text": text,
+            "--oz-mm-text-secondary": textSecondary,
+            "--oz-mm-border": border,
+          } as React.CSSProperties
+        }
       >
         <div className="oz-mobile-menu-content" onClick={(e) => e.stopPropagation()}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             {NAV_LINKS.map((l) => (
-              <Link
-                key={l.label}
-                href={l.href}
-                onClick={() => setMobileMenu(false)}
-                className="oz-mobile-menu-link"
-              >
+              <Link key={l.label} href={l.href} onClick={() => setMobileMenu(false)} className="oz-mobile-menu-link">
                 {l.label}
               </Link>
             ))}

@@ -1,7 +1,8 @@
 import type { DataStatus } from "../types";
 
 export function loadOrbitalTracks(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
 ) {
   const satJs = (window as any).satellite;
@@ -19,19 +20,25 @@ export function loadOrbitalTracks(
   const now = Date.now();
   let trackCount = 0;
 
-  const loadGroup = async (group: typeof groups[0]) => {
+  const loadGroup = async (group: (typeof groups)[0]) => {
     let tles: any[] = [];
     if (group.url) {
       try {
         const r = await fetch(group.url);
         tles = (await r.json()).slice(0, 20);
-      } catch { return; }
+      } catch {
+        return;
+      }
     } else if (group.catnr) {
       try {
-        const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`);
+        const r = await fetch(
+          `/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`,
+        );
         const data = await r.json();
         if (Array.isArray(data)) tles = data;
-      } catch { return; }
+      } catch {
+        return;
+      }
     }
 
     for (const tle of tles) {
@@ -52,55 +59,72 @@ export function loadOrbitalTracks(
           const ecf = satJs.eciToEcf(posVel.position, gmst);
           positionProperty.addSample(
             Cesium.JulianDate.fromDate(date),
-            new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000)
+            new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000),
           );
         }
 
         const isISS = group.name === "ISS";
         const isNotable = group.name === "Hubble" || group.name === "Tiangong";
-        const trackColor = group.name === "Starlink" ? Cesium.Color.CYAN.withAlpha(0.15) :
-          group.name === "GPS Ops" ? Cesium.Color.YELLOW.withAlpha(0.3) :
-          Cesium.Color.CYAN.withAlpha(0.5);
+        const trackColor =
+          group.name === "Starlink"
+            ? Cesium.Color.CYAN.withAlpha(0.15)
+            : group.name === "GPS Ops"
+              ? Cesium.Color.YELLOW.withAlpha(0.3)
+              : Cesium.Color.CYAN.withAlpha(0.5);
 
         viewer.entities.add({
           id: `orbit-${trackCount}`,
           position: positionProperty,
           point: {
             pixelSize: isISS ? 8 : isNotable ? 6 : 3,
-            color: isISS ? Cesium.Color.WHITE : group.name === "Starlink" ? Cesium.Color.CYAN.withAlpha(0.3) : trackColor,
+            color: isISS
+              ? Cesium.Color.WHITE
+              : group.name === "Starlink"
+                ? Cesium.Color.CYAN.withAlpha(0.3)
+                : trackColor,
             outlineColor: Cesium.Color.WHITE.withAlpha(isISS ? 0.8 : 0.2),
             outlineWidth: isISS ? 2 : 1,
             scaleByDistance: new Cesium.NearFarScalar(1e6, 2.0, 5e7, 0.5),
           },
-          label: isISS || isNotable ? {
-            text: `${group.name} (NORAD ${tle.NORAD_CAT_ID || group.catnr})`,
-            font: "bold 11px 'JetBrains Mono', monospace",
-            fillColor: Cesium.Color.WHITE.withAlpha(0.9),
-            outlineColor: Cesium.Color.BLACK, outlineWidth: 2,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset: new Cesium.Cartesian2(12, -8),
-            showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.6),
-            backgroundPadding: new Cesium.Cartesian2(4, 3),
-            scaleByDistance: new Cesium.NearFarScalar(1e6, 1.0, 2e7, 0.4),
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 30000000),
-          } : undefined,
+          label:
+            isISS || isNotable
+              ? {
+                  text: `${group.name} (NORAD ${tle.NORAD_CAT_ID || group.catnr})`,
+                  font: "bold 11px 'JetBrains Mono', monospace",
+                  fillColor: Cesium.Color.WHITE.withAlpha(0.9),
+                  outlineColor: Cesium.Color.BLACK,
+                  outlineWidth: 2,
+                  style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                  pixelOffset: new Cesium.Cartesian2(12, -8),
+                  showBackground: true,
+                  backgroundColor: Cesium.Color.BLACK.withAlpha(0.6),
+                  backgroundPadding: new Cesium.Cartesian2(4, 3),
+                  scaleByDistance: new Cesium.NearFarScalar(1e6, 1.0, 2e7, 0.4),
+                  distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 30000000),
+                }
+              : undefined,
           path: {
             resolution: 120,
             material: new Cesium.PolylineGlowMaterialProperty({ glowPower: isISS ? 0.25 : 0.15, color: trackColor }),
             width: isISS ? 2.5 : group.name === "Starlink" ? 0.5 : 1.5,
-            leadTime: 5400, trailTime: 5400,
+            leadTime: 5400,
+            trailTime: 5400,
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 40000000),
           },
           properties: { type: "orbitalTrack", group: group.name },
         });
         trackCount++;
-      } catch { /* skip bad TLE */ }
+      } catch {
+        /* skip bad TLE */
+      }
     }
   };
 
-  Promise.all(groups.map(loadGroup)).then(() => {
-    updateStatus("satellites", { lastUpdate: Date.now(), count: trackCount });
-  }).catch(() => {
-    updateStatus("satellites", { error: "orbital tracks failed" });
-  });
+  Promise.all(groups.map(loadGroup))
+    .then(() => {
+      updateStatus("satellites", { lastUpdate: Date.now(), count: trackCount });
+    })
+    .catch(() => {
+      updateStatus("satellites", { error: "orbital tracks failed" });
+    });
 }

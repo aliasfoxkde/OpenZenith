@@ -50,7 +50,8 @@ export function parseGeoJSON(text: string): GeoJSON.FeatureCollection {
   const data = JSON.parse(text);
   if (data.type === "FeatureCollection") return data;
   if (data.type === "Feature") return { type: "FeatureCollection", features: [data] };
-  if (data.type === "Geometry") return { type: "FeatureCollection", features: [{ type: "Feature", geometry: data, properties: {} }] };
+  if (data.type === "Geometry")
+    return { type: "FeatureCollection", features: [{ type: "Feature", geometry: data, properties: {} }] };
   // Array of features or coordinates
   if (Array.isArray(data)) {
     if (data.length > 0 && data[0].type === "Feature") return { type: "FeatureCollection", features: data };
@@ -229,10 +230,13 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
     const outerRing = pm.querySelector("Polygon outerBoundaryIs LinearRing coordinates");
     if (outerRing) {
       const parseRing = (el: Element): [number, number][] =>
-        el.textContent!.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
-          if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
-          return acc;
-        }, []);
+        el
+          .textContent!.trim()
+          .split(/\s+/)
+          .reduce((acc: [number, number][], _, i, arr) => {
+            if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
+            return acc;
+          }, []);
 
       const outerCoords = parseRing(outerRing);
       if (outerCoords.length > 3) {
@@ -259,24 +263,36 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
             const coords = child.querySelector("coordinates")?.textContent?.trim().split(/\s+/).map(Number);
             if (coords && coords.length >= 2) geoms.push({ type: "Point", coordinates: [coords[0], coords[1]] });
           } else if (tag === "LineString") {
-            const lineCoords = child.querySelector("coordinates")?.textContent?.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
-              if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
-              return acc;
-            }, []);
+            const lineCoords = child
+              .querySelector("coordinates")
+              ?.textContent?.trim()
+              .split(/\s+/)
+              .reduce((acc: [number, number][], _, i, arr) => {
+                if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
+                return acc;
+              }, []);
             if (lineCoords && lineCoords.length > 1) geoms.push({ type: "LineString", coordinates: lineCoords });
           } else if (tag === "Polygon") {
             const outer = child.querySelector("outerBoundaryIs LinearRing coordinates");
             if (outer) {
-              const outerCoords = outer.textContent!.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
-                if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
-                return acc;
-              }, []);
-              const inners = [...child.querySelectorAll("innerBoundaryIs LinearRing coordinates")].map((el) =>
-                el.textContent!.trim().split(/\s+/).reduce((acc: [number, number][], _, i, arr) => {
+              const outerCoords = outer
+                .textContent!.trim()
+                .split(/\s+/)
+                .reduce((acc: [number, number][], _, i, arr) => {
                   if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
                   return acc;
-                }, []),
-              ).filter((r) => r.length > 3);
+                }, []);
+              const inners = [...child.querySelectorAll("innerBoundaryIs LinearRing coordinates")]
+                .map((el) =>
+                  el
+                    .textContent!.trim()
+                    .split(/\s+/)
+                    .reduce((acc: [number, number][], _, i, arr) => {
+                      if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
+                      return acc;
+                    }, []),
+                )
+                .filter((r) => r.length > 3);
               if (outerCoords.length > 3) geoms.push({ type: "Polygon", coordinates: [outerCoords, ...inners] });
             }
           } else if (tag === "MultiGeometry") {

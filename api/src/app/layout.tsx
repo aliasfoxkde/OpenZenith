@@ -15,12 +15,28 @@ export const metadata: Metadata = {
   description:
     "Free, fast, global elevation data API with interactive mapping, weather data, flight tracking, earthquake monitoring, satellite data, and more. No API key required.",
   keywords: [
-    "elevation API", "SRTM", "terrain data", "free elevation",
-    "geospatial API", "height API", "DEM", "digital elevation model",
-    "MapLibre", "terrain tiles", "hillshade", "3D terrain",
-    "weather API", "flight tracking", "earthquake data", "NOAA",
-    "OpenSky ADS-B", "satellite tracking", "marine data",
-    "open data", "free API", "no API key",
+    "elevation API",
+    "SRTM",
+    "terrain data",
+    "free elevation",
+    "geospatial API",
+    "height API",
+    "DEM",
+    "digital elevation model",
+    "MapLibre",
+    "terrain tiles",
+    "hillshade",
+    "3D terrain",
+    "weather API",
+    "flight tracking",
+    "earthquake data",
+    "NOAA",
+    "OpenSky ADS-B",
+    "satellite tracking",
+    "marine data",
+    "open data",
+    "free API",
+    "no API key",
   ],
   authors: [{ name: "OpenZenith" }],
   creator: "OpenZenith",
@@ -38,7 +54,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "OpenZenith - Free Global Elevation API & Geospatial Tools",
-    description: "Free elevation API, interactive maps, weather, flights, earthquakes, satellites. No API key required.",
+    description:
+      "Free elevation API, interactive maps, weather, flights, earthquakes, satellites. No API key required.",
     type: "website",
     locale: "en_US",
     url: baseUrl,
@@ -56,15 +73,12 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "OpenZenith - Free Global Elevation API & Geospatial Tools",
-    description: "Free elevation API, interactive maps, weather, flights, earthquakes, satellites. No API key required.",
+    description:
+      "Free elevation API, interactive maps, weather, flights, earthquakes, satellites. No API key required.",
   },
   icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180" },
-    ],
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
   manifest: "/manifest.json",
   metadataBase: new URL(baseUrl),
@@ -79,11 +93,7 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head />
@@ -94,10 +104,12 @@ export default function RootLayout({
           WebkitFontSmoothing: "antialiased",
         }}
       >
-        <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js",{scope:"/"})})}` }} />
-        <Providers>
-        {children}
-        </Providers>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js",{scope:"/"})})}`,
+          }}
+        />
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

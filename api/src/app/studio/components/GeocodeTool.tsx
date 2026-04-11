@@ -43,24 +43,24 @@ export function GeocodeTool({ map, dark }: Props) {
     if (map) map.flyTo({ center: [lon, lat], zoom: 14, duration: 1500 });
   };
 
-  const handleMapClick = useCallback(
-    async (lat: number, lon: number) => {
-      try {
-        const res = await fetch(`/api/reverse-geocode?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`);
-        const data = await res.json();
-        if (data.address) {
-          setReverseResult(
-            `${data.address.road || ""}${data.address.city ? `, ${data.address.city}` : ""}${data.address.country ? `, ${data.address.country}` : ""}`.replace(/^, /, ""),
-          );
-        } else {
-          setReverseResult(data.display_name || "Unknown location");
-        }
-      } catch {
-        setReverseResult("Reverse geocode failed");
+  const handleMapClick = useCallback(async (lat: number, lon: number) => {
+    try {
+      const res = await fetch(`/api/reverse-geocode?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`);
+      const data = await res.json();
+      if (data.address) {
+        setReverseResult(
+          `${data.address.road || ""}${data.address.city ? `, ${data.address.city}` : ""}${data.address.country ? `, ${data.address.country}` : ""}`.replace(
+            /^, /,
+            "",
+          ),
+        );
+      } else {
+        setReverseResult(data.display_name || "Unknown location");
       }
-    },
-    [],
-  );
+    } catch {
+      setReverseResult("Reverse geocode failed");
+    }
+  }, []);
 
   const bg = dark ? "#141414" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
@@ -79,8 +79,14 @@ export function GeocodeTool({ map, dark }: Props) {
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && search(query)}
         style={{
-          width: "100%", padding: "8px 10px", background: inputBg, border: `1px solid ${border}`,
-          borderRadius: 6, color: text, fontSize: 13, boxSizing: "border-box",
+          width: "100%",
+          padding: "8px 10px",
+          background: inputBg,
+          border: `1px solid ${border}`,
+          borderRadius: 6,
+          color: text,
+          fontSize: 13,
+          boxSizing: "border-box",
         }}
       />
 
@@ -92,8 +98,13 @@ export function GeocodeTool({ map, dark }: Props) {
               key={i}
               onClick={() => flyTo(r.lat, r.lon)}
               style={{
-                padding: "8px 10px", background: inputBg, border: `1px solid ${border}`, borderRadius: 4,
-                cursor: "pointer", color: text, fontSize: 12,
+                padding: "8px 10px",
+                background: inputBg,
+                border: `1px solid ${border}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                color: text,
+                fontSize: 12,
               }}
             >
               <div style={{ marginBottom: 2, lineHeight: 1.3 }}>{r.display_name.split(",").slice(0, 2).join(",")}</div>

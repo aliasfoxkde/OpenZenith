@@ -35,12 +35,20 @@ describe("finishDrawing", () => {
   it("finishes a line drawing", () => {
     const state = createDrawState();
     state.mode = "line";
-    state.currentCoords = [[0, 0], [1, 1], [2, 2]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+      [2, 2],
+    ];
 
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("LineString");
-    expect(result.features[0].geometry.coordinates).toEqual([[0, 0], [1, 1], [2, 2]]);
+    expect(result.features[0].geometry.coordinates).toEqual([
+      [0, 0],
+      [1, 1],
+      [2, 2],
+    ]);
     expect(result.currentCoords).toEqual([]);
     expect(result.history).toHaveLength(1);
   });
@@ -48,19 +56,33 @@ describe("finishDrawing", () => {
   it("finishes a polygon drawing", () => {
     const state = createDrawState();
     state.mode = "polygon";
-    state.currentCoords = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+    ];
 
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("Polygon");
     // Polygon should be closed
-    expect(result.features[0].geometry.coordinates[0]).toEqual([[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]);
+    expect(result.features[0].geometry.coordinates[0]).toEqual([
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+      [0, 0],
+    ]);
   });
 
   it("finishes a point drawing", () => {
     const state = createDrawState();
     state.mode = "point";
-    state.currentCoords = [[0, 0], [1, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+    ];
 
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(2);
@@ -86,7 +108,10 @@ describe("finishDrawing", () => {
   it("does nothing with insufficient polygon points", () => {
     const state = createDrawState();
     state.mode = "polygon";
-    state.currentCoords = [[0, 0], [1, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+    ];
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(0);
   });
@@ -96,7 +121,10 @@ describe("undo", () => {
   it("undoes last committed feature", () => {
     const state = createDrawState();
     state.mode = "line";
-    state.currentCoords = [[0, 0], [1, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+    ];
     const withFeature = finishDrawing(state);
     const undone = undo(withFeature);
     expect(undone.features).toHaveLength(0);
@@ -114,7 +142,10 @@ describe("redo", () => {
   it("redoes last undone feature", () => {
     const state = createDrawState();
     state.mode = "line";
-    state.currentCoords = [[0, 0], [1, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+    ];
     const withFeature = finishDrawing(state);
     const undone = undo(withFeature);
     const redone = redo(undone);
@@ -134,7 +165,10 @@ describe("deleteSelected", () => {
   it("deletes the selected feature", () => {
     const state = createDrawState();
     state.mode = "line";
-    state.currentCoords = [[0, 0], [1, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+    ];
     const withFeature = finishDrawing(state);
     withFeature.selectedFeatureIndex = 0;
 
@@ -154,7 +188,10 @@ describe("exportGeoJSON", () => {
   it("exports features as FeatureCollection", () => {
     const state = createDrawState();
     state.mode = "line";
-    state.currentCoords = [[0, 0], [1, 1]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+    ];
     const withFeature = finishDrawing(state);
 
     const fc = exportGeoJSON(withFeature);
@@ -180,7 +217,13 @@ describe("measureFeature", () => {
   it("measures a line feature", () => {
     const feature: GeoJSON.Feature = {
       type: "Feature",
-      geometry: { type: "LineString", coordinates: [[0, 0], [1, 0]] },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [0, 0],
+          [1, 0],
+        ],
+      },
       properties: {},
     };
     const m = measureFeature(feature);
@@ -192,7 +235,17 @@ describe("measureFeature", () => {
   it("measures a polygon feature", () => {
     const feature: GeoJSON.Feature = {
       type: "Feature",
-      geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 0],
+          ],
+        ],
+      },
       properties: {},
     };
     const m = measureFeature(feature);
@@ -225,14 +278,27 @@ describe("measureFeature", () => {
 
 describe("measureDrawing", () => {
   it("measures in-progress line", () => {
-    const m = measureDrawing([[0, 0], [1, 0]], "line");
+    const m = measureDrawing(
+      [
+        [0, 0],
+        [1, 0],
+      ],
+      "line",
+    );
     expect(m).not.toBeNull();
     expect(m!.type).toBe("distance");
     expect(m!.value).toBeGreaterThan(0);
   });
 
   it("measures in-progress polygon", () => {
-    const m = measureDrawing([[0, 0], [1, 0], [1, 1]], "polygon");
+    const m = measureDrawing(
+      [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+      ],
+      "polygon",
+    );
     expect(m).not.toBeNull();
     expect(m!.type).toBe("area");
   });
@@ -293,7 +359,11 @@ describe("vertex editing", () => {
   const createLineState = () => {
     const state = createDrawState();
     state.mode = "line";
-    state.currentCoords = [[0, 0], [1, 1], [2, 0]];
+    state.currentCoords = [
+      [0, 0],
+      [1, 1],
+      [2, 0],
+    ];
     const finished = finishDrawing(state);
     finished.selectedFeatureIndex = 0;
     return finished;
@@ -327,7 +397,10 @@ describe("vertex editing", () => {
       const result = deleteVertex(state, 1);
       const coords = result.features[0].geometry.coordinates as [number, number][];
       expect(coords).toHaveLength(2);
-      expect(coords).toEqual([[0, 0], [2, 0]]);
+      expect(coords).toEqual([
+        [0, 0],
+        [2, 0],
+      ]);
     });
 
     it("does not allow deleting below minimum vertices for line", () => {
@@ -368,7 +441,12 @@ describe("vertex editing", () => {
     it("enters edit mode for polygon", () => {
       const state = createDrawState();
       state.mode = "polygon";
-      state.currentCoords = [[0, 0], [1, 0], [1, 1], [0, 1]];
+      state.currentCoords = [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+      ];
       const finished = finishDrawing(state);
       finished.selectedFeatureIndex = 0;
       const result = enterEditMode(finished);

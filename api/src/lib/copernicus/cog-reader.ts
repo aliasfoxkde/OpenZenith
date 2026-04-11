@@ -13,12 +13,7 @@
  */
 
 import { unzlibSync, inflateSync } from "fflate";
-import {
-  latLonToTileDir,
-  tileDirToBounds,
-  latLonToPixel,
-  tileDirToUrl,
-} from "./tile-math";
+import { latLonToTileDir, tileDirToBounds, latLonToPixel, tileDirToUrl } from "./tile-math";
 
 const TILE_DIM = 1024; // Copernicus tiles are 1024x1024
 const FLOAT32_SIZE = 4;
@@ -90,7 +85,9 @@ async function parseTiffLayout(url: string): Promise<TiffLayout | null> {
       const v = view.getUint16(off + 8, true);
       if (tag === 256) imageWidth = v;
       if (tag === 257) imageHeight = v;
-      if (tag === 258) { /* bitsPerSample — always 32 for Copernicus */ }
+      if (tag === 258) {
+        /* bitsPerSample — always 32 for Copernicus */
+      }
       if (tag === 259) compression = v;
       if (tag === 317) predictor = v;
       if (tag === 322) tileWidth = v;
@@ -101,16 +98,19 @@ async function parseTiffLayout(url: string): Promise<TiffLayout | null> {
       if (tag === 257) imageHeight = v;
     } else if (type === 4 && count > 1) {
       const arrOffset = view.getUint32(off + 8, true);
-      if (tag === 324) { tileOffsetsOffset = arrOffset; tileOffsetsCount = count; }
-      if (tag === 325) { tileByteCountsOffset = arrOffset; tileByteCountsCount = count; }
+      if (tag === 324) {
+        tileOffsetsOffset = arrOffset;
+        tileOffsetsCount = count;
+      }
+      if (tag === 325) {
+        tileByteCountsOffset = arrOffset;
+        tileByteCountsCount = count;
+      }
     }
   }
 
   // Need to fetch tile offset/bytecount arrays if they extend beyond initial read
-  const maxNeeded = Math.max(
-    tileOffsetsOffset + tileOffsetsCount * 4,
-    tileByteCountsOffset + tileByteCountsCount * 4,
-  );
+  const maxNeeded = Math.max(tileOffsetsOffset + tileOffsetsCount * 4, tileByteCountsOffset + tileByteCountsCount * 4);
 
   if (maxNeeded > data.length && (tileOffsetsOffset > 0 || tileByteCountsOffset > 0)) {
     const res2 = await fetch(url, {
@@ -200,7 +200,7 @@ function undoFloatPredictor(bytes: Uint8Array, width: number, height: number): v
     // Encoded layout: [MSB_all | byte2_all | byte1_all | LSB_all]
     // Each group has `width` bytes; differencing was applied across all rowBytes
     for (let i = rowStart + 1; i < rowStart + rowBytes; i++) {
-      bytes[i] = (bytes[i] + bytes[i - 1]) & 0xFF;
+      bytes[i] = (bytes[i] + bytes[i - 1]) & 0xff;
     }
 
     // Step 2: Restore byte order (transpose back to per-float layout)
@@ -208,8 +208,8 @@ function undoFloatPredictor(bytes: Uint8Array, width: number, height: number): v
     for (let i = 0; i < width; i++) {
       tmp[i * 4 + 0] = bytes[rowStart + 3 * width + i]; // LSB
       tmp[i * 4 + 1] = bytes[rowStart + 2 * width + i]; // byte 1
-      tmp[i * 4 + 2] = bytes[rowStart + width + i];     // byte 2
-      tmp[i * 4 + 3] = bytes[rowStart + i];              // MSB
+      tmp[i * 4 + 2] = bytes[rowStart + width + i]; // byte 2
+      tmp[i * 4 + 3] = bytes[rowStart + i]; // MSB
     }
 
     bytes.set(tmp, rowStart);
@@ -290,11 +290,7 @@ export async function getCopernicusElevation(
   }
 
   // Interpret as Float32 (full tile dimensions)
-  const floatData = new Float32Array(
-    tileData.buffer,
-    tileData.byteOffset,
-    layout.tileWidth * layout.tileLength,
-  );
+  const floatData = new Float32Array(tileData.buffer, tileData.byteOffset, layout.tileWidth * layout.tileLength);
 
   // Get pixel value
   const localCol = col - tileCol * layout.tileWidth;

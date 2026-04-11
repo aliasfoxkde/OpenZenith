@@ -20,7 +20,10 @@ function dedupFetch(url: string, signal?: AbortSignal): Promise<Response> {
 // ─── Earthquakes ───
 
 export async function fetchEarthquakes(signal?: AbortSignal): Promise<GeoJSON.FeatureCollection> {
-  const r = await dedupFetch("/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson", signal);
+  const r = await dedupFetch(
+    "/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+    signal,
+  );
   if (!r.ok) throw new Error(`Earthquakes fetch failed: ${r.status}`);
   return r.json();
 }
@@ -28,7 +31,10 @@ export async function fetchEarthquakes(signal?: AbortSignal): Promise<GeoJSON.Fe
 // ─── Natural Events (EONET) ───
 
 export async function fetchNaturalEvents(signal?: AbortSignal): Promise<GeoJSON.FeatureCollection> {
-  const r = await dedupFetch("/api/proxy/https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200", signal);
+  const r = await dedupFetch(
+    "/api/proxy/https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200",
+    signal,
+  );
   if (!r.ok) throw new Error(`EONET fetch failed: ${r.status}`);
   return r.json();
 }
@@ -75,10 +81,11 @@ export async function fetchWaterways(lon: number, lat: number, signal?: AbortSig
 
 // ─── Flights ───
 
-export async function fetchFlights(bbox?: { lamin: number; lamax: number; lomin: number; lomax: number }, signal?: AbortSignal): Promise<any> {
-  const params = bbox
-    ? `?lamin=${bbox.lamin}&lamax=${bbox.lamax}&lomin=${bbox.lomin}&lomax=${bbox.lomax}`
-    : "";
+export async function fetchFlights(
+  bbox?: { lamin: number; lamax: number; lomin: number; lomax: number },
+  signal?: AbortSignal,
+): Promise<any> {
+  const params = bbox ? `?lamin=${bbox.lamin}&lamax=${bbox.lamax}&lomin=${bbox.lomin}&lomax=${bbox.lomax}` : "";
   const r = await dedupFetch(`/api/opensky/flights${params}`, signal);
   return r.json();
 }

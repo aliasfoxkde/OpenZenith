@@ -32,9 +32,13 @@ export function BasemapWidget({ globe }: WidgetProps) {
             const dataUrl = canvas.toDataURL();
             setPreviews((prev) => ({ ...prev, [key]: dataUrl }));
           }
-        } catch { /* canvas not available */ }
+        } catch {
+          /* canvas not available */
+        }
       };
-      img.onerror = () => { /* keep gradient fallback */ };
+      img.onerror = () => {
+        /* keep gradient fallback */
+      };
       img.src = tileUrl;
     }
   }, []);

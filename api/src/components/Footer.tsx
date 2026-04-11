@@ -15,10 +15,7 @@ export function Footer({ dark }: FooterProps) {
   return (
     <footer style={{ borderTop: `1px solid ${border}`, background: footerBg }}>
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "3rem 1.5rem 2rem" }}>
-        <div
-          className="oz-footer-grid"
-          style={{ marginBottom: "2rem" }}
-        >
+        <div className="oz-footer-grid" style={{ marginBottom: "2rem" }}>
           {/* Brand */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.75rem" }}>
@@ -28,8 +25,8 @@ export function Footer({ dark }: FooterProps) {
               </span>
             </div>
             <p style={{ fontSize: "0.78rem", color: textSecondary, lineHeight: 1.55, margin: "0 0 0.75rem" }}>
-              Free, fast, global elevation and geospatial API. No API key or signup required. Built with NASA SRTM 30m data,
-              served on Cloudflare&apos;s edge.
+              Free, fast, global elevation and geospatial API. No API key or signup required. Built with NASA SRTM 30m
+              data, served on Cloudflare&apos;s edge.
             </p>
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <a

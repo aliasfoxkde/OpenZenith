@@ -9,13 +9,7 @@
  */
 
 import { unzlibSync } from "fflate";
-import {
-  latLonToSrtmName,
-  srtmNameToBounds,
-  latLonToPixel,
-  isWithinSRTM,
-  SRTM_BOUNDS,
-} from "./srtm/tile-math";
+import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM, SRTM_BOUNDS } from "./srtm/tile-math";
 import { tileToLatLon } from "./srtm/zoom-math";
 import type { ChunkBackend } from "./storage/backend";
 import { cacheGet, cachePut } from "./storage/cache";
@@ -35,12 +29,7 @@ export interface TileResult {
  * Returns a 256x256 Int16Array of elevation values in meters.
  * NoData values are set to -32768.
  */
-export async function getTileData(
-  z: number,
-  x: number,
-  y: number,
-  storage: ChunkBackend,
-): Promise<TileResult> {
+export async function getTileData(z: number, x: number, y: number, storage: ChunkBackend): Promise<TileResult> {
   const bounds = tileToLatLon(z, x, y);
 
   // Check if any part of this tile overlaps SRTM coverage
@@ -77,24 +66,11 @@ export async function getTileData(
 /**
  * Find all SRTM tile names that overlap with the given bounds.
  */
-function findOverlappingSrtmTiles(bounds: {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}): string[] {
+function findOverlappingSrtmTiles(bounds: { north: number; south: number; east: number; west: number }): string[] {
   const tiles: Set<string> = new Set();
 
-  const lats = [
-    bounds.north - 0.001,
-    (bounds.north + bounds.south) / 2,
-    bounds.south + 0.001,
-  ];
-  const lons = [
-    bounds.west + 0.001,
-    (bounds.west + bounds.east) / 2,
-    bounds.east - 0.001,
-  ];
+  const lats = [bounds.north - 0.001, (bounds.north + bounds.south) / 2, bounds.south + 0.001];
+  const lons = [bounds.west + 0.001, (bounds.west + bounds.east) / 2, bounds.east - 0.001];
 
   for (const lat of lats) {
     for (const lon of lons) {
@@ -159,19 +135,13 @@ async function fillTileFromSrtm(
       const rawBytes = unzlibSync(new Uint8Array(compressedData));
 
       // Compute chunk dimensions (edge tiles may be smaller)
-      const chunkWidth =
-        cc < 14 ? 256 : 3601 - 14 * 256;
-      const chunkHeight =
-        cr < 14 ? 256 : 3601 - 14 * 256;
+      const chunkWidth = cc < 14 ? 256 : 3601 - 14 * 256;
+      const chunkHeight = cr < 14 ? 256 : 3601 - 14 * 256;
       const pixels = chunkWidth * chunkHeight;
 
       // Undo TIFF horizontal predictor (predictor=2).
       // SRTM GeoTIFF tiles store horizontal differences; undo by cumulative sum per row.
-      const rawData = new Int16Array(
-        rawBytes.buffer,
-        rawBytes.byteOffset,
-        pixels,
-      );
+      const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
       const data = new Int16Array(pixels);
       for (let r = 0; r < chunkHeight; r++) {
         const rowOff = r * chunkWidth;

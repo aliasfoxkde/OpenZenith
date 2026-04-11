@@ -42,10 +42,7 @@ async function findRecentSentinel2Tile(bbox: string): Promise<string | null> {
   return visualAsset.href;
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ z: string; x: string; y: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
   // Convert tile to bbox for STAC search
@@ -56,8 +53,8 @@ export async function GET(
   const n = Math.pow(2, zoom);
   const lon1 = (tileX / n) * 360 - 180;
   const lon2 = ((tileX + 1) / n) * 360 - 180;
-  const lat1Rad = Math.atan(Math.sinh(Math.PI * (1 - 2 * tileY / n)));
-  const lat2Rad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (tileY + 1) / n)));
+  const lat1Rad = Math.atan(Math.sinh(Math.PI * (1 - (2 * tileY) / n)));
+  const lat2Rad = Math.atan(Math.sinh(Math.PI * (1 - (2 * (tileY + 1)) / n)));
   const lat1 = (lat1Rad * 180) / Math.PI;
   const lat2 = (lat2Rad * 180) / Math.PI;
   const bbox = `${lon1},${lat2},${lon2},${lat1}`;

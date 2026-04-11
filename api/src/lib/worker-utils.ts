@@ -30,11 +30,7 @@ function createInlineWorker(script: string): Worker {
 }
 
 /** Interpolate points between two coordinates */
-function interpolateCoords(
-  start: [number, number],
-  end: [number, number],
-  numSamples: number,
-): [number, number][] {
+function interpolateCoords(start: [number, number], end: [number, number], numSamples: number): [number, number][] {
   const points: [number, number][] = [];
   const n = Math.max(1, numSamples);
   for (let i = 0; i <= n; i++) {
@@ -52,9 +48,7 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 

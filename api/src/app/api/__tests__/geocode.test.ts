@@ -45,9 +45,7 @@ describe("Geocode endpoint", () => {
   });
 
   it("returns empty results for no matches", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify([]), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
 
     const { GET } = await import("@/app/api/geocode/route");
     const req = mockRequest("/api/geocode?query=xyznonexistent12345");

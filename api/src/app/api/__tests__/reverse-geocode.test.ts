@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest } from "./helpers";
 
 const mockReverseResult = {
-  display_name: "White House, 1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States",
+  display_name:
+    "White House, 1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States",
   name: "White House",
   type: "tourism",
   address: { city: "Washington", state: "District of Columbia", country: "United States" },

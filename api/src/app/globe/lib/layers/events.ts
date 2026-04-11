@@ -29,7 +29,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function loadEvents(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -49,7 +50,7 @@ export function loadEvents(
 
     // Check if event was updated within last 24 hours
     const updated = f.properties?.updated || f.properties?.geometry_lastModified || 0;
-    const isRecent = (now - updated) < 86400000; // 24h
+    const isRecent = now - updated < 86400000; // 24h
     const iconSize = isRecent ? 24 : 20;
 
     // Pulsing glow for recent events
@@ -99,7 +100,9 @@ export function loadEvents(
         f.properties?.description || null,
         coords ? `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}` : null,
         updated ? `Updated: ${new Date(updated).toLocaleDateString()}` : null,
-      ].filter(Boolean).join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
       properties: { type: "event", category: cat, ...f.properties },
     });
 
@@ -142,10 +145,14 @@ export function loadEvents(
           removeEntities("event-");
           fs.forEach((f: any, i: number) => addEventEntity(f, i));
           updateStatus("events", { lastUpdate: Date.now(), count: fs.length });
-        } catch { /* retry */ }
+        } catch {
+          /* retry */
+        }
       }, 1800000);
       intervalsRef.current.push(iv);
-    } catch { updateStatus("events", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("events", { error: "fetch failed" });
+    }
   };
 
   doLoad();

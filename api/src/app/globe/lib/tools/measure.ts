@@ -6,17 +6,13 @@
  */
 
 /** Haversine distance between two points (meters) */
-export function haversineDistance(
-  lat1: number, lon1: number,
-  lat2: number, lon2: number,
-): number {
+export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth radius in meters
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -50,7 +46,7 @@ export function polygonArea(coords: number[][]): number {
     const yj = coords[j][1] * rad;
     area += (xj - xi) * (2 + Math.sin(yi) + Math.sin(yj));
   }
-  area = Math.abs(area * R * R / 2);
+  area = Math.abs((area * R * R) / 2);
   return area;
 }
 
@@ -61,10 +57,7 @@ export function polygonArea(coords: number[][]): number {
 export function polylineLength(coords: number[][]): number {
   let total = 0;
   for (let i = 1; i < coords.length; i++) {
-    total += haversineDistance(
-      coords[i - 1][1], coords[i - 1][0],
-      coords[i][1], coords[i][0],
-    );
+    total += haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
   }
   return total;
 }
@@ -92,21 +85,28 @@ export function toUTM(lat: number, lon: number): string {
   const f = 1 / 298.257223563;
   const e2 = 2 * f - f * f;
   const ep2 = e2 / (1 - e2);
-  const latRad = lat * Math.PI / 180;
-  const lonRad = lon * Math.PI / 180;
-  const lon0 = ((zone - 1) * 6 - 180 + 3) * Math.PI / 180;
+  const latRad = (lat * Math.PI) / 180;
+  const lonRad = (lon * Math.PI) / 180;
+  const lon0 = (((zone - 1) * 6 - 180 + 3) * Math.PI) / 180;
   const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
   const T = Math.tan(latRad) ** 2;
   const C = ep2 * Math.cos(latRad) ** 2;
   const A = Math.cos(latRad) * (lonRad - lon0);
-  const M = a * (
-    (1 - e2 / 4 - 3 * e2 ** 2 / 64 - 5 * e2 ** 3 / 256) * latRad -
-    (3 * e2 / 8 + 3 * e2 ** 2 / 32 + 45 * e2 ** 3 / 1024) * Math.sin(2 * latRad) +
-    (15 * e2 ** 2 / 256 + 45 * e2 ** 3 / 1024) * Math.sin(4 * latRad) -
-    (35 * e2 ** 3 / 3072) * Math.sin(6 * latRad)
-  );
-  const easting = 500000 + N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5 / 120);
-  const northing = M + N * Math.tan(latRad) * (A ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24 + (61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6 / 720);
+  const M =
+    a *
+    ((1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256) * latRad -
+      ((3 * e2) / 8 + (3 * e2 ** 2) / 32 + (45 * e2 ** 3) / 1024) * Math.sin(2 * latRad) +
+      ((15 * e2 ** 2) / 256 + (45 * e2 ** 3) / 1024) * Math.sin(4 * latRad) -
+      ((35 * e2 ** 3) / 3072) * Math.sin(6 * latRad));
+  const easting =
+    500000 + N * (A + ((1 - T + C) * A ** 3) / 6 + ((5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5) / 120);
+  const northing =
+    M +
+    N *
+      Math.tan(latRad) *
+      (A ** 2 / 2 +
+        ((5 - T + 9 * C + 4 * C ** 2) * A ** 4) / 24 +
+        ((61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6) / 720);
   return `${zone}${lat >= 0 ? "N" : "S"} ${easting.toFixed(0)}E ${northing.toFixed(0)}N`;
 }
 
@@ -119,8 +119,8 @@ export function toMGRS(lat: number, lon: number): string {
   const row = Math.floor((lat + 80) / 8);
   const sqLetter1 = letters[(col * 8 + (row % 8)) % 24] || "X";
   const sqLetter2 = letters[(row * 2 + col) % 24] || "X";
-  const east100k = Math.floor(((lon + 180) % 6 + 0.5) / 1) * 100000;
-  const north100k = Math.floor(((lat + 80) % 8 + 0.5) / 1) * 100000;
+  const east100k = Math.floor((((lon + 180) % 6) + 0.5) / 1) * 100000;
+  const north100k = Math.floor((((lat + 80) % 8) + 0.5) / 1) * 100000;
   const e5 = Math.floor(((lon + 180) % 1) * 100000) % 100000;
   const n5 = Math.floor(((lat + 80) % 1) * 100000) % 100000;
   return `${String(zone).padStart(2, "0")}${sqLetter1}${sqLetter2} ${String(east100k + e5).padStart(5, "0")} ${String(north100k + n5).padStart(5, "0")}`;
@@ -129,9 +129,9 @@ export function toMGRS(lat: number, lon: number): string {
 /** Get all coordinate format representations for a point */
 export function getAllFormats(lat: number, lon: number): Record<string, string> {
   return {
-    "DD": `${lat.toFixed(6)}, ${lon.toFixed(6)}`,
-    "DMS": toDMS(lat, lon),
-    "DDM": (() => {
+    DD: `${lat.toFixed(6)}, ${lon.toFixed(6)}`,
+    DMS: toDMS(lat, lon),
+    DDM: (() => {
       const fmt = (d: number, pos: string, neg: string) => {
         const dir = d >= 0 ? pos : neg;
         const a = Math.abs(d);
@@ -141,7 +141,7 @@ export function getAllFormats(lat: number, lon: number): Record<string, string> 
       };
       return `${fmt(lat, "N", "S")} ${fmt(lon, "E", "W")}`;
     })(),
-    "UTM": toUTM(lat, lon),
-    "MGRS": toMGRS(lat, lon),
+    UTM: toUTM(lat, lon),
+    MGRS: toMGRS(lat, lon),
   };
 }

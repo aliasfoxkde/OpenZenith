@@ -18,17 +18,15 @@ function parseCoordinates(raw: string): [number, number][] {
     if (latMatch && lonMatch) {
       const lat = parseInt(latMatch[1]) / 100;
       const lon = parseInt(lonMatch[1]) / 100;
-      points.push([
-        latMatch[2] === "S" ? -lat : lat,
-        lonMatch[2] === "W" ? -lon : lon,
-      ]);
+      points.push([latMatch[2] === "S" ? -lat : lat, lonMatch[2] === "W" ? -lon : lon]);
     }
   }
   return points;
 }
 
 export function loadAviationWeather(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -96,7 +94,9 @@ export function loadAviationWeather(
         startTime ? `From: ${startTime}` : null,
         endTime ? `To: ${endTime}` : null,
         `Source: NOAA Aviation Weather Center`,
-      ].filter(Boolean).join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
       properties: { type: "sigmet" },
     });
   };
@@ -151,11 +151,9 @@ export function loadAviationWeather(
         scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 5e6, 0.0),
         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 5e6),
       },
-      description: [
-        `AIRMET — ${hazard}`,
-        raw.substring(0, 300),
-        `Source: NOAA Aviation Weather Center`,
-      ].filter(Boolean).join("\n"),
+      description: [`AIRMET — ${hazard}`, raw.substring(0, 300), `Source: NOAA Aviation Weather Center`]
+        .filter(Boolean)
+        .join("\n"),
       properties: { type: "airmet" },
     });
   };
@@ -174,7 +172,9 @@ export function loadAviationWeather(
         const sigmets = Array.isArray(sigmetData) ? sigmetData : sigmetData?.features || sigmetData?.data || [];
         (Array.isArray(sigmets) ? sigmets : []).forEach((s: any, i: number) => addSigmet(s, i));
         total += (Array.isArray(sigmets) ? sigmets : []).length;
-      } catch { /* sigmets optional */ }
+      } catch {
+        /* sigmets optional */
+      }
 
       // Fetch AIRMETs
       try {
@@ -182,7 +182,9 @@ export function loadAviationWeather(
         const airmets = Array.isArray(airmetData) ? airmetData : airmetData?.features || airmetData?.data || [];
         (Array.isArray(airmets) ? airmets : []).forEach((a: any, i: number) => addAirmet(a, i));
         total += (Array.isArray(airmets) ? airmets : []).length;
-      } catch { /* airmets optional */ }
+      } catch {
+        /* airmets optional */
+      }
 
       updateStatus("aviationWeather", { lastUpdate: Date.now(), count: total });
 
@@ -195,13 +197,23 @@ export function loadAviationWeather(
           const sd = await fetchSigmets();
           const ad = await fetchAirmets();
           let t = 0;
-          (Array.isArray(sd) ? sd : []).forEach((s: any, i: number) => { addSigmet(s, i); t++; });
-          (Array.isArray(ad) ? ad : []).forEach((a: any, i: number) => { addAirmet(a, i); t++; });
+          (Array.isArray(sd) ? sd : []).forEach((s: any, i: number) => {
+            addSigmet(s, i);
+            t++;
+          });
+          (Array.isArray(ad) ? ad : []).forEach((a: any, i: number) => {
+            addAirmet(a, i);
+            t++;
+          });
           updateStatus("aviationWeather", { lastUpdate: Date.now(), count: t });
-        } catch { /* retry */ }
+        } catch {
+          /* retry */
+        }
       }, 300000); // 5 min
       intervalsRef.current.push(iv);
-    } catch { updateStatus("aviationWeather", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("aviationWeather", { error: "fetch failed" });
+    }
   };
 
   doLoad();

@@ -79,7 +79,7 @@ function undoFloatPredictor(bytes: Uint8Array, width: number, height: number): v
 
     // Undo byte differencing
     for (let i = rowStart + 1; i < rowStart + rowBytes; i++) {
-      bytes[i] = (bytes[i] + bytes[i - 1]) & 0xFF;
+      bytes[i] = (bytes[i] + bytes[i - 1]) & 0xff;
     }
 
     // Restore byte order (little-endian transpose)
@@ -87,7 +87,7 @@ function undoFloatPredictor(bytes: Uint8Array, width: number, height: number): v
       tmp[i * 4 + 0] = bytes[rowStart + 3 * width + i]; // LSB
       tmp[i * 4 + 1] = bytes[rowStart + 2 * width + i];
       tmp[i * 4 + 2] = bytes[rowStart + width + i];
-      tmp[i * 4 + 3] = bytes[rowStart + i];              // MSB
+      tmp[i * 4 + 3] = bytes[rowStart + i]; // MSB
     }
 
     bytes.set(tmp, rowStart);

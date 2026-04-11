@@ -2,9 +2,20 @@
 
 import type { DrawMode, DrawState } from "../lib/drawing";
 import {
-  createDrawState, finishDrawing, undo, redo, deleteSelected, exportGeoJSONString,
-  measureFeature, measureDrawing, formatDistance, formatArea,
-  enterEditMode, exitEditMode, deleteVertex, addVertex,
+  createDrawState,
+  finishDrawing,
+  undo,
+  redo,
+  deleteSelected,
+  exportGeoJSONString,
+  measureFeature,
+  measureDrawing,
+  formatDistance,
+  formatArea,
+  enterEditMode,
+  exitEditMode,
+  deleteVertex,
+  addVertex,
 } from "../lib/drawing";
 
 interface Props {
@@ -53,10 +64,12 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
         {MODES.map((m) => (
           <button
             key={m.id}
-            onClick={() => onDrawStateChange({
-              ...createDrawState(),
-              mode: drawState.mode === m.id ? "none" : m.id,
-            })}
+            onClick={() =>
+              onDrawStateChange({
+                ...createDrawState(),
+                mode: drawState.mode === m.id ? "none" : m.id,
+              })
+            }
             style={{
               flex: 1,
               padding: "8px 4px",
@@ -91,7 +104,8 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
       {drawState.mode === "edit" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11 }}>
           <div style={{ color: "#fbbf24", fontWeight: 600 }}>
-            Edit Mode &mdash; {drawState.selectedVertexIndex >= 0
+            Edit Mode &mdash;{" "}
+            {drawState.selectedVertexIndex >= 0
               ? `Vertex #${drawState.selectedVertexIndex + 1} selected (drag to move)`
               : "Click a vertex to select, drag to move"}
           </div>
@@ -104,9 +118,14 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
               }}
               disabled={drawState.selectedVertexIndex < 0}
               style={{
-                flex: 1, padding: "5px", background: bg, border: `1px solid ${border}`,
-                borderRadius: 4, color: drawState.selectedVertexIndex < 0 ? textSec : "#ef4444",
-                cursor: drawState.selectedVertexIndex < 0 ? "default" : "pointer", fontSize: 11,
+                flex: 1,
+                padding: "5px",
+                background: bg,
+                border: `1px solid ${border}`,
+                borderRadius: 4,
+                color: drawState.selectedVertexIndex < 0 ? textSec : "#ef4444",
+                cursor: drawState.selectedVertexIndex < 0 ? "default" : "pointer",
+                fontSize: 11,
               }}
             >
               Delete Vertex
@@ -114,8 +133,14 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
             <button
               onClick={() => onDrawStateChange(exitEditMode(drawState))}
               style={{
-                flex: 1, padding: "5px", background: bg, border: `1px solid ${border}`,
-                borderRadius: 4, color: text, cursor: "pointer", fontSize: 11,
+                flex: 1,
+                padding: "5px",
+                background: bg,
+                border: `1px solid ${border}`,
+                borderRadius: 4,
+                color: text,
+                cursor: "pointer",
+                fontSize: 11,
               }}
             >
               Done Editing
@@ -189,7 +214,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
             background: drawState.mode === "edit" ? "#fbbf24" : bg,
             border: `1px solid ${drawState.mode === "edit" ? "#fbbf24" : border}`,
             borderRadius: 4,
-            color: drawState.selectedFeatureIndex < 0 ? textSec : (drawState.mode === "edit" ? "#000" : "#fbbf24"),
+            color: drawState.selectedFeatureIndex < 0 ? textSec : drawState.mode === "edit" ? "#000" : "#fbbf24",
             cursor: drawState.selectedFeatureIndex < 0 ? "default" : "pointer",
             fontSize: 11,
           }}
@@ -287,7 +312,8 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
         {drawState.features.length} feature{drawState.features.length !== 1 ? "s" : ""}
         {drawState.selectedFeatureIndex >= 0 && (
           <span style={{ color: "#fbbf24" }}>
-            {" "}(#<span style={{ color: text }}>{drawState.selectedFeatureIndex + 1}</span> selected)
+            {" "}
+            (#<span style={{ color: text }}>{drawState.selectedFeatureIndex + 1}</span> selected)
             {(() => {
               const m = measureFeature(drawState.features[drawState.selectedFeatureIndex]);
               if (!m) return null;
@@ -295,7 +321,12 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
               if (m.type === "area") return <span> &mdash; {formatArea(m.value, imperial)}</span>;
               if (m.type === "point") {
                 const c = drawState.features[drawState.selectedFeatureIndex].geometry!.coordinates as [number, number];
-                return <span> &mdash; {c[1].toFixed(5)}, {c[0].toFixed(5)}</span>;
+                return (
+                  <span>
+                    {" "}
+                    &mdash; {c[1].toFixed(5)}, {c[0].toFixed(5)}
+                  </span>
+                );
               }
               return null;
             })()}

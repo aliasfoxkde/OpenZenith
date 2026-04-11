@@ -9,7 +9,7 @@ export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { query?: string };
+    const body = (await request.json()) as { query?: string };
     const query = body.query;
 
     if (!query || typeof query !== "string") {

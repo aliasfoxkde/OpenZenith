@@ -136,7 +136,7 @@ function latLonToTile(lat: number, lon: number, zoom: number): { x: number; y: n
   const n = Math.pow(2, zoom);
   const x = Math.floor(((lon + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
   return { x, y: Math.max(0, Math.min(y, n - 1)) };
 }
 
@@ -183,18 +183,19 @@ function waitForMapLibre(timeoutMs = 15000): Promise<any> {
   const w = window as any;
   if (w.maplibregl) return Promise.resolve(w.maplibregl);
   return loadMapLibre().then(
-    () => new Promise((resolve, reject) => {
-      const start = Date.now();
-      const iv = setInterval(() => {
-        if (w.maplibregl) {
-          clearInterval(iv);
-          resolve(w.maplibregl);
-        } else if (Date.now() - start > timeoutMs) {
-          clearInterval(iv);
-          reject(new Error("MapLibre GL failed to load"));
-        }
-      }, 100);
-    })
+    () =>
+      new Promise((resolve, reject) => {
+        const start = Date.now();
+        const iv = setInterval(() => {
+          if (w.maplibregl) {
+            clearInterval(iv);
+            resolve(w.maplibregl);
+          } else if (Date.now() - start > timeoutMs) {
+            clearInterval(iv);
+            reject(new Error("MapLibre GL failed to load"));
+          }
+        }, 100);
+      }),
   );
 }
 
@@ -348,11 +349,7 @@ async function fetchPlaceName(lat: number, lon: number): Promise<string | null> 
     const data = await res.json();
     if (!data.place?.address) return null;
     const addr = data.place.address;
-    const parts = [
-      addr.city || addr.town || addr.village || addr.county,
-      addr.state,
-      addr.country,
-    ].filter(Boolean);
+    const parts = [addr.city || addr.town || addr.village || addr.county, addr.state, addr.country].filter(Boolean);
     return parts.length > 0 ? parts.join(", ") : null;
   } catch {
     return null;
@@ -468,7 +465,9 @@ export default function Home() {
         // GeoIP unavailable — silent fallback, user can type manually
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
@@ -553,28 +552,34 @@ export default function Home() {
               tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
               maxzoom: 6,
             });
-            map.addLayer({
-              id: "boundary-glow",
-              type: "line",
-              source: "boundaries",
-              "source-layer": "boundary",
-              paint: {
-                "line-color": "rgba(0, 229, 255, 0.12)",
-                "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
-                "line-blur": 2,
+            map.addLayer(
+              {
+                id: "boundary-glow",
+                type: "line",
+                source: "boundaries",
+                "source-layer": "boundary",
+                paint: {
+                  "line-color": "rgba(0, 229, 255, 0.12)",
+                  "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
+                  "line-blur": 2,
+                },
               },
-            }, "osm");
-            map.addLayer({
-              id: "boundary-line",
-              type: "line",
-              source: "boundaries",
-              "source-layer": "boundary",
-              paint: {
-                "line-color": "rgba(0, 229, 255, 0.25)",
-                "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
-                "line-opacity": 0.6,
+              "osm",
+            );
+            map.addLayer(
+              {
+                id: "boundary-line",
+                type: "line",
+                source: "boundaries",
+                "source-layer": "boundary",
+                paint: {
+                  "line-color": "rgba(0, 229, 255, 0.25)",
+                  "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
+                  "line-opacity": 0.6,
+                },
               },
-            }, "boundary-glow");
+              "boundary-glow",
+            );
           } catch {
             // Boundary tiles unavailable — continue without
           }
@@ -632,7 +637,14 @@ export default function Home() {
     if (coordMatch) {
       const parsedLat = parseFloat(coordMatch[1]);
       const parsedLon = parseFloat(coordMatch[2]);
-      if (!isNaN(parsedLat) && !isNaN(parsedLon) && parsedLat >= -90 && parsedLat <= 90 && parsedLon >= -180 && parsedLon <= 180) {
+      if (
+        !isNaN(parsedLat) &&
+        !isNaN(parsedLon) &&
+        parsedLat >= -90 &&
+        parsedLat <= 90 &&
+        parsedLon >= -180 &&
+        parsedLon <= 180
+      ) {
         setLat(parsedLat.toString());
         setLon(parsedLon.toString());
         setSearchResults([]);
@@ -685,11 +697,9 @@ export default function Home() {
         // Extract address from unified response
         if (data.address) {
           const addr = data.address.address;
-          const parts = [
-            addr?.city || addr?.town || addr?.village || addr?.county,
-            addr?.state,
-            addr?.country,
-          ].filter(Boolean);
+          const parts = [addr?.city || addr?.town || addr?.village || addr?.county, addr?.state, addr?.country].filter(
+            Boolean,
+          );
           setPlaceName(parts.length > 0 ? parts.join(", ") : data.address.display_name || null);
         } else {
           setPlaceName(null);
@@ -721,7 +731,11 @@ export default function Home() {
       <Navbar dark={dark} />
 
       {/* Hero: Map background + Elevation lookup */}
-      <section id="hero" className="oz-hero" style={{ position: "relative", height: 660, overflow: "hidden", marginBottom: "2rem" }}>
+      <section
+        id="hero"
+        className="oz-hero"
+        style={{ position: "relative", height: 660, overflow: "hidden", marginBottom: "2rem" }}
+      >
         {/* Map background */}
         <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0 }} />
         {/* Dark overlay */}
@@ -738,7 +752,9 @@ export default function Home() {
         />
         {/* Loading indicator */}
         {mapLoading && (
-          <div id="hero-loading" className="oz-hero-loading"
+          <div
+            id="hero-loading"
+            className="oz-hero-loading"
             style={{
               position: "absolute",
               top: "50%",
@@ -756,7 +772,9 @@ export default function Home() {
           </div>
         )}
         {/* Content overlay */}
-        <div id="hero-content" className="oz-hero-content"
+        <div
+          id="hero-content"
+          className="oz-hero-content"
           style={{
             position: "relative",
             zIndex: 1,
@@ -769,7 +787,9 @@ export default function Home() {
             justifyContent: "center",
           }}
         >
-          <h1 id="hero-title" className="oz-hero-title"
+          <h1
+            id="hero-title"
+            className="oz-hero-title"
             style={{
               fontSize: "2rem",
               fontWeight: 700,
@@ -780,20 +800,27 @@ export default function Home() {
           >
             Free global geospatial API
           </h1>
-          <p id="hero-subtitle" className="oz-hero-subtitle" style={{ fontSize: "0.88rem", color: textSecondary, margin: "0 0 1.25rem", lineHeight: 1.5 }}>
+          <p
+            id="hero-subtitle"
+            className="oz-hero-subtitle"
+            style={{ fontSize: "0.88rem", color: textSecondary, margin: "0 0 1.25rem", lineHeight: 1.5 }}
+          >
             Elevation, weather, tides, and address data for any point on Earth. No API key or signup required.
           </p>
 
           {/* User location badge from GeoIP */}
           {userGeo && (userGeo.city || userGeo.country) && (
-            <div id="user-location-badge" style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              marginBottom: "0.75rem",
-              fontSize: "0.78rem",
-              color: textSecondary,
-            }}>
+            <div
+              id="user-location-badge"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                marginBottom: "0.75rem",
+                fontSize: "0.78rem",
+                color: textSecondary,
+              }}
+            >
               <span style={{ color: accent, fontSize: "0.7rem" }}>&#9679;</span>
               <span>{[userGeo.city, userGeo.region, userGeo.country].filter(Boolean).join(", ")}</span>
             </div>
@@ -802,17 +829,29 @@ export default function Home() {
           {/* Address search */}
           <div ref={searchRef} style={{ position: "relative", marginBottom: "0.6rem" }}>
             <div style={{ position: "relative", display: "flex" }}>
-              <span style={{
-                position: "absolute", left: "0.7rem", top: "50%", transform: "translateY(-50%)",
-                color: textSecondary, fontSize: "0.85rem", pointerEvents: "none", zIndex: 1,
-              }}>&#128269;</span>
+              <span
+                style={{
+                  position: "absolute",
+                  left: "0.7rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: textSecondary,
+                  fontSize: "0.85rem",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              >
+                &#128269;
+              </span>
               <input
                 id="address-search"
                 className="oz-input oz-input-search"
                 placeholder="Search address or place..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
+                onFocus={() => {
+                  if (searchResults.length > 0) setSearchOpen(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") setSearchOpen(false);
                 }}
@@ -824,11 +863,23 @@ export default function Home() {
               />
               {searchQuery && (
                 <button
-                  onClick={() => { setSearchQuery(""); setSearchResults([]); setSearchOpen(false); }}
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSearchResults([]);
+                    setSearchOpen(false);
+                  }}
                   style={{
-                    position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)",
-                    background: "none", border: "none", color: textSecondary, cursor: "pointer",
-                    fontSize: "0.85rem", padding: "0.1rem", lineHeight: 1,
+                    position: "absolute",
+                    right: "0.5rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: textSecondary,
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    padding: "0.1rem",
+                    lineHeight: 1,
                   }}
                 >
                   &#x2715;
@@ -836,12 +887,22 @@ export default function Home() {
               )}
             </div>
             {searchOpen && searchResults.length > 0 && (
-              <div style={{
-                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
-                background: cardBg, border: `1px solid ${border}`, borderRadius: 6,
-                maxHeight: "12rem", overflowY: "auto", marginTop: "0.2rem",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              }}>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  zIndex: 10,
+                  background: cardBg,
+                  border: `1px solid ${border}`,
+                  borderRadius: 6,
+                  maxHeight: "12rem",
+                  overflowY: "auto",
+                  marginTop: "0.2rem",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                }}
+              >
                 {searchResults.map((r, i) => (
                   <button
                     key={i}
@@ -853,9 +914,15 @@ export default function Home() {
                       lookup();
                     }}
                     style={{
-                      display: "block", width: "100%", textAlign: "left",
-                      padding: "0.5rem 0.75rem", border: "none", background: "none",
-                      color: text, fontSize: "0.82rem", cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "0.5rem 0.75rem",
+                      border: "none",
+                      background: "none",
+                      color: text,
+                      fontSize: "0.82rem",
+                      cursor: "pointer",
                       borderBottom: i < searchResults.length - 1 ? `1px solid ${border}` : "none",
                     }}
                   >
@@ -870,20 +937,30 @@ export default function Home() {
           </div>
 
           {/* Lookup inputs */}
-          <div id="lookup-form" className="oz-lookup-form" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem" }}>
-            <input id="lookup-lat" className="oz-input oz-input-lat"
+          <div
+            id="lookup-form"
+            className="oz-lookup-form"
+            style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem" }}
+          >
+            <input
+              id="lookup-lat"
+              className="oz-input oz-input-lat"
               placeholder="Latitude"
               value={lat}
               onChange={(e) => setLat(e.target.value)}
               style={inputStyle}
             />
-            <input id="lookup-lon" className="oz-input oz-input-lon"
+            <input
+              id="lookup-lon"
+              className="oz-input oz-input-lon"
               placeholder="Longitude"
               value={lon}
               onChange={(e) => setLon(e.target.value)}
               style={inputStyle}
             />
-            <button id="lookup-btn" className="oz-lookup-btn"
+            <button
+              id="lookup-btn"
+              className="oz-lookup-btn"
               onClick={lookup}
               disabled={loading}
               style={{
@@ -928,7 +1005,8 @@ export default function Home() {
               </button>
             ))}
             <button
-              id="shuffle-btn" className="oz-shuffle-btn"
+              id="shuffle-btn"
+              className="oz-shuffle-btn"
               onClick={() => setSampleLocations(pickRandomLocations(4))}
               title="Shuffle locations"
               style={{
@@ -948,7 +1026,9 @@ export default function Home() {
 
           {/* Error */}
           {error && (
-            <div id="lookup-error" className="oz-lookup-error">{error}</div>
+            <div id="lookup-error" className="oz-lookup-error">
+              {error}
+            </div>
           )}
 
           {/* Combined Result + Code Snippets panel */}
@@ -1007,11 +1087,11 @@ export default function Home() {
                         ? `https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}`
                         : snippetTab === "tile"
                           ? `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`
-                        : snippetTab === "curl"
-                          ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}"`
-                          : snippetTab === "js"
-                            ? `const res = await fetch('/api/elevation?lat=${la}&lon=${lo}')\nconst { elevation } = await res.json()`
-                            : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${la}, "lon": ${lo}})\nprint(res.json()["elevation"])`;
+                          : snippetTab === "curl"
+                            ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}"`
+                            : snippetTab === "js"
+                              ? `const res = await fetch('/api/elevation?lat=${la}&lon=${lo}')\nconst { elevation } = await res.json()`
+                              : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${la}, "lon": ${lo}})\nprint(res.json()["elevation"])`;
                   navigator.clipboard.writeText(snippetText);
                   setSnippetCopied(true);
                   setTimeout(() => setSnippetCopied(false), 1500);
@@ -1024,16 +1104,21 @@ export default function Home() {
               dark={dark}
               code={
                 snippetTab === "result" && result
-                  ? result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"
+                  ? result.elevation !== null
+                    ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)`
+                    : "No data"
                   : snippetTab === "url"
                     ? `https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`
                     : snippetTab === "tile"
-                      ? (() => { const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8); return `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`; })()
-                    : snippetTab === "curl"
-                      ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
-                      : snippetTab === "js"
-                        ? `const res = await fetch('/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}')\nconst { elevation } = await res.json()`
-                        : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${lat || "28.0"}, "lon": ${lon || "86.9"}})\nprint(res.json()["elevation"])`
+                      ? (() => {
+                          const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8);
+                          return `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`;
+                        })()
+                      : snippetTab === "curl"
+                        ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
+                        : snippetTab === "js"
+                          ? `const res = await fetch('/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}')\nconst { elevation } = await res.json()`
+                          : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${lat || "28.0"}, "lon": ${lon || "86.9"}})\nprint(res.json()["elevation"])`
               }
             >
               {snippetTab === "result" && result && (
@@ -1045,10 +1130,13 @@ export default function Home() {
                     )}
                   </div>
                   <div className="oz-result-meta">
-                    {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot; {(result as any).tile || (result as any).srtmTile} &middot; {result.resolution}m
+                    {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot;{" "}
+                    {(result as any).tile || (result as any).srtmTile} &middot; {result.resolution}m
                   </div>
                   {placeName && (
-                    <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.15rem", fontStyle: "italic" }}>
+                    <div
+                      style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.15rem", fontStyle: "italic" }}
+                    >
                       near {placeName}
                     </div>
                   )}
@@ -1065,45 +1153,63 @@ export default function Home() {
                   https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}
                 </a>
               )}
-              {snippetTab === "tile" && (() => {
-                const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8);
-                const tileUrl = `/api/tile/8/${t.x}/${t.y}`;
-                const mapUrl = `/map#lng=${(lat || "86.9")}&lat=${(lat || "28.0")}&zoom=10`;
-                return (
-                  <>
-                    <a className="oz-snippet-url" href={`https://openzenith.cyopsys.com${tileUrl}`} target="_blank" rel="noopener noreferrer">
-                      https://openzenith.cyopsys.com{tileUrl}
-                    </a>
-                    <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {snippetTab === "tile" &&
+                (() => {
+                  const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8);
+                  const tileUrl = `/api/tile/8/${t.x}/${t.y}`;
+                  const mapUrl = `/map#lng=${lat || "86.9"}&lat=${lat || "28.0"}&zoom=10`;
+                  return (
+                    <>
                       <a
-                        href={mapUrl}
-                        style={{
-                          fontSize: "0.68rem", color: "var(--oz-accent, #00e5ff)",
-                          textDecoration: "none", fontFamily: "var(--oz-font-mono, monospace)",
-                        }}
+                        className="oz-snippet-url"
+                        href={`https://openzenith.cyopsys.com${tileUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
-                        Open in Map &rarr;
+                        https://openzenith.cyopsys.com{tileUrl}
                       </a>
-                      <span style={{ fontSize: "0.65rem", color: "var(--oz-text-secondary, #64748b)", fontFamily: "var(--oz-font-mono, monospace)" }}>
-                        z8 &middot; {t.x}/{t.y} &middot; 256&times;256 Int16
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
+                      <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <a
+                          href={mapUrl}
+                          style={{
+                            fontSize: "0.68rem",
+                            color: "var(--oz-accent, #00e5ff)",
+                            textDecoration: "none",
+                            fontFamily: "var(--oz-font-mono, monospace)",
+                          }}
+                        >
+                          Open in Map &rarr;
+                        </a>
+                        <span
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "var(--oz-text-secondary, #64748b)",
+                            fontFamily: "var(--oz-font-mono, monospace)",
+                          }}
+                        >
+                          z8 &middot; {t.x}/{t.y} &middot; 256&times;256 Int16
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               {snippetTab === "curl" && (
                 <div>
                   <span className="oz-syn-method">curl</span>{" "}
-                  <span style={{ color: text }}>"https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}"</span>
+                  <span style={{ color: text }}>
+                    "https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}"
+                  </span>
                 </div>
               )}
               {snippetTab === "js" && (
                 <>
                   <div>
                     <span className="oz-syn-keyword">const</span> res ={" "}
-                    <span style={{ color: textSecondary }}>await</span>{" "}
-                    <span className="oz-syn-function">fetch</span>(
-                    <span className="oz-syn-string">&apos;/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}&apos;</span>)
+                    <span style={{ color: textSecondary }}>await</span> <span className="oz-syn-function">fetch</span>(
+                    <span className="oz-syn-string">
+                      &apos;/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}&apos;
+                    </span>
+                    )
                   </div>
                   <div>
                     <span className="oz-syn-keyword">const</span> &#123; elevation &#125; ={" "}
@@ -1122,8 +1228,8 @@ export default function Home() {
                   </div>
                   <div>
                     &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span className="oz-syn-string">"lat"</span>:{" "}
-                    <span className="oz-syn-number">{lat || "28.0"}</span>, <span className="oz-syn-string">"lon"</span>:{" "}
-                    <span className="oz-syn-number">{lon || "86.9"}</span>&#125;)
+                    <span className="oz-syn-number">{lat || "28.0"}</span>, <span className="oz-syn-string">"lon"</span>
+                    : <span className="oz-syn-number">{lon || "86.9"}</span>&#125;)
                   </div>
                   <div>
                     <span className="oz-syn-keyword">print</span>(res.json()[
@@ -1403,11 +1509,29 @@ export default function Home() {
               minHeight={150}
               front={
                 <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.6rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
                     <div style={{ fontSize: "1.5rem" }}>{f.emoji}</div>
                     <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, textAlign: "center" }}>{f.title}</h3>
                   </div>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45, textAlign: "center" }}>{f.desc}</p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.8rem",
+                      color: textSecondary,
+                      lineHeight: 1.45,
+                      textAlign: "center",
+                    }}
+                  >
+                    {f.desc}
+                  </p>
                 </>
               }
               back={
@@ -1477,11 +1601,29 @@ export default function Home() {
               minHeight={150}
               front={
                 <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.6rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
                     <div style={{ fontSize: "1.5rem" }}>{f.emoji}</div>
                     <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, textAlign: "center" }}>{f.title}</h3>
                   </div>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: textSecondary, lineHeight: 1.45, textAlign: "center" }}>{f.desc}</p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.8rem",
+                      color: textSecondary,
+                      lineHeight: 1.45,
+                      textAlign: "center",
+                    }}
+                  >
+                    {f.desc}
+                  </p>
                 </>
               }
               back={
@@ -1929,7 +2071,9 @@ export default function Home() {
               </div>
               <div>
                 <span style={{ color: accent }}>curl</span>{" "}
-                <span style={{ color: text }}>"https://openzenith.cyopsys.com/api/elevation?lat=28.0&amp;lon=86.9"</span>
+                <span style={{ color: text }}>
+                  "https://openzenith.cyopsys.com/api/elevation?lat=28.0&amp;lon=86.9"
+                </span>
               </div>
               <div
                 style={{ marginTop: "0.3rem" }}

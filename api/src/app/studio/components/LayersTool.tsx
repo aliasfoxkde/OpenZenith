@@ -78,8 +78,14 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
             <label
               key={layer.id}
               style={{
-                display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                padding: "5px 8px", background: inputBg, border: `1px solid ${border}`, borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                padding: "5px 8px",
+                background: inputBg,
+                border: `1px solid ${border}`,
+                borderRadius: 4,
               }}
             >
               <div style={{ width: 8, height: 8, borderRadius: 2, background: layer.accent }} />
@@ -103,12 +109,26 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
               <div
                 key={ds.id}
                 style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
-                  background: inputBg, border: `1px solid ${border}`, borderRadius: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "5px 8px",
+                  background: inputBg,
+                  border: `1px solid ${border}`,
+                  borderRadius: 4,
                 }}
               >
                 <div style={{ width: 8, height: 8, borderRadius: 2, background: ds.color }} />
-                <span style={{ color: text, fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    color: text,
+                    fontSize: 11,
+                    flex: 1,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {ds.name}
                 </span>
                 <span style={{ color: textSec, fontSize: 10 }}>{ds.featureCount}</span>

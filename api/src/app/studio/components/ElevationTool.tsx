@@ -21,23 +21,25 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
   const [profileStart, setProfileStart] = useState<{ lat: number; lon: number } | null>(null);
   const [profileEnd, setProfileEnd] = useState<{ lat: number; lon: number } | null>(null);
 
-  const queryElevation = useCallback(
-    async (lat: number, lon: number) => {
-      setLoading(true);
-      try {
-        const data = await getClientElevation(lat, lon);
-        const result: ElevationResult = { lat, lon, elevation: data?.elevation ?? null, surfaceType: data?.surfaceType ?? "unknown" };
-        setResults((prev) => [result, ...prev].slice(0, 50));
-        return result;
-      } catch {
-        setResults((prev) => [{ lat, lon, elevation: null, surfaceType: "unknown" }, ...prev].slice(0, 50));
-        return null;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const queryElevation = useCallback(async (lat: number, lon: number) => {
+    setLoading(true);
+    try {
+      const data = await getClientElevation(lat, lon);
+      const result: ElevationResult = {
+        lat,
+        lon,
+        elevation: data?.elevation ?? null,
+        surfaceType: data?.surfaceType ?? "unknown",
+      };
+      setResults((prev) => [result, ...prev].slice(0, 50));
+      return result;
+    } catch {
+      setResults((prev) => [{ lat, lon, elevation: null, surfaceType: "unknown" }, ...prev].slice(0, 50));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleManualQuery = () => {
     const lat = parseFloat(manualLat);
@@ -52,7 +54,10 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
           setProfileStart({ lat, lon });
         } else if (!profileEnd) {
           setProfileEnd({ lat, lon });
-          onProfileChange?.([[profileStart.lon, profileStart.lat], [lon, lat]]);
+          onProfileChange?.([
+            [profileStart.lon, profileStart.lat],
+            [lon, lat],
+          ]);
         }
         return; // Don't query single elevation in profile mode
       }
@@ -64,7 +69,9 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
   // Expose click handler to parent via ref for map click interception
   useEffect(() => {
     if (profileClickRef) profileClickRef.current = handleMapClick;
-    return () => { if (profileClickRef) profileClickRef.current = null; };
+    return () => {
+      if (profileClickRef) profileClickRef.current = null;
+    };
   }, [handleMapClick, profileClickRef]);
 
   const handleClear = () => {
@@ -100,8 +107,13 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
           value={manualLat}
           onChange={(e) => setManualLat(e.target.value)}
           style={{
-            flex: 1, padding: "5px 8px", background: inputBg, border: `1px solid ${border}`,
-            borderRadius: 4, color: text, fontSize: 12,
+            flex: 1,
+            padding: "5px 8px",
+            background: inputBg,
+            border: `1px solid ${border}`,
+            borderRadius: 4,
+            color: text,
+            fontSize: 12,
           }}
         />
         <input
@@ -109,15 +121,26 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
           value={manualLon}
           onChange={(e) => setManualLon(e.target.value)}
           style={{
-            flex: 1, padding: "5px 8px", background: inputBg, border: `1px solid ${border}`,
-            borderRadius: 4, color: text, fontSize: 12,
+            flex: 1,
+            padding: "5px 8px",
+            background: inputBg,
+            border: `1px solid ${border}`,
+            borderRadius: 4,
+            color: text,
+            fontSize: 12,
           }}
         />
         <button
           onClick={handleManualQuery}
           style={{
-            padding: "5px 12px", background: "#22c55e", color: "#fff", border: "none",
-            borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600,
+            padding: "5px 12px",
+            background: "#22c55e",
+            color: "#fff",
+            border: "none",
+            borderRadius: 4,
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 600,
           }}
         >
           Query
@@ -129,8 +152,13 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
         <button
           onClick={() => queryElevation(cursorPos.lat, cursorPos.lon)}
           style={{
-            padding: "4px 10px", background: "transparent", border: `1px solid ${border}`,
-            borderRadius: 4, cursor: "pointer", color: textSec, fontSize: 11,
+            padding: "4px 10px",
+            background: "transparent",
+            border: `1px solid ${border}`,
+            borderRadius: 4,
+            cursor: "pointer",
+            color: textSec,
+            fontSize: 11,
           }}
         >
           Query cursor ({cursorPos.lat.toFixed(3)}, {cursorPos.lon.toFixed(3)})
@@ -174,13 +202,29 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
             <div style={{ display: "flex", gap: 4 }}>
               <button
                 onClick={copyCSV}
-                style={{ padding: "2px 8px", background: "transparent", border: `1px solid ${border}`, borderRadius: 3, cursor: "pointer", color: textSec, fontSize: 10 }}
+                style={{
+                  padding: "2px 8px",
+                  background: "transparent",
+                  border: `1px solid ${border}`,
+                  borderRadius: 3,
+                  cursor: "pointer",
+                  color: textSec,
+                  fontSize: 10,
+                }}
               >
                 Copy CSV
               </button>
               <button
                 onClick={handleClear}
-                style={{ padding: "2px 8px", background: "transparent", border: `1px solid ${border}`, borderRadius: 3, cursor: "pointer", color: textSec, fontSize: 10 }}
+                style={{
+                  padding: "2px 8px",
+                  background: "transparent",
+                  border: `1px solid ${border}`,
+                  borderRadius: 3,
+                  cursor: "pointer",
+                  color: textSec,
+                  fontSize: 10,
+                }}
               >
                 Clear
               </button>
@@ -190,10 +234,46 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
                 <tr style={{ position: "sticky", top: 0, background: bg }}>
-                  <th style={{ padding: "4px 6px", textAlign: "left", color: textSec, borderBottom: `1px solid ${border}` }}>Elevation</th>
-                  <th style={{ padding: "4px 6px", textAlign: "left", color: textSec, borderBottom: `1px solid ${border}` }}>Type</th>
-                  <th style={{ padding: "4px 6px", textAlign: "right", color: textSec, borderBottom: `1px solid ${border}` }}>Lat</th>
-                  <th style={{ padding: "4px 6px", textAlign: "right", color: textSec, borderBottom: `1px solid ${border}` }}>Lon</th>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "left",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
+                    Elevation
+                  </th>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "left",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
+                    Type
+                  </th>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
+                    Lat
+                  </th>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
+                    Lon
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -202,9 +282,7 @@ export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileCl
                     <td style={{ padding: "3px 6px", color: text, fontFamily: "monospace" }}>
                       {r.elevation !== null ? `${r.elevation.toLocaleString()}m` : "N/A"}
                     </td>
-                    <td style={{ padding: "3px 6px", color: textSec, fontSize: 10 }}>
-                      {r.surfaceType || "-"}
-                    </td>
+                    <td style={{ padding: "3px 6px", color: textSec, fontSize: 10 }}>{r.surfaceType || "-"}</td>
                     <td style={{ padding: "3px 6px", color: textSec, textAlign: "right", fontFamily: "monospace" }}>
                       {r.lat.toFixed(4)}
                     </td>

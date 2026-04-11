@@ -52,5 +52,7 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
     }
 
     entitiesRef.current["elev-points"] = pointCollection;
-  } catch { /* batch fetch failed — skip silently */ }
+  } catch {
+    /* batch fetch failed — skip silently */
+  }
 }

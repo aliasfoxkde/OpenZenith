@@ -42,7 +42,11 @@ function loadSettings(): Settings {
 
 function saveSettings(s: Settings) {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* tracking prevention */ }
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    /* tracking prevention */
+  }
 }
 
 const COORD_FORMATS = [
@@ -54,7 +58,10 @@ const COORD_FORMATS = [
 export function SettingsWidget({ globe }: WidgetProps) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    ui: true, performance: false, coords: false, theme: false,
+    ui: true,
+    performance: false,
+    coords: false,
+    theme: false,
   });
 
   useEffect(() => {
@@ -88,7 +95,8 @@ export function SettingsWidget({ globe }: WidgetProps) {
       {/* UI Elements */}
       <div className="wv-section">
         <div className={`wv-section-header ${openSections.ui ? "open" : ""}`} onClick={() => sectionToggle("ui")}>
-          <span>UI Elements</span><span className="arrow">&#9654;</span>
+          <span>UI Elements</span>
+          <span className="arrow">&#9654;</span>
         </div>
         <div className={`wv-section-body ${openSections.ui ? "open" : ""}`}>
           {checkbox("Compass", "showCompass")}
@@ -101,8 +109,12 @@ export function SettingsWidget({ globe }: WidgetProps) {
 
       {/* Performance */}
       <div className="wv-section">
-        <div className={`wv-section-header ${openSections.performance ? "open" : ""}`} onClick={() => sectionToggle("performance")}>
-          <span>Performance</span><span className="arrow">&#9654;</span>
+        <div
+          className={`wv-section-header ${openSections.performance ? "open" : ""}`}
+          onClick={() => sectionToggle("performance")}
+        >
+          <span>Performance</span>
+          <span className="arrow">&#9654;</span>
         </div>
         <div className={`wv-section-body ${openSections.performance ? "open" : ""}`}>
           <div className="wv-setting-row">
@@ -133,8 +145,12 @@ export function SettingsWidget({ globe }: WidgetProps) {
 
       {/* Coordinate Format */}
       <div className="wv-section">
-        <div className={`wv-section-header ${openSections.coords ? "open" : ""}`} onClick={() => sectionToggle("coords")}>
-          <span>Coordinates</span><span className="arrow">&#9654;</span>
+        <div
+          className={`wv-section-header ${openSections.coords ? "open" : ""}`}
+          onClick={() => sectionToggle("coords")}
+        >
+          <span>Coordinates</span>
+          <span className="arrow">&#9654;</span>
         </div>
         <div className={`wv-section-body ${openSections.coords ? "open" : ""}`}>
           <div className="wv-setting-row">
@@ -154,7 +170,9 @@ export function SettingsWidget({ globe }: WidgetProps) {
               }}
             >
               {COORD_FORMATS.map((f) => (
-                <option key={f.value} value={f.value}>{f.label}</option>
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
               ))}
             </select>
           </div>
@@ -164,7 +182,8 @@ export function SettingsWidget({ globe }: WidgetProps) {
       {/* Theme */}
       <div className="wv-section">
         <div className={`wv-section-header ${openSections.theme ? "open" : ""}`} onClick={() => sectionToggle("theme")}>
-          <span>Theme</span><span className="arrow">&#9654;</span>
+          <span>Theme</span>
+          <span className="arrow">&#9654;</span>
         </div>
         <div className={`wv-section-body ${openSections.theme ? "open" : ""}`}>
           <div className="wv-bm-grid">

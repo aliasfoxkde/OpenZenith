@@ -1,20 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import {
-  parseGeoJSON,
-  parseCSV,
-  parseKML,
-  parseGPX,
-  parseFile,
-} from "@/app/studio/lib/parsers";
+import { parseGeoJSON, parseCSV, parseKML, parseGPX, parseFile } from "@/app/studio/lib/parsers";
 
 describe("parseGeoJSON", () => {
   it("parses a FeatureCollection", () => {
     const data = {
       type: "FeatureCollection",
-      features: [
-        { type: "Feature", geometry: { type: "Point", coordinates: [0, 0] }, properties: {} },
-      ],
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [0, 0] }, properties: {} }],
     };
     const result = parseGeoJSON(JSON.stringify(data));
     expect(result.type).toBe("FeatureCollection");
@@ -28,7 +20,11 @@ describe("parseGeoJSON", () => {
   });
 
   it("parses an array of coordinates", () => {
-    const data = [[0, 0], [1, 1], [2, 2]];
+    const data = [
+      [0, 0],
+      [1, 1],
+      [2, 2],
+    ];
     const result = parseGeoJSON(JSON.stringify(data));
     expect(result.features).toHaveLength(3);
   });
@@ -68,7 +64,8 @@ describe("parseCSV", () => {
 
 describe.skip("parseKML (requires browser DOMParser)", () => {
   it("parses KML with Point placemarks", () => {
-    const kml = '<?xml version="1.0"?><kml><Document><Placemark><name>Test</name><Point><coordinates>-74.0,40.7,0</coordinates></Point></Placemark></Document></kml>';
+    const kml =
+      '<?xml version="1.0"?><kml><Document><Placemark><name>Test</name><Point><coordinates>-74.0,40.7,0</coordinates></Point></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("Point");
@@ -76,7 +73,8 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
   });
 
   it("parses KML with LineString", () => {
-    const kml = '<?xml version="1.0"?><kml><Document><Placemark><name>Path</name><LineString><coordinates>-74.0,40.7,0 -73.0,41.7,0 -72.0,42.7,0</coordinates></LineString></Placemark></Document></kml>';
+    const kml =
+      '<?xml version="1.0"?><kml><Document><Placemark><name>Path</name><LineString><coordinates>-74.0,40.7,0 -73.0,41.7,0 -72.0,42.7,0</coordinates></LineString></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("LineString");
@@ -84,7 +82,8 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
   });
 
   it("parses KML with Polygon including inner boundaries", () => {
-    const kml = '<?xml version="1.0"?><kml><Document><Placemark><name>Area</name><Polygon><outerBoundaryIs><LinearRing><coordinates>0,0,0 1,0,0 1,1,0 0,1,0 0,0,0</coordinates></LinearRing></outerBoundaryIs><innerBoundaryIs><LinearRing><coordinates>0.25,0.25,0 0.75,0.25,0 0.75,0.75,0 0.25,0.75,0 0.25,0.25,0</coordinates></LinearRing></innerBoundaryIs></Polygon></Placemark></Document></kml>';
+    const kml =
+      '<?xml version="1.0"?><kml><Document><Placemark><name>Area</name><Polygon><outerBoundaryIs><LinearRing><coordinates>0,0,0 1,0,0 1,1,0 0,1,0 0,0,0</coordinates></LinearRing></outerBoundaryIs><innerBoundaryIs><LinearRing><coordinates>0.25,0.25,0 0.75,0.25,0 0.75,0.75,0 0.25,0.75,0 0.25,0.25,0</coordinates></LinearRing></innerBoundaryIs></Polygon></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("Polygon");
@@ -92,7 +91,8 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
   });
 
   it("parses KML with MultiGeometry", () => {
-    const kml = '<?xml version="1.0"?><kml><Document><Placemark><name>Multi</name><MultiGeometry><Point><coordinates>-74,40,0</coordinates></Point><Point><coordinates>-73,41,0</coordinates></Point></MultiGeometry></Placemark></Document></kml>';
+    const kml =
+      '<?xml version="1.0"?><kml><Document><Placemark><name>Multi</name><MultiGeometry><Point><coordinates>-74,40,0</coordinates></Point><Point><coordinates>-73,41,0</coordinates></Point></MultiGeometry></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("MultiPoint");
@@ -161,7 +161,7 @@ describe("parseFile", () => {
   });
 
   it("detects KML format", () => {
-    const kml = '<kml><Placemark><Point><coordinates>0,0,0</coordinates></Point></Placemark></kml>';
+    const kml = "<kml><Placemark><Point><coordinates>0,0,0</coordinates></Point></Placemark></kml>";
     const result = parseFile(kml, "test.kml");
     expect(result.format).toBe("KML");
   });

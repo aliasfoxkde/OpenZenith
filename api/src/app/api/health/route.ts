@@ -6,31 +6,34 @@ export async function GET() {
   const backend = process.env.STORAGE_BACKEND || "huggingface";
   const repo = process.env.HF_REPO || "aliasfox/srtm30m-chunks";
 
-  return NextResponse.json({
-    status: "healthy",
-    version: "0.2.0",
-    storage: {
-      backend,
-      type: "chunks",
-      repo: backend === "huggingface" ? repo : "configured",
-      chunkSize: "256x256",
+  return NextResponse.json(
+    {
+      status: "healthy",
+      version: "0.2.0",
+      storage: {
+        backend,
+        type: "chunks",
+        repo: backend === "huggingface" ? repo : "configured",
+        chunkSize: "256x256",
+      },
+      coverage: {
+        source: "SRTM 30m Global",
+        resolution: "30 meters",
+        latRange: [-56, 60],
+        lonRange: [-180, 180],
+      },
+      endpoints: {
+        elevation: "/api/elevation?lat={lat}&lon={lon}",
+        tile: "/api/tile/{z}/{x}/{y}",
+        health: "/api/health",
+        docs: "/api/docs",
+      },
     },
-    coverage: {
-      source: "SRTM 30m Global",
-      resolution: "30 meters",
-      latRange: [-56, 60],
-      lonRange: [-180, 180],
+    {
+      headers: {
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
     },
-    endpoints: {
-      elevation: "/api/elevation?lat={lat}&lon={lon}",
-      tile: "/api/tile/{z}/{x}/{y}",
-      health: "/api/health",
-      docs: "/api/docs",
-    },
-  }, {
-    headers: {
-      "Cache-Control": "no-cache",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
+  );
 }

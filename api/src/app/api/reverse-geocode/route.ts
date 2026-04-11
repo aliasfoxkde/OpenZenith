@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await res.json() as Record<string, unknown>;
+    const data = (await res.json()) as Record<string, unknown>;
 
     if (data.error) {
       return NextResponse.json(
@@ -71,9 +71,6 @@ export async function GET(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch {
-    return NextResponse.json(
-      { error: "Reverse geocoding request failed" },
-      { status: 500, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Reverse geocoding request failed" }, { status: 500, headers: CORS_HEADERS });
   }
 }

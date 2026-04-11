@@ -32,11 +32,7 @@ function cacheKey(url: string): string {
  * @param ttlSeconds - Cache TTL in seconds (default 60)
  * @param fetchOpts - Optional fetch options (method, headers, etc.)
  */
-export async function cachedFetch(
-  url: string,
-  ttlSeconds = 60,
-  fetchOpts?: RequestInit,
-): Promise<Response> {
+export async function cachedFetch(url: string, ttlSeconds = 60, fetchOpts?: RequestInit): Promise<Response> {
   // Try Cache API (available in Cloudflare Workers, some edge runtimes)
   if (typeof caches !== "undefined") {
     try {
@@ -99,7 +95,9 @@ export async function cacheInvalidate(url: string): Promise<void> {
     try {
       const cache = await caches.open(CACHE_NAMESPACE);
       await cache.delete(cacheKey(url));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 }
 

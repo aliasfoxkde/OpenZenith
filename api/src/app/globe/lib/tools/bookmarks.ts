@@ -29,10 +29,19 @@ export function saveBookmarks(bookmarks: Bookmark[]): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
-  } catch { /* tracking prevention */ }
+  } catch {
+    /* tracking prevention */
+  }
 }
 
-export function createBookmark(name: string, lat: number, lon: number, alt: number, heading: number, pitch: number): Bookmark {
+export function createBookmark(
+  name: string,
+  lat: number,
+  lon: number,
+  alt: number,
+  heading: number,
+  pitch: number,
+): Bookmark {
   return {
     id: `bm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     name,

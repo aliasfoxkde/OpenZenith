@@ -29,20 +29,31 @@ const SV = {
 
 /** Map OpenSky aircraft category codes to human-readable labels */
 const CATEGORY_LABELS: Record<string, string> = {
-  "0": "No info", "1": "Light", "2": "Small", "3": "Large",
-  "4": "High Vortex", "5": "Heavy", "6": "High Perf",
-  "7": "Rotorcraft", "8": "Glider", "9": "Lighter-than-air",
-  "A": "Parachute", "B": "UAV/Drone", "C": "Space",
-  "D": "Emergency Surf.", "E": "Service", "F": "Point Obstacle",
+  "0": "No info",
+  "1": "Light",
+  "2": "Small",
+  "3": "Large",
+  "4": "High Vortex",
+  "5": "Heavy",
+  "6": "High Perf",
+  "7": "Rotorcraft",
+  "8": "Glider",
+  "9": "Lighter-than-air",
+  A: "Parachute",
+  B: "UAV/Drone",
+  C: "Space",
+  D: "Emergency Surf.",
+  E: "Service",
+  F: "Point Obstacle",
 };
 
 /** Enhanced altitude-based color bands (5 bands for better visual differentiation) */
 function altColor(alt: number, Cesium: any): any {
-  if (alt < 3000) return Cesium.Color.LIME;       // Ground / low
-  if (alt < 6000) return Cesium.Color.YELLOW;     // Low altitude
-  if (alt < 10000) return Cesium.Color.CYAN;      // Mid altitude
+  if (alt < 3000) return Cesium.Color.LIME; // Ground / low
+  if (alt < 6000) return Cesium.Color.YELLOW; // Low altitude
+  if (alt < 10000) return Cesium.Color.CYAN; // Mid altitude
   if (alt < 15000) return Cesium.Color.DEEPSKYBLUE; // High cruise
-  return Cesium.Color.RED;                         // Very high
+  return Cesium.Color.RED; // Very high
 }
 
 /** Format altitude as flight level */
@@ -56,7 +67,8 @@ function toKnots(ms: number): number {
 }
 
 export function loadFlights(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -91,7 +103,9 @@ export function loadFlights(
       `${flightLevel(alt)}  ${toKnots(spd)}kt  ${Math.round(hdg)}° ${vRateLabel}`,
       `${catLabel}  [${country}]`,
       squawk ? `SQK: ${squawk}` : null,
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     viewer.entities.add({
       id: `flight-${idx}`,
@@ -106,15 +120,23 @@ export function loadFlights(
         color: color.withAlpha(0.9),
         scaleByDistance: new Cesium.NearFarScalar(1e5, 1.5, 2e6, 0.4),
       },
-      label: callsign ? {
-        text: callsign, font: "10px 'JetBrains Mono', monospace", fillColor: color.withAlpha(0.9),
-        outlineColor: Cesium.Color.BLACK, outlineWidth: 2, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(12, -8), verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.65),
-        backgroundPadding: new Cesium.Cartesian2(4, 2),
-        scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e5, 0.0),
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000),
-      } : undefined,
+      label: callsign
+        ? {
+            text: callsign,
+            font: "10px 'JetBrains Mono', monospace",
+            fillColor: color.withAlpha(0.9),
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new Cesium.Cartesian2(12, -8),
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
+            showBackground: true,
+            backgroundColor: Cesium.Color.BLACK.withAlpha(0.65),
+            backgroundPadding: new Cesium.Cartesian2(4, 2),
+            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e5, 0.0),
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000),
+          }
+        : undefined,
       description: tooltip,
       properties: {
         type: "flight",
@@ -134,13 +156,17 @@ export function loadFlights(
     if (spd > 100 && hdg > 0 && !onGround) {
       const vecLen = Math.min(spd * 0.15, 8000);
       const hdgRad = Cesium.Math.toRadians(hdg);
-      const dLat = vecLen * Math.cos(hdgRad) / 111320;
-      const dLon = vecLen * Math.sin(hdgRad) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
+      const dLat = (vecLen * Math.cos(hdgRad)) / 111320;
+      const dLon = (vecLen * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
       viewer.entities.add({
         id: `flight-vec-${idx}`,
         position: Cesium.Cartesian3.fromDegrees(s[SV.LON], s[SV.LAT], Math.max(alt, 0)),
         polyline: {
-          positions: Cesium.Cartesian3.fromDegreesArray([s[SV.LON], s[SV.LAT], s[SV.LON] + dLon, s[SV.LAT] + dLat], Math.max(alt, 0), Math.max(alt, 0)),
+          positions: Cesium.Cartesian3.fromDegreesArray(
+            [s[SV.LON], s[SV.LAT], s[SV.LON] + dLon, s[SV.LAT] + dLat],
+            Math.max(alt, 0),
+            Math.max(alt, 0),
+          ),
           width: 1.5,
           material: color.withAlpha(0.4),
           clampToGround: false,
@@ -169,7 +195,8 @@ export function loadFlights(
           polyline: {
             positions: Cesium.Cartesian3.fromDegreesArray(
               [sLon0, sLat0, sLon1, sLat1],
-              Math.max(alt, 0), Math.max(alt, 0),
+              Math.max(alt, 0),
+              Math.max(alt, 0),
             ),
             width: 2 - t * 0.2,
             material: Cesium.Color.WHITE.withAlpha(alpha),
@@ -275,7 +302,9 @@ export function loadFlights(
               count: filtered.length,
             });
           }
-        } catch { /* retry next interval */ }
+        } catch {
+          /* retry next interval */
+        }
       }, 15000);
       intervalsRef.current.push(iv);
     } catch {

@@ -1,11 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  latLonToSrtmName,
-  srtmNameToBounds,
-  latLonToPixel,
-  isWithinSRTM,
-  SRTM_BOUNDS,
-} from "../../srtm/tile-math";
+import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM, SRTM_BOUNDS } from "../../srtm/tile-math";
 
 describe("latLonToSrtmName", () => {
   it("north-east tile", () => {

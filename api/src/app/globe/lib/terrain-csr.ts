@@ -69,11 +69,7 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
       });
   };
 
-  provider.getTileDataAvailable = function (
-    x: number,
-    y: number,
-    level: number,
-  ) {
+  provider.getTileDataAvailable = function (x: number, y: number, level: number) {
     if (level > MAX_TERRAIN_ZOOM) return false;
     return undefined; // Cesium interprets as "assume available"
   };
@@ -84,12 +80,7 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
 /**
  * Fallback: fetch server-side PNG tile and decode Terrarium encoding.
  */
-function fallbackServerTile(
-  Cesium: CesiumType,
-  level: number,
-  x: number,
-  y: number,
-): Promise<any> {
+function fallbackServerTile(Cesium: CesiumType, level: number, x: number, y: number): Promise<any> {
   const url = `${TERRAIN_URL}/${level}/${x}/${y}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const HDT = (Cesium as any).HeightmapTerrainData;

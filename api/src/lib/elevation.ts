@@ -7,12 +7,7 @@
  */
 
 import { decompressSync } from "fflate";
-import {
-  latLonToSrtmName,
-  srtmNameToBounds,
-  latLonToPixel,
-  isWithinSRTM,
-} from "./srtm/tile-math";
+import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM } from "./srtm/tile-math";
 import type { ChunkBackend } from "./storage/backend";
 import { cacheGet, cachePut } from "./storage/cache";
 
@@ -36,11 +31,7 @@ const NODATA = -32768;
  * 3. Fetch pre-extracted chunk (cached)
  * 4. Decompress and extract pixel value
  */
-export async function getElevation(
-  lat: number,
-  lon: number,
-  storage: ChunkBackend,
-): Promise<ElevationResult> {
+export async function getElevation(lat: number, lon: number, storage: ChunkBackend): Promise<ElevationResult> {
   if (!isWithinSRTM(lat, lon)) {
     return {
       elevation: null,
@@ -88,10 +79,8 @@ export async function getElevation(
   // Compute chunk dimensions (edge tiles may be smaller than 256x256)
   const tilesAcross = 15;
   const tilesDown = 15;
-  const chunkWidth =
-    chunkCol < tilesAcross - 1 ? 256 : 3601 - (tilesAcross - 1) * 256;
-  const chunkHeight =
-    chunkRow < tilesDown - 1 ? 256 : 3601 - (tilesDown - 1) * 256;
+  const chunkWidth = chunkCol < tilesAcross - 1 ? 256 : 3601 - (tilesAcross - 1) * 256;
+  const chunkHeight = chunkRow < tilesDown - 1 ? 256 : 3601 - (tilesDown - 1) * 256;
 
   // Interpret as Int16
   const pixels = chunkWidth * chunkHeight;
@@ -144,13 +133,10 @@ export async function getElevation(
   const hasNodata = v00 === NODATA || v10 === NODATA || v01 === NODATA || v11 === NODATA;
 
   const elevation = hasNodata
-    ? (nearest === NODATA ? null : nearest)
-    : Math.round(
-        v00 * (1 - fx) * (1 - fy) +
-        v01 * fx * (1 - fy) +
-        v10 * (1 - fx) * fy +
-        v11 * fx * fy,
-      );
+    ? nearest === NODATA
+      ? null
+      : nearest
+    : Math.round(v00 * (1 - fx) * (1 - fy) + v01 * fx * (1 - fy) + v10 * (1 - fx) * fy + v11 * fx * fy);
 
   return {
     elevation: elevation === NODATA ? null : elevation,

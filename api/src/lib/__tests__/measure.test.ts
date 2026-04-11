@@ -46,7 +46,11 @@ describe("pathDistance", () => {
 
   it("sums distances along a path", () => {
     // Three points in a straight line along equator
-    const coords: [number, number][] = [[0, 0], [1, 0], [2, 0]];
+    const coords: [number, number][] = [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+    ];
     const d = pathDistance(coords);
     // ~111 km per degree at equator
     expect(d).toBeGreaterThan(200_000);
@@ -58,12 +62,21 @@ describe("sphericalPolygonArea", () => {
   it("returns 0 for less than 3 points", () => {
     expect(sphericalPolygonArea([])).toBe(0);
     expect(sphericalPolygonArea([[0, 0]])).toBe(0);
-    expect(sphericalPolygonArea([[0, 0], [1, 0]])).toBe(0);
+    expect(
+      sphericalPolygonArea([
+        [0, 0],
+        [1, 0],
+      ]),
+    ).toBe(0);
   });
 
   it("computes area for a small triangle", () => {
     // 1 degree triangle near equator
-    const coords: [number, number][] = [[0, 0], [0, 1], [1, 0]];
+    const coords: [number, number][] = [
+      [0, 0],
+      [0, 1],
+      [1, 0],
+    ];
     const area = sphericalPolygonArea(coords);
     // ~12,100 km² for 1°x1° at equator
     expect(area).toBeGreaterThan(5_000_000_000);

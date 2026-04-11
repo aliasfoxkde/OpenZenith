@@ -3,7 +3,8 @@ import { ICONS } from "../constants";
 import { fetchEarthquakes } from "../data-fetchers";
 
 export function loadEarthquakes(
-  viewer: any, Cesium: any,
+  viewer: any,
+  Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
@@ -32,14 +33,19 @@ export function loadEarthquakes(
     // Color by depth (shallow = more dangerous)
     const depthColor = depth < 10 ? Cesium.Color.RED : depth < 70 ? Cesium.Color.ORANGE : Cesium.Color.YELLOW;
     // Color by magnitude
-    const magColor = mag >= 7 ? Cesium.Color.RED : mag >= 5 ? Cesium.Color.ORANGE : mag >= 3 ? Cesium.Color.YELLOW : Cesium.Color.LIME;
+    const magColor =
+      mag >= 7 ? Cesium.Color.RED : mag >= 5 ? Cesium.Color.ORANGE : mag >= 3 ? Cesium.Color.YELLOW : Cesium.Color.LIME;
     const color = depth < 10 ? depthColor : magColor;
 
     // Alert-based outline emphasis
-    const alertOutline = alert === "red" ? Cesium.Color.RED
-      : alert === "orange" ? Cesium.Color.ORANGE
-      : alert === "yellow" ? Cesium.Color.YELLOW
-      : Cesium.Color.WHITE.withAlpha(0.3);
+    const alertOutline =
+      alert === "red"
+        ? Cesium.Color.RED
+        : alert === "orange"
+          ? Cesium.Color.ORANGE
+          : alert === "yellow"
+            ? Cesium.Color.YELLOW
+            : Cesium.Color.WHITE.withAlpha(0.3);
 
     const baseSize = Math.max(3000, mag * 8000);
 
@@ -76,21 +82,24 @@ export function loadEarthquakes(
         outlineWidth: alert !== "green" ? 2 : 1,
       },
       // ─── Magnitude label for M4+ ───
-      label: mag >= 4 ? {
-        text: `M${mag.toFixed(1)}`,
-        font: `${mag >= 6 ? "bold 14px" : mag >= 5 ? "bold 12px" : "11px"} 'JetBrains Mono', monospace`,
-        fillColor: color.withAlpha(0.95),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 2,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(0, -20),
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        showBackground: true,
-        backgroundColor: Cesium.Color.BLACK.withAlpha(0.65),
-        backgroundPadding: new Cesium.Cartesian2(4, 2),
-        scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 1e7, 0.0),
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1e7),
-      } : undefined,
+      label:
+        mag >= 4
+          ? {
+              text: `M${mag.toFixed(1)}`,
+              font: `${mag >= 6 ? "bold 14px" : mag >= 5 ? "bold 12px" : "11px"} 'JetBrains Mono', monospace`,
+              fillColor: color.withAlpha(0.95),
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 2,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              pixelOffset: new Cesium.Cartesian2(0, -20),
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              showBackground: true,
+              backgroundColor: Cesium.Color.BLACK.withAlpha(0.65),
+              backgroundPadding: new Cesium.Cartesian2(4, 2),
+              scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 1e7, 0.0),
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1e7),
+            }
+          : undefined,
       // ─── Enhanced tooltip ───
       description: [
         `${type === "earthquake" ? "Earthquake" : type} — M${mag.toFixed(1)}`,
@@ -101,7 +110,9 @@ export function loadEarthquakes(
         tsunami ? "TSUNAMI ALERT" : null,
         alert !== "green" ? `Alert: ${alert.toUpperCase()}` : null,
         `Significance: ${sig}`,
-      ].filter(Boolean).join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
       properties: { type: "earthquake", ...props },
     });
 
@@ -161,10 +172,14 @@ export function loadEarthquakes(
           const fs = d.features || [];
           fs.forEach((f: any, i: number) => addQuakeEntity(f, i));
           updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length });
-        } catch { /* retry */ }
+        } catch {
+          /* retry */
+        }
       }, 60000);
       intervalsRef.current.push(iv);
-    } catch { updateStatus("earthquakes", { error: "fetch failed" }); }
+    } catch {
+      updateStatus("earthquakes", { error: "fetch failed" });
+    }
   };
 
   doLoad();

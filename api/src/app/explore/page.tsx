@@ -20,7 +20,12 @@ const OVERTURE_THEMES = [
   { id: "places", label: "Places", desc: "Points of interest, businesses, landmarks", types: ["place"] },
   { id: "buildings", label: "Buildings", desc: "Building footprints with height and type", types: ["building"] },
   { id: "transportation", label: "Transportation", desc: "Roads, paths, and transit segments", types: ["segment"] },
-  { id: "base_geography", label: "Base Geography", desc: "Land, water, and administrative boundaries", types: ["land", "water"] },
+  {
+    id: "base_geography",
+    label: "Base Geography",
+    desc: "Land, water, and administrative boundaries",
+    types: ["land", "water"],
+  },
 ];
 
 const OVERPASS_QUERIES = [
@@ -1317,7 +1322,8 @@ export default function ExplorePage() {
           <>
             <h2>Overture Maps</h2>
             <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
-              Open map data from the Overture Maps Foundation. Select a theme and type, then enter a bounding box to query features.
+              Open map data from the Overture Maps Foundation. Select a theme and type, then enter a bounding box to
+              query features.
             </p>
 
             <div className="ex-ds-grid" style={{ marginBottom: "1rem" }}>
@@ -1335,7 +1341,9 @@ export default function ExplorePage() {
                   <div style={{ fontSize: "0.78rem", color: "#666", lineHeight: 1.45 }}>{theme.desc}</div>
                   <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
                     {theme.types.map((t) => (
-                      <span key={t} className="ex-tag">{t}</span>
+                      <span key={t} className="ex-tag">
+                        {t}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -1350,7 +1358,9 @@ export default function ExplorePage() {
                 style={{ width: "auto", minWidth: 120 }}
               >
                 {selectedOvertureTheme?.types.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </select>
               <input
@@ -1378,7 +1388,9 @@ export default function ExplorePage() {
 
             {ovData && (
               <div style={{ marginTop: "1rem" }}>
-                <h3>Results: {ovTheme}/{ovType}</h3>
+                <h3>
+                  Results: {ovTheme}/{ovType}
+                </h3>
                 <div className="ex-stat">
                   <span className="num">{ovData.features?.length || 0}</span> features
                 </div>

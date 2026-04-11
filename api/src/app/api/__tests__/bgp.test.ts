@@ -18,9 +18,7 @@ describe("BGP endpoint", () => {
   });
 
   it("returns BGP data for known prefix", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(mockBgpResponse), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockBgpResponse), { status: 200 }));
 
     const { GET } = await import("@/app/api/bgp/route");
     const req = mockRequest("/api/bgp?prefix=8.8.8.0/24");
@@ -33,9 +31,7 @@ describe("BGP endpoint", () => {
   });
 
   it("includes CORS and cache headers", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(mockBgpResponse), { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockBgpResponse), { status: 200 }));
 
     const { GET } = await import("@/app/api/bgp/route");
     const req = mockRequest("/api/bgp?prefix=8.8.8.0/24");

@@ -34,11 +34,9 @@ export const SURVEILLANCE_THEME = {
   /** Pulse animation for live indicators */
   pulse: "pulse 2s ease-in-out infinite",
   /** Dark basemap URL (CartoDB Dark Matter) */
-  basemapDark:
-    "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+  basemapDark: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
   /** Dark basemap without labels */
-  basemapDarkNolabels:
-    "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+  basemapDarkNolabels: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
   /** Graticule grid line color */
   graticule: "rgba(0, 229, 255, 0.06)",
 } as const;

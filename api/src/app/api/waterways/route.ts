@@ -79,13 +79,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json(
-        { error: "Overpass API unavailable" },
-        { status: 502, headers: CORS_HEADERS },
-      );
+      return NextResponse.json({ error: "Overpass API unavailable" }, { status: 502, headers: CORS_HEADERS });
     }
 
-    const data = await res.json() as { elements?: Array<{ type: string; geometry?: Array<Array<number>>; id: number; tags?: Record<string, string> }> };
+    const data = (await res.json()) as {
+      elements?: Array<{ type: string; geometry?: Array<Array<number>>; id: number; tags?: Record<string, string> }>;
+    };
 
     // Convert to GeoJSON FeatureCollection
     const features: Array<Record<string, unknown>> = [];
@@ -127,9 +126,6 @@ export async function GET(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=604800" } },
     );
   } catch {
-    return NextResponse.json(
-      { error: "Waterways query failed" },
-      { status: 500, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: "Waterways query failed" }, { status: 500, headers: CORS_HEADERS });
   }
 }

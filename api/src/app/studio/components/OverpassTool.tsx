@@ -49,29 +49,31 @@ export function OverpassTool({ map, dark, onResult }: Props) {
       const data = await res.json();
 
       // Convert Overpass elements to GeoJSON
-      const features: GeoJSON.Feature[] = (data.elements || []).map((el: any) => {
-        const tags = el.tags || {};
-        let geometry: GeoJSON.Geometry;
+      const features: GeoJSON.Feature[] = (data.elements || [])
+        .map((el: any) => {
+          const tags = el.tags || {};
+          let geometry: GeoJSON.Geometry;
 
-        if (el.type === "node" && el.lat !== undefined) {
-          geometry = { type: "Point", coordinates: [el.lon, el.lat] };
-        } else if (el.type === "way" && el.bounds) {
-          geometry = {
-            type: "Point",
-            coordinates: [(el.bounds.minlon + el.bounds.maxlon) / 2, (el.bounds.minlat + el.bounds.maxlat) / 2],
+          if (el.type === "node" && el.lat !== undefined) {
+            geometry = { type: "Point", coordinates: [el.lon, el.lat] };
+          } else if (el.type === "way" && el.bounds) {
+            geometry = {
+              type: "Point",
+              coordinates: [(el.bounds.minlon + el.bounds.maxlon) / 2, (el.bounds.minlat + el.bounds.maxlat) / 2],
+            };
+          } else if (el.lat !== undefined) {
+            geometry = { type: "Point", coordinates: [el.lon, el.lat] };
+          } else {
+            return null;
+          }
+
+          return {
+            type: "Feature",
+            geometry,
+            properties: { ...tags, osm_id: el.id, osm_type: el.type },
           };
-        } else if (el.lat !== undefined) {
-          geometry = { type: "Point", coordinates: [el.lon, el.lat] };
-        } else {
-          return null;
-        }
-
-        return {
-          type: "Feature",
-          geometry,
-          properties: { ...tags, osm_id: el.id, osm_type: el.type },
-        };
-      }).filter(Boolean);
+        })
+        .filter(Boolean);
 
       const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
       setResultCount(features.length);
@@ -100,12 +102,20 @@ export function OverpassTool({ map, dark, onResult }: Props) {
         value={presetIdx}
         onChange={(e) => selectPreset(Number(e.target.value))}
         style={{
-          width: "100%", padding: "6px 8px", background: inputBg, border: `1px solid ${border}`,
-          borderRadius: 4, color: text, fontSize: 12, boxSizing: "border-box",
+          width: "100%",
+          padding: "6px 8px",
+          background: inputBg,
+          border: `1px solid ${border}`,
+          borderRadius: 4,
+          color: text,
+          fontSize: 12,
+          boxSizing: "border-box",
         }}
       >
         {OVERPASS_PRESETS.map((p, i) => (
-          <option key={i} value={i}>{p.label}</option>
+          <option key={i} value={i}>
+            {p.label}
+          </option>
         ))}
       </select>
 
@@ -120,9 +130,17 @@ export function OverpassTool({ map, dark, onResult }: Props) {
         rows={6}
         spellCheck={false}
         style={{
-          width: "100%", padding: "8px", background: inputBg, border: `1px solid ${border}`,
-          borderRadius: 4, color: text, fontSize: 11, fontFamily: "monospace",
-          resize: "vertical", boxSizing: "border-box", lineHeight: 1.4,
+          width: "100%",
+          padding: "8px",
+          background: inputBg,
+          border: `1px solid ${border}`,
+          borderRadius: 4,
+          color: text,
+          fontSize: 11,
+          fontFamily: "monospace",
+          resize: "vertical",
+          boxSizing: "border-box",
+          lineHeight: 1.4,
         }}
       />
 
@@ -131,9 +149,14 @@ export function OverpassTool({ map, dark, onResult }: Props) {
         onClick={runQuery}
         disabled={loading || !query.trim()}
         style={{
-          padding: "8px 16px", background: loading ? "#555" : "#3b82f6", color: "#fff",
-          border: "none", borderRadius: 6, cursor: loading ? "wait" : "pointer",
-          fontSize: 13, fontWeight: 600,
+          padding: "8px 16px",
+          background: loading ? "#555" : "#3b82f6",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6,
+          cursor: loading ? "wait" : "pointer",
+          fontSize: 13,
+          fontWeight: 600,
         }}
       >
         {loading ? "Running..." : "Run Query"}
@@ -145,9 +168,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
           {resultCount.toLocaleString()} features found
         </div>
       )}
-      {error && (
-        <div style={{ color: "#ef4444", fontSize: 12 }}>{error}</div>
-      )}
+      {error && <div style={{ color: "#ef4444", fontSize: 12 }}>{error}</div>}
     </div>
   );
 }

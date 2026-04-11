@@ -11,19 +11,16 @@
  */
 
 import { unzlibSync } from "fflate";
-import {
-  latLonToSrtmName,
-  srtmNameToBounds,
-  latLonToPixel,
-  isWithinSRTM,
-} from "./srtm/tile-math";
+import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM } from "./srtm/tile-math";
 import { tileToLatLon } from "./srtm/zoom-math";
-import { parseMergedHeader, extractChunkFromMerged, getLatDir, getTileBase, type MergedIndex } from "./srtm/merged-parser";
 import {
-  latLonToQuadName,
-  quadNameToBounds,
-  latLonToPixel as gebcoLatLonToPixel,
-} from "./gebco/tile-math";
+  parseMergedHeader,
+  extractChunkFromMerged,
+  getLatDir,
+  getTileBase,
+  type MergedIndex,
+} from "./srtm/merged-parser";
+import { latLonToQuadName, quadNameToBounds, latLonToPixel as gebcoLatLonToPixel } from "./gebco/tile-math";
 
 // --- Types ---
 
@@ -151,7 +148,11 @@ function decodeChunk(rawChunk: Uint8Array, chunkRow: number, chunkCol: number): 
 
 // --- Read a single pixel from a decoded chunk ---
 
-function readPixel(chunk: DecodedChunk, srtmBounds: ReturnType<typeof srtmNameToBounds>, pixel: ReturnType<typeof latLonToPixel>): number | null {
+function readPixel(
+  chunk: DecodedChunk,
+  srtmBounds: ReturnType<typeof srtmNameToBounds>,
+  pixel: ReturnType<typeof latLonToPixel>,
+): number | null {
   const localRow = pixel.row - Math.floor(pixel.row / 256) * 256;
   const localCol = pixel.col - Math.floor(pixel.col / 256) * 256;
   if (localRow >= chunk.height || localCol >= chunk.width) return null;
@@ -198,7 +199,10 @@ function readGebcoPixel(strip: Uint8Array, col: number): number | null {
   return signedValue;
 }
 
-async function clientGebcoElevation(lat: number, lon: number): Promise<{
+async function clientGebcoElevation(
+  lat: number,
+  lon: number,
+): Promise<{
   elevation: number;
   surfaceType: "land" | "ocean";
   tile: string;
@@ -223,7 +227,10 @@ async function clientGebcoElevation(lat: number, lon: number): Promise<{
 
 // --- Public API: single point elevation ---
 
-export async function getClientElevation(lat: number, lon: number): Promise<{
+export async function getClientElevation(
+  lat: number,
+  lon: number,
+): Promise<{
   elevation: number | null;
   surfaceType: "land" | "ocean" | "unknown";
   tile: string;
@@ -256,7 +263,10 @@ export async function getClientElevation(lat: number, lon: number): Promise<{
   return null;
 }
 
-async function clientElevationDirect(lat: number, lon: number): Promise<{
+async function clientElevationDirect(
+  lat: number,
+  lon: number,
+): Promise<{
   elevation: number | null;
   surfaceType: "land" | "ocean" | "unknown";
   tile: string;
@@ -335,8 +345,10 @@ async function clientBatchDirect(
     tileGroups.get(name)!.push({ idx: i, lat: p.lat, lon: p.lon, id: p.id });
   }
 
-  const results: Array<{ lat: number; lon: number; elevation: number | null; id?: string }> =
-    points.map((p) => ({ ...p, elevation: null }));
+  const results: Array<{ lat: number; lon: number; elevation: number | null; id?: string }> = points.map((p) => ({
+    ...p,
+    elevation: null,
+  }));
 
   for (const [srtmName, pts] of tileGroups) {
     const srtmBounds = srtmNameToBounds(srtmName);
@@ -364,7 +376,9 @@ async function clientBatchDirect(
             if (gebco) {
               results[pt.idx] = { ...pt, elevation: gebco.elevation };
             }
-          } catch { /* skip */ }
+          } catch {
+            /* skip */
+          }
         }
       }
     }
@@ -379,7 +393,9 @@ async function clientBatchDirect(
       if (gebco) {
         results[i] = { ...results[i], elevation: gebco.elevation };
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   return results;
@@ -409,10 +425,7 @@ async function clientTileDataDirect(
 ): Promise<{ heights: Float32Array; width: number; height: number } | null> {
   const bounds = tileToLatLon(z, x, y);
 
-  if (
-    bounds.south > 60 || bounds.north < -60 ||
-    bounds.west > 181 || bounds.east < -181
-  ) {
+  if (bounds.south > 60 || bounds.north < -60 || bounds.west > 181 || bounds.east < -181) {
     return { heights: new Float32Array(TILE_SIZE * TILE_SIZE), width: TILE_SIZE, height: TILE_SIZE };
   }
 

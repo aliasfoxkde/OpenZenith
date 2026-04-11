@@ -140,7 +140,6 @@ export function DataTool({
     [onVisualizationChange],
   );
 
-  const bg = dark ? "#141414" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
   const textSec = dark ? "#888" : "#737373";

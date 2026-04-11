@@ -129,12 +129,10 @@ export function loadVolcanoes(
           const d = await fetchVolcanoAlerts();
           const fs = d.features || [];
           removeEntities("vol-");
-          let c = 0;
           for (let j = 0; j < fs.length; j++) {
             const p = fs[j].properties || {};
             const a = p.alertLevel || p.alert_level || "normal";
             if (a === "normal" || a === "unknown") continue;
-            c++;
           }
           // Re-add entities (simplified — full reload)
           const data2 = await fetchVolcanoAlerts();

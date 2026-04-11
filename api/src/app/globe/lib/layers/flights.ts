@@ -79,7 +79,6 @@ export function loadFlights(
 
   // Cache last bbox to avoid redundant requests
   let lastBboxKey = "";
-  const BBOX_CACHE_MS = 12000;
 
   const addFlightEntity = (s: any[], idx: number, showContrails = true) => {
     const callsign = (s[SV.CALLSIGN] || "").trim();

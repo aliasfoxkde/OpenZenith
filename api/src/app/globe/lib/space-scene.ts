@@ -18,7 +18,7 @@ interface SpaceSceneState {
  * Uses seeded randomization for consistency between sessions.
  * Brighter stars (magnitude < 3) get larger point sizes.
  */
-function generateStars(Cesium: any): Array<{
+function generateStars(_Cesium: any): Array<{
   lng: number;
   lat: number;
   alt: number;

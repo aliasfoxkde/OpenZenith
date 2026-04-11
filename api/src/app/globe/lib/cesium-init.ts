@@ -3,44 +3,6 @@ import { createCSRTerrainProvider } from "./terrain-csr";
 import type { DashboardState } from "./types";
 
 /**
- * Create an elevation color map canvas for the globe material.
- * Maps elevation values to colors:
- *   Deep ocean (-8000m): dark navy
- *   Shallow ocean (-500m): medium blue
- *   Coastline (0m): sandy/light
- *   Low land (0-500m): green
- *   Mid elevation (500-2000m): yellow-brown
- *   High elevation (2000-5000m): orange-brown
- *   Peaks (5000m+): white/snow
- */
-function createElevationColorMap(): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 1;
-  const ctx = canvas.getContext("2d")!;
-
-  const gradient = ctx.createLinearGradient(0, 0, 256, 0);
-  gradient.addColorStop(0.0, "#0a1628"); // Deep ocean
-  gradient.addColorStop(0.15, "#0d2847"); // Mid ocean
-  gradient.addColorStop(0.35, "#1a5276"); // Shallow ocean
-  gradient.addColorStop(0.44, "#2980b9"); // Coastal water
-  gradient.addColorStop(0.48, "#5dade2"); // Near shore
-  gradient.addColorStop(0.5, "#aed6f1"); // Shoreline
-  gradient.addColorStop(0.52, "#f9e79f"); // Beach
-  gradient.addColorStop(0.55, "#82e0aa"); // Lowland green
-  gradient.addColorStop(0.62, "#27ae60"); // Mid elevation
-  gradient.addColorStop(0.72, "#f4d03f"); // Highland yellow
-  gradient.addColorStop(0.82, "#e67e22"); // Mountain orange
-  gradient.addColorStop(0.9, "#a04000"); // High mountain
-  gradient.addColorStop(0.96, "#d35400"); // Alpine
-  gradient.addColorStop(1.0, "#f0f0f0"); // Snow/peak
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 256, 1);
-  return canvas;
-}
-
-/**
  * Load CesiumJS and satellite.js from CDN if not already present.
  */
 async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {

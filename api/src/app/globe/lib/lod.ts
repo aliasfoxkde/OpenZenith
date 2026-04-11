@@ -121,8 +121,6 @@ export function applyLOD(viewer: any, Cesium: any, currentAlt: number, currentZo
   // Skip if zone hasn't changed
   if (currentZone && currentZone.name === zone.name) return zone;
 
-  const allVisible = new Set(zone.visible);
-
   // Update entity show/hide using entity ID prefix matching only
   // (avoid calling .getValue() on properties which crashes CallbackProperty without time arg)
   const entities = viewer.entities.values;

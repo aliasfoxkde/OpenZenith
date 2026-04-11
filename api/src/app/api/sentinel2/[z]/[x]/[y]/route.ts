@@ -9,7 +9,6 @@ export const runtime = "edge";
 
 // Sentinel-2 visual (true color) collection on Planetary Computer
 const STAC_SEARCH = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
-const TITILER = "https://titiler.planetarycomputer.microsoft.gov/cog/tiles/{z}/{x}/{y}";
 
 let cachedAssetUrl: string | null = null;
 let cachedAt = 0;

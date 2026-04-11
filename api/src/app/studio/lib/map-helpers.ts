@@ -262,7 +262,7 @@ export function addMarker(map: any, id: string, lat: number, lon: number, popup?
 }
 
 /** Remove a marker */
-export function removeMarker(map: any, id: string) {
+export function removeMarker(_map: any, _id: string) {
   // Markers stored by ID in a weak ref pattern
 }
 

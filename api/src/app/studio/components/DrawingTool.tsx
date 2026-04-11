@@ -3,7 +3,6 @@
 import type { DrawMode, DrawState } from "../lib/drawing";
 import {
   createDrawState,
-  finishDrawing,
   undo,
   redo,
   deleteSelected,
@@ -15,7 +14,6 @@ import {
   enterEditMode,
   exitEditMode,
   deleteVertex,
-  addVertex,
 } from "../lib/drawing";
 
 interface Props {

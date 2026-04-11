@@ -52,16 +52,6 @@ const CAT_WINDS: Record<string, { min: number; max: number; label: string }> = {
   EX: { min: 0, max: 999, label: "Extratropical" },
 };
 
-/** Saffir-Simpson category from wind speed (knots) */
-function categoryFromWind(wind: number): string {
-  if (wind >= 137) return "Cat5";
-  if (wind >= 113) return "Cat4";
-  if (wind >= 96) return "Cat3";
-  if (wind >= 83) return "Cat2";
-  if (wind >= 64) return "Cat1";
-  if (wind >= 34) return "TS";
-  return "TD";
-}
 
 export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   updateStatus("hurricaneTracks", { error: null });

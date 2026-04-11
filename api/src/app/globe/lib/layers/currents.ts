@@ -1,5 +1,4 @@
 import type { DataStatus } from "../types";
-import { fetchEONET } from "../data-fetchers";
 
 /**
  * Ocean currents visualization using particle flow animation.
@@ -297,9 +296,9 @@ export function loadCurrents(
   viewer: any,
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
-  removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
-  stateLayers: { currents: boolean },
+  _removeEntities: (prefix: string) => void,
+  _intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  _stateLayers: { currents: boolean },
 ) {
   updateStatus("currents", { error: null });
 

@@ -6,8 +6,6 @@
  * auto-refresh via setInterval (returned for cleanup).
  */
 
-import { SURVEILLANCE_THEME as T } from "@/lib/theme";
-
 export interface LayerHandle {
   /** Interval IDs that need clearing on unmount / toggle-off. */
   intervals: ReturnType<typeof setInterval>[];

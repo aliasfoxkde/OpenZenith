@@ -12,7 +12,7 @@ interface Props {
   profileClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
 }
 
-export function ElevationTool({ map, dark, cursorPos, onProfileChange, profileClickRef }: Props) {
+export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, profileClickRef }: Props) {
   const [results, setResults] = useState<ElevationResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [manualLat, setManualLat] = useState("");

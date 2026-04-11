@@ -18,10 +18,6 @@ export const runtime = "edge";
 const STAC_VERSION = "1.0.0";
 const BASE_URL = "https://openzenith.cyopsys.com";
 
-function stacLinks(self: string, rel: string, type = "application/json") {
-  return [{ rel, href: `${BASE_URL}/api/stac${self}`, type }];
-}
-
 function rootCatalog() {
   return {
     stac_version: STAC_VERSION,

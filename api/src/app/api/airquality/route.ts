@@ -11,8 +11,6 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const lat = parseFloat(url.searchParams.get("lat") || "40.7");
   const lon = parseFloat(url.searchParams.get("lon") || "-74.0");
-  const radius = parseFloat(url.searchParams.get("radius") || "5");
-
   try {
     // Open-Meteo Air Quality API
     const aqUrl = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");

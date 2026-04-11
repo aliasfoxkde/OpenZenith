@@ -1,4 +1,4 @@
-import type { DashboardState, LayerState } from "./types";
+import type { DashboardState } from "./types";
 import { DEFAULT_LAYERS, BASEMAPS, SIDEBAR_SECTIONS } from "./constants";
 
 export function waitForCesium(timeout = 20000): Promise<any> {

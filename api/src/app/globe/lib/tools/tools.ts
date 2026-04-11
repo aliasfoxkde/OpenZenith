@@ -5,7 +5,6 @@
  * using CesiumJS entities. Tools are activated via the toolbar.
  */
 
-import type { DataStatus } from "../types";
 import { haversineDistance, formatDistance, formatArea, polylineLength, polygonArea } from "./measure";
 
 export type ToolMode = "none" | "measure-distance" | "measure-area" | "elevation-profile";

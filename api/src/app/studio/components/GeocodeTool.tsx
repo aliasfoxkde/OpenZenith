@@ -12,7 +12,6 @@ export function GeocodeTool({ map, dark }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [reverseResult, setReverseResult] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const search = useCallback(async (q: string) => {
@@ -43,26 +42,6 @@ export function GeocodeTool({ map, dark }: Props) {
     if (map) map.flyTo({ center: [lon, lat], zoom: 14, duration: 1500 });
   };
 
-  const handleMapClick = useCallback(async (lat: number, lon: number) => {
-    try {
-      const res = await fetch(`/api/reverse-geocode?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`);
-      const data = await res.json();
-      if (data.address) {
-        setReverseResult(
-          `${data.address.road || ""}${data.address.city ? `, ${data.address.city}` : ""}${data.address.country ? `, ${data.address.country}` : ""}`.replace(
-            /^, /,
-            "",
-          ),
-        );
-      } else {
-        setReverseResult(data.display_name || "Unknown location");
-      }
-    } catch {
-      setReverseResult("Reverse geocode failed");
-    }
-  }, []);
-
-  const bg = dark ? "#141414" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
   const textSec = dark ? "#888" : "#737373";
@@ -117,14 +96,6 @@ export function GeocodeTool({ map, dark }: Props) {
       )}
 
       {loading && <span style={{ color: textSec, fontSize: 11 }}>Searching...</span>}
-
-      {/* Reverse geocode result */}
-      {reverseResult && (
-        <div style={{ padding: "8px 10px", background: inputBg, border: `1px solid ${border}`, borderRadius: 4 }}>
-          <div style={{ color: textSec, fontSize: 10, marginBottom: 2 }}>Click result:</div>
-          <div style={{ color: text, fontSize: 12, lineHeight: 1.3 }}>{reverseResult}</div>
-        </div>
-      )}
     </div>
   );
 }

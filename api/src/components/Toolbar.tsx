@@ -12,7 +12,7 @@ interface ToolbarProps {
   dark?: boolean;
 }
 
-export function Toolbar({ onSearch, onJumpTo, onScreenshot, dark = true }: ToolbarProps) {
+export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
   const [searchValue, setSearchValue] = useState("");
   const [latValue, setLatValue] = useState("");
   const [lonValue, setLonValue] = useState("");

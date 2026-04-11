@@ -148,7 +148,7 @@ function pickRandomLocations(count: number) {
 function useTheme() {
   const subscribe = useCallback((callback: () => void) => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => callback();
+    const handler = (_e: MediaQueryListEvent) => callback();
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
@@ -218,10 +218,10 @@ function FlipCard({
   dark: boolean;
   cardBg: string;
   border: string;
-  text: string;
-  textSecondary: string;
+  text?: string;
+  textSecondary?: string;
   accent: string;
-  accentDim: string;
+  accentDim?: string;
   minHeight?: number;
 }) {
   const [flipped, setFlipped] = useState(false);
@@ -342,20 +342,6 @@ function flyToWithPadding(map: any, lon: number, lat: number, zoom: number) {
   });
 }
 
-async function fetchPlaceName(lat: number, lon: number): Promise<string | null> {
-  try {
-    const res = await fetch(`/api/reverse-geocode?lat=${lat}&lon=${lon}&zoom=10`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.place?.address) return null;
-    const addr = data.place.address;
-    const parts = [addr.city || addr.town || addr.village || addr.county, addr.state, addr.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : null;
-  } catch {
-    return null;
-  }
-}
-
 /* ─── Main Page ─── */
 
 export default function Home() {
@@ -470,14 +456,12 @@ export default function Home() {
     };
   }, []);
 
-  const bg = dark ? "#0a0a0a" : "#fafafa";
   const cardBg = dark ? "#161616" : "#ffffff";
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
   const textSecondary = dark ? "#888" : "#737373";
   const accent = "#22c55e";
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
-  const codeBg = dark ? "#1a1a1a" : "#f5f5f5";
   const inputBg = dark ? "#111" : "#fff";
   const W = 1400;
 

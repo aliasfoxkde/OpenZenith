@@ -5,12 +5,6 @@
  * with Next.js and Cloudflare Pages.
  */
 
-type WorkerMessage = {
-  type: string;
-  id: string;
-  data: unknown;
-};
-
 type WorkerHandler = (data: unknown) => Promise<unknown>;
 
 const handlers: Record<string, WorkerHandler> = {};

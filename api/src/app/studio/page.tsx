@@ -17,9 +17,7 @@ import {
   undo,
   redo,
   moveVertex,
-  addVertex,
   deleteVertex,
-  enterEditMode,
   exitEditMode,
   type DrawState,
   type DrawMode,
@@ -427,7 +425,7 @@ export default function StudioPage() {
   /* ─── Overpass results ─── */
 
   const handleOverpassResult = useCallback(
-    (data: GeoJSON.FeatureCollection, name: string) => {
+    (data: GeoJSON.FeatureCollection, _name: string) => {
       const map = mapRef.current;
       if (!map) return;
 
@@ -604,7 +602,6 @@ export default function StudioPage() {
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
-  const text = dark ? "#e5e5e5" : "#171717";
   const textSec = dark ? "#666" : "#999";
 
   /* ─── Render ─── */

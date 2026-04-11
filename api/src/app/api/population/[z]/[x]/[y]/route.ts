@@ -7,8 +7,6 @@
 
 export const runtime = "edge";
 
-const WMS_BASE = "https://ghsl.jrc.ec.europa.eu/ghs_pop_2025_GLOBE_R2023A/processed";
-
 export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 

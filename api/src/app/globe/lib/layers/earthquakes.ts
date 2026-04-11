@@ -1,5 +1,4 @@
 import type { DataStatus } from "../types";
-import { ICONS } from "../constants";
 import { fetchEarthquakes } from "../data-fetchers";
 
 export function loadEarthquakes(

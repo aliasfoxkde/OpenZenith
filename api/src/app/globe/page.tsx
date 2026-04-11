@@ -11,7 +11,6 @@ import {
   buildHash,
   fmtTime,
   safeCopy,
-  elevationColor,
   removeEntities as removeEntitiesHelper,
   toggleImageryOverlay as toggleImageryOverlayHelper,
   switchBasemapOnViewer,
@@ -21,7 +20,7 @@ import { loadEarthquakes } from "./lib/layers/earthquakes";
 import { loadEvents } from "./lib/layers/events";
 import { loadElevationColor } from "./lib/layers/elevation";
 import { initCesiumViewer } from "./lib/cesium-init";
-import { applyLOD, getZoneLabel } from "./lib/lod";
+import { applyLOD } from "./lib/lod";
 
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -417,7 +416,6 @@ export default function Globe() {
               const lat = +Cesium.Math.toDegrees(cg.latitude);
               const lon = +Cesium.Math.toDegrees(cg.longitude);
               const altKm = +(cg.height / 1000).toFixed(1);
-              const group = props.group?.getValue() || "Unknown";
               let orbitType = "Unknown";
               if (altKm < 2000) orbitType = "LEO";
               else if (altKm > 30000) orbitType = "GEO";
@@ -488,7 +486,7 @@ export default function Globe() {
         }
       }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
-      handler.setInputAction((click: any) => setCtxMenu(null), Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+      handler.setInputAction(() => setCtxMenu(null), Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
       document.addEventListener("contextmenu", (e) => {
         if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) {
           e.preventDefault();
@@ -1385,14 +1383,11 @@ export default function Globe() {
           const entType = entity?.type as string | undefined;
           const entName = entity?.name as string | undefined;
           const entId = entity?.id as string | undefined;
-          const entProps = entity?.properties;
           const isEq = entId?.startsWith("eq-");
           const isFlight = entId?.startsWith("flight-") || entId?.startsWith("mil-");
           const isVessel = entId?.startsWith("vessel-");
           const isSat = entId?.startsWith("sat-") || entType === "orbitalTrack";
           const isStorm = entId?.startsWith("storm-");
-          const isEvent = entId?.startsWith("event-");
-          const isEntity = isEq || isFlight || isVessel || isSat || isStorm || isEvent;
 
           // Keep menu within viewport (safe for SSR — only runs client-side since ctxMenu is client-set)
           const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
@@ -2176,7 +2171,6 @@ export default function Globe() {
                 setFollowSat(true);
                 const viewer = viewerRef.current;
                 if (viewer) {
-                  const Cesium = cesiumRef.current;
                   const found = viewer.entities.values.find(
                     (e: any) =>
                       e.properties?.type?.getValue() === "orbitalTrack" &&

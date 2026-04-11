@@ -19,7 +19,6 @@ export function loadRadar(
   let frameIndex = 0;
   let animInterval: ReturnType<typeof setInterval> | null = null;
   const FRAME_INTERVAL_MS = 2000; // 2s per frame
-  const Cesium = cesiumRef;
 
   const startAnimation = () => {
     if (animInterval) clearInterval(animInterval);

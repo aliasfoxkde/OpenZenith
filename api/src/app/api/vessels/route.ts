@@ -9,7 +9,7 @@ export const runtime = "edge";
  * If AISSTREAM_KEY is set, returns the WebSocket URL and key.
  * Otherwise returns a helpful error message.
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const apiKey = process.env.AISSTREAM_KEY;
 
   if (!apiKey) {

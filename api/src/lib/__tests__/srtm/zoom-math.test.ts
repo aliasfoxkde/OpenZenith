@@ -53,7 +53,7 @@ describe("latLonToTile", () => {
   });
 
   it("positive longitude at tile boundary", () => {
-    const { x, y } = latLonToTile(0, 179.9, 2);
+    const { x } = latLonToTile(0, 179.9, 2);
     expect(x).toBe(3);
   });
 });

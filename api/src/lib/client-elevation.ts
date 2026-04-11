@@ -30,12 +30,6 @@ interface DecodedChunk {
   height: number;
 }
 
-interface TileResult {
-  data: Int16Array;
-  width: number;
-  height: number;
-}
-
 // --- GEBCO 2025 client-side constants ---
 
 const GEBCO_CEDA_BASE = "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff";

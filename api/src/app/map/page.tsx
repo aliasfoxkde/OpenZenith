@@ -570,8 +570,6 @@ export default function MapPage() {
     link.click();
   }, []);
 
-  const dark = mapState.basemap === "dark" || mapState.basemap === "satellite";
-
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg }}>
       {/* Top bar */}

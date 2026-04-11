@@ -52,7 +52,6 @@ const CAT_WINDS: Record<string, { min: number; max: number; label: string }> = {
   EX: { min: 0, max: 999, label: "Extratropical" },
 };
 
-
 export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   updateStatus("hurricaneTracks", { error: null });
 

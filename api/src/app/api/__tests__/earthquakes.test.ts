@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { mockRequest } from "./helpers";
 
 vi.mock("@/lib/cache", () => ({
   cachedFetch: vi.fn((url: string) => fetch(url)),
@@ -7,11 +8,14 @@ vi.mock("@/lib/cache", () => ({
 
 describe("Earthquakes API", () => {
   it("returns GeoJSON from USGS", async () => {
-    const mockGeoJSON = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-122, 37] }, properties: { mag: 3.5 } }] };
+    const mockGeoJSON = {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-122, 37] }, properties: { mag: 3.5 } }],
+    };
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockGeoJSON), { status: 200 }));
 
     const { GET } = await import("@/app/api/earthquakes/route");
-    const resp = await GET(new Request("http://localhost/api/earthquakes"));
+    const resp = await GET(mockRequest("/api/earthquakes"));
     const data = await resp.json();
 
     expect(data.type).toBe("FeatureCollection");
@@ -20,7 +24,7 @@ describe("Earthquakes API", () => {
 
   it("rejects invalid period", async () => {
     const { GET } = await import("@/app/api/earthquakes/route");
-    const resp = await GET(new Request("http://localhost/api/earthquakes?period=invalid_period"));
+    const resp = await GET(mockRequest("/api/earthquakes?period=invalid_period"));
     expect(resp.status).toBe(400);
     const data = await resp.json();
     expect(data.error).toContain("Invalid period");
@@ -30,7 +34,7 @@ describe("Earthquakes API", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/earthquakes/route");
-    const resp = await GET(new Request("http://localhost/api/earthquakes"));
+    const resp = await GET(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(502);
   });
 });

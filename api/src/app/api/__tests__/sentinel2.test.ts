@@ -9,7 +9,9 @@ describe("Sentinel-2 Tile API", () => {
     );
 
     const { GET } = await import("@/app/api/sentinel2/[z]/[x]/[y]/route");
-    const resp = await GET(new Request("http://localhost/api/sentinel2/10/500/350"), { params: Promise.resolve({ z: "10", x: "500", y: "350" }) });
+    const resp = await GET(new Request("http://localhost/api/sentinel2/10/500/350"), {
+      params: Promise.resolve({ z: "10", x: "500", y: "350" }),
+    });
     expect(resp.status).toBe(404);
   });
 });

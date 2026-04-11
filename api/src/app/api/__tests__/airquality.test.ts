@@ -59,7 +59,16 @@ describe("Air Quality API", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          current: { pm2_5: 10, pm10: 20, carbon_monoxide: 100, nitrogen_dioxide: 10, sulphur_dioxide: 3, ozone: 30, us_aqi: 42, time: "2026-04-10T12:00" },
+          current: {
+            pm2_5: 10,
+            pm10: 20,
+            carbon_monoxide: 100,
+            nitrogen_dioxide: 10,
+            sulphur_dioxide: 3,
+            ozone: 30,
+            us_aqi: 42,
+            time: "2026-04-10T12:00",
+          },
         }),
         { status: 200 },
       ),

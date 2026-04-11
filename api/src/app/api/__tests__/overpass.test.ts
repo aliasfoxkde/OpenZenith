@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { mockRequest } from "./helpers";
 
 describe("Overpass API", () => {
   it("proxies query to Overpass API", async () => {
@@ -7,10 +8,11 @@ describe("Overpass API", () => {
     );
 
     const { POST } = await import("@/app/api/overpass/route");
-    const req = new Request("http://localhost/api/overpass", {
-      method: "POST",
-      body: JSON.stringify({ query: "[out:json];node(48.85,2.35,48.86,2.36);out 1;" }),
-    });
+    const req = mockRequest(
+      "/api/overpass",
+      "POST",
+      JSON.stringify({ query: "[out:json];node(48.85,2.35,48.86,2.36);out 1;" }),
+    );
     const resp = await POST(req);
     expect(resp.status).toBe(200);
     const data = await resp.json();
@@ -19,20 +21,14 @@ describe("Overpass API", () => {
 
   it("rejects missing query", async () => {
     const { POST } = await import("@/app/api/overpass/route");
-    const req = new Request("http://localhost/api/overpass", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+    const req = mockRequest("/api/overpass", "POST", JSON.stringify({}));
     const resp = await POST(req);
     expect(resp.status).toBe(400);
   });
 
   it("rejects query over 10000 chars", async () => {
     const { POST } = await import("@/app/api/overpass/route");
-    const req = new Request("http://localhost/api/overpass", {
-      method: "POST",
-      body: JSON.stringify({ query: "x".repeat(10001) }),
-    });
+    const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "x".repeat(10001) }));
     const resp = await POST(req);
     expect(resp.status).toBe(400);
     const data = await resp.json();

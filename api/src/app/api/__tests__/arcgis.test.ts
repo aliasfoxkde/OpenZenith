@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { mockRequest } from "./helpers";
 
 describe("ArcGIS Proxy API", () => {
   it("proxies to allowed ArcGIS host", async () => {
@@ -7,7 +8,7 @@ describe("ArcGIS Proxy API", () => {
     );
 
     const { GET } = await import("@/app/api/arcgis/route");
-    const resp = await GET(new Request("http://localhost/api/arcgis?url=https://services9.arcgis.com/test"));
+    const resp = await GET(mockRequest("/api/arcgis?url=https://services9.arcgis.com/test"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.currentVersion).toBe(10.81);
@@ -15,13 +16,13 @@ describe("ArcGIS Proxy API", () => {
 
   it("rejects missing url parameter", async () => {
     const { GET } = await import("@/app/api/arcgis/route");
-    const resp = await GET(new Request("http://localhost/api/arcgis"));
+    const resp = await GET(mockRequest("/api/arcgis"));
     expect(resp.status).toBe(400);
   });
 
   it("blocks disallowed domains", async () => {
     const { GET } = await import("@/app/api/arcgis/route");
-    const resp = await GET(new Request("http://localhost/api/arcgis?url=https://evil.com/data"));
+    const resp = await GET(mockRequest("/api/arcgis?url=https://evil.com/data"));
     expect(resp.status).toBe(403);
     const data = await resp.json();
     expect(data.error).toContain("not allowed");

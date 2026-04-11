@@ -122,10 +122,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return new Response(`WMS error: ${response.status}`, {
-        status: response.status,
-        headers: CORS_HEADERS,
-      });
+      return NextResponse.json(
+        { error: `WMS error: ${response.status}` },
+        { status: response.status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
     }
 
     const contentType = response.headers.get("Content-Type") || "image/png";

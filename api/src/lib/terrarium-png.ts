@@ -6,6 +6,17 @@
 
 import { zlibSync } from "fflate";
 
+/**
+ * Encode elevation data as a Terrarium PNG image.
+ *
+ * Terrarium encoding: height_m = (R * 256 + G + B / 256) - 32768
+ * Produces a valid PNG buffer (no external PNG library needed).
+ *
+ * @param data - Elevation values in meters (Int16, NODATA = -32768)
+ * @param width - Image width in pixels
+ * @param height - Image height in pixels
+ * @returns PNG file as Uint8Array
+ */
 export function encodeTerrariumPNG(data: Int16Array, width: number, height: number): Uint8Array {
   const raw = new Uint8Array(height * (1 + width * 3));
   for (let py = 0; py < height; py++) {

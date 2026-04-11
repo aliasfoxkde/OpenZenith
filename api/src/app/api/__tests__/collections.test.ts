@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { mockRequest } from "./helpers";
 
 describe("Collections API", () => {
   it("returns list of collections", async () => {
     const { GET } = await import("@/app/api/collections/route");
-    const resp = await GET(new Request("http://localhost/api/collections"));
+    const resp = await GET();
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.collections).toBeTruthy();
@@ -15,7 +16,9 @@ describe("Collections API", () => {
 describe("Collection by ID API", () => {
   it("returns collection metadata for valid ID", async () => {
     const { GET } = await import("@/app/api/collections/[id]/route");
-    const resp = await GET(new Request("http://localhost/api/collections/earthquakes"), { params: Promise.resolve({ id: "earthquakes" }) });
+    const resp = await GET(mockRequest("/api/collections/earthquakes"), {
+      params: Promise.resolve({ id: "earthquakes" }),
+    });
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.id).toBe("earthquakes");
@@ -24,7 +27,9 @@ describe("Collection by ID API", () => {
 
   it("returns 404 for invalid collection ID", async () => {
     const { GET } = await import("@/app/api/collections/[id]/route");
-    const resp = await GET(new Request("http://localhost/api/collections/nonexistent"), { params: Promise.resolve({ id: "nonexistent" }) });
+    const resp = await GET(mockRequest("/api/collections/nonexistent"), {
+      params: Promise.resolve({ id: "nonexistent" }),
+    });
     expect(resp.status).toBe(404);
   });
 });
@@ -32,7 +37,9 @@ describe("Collection by ID API", () => {
 describe("Collection Items API", () => {
   it("returns 404 for invalid collection ID", async () => {
     const { GET } = await import("@/app/api/collections/[id]/items/route");
-    const resp = await GET(new Request("http://localhost/api/collections/nonexistent/items"), { params: Promise.resolve({ id: "nonexistent" }) });
+    const resp = await GET(mockRequest("/api/collections/nonexistent/items"), {
+      params: Promise.resolve({ id: "nonexistent" }),
+    });
     expect(resp.status).toBe(404);
   });
 });

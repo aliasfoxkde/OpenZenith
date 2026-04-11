@@ -8,7 +8,9 @@ describe("Population Tile API", () => {
     );
 
     const { GET } = await import("@/app/api/population/[z]/[x]/[y]/route");
-    const resp = await GET(new Request("http://localhost/api/population/5/15/10"), { params: Promise.resolve({ z: "5", x: "15", y: "10" }) });
+    const resp = await GET(new Request("http://localhost/api/population/5/15/10"), {
+      params: Promise.resolve({ z: "5", x: "15", y: "10" }),
+    });
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toContain("image/png");
   });

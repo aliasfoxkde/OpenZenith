@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { mockRequest } from "./helpers";
 
 vi.mock("@/lib/cache", () => ({
   cachedFetch: vi.fn((url: string) => fetch(url)),
@@ -12,19 +13,19 @@ describe("Military API", () => {
     );
 
     const { GET } = await import("@/app/api/military/route");
-    const resp = await GET(new Request("http://localhost/api/military?lat=30&lon=-90&dist=100"));
+    const resp = await GET(mockRequest("/api/military?lat=30&lon=-90&dist=100"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.ac).toHaveLength(1);
   });
 
   it("clamps dist to max 1000", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ ac: [] }), { status: 200 }),
-    );
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ac: [] }), { status: 200 }));
 
     const { GET } = await import("@/app/api/military/route");
-    await GET(new Request("http://localhost/api/military?dist=5000"));
+    await GET(mockRequest("/api/military?dist=5000"));
 
     const calledUrl = spy.mock.calls[0][0] as string;
     expect(calledUrl).toContain("/dist/1000");
@@ -34,7 +35,7 @@ describe("Military API", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("Payment Required", { status: 402 }));
 
     const { GET } = await import("@/app/api/military/route");
-    const resp = await GET(new Request("http://localhost/api/military"));
+    const resp = await GET(mockRequest("/api/military"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.error).toContain("API key");

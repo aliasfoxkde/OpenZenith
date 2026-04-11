@@ -163,10 +163,10 @@ export async function GET(request: NextRequest) {
           },
         });
       }
-      return new Response(`Tile server error: ${response.status}`, {
-        status: response.status,
-        headers: CORS_HEADERS,
-      });
+      return NextResponse.json(
+        { error: `Tile server error: ${response.status}` },
+        { status: response.status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
     }
 
     const contentType = response.headers.get("Content-Type") || "image/png";

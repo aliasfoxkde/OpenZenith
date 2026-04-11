@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { mockRequest } from "./helpers";
 
 vi.mock("@/lib/cache", () => ({
   cachedFetch: vi.fn((url: string) => fetch(url)),
@@ -16,7 +17,7 @@ describe("Hurricanes API", () => {
     );
 
     const { GET } = await import("@/app/api/hurricanes/route");
-    const resp = await GET(new Request("http://localhost/api/hurricanes?active=false"));
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.type).toBe("FeatureCollection");
@@ -29,7 +30,7 @@ describe("Hurricanes API", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/hurricanes/route");
-    const resp = await GET(new Request("http://localhost/api/hurricanes"));
+    const resp = await GET(mockRequest("/api/hurricanes"));
     expect(resp.status).toBe(502);
   });
 });

@@ -221,6 +221,16 @@ async function clientGebcoElevation(
 
 // --- Public API: single point elevation ---
 
+/**
+ * Get elevation for a single geographic point.
+ *
+ * Tries client-side SRTM fetch first (HuggingFace), then GEBCO for ocean points.
+ * Falls back to /api/elevation server endpoint if client-side fails.
+ *
+ * @param lat - Latitude in degrees (-90 to 90)
+ * @param lon - Longitude in degrees (-180 to 180)
+ * @returns Elevation result with height in meters, surface type, and tile ID; null on failure
+ */
 export async function getClientElevation(
   lat: number,
   lon: number,
@@ -298,6 +308,14 @@ async function clientElevationDirect(
 
 // --- Public API: batch elevation ---
 
+/**
+ * Get elevation for multiple geographic points in batch.
+ *
+ * Tries client-side batch processing first, falls back to /api/elevation/batch.
+ *
+ * @param points - Array of {lat, lon, id?} coordinates (max 2000)
+ * @returns Array of results preserving input order, with optional id passthrough
+ */
 export async function getClientElevationBatch(
   points: Array<{ lat: number; lon: number; id?: string }>,
 ): Promise<Array<{ lat: number; lon: number; elevation: number | null; id?: string }>> {
@@ -400,6 +418,16 @@ async function clientBatchDirect(
 const TILE_SIZE = 256;
 const NODATA = -32768;
 
+/**
+ * Get terrain tile data for CesiumJS terrain provider.
+ *
+ * Returns a Float32Array of height values for a 256x256 tile at the given z/x/y.
+ *
+ * @param z - Zoom level
+ * @param x - Tile column
+ * @param y - Tile row
+ * @returns Heights array with dimensions, or null if tile unavailable
+ */
 export async function getClientTileData(
   z: number,
   x: number,
@@ -492,6 +520,9 @@ async function clientTileDataDirect(
 
 // --- Public API: clear caches ---
 
+/**
+ * Clear all client-side elevation caches (SRTM chunks, merged files, GEBCO strips).
+ */
 export function clearElevationCache(): void {
   chunkCache.clear();
   mergedCache.clear();

@@ -125,7 +125,7 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
       const titleEl = svg.querySelector("title");
       if (titleEl) titleEl.textContent = `${formatDist(dist)}, ${formatElev(elev)}`;
     },
-    [points, xScale, yScale, totalDist, minElev, maxElev, formatDist, formatElev],
+    [points, xScale, yScale, totalDist, minElev, maxElev, formatDist, formatElev, pad.left, pad.top],
   );
 
   if (coordinates.length < 2) return null;

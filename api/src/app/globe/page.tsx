@@ -903,6 +903,7 @@ export default function Globe() {
       }
       dataLoadedRef.current[key] = true;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.layers],
   );
   loadLayerDynamicRef.current = loadLayerDynamic;
@@ -1025,6 +1026,7 @@ export default function Globe() {
         return next;
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [loadLayerDynamic],
   );
 
@@ -1136,6 +1138,7 @@ export default function Globe() {
       if (state.layers.events)
         loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
 
   // ─── Render ───

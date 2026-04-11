@@ -446,8 +446,10 @@ export default function MapPage() {
     return () => {
       cancelled = true;
       // Clear data layer refresh intervals
-      layerHandleRef.current.intervals.forEach(clearInterval);
-      layerHandleRef.current.intervals = [];
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const handle = layerHandleRef.current;
+      handle.intervals.forEach(clearInterval);
+      handle.intervals = [];
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 /* ─── Types ─── */
 
@@ -705,316 +706,318 @@ export default function DocsPage() {
   const activeEndpoints = activeTag ? tagged[activeTag] || [] : Object.values(tagged).flat();
 
   return (
-    <div style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
-      {/* Header */}
-      <div
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          padding: "1.5rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.75rem",
-        }}
-      >
-        <Link
-          href="/"
+    <ErrorBoundary>
+      <div style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
+        {/* Header */}
+        <div
           style={{
-            color: text,
-            textDecoration: "none",
-            fontWeight: 700,
+            maxWidth: 960,
+            margin: "0 auto",
+            padding: "1.5rem",
             display: "flex",
             alignItems: "center",
-            gap: "0.4rem",
+            gap: "0.75rem",
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-            <path d="M16 2L28 28H4L16 2Z" fill={accent} opacity="0.9" />
-            <path d="M16 2L22 15H10L16 2Z" fill={accent} opacity="0.5" />
-            <path d="M4 28L16 18L28 28H4Z" fill={accent} opacity="0.3" />
-          </svg>
-          OpenZenith
-        </Link>
-        <span style={{ color: "#333" }}>/</span>
-        <span style={{ color: textDim, fontSize: "0.9rem" }}>API Docs</span>
-      </div>
-
-      {/* Title */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
-        <h1 style={{ fontSize: "1.8rem", fontWeight: 700, letterSpacing: "-0.02em", margin: "0 0 0.5rem" }}>
-          {spec.info.title}
-        </h1>
-        <p style={{ color: textDim, margin: "0 0 1rem", lineHeight: 1.6, fontSize: "0.95rem" }}>
-          {spec.info.description}
-        </p>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
-          <span
+          <Link
+            href="/"
             style={{
-              background: "#1a2e1a",
-              color: accent,
-              padding: "0.2rem 0.6rem",
-              borderRadius: 4,
-              fontSize: "0.8rem",
-              fontFamily: "monospace",
+              color: text,
+              textDecoration: "none",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
             }}
           >
-            v{spec.info.version}
-          </span>
-          <span style={{ color: "#555", fontSize: "0.85rem" }}>Server: {serverUrl}</span>
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+              <path d="M16 2L28 28H4L16 2Z" fill={accent} opacity="0.9" />
+              <path d="M16 2L22 15H10L16 2Z" fill={accent} opacity="0.5" />
+              <path d="M4 28L16 18L28 28H4Z" fill={accent} opacity="0.3" />
+            </svg>
+            OpenZenith
+          </Link>
+          <span style={{ color: "#333" }}>/</span>
+          <span style={{ color: textDim, fontSize: "0.9rem" }}>API Docs</span>
         </div>
-      </div>
 
-      {/* Interactive Features */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 1rem", letterSpacing: "-0.01em" }}>
-          Interactive Maps
-        </h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
-          <a
-            href="/map"
-            style={{
-              textDecoration: "none",
-              color: "inherit",
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 12,
-              padding: "1.25rem",
-              display: "block",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background: "rgba(34,197,94,0.12)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: accent,
-                  fontSize: "0.9rem",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2C8.13 2 5 4.13 5 8c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Elevation Map</h3>
-            </div>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
-              Click any point for elevation. Hillshade, 3D terrain, contour lines, 6 basemaps, elevation pins, and
-              profile tool.
-            </p>
-            <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
-              #lng=...&lat=...&zoom=...
-              <br />
-              #x=...&y=...&z=... (tile center)
-            </div>
-          </a>
-
-          <a
-            href="/globe"
-            style={{
-              textDecoration: "none",
-              color: "inherit",
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 12,
-              padding: "1.25rem",
-              display: "block",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background: "rgba(34,197,94,0.12)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: accent,
-                  fontSize: "0.9rem",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-10-4 15.3 15.3 0 0 1-10 4 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10 15.3 15.3 0 0 1 10 4 15.3 15.3 0 0 1 10-4z" />
-                </svg>
-              </div>
-              <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Globe Dashboard</h3>
-            </div>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
-              Real-time geospatial intelligence. Earthquakes, flights, weather radar, satellites, hurricanes, natural
-              events, and more.
-            </p>
-            <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
-              Layers: earthquakes, radar, flights, satellites,
-              <br />
-              weather, events, hurricanes, hillshade, 3D
-            </div>
-          </a>
-
-          <a
-            href="/explore"
-            style={{
-              textDecoration: "none",
-              color: "inherit",
-              background: cardBg,
-              border: `1px solid ${border}`,
-              borderRadius: 12,
-              padding: "1.25rem",
-              display: "block",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background: "rgba(34,197,94,0.12)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: accent,
-                  fontSize: "0.9rem",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-              </div>
-              <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Data Explorer</h3>
-            </div>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
-              Discover ArcGIS REST services and query OpenStreetMap via Overpass API. Browse layers, preview features,
-              run custom queries.
-            </p>
-            <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
-              ArcGIS service discovery + Overpass QL
-            </div>
-          </a>
-        </div>
-      </div>
-
-      {/* Tag filters */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 1.5rem" }}>
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 0.75rem", letterSpacing: "-0.01em" }}>
-          API Reference
-        </h2>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          <button
-            onClick={() => setActiveTag(null)}
-            style={{
-              background: !activeTag ? accent : "#161616",
-              color: !activeTag ? "#000" : textDim,
-              border: `1px solid ${!activeTag ? accent : border}`,
-              padding: "0.35rem 0.75rem",
-              borderRadius: 6,
-              fontSize: "0.8rem",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              fontWeight: !activeTag ? 600 : 400,
-            }}
-          >
-            All
-          </button>
-          {spec.tags.map((tag) => (
-            <button
-              key={tag.name}
-              onClick={() => setActiveTag(tag.name)}
+        {/* Title */}
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+          <h1 style={{ fontSize: "1.8rem", fontWeight: 700, letterSpacing: "-0.02em", margin: "0 0 0.5rem" }}>
+            {spec.info.title}
+          </h1>
+          <p style={{ color: textDim, margin: "0 0 1rem", lineHeight: 1.6, fontSize: "0.95rem" }}>
+            {spec.info.description}
+          </p>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+            <span
               style={{
-                background: activeTag === tag.name ? accent : "#161616",
-                color: activeTag === tag.name ? "#000" : textDim,
-                border: `1px solid ${activeTag === tag.name ? accent : border}`,
+                background: "#1a2e1a",
+                color: accent,
+                padding: "0.2rem 0.6rem",
+                borderRadius: 4,
+                fontSize: "0.8rem",
+                fontFamily: "monospace",
+              }}
+            >
+              v{spec.info.version}
+            </span>
+            <span style={{ color: "#555", fontSize: "0.85rem" }}>Server: {serverUrl}</span>
+          </div>
+        </div>
+
+        {/* Interactive Features */}
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 1rem", letterSpacing: "-0.01em" }}>
+            Interactive Maps
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
+            <a
+              href="/map"
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                background: cardBg,
+                border: `1px solid ${border}`,
+                borderRadius: 12,
+                padding: "1.25rem",
+                display: "block",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    background: "rgba(34,197,94,0.12)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: accent,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2C8.13 2 5 4.13 5 8c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Elevation Map</h3>
+              </div>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
+                Click any point for elevation. Hillshade, 3D terrain, contour lines, 6 basemaps, elevation pins, and
+                profile tool.
+              </p>
+              <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
+                #lng=...&lat=...&zoom=...
+                <br />
+                #x=...&y=...&z=... (tile center)
+              </div>
+            </a>
+
+            <a
+              href="/globe"
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                background: cardBg,
+                border: `1px solid ${border}`,
+                borderRadius: 12,
+                padding: "1.25rem",
+                display: "block",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    background: "rgba(34,197,94,0.12)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: accent,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-10-4 15.3 15.3 0 0 1-10 4 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10 15.3 15.3 0 0 1 10 4 15.3 15.3 0 0 1 10-4z" />
+                  </svg>
+                </div>
+                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Globe Dashboard</h3>
+              </div>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
+                Real-time geospatial intelligence. Earthquakes, flights, weather radar, satellites, hurricanes, natural
+                events, and more.
+              </p>
+              <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
+                Layers: earthquakes, radar, flights, satellites,
+                <br />
+                weather, events, hurricanes, hillshade, 3D
+              </div>
+            </a>
+
+            <a
+              href="/explore"
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                background: cardBg,
+                border: `1px solid ${border}`,
+                borderRadius: 12,
+                padding: "1.25rem",
+                display: "block",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    background: "rgba(34,197,94,0.12)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: accent,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.35-4.35" />
+                  </svg>
+                </div>
+                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600 }}>Data Explorer</h3>
+              </div>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: textDim, lineHeight: 1.5 }}>
+                Discover ArcGIS REST services and query OpenStreetMap via Overpass API. Browse layers, preview features,
+                run custom queries.
+              </p>
+              <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
+                ArcGIS service discovery + Overpass QL
+              </div>
+            </a>
+          </div>
+        </div>
+
+        {/* Tag filters */}
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 1.5rem" }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 0.75rem", letterSpacing: "-0.01em" }}>
+            API Reference
+          </h2>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              onClick={() => setActiveTag(null)}
+              style={{
+                background: !activeTag ? accent : "#161616",
+                color: !activeTag ? "#000" : textDim,
+                border: `1px solid ${!activeTag ? accent : border}`,
                 padding: "0.35rem 0.75rem",
                 borderRadius: 6,
                 fontSize: "0.8rem",
                 cursor: "pointer",
                 fontFamily: "inherit",
-                fontWeight: activeTag === tag.name ? 600 : 400,
+                fontWeight: !activeTag ? 600 : 400,
               }}
             >
-              {tag.name}
+              All
             </button>
+            {spec.tags.map((tag) => (
+              <button
+                key={tag.name}
+                onClick={() => setActiveTag(tag.name)}
+                style={{
+                  background: activeTag === tag.name ? accent : "#161616",
+                  color: activeTag === tag.name ? "#000" : textDim,
+                  border: `1px solid ${activeTag === tag.name ? accent : border}`,
+                  padding: "0.35rem 0.75rem",
+                  borderRadius: 6,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontWeight: activeTag === tag.name ? 600 : 400,
+                }}
+              >
+                {tag.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Endpoints */}
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
+          {activeEndpoints.map(({ path, method, endpoint }) => (
+            <EndpointCard
+              key={`${method}-${path}`}
+              path={path}
+              method={method}
+              endpoint={endpoint}
+              serverUrl={serverUrl}
+            />
           ))}
         </div>
-      </div>
 
-      {/* Endpoints */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 2rem" }}>
-        {activeEndpoints.map(({ path, method, endpoint }) => (
-          <EndpointCard
-            key={`${method}-${path}`}
-            path={path}
-            method={method}
-            endpoint={endpoint}
-            serverUrl={serverUrl}
-          />
-        ))}
-      </div>
-
-      {/* Code Examples */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 3rem" }}>
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 1rem", letterSpacing: "-0.01em" }}>
-          Code Examples
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {CODE_EXAMPLES.map((section) => (
-            <div
-              key={section.title}
-              style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem" }}
-            >
-              <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.9rem", fontWeight: 600 }}>{section.title}</h3>
-              {section.examples.map((ex) => (
-                <div key={ex.lang} style={{ marginBottom: "0.5rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.3rem",
-                    }}
-                  >
-                    <span
+        {/* Code Examples */}
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem 3rem" }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 1rem", letterSpacing: "-0.01em" }}>
+            Code Examples
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {CODE_EXAMPLES.map((section) => (
+              <div
+                key={section.title}
+                style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem" }}
+              >
+                <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.9rem", fontWeight: 600 }}>{section.title}</h3>
+                {section.examples.map((ex) => (
+                  <div key={ex.lang} style={{ marginBottom: "0.5rem" }}>
+                    <div
                       style={{
-                        fontSize: "0.7rem",
-                        color: textDim,
-                        textTransform: "uppercase",
-                        fontWeight: 600,
-                        letterSpacing: "0.05em",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.3rem",
                       }}
                     >
-                      {ex.lang}
-                    </span>
-                    <CopyBtn text={ex.code} label={`Copy ${ex.lang}`} />
+                      <span
+                        style={{
+                          fontSize: "0.7rem",
+                          color: textDim,
+                          textTransform: "uppercase",
+                          fontWeight: 600,
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        {ex.lang}
+                      </span>
+                      <CopyBtn text={ex.code} label={`Copy ${ex.lang}`} />
+                    </div>
+                    <pre
+                      style={{
+                        background: "#1a1a1a",
+                        color: "#e5e5e5",
+                        padding: "0.8rem 1rem",
+                        borderRadius: 8,
+                        fontSize: "0.78rem",
+                        lineHeight: 1.6,
+                        overflowX: "auto",
+                        fontFamily: "'SF Mono', 'Fira Code', monospace",
+                        margin: 0,
+                      }}
+                    >
+                      {ex.code}
+                    </pre>
                   </div>
-                  <pre
-                    style={{
-                      background: "#1a1a1a",
-                      color: "#e5e5e5",
-                      padding: "0.8rem 1rem",
-                      borderRadius: 8,
-                      fontSize: "0.78rem",
-                      lineHeight: 1.6,
-                      overflowX: "auto",
-                      fontFamily: "'SF Mono', 'Fira Code', monospace",
-                      margin: 0,
-                    }}
-                  >
-                    {ex.code}
-                  </pre>
-                </div>
-              ))}
-            </div>
-          ))}
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }

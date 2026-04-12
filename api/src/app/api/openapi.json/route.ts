@@ -1071,6 +1071,80 @@ const openApiSpec = {
         tags: ["Data"],
       },
     },
+    "/api/gebco-tile/{name}": {
+      get: {
+        summary: "GEBCO bathymetry tile",
+        description: "Serves GEBCO 2025 bathymetry/terrain tiles in Terrarium PNG encoding.",
+        parameters: [
+          {
+            name: "name",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "GEBCO quad name (e.g. N35W120)",
+          },
+        ],
+        responses: { "200": { description: "Terrarium PNG tile" }, "404": { description: "Tile not found" } },
+        tags: ["Tiles"],
+      },
+    },
+    "/api/pmtiles/{key}": {
+      get: {
+        summary: "PMTiles metadata redirect",
+        description: "Returns 410 Gone — Overture Maps building footprints moved to direct PMTiles access.",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, description: "PMTiles key" },
+        ],
+        responses: { "410": { description: "Gone — service migrated" } },
+        tags: ["Discovery"],
+      },
+    },
+    "/api/stac/{path}": {
+      get: {
+        summary: "STAC API proxy",
+        description: "Proxies requests to the STAC API for Earth observation metadata.",
+        parameters: [
+          { name: "path", in: "path", required: true, schema: { type: "string" }, description: "STAC API path" },
+        ],
+        responses: { "200": { description: "STAC response" } },
+        tags: ["Discovery"],
+      },
+    },
+    "/api/collections/{id}/items": {
+      get: {
+        summary: "Collection items (OGC Features)",
+        description: "Returns GeoJSON features for a specific collection with pagination and filtering.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Collection ID" },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", default: 100 },
+            description: "Items per page (max 10000)",
+          },
+          { name: "offset", in: "query", schema: { type: "integer", default: 0 }, description: "Start index" },
+          {
+            name: "bbox",
+            in: "query",
+            schema: { type: "string" },
+            description: "Bounding box (minLon,minLat,maxLon,maxLat)",
+          },
+        ],
+        responses: {
+          "200": { description: "GeoJSON FeatureCollection" },
+          "404": { description: "Collection not found" },
+        },
+        tags: ["Discovery"],
+      },
+    },
+    "/api/openapi.json": {
+      get: {
+        summary: "OpenAPI specification",
+        description: "Returns this OpenAPI 3.0.3 specification document.",
+        responses: { "200": { description: "OpenAPI JSON spec" } },
+        tags: ["Discovery"],
+      },
+    },
   },
   tags: [
     { name: "Elevation", description: "Point elevation queries" },

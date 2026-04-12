@@ -7,6 +7,8 @@
 
 export const runtime = "edge";
 
+import { tileToBboxString } from "@/lib/srtm/zoom-math";
+
 // Sentinel-2 visual (true color) collection on Planetary Computer
 const STAC_SEARCH = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
 
@@ -45,19 +47,20 @@ async function findRecentSentinel2Tile(bbox: string): Promise<string | null> {
 export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
-  // Convert tile to bbox for STAC search
   const zoom = parseInt(z, 10);
   const tileX = parseInt(x, 10);
   const tileY = parseInt(y, 10);
 
-  const n = Math.pow(2, zoom);
-  const lon1 = (tileX / n) * 360 - 180;
-  const lon2 = ((tileX + 1) / n) * 360 - 180;
-  const lat1Rad = Math.atan(Math.sinh(Math.PI * (1 - (2 * tileY) / n)));
-  const lat2Rad = Math.atan(Math.sinh(Math.PI * (1 - (2 * (tileY + 1)) / n)));
-  const lat1 = (lat1Rad * 180) / Math.PI;
-  const lat2 = (lat2Rad * 180) / Math.PI;
-  const bbox = `${lon1},${lat2},${lon2},${lat1}`;
+  if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY) || zoom < 0 || zoom > 22) {
+    return new Response("Invalid tile coordinates", { status: 400 });
+  }
+  const maxTile = Math.pow(2, zoom) - 1;
+  if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
+    return new Response("Tile out of range", { status: 404 });
+  }
+
+  // Convert tile to bbox for STAC search
+  const bbox = tileToBboxString(zoom, tileX, tileY);
 
   // For global/low zoom tiles, use a default area (continents)
   const searchBbox = zoom < 6 ? "-180,-60,180,70" : bbox;

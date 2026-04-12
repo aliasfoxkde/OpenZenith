@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
 const OPENSKY_API = "https://opensky-network.org/api/states/all";
 const TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
 
-// In-memory token cache
 let cachedToken: { access_token: string; expires_at: number } | null = null;
 
-// Simple credit tracker (resets on deployment cold start — adequate for a demo)
 const CREDIT_BUDGET = 4000;
 let creditsUsed = 0;
 let creditResetDate = new Date().toDateString();
@@ -29,6 +27,12 @@ function estimateCreditCost(bboxDeg: number): number {
   if (bboxDeg < 100) return 2;
   if (bboxDeg < 400) return 3;
   return 4;
+}
+
+function parseBboxCoord(val: string | null, min: number, max: number): number | null {
+  if (!val) return null;
+  const n = Number(val);
+  return isNaN(n) || n < min || n > max ? null : n;
 }
 
 async function getToken(): Promise<string | null> {
@@ -63,15 +67,26 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   // Bounding box params (optional — falls back to global if not provided)
-  const lamin = searchParams.get("lamin");
-  const lamax = searchParams.get("lamax");
-  const lomin = searchParams.get("lomin");
-  const lomax = searchParams.get("lomax");
+  const rawLamin = searchParams.get("lamin");
+  const rawLamax = searchParams.get("lamax");
+  const rawLomin = searchParams.get("lomin");
+  const rawLomax = searchParams.get("lomax");
+
+  const lamin = parseBboxCoord(rawLamin, -90, 90);
+  const lamax = parseBboxCoord(rawLamax, -90, 90);
+  const lomin = parseBboxCoord(rawLomin, -180, 180);
+  const lomax = parseBboxCoord(rawLomax, -180, 180);
+
+  const hasAny = [rawLamin, rawLamax, rawLomin, rawLomax].some((v) => v !== null);
+  const allValid = lamin !== null && lamax !== null && lomin !== null && lomax !== null;
+  if (hasAny && !allValid) {
+    return corsError("Invalid bbox params: lamin, lamax (-90 to 90), lomin, lomax (-180 to 180) required", 400);
+  }
 
   // Estimate credit cost
   let bboxDeg = Infinity;
-  if (lamin && lamax && lomin && lomax) {
-    bboxDeg = (+lamax - +lamin) * (+lomax - +lomin);
+  if (allValid) {
+    bboxDeg = (lamax - lamin) * (lomax - lomin);
   }
   const creditCost = estimateCreditCost(bboxDeg);
 
@@ -90,11 +105,11 @@ export async function GET(request: NextRequest) {
   }
 
   const url = new URL(OPENSKY_API);
-  if (lamin && lamax && lomin && lomax) {
-    url.searchParams.set("lamin", lamin);
-    url.searchParams.set("lamax", lamax);
-    url.searchParams.set("lomin", lomin);
-    url.searchParams.set("lomax", lomax);
+  if (allValid) {
+    url.searchParams.set("lamin", String(lamin));
+    url.searchParams.set("lamax", String(lamax));
+    url.searchParams.set("lomin", String(lomin));
+    url.searchParams.set("lomax", String(lomax));
   }
 
   try {
@@ -136,11 +151,5 @@ export async function GET(request: NextRequest) {
 }
 
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-    },
-  });
+  return corsPreflightResponse();
 }

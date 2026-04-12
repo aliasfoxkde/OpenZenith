@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  return corsPreflightResponse();
+}
+
+function parseCoord(val: string | null, fallback: number, min: number, max: number): number {
+  if (!val) return fallback;
+  const n = Number(val);
+  return isNaN(n) || n < min || n > max ? fallback : n;
 }
 
 /**
@@ -23,8 +24,8 @@ export async function OPTIONS() {
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const lat = searchParams.get("lat") || "30";
-  const lon = searchParams.get("lon") || "-90";
+  const lat = parseCoord(searchParams.get("lat"), 30, -90, 90);
+  const lon = parseCoord(searchParams.get("lon"), -90, -180, 180);
   const dist = Math.min(Number(searchParams.get("dist")) || 500, 1000);
 
   try {
@@ -39,15 +40,12 @@ export async function GET(request: NextRequest) {
 
     if (!resp.ok) {
       if (resp.status === 402 || resp.status === 403) {
-        return NextResponse.json(
+        return Response.json(
           { error: "ADSB Exchange requires API key", ac: [] },
           { status: 200, headers: CORS_HEADERS },
         );
       }
-      return NextResponse.json(
-        { error: `ADSB Exchange returned ${resp.status}`, ac: [] },
-        { status: 502, headers: CORS_HEADERS },
-      );
+      return corsError(`ADSB Exchange returned ${resp.status}`, 502);
     }
 
     const data = await resp.json();
@@ -57,6 +55,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
-    return NextResponse.json({ error: message, ac: [] }, { status: 502, headers: CORS_HEADERS });
+    return Response.json({ error: message, ac: [] }, { status: 502, headers: CORS_HEADERS });
   }
 }

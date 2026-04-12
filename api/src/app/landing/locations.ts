@@ -1,3 +1,5 @@
+import { latLonToTile as _latLonToTile } from "@/lib/srtm/zoom-math";
+
 /** Sample locations for the landing page interactive map demo. */
 export const LOCATIONS = [
   { name: "Mount Everest", lat: "28.0", lon: "86.9" },
@@ -124,10 +126,8 @@ export const LOCATIONS = [
 
 /** Convert lat/lon to slippy map tile coordinates at a given zoom. */
 export function latLonToTile(lat: number, lon: number, zoom: number): { x: number; y: number } {
-  const n = Math.pow(2, zoom);
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
+  const { x, y } = _latLonToTile(lat, lon, zoom);
+  const n = 2 ** zoom;
   return { x, y: Math.max(0, Math.min(y, n - 1)) };
 }
 

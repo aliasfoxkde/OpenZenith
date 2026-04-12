@@ -1,21 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
+function parseBboxParam(val: string | null, min: number, max: number): number | null {
+  if (!val) return null;
+  const n = Number(val);
+  return isNaN(n) || n < min || n > max ? null : n;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+
+  // Validate individual bbox params if provided
+  const lamin = parseBboxParam(searchParams.get("lamin"), -90, 90);
+  const lamax = parseBboxParam(searchParams.get("lamax"), -90, 90);
+  const lomin = parseBboxParam(searchParams.get("lomin"), -180, 180);
+  const lomax = parseBboxParam(searchParams.get("lomax"), -180, 180);
+
+  // If any bbox param was provided, all four must be valid
+  const hasAny = [lamin, lamax, lomin, lomax].some((v) => v !== null);
+  const allValid = lamin !== null && lamax !== null && lomin !== null && lomax !== null;
+  if (hasAny && !allValid) {
+    return corsError("Invalid bbox params: lamin, lamax (-90 to 90), lomin, lomax (-180 to 180) required", 400);
+  }
 
   const url = new URL("https://opensky-network.org/api/states/all");
   if (searchParams.has("bbox")) {
     url.searchParams.set("bbox", searchParams.get("bbox")!);
   }
-  if (searchParams.has("lamin")) {
-    url.searchParams.set("lamin", searchParams.get("lamin")!);
-    url.searchParams.set("lamax", searchParams.get("lamax")!);
-    url.searchParams.set("lomin", searchParams.get("lomin")!);
-    url.searchParams.set("lomax", searchParams.get("lomax")!);
+  if (allValid) {
+    url.searchParams.set("lamin", String(lamin));
+    url.searchParams.set("lamax", String(lamax));
+    url.searchParams.set("lomin", String(lomin));
+    url.searchParams.set("lomax", String(lomax));
   }
 
   try {
@@ -24,7 +47,16 @@ export async function GET(request: NextRequest) {
       headers: { Accept: "application/json" },
     });
 
-    const data = await resp.json();
+    if (!resp.ok) {
+      return corsError(`OpenSky API returned ${resp.status}`, 502);
+    }
+
+    let data: unknown;
+    try {
+      data = await resp.json();
+    } catch {
+      return corsError("Invalid JSON from upstream", 502);
+    }
 
     const headers = new Headers();
     headers.set("Access-Control-Allow-Origin", "*");
@@ -41,12 +73,3 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-    },
-  });
-}

@@ -7,6 +7,8 @@
 
 export const runtime = "edge";
 
+import { tileToLatLon } from "@/lib/srtm/zoom-math";
+
 export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
@@ -23,21 +25,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   wmsUrl.searchParams.set("CRS", "EPSG:3857");
   wmsUrl.searchParams.set("STYLES", "");
 
-  // Convert XYZ tile bounds to WGS84 bbox for WMS
+  // Validate tile coordinates
   const zoom = parseInt(z, 10);
   const tileX = parseInt(x, 10);
   const tileY = parseInt(y, 10);
 
-  const n = Math.pow(2, zoom);
-  const lon1 = (tileX / n) * 360 - 180;
-  const lon2 = ((tileX + 1) / n) * 360 - 180;
-  const lat1Rad = Math.atan(Math.sinh(Math.PI * (1 - (2 * tileY) / n)));
-  const lat2Rad = Math.atan(Math.sinh(Math.PI * (1 - (2 * (tileY + 1)) / n)));
-  const lat1 = (lat1Rad * 180) / Math.PI;
-  const lat2 = (lat2Rad * 180) / Math.PI;
+  if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY) || zoom < 0 || zoom > 22) {
+    return new Response("Invalid tile coordinates", { status: 400 });
+  }
+  const maxTile = Math.pow(2, zoom) - 1;
+  if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
+    return new Response("Tile out of range", { status: 404 });
+  }
+
+  // Convert XYZ tile bounds to WGS84 bbox for WMS
 
   // WMS 1.3.0 uses axis order depending on CRS — EPSG:4326 is lat,lon
-  wmsUrl.searchParams.set("BBOX", `${lat2},${lon1},${lat1},${lon2}`);
+  const { north, south, east, west } = tileToLatLon(zoom, tileX, tileY);
+  wmsUrl.searchParams.set("BBOX", `${south},${west},${north},${east}`);
 
   try {
     const res = await fetch(wmsUrl.toString(), {

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -11,13 +12,20 @@ export const runtime = "edge";
  * Usage: GET /api/proxy/wms?url=<encoded_wms_url>&layers=<layers>&...
  */
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-};
+/** Hostnames allowed for WMS proxy requests. */
+const ALLOWED_WMS_HOSTS = [
+  "gibs.earthdata.nasa.gov",
+  "map1.vis.earthdata.nasa.gov",
+  "services.arcgis.com",
+  "services7.arcgis.com",
+  "gis.fema.gov",
+  "basemaps.cartocdn.com",
+  "demo.mapserver.org",
+  "example.com",
+];
 
 export async function OPTIONS() {
-  return new Response(null, { headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 const ALLOWED_PARAMS = new Set([
@@ -52,10 +60,7 @@ const ALLOWED_PARAMS = new Set([
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   if (!url) {
-    return NextResponse.json(
-      { error: "Missing 'url' parameter" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Missing 'url' parameter", 400);
   }
 
   // Validate URL scheme
@@ -63,17 +68,15 @@ export async function GET(request: NextRequest) {
   try {
     parsedUrl = new URL(url);
   } catch {
-    return NextResponse.json(
-      { error: "Invalid URL" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Invalid URL", 400);
   }
 
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    return NextResponse.json(
-      { error: "Only HTTP/HTTPS URLs allowed" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Only HTTP/HTTPS URLs allowed", 400);
+  }
+
+  if (!ALLOWED_WMS_HOSTS.includes(parsedUrl.hostname)) {
+    return corsError("Domain not allowed", 403);
   }
 
   // Build proxy URL with allowed params
@@ -93,16 +96,10 @@ export async function GET(request: NextRequest) {
 
   // Ensure required params
   if (!proxyParams.has("LAYERS")) {
-    return NextResponse.json(
-      { error: "Missing 'layers' parameter" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Missing 'layers' parameter", 400);
   }
   if (!proxyParams.has("BBOX")) {
-    return NextResponse.json(
-      { error: "Missing 'bbox' parameter" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Missing 'bbox' parameter", 400);
   }
   if (!proxyParams.has("WIDTH") || !proxyParams.has("HEIGHT")) {
     proxyParams.set("WIDTH", "256");
@@ -123,10 +120,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `WMS error: ${response.status}` },
-        { status: response.status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-      );
+      return corsError(`WMS error: ${response.status}`, response.status);
     }
 
     const contentType = response.headers.get("Content-Type") || "image/png";
@@ -142,9 +136,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("WMS proxy error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch from WMS server" },
-      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Failed to fetch from WMS server", 502);
   }
 }

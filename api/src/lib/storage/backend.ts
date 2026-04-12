@@ -18,34 +18,9 @@ import {
   type MergedIndex,
 } from "@/lib/srtm/merged-parser";
 
-export type BackendType = "huggingface" | "http";
-
 export interface ChunkBackend {
   /** Fetch a single 256x256 chunk by SRTM tile name and grid position. */
   fetchChunk(srtmName: string, row: number, col: number): Promise<ArrayBuffer>;
-}
-
-export function createChunkBackend(type: BackendType, config: Record<string, string>): ChunkBackend {
-  switch (type) {
-    case "huggingface":
-      return new HuggingFaceChunkBackend(
-        config.repo || "aliasfox/srtm30m-chunks",
-        config.useMerged !== "false", // default: try merged first
-      );
-    case "http":
-      return new HttpChunkBackend(config.baseUrl || "", config.useMerged !== "false");
-    default:
-      throw new Error(`Unknown backend type: ${type}`);
-  }
-}
-
-export function getDefaultBackend(): ChunkBackend {
-  const type = (process.env.STORAGE_BACKEND || "huggingface") as BackendType;
-  return createChunkBackend(type, {
-    repo: process.env.HF_REPO || "aliasfox/srtm30m-chunks",
-    baseUrl: process.env.TILES_BASE_URL || "",
-    useMerged: process.env.USE_MERGED || "true",
-  });
 }
 
 // --- Cache for merged files ---

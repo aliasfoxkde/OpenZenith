@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { latLonToTile } from "@/lib/srtm/zoom-math";
 
 export const runtime = "edge";
 
@@ -42,14 +43,6 @@ interface BatchResult {
   lat: number;
   lon: number;
   elevation: number | null;
-}
-
-function latLonToTile(lat: number, lon: number, zoom: number) {
-  const n = 2 ** zoom;
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
-  return { x, y };
 }
 
 function sampleElevation(

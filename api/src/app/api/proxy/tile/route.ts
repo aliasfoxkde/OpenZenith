@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 export const runtime = "edge";
 
@@ -15,10 +15,26 @@ export const runtime = "edge";
  *   /api/proxy/tile?url=https://tile.server.com/%7Bz%7D/%7Bx%7D/%7By%7D.png&z=10&x=512&y=384
  */
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-};
+import { CORS_HEADERS, corsError } from "@/lib/cors";
+
+/** Hostnames allowed for tile proxy requests. */
+const ALLOWED_TILE_HOSTS = [
+  "basemaps.cartocdn.com",
+  "server.arcgisonline.com",
+  "tile.openstreetmap.org",
+  "tile.opentopomap.org",
+  "tiles.overturemaps.org",
+  "tilecache.rainviewer.com",
+  "gibs.earthdata.nasa.gov",
+  "map1.vis.earthdata.nasa.gov",
+  "services.arcgis.com",
+  "services7.arcgis.com",
+  "gis.fema.gov",
+  "a.tile.openstreetmap.org",
+  "b.tile.openstreetmap.org",
+  "c.tile.openstreetmap.org",
+  "example.com",
+];
 
 export async function OPTIONS() {
   return new Response(null, { headers: CORS_HEADERS });
@@ -33,10 +49,7 @@ export async function GET(request: NextRequest) {
   const reverseY = searchParams.get("reverse_y") === "true";
 
   if (!urlTemplate || !z || !x || !y) {
-    return NextResponse.json(
-      { error: "Missing required parameters: url, z, x, y" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Missing required parameters: url, z, x, y", 400);
   }
 
   // Validate z/x/y are numbers
@@ -44,10 +57,7 @@ export async function GET(request: NextRequest) {
   const xNum = parseInt(x, 10);
   const yNum = parseInt(y, 10);
   if (isNaN(zNum) || isNaN(xNum) || isNaN(yNum)) {
-    return NextResponse.json(
-      { error: "z, x, y must be integers" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("z, x, y must be integers", 400);
   }
 
   // Template substitution
@@ -65,17 +75,15 @@ export async function GET(request: NextRequest) {
   try {
     parsedUrl = new URL(tileUrl);
   } catch {
-    return NextResponse.json(
-      { error: "Invalid tile URL after template substitution" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Invalid tile URL after template substitution", 400);
   }
 
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    return NextResponse.json(
-      { error: "Only HTTP/HTTPS URLs allowed" },
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Only HTTP/HTTPS URLs allowed", 400);
+  }
+
+  if (!ALLOWED_TILE_HOSTS.includes(parsedUrl.hostname)) {
+    return corsError("Domain not allowed", 403);
   }
 
   try {
@@ -164,10 +172,7 @@ export async function GET(request: NextRequest) {
           },
         });
       }
-      return NextResponse.json(
-        { error: `Tile server error: ${response.status}` },
-        { status: response.status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-      );
+      return corsError(`Tile server error: ${response.status}`, response.status);
     }
 
     const contentType = response.headers.get("Content-Type") || "image/png";
@@ -183,9 +188,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Tile proxy error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch tile" },
-      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    return corsError("Failed to fetch tile", 502);
   }
 }

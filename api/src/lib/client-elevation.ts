@@ -517,14 +517,3 @@ async function clientTileDataDirect(
 
   return { heights, width: TILE_SIZE, height: TILE_SIZE };
 }
-
-// --- Public API: clear caches ---
-
-/**
- * Clear all client-side elevation caches (SRTM chunks, merged files, GEBCO strips).
- */
-export function clearElevationCache(): void {
-  chunkCache.clear();
-  mergedCache.clear();
-  gebcoStripCache.clear();
-}

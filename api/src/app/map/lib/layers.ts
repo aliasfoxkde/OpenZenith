@@ -13,7 +13,7 @@ export interface LayerHandle {
 
 /* ─── Earthquakes ─── */
 
-export function addEarthquakes(map: any, handle: LayerHandle): void {
+export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("earthquakes")) return;
 
   const doLoad = async () => {
@@ -26,7 +26,7 @@ export function addEarthquakes(map: any, handle: LayerHandle): void {
         if (!map.getSource("earthquakes")) {
           map.addSource("earthquakes", { type: "geojson", data });
         } else {
-          (map.getSource("earthquakes") as any).setData(data);
+          map.getSource("earthquakes")?.setData(data);
         }
 
         // Circle layer — sized by magnitude
@@ -94,7 +94,7 @@ export function addEarthquakes(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 60000));
 }
 
-export function removeEarthquakes(map: any): void {
+export function removeEarthquakes(map: maplibregl.Map): void {
   ["earthquakes-glow", "earthquakes-circles"].forEach((id) => {
     try {
       map.removeLayer(id);
@@ -107,7 +107,7 @@ export function removeEarthquakes(map: any): void {
 
 /* ─── Weather Warnings ─── */
 
-export function addWarnings(map: any, handle: LayerHandle): void {
+export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("warnings")) return;
 
   const doLoad = async () => {
@@ -120,7 +120,7 @@ export function addWarnings(map: any, handle: LayerHandle): void {
         if (!map.getSource("warnings")) {
           map.addSource("warnings", { type: "geojson", data });
         } else {
-          (map.getSource("warnings") as any).setData(data);
+          map.getSource("warnings")?.setData(data);
         }
 
         // Fill layer
@@ -178,7 +178,7 @@ export function addWarnings(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 300000));
 }
 
-export function removeWarnings(map: any): void {
+export function removeWarnings(map: maplibregl.Map): void {
   ["warnings-outline", "warnings-fill"].forEach((id) => {
     try {
       map.removeLayer(id);
@@ -191,7 +191,7 @@ export function removeWarnings(map: any): void {
 
 /* ─── Natural Events (NASA EONET) ─── */
 
-export function addNaturalEvents(map: any, handle: LayerHandle): void {
+export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("natural-events")) return;
 
   const doLoad = async () => {
@@ -204,7 +204,7 @@ export function addNaturalEvents(map: any, handle: LayerHandle): void {
         if (!map.getSource("natural-events")) {
           map.addSource("natural-events", { type: "geojson", data });
         } else {
-          (map.getSource("natural-events") as any).setData(data);
+          map.getSource("natural-events")?.setData(data);
         }
 
         if (!map.getLayer("natural-events-points")) {
@@ -241,7 +241,7 @@ export function addNaturalEvents(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 300000));
 }
 
-export function removeNaturalEvents(map: any): void {
+export function removeNaturalEvents(map: maplibregl.Map): void {
   try {
     map.removeLayer("natural-events-points");
   } catch {}
@@ -252,7 +252,7 @@ export function removeNaturalEvents(map: any): void {
 
 /* ─── Weather Radar (RainViewer) ─── */
 
-export function addRadar(map: any, handle: LayerHandle): void {
+export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("radar")) return;
 
   const doLoad = async () => {
@@ -291,7 +291,7 @@ export function addRadar(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 600000));
 }
 
-export function removeRadar(map: any): void {
+export function removeRadar(map: maplibregl.Map): void {
   try {
     map.removeLayer("radar-layer");
   } catch {}
@@ -302,7 +302,7 @@ export function removeRadar(map: any): void {
 
 /* ─── Waterways ─── */
 
-export function addWaterways(map: any, handle: LayerHandle): void {
+export function addWaterways(map: maplibregl.Map, handle: LayerHandle): void {
   // Waterways require a lat/lon center to query. Fetch from current map center.
   if (map.getSource("waterways")) return;
 
@@ -317,7 +317,7 @@ export function addWaterways(map: any, handle: LayerHandle): void {
         if (!map.getSource("waterways")) {
           map.addSource("waterways", { type: "geojson", data });
         } else {
-          (map.getSource("waterways") as any).setData(data);
+          map.getSource("waterways")?.setData(data);
         }
 
         if (!map.getLayer("waterways-line")) {
@@ -345,7 +345,7 @@ export function addWaterways(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 30000));
 }
 
-export function removeWaterways(map: any): void {
+export function removeWaterways(map: maplibregl.Map): void {
   try {
     map.removeLayer("waterways-line");
   } catch {}
@@ -356,7 +356,7 @@ export function removeWaterways(map: any): void {
 
 /* ─── Hurricane Tracks ─── */
 
-export function addHurricaneTracks(map: any, handle: LayerHandle): void {
+export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("hurricanes")) return;
 
   const doLoad = async () => {
@@ -451,7 +451,7 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
         if (!map.getSource("hurricanes")) {
           map.addSource("hurricanes", { type: "geojson", data: geojson });
         } else {
-          (map.getSource("hurricanes") as any).setData(geojson);
+          map.getSource("hurricanes")?.setData(geojson);
         }
 
         if (!map.getLayer("hurricanes-line")) {
@@ -508,7 +508,7 @@ export function addHurricaneTracks(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 3600000));
 }
 
-export function removeHurricaneTracks(map: any): void {
+export function removeHurricaneTracks(map: maplibregl.Map): void {
   try {
     map.removeLayer("hurricanes-points");
   } catch {}
@@ -522,7 +522,7 @@ export function removeHurricaneTracks(map: any): void {
 
 /* ─── NLNOG Nodes ─── */
 
-export function addNLNOGNodes(map: any, handle: LayerHandle): void {
+export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("nlnog-nodes")) return;
 
   const doLoad = async () => {
@@ -535,7 +535,7 @@ export function addNLNOGNodes(map: any, handle: LayerHandle): void {
         if (!map.getSource("nlnog-nodes")) {
           map.addSource("nlnog-nodes", { type: "geojson", data });
         } else {
-          (map.getSource("nlnog-nodes") as any).setData(data);
+          map.getSource("nlnog-nodes")?.setData(data);
         }
 
         if (!map.getLayer("nlnog-circles")) {
@@ -564,7 +564,7 @@ export function addNLNOGNodes(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 600000));
 }
 
-export function removeNLNOGNodes(map: any): void {
+export function removeNLNOGNodes(map: maplibregl.Map): void {
   try {
     map.removeLayer("nlnog-circles");
   } catch {}
@@ -575,7 +575,7 @@ export function removeNLNOGNodes(map: any): void {
 
 /* ─── Wildfires (NASA FIRMS) ─── */
 
-export function addWildfires(map: any, handle: LayerHandle): void {
+export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("wildfires")) return;
 
   const doLoad = async () => {
@@ -588,7 +588,7 @@ export function addWildfires(map: any, handle: LayerHandle): void {
         if (!map.getSource("wildfires")) {
           map.addSource("wildfires", { type: "geojson", data });
         } else {
-          (map.getSource("wildfires") as any).setData(data);
+          map.getSource("wildfires")?.setData(data);
         }
 
         if (!map.getLayer("wildfires-heat")) {
@@ -662,7 +662,7 @@ export function addWildfires(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 3600000)); // 1 hour
 }
 
-export function removeWildfires(map: any): void {
+export function removeWildfires(map: maplibregl.Map): void {
   try {
     map.removeLayer("wildfires-circles");
   } catch {}
@@ -676,7 +676,7 @@ export function removeWildfires(map: any): void {
 
 /* ─── Buildings (Overture Maps) ─── */
 
-export function addBuildings(map: any, _handle: LayerHandle): void {
+export function addBuildings(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("overture-buildings")) return;
 
   map.addSource("overture-buildings", {
@@ -711,7 +711,7 @@ export function addBuildings(map: any, _handle: LayerHandle): void {
   });
 }
 
-export function removeBuildings(map: any): void {
+export function removeBuildings(map: maplibregl.Map): void {
   try {
     map.removeLayer("buildings-outline");
   } catch {}
@@ -725,7 +725,7 @@ export function removeBuildings(map: any): void {
 
 /* ─── Population Density (GHSL) ─── */
 
-export function addPopulationDensity(map: any, _handle: LayerHandle): void {
+export function addPopulationDensity(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("population-density")) return;
 
   map.addSource("population-density", {
@@ -747,7 +747,7 @@ export function addPopulationDensity(map: any, _handle: LayerHandle): void {
   });
 }
 
-export function removePopulationDensity(map: any): void {
+export function removePopulationDensity(map: maplibregl.Map): void {
   try {
     map.removeLayer("population-density-layer");
   } catch {}
@@ -758,7 +758,7 @@ export function removePopulationDensity(map: any): void {
 
 /* ─── CORINE Land Cover ─── */
 
-export function addLandCover(map: any, _handle: LayerHandle): void {
+export function addLandCover(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("land-cover")) return;
 
   map.addSource("land-cover", {
@@ -779,7 +779,7 @@ export function addLandCover(map: any, _handle: LayerHandle): void {
   });
 }
 
-export function removeLandCover(map: any): void {
+export function removeLandCover(map: maplibregl.Map): void {
   try {
     map.removeLayer("land-cover-layer");
   } catch {}
@@ -790,7 +790,7 @@ export function removeLandCover(map: any): void {
 
 /* ─── Sentinel-2 Imagery ─── */
 
-export function addSentinel2(map: any, _handle: LayerHandle): void {
+export function addSentinel2(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("sentinel2")) return;
 
   map.addSource("sentinel2", {
@@ -812,7 +812,7 @@ export function addSentinel2(map: any, _handle: LayerHandle): void {
   });
 }
 
-export function removeSentinel2(map: any): void {
+export function removeSentinel2(map: maplibregl.Map): void {
   try {
     map.removeLayer("sentinel2-layer");
   } catch {}
@@ -823,7 +823,7 @@ export function removeSentinel2(map: any): void {
 
 /* ─── Air Quality ─── */
 
-export function addAirQuality(map: any, handle: LayerHandle): void {
+export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("air-quality")) return;
 
   const doLoad = async () => {
@@ -837,7 +837,7 @@ export function addAirQuality(map: any, handle: LayerHandle): void {
         if (!map.getSource("air-quality")) {
           map.addSource("air-quality", { type: "geojson", data });
         } else {
-          (map.getSource("air-quality") as any).setData(data);
+          map.getSource("air-quality")?.setData(data);
         }
 
         if (!map.getLayer("air-quality-circle")) {
@@ -911,7 +911,7 @@ export function addAirQuality(map: any, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 300000)); // 5 min
 }
 
-export function removeAirQuality(map: any): void {
+export function removeAirQuality(map: maplibregl.Map): void {
   try {
     map.removeLayer("air-quality-label");
   } catch {}
@@ -925,7 +925,7 @@ export function removeAirQuality(map: any): void {
 
 /* ─── Hillshade (terrain overlay) ─── */
 
-export function addHillshade(map: any, _handle: LayerHandle): void {
+export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getLayer("hillshade")) return;
   if (!map.getSource("elevation")) return;
   map.addLayer({
@@ -941,7 +941,7 @@ export function addHillshade(map: any, _handle: LayerHandle): void {
   });
 }
 
-export function removeHillshade(map: any): void {
+export function removeHillshade(map: maplibregl.Map): void {
   try {
     map.removeLayer("hillshade");
   } catch {}
@@ -952,8 +952,8 @@ export function removeHillshade(map: any): void {
 const LAYER_HANDLERS: Record<
   string,
   {
-    add: (map: any, handle: LayerHandle) => void;
-    remove: (map: any) => void;
+    add: (map: maplibregl.Map, handle: LayerHandle) => void;
+    remove: (map: maplibregl.Map) => void;
   }
 > = {
   hillshade: { add: addHillshade, remove: removeHillshade },
@@ -972,12 +972,12 @@ const LAYER_HANDLERS: Record<
   airQuality: { add: addAirQuality, remove: removeAirQuality },
 };
 
-export function addDataLayer(map: any, handle: LayerHandle, layerId: string): void {
+export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {
   const handler = LAYER_HANDLERS[layerId];
   if (handler) handler.add(map, handle);
 }
 
-export function removeDataLayer(map: any, layerId: string): void {
+export function removeDataLayer(map: maplibregl.Map, layerId: string): void {
   const handler = LAYER_HANDLERS[layerId];
   if (handler) handler.remove(map);
 }
@@ -987,14 +987,14 @@ export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_HANDLERS));
 
 /* ─── Hurricane Animation ─── */
 
-export function startHurricaneAnimation(map: any, handle: LayerHandle, callback: (progress: number) => void): void {
+export function startHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle, callback: (progress: number) => void): void {
   // Get timestamp range from source data
-  const source = map.getSource("hurricanes") as any;
+  const source = map.getSource("hurricanes");
   if (!source?._data?.features) return;
 
   const times = source._data.features
-    .filter((f: any) => f.geometry?.type === "Point" && f.properties?.timestamp)
-    .map((f: any) => f.properties.timestamp as number)
+    .filter((f: GeoJSON.Feature) => f.geometry?.type === "Point" && (f.properties as Record<string, unknown>)?.timestamp)
+    .map((f: GeoJSON.Feature) => (f.properties as Record<string, unknown>).timestamp as number)
     .filter((t: number) => t > 0)
     .sort((a: number, b: number) => a - b);
 
@@ -1028,7 +1028,7 @@ export function startHurricaneAnimation(map: any, handle: LayerHandle, callback:
   handle.intervals.push(setInterval(animate, 100));
 }
 
-export function stopHurricaneAnimation(map: any, handle: LayerHandle): void {
+export function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle): void {
   // Clear animation intervals (last one is the animation)
   while (handle.intervals.length > 0) {
     clearInterval(handle.intervals.pop()!);

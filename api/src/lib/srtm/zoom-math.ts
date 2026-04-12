@@ -46,6 +46,14 @@ export function latLonToTile(lat: number, lon: number, z: number): { x: number; 
 }
 
 /**
+ * Convert slippy tile coordinates to a WMS bbox string ("west,south,east,north").
+ */
+export function tileToBboxString(z: number, x: number, y: number): string {
+  const { west, south, east, north } = tileToLatLon(z, x, y);
+  return `${west},${south},${east},${north}`;
+}
+
+/**
  * Compute the number of SRTM pixels per slippy map tile pixel
  * at a given zoom level. SRTM is ~30m (1 arc-second) resolution.
  */

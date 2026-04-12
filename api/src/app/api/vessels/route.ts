@@ -24,11 +24,19 @@ export async function GET(_request: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    wsUrl: "wss://stream.aisstream.io/v0/stream",
-    apiKey,
-    messageTypes: ["PositionReport"],
-  });
+  return NextResponse.json(
+    {
+      wsUrl: "wss://stream.aisstream.io/v0/stream",
+      apiKey,
+      messageTypes: ["PositionReport"],
+    },
+    {
+      headers: {
+        "Cache-Control": "public, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
+      },
+    },
+  );
 }
 
 export async function OPTIONS() {

@@ -639,12 +639,38 @@ const CODE_EXAMPLES: { title: string; examples: CodeExample[] }[] = [
 export default function DocsPage() {
   const [spec, setSpec] = useState<OpenApiSpec | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [specError, setSpecError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/openapi.json")
-      .then((r) => r.json())
-      .then((data) => setSpec(data as OpenApiSpec));
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => setSpec(data as OpenApiSpec))
+      .catch((err) => setSpecError(err instanceof Error ? err.message : "Failed to load API spec"));
   }, []);
+
+  if (specError) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: textDim,
+          fontFamily: "inherit",
+          flexDirection: "column",
+          gap: "0.5rem",
+        }}
+      >
+        <div style={{ color: "#ef4444", fontSize: "1.25rem" }}>Failed to load API documentation</div>
+        <div>{specError}</div>
+      </div>
+    );
+  }
 
   if (!spec) {
     return (

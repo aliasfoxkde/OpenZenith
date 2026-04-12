@@ -867,6 +867,210 @@ const openApiSpec = {
         tags: ["Maritime"],
       },
     },
+    "/api/earthquakes": {
+      get: {
+        summary: "Earthquake data from USGS",
+        description: "Returns recent earthquake GeoJSON from the USGS Earthquake Hazards Program.",
+        parameters: [
+          {
+            name: "period",
+            in: "query",
+            schema: { type: "string", enum: ["hour", "day", "week", "month"], default: "day" },
+          },
+        ],
+        tags: ["Data"],
+      },
+    },
+    "/api/hurricanes": {
+      get: {
+        summary: "Hurricane track data from IBTrACS",
+        description: "Returns tropical cyclone track data as GeoJSON from the IBTrACS dataset.",
+        parameters: [{ name: "active", in: "query", schema: { type: "boolean", default: true } }],
+        tags: ["Data"],
+      },
+    },
+    "/api/satellites": {
+      get: {
+        summary: "Satellite orbital elements from Celestrak",
+        description: "Returns Two-Line Element (TLE) sets for tracking satellite positions.",
+        parameters: [{ name: "group", in: "query", schema: { type: "string", default: "stations" } }],
+        tags: ["Data"],
+      },
+    },
+    "/api/military": {
+      get: {
+        summary: "Military aircraft from ADSB Exchange",
+        description: "Returns military aircraft positions within a radius of given coordinates.",
+        parameters: [
+          { name: "lat", in: "query", required: true, schema: { type: "number" } },
+          { name: "lon", in: "query", required: true, schema: { type: "number" } },
+          { name: "dist", in: "query", schema: { type: "number", default: 250, maximum: 1000 } },
+        ],
+        tags: ["Data"],
+      },
+    },
+    "/api/wildfires": {
+      get: {
+        summary: "Wildfire events from NASA EONET",
+        description: "Returns wildfire event data as GeoJSON from NASA's Earth Observatory Natural Event Tracker.",
+        tags: ["Data"],
+      },
+    },
+    "/api/elevation/batch": {
+      post: {
+        summary: "Batch elevation lookup",
+        description: "Returns elevation for up to 2000 geographic points in a single request.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["points"],
+                properties: {
+                  points: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["lat", "lon"],
+                      properties: { lat: { type: "number" }, lon: { type: "number" }, id: { type: "string" } },
+                    },
+                    maxItems: 2000,
+                  },
+                },
+              },
+            },
+          },
+        },
+        tags: ["Elevation"],
+      },
+    },
+    "/api/dem-tile": {
+      get: {
+        summary: "DEM tile provider metadata",
+        description: "Returns TileJSON metadata for the global DEM terrain tile service.",
+        tags: ["Tiles"],
+      },
+    },
+    "/api/dem-tile/{z}/{x}/{y}": {
+      get: {
+        summary: "DEM terrain tile",
+        description: "Returns a Terrarium-encoded PNG elevation tile at the given z/x/y coordinates.",
+        parameters: [
+          { name: "z", in: "path", required: true, schema: { type: "integer", minimum: 0, maximum: 14 } },
+          { name: "x", in: "path", required: true, schema: { type: "integer" } },
+          { name: "y", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        tags: ["Tiles"],
+      },
+    },
+    "/api/query": {
+      get: {
+        summary: "Combined elevation, weather, and tides query",
+        description: "Returns elevation, weather conditions, and tide information for a single point.",
+        parameters: [
+          { name: "lat", in: "query", required: true, schema: { type: "number" } },
+          { name: "lon", in: "query", required: true, schema: { type: "number" } },
+        ],
+        tags: ["Elevation"],
+      },
+    },
+    "/api/docs-md": {
+      get: {
+        summary: "API documentation (Markdown)",
+        description: "Returns API documentation in Markdown format.",
+        tags: ["System"],
+      },
+    },
+    "/api/proxy/tile": {
+      get: {
+        summary: "Generic tile proxy",
+        description: "Proxies XYZ/TMS tile requests to external servers with CORS headers.",
+        parameters: [
+          { name: "url", in: "query", required: true, schema: { type: "string" } },
+          { name: "z", in: "query", required: true, schema: { type: "integer" } },
+          { name: "x", in: "query", required: true, schema: { type: "integer" } },
+          { name: "y", in: "query", required: true, schema: { type: "integer" } },
+        ],
+        tags: ["Proxy"],
+      },
+    },
+    "/api/proxy/wms": {
+      get: {
+        summary: "WMS proxy",
+        description: "Proxies WMS GetMap requests to external WMS servers with CORS headers.",
+        parameters: [{ name: "url", in: "query", required: true, schema: { type: "string" } }],
+        tags: ["Proxy"],
+      },
+    },
+    "/api/collections": {
+      get: {
+        summary: "OGC API Collections list",
+        description: "Lists all available OGC API collections.",
+        tags: ["Discovery"],
+      },
+    },
+    "/api/collections/{id}": {
+      get: {
+        summary: "OGC API Collection by ID",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        tags: ["Discovery"],
+      },
+    },
+    "/api/tiles": {
+      get: {
+        summary: "OGC API Tiles metadata",
+        description: "Returns OGC API - Tiles tileset metadata.",
+        tags: ["Tiles"],
+      },
+    },
+    "/api/sentinel2/{z}/{x}/{y}": {
+      get: {
+        summary: "Sentinel-2 satellite imagery tile",
+        parameters: [
+          { name: "z", in: "path", required: true, schema: { type: "integer" } },
+          { name: "x", in: "path", required: true, schema: { type: "integer" } },
+          { name: "y", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        tags: ["Tiles"],
+      },
+    },
+    "/api/landcover/{z}/{x}/{y}": {
+      get: {
+        summary: "CORINE land cover tile",
+        parameters: [
+          { name: "z", in: "path", required: true, schema: { type: "integer" } },
+          { name: "x", in: "path", required: true, schema: { type: "integer" } },
+          { name: "y", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        tags: ["Tiles"],
+      },
+    },
+    "/api/population/{z}/{x}/{y}": {
+      get: {
+        summary: "Population density tile (GHSL)",
+        parameters: [
+          { name: "z", in: "path", required: true, schema: { type: "integer" } },
+          { name: "x", in: "path", required: true, schema: { type: "integer" } },
+          { name: "y", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        tags: ["Tiles"],
+      },
+    },
+    "/api/opensky/flights": {
+      get: {
+        summary: "OpenSky flight data with credit headers",
+        description: "Returns flight state vectors from the OpenSky Network via server-side OAuth2.",
+        tags: ["Data"],
+      },
+    },
+    "/api/opensky/token": {
+      get: {
+        summary: "OpenSky OAuth2 token status",
+        description: "Returns the current OpenSky API token status and rate limit info.",
+        tags: ["Data"],
+      },
+    },
   },
   tags: [
     { name: "Elevation", description: "Point elevation queries" },
@@ -879,6 +1083,9 @@ const openApiSpec = {
     { name: "Geocoding", description: "Forward and reverse geocoding" },
     { name: "Hydrography", description: "Bathymetry and waterway data" },
     { name: "Maritime", description: "AIS vessel tracking data" },
+    { name: "Aviation", description: "Flight and military aircraft tracking" },
+    { name: "Hazards", description: "Earthquakes, hurricanes, wildfires" },
+    { name: "Imagery", description: "Satellite and land cover tile layers" },
   ],
 };
 

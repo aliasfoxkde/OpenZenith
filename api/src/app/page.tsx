@@ -7,7 +7,7 @@ import { GetInTouch } from "@/components/GetInTouch";
 import { CodeBlock } from "@/components/CodeBlock";
 import { LOCATIONS, latLonToTile, pickRandomLocations } from "./landing/locations";
 import { useTheme } from "./landing/useTheme";
-import { loadMapLibre, waitForMapLibre } from "./landing/maplibre-loader";
+import { waitForMapLibre } from "./landing/maplibre-loader";
 import { FlipCard } from "./landing/FlipCard";
 import { addOrUpdatePin, flyToWithPadding } from "./landing/map-helpers";
 
@@ -1150,13 +1150,8 @@ export default function Home() {
           ].map((f) => (
             <FlipCard
               key={f.title}
-              dark={dark}
               cardBg={cardBg}
               border={border}
-              text={text}
-              textSecondary={textSecondary}
-              accent={accent}
-              accentDim={accentDim}
               minHeight={150}
               front={
                 <>
@@ -1242,13 +1237,8 @@ export default function Home() {
           ].map((f) => (
             <FlipCard
               key={f.title}
-              dark={dark}
               cardBg={cardBg}
               border={border}
-              text={text}
-              textSecondary={textSecondary}
-              accent={accent}
-              accentDim={accentDim}
               minHeight={150}
               front={
                 <>
@@ -1400,13 +1390,8 @@ export default function Home() {
           ].map((d) => (
             <FlipCard
               key={d.title}
-              dark={dark}
               cardBg={cardBg}
               border={border}
-              text={text}
-              textSecondary={textSecondary}
-              accent={accent}
-              accentDim={accentDim}
               minHeight={130}
               front={
                 <>
@@ -1450,13 +1435,8 @@ export default function Home() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
           <FlipCard
             key="contribute"
-            dark={dark}
             cardBg={cardBg}
             border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
             minHeight={120}
             front={
               <>
@@ -1497,13 +1477,8 @@ export default function Home() {
           />
           <FlipCard
             key="integrations"
-            dark={dark}
             cardBg={cardBg}
             border={border}
-            text={text}
-            textSecondary={textSecondary}
-            accent={accent}
-            accentDim={accentDim}
             minHeight={120}
             front={
               <>

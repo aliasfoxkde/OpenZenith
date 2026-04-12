@@ -4,6 +4,18 @@
  * on a sphere for area. No external dependencies.
  */
 
+import { formatDistance as _fmtDist, formatArea as _fmtArea } from "@/lib/format-units";
+
+/** Format meters into human-readable distance string. */
+export function formatDistance(meters: number): string {
+  return _fmtDist(meters);
+}
+
+/** Format square meters into human-readable area string. */
+export function formatArea(sqMeters: number): string {
+  return _fmtArea(sqMeters);
+}
+
 const R = 6371000; // Earth radius in meters
 
 /** Haversine distance between two lat/lon points in meters. */
@@ -41,21 +53,6 @@ export function sphericalPolygonArea(coords: [number, number][]): number {
     sum += dLon * (2 + Math.sin(lat1) + Math.sin(lat2));
   }
   return Math.abs((sum * R * R) / 2);
-}
-
-/** Format meters into human-readable distance string. */
-export function formatDistance(meters: number): string {
-  if (meters < 1000) return `${meters.toFixed(1)} m`;
-  if (meters < 100000) return `${(meters / 1000).toFixed(2)} km`;
-  return `${(meters / 1000).toFixed(1)} km`;
-}
-
-/** Format square meters into human-readable area string. */
-export function formatArea(sqMeters: number): string {
-  if (sqMeters < 10000) return `${sqMeters.toFixed(1)} m²`;
-  if (sqMeters < 1000000) return `${(sqMeters / 10000).toFixed(2)} ha`;
-  if (sqMeters < 1e9) return `${(sqMeters / 1e6).toFixed(3)} km²`;
-  return `${(sqMeters / 1e6).toFixed(1)} km²`;
 }
 
 /** Initial bearing between two points in degrees (0 = north). */

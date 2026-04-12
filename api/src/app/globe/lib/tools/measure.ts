@@ -5,6 +5,18 @@
  * conversion functions for use with CesiumJS entities.
  */
 
+import { formatDistance as _fmtDist, formatArea as _fmtArea } from "@/lib/format-units";
+
+/** Format distance in human-readable units */
+export function formatDistance(meters: number): string {
+  return _fmtDist(meters);
+}
+
+/** Format area in human-readable units */
+export function formatArea(sqMeters: number): string {
+  return _fmtArea(sqMeters);
+}
+
 /** Haversine distance between two points (meters) */
 export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth radius in meters
@@ -14,20 +26,6 @@ export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-/** Format distance in human-readable units */
-export function formatDistance(meters: number): string {
-  if (meters < 1000) return `${meters.toFixed(0)} m`;
-  if (meters < 100000) return `${(meters / 1000).toFixed(2)} km`;
-  return `${(meters / 1000).toFixed(0)} km`;
-}
-
-/** Format area in human-readable units */
-export function formatArea(sqMeters: number): string {
-  if (sqMeters < 10000) return `${sqMeters.toFixed(0)} m²`;
-  if (sqMeters < 1000000) return `${(sqMeters / 10000).toFixed(2)} ha`;
-  return `${(sqMeters / 1000000).toFixed(2)} km²`;
 }
 
 /**

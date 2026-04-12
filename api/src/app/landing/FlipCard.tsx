@@ -5,24 +5,14 @@ import { useState } from "react";
 export function FlipCard({
   front,
   back,
-  dark,
   cardBg,
   border,
-  text,
-  textSecondary,
-  accent,
-  accentDim,
   minHeight = 160,
 }: {
   front: React.ReactNode;
   back: React.ReactNode;
-  dark: boolean;
   cardBg: string;
   border: string;
-  text?: string;
-  textSecondary?: string;
-  accent: string;
-  accentDim?: string;
   minHeight?: number;
 }) {
   const [flipped, setFlipped] = useState(false);

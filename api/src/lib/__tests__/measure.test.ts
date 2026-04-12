@@ -93,8 +93,8 @@ describe("formatDistance", () => {
     expect(formatDistance(5000)).toBe("5.00 km");
   });
 
-  it("formats km with one decimal for large distances", () => {
-    expect(formatDistance(150000)).toBe("150.0 km");
+  it("formats km with two decimals for large distances", () => {
+    expect(formatDistance(150000)).toBe("150.00 km");
   });
 });
 
@@ -108,7 +108,7 @@ describe("formatArea", () => {
   });
 
   it("formats km² for large areas", () => {
-    expect(formatArea(5_000_000)).toBe("5.000 km²");
+    expect(formatArea(5_000_000)).toBe("5.00 km²");
   });
 });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -42,6 +43,7 @@ async function getToken(): Promise<string | null> {
   try {
     const resp = await fetch(TOKEN_URL, {
       method: "POST",
+      signal: AbortSignal.timeout(10000),
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
@@ -129,7 +131,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Flight data fetch failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }
 

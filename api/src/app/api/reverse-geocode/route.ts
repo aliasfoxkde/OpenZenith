@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latNum}&lon=${lonNum}&zoom=${zoom}&addressdetails=1`;
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
       headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
     });
 

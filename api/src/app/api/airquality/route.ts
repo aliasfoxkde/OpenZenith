@@ -19,7 +19,9 @@ export async function GET(request: Request) {
     aqUrl.searchParams.set("current", "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi");
     aqUrl.searchParams.set("timezone", "auto");
 
-    const res = await fetch(aqUrl.toString());
+    const res = await fetch(aqUrl.toString(), {
+      signal: AbortSignal.timeout(15000),
+    });
     if (!res.ok) {
       return Response.json({ error: "Failed to fetch air quality data" }, { status: 502 });
     }

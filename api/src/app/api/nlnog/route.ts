@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -13,7 +14,7 @@ export async function GET() {
     });
 
     if (!resp.ok) {
-      return NextResponse.json({ error: `NLNOG API returned ${resp.status}` }, { status: 502 });
+      return NextResponse.json({ error: `NLNOG API returned ${resp.status}` }, { status: 502, headers: CORS_HEADERS });
     }
 
     const data = await resp.json();
@@ -49,6 +50,6 @@ export async function GET() {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch NLNOG nodes";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

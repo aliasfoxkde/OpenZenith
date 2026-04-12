@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
+import { CORS_HEADERS } from "@/lib/cors";
 
 /**
  * DEM terrain tile endpoint.
@@ -41,14 +42,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   // Validate zoom level
   const zoom = parseInt(z, 10);
   if (isNaN(zoom) || zoom < 0 || zoom > 14) {
-    return NextResponse.json({ error: "Invalid zoom level" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid zoom level" }, { status: 400, headers: CORS_HEADERS });
   }
 
   // Validate tile coordinates
   const tileX = parseInt(x, 10);
   const tileY = parseInt(tileYStr, 10);
   if (isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
   }
 
   // Assemble tile from HuggingFace chunks

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const parsed = new URL(targetUrl);
     if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
-      return NextResponse.json({ error: "Domain not allowed" }, { status: 403 });
+      return NextResponse.json({ error: "Domain not allowed" }, { status: 403, headers: CORS_HEADERS });
     }
 
     const url = new URL(request.url);
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new Response(data, { status: resp.status, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Proxy error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }
 

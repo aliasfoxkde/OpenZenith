@@ -41,6 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
 
   try {
     const res = await fetch(wmsUrl.toString(), {
+      signal: AbortSignal.timeout(30000),
       headers: { "User-Agent": "OpenZenith/1.0" },
     });
 

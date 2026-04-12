@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -13,11 +14,11 @@ export async function POST(request: NextRequest) {
     const query = body.query;
 
     if (!query || typeof query !== "string") {
-      return NextResponse.json({ error: "Missing query string" }, { status: 400 });
+      return NextResponse.json({ error: "Missing query string" }, { status: 400, headers: CORS_HEADERS });
     }
 
     if (query.length > 10000) {
-      return NextResponse.json({ error: "Query too long (max 10000 chars)" }, { status: 400 });
+      return NextResponse.json({ error: "Query too long (max 10000 chars)" }, { status: 400, headers: CORS_HEADERS });
     }
 
     const controller = new AbortController();
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify(data), { status: 200, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Overpass proxy error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }
 

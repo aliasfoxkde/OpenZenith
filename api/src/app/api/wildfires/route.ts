@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -68,6 +69,6 @@ export async function GET() {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch FIRMS data";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

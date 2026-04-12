@@ -57,7 +57,7 @@ async function handleHealthCheck() {
   // Verify HuggingFace backend is reachable by requesting a known chunk
   try {
     const url = "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N35/N35W120.merged";
-    const res = await fetch(url, { method: "HEAD" });
+    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(15000) });
 
     if (res.ok || res.status === 302) {
       return NextResponse.json(

@@ -98,6 +98,7 @@ export async function GET(request: NextRequest) {
             const zoom = searchParams.get("address_zoom") || "18";
             const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${zoom}&addressdetails=1`;
             const res = await fetch(url, {
+              signal: AbortSignal.timeout(10000),
               headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
             });
             if (res.ok) {
@@ -193,6 +194,7 @@ export async function GET(request: NextRequest) {
           try {
             const res = await fetch("https://overpass-api.de/api/interpreter", {
               method: "POST",
+              signal: AbortSignal.timeout(30000),
               headers: { "Content-Type": "application/x-www-form-urlencoded" },
               body: `data=${encodeURIComponent(query)}`,
             });

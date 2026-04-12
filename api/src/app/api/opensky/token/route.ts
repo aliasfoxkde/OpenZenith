@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -16,6 +17,7 @@ async function fetchToken(): Promise<{ access_token: string; expires_at: number 
   try {
     const resp = await fetch(TOKEN_URL, {
       method: "POST",
+      signal: AbortSignal.timeout(10000),
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
@@ -47,7 +49,10 @@ export async function GET() {
   // Fetch new token
   const result = await fetchToken();
   if (!result) {
-    return NextResponse.json({ error: "Failed to obtain OpenSky token", authenticated: false }, { status: 503 });
+    return NextResponse.json(
+      { error: "Failed to obtain OpenSky token", authenticated: false },
+      { status: 503, headers: CORS_HEADERS },
+    );
   }
 
   cachedToken = result;

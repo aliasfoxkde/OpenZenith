@@ -16,13 +16,14 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query");
   const limit = Math.min(Number(request.nextUrl.searchParams.get("limit")) || 5, 10);
 
-  if (!query) {
-    return NextResponse.json({ error: "Missing required parameter: query" }, { status: 400, headers: CORS_HEADERS });
+  if (!query || query.length > 200) {
+    return NextResponse.json({ error: "Missing or invalid parameter: query" }, { status: 400, headers: CORS_HEADERS });
   }
 
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1`;
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
       headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
     });
 

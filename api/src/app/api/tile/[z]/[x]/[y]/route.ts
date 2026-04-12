@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -28,16 +29,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const tileY = parseInt(y);
 
   if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "z, x, y must be integers" }, { status: 400 });
+    return NextResponse.json({ error: "z, x, y must be integers" }, { status: 400, headers: CORS_HEADERS });
   }
 
   if (zoom < 0 || zoom > 15) {
-    return NextResponse.json({ error: "zoom must be between 0 and 15" }, { status: 400 });
+    return NextResponse.json({ error: "zoom must be between 0 and 15" }, { status: 400, headers: CORS_HEADERS });
   }
 
   const maxTile = Math.pow(2, zoom) - 1;
   if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
-    return NextResponse.json({ error: `x,y must be between 0 and ${maxTile} at zoom ${zoom}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `x,y must be between 0 and ${maxTile} at zoom ${zoom}` },
+      { status: 400, headers: CORS_HEADERS },
+    );
   }
 
   try {
@@ -57,6 +61,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });
   }
 }

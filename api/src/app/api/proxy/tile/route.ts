@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(tileUrl, {
+      signal: AbortSignal.timeout(30000),
       headers: { "User-Agent": "OpenZenith/1.0" },
     });
 

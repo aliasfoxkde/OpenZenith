@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -35,13 +36,13 @@ export async function GET(request: NextRequest) {
   const targetUrl = searchParams.get("url");
 
   if (!targetUrl) {
-    return NextResponse.json({ error: "Missing ?url= parameter" }, { status: 400 });
+    return NextResponse.json({ error: "Missing ?url= parameter" }, { status: 400, headers: CORS_HEADERS });
   }
 
   try {
     const parsed = new URL(targetUrl);
     if (!ALLOWED_HOSTS.some((h) => parsed.hostname.endsWith(h))) {
-      return NextResponse.json({ error: "Domain not allowed" }, { status: 403 });
+      return NextResponse.json({ error: "Domain not allowed" }, { status: 403, headers: CORS_HEADERS });
     }
 
     // Forward with json format
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     return new Response(JSON.stringify(data), { status: 200, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "ArcGIS proxy error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }
 

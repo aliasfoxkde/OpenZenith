@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -7,7 +8,10 @@ const NLNOG_LG = "https://lg.ring.nlnog.net/api";
 export async function GET(request: NextRequest) {
   const prefix = request.nextUrl.searchParams.get("prefix");
   if (!prefix) {
-    return NextResponse.json({ error: "Missing required parameter: prefix (e.g. 8.8.8.0/24)" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required parameter: prefix (e.g. 8.8.8.0/24)" },
+      { status: 400, headers: CORS_HEADERS },
+    );
   }
 
   try {
@@ -22,7 +26,10 @@ export async function GET(request: NextRequest) {
     clearTimeout(timeout);
 
     if (!resp.ok) {
-      return NextResponse.json({ error: `NLNOG Looking Glass returned ${resp.status}` }, { status: 502 });
+      return NextResponse.json(
+        { error: `NLNOG Looking Glass returned ${resp.status}` },
+        { status: 502, headers: CORS_HEADERS },
+      );
     }
 
     const data = await resp.json();
@@ -38,6 +45,6 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to query BGP data";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

@@ -18,6 +18,7 @@ async function findRecentSentinel2Tile(bbox: string): Promise<string | null> {
   // Search for recent Sentinel-2 L2A item
   const res = await fetch(STAC_SEARCH, {
     method: "POST",
+    signal: AbortSignal.timeout(15000),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       collections: ["sentinel-2-l2a"],
@@ -83,6 +84,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     const titilerUrl = `https://titiler.planetarycomputer.microsoft.gov/cog/tiles/${z}/${x}/${y}?url=${encodeURIComponent(assetUrl)}&rescale=0,3000&color_map=viridis&bidx=1,2,3`;
 
     const tileRes = await fetch(titilerUrl, {
+      signal: AbortSignal.timeout(30000),
       headers: {
         "User-Agent": "OpenZenith/1.0",
       },

@@ -1,13 +1,10 @@
 import { describe, it, expect } from "vitest";
-
-function mockReq(path: string): Request {
-  return new Request(`http://localhost:8788${path}`);
-}
+import { mockRequest } from "./helpers";
 
 describe("Tile Matrix Set API", () => {
   it("returns WebMercatorQuad metadata", async () => {
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
-    const resp = await GET(mockReq("/api/tiles/WebMercatorQuad"), {
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad"), {
       params: Promise.resolve({ tileMatrixSetId: "WebMercatorQuad" }),
     });
     expect(resp.status).toBe(200);
@@ -23,7 +20,7 @@ describe("Tile Matrix Set API", () => {
 
   it("returns WorldCRS84Quad metadata", async () => {
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
-    const resp = await GET(mockReq("/api/tiles/WorldCRS84Quad"), {
+    const resp = await GET(mockRequest("/api/tiles/WorldCRS84Quad"), {
       params: Promise.resolve({ tileMatrixSetId: "WorldCRS84Quad" }),
     });
     expect(resp.status).toBe(200);
@@ -36,7 +33,7 @@ describe("Tile Matrix Set API", () => {
 
   it("returns 400 for unknown tile matrix set", async () => {
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
-    const resp = await GET(mockReq("/api/tiles/UnknownSet"), {
+    const resp = await GET(mockRequest("/api/tiles/UnknownSet"), {
       params: Promise.resolve({ tileMatrixSetId: "UnknownSet" }),
     });
     expect(resp.status).toBe(400);

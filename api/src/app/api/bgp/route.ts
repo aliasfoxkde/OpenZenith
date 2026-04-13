@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 const NLNOG_LG = "https://lg.ring.nlnog.net/api";
 

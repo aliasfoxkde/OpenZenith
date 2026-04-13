@@ -12,13 +12,13 @@
 
 import { LAYERS } from "@/lib/layers/registry";
 import { MAP_2D_LAYER_IDS } from "@/app/map/lib/layers";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
 const STAC_VERSION = "1.0.0";
-const BASE_URL = "https://openzenith.cyopsys.com";
 
-function rootCatalog() {
+function rootCatalog(baseUrl: string) {
   return {
     stac_version: STAC_VERSION,
     type: "Catalog",
@@ -41,14 +41,14 @@ function rootCatalog() {
       {
         name: "OpenZenith",
         roles: ["host", "processor"],
-        url: "https://openzenith.cyopsys.com",
+        url: baseUrl,
       },
     ],
     links: [
-      { rel: "self", href: `${BASE_URL}/api/stac`, type: "application/json" },
-      { rel: "root", href: `${BASE_URL}/api/stac`, type: "application/json" },
-      { rel: "child", href: `${BASE_URL}/api/stac/collections`, type: "application/json" },
-      { rel: "service-desc", href: `${BASE_URL}/api/stac`, type: "application/json" },
+      { rel: "self", href: `${baseUrl}/api/stac`, type: "application/json" },
+      { rel: "root", href: `${baseUrl}/api/stac`, type: "application/json" },
+      { rel: "child", href: `${baseUrl}/api/stac/collections`, type: "application/json" },
+      { rel: "service-desc", href: `${baseUrl}/api/stac`, type: "application/json" },
     ],
   };
 }
@@ -68,16 +68,16 @@ interface StacCollection {
   links: Array<{ rel: string; href: string; type?: string }>;
 }
 
-function layerToCollection(layer: (typeof LAYERS)[number]): StacCollection {
+function layerToCollection(layer: (typeof LAYERS)[number], baseUrl: string): StacCollection {
   const bbox: number[][] = layer.id === "satellites" ? [[-180, -90, 180, 90]] : [[-180, -85, 180, 85]];
 
   const hasMapLibreLayer = MAP_2D_LAYER_IDS.has(layer.id);
 
   const links: Array<{ rel: string; href: string; type?: string; title?: string }> = [
-    { rel: "self", href: `${BASE_URL}/api/stac/collections/${layer.id}`, type: "application/json" },
-    { rel: "parent", href: `${BASE_URL}/api/stac/collections`, type: "application/json" },
-    { rel: "root", href: `${BASE_URL}/api/stac`, type: "application/json" },
-    { rel: "items", href: `${BASE_URL}/api/stac/collections/${layer.id}/items`, type: "application/geo+json" },
+    { rel: "self", href: `${baseUrl}/api/stac/collections/${layer.id}`, type: "application/json" },
+    { rel: "parent", href: `${baseUrl}/api/stac/collections`, type: "application/json" },
+    { rel: "root", href: `${baseUrl}/api/stac`, type: "application/json" },
+    { rel: "items", href: `${baseUrl}/api/stac/collections/${layer.id}/items`, type: "application/geo+json" },
   ];
 
   // Add data access links for layers with data sources
@@ -85,14 +85,14 @@ function layerToCollection(layer: (typeof LAYERS)[number]): StacCollection {
     if (hasMapLibreLayer) {
       links.push({
         rel: "tiles",
-        href: `${BASE_URL}${layer.dataSource}`,
+        href: `${baseUrl}${layer.dataSource}`,
         type: "application/vnd.mapbox-vector-tile",
         title: "MapLibre vector tiles",
       });
     } else if (layer.dataSource.startsWith("/api/")) {
       links.push({
         rel: "items",
-        href: `${BASE_URL}${layer.dataSource}`,
+        href: `${baseUrl}${layer.dataSource}`,
         type: "application/geo+json",
         title: "GeoJSON features",
       });
@@ -117,29 +117,24 @@ function layerToCollection(layer: (typeof LAYERS)[number]): StacCollection {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const baseUrl = url.origin;
   const path = url.pathname.replace("/api/stac", "");
 
   // CORS preflight
   if (request.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
-    });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   if (path === "" || path === "/") {
-    return Response.json(rootCatalog(), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    return Response.json(rootCatalog(baseUrl), {
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
 
   if (path === "/collections") {
-    const collections = LAYERS.map(layerToCollection);
+    const collections = LAYERS.map((l) => layerToCollection(l, baseUrl));
     return Response.json(collections, {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
 
@@ -151,8 +146,8 @@ export async function GET(request: Request) {
     if (!layer) {
       return Response.json({ error: "Collection not found" }, { status: 404 });
     }
-    return Response.json(layerToCollection(layer), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    return Response.json(layerToCollection(layer, baseUrl), {
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
 

@@ -32,9 +32,7 @@ describe("Proxy Tile API", () => {
 
   it("blocks private IP host (SSRF protection)", async () => {
     const { GET } = await import("@/app/api/proxy/tile/route");
-    const resp = await GET(
-      mockRequest("/api/proxy/tile?url=https://192.168.1.1/{z}/{x}/{y}.png&z=0&x=0&y=0"),
-    );
+    const resp = await GET(mockRequest("/api/proxy/tile?url=https://192.168.1.1/{z}/{x}/{y}.png&z=0&x=0&y=0"));
     expect(resp.status).toBe(403);
   });
 });

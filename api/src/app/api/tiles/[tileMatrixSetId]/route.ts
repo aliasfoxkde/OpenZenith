@@ -1,6 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 /**
  * OGC API - Tiles metadata for a specific tile matrix set.
@@ -8,9 +13,8 @@ export const runtime = "edge";
  * Returns tile matrix set definition with zoom levels and tile size.
  */
 
-const BASE_URL = "https://openzenith.cyopsys.com";
-
-export async function GET(_request: Request, { params }: { params: Promise<{ tileMatrixSetId: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ tileMatrixSetId: string }> }) {
+  const baseUrl = new URL(request.url).origin;
   const { tileMatrixSetId } = await params;
 
   const validSets = ["WebMercatorQuad", "WorldCRS84Quad"];
@@ -62,12 +66,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ til
         {
           rel: "self",
           type: "application/json",
-          href: `${BASE_URL}/api/tiles/${tileMatrixSetId}`,
+          href: `${baseUrl}/api/tiles/${tileMatrixSetId}`,
         },
         {
           rel: "root",
           type: "application/json",
-          href: `${BASE_URL}/api/tiles`,
+          href: `${baseUrl}/api/tiles`,
         },
       ],
     },

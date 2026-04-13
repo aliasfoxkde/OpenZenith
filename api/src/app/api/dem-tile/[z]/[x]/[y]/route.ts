@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 /**
  * DEM terrain tile endpoint.
@@ -30,7 +30,7 @@ const CACHE_HEADERS: Record<string, string> = {
 };
 
 export async function OPTIONS() {
-  return new Response(null, { headers: CACHE_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {

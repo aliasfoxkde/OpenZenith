@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { getGebcoElevation } from "@/lib/gebco/cog-reader";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
 
 // Direct HuggingFace backend — avoids process.env which may not work on edge
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
@@ -63,7 +58,7 @@ async function getElevation(lat: number, lon: number) {
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET(request: NextRequest) {

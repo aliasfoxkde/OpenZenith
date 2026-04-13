@@ -1,6 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 /**
  * OGC API - Features collections.
@@ -8,8 +13,6 @@ export const runtime = "edge";
  * Returns available feature collections with metadata.
  * Follows OGC API - Features 1.0 specification.
  */
-
-const BASE_URL = "https://openzenith.cyopsys.com";
 
 // Map internal layer IDs to OGC collections
 const FEATURE_COLLECTIONS = [
@@ -43,8 +46,9 @@ const FEATURE_COLLECTIONS = [
   },
 ];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const baseUrl = new URL(request.url).origin;
     const collections = FEATURE_COLLECTIONS.map((col) => ({
       id: col.id,
       title: col.title,
@@ -53,12 +57,12 @@ export async function GET() {
         {
           rel: "self",
           type: "application/geo+json",
-          href: `${BASE_URL}/api/collections/${col.id}`,
+          href: `${baseUrl}/api/collections/${col.id}`,
         },
         {
           rel: "items",
           type: "application/geo+json",
-          href: `${BASE_URL}/api/collections/${col.id}/items`,
+          href: `${baseUrl}/api/collections/${col.id}/items`,
         },
       ],
       extent: {
@@ -74,8 +78,8 @@ export async function GET() {
     return NextResponse.json(
       {
         links: [
-          { rel: "self", type: "application/json", href: `${BASE_URL}/api/collections` },
-          { rel: "root", type: "application/json", href: `${BASE_URL}/api` },
+          { rel: "self", type: "application/json", href: `${baseUrl}/api/collections` },
+          { rel: "root", type: "application/json", href: `${baseUrl}/api` },
         ],
         collections,
         timeStamp: new Date().toISOString(),

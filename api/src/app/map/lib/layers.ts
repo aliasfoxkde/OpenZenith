@@ -987,13 +987,19 @@ export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_HANDLERS));
 
 /* ─── Hurricane Animation ─── */
 
-export function startHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle, callback: (progress: number) => void): void {
+export function startHurricaneAnimation(
+  map: maplibregl.Map,
+  handle: LayerHandle,
+  callback: (progress: number) => void,
+): void {
   // Get timestamp range from source data
   const source = map.getSource("hurricanes");
   if (!source?._data?.features) return;
 
   const times = source._data.features
-    .filter((f: GeoJSON.Feature) => f.geometry?.type === "Point" && (f.properties as Record<string, unknown>)?.timestamp)
+    .filter(
+      (f: GeoJSON.Feature) => f.geometry?.type === "Point" && (f.properties as Record<string, unknown>)?.timestamp,
+    )
     .map((f: GeoJSON.Feature) => (f.properties as Record<string, unknown>).timestamp as number)
     .filter((t: number) => t > 0)
     .sort((a: number, b: number) => a - b);

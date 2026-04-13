@@ -2,20 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
 import { getWeather } from "@/lib/weather/open-meteo";
 import { getTides } from "@/lib/tides/noaa";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
 
 const VALID_INCLUDES = ["elevation", "address", "weather", "tides", "waterways"] as const;
 type IncludeType = (typeof VALID_INCLUDES)[number];
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 /**

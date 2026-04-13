@@ -1,6 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 const openApiSpec = {
   openapi: "3.0.3",
@@ -19,8 +24,8 @@ const openApiSpec = {
   },
   servers: [
     {
-      url: "https://openzenith.cyopsys.com",
-      description: "Production (Cloudflare Pages)",
+      url: "/",
+      description: "Current deployment (derived from request)",
     },
   ],
   paths: {
@@ -1088,6 +1093,37 @@ const openApiSpec = {
         tags: ["Tiles"],
       },
     },
+    "/api/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}": {
+      get: {
+        summary: "OGC API Tiles — terrain tile data",
+        description:
+          "Serves terrain elevation tiles in Terrarium PNG encoding. Assembles tiles on-the-fly from SRTM 30m chunk datasets. Supports WebMercatorQuad and WorldCRS84Quad tile matrix sets.",
+        parameters: [
+          {
+            name: "tileMatrixSetId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "Tile matrix set (WebMercatorQuad or WorldCRS84Quad)",
+          },
+          {
+            name: "tileMatrix",
+            in: "path",
+            required: true,
+            schema: { type: "integer" },
+            description: "Zoom level (0-14)",
+          },
+          { name: "tileRow", in: "path", required: true, schema: { type: "integer" }, description: "Tile row (Y)" },
+          { name: "tileCol", in: "path", required: true, schema: { type: "integer" }, description: "Tile column (X)" },
+        ],
+        responses: {
+          "200": { description: "Terrarium PNG tile (elevation encoded as RGB)" },
+          "400": { description: "Invalid tile matrix set or coordinates" },
+          "404": { description: "Tile out of range" },
+        },
+        tags: ["Tiles"],
+      },
+    },
     "/api/pmtiles/{key}": {
       get: {
         summary: "PMTiles metadata redirect",
@@ -1163,11 +1199,15 @@ const openApiSpec = {
   ],
 };
 
-export async function GET() {
-  return NextResponse.json(openApiSpec, {
-    headers: {
-      "Cache-Control": "public, max-age=3600",
-      "Access-Control-Allow-Origin": "*",
+export async function GET(request: NextRequest) {
+  const baseUrl = new URL(request.url).origin;
+  return NextResponse.json(
+    { ...openApiSpec, servers: [{ url: baseUrl, description: "Current deployment" }] },
+    {
+      headers: {
+        "Cache-Control": "public, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
+      },
     },
-  });
+  );
 }

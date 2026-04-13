@@ -5,7 +5,13 @@
  * CORINE Land Cover 2018 dataset.
  */
 
+import { corsPreflightResponse } from "@/lib/cors";
+
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 import { tileToLatLon } from "@/lib/srtm/zoom-math";
 

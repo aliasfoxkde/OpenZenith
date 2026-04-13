@@ -5,7 +5,13 @@
  * to avoid CORS issues in the browser.
  */
 
+import { corsPreflightResponse } from "@/lib/cors";
+
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 import { tileToLatLon } from "@/lib/srtm/zoom-math";
 

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 const FIRMS_KEY = process.env.NEXT_PUBLIC_FIRMS_API_KEY || "";
 

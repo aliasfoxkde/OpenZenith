@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
 
 const VALID_PERIODS = new Set([
   "all_hour",
@@ -34,7 +29,7 @@ const VALID_PERIODS = new Set([
 ]);
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET(request: NextRequest) {

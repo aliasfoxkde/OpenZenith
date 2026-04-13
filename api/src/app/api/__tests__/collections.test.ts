@@ -4,7 +4,7 @@ import { mockRequest } from "./helpers";
 describe("Collections API", () => {
   it("returns list of collections", async () => {
     const { GET } = await import("@/app/api/collections/route");
-    const resp = await GET();
+    const resp = await GET(mockRequest("/api/collections"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.collections).toBeTruthy();

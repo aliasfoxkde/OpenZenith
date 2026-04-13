@@ -16,7 +16,9 @@ declare namespace maplibregl {
   class Map {
     addSource(id: string, source: Record<string, unknown>): this;
     removeSource(id: string): this;
-    getSource(id: string): { setData(data: unknown): void; type: string; _data?: GeoJSON.FeatureCollection } | undefined;
+    getSource(
+      id: string,
+    ): { setData(data: unknown): void; type: string; _data?: GeoJSON.FeatureCollection } | undefined;
     addLayer(layer: Record<string, unknown>, beforeId?: string): this;
     removeLayer(id: string): this;
     getLayer(id: string): Record<string, unknown> | undefined;
@@ -24,7 +26,13 @@ declare namespace maplibregl {
     setPaintProperty(layerId: string, name: string, value: unknown): this;
     setFilter(layerId: string, filter?: unknown): this;
     getBounds(): { getSouthWest(): { lat: number; lng: number }; getNorthEast(): { lat: number; lng: number } };
-    fitBounds(bounds: { getSouthWest(): () => { lng: number; lat: number }; getNorthEast(): () => { lng: number; lat: number } }, options?: Record<string, unknown>): this;
+    fitBounds(
+      bounds: {
+        getSouthWest(): () => { lng: number; lat: number };
+        getNorthEast(): () => { lng: number; lat: number };
+      },
+      options?: Record<string, unknown>,
+    ): this;
     on(type: string, listener: (...args: unknown[]) => void): this;
     off(type: string, listener: (...args: unknown[]) => void): this;
     once(type: string, listener: (...args: unknown[]) => void): this;

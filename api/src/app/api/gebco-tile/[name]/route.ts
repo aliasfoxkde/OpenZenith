@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 // Edge runtime — GEBCO COG files are on NAS (local dev only).
 // Terrain tiles are served from R2 via /api/dem-tile/{z}/{x}/{y}.
 // Elevation queries use /api/elevation with R2-backed terrarium tiles.
 export const runtime = "edge";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-  "Access-Control-Allow-Headers": "Range, Content-Type",
-  "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ name: string }> }) {

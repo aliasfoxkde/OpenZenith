@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-const BASE_URL = "https://openzenith.cyopsys.com";
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 const COLLECTIONS: Record<string, { title: string; description: string }> = {
   earthquakes: {
@@ -32,6 +35,7 @@ const COLLECTIONS: Record<string, { title: string; description: string }> = {
 };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const baseUrl = new URL(request.url).origin;
   const { id } = await params;
   const col = COLLECTIONS[id];
 
@@ -48,9 +52,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       title: col.title,
       description: col.description,
       links: [
-        { rel: "self", type: "application/json", href: `${BASE_URL}/api/collections/${id}` },
-        { rel: "items", type: "application/geo+json", href: `${BASE_URL}/api/collections/${id}/items` },
-        { rel: "root", type: "application/json", href: `${BASE_URL}/api` },
+        { rel: "self", type: "application/json", href: `${baseUrl}/api/collections/${id}` },
+        { rel: "items", type: "application/geo+json", href: `${baseUrl}/api/collections/${id}/items` },
+        { rel: "root", type: "application/json", href: `${baseUrl}/api` },
       ],
       extent: {
         spatial: { bbox: [-180, -90, 180, 90], crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84" },

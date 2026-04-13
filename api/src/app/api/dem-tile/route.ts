@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 /**
  * DEM terrain provider metadata + health endpoint.
@@ -46,8 +47,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(TERRAIN_METADATA, {
     headers: {
+      ...CORS_HEADERS,
       "Cache-Control": "public, max-age=86400",
-      "Access-Control-Allow-Origin": "*",
       "Content-Type": "application/json",
     },
   });
@@ -70,8 +71,8 @@ async function handleHealthCheck() {
         },
         {
           headers: {
+            ...CORS_HEADERS,
             "Cache-Control": "no-cache",
-            "Access-Control-Allow-Origin": "*",
           },
         },
       );
@@ -87,8 +88,8 @@ async function handleHealthCheck() {
       {
         status: 503,
         headers: {
+          ...CORS_HEADERS,
           "Cache-Control": "no-cache",
-          "Access-Control-Allow-Origin": "*",
         },
       },
     );
@@ -102,8 +103,8 @@ async function handleHealthCheck() {
       {
         status: 500,
         headers: {
+          ...CORS_HEADERS,
           "Cache-Control": "no-cache",
-          "Access-Control-Allow-Origin": "*",
         },
       },
     );

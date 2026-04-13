@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -16,16 +17,14 @@ export const runtime = "edge";
 
 const CACHE_HEADERS: Record<string, string> = {
   "Cache-Control": "public, max-age=2592000, s-maxage=2592000",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  ...CORS_HEADERS,
 };
 
 // Direct HuggingFace backend — avoids process.env which may not work on edge
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 export async function OPTIONS() {
-  return new Response(null, { headers: CACHE_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET(
@@ -39,7 +38,7 @@ export async function GET(
   if (!validSets.includes(tileMatrixSetId)) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: `Unknown tileMatrixSet: ${tileMatrixSetId}` },
-      { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
+      { status: 400, headers: CORS_HEADERS },
     );
   }
 
@@ -48,7 +47,7 @@ export async function GET(
   if (isNaN(z) || z < 0 || z > 14) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: `Invalid tileMatrix (zoom): ${tileMatrix}` },
-      { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
+      { status: 400, headers: CORS_HEADERS },
     );
   }
 
@@ -58,7 +57,7 @@ export async function GET(
   if (isNaN(x) || isNaN(y) || x < 0 || y < 0) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: "Invalid tile coordinates" },
-      { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
+      { status: 400, headers: CORS_HEADERS },
     );
   }
 
@@ -67,7 +66,7 @@ export async function GET(
   if (x > maxTile || y > maxTile) {
     return NextResponse.json(
       { code: "TileOutOfRange", description: `Tile ${z}/${x}/${y} is out of range` },
-      { status: 404, headers: { "Access-Control-Allow-Origin": "*" } },
+      { status: 404, headers: CORS_HEADERS },
     );
   }
 

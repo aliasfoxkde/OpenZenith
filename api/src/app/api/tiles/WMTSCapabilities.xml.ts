@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -9,9 +10,8 @@ export const runtime = "edge";
  * Follows OGC API - Tiles 1.0 specification.
  */
 
-const BASE_URL = "https://openzenith.cyopsys.com";
-
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const baseUrl = new URL(request.url).origin;
   const tileMatrixSets = [
     {
       id: "WebMercatorQuad",
@@ -37,18 +37,18 @@ export async function GET() {
         {
           rel: "self",
           type: "application/json",
-          href: `${BASE_URL}/api/tiles`,
+          href: `${baseUrl}/api/tiles`,
         },
         {
           rel: "data",
           type: "application/json",
-          href: `${BASE_URL}/api/tiles/WebMercatorQuad`,
+          href: `${baseUrl}/api/tiles/WebMercatorQuad`,
           title: "Web Mercator Quad",
         },
         {
           rel: "data",
           type: "application/json",
-          href: `${BASE_URL}/api/tiles/WorldCRS84Quad`,
+          href: `${baseUrl}/api/tiles/WorldCRS84Quad`,
           title: "WGS 84 Quad",
         },
       ],
@@ -60,7 +60,7 @@ export async function GET() {
           {
             rel: "http://www.w3.org/ns/dx/ogc/api-tiles/tileMatrixSet",
             type: "application/json",
-            href: `${BASE_URL}/api/tiles/${tms.id}`,
+            href: `${baseUrl}/api/tiles/${tms.id}`,
           },
         ],
       })),
@@ -68,7 +68,7 @@ export async function GET() {
     {
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
+        ...CORS_HEADERS,
         "Cache-Control": "public, max-age=3600",
       },
     },

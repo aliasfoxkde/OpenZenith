@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -32,19 +33,13 @@ export async function GET(_request: NextRequest) {
     },
     {
       headers: {
+        ...CORS_HEADERS,
         "Cache-Control": "public, max-age=3600",
-        "Access-Control-Allow-Origin": "*",
       },
     },
   );
 }
 
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-    },
-  });
+  return corsPreflightResponse();
 }

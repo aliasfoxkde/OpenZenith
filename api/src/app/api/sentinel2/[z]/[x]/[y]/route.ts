@@ -5,7 +5,13 @@
  * recent Sentinel-2 imagery as Cloud-Optimized GeoTIFF tiles.
  */
 
+import { corsPreflightResponse } from "@/lib/cors";
+
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 import { tileToBboxString } from "@/lib/srtm/zoom-math";
 

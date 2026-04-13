@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 // In-memory token cache (Edge runtime — survives across requests within a deployment)
 let cachedToken: { access_token: string; expires_at: number } | null = null;

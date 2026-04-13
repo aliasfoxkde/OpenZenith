@@ -35,7 +35,7 @@ describe("Collection Items — extended", () => {
   it("OPTIONS returns CORS headers", async () => {
     const { OPTIONS } = await import("@/app/api/collections/[id]/items/route");
     const resp = await OPTIONS();
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });

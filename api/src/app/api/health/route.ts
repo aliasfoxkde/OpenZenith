@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 export async function GET() {
   const backend = process.env.STORAGE_BACKEND || "huggingface";

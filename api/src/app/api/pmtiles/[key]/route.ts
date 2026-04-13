@@ -9,16 +9,12 @@
  */
 
 import { NextResponse } from "next/server";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-};
-
 export async function OPTIONS() {
-  return new Response(null, { headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET() {

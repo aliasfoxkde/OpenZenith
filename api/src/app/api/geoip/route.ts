@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
+/** Cloudflare request object (cf property). */
+interface CfRequestProperties {
+  ip?: string;
+  city?: string;
+  country?: string;
+  countryName?: string;
+  subdivision1Code?: string;
+  subdivision1Name?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  timezone?: string;
+  continent?: string;
+  asn?: number;
+  asOrganization?: string;
+  colo?: string;
+}
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
 export async function GET(request: NextRequest) {
-  const cf = (request as any).cf;
+  const cf = (request as NextRequest & { cf?: CfRequestProperties }).cf;
 
   return NextResponse.json(
     {
@@ -25,7 +48,7 @@ export async function GET(request: NextRequest) {
     {
       headers: {
         "Cache-Control": "public, max-age=3600",
-        "Access-Control-Allow-Origin": "*",
+        ...CORS_HEADERS,
       },
     },
   );

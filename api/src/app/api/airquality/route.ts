@@ -5,12 +5,25 @@
  * from the Open-Meteo Air Quality API.
  */
 
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
+
 export const runtime = "edge";
+
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
+function parseCoord(val: string | null, fallback: number, min: number, max: number): number {
+  if (!val) return fallback;
+  const n = Number(val);
+  return isNaN(n) || n < min || n > max ? fallback : n;
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const lat = parseFloat(url.searchParams.get("lat") || "40.7");
-  const lon = parseFloat(url.searchParams.get("lon") || "-74.0");
+  const lat = parseCoord(url.searchParams.get("lat"), 40.7, -90, 90);
+  const lon = parseCoord(url.searchParams.get("lon"), -74.0, -180, 180);
+
   try {
     // Open-Meteo Air Quality API
     const aqUrl = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
@@ -23,13 +36,13 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      return Response.json({ error: "Failed to fetch air quality data" }, { status: 502 });
+      return corsError("Failed to fetch air quality data", 502);
     }
 
     const data = await res.json();
     const current = data.current;
     if (!current) {
-      return Response.json({ type: "FeatureCollection", features: [] });
+      return Response.json({ type: "FeatureCollection", features: [] }, { headers: CORS_HEADERS });
     }
 
     const feature: GeoJSON.Feature = {
@@ -51,9 +64,9 @@ export async function GET(request: Request) {
       },
     };
 
-    return Response.json({ type: "FeatureCollection", features: [feature] });
+    return Response.json({ type: "FeatureCollection", features: [feature] }, { headers: CORS_HEADERS });
   } catch {
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return corsError("Internal server error", 500);
   }
 }
 

@@ -15,7 +15,7 @@ export const runtime = "edge";
  *   /api/proxy/tile?url=https://tile.server.com/%7Bz%7D/%7Bx%7D/%7By%7D.png&z=10&x=512&y=384
  */
 
-import { CORS_HEADERS, corsError } from "@/lib/cors";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 /** Hostnames allowed for tile proxy requests. */
 const ALLOWED_TILE_HOSTS = [
@@ -29,6 +29,8 @@ const ALLOWED_TILE_HOSTS = [
   "map1.vis.earthdata.nasa.gov",
   "services.arcgis.com",
   "services7.arcgis.com",
+  "services9.arcgis.com",
+  "api.overturemaps.org",
   "gis.fema.gov",
   "a.tile.openstreetmap.org",
   "b.tile.openstreetmap.org",
@@ -37,7 +39,7 @@ const ALLOWED_TILE_HOSTS = [
 ];
 
 export async function OPTIONS() {
-  return new Response(null, { headers: CORS_HEADERS });
+  return corsPreflightResponse();
 }
 
 export async function GET(request: NextRequest) {

@@ -1,3 +1,6 @@
+/** MapLibre style expression — nested arrays of strings, numbers, and sub-expressions */
+type MapLibreExpression = (string | number | MapLibreExpression)[];
+
 /** Color ramp definitions */
 export const COLOR_RAMPS = {
   sequential: [
@@ -48,12 +51,12 @@ function buildChoroplethExpression(
   data: GeoJSON.FeatureCollection,
   property: string,
   colorRamp: "sequential" | "diverging",
-): any[] {
+): MapLibreExpression {
   const range = getPropertyRange(data, property);
-  if (!range) return ["literal", "#3b82f6"] as any;
+  if (!range) return ["literal", "#3b82f6"];
 
   const ramp = COLOR_RAMPS[colorRamp];
-  const expr: any[] = ["interpolate", ["linear"], ["to-number", ["get", property]]];
+  const expr: MapLibreExpression = ["interpolate", ["linear"], ["to-number", ["get", property]]];
   for (const [stop, color] of ramp) {
     expr.push(range.min + stop * (range.max - range.min));
     expr.push(color);
@@ -62,10 +65,10 @@ function buildChoroplethExpression(
 }
 
 /** Build a MapLibre match expression for categorical coloring */
-function buildCategoricalExpression(data: GeoJSON.FeatureCollection, property: string): any[] {
+function buildCategoricalExpression(data: GeoJSON.FeatureCollection, property: string): MapLibreExpression {
   const values = getUniqueValues(data, property);
   const ramp = COLOR_RAMPS.categorical;
-  const expr: any[] = ["match", ["to-string", ["get", property]]];
+  const expr: MapLibreExpression = ["match", ["to-string", ["get", property]]];
   for (let i = 0; i < values.length; i++) {
     expr.push(values[i]);
     expr.push(ramp[i % ramp.length]);
@@ -76,7 +79,7 @@ function buildCategoricalExpression(data: GeoJSON.FeatureCollection, property: s
 
 /** Add a GeoJSON FeatureCollection as a map layer */
 export function addGeoJSONLayer(
-  map: any,
+  map: maplibregl.Map,
   id: string,
   data: GeoJSON.FeatureCollection,
   color: string = "#3b82f6",
@@ -87,7 +90,7 @@ export function addGeoJSONLayer(
 
   map.addSource(id, {
     type: "geojson",
-    data: data as any,
+    data,
   });
 
   // Detect geometry types in features
@@ -212,7 +215,7 @@ export function addGeoJSONLayer(
 }
 
 /** Remove all layers and source for a dataset */
-export function removeAllDatasetLayers(map: any, id: string) {
+export function removeAllDatasetLayers(map: maplibregl.Map, id: string) {
   const suffixes = ["-fill", "-line", "-circle", "-heatmap"];
   for (const suffix of suffixes) {
     if (map.getLayer(id + suffix)) map.removeLayer(id + suffix);
@@ -221,12 +224,12 @@ export function removeAllDatasetLayers(map: any, id: string) {
 }
 
 /** Remove a GeoJSON layer and its source */
-export function removeGeoJSONLayer(map: any, id: string) {
+export function removeGeoJSONLayer(map: maplibregl.Map, id: string) {
   removeAllDatasetLayers(map, id);
 }
 
 /** Get bounding box string for Overpass */
-export function getOverpassBBox(map: any): string {
+export function getOverpassBBox(map: maplibregl.Map): string {
   const bounds = map.getBounds();
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();

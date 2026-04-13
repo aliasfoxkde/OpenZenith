@@ -25,12 +25,15 @@ declare namespace maplibregl {
     setLayoutProperty(layerId: string, name: string, value: unknown): this;
     setPaintProperty(layerId: string, name: string, value: unknown): this;
     setFilter(layerId: string, filter?: unknown): this;
+    setStyle(style: Record<string, unknown>): this;
     getBounds(): { getSouthWest(): { lat: number; lng: number }; getNorthEast(): { lat: number; lng: number } };
     fitBounds(
-      bounds: {
-        getSouthWest(): () => { lng: number; lat: number };
-        getNorthEast(): () => { lng: number; lat: number };
-      },
+      bounds:
+        | LngLatBounds
+        | {
+            getSouthWest(): { lng: number; lat: number };
+            getNorthEast(): { lng: number; lat: number };
+          },
       options?: Record<string, unknown>,
     ): this;
     on(type: string, listener: (...args: unknown[]) => void): this;
@@ -41,13 +44,20 @@ declare namespace maplibregl {
     getCenter(): { lng: number; lat: number };
     getZoom(): number;
     setZoom(zoom: number): this;
+    getBearing(): number;
+    getPitch(): number;
+    setTerrain(options: Record<string, unknown> | undefined): this;
     getCanvas(): HTMLCanvasElement;
     queryRenderedFeatures(point?: unknown, parameters?: Record<string, unknown>): unknown[];
     querySourceFeatures(sourceId: string, parameters?: Record<string, unknown>): unknown[];
     flyTo(options: Record<string, unknown>): this;
     project(lnglat: [number, number]): { x: number; y: number };
     unproject(point: { x: number; y: number }): [number, number];
+    remove(): void;
+    dragPan: { enable(): void; disable(): void };
   }
+
+  class NavigationControl {}
 
   class LngLatBounds {
     extend(point: [number, number] | { lng: number; lat: number }): this;
@@ -69,4 +79,24 @@ declare namespace maplibregl {
     constructor(options?: Record<string, unknown>);
     setHTML(html: string): this;
   }
+}
+
+/** Type for the maplibregl global namespace object (returned by waitForMapLibre). */
+interface MapLibreGL {
+  Map: typeof maplibregl.Map;
+  Marker: typeof maplibregl.Marker;
+  Popup: typeof maplibregl.Popup;
+  LngLatBounds: typeof maplibregl.LngLatBounds;
+  NavigationControl: typeof maplibregl.NavigationControl;
+}
+
+/** Minimal type for the topojson-client global. */
+interface TopoJSONClient {
+  feature(topology: unknown, object: unknown): GeoJSON.FeatureCollection;
+}
+
+interface Window {
+  maplibregl?: MapLibreGL;
+  topojson?: TopoJSONClient;
+  _maplibreLoading?: Promise<void>;
 }

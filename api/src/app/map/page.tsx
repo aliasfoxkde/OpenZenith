@@ -103,26 +103,26 @@ function buildDefaultLayers(): Record<string, boolean> {
 
 /* ─── Boundary data ─── */
 
-let topojsonLib: any = null;
-let boundariesGeoJSON: any = null;
+let topojsonLib: TopoJSONClient | null = null;
+let boundariesGeoJSON: GeoJSON.FeatureCollection | null = null;
 
-async function loadTopojsonLib(): Promise<any> {
+async function loadTopojsonLib(): Promise<TopoJSONClient> {
   if (topojsonLib) return topojsonLib;
-  const w = window as any;
-  if (w.topojson) return (topojsonLib = w.topojson);
+  if (window.topojson) return (topojsonLib = window.topojson);
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = "https://unpkg.com/topojson-client@3/dist/topojson-client.min.js";
     s.onload = () => {
-      topojsonLib = w.topojson;
-      resolve(topojsonLib);
+      topojsonLib = window.topojson ?? null;
+      if (topojsonLib) resolve(topojsonLib);
+      else reject(new Error("topojson-client failed to load"));
     };
     s.onerror = reject;
     document.head.appendChild(s);
   });
 }
 
-async function loadBoundariesData(): Promise<any> {
+async function loadBoundariesData(): Promise<GeoJSON.FeatureCollection | null> {
   if (boundariesGeoJSON) return boundariesGeoJSON;
   try {
     const topo = await loadTopojsonLib();
@@ -204,7 +204,7 @@ function buildHash(state: MapViewState): string {
 
 export default function MapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapState, setMapState] = useState<MapViewState>(() => {
     if (typeof window === "undefined") return DEFAULT_STATE;
     return { ...DEFAULT_STATE, ...parseHash(window.location.hash) };
@@ -217,8 +217,8 @@ export default function MapPage() {
   const [fetchingElevation, setFetchingElevation] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
-  const mlglRef = useRef<any>(null);
-  const pinsRef = useRef<any[]>([]);
+  const mlglRef = useRef<MapLibreGL | null>(null);
+  const pinsRef = useRef<maplibregl.Marker[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const layerHandleRef = useRef<LayerHandle>({ intervals: [] });
   const measureRef = useRef(createMeasureController());
@@ -331,8 +331,9 @@ export default function MapPage() {
           setLoading(false);
         });
 
-        map.on("click", async (e: any) => {
-          const { lat, lng } = e.lngLat;
+        map.on("click", async (e: unknown) => {
+          const ev = e as { lngLat: { lat: number; lng: number } };
+          const { lat, lng } = ev.lngLat;
 
           // Measure mode: add point instead of elevation pin
           if (measureModeRef.current !== "none") {
@@ -372,8 +373,9 @@ export default function MapPage() {
           }));
         });
 
-        map.on("mousemove", (e: any) => {
-          setCursorPos({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+        map.on("mousemove", (e: unknown) => {
+          const ev = e as { lngLat: { lat: number; lng: number } };
+          setCursorPos({ lat: ev.lngLat.lat, lon: ev.lngLat.lng });
         });
         map.on("mouseout", () => setCursorPos(null));
 
@@ -1155,7 +1157,7 @@ export default function MapPage() {
 
 /* ─── Map helpers ─── */
 
-function addElevationSource(map: any, _mlgl: any) {
+function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
   // Only add if not already present
   if (map.getSource("elevation")) return;
 
@@ -1168,7 +1170,7 @@ function addElevationSource(map: any, _mlgl: any) {
   });
 }
 
-function addBoundaryLayers(map: any) {
+function addBoundaryLayers(map: maplibregl.Map) {
   if (map.getLayer("boundaries-glow")) return;
   loadBoundariesData().then((data) => {
     if (!data || !map.getSource) return;
@@ -1206,7 +1208,7 @@ function addBoundaryLayers(map: any) {
   });
 }
 
-function removeBoundaryLayers(map: any) {
+function removeBoundaryLayers(map: maplibregl.Map) {
   ["boundaries-core", "boundaries-glow-inner", "boundaries-glow"].forEach((id) => {
     try {
       map.removeLayer(id);
@@ -1217,20 +1219,25 @@ function removeBoundaryLayers(map: any) {
   } catch {}
 }
 
-function enable3DTerrain(map: any) {
+function enable3DTerrain(map: maplibregl.Map) {
   if (!map.getSource("elevation")) return;
   try {
     map.setTerrain({ source: "elevation", exaggeration: 1.5 });
   } catch {}
 }
 
-function disable3DTerrain(map: any) {
+function disable3DTerrain(map: maplibregl.Map) {
   try {
-    map.setTerrain(undefined as any);
+    map.setTerrain(undefined);
   } catch {}
 }
 
-function addPinMarker(map: any, mlgl: any, pin: ElevationPin, pinsStore: React.MutableRefObject<any[]>) {
+function addPinMarker(
+  map: maplibregl.Map,
+  mlgl: MapLibreGL,
+  pin: ElevationPin,
+  pinsStore: React.MutableRefObject<maplibregl.Marker[]>,
+) {
   const el = document.createElement("div");
   el.style.cssText = `
     display: flex; flex-direction: column; align-items: center; cursor: pointer;
@@ -1257,7 +1264,7 @@ function addPinMarker(map: any, mlgl: any, pin: ElevationPin, pinsStore: React.M
   pinsStore.current.push(marker);
   // Keep only last 50 markers
   while (pinsStore.current.length > 50) {
-    pinsStore.current.shift().remove();
+    pinsStore.current.shift()?.remove();
   }
 }
 

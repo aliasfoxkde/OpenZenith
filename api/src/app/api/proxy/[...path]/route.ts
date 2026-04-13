@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -9,6 +9,8 @@ const ALLOWED_HOSTS = [
   "www.adsbexchange.com",
   "services.arcgis.com",
   "services7.arcgis.com",
+  "services9.arcgis.com",
+  "api.overturemaps.org",
   "gis.fema.gov",
   "www.nhc.noaa.gov",
   "www.ncei.noaa.gov",
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const url = new URL(request.url);
-    parsed.search = url.search;
+    if (url.search) parsed.search = url.search;
     const forwardUrl = parsed.toString();
 
     const controller = new AbortController();
@@ -87,12 +89,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+  return corsPreflightResponse();
 }

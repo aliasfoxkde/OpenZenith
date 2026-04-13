@@ -41,7 +41,7 @@ const drawFillLayerId = "draw-fill";
 const drawSelectedLayerId = "draw-selected";
 const drawLabelLayerId = "draw-label";
 
-export function addDrawLayers(map: any) {
+export function addDrawLayers(map: maplibregl.Map) {
   if (map.getSource(drawSourceId)) return;
 
   map.addSource(drawSourceId, {
@@ -125,7 +125,7 @@ export function addDrawLayers(map: any) {
   });
 }
 
-export function removeDrawLayers(map: any) {
+export function removeDrawLayers(map: maplibregl.Map) {
   try {
     map.removeLayer(drawLabelLayerId);
   } catch {}
@@ -149,7 +149,7 @@ export function removeDrawLayers(map: any) {
   } catch {}
 }
 
-export function updateDrawLayers(map: any, state: DrawState) {
+export function updateDrawLayers(map: maplibregl.Map, state: DrawState) {
   if (!map.getSource(drawSourceId)) return;
 
   const features: GeoJSON.Feature[] = [];
@@ -249,7 +249,7 @@ export function updateDrawLayers(map: any, state: DrawState) {
     }
   }
 
-  (map.getSource(drawSourceId) as any).setData({
+  map.getSource(drawSourceId)?.setData({
     type: "FeatureCollection",
     features,
   });

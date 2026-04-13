@@ -1,6 +1,10 @@
 /** MapLibre helper functions for the landing page interactive demo. */
 
-export function addOrUpdatePin(map: any, lon: number, lat: number) {
+interface MapWithPin extends maplibregl.Map {
+  _ozPin?: maplibregl.Marker;
+}
+
+export function addOrUpdatePin(map: maplibregl.Map, lon: number, lat: number) {
   const el = document.createElement("div");
   el.className = "oz-pin";
   el.style.cssText = `
@@ -17,13 +21,13 @@ export function addOrUpdatePin(map: any, lon: number, lat: number) {
   `;
   el.appendChild(pulse);
 
-  const existing = (map as any)._ozPin;
-  if (existing) existing.remove();
-  const marker = new (window as any).maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
-  (map as any)._ozPin = marker;
+  const mapWithPin = map as MapWithPin;
+  if (mapWithPin._ozPin) mapWithPin._ozPin.remove();
+  const marker = new window.maplibregl!.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+  mapWithPin._ozPin = marker;
 }
 
-export function flyToWithPadding(map: any, lon: number, lat: number, zoom: number) {
+export function flyToWithPadding(map: maplibregl.Map, lon: number, lat: number, zoom: number) {
   const isMobile = window.innerWidth < 768;
   map.flyTo({
     center: [lon, lat],

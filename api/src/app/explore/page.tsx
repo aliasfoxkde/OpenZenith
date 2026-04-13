@@ -8,9 +8,130 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
    Types
    ═══════════════════════════════════════════════════════════════ */
 
+interface OverpassElement {
+  type: string;
+  id?: number;
+  lat?: number;
+  lon?: number;
+  tags?: Record<string, string>;
+  bounds?: { minlat: number; minlon: number; maxlat: number; maxlon: number };
+  nodes?: number[];
+  geometry?: { lat: number; lon: number }[];
+  center?: { lat: number; lon: number };
+  members?: unknown[];
+  [key: string]: unknown;
+}
+
 interface OverpassResult {
-  elements: any[];
+  elements: OverpassElement[];
   osm3s?: { timestamp_osm_base: string };
+}
+
+interface GeoFeatureProperties {
+  mag?: number;
+  magnitude?: number;
+  place?: string;
+  title?: string;
+  name?: string;
+  event?: string;
+  time?: number;
+  depth?: number | string;
+  type?: string;
+  eventType?: string;
+  tsunami?: boolean;
+  cd?: number;
+  coordinates?: number[];
+  severity?: string;
+  areaDesc?: string;
+  headline?: string;
+  [key: string]: unknown;
+}
+
+interface GeoFeatureGeometry {
+  type?: string;
+  coordinates?: number[] | number[][][] | number[][][][];
+}
+
+interface GeoFeature {
+  properties: GeoFeatureProperties;
+  geometry?: GeoFeatureGeometry;
+}
+
+interface NoaaForecastPeriod {
+  isDaytime?: boolean;
+  temperature?: number;
+  temperatureUnit?: string;
+  name?: string;
+  shortForecast?: string;
+  windSpeed?: string;
+  windDirection?: string;
+  startTime?: string;
+}
+
+interface NwsAlertProperties {
+  severity?: string;
+  event?: string;
+  title?: string;
+  areaDesc?: string;
+  headline?: string;
+}
+
+interface EonetEvent {
+  title?: string;
+  categories?: { title?: string; color?: string; id?: string }[];
+  sources?: { id?: string; url?: string }[];
+  geometry?: {
+    type?: string;
+    coordinates?: number[][][][] | number[][];
+  };
+}
+
+interface SatelliteRecord {
+  OBJECT_NAME?: string;
+  NORAD_CAT_ID?: number;
+  OBJECT_TYPE?: string;
+  TLE_LINE1?: string;
+}
+
+type FlightState = (string | number | null)[];
+
+interface OvertureResponse {
+  features: unknown[];
+}
+
+interface NoaaData {
+  features?: GeoFeature[];
+  metadata?: { generated?: number };
+  properties?: { periods?: NoaaForecastPeriod[]; forecastGenerator?: string };
+  activeStorms?: unknown[];
+  events?: EonetEvent[];
+}
+
+interface FlightResponse {
+  time: number;
+  states: FlightState[];
+  totalRaw: number;
+}
+
+interface MarineCurrent {
+  time?: string;
+  wave_height?: number;
+  wave_direction?: number;
+  wave_period?: number;
+  wind_wave_height?: number;
+  wind_wave_direction?: number;
+  wind_wave_period?: number;
+  swell_wave_height?: number;
+  swell_wave_direction?: number;
+  swell_wave_period?: number;
+  wind_speed_10m?: number;
+  wind_direction_10m?: number;
+  wind_gusts_10m?: number;
+  temperature_2m?: number;
+}
+
+interface MarineResponse {
+  current?: MarineCurrent;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -201,7 +322,7 @@ const S = `
    Helpers
    ═══════════════════════════════════════════════════════════════ */
 
-function proxyFetch(url: string): Promise<any> {
+function proxyFetch(url: string): Promise<unknown> {
   return fetch(`/api/proxy/${encodeURIComponent(url)}`).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const ct = r.headers.get("content-type") || "";
@@ -240,7 +361,7 @@ export default function ExplorePage() {
   const [ovType, setOvType] = useState("place");
   const [ovBbox, setOvBbox] = useState("-74.02,40.70,-73.95,40.78");
   const [ovLoading, setOvLoading] = useState(false);
-  const [ovData, setOvData] = useState<any>(null);
+  const [ovData, setOvData] = useState<OvertureResponse | null>(null);
   const [ovError, setOvError] = useState("");
 
   // Overpass state
@@ -257,7 +378,7 @@ export default function ExplorePage() {
 
   // NOAA state
   const [noaaLoading, setNoaaLoading] = useState(false);
-  const [noaaData, setNoaaData] = useState<any>(null);
+  const [noaaData, setNoaaData] = useState<NoaaData | null>(null);
   const [noaaError, setNoaaError] = useState("");
   const [noaaSelected, setNoaaSelected] = useState(0);
   const [nwsLat, setNwsLat] = useState("40.7128");
@@ -265,7 +386,7 @@ export default function ExplorePage() {
 
   // Flights state
   const [flLoading, setFlLoading] = useState(false);
-  const [flData, setFlData] = useState<any>(null);
+  const [flData, setFlData] = useState<FlightResponse | null>(null);
   const [flError, setFlError] = useState("");
   const [flCallsign, setFlCallsign] = useState("");
   const [flAltMin, setFlAltMin] = useState("");
@@ -275,21 +396,21 @@ export default function ExplorePage() {
 
   // Earthquakes state
   const [eqLoading, setEqLoading] = useState(false);
-  const [eqData, setEqData] = useState<any>(null);
+  const [eqData, setEqData] = useState<NoaaData | null>(null);
   const [eqError, setEqError] = useState("");
   const [eqPeriod, setEqPeriod] = useState("day");
   const [eqMinMag, setEqMinMag] = useState("2.5");
 
   // Satellites state
   const [satLoading, setSatLoading] = useState(false);
-  const [satData, setSatData] = useState<any>(null);
+  const [satData, setSatData] = useState<SatelliteRecord[] | null>(null);
   const [satError, setSatError] = useState("");
   const [satGroup, setSatGroup] = useState("active");
   const [satSearch, setSatSearch] = useState("");
 
   // Marine state
   const [marLoading, setMarLoading] = useState(false);
-  const [marData, setMarData] = useState<any>(null);
+  const [marData, setMarData] = useState<MarineResponse | null>(null);
   const [marError, setMarError] = useState("");
   const [marLat, setMarLat] = useState("40.7128");
   const [marLon, setMarLon] = useState("-74.0060");
@@ -305,12 +426,10 @@ export default function ExplorePage() {
       if (parts.length !== 4 || parts.some(isNaN)) throw new Error("Invalid bbox. Use: west,south,east,north");
       const [west, south, east, north] = parts;
       const url = `https://api.overturemaps.org/v0/${ovTheme}/${ovType}?bbox=${west},${south},${east},${north}`;
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`Overture API returned ${resp.status}`);
-      const data = await resp.json();
-      setOvData(data);
-    } catch (e: any) {
-      setOvError(e.message || "Overture Maps fetch failed");
+      const data = await proxyFetch(url);
+      setOvData(data as OvertureResponse);
+    } catch (e: unknown) {
+      setOvError(e instanceof Error ? e.message : "Overture Maps fetch failed");
     } finally {
       setOvLoading(false);
     }
@@ -335,12 +454,12 @@ export default function ExplorePage() {
       setOpResult(data);
       const els = data.elements || [];
       setOpStats({
-        nodes: els.filter((e: any) => e.type === "node").length,
-        ways: els.filter((e: any) => e.type === "way").length,
-        relations: els.filter((e: any) => e.type === "relation").length,
+        nodes: els.filter((e: OverpassElement) => e.type === "node").length,
+        ways: els.filter((e: OverpassElement) => e.type === "way").length,
+        relations: els.filter((e: OverpassElement) => e.type === "relation").length,
       });
-    } catch (e: any) {
-      setOpError(e.message || "Overpass query failed");
+    } catch (e: unknown) {
+      setOpError(e instanceof Error ? e.message : "Overpass query failed");
     } finally {
       setOpLoading(false);
     }
@@ -363,15 +482,23 @@ export default function ExplorePage() {
             const lon = parseFloat(nwsLon);
             if (isNaN(lat) || isNaN(lon)) throw new Error("Invalid coordinates");
             // Get gridpoint
-            const gpResp = await proxyFetch(`https://api.weather.gov/points/${lat},${lon}`);
-            if (gpResp?.properties?.forecastHourly) {
-              const fcResp = await proxyFetch(gpResp.properties.forecastHourly);
-              setNoaaData(fcResp);
+            const gpResp = (await proxyFetch(`https://api.weather.gov/points/${lat},${lon}`)) as Record<
+              string,
+              unknown
+            > | null;
+            if (gpResp?.properties && typeof gpResp.properties === "object") {
+              const props = gpResp.properties as Record<string, unknown>;
+              if (typeof props.forecastHourly === "string") {
+                const fcResp = await proxyFetch(props.forecastHourly);
+                setNoaaData(fcResp as NoaaData);
+              } else {
+                setNoaaData(gpResp as unknown as NoaaData);
+              }
             } else {
-              setNoaaData(gpResp);
+              setNoaaData(gpResp as unknown as NoaaData);
             }
-          } catch (e: any) {
-            setNoaaError(e.message || "NWS fetch failed");
+          } catch (e: unknown) {
+            setNoaaError(e instanceof Error ? e.message : "NWS fetch failed");
           } finally {
             setNoaaLoading(false);
           }
@@ -384,9 +511,9 @@ export default function ExplorePage() {
             const lon = parseFloat(nwsLon);
             if (isNaN(lat) || isNaN(lon)) throw new Error("Invalid coordinates");
             const data = await proxyFetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
-            setNoaaData(data);
-          } catch (e: any) {
-            setNoaaError(e.message || "NWS alerts fetch failed");
+            setNoaaData(data as NoaaData);
+          } catch (e: unknown) {
+            setNoaaError(e instanceof Error ? e.message : "NWS alerts fetch failed");
           } finally {
             setNoaaLoading(false);
           }
@@ -398,9 +525,9 @@ export default function ExplorePage() {
       setNoaaData(null);
       try {
         const data = await proxyFetch(ds.url);
-        setNoaaData(data);
-      } catch (e: any) {
-        setNoaaError(e.message || "Fetch failed");
+        setNoaaData(data as NoaaData);
+      } catch (e: unknown) {
+        setNoaaError(e instanceof Error ? e.message : "Fetch failed");
       } finally {
         setNoaaLoading(false);
       }
@@ -432,22 +559,26 @@ export default function ExplorePage() {
       let states = data.states || [];
       if (flCallsign.trim()) {
         const cs = flCallsign.trim().toUpperCase();
-        states = states.filter((s: any[]) => (s[1] || "").toUpperCase().includes(cs));
+        states = states.filter((s: FlightState) =>
+          String(s[1] || "")
+            .toUpperCase()
+            .includes(cs),
+        );
       }
       if (flAltMin || flAltMax) {
-        states = states.filter((s: any[]) => {
+        states = states.filter((s: FlightState) => {
           const alt = s[7]; // baro_altitude
-          if (alt === null) return false;
+          if (alt === null || typeof alt !== "number") return false;
           if (flAltMin && alt < parseFloat(flAltMin)) return false;
           if (flAltMax && alt > parseFloat(flAltMax)) return false;
           return true;
         });
       }
-      if (flOnGround === "airborne") states = states.filter((s: any[]) => !s[8]);
-      if (flOnGround === "ground") states = states.filter((s: any[]) => s[8]);
+      if (flOnGround === "airborne") states = states.filter((s: FlightState) => !s[8]);
+      if (flOnGround === "ground") states = states.filter((s: FlightState) => s[8]);
       setFlData({ time: data.time, states, totalRaw: (data.states || []).length });
-    } catch (e: any) {
-      setFlError(e.message || "Flight fetch failed");
+    } catch (e: unknown) {
+      setFlError(e instanceof Error ? e.message : "Flight fetch failed");
     } finally {
       setFlLoading(false);
     }
@@ -463,9 +594,9 @@ export default function ExplorePage() {
       const data = await proxyFetch(
         `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${minMag}_${eqPeriod}.geojson`,
       );
-      setEqData(data);
-    } catch (e: any) {
-      setEqError(e.message || "Earthquake fetch failed");
+      setEqData(data as NoaaData);
+    } catch (e: unknown) {
+      setEqError(e instanceof Error ? e.message : "Earthquake fetch failed");
     } finally {
       setEqLoading(false);
     }
@@ -478,9 +609,9 @@ export default function ExplorePage() {
     setSatData(null);
     try {
       const data = await proxyFetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${satGroup}&FORMAT=json`);
-      setSatData(data);
-    } catch (e: any) {
-      setSatError(e.message || "Satellite fetch failed");
+      setSatData(data as SatelliteRecord[]);
+    } catch (e: unknown) {
+      setSatError(e instanceof Error ? e.message : "Satellite fetch failed");
     } finally {
       setSatLoading(false);
     }
@@ -498,9 +629,9 @@ export default function ExplorePage() {
       const data = await proxyFetch(
         `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,wind_wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m&timezone=auto`,
       );
-      setMarData(data);
-    } catch (e: any) {
-      setMarError(e.message || "Marine fetch failed");
+      setMarData(data as MarineResponse);
+    } catch (e: unknown) {
+      setMarError(e instanceof Error ? e.message : "Marine fetch failed");
     } finally {
       setMarLoading(false);
     }
@@ -576,6 +707,7 @@ export default function ExplorePage() {
                         <input
                           style={{ width: 90, fontSize: "0.78rem", padding: "0.3rem 0.5rem" }}
                           placeholder="lat"
+                          aria-label="NWS alert latitude"
                           value={nwsLat}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => setNwsLat(e.target.value)}
@@ -583,6 +715,7 @@ export default function ExplorePage() {
                         <input
                           style={{ width: 90, fontSize: "0.78rem", padding: "0.3rem 0.5rem" }}
                           placeholder="lon"
+                          aria-label="NWS alert longitude"
                           value={nwsLon}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => setNwsLon(e.target.value)}
@@ -615,16 +748,16 @@ export default function ExplorePage() {
                       <div className="ex-stat">
                         <span className="num">{noaaData.features.length}</span> features
                       </div>
-                      {noaaData.metadata && (
+                      {noaaData.metadata?.generated && (
                         <div className="ex-stat">
                           <span style={{ color: "#555" }}>Generated:</span>{" "}
                           {new Date(noaaData.metadata.generated).toLocaleString()}
                         </div>
                       )}
                       <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
-                        {noaaData.features.slice(0, 60).map((f: any, i: number) => {
+                        {noaaData.features.slice(0, 60).map((f: GeoFeature, i: number) => {
                           const p = f.properties;
-                          const coords = f.geometry?.coordinates;
+                          const coords = f.geometry?.coordinates as number[] | undefined;
                           const mag = p.mag || p.magnitude;
                           return (
                             <div key={i} className="ex-quake-item">
@@ -693,7 +826,7 @@ export default function ExplorePage() {
                         <span style={{ color: "#555" }}>Source:</span> {noaaData.properties.forecastGenerator || "NWS"}
                       </div>
                       <div style={{ marginTop: "0.75rem" }}>
-                        {noaaData.properties.periods.slice(0, 48).map((p: any, i: number) => (
+                        {noaaData.properties.periods.slice(0, 48).map((p: NoaaForecastPeriod, i: number) => (
                           <div key={i} className="ex-quake-item">
                             <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
                               <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#4a9eff" }}>
@@ -718,11 +851,12 @@ export default function ExplorePage() {
                               </div>
                             </div>
                             <div style={{ fontSize: "0.72rem", color: "#555" }}>
-                              {new Date(p.startTime).toLocaleString([], {
-                                month: "short",
-                                day: "numeric",
-                                hour: "numeric",
-                              })}
+                              {p.startTime &&
+                                new Date(p.startTime).toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                })}
                             </div>
                           </div>
                         ))}
@@ -736,8 +870,8 @@ export default function ExplorePage() {
                         <span className="num">{noaaData.features.length}</span> active alerts
                       </div>
                       <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
-                        {noaaData.features.map((f: any, i: number) => {
-                          const p = f.properties;
+                        {noaaData.features.map((f: GeoFeature, i: number) => {
+                          const p = f.properties as NwsAlertProperties;
                           const sevColor =
                             p.severity === "Extreme"
                               ? "#ef4444"
@@ -790,7 +924,7 @@ export default function ExplorePage() {
                         <span className="num">{noaaData.events.length}</span> events
                       </div>
                       <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
-                        {noaaData.events.map((ev: any, i: number) => (
+                        {noaaData.events.map((ev: EonetEvent, i: number) => (
                           <div key={i} className="ex-quake-item">
                             <div
                               style={{
@@ -810,12 +944,18 @@ export default function ExplorePage() {
                                 {ev.categories?.[0]?.title && <span className="ex-tag">{ev.categories[0].title}</span>}
                                 {ev.sources?.[0]?.id && <span className="ex-tag">{ev.sources[0].id}</span>}
                               </div>
-                              {ev.geometry?.coordinates?.[0]?.length && (
-                                <div style={{ fontSize: "0.7rem", color: "#555", marginTop: "0.1rem" }}>
-                                  {ev.geometry.coordinates[0][0]?.[1]?.toFixed(2)},{" "}
-                                  {ev.geometry.coordinates[0][0]?.[0]?.toFixed(2)}
-                                </div>
-                              )}
+                              {(() => {
+                                const c = ev.geometry?.coordinates;
+                                if (!c || !Array.isArray(c[0]) || !Array.isArray(c[0][0])) return null;
+                                const firstCoord = (c[0] as unknown as number[][])[0];
+                                if (!firstCoord) return null;
+                                return (
+                                  <div style={{ fontSize: "0.7rem", color: "#555", marginTop: "0.1rem" }}>
+                                    {typeof firstCoord[1] === "number" ? firstCoord[1].toFixed(2) : ""},{" "}
+                                    {typeof firstCoord[0] === "number" ? firstCoord[0].toFixed(2) : ""}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         ))}
@@ -870,7 +1010,10 @@ export default function ExplorePage() {
                   onChange={(e) => setFlAltMax(e.target.value)}
                 />
                 <label>Status</label>
-                <select value={flOnGround} onChange={(e) => setFlOnGround(e.target.value as any)}>
+                <select
+                  value={flOnGround}
+                  onChange={(e) => setFlOnGround(e.target.value as "all" | "airborne" | "ground")}
+                >
                   <option value="all">All</option>
                   <option value="airborne">Airborne</option>
                   <option value="ground">Ground</option>
@@ -921,17 +1064,30 @@ export default function ExplorePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {flData.states.slice(0, 200).map((s: any[], i: number) => (
+                        {flData.states.slice(0, 200).map((s: FlightState, i: number) => (
                           <tr key={i}>
                             <td style={{ fontWeight: 600, color: "#e0e0e0" }}>{s[1] || "---"}</td>
                             <td>{s[2] || ""}</td>
-                            <td>{s[6]?.toFixed(4)}</td>
-                            <td>{s[5]?.toFixed(4)}</td>
-                            <td>{s[7] != null ? s[7].toFixed(0) : "---"}</td>
-                            <td>{s[9] != null ? s[9].toFixed(0) : "---"}</td>
-                            <td>{s[10] != null ? s[10].toFixed(0) : "---"}</td>
-                            <td style={{ color: s[11] > 0 ? "#22c55e" : s[11] < 0 ? "#ef4444" : "#666" }}>
-                              {s[11] != null ? (s[11] > 0 ? "+" : "") + s[11].toFixed(0) : "---"}
+                            <td>{typeof s[6] === "number" ? s[6].toFixed(4) : "---"}</td>
+                            <td>{typeof s[5] === "number" ? s[5].toFixed(4) : "---"}</td>
+                            <td>{s[7] != null && typeof s[7] === "number" ? s[7].toFixed(0) : "---"}</td>
+                            <td>{s[9] != null && typeof s[9] === "number" ? s[9].toFixed(0) : "---"}</td>
+                            <td>{s[10] != null && typeof s[10] === "number" ? s[10].toFixed(0) : "---"}</td>
+                            <td
+                              style={{
+                                color:
+                                  typeof s[11] === "number"
+                                    ? s[11] > 0
+                                      ? "#22c55e"
+                                      : s[11] < 0
+                                        ? "#ef4444"
+                                        : "#666"
+                                    : "#666",
+                              }}
+                            >
+                              {s[11] != null && typeof s[11] === "number"
+                                ? (s[11] > 0 ? "+" : "") + s[11].toFixed(0)
+                                : "---"}
                             </td>
                             <td>{s[14] || ""}</td>
                           </tr>
@@ -993,11 +1149,12 @@ export default function ExplorePage() {
                     </span>
                     <span className="ex-sep" />
                     <span style={{ color: "#444" }}>
-                      Generated: {new Date(eqData.metadata.generated).toLocaleString()}
+                      Generated:{" "}
+                      {eqData.metadata?.generated ? new Date(eqData.metadata.generated).toLocaleString() : "N/A"}
                     </span>
                   </div>
                   <div className="ex-quake-list">
-                    {eqData.features.map((f: any, i: number) => {
+                    {eqData.features.map((f: GeoFeature, i: number) => {
                       const p = f.properties;
                       const mag = p.mag;
                       return (
@@ -1018,13 +1175,13 @@ export default function ExplorePage() {
                                 {p.coordinates?.[1]?.toFixed(3)}, {p.coordinates?.[0]?.toFixed(3)}
                               </span>
                               <span className="ex-sep" />
-                              <span>Depth: {p.depth?.toFixed(1)} km</span>
+                              <span>Depth: {typeof p.depth === "number" ? p.depth.toFixed(1) : p.depth} km</span>
                               <span className="ex-sep" />
                               <span>{p.tsunami ? "\uD83C\uDF0A Tsunami" : ""}</span>
                             </div>
                           </div>
                           <div style={{ fontSize: "0.7rem", color: "#444", textAlign: "right", whiteSpace: "nowrap" }}>
-                            <div>{new Date(p.time).toLocaleString()}</div>
+                            <div>{p.time != null ? new Date(p.time).toLocaleString() : ""}</div>
                             <div style={{ color: "#555" }}>
                               {p.type} &middot; {p.cd ? `felt ${p.cd}` : ""}
                             </div>
@@ -1103,11 +1260,11 @@ export default function ExplorePage() {
                       <tbody>
                         {satData
                           .filter(
-                            (s: any) =>
+                            (s: SatelliteRecord) =>
                               !satSearch || (s.OBJECT_NAME || "").toUpperCase().includes(satSearch.toUpperCase()),
                           )
                           .slice(0, 200)
-                          .map((s: any, i: number) => (
+                          .map((s: SatelliteRecord, i: number) => (
                             <tr key={i}>
                               <td style={{ fontWeight: 600, color: "#e0e0e0" }}>{s.OBJECT_NAME}</td>
                               <td>{s.NORAD_CAT_ID}</td>
@@ -1170,7 +1327,7 @@ export default function ExplorePage() {
                     Current Conditions at {marLat}, {marLon}
                   </h3>
                   <div style={{ fontSize: "0.72rem", color: "#555", marginBottom: "0.75rem" }}>
-                    Time: {new Date(marData.current.time).toLocaleString()}
+                    Time: {marData.current.time ? new Date(marData.current.time).toLocaleString() : "N/A"}
                   </div>
                   <div className="ex-grid">
                     {[

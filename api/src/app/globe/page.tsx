@@ -1272,24 +1272,37 @@ export default function Globe() {
 
       {/* Zoom controls */}
       <div className="wv-zoom-controls">
-        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in (+)">
+        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in (+)" aria-label="Zoom in">
           +
         </button>
-        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out (-)">
+        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out (-)" aria-label="Zoom out">
           &minus;
         </button>
-        <button className="wv-zoom-btn" onClick={resetView} title="Reset view (R)" style={{ fontSize: "12px" }}>
+        <button
+          className="wv-zoom-btn"
+          onClick={resetView}
+          title="Reset view (R)"
+          aria-label="Reset view"
+          style={{ fontSize: "12px" }}
+        >
           &#8962;
         </button>
         <button
           className="wv-zoom-btn"
           onClick={flyToISS}
           title="Fly to ISS"
+          aria-label="Fly to ISS"
           style={{ fontSize: "10px", color: "var(--accent)" }}
         >
           &#9741;
         </button>
-        <button className="wv-zoom-btn" onClick={toggleFullscreen} title="Fullscreen (F)" style={{ fontSize: "12px" }}>
+        <button
+          className="wv-zoom-btn"
+          onClick={toggleFullscreen}
+          title="Fullscreen (F)"
+          aria-label="Toggle fullscreen"
+          style={{ fontSize: "12px" }}
+        >
           {isFullscreen ? "\u29C9" : "\u26F6"}
         </button>
       </div>

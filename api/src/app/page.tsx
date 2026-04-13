@@ -500,6 +500,7 @@ export default function Home() {
                   id="address-search"
                   className="oz-input oz-input-search"
                   placeholder="Search address or place..."
+                  aria-label="Search address or place"
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   onFocus={() => {
@@ -516,6 +517,7 @@ export default function Home() {
                 />
                 {searchQuery && (
                   <button
+                    aria-label="Clear search"
                     onClick={() => {
                       setSearchQuery("");
                       setSearchResults([]);
@@ -599,6 +601,7 @@ export default function Home() {
                 id="lookup-lat"
                 className="oz-input oz-input-lat"
                 placeholder="Latitude"
+                aria-label="Latitude"
                 value={lat}
                 onChange={(e) => setLat(e.target.value)}
                 style={inputStyle}
@@ -607,6 +610,7 @@ export default function Home() {
                 id="lookup-lon"
                 className="oz-input oz-input-lon"
                 placeholder="Longitude"
+                aria-label="Longitude"
                 value={lon}
                 onChange={(e) => setLon(e.target.value)}
                 style={inputStyle}

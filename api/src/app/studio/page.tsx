@@ -34,8 +34,8 @@ import { computeProfileInWorker } from "@/lib/worker-utils";
 
 export default function StudioPage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const mlglRef = useRef<any>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mlglRef = useRef<MapLibreGL | null>(null);
   const layerHandleRef = useRef<{ intervals: ReturnType<typeof setInterval>[] }>({ intervals: [] });
 
   const [dark] = useState(true);
@@ -158,7 +158,7 @@ export default function StudioPage() {
         });
 
         // Drawing mode / profile mode click handler
-        map.on("click", (e: any) => {
+        map.on("click", (e: { lngLat: { lat: number; lng: number }; point: { x: number; y: number } }) => {
           // Profile mode takes priority — delegate to ElevationTool
           if (profileClickRef.current) {
             profileClickRef.current(e.lngLat.lat, e.lngLat.lng);
@@ -229,7 +229,7 @@ export default function StudioPage() {
         });
 
         // Vertex drag support for edit mode
-        map.on("mousedown", (e: any) => {
+        map.on("mousedown", (e: { point: { x: number; y: number } }) => {
           const ds = drawStateRef.current;
           if (ds.mode !== "edit" || ds.selectedVertexIndex < 0) return;
 
@@ -242,7 +242,7 @@ export default function StudioPage() {
           }
         });
 
-        map.on("mousemove", (e: any) => {
+        map.on("mousemove", (e: { lngLat: { lat: number; lng: number } }) => {
           setCursorPos({ lat: e.lngLat.lat, lon: e.lngLat.lng });
 
           if (!dragRef.current.active) return;
@@ -437,7 +437,7 @@ export default function StudioPage() {
       setOverpassLayerId(id);
 
       // Fit bounds
-      const bounds = new (mlglRef.current as any).LngLatBounds();
+      const bounds = new mlglRef.current!.LngLatBounds();
       for (const f of data.features) {
         const geom = f.geometry;
         if (geom.type === "Point") {
@@ -522,7 +522,7 @@ export default function StudioPage() {
       const map = mapRef.current;
       if (!map) return;
       if (map.getSource("profile-line")) {
-        (map.getSource("profile-line") as any).setData({
+        map.getSource("profile-line")?.setData({
           type: "Feature",
           geometry: { type: "LineString", coordinates: coords },
           properties: {},

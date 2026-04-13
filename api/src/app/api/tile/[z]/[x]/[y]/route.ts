@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -11,15 +11,7 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 const TILE_SIZE = 256;
 
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Range",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+  return corsPreflightResponse();
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
@@ -54,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         "Content-Type": "application/octet-stream",
         "Content-Length": String(buffer.byteLength),
         "Cache-Control": "public, max-age=2592000",
-        "Access-Control-Allow-Origin": "*",
+        ...CORS_HEADERS,
         "X-Tile-Size": String(TILE_SIZE),
         "X-Zoom": String(zoom),
       },

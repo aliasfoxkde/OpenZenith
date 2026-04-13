@@ -91,9 +91,9 @@ export async function GET(request: NextRequest) {
   const creditCost = estimateCreditCost(bboxDeg);
 
   if (!checkCreditBudget()) {
-    return NextResponse.json(
+    return Response.json(
       { error: "Daily credit budget exhausted", credits_used: creditsUsed, budget: CREDIT_BUDGET },
-      { status: 429 },
+      { status: 429, headers: CORS_HEADERS },
     );
   }
 
@@ -123,17 +123,16 @@ export async function GET(request: NextRequest) {
       if (resp.status === 401 || resp.status === 403) {
         cachedToken = null;
       }
-      return NextResponse.json(
+      return Response.json(
         { error: `OpenSky API returned ${resp.status}`, authenticated: !!token },
-        { status: resp.status },
+        { status: resp.status, headers: CORS_HEADERS },
       );
     }
 
     const data = await resp.json();
     creditsUsed += creditCost;
 
-    const responseHeaders = new Headers();
-    responseHeaders.set("Access-Control-Allow-Origin", "*");
+    const responseHeaders = new Headers(CORS_HEADERS);
     responseHeaders.set("Cache-Control", "public, max-age=10");
     responseHeaders.set("Content-Type", "application/json");
     responseHeaders.set("X-Credits-Used", String(creditsUsed));

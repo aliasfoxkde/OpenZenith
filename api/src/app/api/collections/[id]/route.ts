@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { corsPreflightResponse } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -40,9 +40,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const col = COLLECTIONS[id];
 
   if (!col) {
-    return NextResponse.json(
+    return Response.json(
       { code: "NotFound", description: `Collection '${id}' not found` },
-      { status: 404, headers: { "Access-Control-Allow-Origin": "*" } },
+      { status: 404, headers: CORS_HEADERS },
     );
   }
 
@@ -64,8 +64,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     },
     {
       headers: {
+        ...CORS_HEADERS,
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=3600",
       },
     },

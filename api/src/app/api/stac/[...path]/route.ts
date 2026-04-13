@@ -12,7 +12,7 @@
 
 import { LAYERS } from "@/lib/layers/registry";
 import { MAP_2D_LAYER_IDS } from "@/app/map/lib/layers";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -115,15 +115,14 @@ function layerToCollection(layer: (typeof LAYERS)[number], baseUrl: string): Sta
   };
 }
 
+export async function OPTIONS() {
+  return corsPreflightResponse();
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const baseUrl = url.origin;
   const path = url.pathname.replace("/api/stac", "");
-
-  // CORS preflight
-  if (request.method === "OPTIONS") {
-    return new Response(null, { headers: CORS_HEADERS });
-  }
 
   if (path === "" || path === "/") {
     return Response.json(rootCatalog(baseUrl), {
@@ -144,12 +143,12 @@ export async function GET(request: Request) {
     const id = collectionMatch[1];
     const layer = LAYERS.find((l) => l.id === id);
     if (!layer) {
-      return Response.json({ error: "Collection not found" }, { status: 404 });
+      return Response.json({ error: "Collection not found" }, { status: 404, headers: CORS_HEADERS });
     }
     return Response.json(layerToCollection(layer, baseUrl), {
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
 
-  return Response.json({ error: "Not found" }, { status: 404 });
+  return Response.json({ error: "Not found" }, { status: 404, headers: CORS_HEADERS });
 }

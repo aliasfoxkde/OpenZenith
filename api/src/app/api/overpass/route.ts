@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -34,8 +34,7 @@ export async function POST(request: NextRequest) {
     clearTimeout(timeout);
     const data = await resp.json();
 
-    const headers = new Headers();
-    headers.set("Access-Control-Allow-Origin", "*");
+    const headers = new Headers(CORS_HEADERS);
     headers.set("Cache-Control", "public, max-age=60");
     headers.set("Content-Type", "application/json");
 
@@ -47,12 +46,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+  return corsPreflightResponse();
 }

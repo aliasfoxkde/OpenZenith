@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     if (!resp.ok) {
       if (resp.status === 402 || resp.status === 403) {
-        return Response.json(
+        return NextResponse.json(
           { error: "ADSB Exchange requires API key", ac: [] },
           { status: 200, headers: CORS_HEADERS },
         );
@@ -55,6 +55,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
-    return Response.json({ error: message, ac: [] }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message, ac: [] }, { status: 502, headers: CORS_HEADERS });
   }
 }

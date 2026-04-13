@@ -339,6 +339,10 @@ export default function Globe() {
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
+    // Document-level handlers (outer scope so cleanup can remove them)
+    let handleDocumentContextmenu: ((e: Event) => void) | null = null;
+    let handleDocumentClick: ((e: Event) => void) | null = null;
+
     const container = containerRef.current;
     (async () => {
       const { viewer, Cesium, addCloudOverlay } = await initCesiumViewer(container!, state);
@@ -488,14 +492,16 @@ export default function Globe() {
       }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
       handler.setInputAction(() => setCtxMenu(null), Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-      document.addEventListener("contextmenu", (e) => {
+      handleDocumentContextmenu = (e: Event) => {
         if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) {
           e.preventDefault();
         }
-      });
-      document.addEventListener("click", (e) => {
+      };
+      handleDocumentClick = (e: Event) => {
         if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) setCtxMenu(null);
-      });
+      };
+      document.addEventListener("contextmenu", handleDocumentContextmenu);
+      document.addEventListener("click", handleDocumentClick);
 
       viewer.camera.changed.addEventListener(() => {
         const cg = viewer.camera.positionCartographic;
@@ -582,7 +588,10 @@ export default function Globe() {
     return () => {
       destroyed = true;
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (handleDocumentContextmenu) document.removeEventListener("contextmenu", handleDocumentContextmenu);
+      if (handleDocumentClick) document.removeEventListener("click", handleDocumentClick);
       intervalsRef.current.forEach(clearInterval);
+      layerModulesRef.current.lightning?.cleanupLightning();
       if (viewerRef.current) {
         viewerRef.current.destroy();
         viewerRef.current = null;

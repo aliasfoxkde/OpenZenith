@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { corsPreflightResponse } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -1205,8 +1205,8 @@ export async function GET(request: NextRequest) {
     { ...openApiSpec, servers: [{ url: baseUrl, description: "Current deployment" }] },
     {
       headers: {
+        ...CORS_HEADERS,
         "Cache-Control": "public, max-age=3600",
-        "Access-Control-Allow-Origin": "*",
       },
     },
   );

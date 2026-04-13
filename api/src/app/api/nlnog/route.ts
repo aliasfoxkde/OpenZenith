@@ -50,8 +50,8 @@ export async function GET() {
       { nodes, count: nodes.length },
       {
         headers: {
+          ...CORS_HEADERS,
           "Cache-Control": "public, max-age=3600",
-          "Access-Control-Allow-Origin": "*",
         },
       },
     );

@@ -5,7 +5,7 @@
  * recent Sentinel-2 imagery as Cloud-Optimized GeoTIFF tiles.
  */
 
-import { corsPreflightResponse } from "@/lib/cors";
+import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -85,7 +85,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     if (!assetUrl) {
       return new Response("No recent Sentinel-2 imagery available", {
         status: 404,
-        headers: { "Access-Control-Allow-Origin": "*" },
+        headers: CORS_HEADERS,
       });
     }
 
@@ -110,13 +110,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400",
-        "Access-Control-Allow-Origin": "*",
+        ...CORS_HEADERS,
       },
     });
   } catch {
     return new Response("Failed to fetch tile", {
       status: 502,
-      headers: { "Access-Control-Allow-Origin": "*" },
+      headers: CORS_HEADERS,
     });
   }
 }

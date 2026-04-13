@@ -3,6 +3,22 @@ import type { DataStatus } from "../types";
 
 const LIGHTNING_ICON = `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`;
 
+// Module-level refs so cleanupLightning() can access them on unmount
+let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function cleanupLightning() {
+  if (reconnectTimer !== null) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (ws) {
+    ws.onclose = null; // Prevent reconnect timer from firing during close
+    ws.close();
+    ws = null;
+  }
+}
+
 export function loadLightning(
   viewer: any,
   Cesium: any,
@@ -17,8 +33,6 @@ export function loadLightning(
   // Due to WebSocket proxy complexity, we use the HTTP endpoint instead.
   // The Blitzortung API requires specific headers and may have CORS restrictions.
   // We attempt to fetch recent strikes via their public data endpoint.
-
-  let ws: WebSocket | null = null;
 
   const addStrike = (lat: number, lon: number) => {
     if (!Cesium || !viewer) return;
@@ -93,7 +107,7 @@ export function loadLightning(
 
       ws.onclose = () => {
         // Reconnect after 30s
-        setTimeout(() => {
+        reconnectTimer = setTimeout(() => {
           if (stateLayers.lightning) connectWs();
         }, 30000);
       };

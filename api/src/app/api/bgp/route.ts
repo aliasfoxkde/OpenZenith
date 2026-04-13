@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
       { prefix, data },
       {
         headers: {
+          ...CORS_HEADERS,
           "Cache-Control": "public, max-age=300",
-          "Access-Control-Allow-Origin": "*",
         },
       },
     );

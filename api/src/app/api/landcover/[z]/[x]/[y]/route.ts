@@ -5,7 +5,7 @@
  * CORINE Land Cover 2018 dataset.
  */
 
-import { corsPreflightResponse } from "@/lib/cors";
+import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -62,13 +62,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=604800",
-        "Access-Control-Allow-Origin": "*",
+        ...CORS_HEADERS,
       },
     });
   } catch {
     return new Response("Failed to fetch tile", {
       status: 502,
-      headers: { "Access-Control-Allow-Origin": "*" },
+      headers: CORS_HEADERS,
     });
   }
 }

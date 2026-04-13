@@ -73,10 +73,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     clearTimeout(timeout);
 
     const data = await resp.arrayBuffer();
-    const headers = new Headers();
-    headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    headers.set("Access-Control-Allow-Headers", "Content-Type");
+    const headers = new Headers(CORS_HEADERS);
     const ttl = HOST_CACHE_TTL[parsed.hostname] ?? 30;
     headers.set("Cache-Control", `public, max-age=${ttl}`);
     headers.set("Content-Type", resp.headers.get("Content-Type") || "application/json");

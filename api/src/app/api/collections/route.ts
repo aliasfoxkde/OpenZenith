@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { corsPreflightResponse } from "@/lib/cors";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -86,17 +86,14 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
+          ...CORS_HEADERS,
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=3600",
         },
       },
     );
   } catch (error) {
     console.error("Collections endpoint failed:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch collections" },
-      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } },
-    );
+    return corsError("Failed to fetch collections", 500);
   }
 }

@@ -58,8 +58,7 @@ export async function GET(request: NextRequest) {
       return corsError("Invalid JSON from upstream", 502);
     }
 
-    const headers = new Headers();
-    headers.set("Access-Control-Allow-Origin", "*");
+    const headers = new Headers(CORS_HEADERS);
     headers.set("Cache-Control", "public, max-age=15");
     headers.set("Content-Type", "application/json");
 

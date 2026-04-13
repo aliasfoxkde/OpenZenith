@@ -5,6 +5,7 @@
  * from the Open-Meteo Air Quality API.
  */
 
+import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
     const data = await res.json();
     const current = data.current;
     if (!current) {
-      return Response.json({ type: "FeatureCollection", features: [] }, { headers: CORS_HEADERS });
+      return NextResponse.json({ type: "FeatureCollection", features: [] }, { headers: CORS_HEADERS });
     }
 
     const feature: GeoJSON.Feature = {
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
       },
     };
 
-    return Response.json({ type: "FeatureCollection", features: [feature] }, { headers: CORS_HEADERS });
+    return NextResponse.json({ type: "FeatureCollection", features: [feature] }, { headers: CORS_HEADERS });
   } catch {
     return corsError("Internal server error", 500);
   }

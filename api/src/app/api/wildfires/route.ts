@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -14,7 +14,7 @@ export async function GET() {
     if (!FIRMS_KEY) {
       return NextResponse.json(
         { type: "FeatureCollection", features: [], error: "FIRMS_API_KEY not configured" },
-        { headers: { "Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*" } },
+        { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300" } },
       );
     }
 
@@ -28,10 +28,7 @@ export async function GET() {
     });
 
     if (!resp.ok) {
-      return NextResponse.json(
-        { type: "FeatureCollection", features: [], error: `FIRMS API returned ${resp.status}` },
-        { status: 502, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
+      return corsError(`FIRMS API returned ${resp.status}`, 502);
     }
 
     const csv = await resp.text();
@@ -40,7 +37,7 @@ export async function GET() {
     if (lines.length < 2) {
       return NextResponse.json(
         { type: "FeatureCollection", features: [], count: 0 },
-        { headers: { "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" } },
+        { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
       );
     }
 
@@ -69,7 +66,7 @@ export async function GET() {
 
     return NextResponse.json(
       { type: "FeatureCollection", features, count: features.length },
-      { headers: { "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" } },
+      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch FIRMS data";

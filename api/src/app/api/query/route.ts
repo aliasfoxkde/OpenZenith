@@ -90,7 +90,8 @@ export async function GET(request: NextRequest) {
       promises.push(
         (async () => {
           try {
-            const zoom = searchParams.get("address_zoom") || "18";
+            const rawZoom = parseInt(searchParams.get("address_zoom") || "18", 10);
+            const zoom = Number.isFinite(rawZoom) ? Math.min(18, Math.max(0, rawZoom)) : 18;
             const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${zoom}&addressdetails=1`;
             const res = await fetch(url, {
               signal: AbortSignal.timeout(10000),

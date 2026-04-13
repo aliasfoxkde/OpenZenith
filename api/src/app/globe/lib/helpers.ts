@@ -2,23 +2,6 @@
 import type { DashboardState } from "./types";
 import { DEFAULT_LAYERS, BASEMAPS, SIDEBAR_SECTIONS } from "./constants";
 
-export function waitForCesium(timeout = 20000): Promise<any> {
-  return new Promise((res, rej) => {
-    const w = window as any;
-    if (w.Cesium) return res(w.Cesium);
-    const s = Date.now();
-    const iv = setInterval(() => {
-      if (w.Cesium) {
-        clearInterval(iv);
-        res(w.Cesium);
-      } else if (Date.now() - s > timeout) {
-        clearInterval(iv);
-        rej(new Error("CesiumJS failed to load"));
-      }
-    }, 100);
-  });
-}
-
 /**
  * Category shortcut mapping: category key → list of layer IDs.
  * If a category name is used in the URL, all its layers are enabled.

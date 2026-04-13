@@ -88,20 +88,6 @@ export async function cachedFetch(url: string, ttlSeconds = 60, fetchOpts?: Requ
 }
 
 /**
- * Invalidate a cached URL.
- */
-export async function cacheInvalidate(url: string): Promise<void> {
-  if (typeof caches !== "undefined") {
-    try {
-      const cache = await caches.open(CACHE_NAMESPACE);
-      await cache.delete(cacheKey(url));
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-/**
  * Predefined TTL values for common data sources.
  */
 export const CACHE_TTL = {

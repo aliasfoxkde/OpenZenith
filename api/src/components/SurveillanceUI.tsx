@@ -116,49 +116,6 @@ export function CoordinateReadout({ lat, lon, zoom }: CoordProps) {
   );
 }
 
-/* ─── DataBadge ─────────────────────────────────────────── */
-
-interface BadgeProps {
-  label: string;
-  value: string | number;
-  color?: string;
-}
-
-export function DataBadge({ label, value, color = T.accent }: BadgeProps) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 2,
-      }}
-    >
-      <span
-        style={{
-          fontSize: "0.65rem",
-          color: T.textMuted,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          fontFamily: T.fontMono,
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontSize: "0.85rem",
-          fontWeight: 600,
-          color,
-          fontFamily: T.fontMono,
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
 /* ─── LayerToggle ───────────────────────────────────────── */
 
 interface ToggleProps {

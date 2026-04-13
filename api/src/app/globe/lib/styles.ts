@@ -177,6 +177,8 @@ export const STYLES = `
 
 /* ── Coordinate formats panel ── */
 .wv-coord-panel{position:absolute;right:12px;top:110px;z-index:30;background:rgba(0,0,0,0.85);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:var(--font-mono);backdrop-filter:blur(12px);min-width:220px;box-shadow:0 4px 12px rgba(0,0,0,0.4)}
+.wv-coord-close{position:absolute;top:4px;right:6px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1}
+.wv-coord-close:hover{color:var(--text)}
 .wv-coord-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 0}
 .wv-coord-row+.wv-coord-row{border-top:1px solid rgba(255,255,255,0.05)}
 .wv-coord-label{font-size:9px;font-weight:700;color:var(--accent);letter-spacing:0.5px;min-width:32px}

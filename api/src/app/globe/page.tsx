@@ -124,6 +124,7 @@ export default function Globe() {
   const spaceSceneRef = useRef<any>(null);
   const [profileData, setProfileData] = useState<any[] | null>(null);
   const [coordFormats, setCoordFormats] = useState<Record<string, string> | null>(null);
+  const [showCoordPanel, setShowCoordPanel] = useState(true);
   const profileCanvasRef = useRef<HTMLDivElement>(null);
   const [selectedSat, setSelectedSat] = useState<{
     name: string;
@@ -596,6 +597,10 @@ export default function Globe() {
           break;
         case "Escape":
           setCtxMenu(null);
+          break;
+        case "c":
+        case "C":
+          if (coordFormats) setShowCoordPanel((v) => !v);
           break;
       }
     };
@@ -1273,8 +1278,15 @@ export default function Globe() {
       )}
 
       {/* Coordinate formats panel */}
-      {coordFormats && (
+      {coordFormats && showCoordPanel && (
         <div className="wv-coord-panel">
+          <button
+            className="wv-coord-close"
+            onClick={() => setShowCoordPanel(false)}
+            title="Close (C)"
+          >
+            &times;
+          </button>
           {Object.entries(coordFormats).map(([fmt, val]) => (
             <div key={fmt} className="wv-coord-row">
               <span className="wv-coord-label">{fmt}</span>
@@ -1354,13 +1366,16 @@ export default function Globe() {
       <div className="wv-status">
         {dataStatus.map((ds) => {
           const isActive = state.layers[ds.key as keyof LayerState];
-          const indicatorClass = ds.error ? "err" : ds.lastUpdate ? "ok" : isActive ? "loading" : "off";
+          // Only show active layers or layers with errors
+          if (!isActive && !ds.error) return null;
+          const indicatorClass = ds.error ? "err" : ds.lastUpdate ? "ok" : "loading";
           return (
             <div key={ds.key} className="wv-status-item">
-              <span className={`indicator ${isActive ? indicatorClass : "off"}`} />
+              <span className={`indicator ${indicatorClass}`} />
               <span>{ds.label}</span>
-              {isActive && ds.count > 0 && <span style={{ color: "#555" }}>({ds.count})</span>}
-              {isActive && ds.lastUpdate && <span style={{ color: "#444" }}>{fmtTime(ds.lastUpdate)}</span>}
+              {ds.error && <span style={{ color: "var(--error, #ff4444)" }}>({ds.error})</span>}
+              {isActive && !ds.error && ds.count > 0 && <span style={{ color: "#555" }}>({ds.count})</span>}
+              {isActive && !ds.error && ds.lastUpdate && <span style={{ color: "#444" }}>{fmtTime(ds.lastUpdate)}</span>}
             </div>
           );
         })}

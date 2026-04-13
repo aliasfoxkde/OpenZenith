@@ -2,6 +2,11 @@
 import { elevationColor } from "../helpers";
 import { getClientElevationBatch } from "@/lib/client-elevation";
 
+/** Minimum camera movement (degrees) before reloading elevation color */
+const MIN_MOVE_DEGREES = 0.05;
+
+let lastLoadCenter: { lat: number; lon: number } | null = null;
+
 export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: Record<string, any>) {
   if (!Cesium || !viewer) return;
 
@@ -13,6 +18,13 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
 
   // Skip in space mode — too many points, no visible terrain
   if (height > 5000000) return;
+
+  // Skip if camera hasn't moved enough since last load
+  if (lastLoadCenter) {
+    const dLat = Math.abs(lat - lastLoadCenter.lat);
+    const dLon = Math.abs(lng - lastLoadCenter.lon);
+    if (dLat < MIN_MOVE_DEGREES && dLon < MIN_MOVE_DEGREES) return;
+  }
 
   const gridSize = height > 1000000 ? 12 : height > 200000 ? 18 : 24;
   const span = Math.min(height * 0.8, 2);
@@ -53,6 +65,7 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
     }
 
     entitiesRef.current["elev-points"] = pointCollection;
+    lastLoadCenter = { lat, lon: lng };
   } catch {
     /* batch fetch failed — skip silently */
   }

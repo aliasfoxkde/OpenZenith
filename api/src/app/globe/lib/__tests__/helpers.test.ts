@@ -40,7 +40,8 @@ describe("parseHash", () => {
   it("ignores unknown layer names", () => {
     const result = parseHash("#2/30/-10&l=earthquakes+nonexistent");
     expect(result.layers?.earthquakes).toBe(true);
-    expect(result.layers?.nonexistent).toBeUndefined();
+    // Unknown layers are filtered out — no 'nonexistent' key
+    expect(Object.keys(result.layers || {}).includes("nonexistent")).toBe(false);
   });
 
   it("returns object with layers on malformed hash", () => {

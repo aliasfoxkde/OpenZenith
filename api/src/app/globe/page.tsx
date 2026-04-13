@@ -606,7 +606,7 @@ export default function Globe() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [zoomIn, zoomOut, resetView, toggleFullscreen]);
+  }, [zoomIn, zoomOut, resetView, toggleFullscreen, coordFormats]);
 
   // Render elevation profile chart
   useEffect(() => {

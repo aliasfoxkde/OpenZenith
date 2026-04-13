@@ -106,6 +106,11 @@ export const STYLES = `
 .wv-elev-popup .val{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent)}
 .wv-elev-popup .coords{font-size:10px;color:var(--text-muted);margin-top:1px}
 
+/* ── Annotation inline edit ── */
+.wv-annotation-input{background:var(--bg-solid);border:1px solid var(--accent);border-radius:4px;padding:4px 8px;
+  color:var(--text);font-size:12px;font-family:var(--font-mono);width:200px;outline:none;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+
 /* ── Status bar ── */
 .wv-status{position:absolute;bottom:0;left:0;right:0;z-index:25;display:flex;align-items:center;gap:12px;
   padding:4px 12px;background:var(--bg-nav);border-top:1px solid var(--border);font-size:10px;backdrop-filter:blur(8px);

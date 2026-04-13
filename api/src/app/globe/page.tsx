@@ -134,6 +134,11 @@ export default function Globe() {
     orbit: string;
   } | null>(null);
   const [followSat, setFollowSat] = useState(false);
+  const [editingAnnotation, setEditingAnnotation] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // UTC clock for HUD themes
   useEffect(() => {
@@ -379,7 +384,15 @@ export default function Globe() {
         }
       }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
-      handler.setInputAction(() => setCtxMenu(null), Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+      handler.setInputAction((e: any) => {
+        setCtxMenu(null);
+        // Check for annotation double-click
+        const picked = viewer.scene.pick(e.position);
+        if (picked?.id?.id?.startsWith("ann-text-")) {
+          const annId = picked.id.id;
+          setEditingAnnotation({ id: annId, x: e.position.x, y: e.position.y });
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
       handleDocumentContextmenu = (e: Event) => {
         if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) {
           e.preventDefault();
@@ -1081,6 +1094,51 @@ export default function Globe() {
         viewerRef={viewerRef}
         cesiumRef={cesiumRef}
       />
+
+      {/* Annotation inline edit */}
+      {editingAnnotation && (
+        <div
+          className="wv-annotation-edit"
+          style={{
+            position: "absolute",
+            left: editingAnnotation.x + 16,
+            top: editingAnnotation.y - 10,
+            zIndex: 200,
+          }}
+        >
+          <input
+            autoFocus
+            defaultValue="Double-click to edit"
+            className="wv-annotation-input"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const text = (e.target as HTMLInputElement).value.trim();
+                const viewer = viewerRef.current;
+                if (viewer && text) {
+                  const entity = viewer.entities.getById(editingAnnotation.id);
+                  if (entity?.label) {
+                    entity.label.text = text;
+                  }
+                }
+                setEditingAnnotation(null);
+              } else if (e.key === "Escape") {
+                setEditingAnnotation(null);
+              }
+            }}
+            onBlur={(e) => {
+              const text = (e.target as HTMLInputElement).value.trim();
+              const viewer = viewerRef.current;
+              if (viewer && text && text !== "Double-click to edit") {
+                const entity = viewer.entities.getById(editingAnnotation.id);
+                if (entity?.label) {
+                  entity.label.text = text;
+                }
+              }
+              setEditingAnnotation(null);
+            }}
+          />
+        </div>
+      )}
 
       {/* Nav */}
       <Navbar

@@ -2,6 +2,7 @@
 import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
 import { fetchEONET } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 interface EonetFeature {
   geometry?: { coordinates?: [number, number] };
@@ -50,6 +51,7 @@ export function loadEvents(
   stateLayers: { events: boolean },
 ) {
   updateStatus("events", { error: null });
+  const retry = createRetryGuard({ maxFailures: 3 });
 
   const addEventEntity = (f: EonetFeature, i: number) => {
     const cat = f.properties?.categories?.[0]?.id || "manmade";
@@ -157,9 +159,13 @@ export function loadEvents(
           const fs = d.features || [];
           removeEntities("event-");
           fs.forEach((f: any, i: number) => addEventEntity(f, i));
-          updateStatus("events", { lastUpdate: Date.now(), count: fs.length });
+          updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
+          retry.recordSuccess();
         } catch {
-          /* retry */
+          retry.recordFailure();
+          updateStatus("events", {
+            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Event data unavailable",
+          });
         }
       }, 1800000);
       intervalsRef.current.push(iv);

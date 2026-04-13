@@ -2,6 +2,7 @@
 import type { DataStatus } from "../types";
 import { getAircraftIcon } from "../constants";
 import { fetchFlights, fetchFlightsAnonymous } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 /**
  * OpenSky state vector field indices (for the array format returned by the API).
@@ -77,6 +78,7 @@ export function loadFlights(
   _entitiesRef?: React.MutableRefObject<Record<string, any>>,
 ) {
   updateStatus("flights", { error: null });
+  const retry = createRetryGuard();
 
   // Cache last bbox to avoid redundant requests
   let lastBboxKey = "";
@@ -303,7 +305,12 @@ export function loadFlights(
             });
           }
         } catch {
-          /* retry next interval */
+          retry.recordFailure();
+          if (retry.shouldRetry) {
+            updateStatus("flights", { error: `Retrying (${retry.failureCount}/5)...` });
+          } else {
+            updateStatus("flights", { error: "Data unavailable after 5 failed attempts" });
+          }
         }
       }, 15000);
       intervalsRef.current.push(iv);

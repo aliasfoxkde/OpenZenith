@@ -163,6 +163,44 @@ export function switchBasemapOnViewer(viewer: any, key: string) {
   }
 }
 
+/**
+ * Create a retry guard for layer interval callbacks.
+ * Tracks consecutive failures and provides exponential backoff delay.
+ * Returns { shouldRetry, recordSuccess, recordFailure }.
+ *
+ * After MAX_CONSECUTIVE_FAILURES consecutive failures, stops retrying.
+ * Between failures, backs off by 2x up to maxDelayMs.
+ */
+export function createRetryGuard(opts?: { maxFailures?: number; baseDelay?: number; maxDelay?: number }) {
+  const maxFailures = opts?.maxFailures ?? 5;
+  const baseDelay = opts?.baseDelay ?? 5000;
+  const maxDelay = opts?.maxDelay ?? 120000;
+
+  let consecutiveFailures = 0;
+  let lastFailureTime = 0;
+
+  return {
+    get shouldRetry(): boolean {
+      if (consecutiveFailures >= maxFailures) return false;
+      if (consecutiveFailures > 0) {
+        const delay = Math.min(baseDelay * Math.pow(2, consecutiveFailures - 1), maxDelay);
+        return Date.now() - lastFailureTime >= delay;
+      }
+      return true;
+    },
+    get failureCount(): number {
+      return consecutiveFailures;
+    },
+    recordSuccess() {
+      consecutiveFailures = 0;
+    },
+    recordFailure() {
+      consecutiveFailures++;
+      lastFailureTime = Date.now();
+    },
+  };
+}
+
 export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<string, any>) {
   const toRemove: any[] = [];
   viewer.entities.values.forEach((e: any) => {

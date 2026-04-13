@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchFIRMS } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 const FIRE_ICON = `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-1 4-4 6-4 10a4 4 0 008 0c0-4-3-6-4-10z" fill="#ff8800" opacity="0.9"/><path d="M12 8c-.5 2-2 3-2 5a2 2 0 004 0c0-2-1.5-3-2-5z" fill="#ffcc00" opacity="1"/></svg>`;
 
@@ -20,6 +21,7 @@ export function loadWildfires(
   stateLayers: { wildfires: boolean },
 ) {
   updateStatus("wildfires", { error: null });
+  const retry = createRetryGuard({ maxFailures: 3 });
 
   const doLoad = async () => {
     try {
@@ -91,7 +93,8 @@ export function loadWildfires(
       }, 21600000); // 6 hours
       intervalsRef.current.push(iv);
     } catch {
-      updateStatus("wildfires", { error: "fetch failed" });
+      retry.recordFailure();
+      updateStatus("wildfires", { error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable" });
     }
   };
 

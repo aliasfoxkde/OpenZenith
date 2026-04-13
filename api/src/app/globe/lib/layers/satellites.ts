@@ -2,6 +2,7 @@
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
 import { fetchCelestrak } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 /** Orbital shell definitions (altitude in meters) */
 const ORBITAL_SHELLS = [
@@ -61,6 +62,7 @@ export function loadSatellites(
   stateLayers: { satellites: boolean; orbitalTracks?: boolean; groundTracks?: boolean },
 ) {
   updateStatus("satellites", { error: null });
+  const retry = createRetryGuard();
 
   const doLoad = async () => {
     try {
@@ -322,9 +324,13 @@ export function loadSatellites(
             }
           }
 
-          updateStatus("satellites", { lastUpdate: Date.now(), count: updated.length });
+          updateStatus("satellites", { lastUpdate: Date.now(), count: updated.length, error: null });
+          retry.recordSuccess();
         } catch {
-          /* retry */
+          retry.recordFailure();
+          updateStatus("satellites", {
+            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Satellite data unavailable",
+          });
         }
       }, 300000);
       intervalsRef.current.push(iv);

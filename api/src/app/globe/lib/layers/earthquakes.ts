@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchEarthquakes } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 interface EarthquakeProperties {
   mag?: number;
@@ -175,6 +176,8 @@ export function loadEarthquakes(
     }
   };
 
+  const retry = createRetryGuard();
+
   const doLoad = async () => {
     try {
       const data = await fetchEarthquakes();
@@ -190,9 +193,15 @@ export function loadEarthquakes(
           removeEntities("eq-");
           const fs = d.features || [];
           fs.forEach((f: any, i: number) => addQuakeEntity(f, i));
-          updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length });
+          updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
+          retry.recordSuccess();
         } catch {
-          /* retry */
+          retry.recordFailure();
+          if (retry.shouldRetry) {
+            updateStatus("earthquakes", { error: `Retrying (${retry.failureCount}/5)...` });
+          } else {
+            updateStatus("earthquakes", { error: "Data unavailable after 5 failed attempts" });
+          }
         }
       }, 60000);
       intervalsRef.current.push(iv);

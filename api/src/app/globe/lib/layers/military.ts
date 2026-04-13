@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchMilitaryFlights } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 interface MilitaryAircraft {
   lat?: number;
@@ -21,6 +22,7 @@ export function loadMilitaryFlights(
   stateLayers: { militaryFlights: boolean },
 ) {
   updateStatus("militaryFlights", { error: null });
+  const retry = createRetryGuard();
 
   const doLoad = async () => {
     try {
@@ -85,7 +87,12 @@ export function loadMilitaryFlights(
             });
           }
         } catch {
-          /* retry */
+          retry.recordFailure();
+          if (retry.shouldRetry) {
+            updateStatus("militaryFlights", { error: `Retrying (${retry.failureCount}/5)...` });
+          } else {
+            updateStatus("militaryFlights", { error: "Data unavailable after 5 failed attempts" });
+          }
         }
       }, 30000);
       intervalsRef.current.push(iv);

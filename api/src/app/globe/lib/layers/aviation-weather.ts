@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchSigmets, fetchAirmets } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 const SIGMET_COLOR = "#ff0000";
 const AIRMET_COLOR = "#ff8800";
@@ -44,6 +45,7 @@ export function loadAviationWeather(
   stateLayers: { aviationWeather: boolean },
 ) {
   updateStatus("aviationWeather", { error: null });
+  const retry = createRetryGuard();
 
   const addSigmet = (s: SigmetFeature, i: number) => {
     const raw = s.raw_text || s.hazard || "";
@@ -218,7 +220,10 @@ export function loadAviationWeather(
           });
           updateStatus("aviationWeather", { lastUpdate: Date.now(), count: t });
         } catch {
-          /* retry */
+          retry.recordFailure();
+          updateStatus("aviationWeather", {
+            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Aviation weather unavailable",
+          });
         }
       }, 300000); // 5 min
       intervalsRef.current.push(iv);

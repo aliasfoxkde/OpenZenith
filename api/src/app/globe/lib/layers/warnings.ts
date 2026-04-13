@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchWarnings } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 export function loadWarnings(
   viewer: any,
@@ -11,6 +12,7 @@ export function loadWarnings(
   stateLayers: { warnings: boolean },
 ) {
   updateStatus("warnings", { error: null });
+  const retry = createRetryGuard();
 
   const addWarningEntity = (f: any, i: number) => {
     const et = (f.properties?.Event || "").toLowerCase();
@@ -97,7 +99,10 @@ export function loadWarnings(
             updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length });
           }
         } catch {
-          /* retry */
+          retry.recordFailure();
+          updateStatus("warnings", {
+            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Warning data unavailable",
+          });
         }
       }, 300000);
       intervalsRef.current.push(iv);

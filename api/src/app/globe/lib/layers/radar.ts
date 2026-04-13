@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchRainViewer } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 /**
  * Animated weather radar using RainViewer tile frames.
@@ -15,6 +16,7 @@ export function loadRadar(
   stateLayers: { radar: boolean },
 ) {
   updateStatus("radar", { error: null });
+  const retry = createRetryGuard();
 
   let radarFrames: string[] = [];
   let frameIndex = 0;
@@ -65,7 +67,10 @@ export function loadRadar(
           frameIndex = 0;
           updateStatus("radar", { lastUpdate: Date.now(), count: radarFrames.length });
         } catch {
-          /* retry */
+          retry.recordFailure();
+          updateStatus("radar", {
+            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Radar data unavailable",
+          });
         }
       }, 600000);
       intervalsRef.current.push(iv);

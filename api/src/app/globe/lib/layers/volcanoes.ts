@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchVolcanoAlerts } from "../data-fetchers";
+import { createRetryGuard } from "../helpers";
 
 const VOLCANO_ICON = `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="#ff4444" opacity="0.8"/><ellipse cx="12" cy="20" rx="8" ry="2" fill="#ff4444" opacity="0.4"/><path d="M12 8v4M12 14v2" stroke="#ffcc00" stroke-width="2" stroke-linecap="round" opacity="0.9"/><circle cx="12" cy="7" r="3" fill="#ff6600" opacity="0.6"/></svg>`;
 
@@ -39,6 +40,7 @@ export function loadVolcanoes(
   stateLayers: { volcanoes: boolean },
 ) {
   updateStatus("volcanoes", { error: null });
+  const retry = createRetryGuard({ maxFailures: 3 });
 
   const doLoad = async () => {
     try {
@@ -128,18 +130,9 @@ export function loadVolcanoes(
         if (!stateLayers.volcanoes) return;
         try {
           const d = await fetchVolcanoAlerts();
-          const fs = d.features || [];
+          const feats = d.features || [];
           removeEntities("vol-");
-          for (let j = 0; j < fs.length; j++) {
-            const p = fs[j].properties || {};
-            const a = p.alertLevel || p.alert_level || "normal";
-            if (a === "normal" || a === "unknown") continue;
-          }
-          // Re-add entities (simplified — full reload)
-          const data2 = await fetchVolcanoAlerts();
-          const feats = data2.features || [];
-          removeEntities("vol-");
-          let c2 = 0;
+          let count = 0;
           for (let j = 0; j < feats.length; j++) {
             const f = feats[j];
             const pr = f.properties || {};
@@ -178,11 +171,15 @@ export function loadVolcanoes(
               },
               properties: { type: "volcano", alert: al },
             });
-            c2++;
+            count++;
           }
-          updateStatus("volcanoes", { lastUpdate: Date.now(), count: c2 });
+          updateStatus("volcanoes", { lastUpdate: Date.now(), count, error: null });
+          retry.recordSuccess();
         } catch {
-          /* retry */
+          retry.recordFailure();
+          updateStatus("volcanoes", {
+            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable",
+          });
         }
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);

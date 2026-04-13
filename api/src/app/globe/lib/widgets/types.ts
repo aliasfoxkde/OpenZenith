@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { LayerState, DashboardState, DataStatus } from "../types";
 import type { ToolMode } from "../tools/tools";
 

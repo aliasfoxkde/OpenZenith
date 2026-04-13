@@ -28,7 +28,7 @@ describe("Surveillance Theme", () => {
   it("has valid CSS color values", () => {
     const colorProps = ["bg", "accent", "green", "amber", "red", "blue", "text", "textMuted"];
     for (const prop of colorProps) {
-      const val = (SURVEILLANCE_THEME as any)[prop];
+      const val = SURVEILLANCE_THEME[prop as keyof typeof SURVEILLANCE_THEME];
       expect(val).toMatch(/^#[0-9a-f]{6}$/);
     }
   });

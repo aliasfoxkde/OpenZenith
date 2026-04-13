@@ -1,5 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchEarthquakes } from "../data-fetchers";
+
+interface EarthquakeProperties {
+  mag?: number;
+  depth?: number;
+  time?: number;
+  place?: string;
+  felt?: number;
+  mmi?: number;
+  alert?: string;
+  tsunami?: number;
+  sig?: number;
+  type?: string;
+  [key: string]: unknown;
+}
+
+interface EarthquakeFeature {
+  geometry?: { coordinates?: [number, number, number] };
+  properties?: EarthquakeProperties;
+}
 
 export function loadEarthquakes(
   viewer: any,
@@ -11,7 +31,7 @@ export function loadEarthquakes(
 ) {
   updateStatus("earthquakes", { error: null });
 
-  const addQuakeEntity = (f: any, i: number) => {
+  const addQuakeEntity = (f: EarthquakeFeature, i: number) => {
     const coords = f.geometry?.coordinates;
     if (!coords) return;
     const props = f.properties || {};

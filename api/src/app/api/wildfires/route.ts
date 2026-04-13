@@ -44,7 +44,7 @@ export async function GET() {
       );
     }
 
-    const features: any[] = [];
+    const features: GeoJSON.Feature[] = [];
     const maxFeatures = 2000;
 
     for (let i = 1; i < lines.length && i <= maxFeatures; i++) {

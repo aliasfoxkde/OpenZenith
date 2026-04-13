@@ -16,6 +16,7 @@ interface Props {
   activeTab: ToolTab;
   onTabChange: (tab: ToolTab) => void;
   dark: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   map: any;
   cursorPos: { lat: number; lon: number } | null;
   layers: Record<string, boolean>;

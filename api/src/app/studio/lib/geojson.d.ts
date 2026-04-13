@@ -26,11 +26,13 @@ declare namespace GeoJSON {
   }
   interface Geometry {
     type: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     coordinates: any;
   }
   interface Feature {
     type: "Feature";
     geometry: Geometry | Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     properties: Record<string, any>;
     bbox?: number[];
   }

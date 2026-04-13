@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DashboardState } from "./types";
 import { DEFAULT_LAYERS, BASEMAPS, SIDEBAR_SECTIONS } from "./constants";
 

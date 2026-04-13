@@ -45,6 +45,7 @@ export default function Home() {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroMapRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const heroMapInstance = useRef<any>(null);
   const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
   const geoInitDone = useRef(false);
@@ -788,7 +789,7 @@ export default function Home() {
                     </div>
                     <div className="oz-result-meta">
                       {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot;{" "}
-                      {(result as any).tile || (result as any).srtmTile} &middot; {result.resolution}m
+                      {result.tile || result.srtmTile} &middot; {result.resolution}m
                     </div>
                     {placeName && (
                       <div

@@ -1,5 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchHurricaneTracks } from "../data-fetchers";
+
+interface StormTrackPoint {
+  coordinates: [number, number];
+  cat: string;
+  name: string;
+  color: string;
+  season: string;
+  wind: number;
+  pressure: number;
+}
 
 /**
  * Saffir-Simpson Hurricane Wind Scale colors.
@@ -60,7 +71,7 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
       const csv = await fetchHurricaneTracks();
       if (!Cesium || !viewer) return;
       const lines = csv.split("\n").slice(1);
-      const storms: Record<string, any[]> = {};
+      const storms: Record<string, StormTrackPoint[]> = {};
 
       for (const line of lines) {
         const p = line.split(",");
@@ -90,12 +101,15 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
 
       for (const [, track] of Object.entries(storms)) {
         if (track.length < 2) continue;
-        const positions = track.map((pt: any) => Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]));
-        const lastPt = track[track.length - 1];
-        const maxCat = track.reduce((best: string, pt: any) =>
-          (CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best,
+        const positions = track.map((pt: StormTrackPoint) =>
+          Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]),
         );
-        const maxWind = track.reduce((best: number, pt: any) => (pt.wind > best ? pt.wind : best), 0);
+        const lastPt = track[track.length - 1];
+        const maxCat = track.reduce(
+          (best: string, pt: StormTrackPoint) => ((CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best),
+          track[0].cat,
+        );
+        const maxWind = track.reduce<number>((best, pt) => (pt.wind > best ? pt.wind : best), 0);
         const color = Cesium.Color.fromCssColorString(SS_COLORS[maxCat] || lastPt.color);
         const stormName = lastPt.name || "Unnamed";
         const isCat3Plus = CAT_ORDER[maxCat] >= 5;
@@ -187,7 +201,7 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
             const rotation = Cesium.JulianDate.secondsDifference(time, Cesium.JulianDate.now());
             const rotAngle = rotation * 0.3;
 
-            const pts: any[] = [];
+            const pts: CesiumType.Cartesian3[] = [];
             for (let s = 0; s < steps; s++) {
               const angle = armOffset + (s / steps) * Math.PI * 2 + rotAngle;
               const radius = (s / steps) * maxRadius;

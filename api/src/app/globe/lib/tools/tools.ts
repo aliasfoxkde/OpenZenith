@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Globe Tools — Interactive measurement and drawing tools.
  *

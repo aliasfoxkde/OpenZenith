@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function loadGroundTracks(viewer: any, Cesium: any) {
   const satJs = (window as any).satellite;
   if (!Cesium || !viewer || !satJs) return;
@@ -17,7 +18,7 @@ export function loadGroundTracks(viewer: any, Cesium: any) {
       if (!Array.isArray(data) || !data[0]?.TLE_LINE1) return;
       const tle = data[0];
       const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
-      const positions: any[] = [];
+      const positions: CesiumType.Cartesian3[] = [];
       for (let i = 0; i <= 200; i++) {
         const date = new Date(now + i * 30000);
         const posVel = satJs.propagate(satrec, date);

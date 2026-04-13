@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchSigmets, fetchAirmets } from "../data-fetchers";
 
@@ -24,6 +25,16 @@ function parseCoordinates(raw: string): [number, number][] {
   return points;
 }
 
+interface SigmetFeature {
+  raw_text?: string;
+  hazard?: string;
+  hazard_type?: string;
+  start_time?: string;
+  end_time?: string;
+  valid_time_from?: string;
+  valid_time_to?: string;
+}
+
 export function loadAviationWeather(
   viewer: any,
   Cesium: any,
@@ -34,7 +45,7 @@ export function loadAviationWeather(
 ) {
   updateStatus("aviationWeather", { error: null });
 
-  const addSigmet = (s: any, i: number) => {
+  const addSigmet = (s: SigmetFeature, i: number) => {
     const raw = s.raw_text || s.hazard || "";
     const coords = parseCoordinates(raw);
     if (coords.length === 0) return;
@@ -101,7 +112,7 @@ export function loadAviationWeather(
     });
   };
 
-  const addAirmet = (a: any, i: number) => {
+  const addAirmet = (a: SigmetFeature, i: number) => {
     const raw = a.raw_text || a.hazard || "";
     const coords = parseCoordinates(raw);
     if (coords.length === 0) return;

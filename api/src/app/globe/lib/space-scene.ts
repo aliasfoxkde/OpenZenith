@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Space scene — enhanced star field and planet markers for deep-space views.
  *

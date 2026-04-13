@@ -23,6 +23,7 @@ afterEach(() => {
 describe("exportMapScreenshot", () => {
   it("returns early when getCanvas is undefined", async () => {
     const { exportMapScreenshot } = await import("../map-export");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = exportMapScreenshot({} as any);
     expect(result).toBeUndefined();
   });

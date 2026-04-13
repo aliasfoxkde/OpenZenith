@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { switchBasemapOnViewer } from "./helpers";
 import { createCSRTerrainProvider } from "./terrain-csr";
 import type { DashboardState } from "./types";

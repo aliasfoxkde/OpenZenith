@@ -1,6 +1,7 @@
 /** CDN loader for MapLibre GL JS — shared by landing page and other light map views. */
 
 export function loadMapLibre(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any;
   if (w.maplibregl) return Promise.resolve();
   if (w._maplibreLoading) return w._maplibreLoading;
@@ -20,7 +21,9 @@ export function loadMapLibre(): Promise<void> {
   return w._maplibreLoading;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function waitForMapLibre(timeoutMs = 15000): Promise<any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any;
   if (w.maplibregl) return Promise.resolve(w.maplibregl);
   return loadMapLibre().then(

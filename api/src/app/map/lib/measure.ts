@@ -79,6 +79,7 @@ export function createMeasureController() {
   const fillLayerId = "measure-fill";
   const vertexLayerId = "measure-vertices";
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function addLayers(map: any) {
     if (map.getSource(sourceId)) return;
     map.addSource(sourceId, {
@@ -121,9 +122,11 @@ export function createMeasureController() {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function updateMap(map: any, points: [number, number][], mode: MeasureMode) {
     if (!map.getSource(sourceId)) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const features: any[] = [];
 
     // Vertex points
@@ -151,12 +154,14 @@ export function createMeasureController() {
       });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (map.getSource(sourceId) as any).setData({
       type: "FeatureCollection",
       features,
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function removeLayers(map: any) {
     try {
       map.removeLayer(fillLayerId);

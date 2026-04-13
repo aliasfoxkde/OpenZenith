@@ -26,7 +26,9 @@ export async function GET() {
     // Transform nodes to a simpler format with parsed coordinates
     const nodes = Array.isArray(data)
       ? data
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((n: any) => n.geo)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((n: any) => {
             const [lat, lon] = n.geo.split(",").map(Number);
             return {
@@ -40,6 +42,7 @@ export async function GET() {
               lon: isNaN(lon) ? null : lon,
             };
           })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((n: any) => n.lat !== null && n.lon !== null)
       : [];
 

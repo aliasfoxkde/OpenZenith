@@ -8,6 +8,7 @@ describe("Proxy endpoint", () => {
   it("returns 403 for non-allowed domain", async () => {
     const { GET } = await import("@/app/api/proxy/[...path]/route");
     const req = new Request("http://localhost:8788/api/proxy/https://evil.com/data");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resp = await GET(req as any, { params: Promise.resolve({ path: ["https://evil.com/data"] }) });
     expect(resp.status).toBe(403);
     const data = await resp.json();
@@ -24,6 +25,7 @@ describe("Proxy endpoint", () => {
   it("returns error JSON on GET for blocked domain", async () => {
     const { GET } = await import("@/app/api/proxy/[...path]/route");
     const req = new Request("http://localhost:8788/api/proxy/https://evil.com/data");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resp = await GET(req as any, { params: Promise.resolve({ path: ["https://evil.com/data"] }) });
     expect(resp.status).toBe(403);
     const data = await resp.json();

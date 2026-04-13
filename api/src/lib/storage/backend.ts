@@ -107,16 +107,3 @@ export class HuggingFaceChunkBackend extends BaseChunkBackend {
     return `https://huggingface.co/datasets/${this.repo}/resolve/main/${path}`;
   }
 }
-
-class HttpChunkBackend extends BaseChunkBackend {
-  constructor(
-    private baseUrl: string,
-    tryMerged: boolean,
-  ) {
-    super(tryMerged);
-  }
-
-  buildUrl(path: string): string {
-    return `${this.baseUrl.replace(/\/$/, "")}/${path}`;
-  }
-}

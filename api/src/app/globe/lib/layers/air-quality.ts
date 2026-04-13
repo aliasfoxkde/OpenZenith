@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 
 const AQI_ICON = `<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="#888" stroke-width="1.5"/><path d="M8 10a4 4 0 018 0" fill="none" stroke="#aaa" stroke-width="1" opacity="0.6"/><circle cx="10" cy="10" r="1.5" fill="#888" opacity="0.5"/><circle cx="14" cy="10" r="1.5" fill="#888" opacity="0.5"/><path d="M8 15h8" stroke="#888" stroke-width="1" stroke-linecap="round"/></svg>`;

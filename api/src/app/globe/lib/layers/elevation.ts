@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { elevationColor } from "../helpers";
 import { getClientElevationBatch } from "@/lib/client-elevation";
 

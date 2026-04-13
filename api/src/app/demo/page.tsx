@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { waitForMapLibre } from "@/app/landing/maplibre-loader";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addElevationLayer(map: any, _mlgl: any) {
   map.addSource("elevation", {
     type: "raster-dem",
@@ -32,6 +33,7 @@ function addElevationLayer(map: any, _mlgl: any) {
 
 export default function Demo() {
   const mapRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
   const [elevation, setElevation] = useState<{
     lat: number;
@@ -79,6 +81,7 @@ export default function Demo() {
           setMapReady(true);
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         map.on("click", async (e: any) => {
           const { lat, lng } = e.lngLat;
           try {

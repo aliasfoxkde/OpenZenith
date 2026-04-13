@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 
 export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
@@ -27,7 +28,7 @@ export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: str
           altB = b[7] || 0;
         const dist = Math.sqrt((lonA - lonB) ** 2 + (latA - latB) ** 2);
         if (dist < 15 || dist > 80) continue;
-        const positions: any[] = [];
+        const positions: CesiumType.Cartesian3[] = [];
         const segments = 30;
         for (let t = 0; t <= segments; t++) {
           const frac = t / segments;

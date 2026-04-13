@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 
 /**
@@ -345,7 +346,7 @@ export function loadCurrents(
 
           if (startI >= totalPts - 1) return positions;
 
-          const pts: any[] = [];
+          const pts: CesiumType.Cartesian3[] = [];
           for (let i = startI; i <= Math.min(endI, totalPts - 1); i++) {
             pts.push(Cesium.Cartesian3.fromDegrees(current.path[i][0], current.path[i][1]));
           }

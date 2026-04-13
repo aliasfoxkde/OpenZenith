@@ -88,7 +88,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     let features = data.features || [];
     if (id === "nlnog_nodes" && data.nodes) {
       features = data.nodes
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((n: any) => n.lat != null && n.lon != null)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((n: any) => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [n.lon, n.lat] },
@@ -105,6 +107,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Bbox filtering: bbox=minLon,minLat,maxLon,maxLat
     if (bbox) {
       const [minLon, minLat, maxLon, maxLat] = bbox.split(",").map(Number);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       features = features.filter((f: any) => {
         const coords = f.geometry?.coordinates;
         if (!coords) return false;
@@ -121,6 +124,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return { key, val };
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       features = features.filter((f: any) => {
         return filters.every(({ key, val }) => {
           const prop = f.properties?.[key];

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { GeocodeResult } from "../lib/types";
 
 interface Props {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   map: any;
   dark: boolean;
 }

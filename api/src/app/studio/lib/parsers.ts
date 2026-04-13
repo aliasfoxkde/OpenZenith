@@ -58,6 +58,7 @@ export function parseGeoJSON(text: string): GeoJSON.FeatureCollection {
     // Assume array of [lon, lat] coordinates
     return {
       type: "FeatureCollection",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       features: data.map((c: any) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: c },

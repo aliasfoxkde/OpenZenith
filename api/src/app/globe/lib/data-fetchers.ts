@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Data fetchers for globe layers.
  * All external API calls route through /api/proxy/ to avoid CORS issues.

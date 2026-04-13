@@ -1,6 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
 import { fetchEONET } from "../data-fetchers";
+
+interface EonetFeature {
+  geometry?: { coordinates?: [number, number] };
+  properties?: {
+    categories?: { id?: string }[];
+    title?: string;
+    description?: string;
+    updated?: number;
+    geometry_lastModified?: number;
+    [key: string]: unknown;
+  };
+}
 
 /** EONET category → SVG billboard icon */
 const CATEGORY_ICONS: Record<string, string> = {
@@ -38,7 +51,7 @@ export function loadEvents(
 ) {
   updateStatus("events", { error: null });
 
-  const addEventEntity = (f: any, i: number) => {
+  const addEventEntity = (f: EonetFeature, i: number) => {
     const cat = f.properties?.categories?.[0]?.id || "manmade";
     const colorStr = EONET_COLORS[cat] || "#888888";
     const coords = f.geometry?.coordinates;

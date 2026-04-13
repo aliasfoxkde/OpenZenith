@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Level of Detail (LOD) system for the Globe viewer.
  *

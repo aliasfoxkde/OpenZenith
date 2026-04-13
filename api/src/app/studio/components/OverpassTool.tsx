@@ -5,6 +5,7 @@ import { OVERPASS_PRESETS } from "../lib/constants";
 import { getOverpassBBox } from "../lib/map-helpers";
 
 interface Props {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   map: any;
   dark: boolean;
   onResult: (data: GeoJSON.FeatureCollection, name: string) => void;
@@ -50,6 +51,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
 
       // Convert Overpass elements to GeoJSON
       const features: GeoJSON.Feature[] = (data.elements || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((el: any) => {
           const tags = el.tags || {};
           let geometry: GeoJSON.Geometry;

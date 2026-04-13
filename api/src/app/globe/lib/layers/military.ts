@@ -1,5 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchMilitaryFlights } from "../data-fetchers";
+
+interface MilitaryAircraft {
+  lat?: number;
+  lon?: number;
+  alt_baro?: number;
+  alt_geom?: number;
+  call?: string;
+  reg?: string;
+  [key: string]: unknown;
+}
 
 export function loadMilitaryFlights(
   viewer: any,
@@ -20,14 +31,14 @@ export function loadMilitaryFlights(
         }
         return;
       }
-      const ac = data.ac.filter((a: any) => a.lat && a.lon);
+      const ac = data.ac.filter((a: MilitaryAircraft) => a.lat && a.lon);
       updateStatus("militaryFlights", { lastUpdate: Date.now(), count: ac.length });
-      ac.forEach((a: any, i: number) => {
+      ac.forEach((a: MilitaryAircraft, i: number) => {
         const alt = a.alt_baro || a.alt_geom || 0;
         viewer.entities.add({
           id: `mil-${i}`,
           name: a.call || a.reg || "MIL",
-          position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, alt),
+          position: Cesium.Cartesian3.fromDegrees(a.lon!, a.lat!, alt),
           point: { pixelSize: 5, color: Cesium.Color.MAGENTA, outlineColor: Cesium.Color.WHITE.withAlpha(0.3) },
           label: {
             text: a.call || "",
@@ -50,11 +61,11 @@ export function loadMilitaryFlights(
           if (d.ac) {
             removeEntities("mil-");
             d.ac
-              .filter((a: any) => a.lat && a.lon)
-              .forEach((a: any, i: number) => {
+              .filter((a: MilitaryAircraft) => a.lat && a.lon)
+              .forEach((a: MilitaryAircraft, i: number) => {
                 viewer.entities.add({
                   id: `mil-${i}`,
-                  position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, a.alt_baro || 0),
+                  position: Cesium.Cartesian3.fromDegrees(a.lon!, a.lat!, a.alt_baro || 0),
                   point: { pixelSize: 5, color: Cesium.Color.MAGENTA },
                   label: {
                     text: a.call || "",
@@ -70,7 +81,7 @@ export function loadMilitaryFlights(
               });
             updateStatus("militaryFlights", {
               lastUpdate: Date.now(),
-              count: d.ac.filter((a: any) => a.lat && a.lon).length,
+              count: d.ac.filter((a: MilitaryAircraft) => a.lat && a.lon).length,
             });
           }
         } catch {

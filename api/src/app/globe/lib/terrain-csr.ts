@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * CSR-first CesiumJS terrain provider.
  *
@@ -10,7 +11,6 @@
 
 import { getClientTileData } from "@/lib/client-elevation";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CesiumType = any;
 
 const TERRAIN_URL = "/api/dem-tile";
@@ -21,10 +21,8 @@ const MAX_TERRAIN_ZOOM = 10;
  * directly from HuggingFace, bypassing the server.
  */
 export function createCSRTerrainProvider(Cesium: CesiumType) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const provider = new (Cesium as any).EllipsoidTerrainProvider();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const HDT = (Cesium as any).HeightmapTerrainData;
 
   const heightmapStructure = {
@@ -36,13 +34,7 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
     isBigEndian: false,
   };
 
-  provider.requestTileGeometry = function (
-    x: number,
-    y: number,
-    level: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _request: any,
-  ) {
+  provider.requestTileGeometry = function (x: number, y: number, level: number, _request: any) {
     if (level > MAX_TERRAIN_ZOOM || !HDT) {
       return Promise.resolve(null);
     }
@@ -82,7 +74,6 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
  */
 function fallbackServerTile(Cesium: CesiumType, level: number, x: number, y: number): Promise<any> {
   const url = `${TERRAIN_URL}/${level}/${x}/${y}`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const HDT = (Cesium as any).HeightmapTerrainData;
   if (!HDT) return Promise.resolve(null);
 

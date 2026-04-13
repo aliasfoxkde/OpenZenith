@@ -23,6 +23,7 @@ describe("GeoIP endpoint", () => {
   it("returns location data from cf object", async () => {
     const { GET } = await import("@/app/api/geoip/route");
     const req = mockRequest("/api/geoip", "GET", null, { cf: MOCK_CF });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resp = await GET(req as any);
     expect(resp.status).toBe(200);
 
@@ -38,6 +39,7 @@ describe("GeoIP endpoint", () => {
   it("includes CORS and cache headers", async () => {
     const { GET } = await import("@/app/api/geoip/route");
     const req = mockRequest("/api/geoip", "GET", null, { cf: MOCK_CF });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resp = await GET(req as any);
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
     expect(resp.headers.get("cache-control")).toContain("public");

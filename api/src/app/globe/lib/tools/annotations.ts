@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Annotation manager — draw markers, lines, polygons, and text labels on the globe.
  */

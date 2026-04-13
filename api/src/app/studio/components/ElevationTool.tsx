@@ -5,6 +5,7 @@ import type { ElevationResult } from "../lib/types";
 import { getClientElevation } from "@/lib/client-elevation";
 
 interface Props {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   map: any;
   dark: boolean;
   cursorPos: { lat: number; lon: number } | null;

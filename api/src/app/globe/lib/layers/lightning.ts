@@ -3,9 +3,12 @@ import type { DataStatus } from "../types";
 
 const LIGHTNING_ICON = `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`;
 
+const MAX_ACTIVE_STRIKES = 200;
+
 // Module-level refs so cleanupLightning() can access them on unmount
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+const activeStrikeIds = new Set<string>();
 
 export function cleanupLightning() {
   if (reconnectTimer !== null) {
@@ -17,28 +20,26 @@ export function cleanupLightning() {
     ws.close();
     ws = null;
   }
+  activeStrikeIds.clear();
 }
 
 export function loadLightning(
   viewer: any,
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
-  removeEntities: (prefix: string) => void,
+  _removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { lightning: boolean },
 ) {
   updateStatus("lightning", { error: null });
 
-  // Blitzortung.org provides a WebSocket feed of real-time lightning strikes.
-  // Due to WebSocket proxy complexity, we use the HTTP endpoint instead.
-  // The Blitzortung API requires specific headers and may have CORS restrictions.
-  // We attempt to fetch recent strikes via their public data endpoint.
-
   const addStrike = (lat: number, lon: number) => {
     if (!Cesium || !viewer) return;
+    if (activeStrikeIds.size >= MAX_ACTIVE_STRIKES) return;
 
     const id = `strike-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const flashTime = Date.now();
+    activeStrikeIds.add(id);
 
     viewer.entities.add({
       id,
@@ -46,7 +47,7 @@ export function loadLightning(
       point: {
         pixelSize: new Cesium.CallbackProperty(() => {
           const age = Date.now() - flashTime;
-          if (age > 30000) return 0; // Fade out after 30s
+          if (age > 30000) return 0;
           return Math.max(0, 6 * (1 - age / 30000));
         }, false),
         color: new Cesium.CallbackProperty(() => {
@@ -68,6 +69,7 @@ export function loadLightning(
 
     // Auto-remove after 30s
     setTimeout(() => {
+      activeStrikeIds.delete(id);
       try {
         viewer.entities.removeById(id);
       } catch {
@@ -78,15 +80,12 @@ export function loadLightning(
 
   const connectWs = () => {
     try {
-      // Blitzortung WebSocket for live strikes
       ws = new WebSocket("wss://ws.blitzortung.org:443/");
 
       ws.onmessage = (event) => {
         try {
-          // Blitzortung sends strike data in a specific format
           const data = event.data;
           if (typeof data === "string") {
-            // Try parsing common Blitzortung formats
             const parts = data.split(";");
             if (parts.length >= 3) {
               const lat = parseFloat(parts[1]);
@@ -106,7 +105,6 @@ export function loadLightning(
       };
 
       ws.onclose = () => {
-        // Reconnect after 30s
         reconnectTimer = setTimeout(() => {
           if (stateLayers.lightning) connectWs();
         }, 30000);
@@ -120,14 +118,10 @@ export function loadLightning(
 
   connectWs();
 
-  // Cleanup on unmount is handled by the interval system
+  // Status update using tracked Set instead of scanning all entities
   intervalsRef.current.push(
     setInterval(() => {
-      // Periodic status update
-      const count =
-        viewer?.entities?.values?.filter((e: any) => e.properties?.type?.getValue?.() === "lightning-strike")?.length ||
-        0;
-      updateStatus("lightning", { lastUpdate: Date.now(), count });
+      updateStatus("lightning", { lastUpdate: Date.now(), count: activeStrikeIds.size });
     }, 10000),
   );
 }

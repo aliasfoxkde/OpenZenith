@@ -2,16 +2,17 @@
 /**
  * Space scene — enhanced star field and planet markers for deep-space views.
  *
- * - 3000+ procedural stars (bright catalog stars with realistic positions)
+ * - 3000+ procedural stars via PointPrimitiveCollection (single primitive, fast)
  * - Planet markers at scaled orbital distances (clickable, with info)
  * - Moon marker
- * - All entities are tagged "space-scene" for clean removal
+ * - All elements tagged "space-scene" for clean removal
  */
 
 interface SpaceSceneState {
   starsLoaded: boolean;
   planetsLoaded: boolean;
   entities: any[];
+  starCollection: any; // PointPrimitiveCollection
 }
 
 /**
@@ -19,7 +20,7 @@ interface SpaceSceneState {
  * Uses seeded randomization for consistency between sessions.
  * Brighter stars (magnitude < 3) get larger point sizes.
  */
-function generateStars(_Cesium: any): Array<{
+function generateStars(): Array<{
   lng: number;
   lat: number;
   alt: number;
@@ -70,36 +71,23 @@ function generateStars(_Cesium: any): Array<{
 
     // Pixel size based on magnitude
     let pixelSize: number;
-    if (magnitude < 1)
-      pixelSize = 3 + rand() * 2; // bright: 3-5px
+    if (magnitude < 1) pixelSize = 3 + rand() * 2;
     else if (magnitude < 2) pixelSize = 2 + rand() * 1.5;
     else if (magnitude < 3) pixelSize = 1.5 + rand();
     else if (magnitude < 4.5) pixelSize = 1 + rand() * 0.5;
-    else pixelSize = 0.5 + rand() * 0.5; // dim: barely visible
+    else pixelSize = 0.5 + rand() * 0.5;
 
     // Color selection weighted toward cooler stars
     let colorIdx: number;
     const colorRand = rand();
-    if (colorRand < 0.03)
-      colorIdx = 0; // O/B blue
-    else if (colorRand < 0.1)
-      colorIdx = 1; // A white
-    else if (colorRand < 0.2)
-      colorIdx = 2; // F yellow-white
-    else if (colorRand < 0.4)
-      colorIdx = 3; // G yellow
-    else if (colorRand < 0.65)
-      colorIdx = 4; // K orange
-    else colorIdx = 5; // M red
+    if (colorRand < 0.03) colorIdx = 0;
+    else if (colorRand < 0.1) colorIdx = 1;
+    else if (colorRand < 0.2) colorIdx = 2;
+    else if (colorRand < 0.4) colorIdx = 3;
+    else if (colorRand < 0.65) colorIdx = 4;
+    else colorIdx = 5;
 
-    stars.push({
-      lng,
-      lat,
-      alt: sphereRadius,
-      pixelSize,
-      color: starColors[colorIdx],
-      brightness,
-    });
+    stars.push({ lng, lat, alt: sphereRadius, pixelSize, color: starColors[colorIdx], brightness });
   }
 
   return stars;
@@ -107,8 +95,6 @@ function generateStars(_Cesium: any): Array<{
 
 /**
  * Solar system body data — distances scaled to fit within Cesium's coordinate space.
- * Real distances would be absurdly large; these are placed at "illustrative" distances
- * relative to the Earth viewer.
  */
 interface SolarSystemBody {
   name: string;
@@ -125,7 +111,7 @@ const SOLAR_SYSTEM_BODIES: SolarSystemBody[] = [
     name: "Moon",
     description: "Earth's Moon — 384,400 km",
     realDistKm: 384400,
-    displayAlt: 45_000_000, // ~45M meters (visible at medium zoom)
+    displayAlt: 45_000_000,
     pixelSize: 8,
     color: "#ddddcc",
     labelColor: "#ccccbb",
@@ -134,7 +120,7 @@ const SOLAR_SYSTEM_BODIES: SolarSystemBody[] = [
     name: "Sun",
     description: "The Sun — 149,600,000 km",
     realDistKm: 149600000,
-    displayAlt: 180_000_000, // ~180M meters (near max zoom)
+    displayAlt: 180_000_000,
     pixelSize: 14,
     color: "#ffee44",
     labelColor: "#ffdd22",
@@ -146,6 +132,7 @@ export function createSpaceSceneManager(viewer: any, Cesium: any) {
     starsLoaded: false,
     planetsLoaded: false,
     entities: [],
+    starCollection: null,
   };
 
   const removeEntity = (e: any) => {
@@ -157,6 +144,16 @@ export function createSpaceSceneManager(viewer: any, Cesium: any) {
   };
 
   const clear = () => {
+    // Remove star point collection (single primitive vs 3200 entities)
+    if (state.starCollection) {
+      try {
+        viewer.scene.primitives.remove(state.starCollection);
+      } catch {
+        /* already removed */
+      }
+      state.starCollection = null;
+    }
+    // Remove planet entities (kept as entities for labels/clickability)
     state.entities.forEach(removeEntity);
     state.entities = [];
     state.starsLoaded = false;
@@ -164,43 +161,37 @@ export function createSpaceSceneManager(viewer: any, Cesium: any) {
   };
 
   /**
-   * Load 3000+ stars as point entities on a distant celestial sphere.
-   * Stars are static and only need to be loaded once.
+   * Load 3000+ stars as a single PointPrimitiveCollection.
+   * Much faster than 3200 individual entities — single primitive, batch GPU upload.
    */
   const loadStars = () => {
     if (state.starsLoaded) return;
 
-    const stars = generateStars(Cesium);
+    const stars = generateStars();
 
-    // Batch into a single PointPrimitiveCollection-like approach via entities
-    // Using point entities with scaleByDistance for performance
+    // Single PointPrimitiveCollection for all 3200 stars
+    const collection = new Cesium.PointPrimitiveCollection();
     for (const star of stars) {
-      const entity = viewer.entities.add({
+      collection.add({
         position: Cesium.Cartesian3.fromDegrees(star.lng, star.lat, star.alt),
-        point: {
-          pixelSize: star.pixelSize,
-          color: Cesium.Color.fromCssColorString(star.color).withAlpha(star.brightness),
-          outlineColor: Cesium.Color.TRANSPARENT,
-          outlineWidth: 0,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          scaleByDistance: new Cesium.NearFarScalar(1_000_000, 2.0, 200_000_000, 0.3),
-        },
-        properties: { type: "space-scene", subtype: "star" },
+        pixelSize: star.pixelSize,
+        color: Cesium.Color.fromCssColorString(star.color).withAlpha(star.brightness),
+        scaleByDistance: new Cesium.NearFarScalar(1_000_000, 2.0, 200_000_000, 0.3),
       });
-      state.entities.push(entity);
     }
-
+    viewer.scene.primitives.add(collection);
+    state.starCollection = collection;
     state.starsLoaded = true;
   };
 
   /**
    * Load planet markers — Moon, Sun at scaled distances from Earth.
+   * Kept as entities for labels and clickability.
    */
   const loadPlanets = () => {
     if (state.planetsLoaded) return;
 
     for (const body of SOLAR_SYSTEM_BODIES) {
-      // Place at 0,0 (relative to Earth center) at scaled altitude
       const entity = viewer.entities.add({
         position: Cesium.Cartesian3.fromDegrees(0, 0, body.displayAlt),
         point: {
@@ -240,9 +231,6 @@ export function createSpaceSceneManager(viewer: any, Cesium: any) {
     state.planetsLoaded = true;
   };
 
-  /**
-   * Load all space scene elements.
-   */
   const loadAll = () => {
     loadStars();
     loadPlanets();

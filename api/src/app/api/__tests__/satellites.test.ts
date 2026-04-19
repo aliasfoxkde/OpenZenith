@@ -28,13 +28,13 @@ describe("Satellites API", () => {
     expect(data.error).toContain("Invalid group");
   });
 
-  it("defaults to space-station group", async () => {
+  it("defaults to stations group", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
 
     const { GET } = await import("@/app/api/satellites/route");
     await GET(mockRequest("/api/satellites"));
 
     const calledUrl = spy.mock.calls[0][0] as string;
-    expect(calledUrl).toContain("GROUP=space-station");
+    expect(calledUrl).toContain("GROUP=stations");
   });
 });

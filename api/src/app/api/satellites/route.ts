@@ -7,6 +7,7 @@ export const runtime = "edge";
 const CACHE_TTL_SATS = 300; // 5 minutes
 
 const VALID_GROUPS = new Set([
+  "stations",
   "active",
   "visual",
   "weather",
@@ -14,8 +15,6 @@ const VALID_GROUPS = new Set([
   "science",
   "communication",
   "navigation",
-  "stations",
-  "space-station",
   "gnss",
   "resource",
   "radar",
@@ -62,7 +61,7 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const group = searchParams.get("group") || "space-station";
+  const group = searchParams.get("group") || "stations";
   const limit = Math.min(Number(searchParams.get("limit")) || 500, 2000);
 
   if (!VALID_GROUPS.has(group)) {
@@ -83,7 +82,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Celestrak returned ${resp.status}` }, { status: 502, headers: CORS_HEADERS });
     }
 
-    const data = await resp.json();
+    let data: unknown;
+    try {
+      const text = await resp.text();
+      data = JSON.parse(text);
+    } catch {
+      // Celestrak sometimes returns text errors ("Invalid query: ...")
+      return NextResponse.json(
+        { count: 0, truncated: false, satellites: [], error: "Celestrak returned invalid response" },
+        { status: 200, headers: CORS_HEADERS },
+      );
+    }
+
+    // Handle Celestrak text error responses that parsed as strings
+    if (typeof data === "string" && data.includes("Invalid query")) {
+      return NextResponse.json(
+        { count: 0, truncated: false, satellites: [], error: data },
+        { status: 200, headers: CORS_HEADERS },
+      );
+    }
 
     // Large groups need truncation to avoid edge worker timeouts
     if (Array.isArray(data) && data.length > limit) {

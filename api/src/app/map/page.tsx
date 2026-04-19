@@ -225,6 +225,15 @@ export default function MapPage() {
   });
   const [pins, setPins] = useState<ElevationPin[]>([]);
   const [activePin, setActivePin] = useState<ElevationPin | null>(null);
+
+  // Toast notifications for layer errors
+  const [toasts, setToasts] = useState<{ id: number; msg: string; type: "error" | "info" }[]>([]);
+  const toastIdRef = useRef(0);
+  const showToast = useCallback((msg: string, type: "error" | "info" = "error") => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev.slice(-4), { id, msg, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 6000);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -238,6 +247,9 @@ export default function MapPage() {
   const layerHandleRef = useRef<LayerHandle>(
     createLayerHandle((layerId, status, count) => {
       setLayerStatus((prev) => ({ ...prev, [layerId]: { status, count } }));
+      if (status === "error") {
+        showToast(`${layerId}: failed to load`, "error");
+      }
     }),
   );
   const measureRef = useRef(createMeasureController());
@@ -1210,6 +1222,38 @@ export default function MapPage() {
             Right-click + drag to rotate terrain &middot; Scroll to zoom &middot; Click to query elevation
           </div>
         )}
+      </div>
+
+      {/* Toast notifications */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 16,
+          right: 16,
+          zIndex: 9999,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          pointerEvents: "none",
+        }}
+      >
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            style={{
+              background: t.type === "error" ? "#dc2626" : "#2563eb",
+              color: "#fff",
+              padding: "6px 14px",
+              borderRadius: 4,
+              fontSize: "0.78rem",
+              fontFamily: T.fontMono,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              animation: "fadeIn 0.2s ease-in",
+            }}
+          >
+            {t.type === "error" ? "✕ " : "ℹ "}{t.msg}
+          </div>
+        ))}
       </div>
     </div>
   );

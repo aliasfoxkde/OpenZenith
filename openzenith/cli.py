@@ -1,12 +1,13 @@
-"""OpenZenith CLI — data download, elevation queries, and analysis.
+"""OpenZenith CLI — data download, elevation queries, and terrain analysis.
 
 Usage:
     openzenith download --region europe --zoom-levels 0-10
-    openzenith download --bbox 35,0,60,30 --zoom-levels 8
     openzenith query --lat 40.7128 --lon -74.0060
-    openzenith query --batch "40.7,-74.0 35.7,139.7 -33.9,151.2"
     openzenith trace --lat 40.7 --lon -74.0
     openzenith watershed --lat 40.7 --lon -74.0
+    openzenith slope --lat 40.7 --lon -74.0
+    openzenith hillshade --lat 40.7 --lon -74.0 --azimuth 315
+    openzenith viewshed --lat 40.7 --lon -74.0 --height 10
     openzenith info
     openzenith validate --mode spot
 """
@@ -228,6 +229,101 @@ def cmd_validate(args):
     validate_main()
 
 
+def cmd_slope(args):
+    """Compute terrain slope."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import slope_fast
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+
+    print(f"📐 Computing slope at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    sl = slope_fast(grid["data"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = sl[~np.isnan(sl)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.1f}°  Median: {np.median(valid):.1f}°")
+    print(f"   Min:  {np.min(valid):.1f}°  Max: {np.max(valid):.1f}°")
+    print(f"   Std:  {np.std(valid):.1f}°")
+
+    if args.output:
+        np.save(args.output, sl)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_hillshade(args):
+    """Compute analytical hillshade."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import hillshade
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+
+    print(f"🌤️  Computing hillshade at ({args.lat:.4f}, {args.lon:.4f})...")
+    print(f"   Azimuth: {args.azimuth}°  Altitude: {args.altitude}°")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    hs = hillshade(grid["data"], args.azimuth, args.altitude, grid["cell_size_deg"], z_factor=args.z_factor)
+    elapsed = time.time() - t0
+
+    print(f"✅ {hs.shape[0]}×{hs.shape[1]} hillshade ({elapsed:.1f}s)")
+    print(f"   Brightness: mean={np.mean(hs):.0f}  min={np.min(hs)}  max={np.max(hs)}")
+
+    if args.output:
+        try:
+            from PIL import Image
+            Image.fromarray(hs, mode="L").save(args.output)
+            print(f"💾 Saved image to {args.output}")
+        except ImportError:
+            np.save(args.output, hs)
+            print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
+
+
+def cmd_viewshed(args):
+    """Compute viewshed from observer point."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import viewshed
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+
+    print(f"👁️  Computing viewshed from ({args.lat:.4f}, {args.lon:.4f})...")
+    print(f"   Observer height: {args.height}m  Max dist: {args.max_dist} cells")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    vs = viewshed(
+        grid["data"],
+        grid["data"].shape[0] // 2,
+        grid["data"].shape[1] // 2,
+        observer_height=args.height,
+        cell_size_deg=grid["cell_size_deg"],
+        max_distance_cells=args.max_dist,
+    )
+    elapsed = time.time() - t0
+
+    visible = vs.sum()
+    total = vs.size
+    print(f"✅ {visible:,}/{total:,} cells visible ({100*visible/total:.1f}%) ({elapsed:.1f}s)")
+
+    if args.output:
+        try:
+            from PIL import Image
+            img = np.zeros((*vs.shape, 3), dtype=np.uint8)
+            img[vs] = [0, 255, 0]    # visible = green
+            img[~vs] = [40, 40, 40]   # not visible = dark gray
+            Image.fromarray(img).save(args.output)
+            print(f"💾 Saved image to {args.output}")
+        except ImportError:
+            np.save(args.output, vs)
+            print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
+
+
 # ─── Helpers ───
 
 REGION_BBOXES = {
@@ -299,6 +395,32 @@ def main():
     # validate
     sub.add_parser("validate", help="Run elevation validation against reference APIs")
 
+    # slope
+    sl = sub.add_parser("slope", help="Compute terrain slope")
+    sl.add_argument("--lat", type=float, required=True)
+    sl.add_argument("--lon", type=float, required=True)
+    sl.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    sl.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # hillshade
+    hs = sub.add_parser("hillshade", help="Compute analytical hillshade")
+    hs.add_argument("--lat", type=float, required=True)
+    hs.add_argument("--lon", type=float, required=True)
+    hs.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    hs.add_argument("--azimuth", type=float, default=315, help="Light azimuth (0=N, 90=E)")
+    hs.add_argument("--altitude", type=float, default=45, help="Light altitude (0-90°)")
+    hs.add_argument("--z-factor", type=float, default=1.0, help="Vertical exaggeration")
+    hs.add_argument("--output", type=str, default=None, help="Output PNG or .npy file")
+
+    # viewshed
+    vw = sub.add_parser("viewshed", help="Compute viewshed from observer point")
+    vw.add_argument("--lat", type=float, required=True)
+    vw.add_argument("--lon", type=float, required=True)
+    vw.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    vw.add_argument("--height", type=float, default=1.75, help="Observer height (meters)")
+    vw.add_argument("--max-dist", type=int, default=None, help="Max distance in cells")
+    vw.add_argument("--output", type=str, default=None, help="Output PNG or .npy file")
+
     args = parser.parse_args()
 
     commands = {
@@ -308,6 +430,9 @@ def main():
         "watershed": cmd_watershed,
         "info": cmd_info,
         "validate": cmd_validate,
+        "slope": cmd_slope,
+        "hillshade": cmd_hillshade,
+        "viewshed": cmd_viewshed,
     }
 
     if args.command in commands:

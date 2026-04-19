@@ -3,19 +3,19 @@
 Provides:
 - Terrarium PNG tile encoding/decoding
 - Elevation queries at any lat/lon
-- OZT1 custom binary format for scientific use
-- OZT2 adaptive compression format (gradient prediction + Brotli)
+- OZT1/OZT2 custom binary formats
 - GeoTIFF conversion tools
 - D8 flow direction and hydrology analysis
 - Downstream tracing (point → river mouth/ocean)
 - Watershed delineation from pour points
-- CLI: openzenith download/query/trace/watershed/info/validate
+- Terrain analysis: slope, aspect, hillshade, viewshed
+- CLI: openzenith download/query/trace/watershed/slope/hillshade/viewshed/info
 
 For compute-intensive applications, the local SDK is recommended over the web API
 to avoid HTTPS chunk download overhead on each tile request.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 from openzenith.elevation import (
     get_elevation,
@@ -68,6 +68,24 @@ def __getattr__(name):
     if name == "trace_downstream":
         from openzenith.tracing import trace_downstream
         return trace_downstream
+    if name == "slope":
+        from openzenith.terrain import slope
+        return slope
+    if name == "slope_fast":
+        from openzenith.terrain import slope_fast
+        return slope_fast
+    if name == "aspect":
+        from openzenith.terrain import aspect
+        return aspect
+    if name == "hillshade":
+        from openzenith.terrain import hillshade
+        return hillshade
+    if name == "viewshed":
+        from openzenith.terrain import viewshed
+        return viewshed
+    if name == "fill_depressions":
+        from openzenith.hydrology import fill_depressions
+        return fill_depressions
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -108,4 +126,12 @@ __all__ = [
     "delineate_watershed",
     # Tracing (lazy)
     "trace_downstream",
+    # Terrain (lazy)
+    "slope",
+    "slope_fast",
+    "aspect",
+    "hillshade",
+    "viewshed",
+    # Hydrology extra (lazy)
+    "fill_depressions",
 ]

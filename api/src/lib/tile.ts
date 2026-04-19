@@ -70,25 +70,32 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
     }
   }
 
-  // Check if HuggingFace assembly produced any real data
-  let hasData = false;
+  // Check if HuggingFace assembly produced useful data
+  // At low zoom, many chunks fail silently → all-NODATA or mostly-NODATA
+  let validCount = 0;
   for (let i = 0; i < data.length; i++) {
-    if (data[i] !== NODATA) {
-      hasData = true;
-      break;
-    }
+    if (data[i] !== NODATA) validCount++;
   }
 
-  // Fallback: if HuggingFace produced all-NODATA (common at low zoom due to
-  // chunk fetch timeouts), decode from AWS Terrain Tiles (same SRTM 30m data)
-  if (!hasData) {
-    console.log(`[tile] HuggingFace all-NODATA for ${z}/${x}/${y}, trying AWS fallback`);
+  // If less than 5% of pixels have valid data, try AWS fallback
+  const validPct = validCount / data.length;
+  const needsFallback = validPct < 0.05 || validCount === 0;
+
+  if (needsFallback) {
+    console.log(`[tile] HuggingFace sparse for ${z}/${x}/${y} (${(validPct * 100).toFixed(1)}% valid), trying AWS`);
     const awsData = await fetchAWSTerrainTile(z, x, y);
     if (awsData) {
-      console.log(`[tile] AWS fallback success for ${z}/${x}/${y}`);
-      return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
+      // If AWS has more valid data, use it
+      let awsValid = 0;
+      for (let i = 0; i < awsData.length; i++) {
+        if (awsData[i] !== NODATA) awsValid++;
+      }
+      if (awsValid > validCount) {
+        console.log(`[tile] AWS fallback better (${awsValid} vs ${validCount} valid) for ${z}/${x}/${y}`);
+        return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
+      }
     }
-    console.log(`[tile] AWS fallback FAILED for ${z}/${x}/${y}`);
+    console.log(`[tile] AWS fallback not better for ${z}/${x}/${y}`);
   }
 
   return { data, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
@@ -304,20 +311,63 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
     const bpp = colorType === 2 ? 3 : colorType === 6 ? 4 : colorType === 0 ? 1 : 3;
     const bytesPerRow = 1 + width * bpp; // +1 for PNG filter byte
 
+    // PNG row filter reconstruction
+    // Filter types: 0=None, 1=Sub, 2=Up, 3=Average, 4=Paeth
+    const stride = width * bpp;
+    const prevRow = new Uint8Array(stride);
+    const currRow = new Uint8Array(stride);
     const data = new Int16Array(width * height);
 
     for (let py = 0; py < height; py++) {
       const rowStart = py * bytesPerRow;
-      // Skip filter byte at rowStart
+      const filterType = raw[rowStart];
+      const rowData = raw.subarray(rowStart + 1, rowStart + 1 + stride);
+
+      switch (filterType) {
+        case 0: // None
+          currRow.set(rowData);
+          break;
+        case 1: // Sub
+          for (let i = 0; i < stride; i++) {
+            currRow[i] = (rowData[i] + (i >= bpp ? currRow[i - bpp] : 0)) & 0xff;
+          }
+          break;
+        case 2: // Up
+          for (let i = 0; i < stride; i++) {
+            currRow[i] = (rowData[i] + prevRow[i]) & 0xff;
+          }
+          break;
+        case 3: // Average
+          for (let i = 0; i < stride; i++) {
+            const a = i >= bpp ? currRow[i - bpp] : 0;
+            const b = prevRow[i];
+            currRow[i] = (rowData[i] + ((a + b) >> 1)) & 0xff;
+          }
+          break;
+        case 4: // Paeth
+          for (let i = 0; i < stride; i++) {
+            const a = i >= bpp ? currRow[i - bpp] : 0;
+            const b = prevRow[i];
+            const c = i >= bpp ? prevRow[i - bpp] : 0;
+            currRow[i] = (rowData[i] + paethPredictor(a, b, c)) & 0xff;
+          }
+          break;
+        default:
+          currRow.set(rowData);
+          break;
+      }
+
+      // Copy current row to prevRow for next iteration
+      prevRow.set(currRow);
+
+      // Decode Terrarium from unfiltered row
       for (let px = 0; px < width; px++) {
-        const i = rowStart + 1 + px * bpp;
-        const r = raw[i];
-        const g = raw[i + 1];
-        const b = raw[i + 2];
-        // Terrarium: height = (R * 256 + G + B / 256) - 32768
+        const i = px * bpp;
+        const r = currRow[i];
+        const g = currRow[i + 1];
+        const b = currRow[i + 2];
         const elev = (r * 256 + g + b / 256) - 32768;
-        // Detect NODATA (all-zero RGB → -32768)
-        data[py * width + px] = (r === 0 && g === 0 && b === 0) ? NODATA : Math.round(elev);
+        data[py * width + px] = r === 0 && g === 0 && b === 0 ? NODATA : Math.round(elev);
       }
     }
 
@@ -325,4 +375,17 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Paeth predictor for PNG filter type 4.
+ */
+function paethPredictor(a: number, b: number, c: number): number {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  if (pb <= pc) return b;
+  return c;
 }

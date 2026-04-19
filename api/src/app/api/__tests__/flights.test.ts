@@ -32,11 +32,14 @@ describe("Flights API", () => {
     expect(calledUrl).toContain("lamax=42");
   });
 
-  it("returns error on upstream failure", async () => {
+  it("returns empty array on upstream failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
-    expect(resp.status).toBe(502);
+    expect(resp.status).toBe(200);
+    const data = await resp.json();
+    expect(data.states).toEqual([]);
+    expect(data.error).toBeDefined();
   });
 });

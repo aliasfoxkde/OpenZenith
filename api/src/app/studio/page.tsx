@@ -36,7 +36,11 @@ export default function StudioPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const mlglRef = useRef<MapLibreGL | null>(null);
-  const layerHandleRef = useRef<{ intervals: ReturnType<typeof setInterval>[] }>({ intervals: [] });
+  const layerHandleRef = useRef<import("@/app/map/lib/layers").LayerHandle>({
+    intervals: [],
+    status: {},
+    featureCount: {},
+  });
 
   const [dark] = useState(true);
   const [isMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);

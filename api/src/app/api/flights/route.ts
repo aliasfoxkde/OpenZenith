@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     const slimmed = allValid ? states.map(slimState) : states.map(slimState);
 
     const headers = new Headers(CORS_HEADERS);
-    headers.set("Cache-Control", "public, max-age=15");
+    headers.set("Cache-Control", "public, max-age=60");
     headers.set("Content-Type", "application/json");
 
     return new Response(JSON.stringify({ time: data.time, states: slimmed }), {

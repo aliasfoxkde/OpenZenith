@@ -4,13 +4,36 @@
  * Each layer provides add/remove functions compatible with MapLibre GL's
  * source/layer API. Layers that fetch GeoJSON data from APIs include
  * auto-refresh via setInterval (returned for cleanup).
+ *
+ * Layer status tracking: callers can pass a statusCallback to get notified
+ * when layers load, error, or return empty data.
  */
+
+export type LayerStatus = "idle" | "loading" | "loaded" | "error" | "empty";
 
 export interface LayerHandle {
   /** Interval IDs that need clearing on unmount / toggle-off. */
   intervals: ReturnType<typeof setInterval>[];
   /** Cleanup callbacks for event listeners etc. */
   cleanup?: () => void;
+  /** Per-layer status tracking. */
+  status: Record<string, LayerStatus>;
+  /** Per-layer feature counts for status display. */
+  featureCount: Record<string, number>;
+  /** Callback invoked when any layer status changes. */
+  onStatusChange?: (layerId: string, status: LayerStatus, count?: number) => void;
+}
+
+export function createLayerHandle(
+  onStatusChange?: (layerId: string, status: LayerStatus, count?: number) => void,
+): LayerHandle {
+  return { intervals: [], status: {}, featureCount: {}, onStatusChange };
+}
+
+function setStatus(handle: LayerHandle, layerId: string, status: LayerStatus, count?: number): void {
+  handle.status[layerId] = status;
+  if (count !== undefined) handle.featureCount[layerId] = count;
+  handle.onStatusChange?.(layerId, status, count);
 }
 
 /* ─── Earthquakes ─── */
@@ -23,6 +46,7 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
       const res = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
       const data = await res.json();
       if (!map.getSource) return;
+      setStatus(handle, "earthquakes", data?.features?.length ? "loaded" : "empty", data?.features?.length || 0);
 
       try {
         if (!map.getSource("earthquakes")) {
@@ -117,6 +141,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
       const res = await fetch("/api/weather/warnings");
       const data = await res.json();
       if (!map.getSource || !data.features) return;
+      setStatus(handle, "warnings", "loaded", data.features.length);
 
       try {
         if (!map.getSource("warnings")) {
@@ -201,6 +226,7 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
       const res = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
       const data = await res.json();
       if (!map.getSource || !data.features) return;
+      setStatus(handle, "warnings", "loaded", data.features.length);
 
       try {
         if (!map.getSource("natural-events")) {

@@ -91,8 +91,8 @@ export async function cachedFetch(url: string, ttlSeconds = 60, fetchOpts?: Requ
  * Predefined TTL values for common data sources.
  */
 export const CACHE_TTL = {
-  /** Flights: 15 seconds (high-frequency updates) */
-  FLIGHTS: 15,
+  /** Flights: 60 seconds (reduces upstream hits — OpenSky is slow from CF edge) */
+  FLIGHTS: 60,
   /** Military flights: 30 seconds */
   MILITARY: 30,
   /** Earthquakes: 60 seconds */

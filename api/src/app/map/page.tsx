@@ -9,7 +9,7 @@ import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MapLoading } from "@/components/MapLoading";
 import { waitForMapLibre } from "@/app/landing/maplibre-loader";
-import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, type LayerHandle } from "./lib/layers";
+import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, createLayerHandle, type LayerHandle } from "./lib/layers";
 import {
   createMeasureController,
   type MeasureMode,
@@ -220,7 +220,12 @@ export default function MapPage() {
   const mlglRef = useRef<MapLibreGL | null>(null);
   const pinsRef = useRef<maplibregl.Marker[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const layerHandleRef = useRef<LayerHandle>({ intervals: [] });
+  const [layerStatus, setLayerStatus] = useState<Record<string, { status: string; count?: number }>>({});
+  const layerHandleRef = useRef<LayerHandle>(
+    createLayerHandle((layerId, status, count) => {
+      setLayerStatus((prev) => ({ ...prev, [layerId]: { status, count } }));
+    }),
+  );
   const measureRef = useRef(createMeasureController());
   const [measureMode, setMeasureMode] = useState<MeasureMode>("none");
   const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
@@ -1034,6 +1039,34 @@ export default function MapPage() {
                       />
                       <div style={{ color: T.textMuted, fontSize: "0.65rem", marginLeft: 18, marginTop: -2 }}>
                         {layer.description}
+                        {mapState.layers[layer.id] && layerStatus[layer.id] && (
+                          <span
+                            style={{
+                              marginLeft: 8,
+                              padding: "0 4px",
+                              borderRadius: 2,
+                              fontSize: "0.6rem",
+                              fontFamily: T.fontMono,
+                              ...(layerStatus[layer.id].status === "loading"
+                                ? { color: T.amber }
+                                : layerStatus[layer.id].status === "error"
+                                  ? { color: T.red }
+                                  : layerStatus[layer.id].status === "empty"
+                                    ? { color: T.textMuted }
+                                    : { color: T.green }),
+                            }}
+                          >
+                            {layerStatus[layer.id].status === "loading"
+                              ? "⟳"
+                              : layerStatus[layer.id].status === "error"
+                                ? "✕ ERR"
+                                : layerStatus[layer.id].status === "empty"
+                                  ? "∅ 0"
+                                  : layerStatus[layer.id].count !== undefined
+                                    ? `✓ ${layerStatus[layer.id].count}`
+                                    : "✓"}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}

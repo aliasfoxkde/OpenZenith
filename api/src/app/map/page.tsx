@@ -1608,6 +1608,11 @@ export default function MapPage() {
                 }}
               >
                 MAP CONTROLS
+                {mapState && Object.values(mapState.layers).filter(Boolean).length > 0 && (
+                  <span style={{ color: T.accent, fontWeight: 400, fontSize: "0.7rem", marginLeft: "0.5rem" }}>
+                    {Object.values(mapState.layers).filter(Boolean).length}/{Object.keys(mapState.layers).length} active
+                  </span>
+                )}
               </span>
               <button
                 onClick={() => setSidebarOpen(false)}

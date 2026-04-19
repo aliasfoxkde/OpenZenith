@@ -221,7 +221,24 @@ def _load_grid_at(
         return None
 
     try:
-        return load_elevation_grid(lat, lon, zoom, radius_cells=radius, cache_dir=cache_dir)
+        result = load_elevation_grid(lat, lon, zoom, radius_cells=radius, cache_dir=cache_dir)
+        # Replace NaN with NODATA for hydrology
+        import numpy as np
+        result["grid"] = np.where(np.isnan(result["grid"]), -32768.0, result["grid"])
+        # Snap center to nearest valid cell
+        cr, cc = result["center_row"], result["center_col"]
+        if result["grid"][cr, cc] <= -30000:
+            best_dist = float('inf')
+            for r in range(result["grid"].shape[0]):
+                for c in range(result["grid"].shape[1]):
+                    if result["grid"][r, c] > -30000:
+                        d = abs(r - cr) + abs(c - cc)
+                        if d < best_dist:
+                            best_dist = d
+                            result["center_row"], result["center_col"] = r, c
+            if best_dist == float('inf'):
+                return None
+        return result
     except Exception:
         return None
 

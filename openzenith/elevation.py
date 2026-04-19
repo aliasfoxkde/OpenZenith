@@ -302,10 +302,25 @@ def load_elevation_grid(
     center_row = radius_cells
     center_col = radius_cells
 
-    # Global pixel of grid origin
-    global_origin_lat = 90.0 - (min_pixel_y / 256.0) * (180.0 / n)
-    lat_min = global_origin_lat - grid_rows * cell_size_deg
-    lon_min = -180.0 + (min_pixel_x / 256.0) * (360.0 / n)
+    # Convert pixel coordinates to lat/lon using Web Mercator inverse
+    def pixel_to_lat(py: int, z: int) -> float:
+        n = 2**z * 256
+        y_norm = py / n
+        lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * y_norm)))
+        return math.degrees(lat_rad)
+
+    def pixel_to_lon(px: int, z: int) -> float:
+        n = 2**z * 256
+        return (px / n) * 360.0 - 180.0
+
+    lat_min = pixel_to_lat(min_pixel_y + grid_rows, zoom)
+    lat_max = pixel_to_lat(min_pixel_y, zoom)
+    lon_min = pixel_to_lon(min_pixel_x, zoom)
+    lon_max = pixel_to_lon(min_pixel_x + grid_cols, zoom)
+
+    # Cell size varies with latitude in Mercator; use average for reference
+    cell_size_deg_lat = (lat_max - lat_min) / grid_rows
+    cell_size_deg_lon = (lon_max - lon_min) / grid_cols
 
     return {
         "grid": grid,
@@ -313,7 +328,7 @@ def load_elevation_grid(
         "center_col": center_col,
         "lat_min": lat_min,
         "lon_min": lon_min,
-        "cell_size_deg": cell_size_deg,
+        "cell_size_deg": cell_size_deg_lat,  # approximate (varies in Mercator)
         "center_lat": lat,
         "center_lon": lon,
     }

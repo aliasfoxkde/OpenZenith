@@ -356,12 +356,30 @@ def delineate_watershed(
     lon_min = result["lon_min"]
     cell_size_deg = result["cell_size_deg"]
 
+    # Replace NaN with NODATA value for hydrology algorithms
+    dem = np.where(np.isnan(dem), -32768.0, dem)
+    rows, cols = dem.shape
+
+    # If center is NODATA, find nearest valid cell
     if dem[center_r, center_c] <= -30000:
-        print("❌ Pour point is in ocean/nodata area")
-        return None
+        best_dist = float('inf')
+        for r in range(rows):
+            for c in range(cols):
+                if dem[r, c] > -30000:
+                    dist = abs(r - center_r) + abs(c - center_c)
+                    if dist < best_dist:
+                        best_dist = dist
+                        center_r, center_c = r, c
+        if best_dist == float('inf'):
+            print("❌ No valid elevation data in grid")
+            return None
 
     # Compute flow direction
     flow_dir = d8_flow_direction(dem)
+
+    # Compute flow accumulation (use fast topological sort)
+    from openzenith.hydrology import flow_accumulation_fast
+    accum = flow_accumulation_fast(flow_dir)
 
     # Trace upstream from pour point
     rows, cols = dem.shape

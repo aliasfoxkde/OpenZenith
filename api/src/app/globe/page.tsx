@@ -173,6 +173,11 @@ export default function Globe() {
 
   const updateStatus = useCallback((key: string, update: Partial<DataStatus>) => {
     setDataStatus((prev) => prev.map((d) => (d.key === key ? { ...d, ...update } : d)));
+    // Trigger a render since requestRenderMode is true — entity changes
+    // won't be visible until we explicitly request a frame
+    if (viewerRef.current) {
+      try { viewerRef.current.scene.requestRender(); } catch {}
+    }
   }, []);
 
   // Shorthand helpers using refs

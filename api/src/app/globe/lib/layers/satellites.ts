@@ -71,7 +71,7 @@ export function loadSatellites(
       const satJs = (window as any).satellite;
       const now = new Date();
       const features = tles
-        .slice(0, 3000)
+        .slice(0, 1500)
         .filter((t: any) => t.TLE_LINE1 && t.TLE_LINE2)
         .map((t: any) => {
           let coords: [number, number, number] | null = null;
@@ -263,7 +263,7 @@ export function loadSatellites(
           const sj = (window as any).satellite;
           const n = new Date();
           const updated = t
-            .slice(0, 3000)
+            .slice(0, 1500)
             .filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2)
             .map((x: any) => {
               let c: [number, number, number] | null = null;

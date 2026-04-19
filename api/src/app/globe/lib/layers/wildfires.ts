@@ -33,7 +33,7 @@ export function loadWildfires(
       removeEntities("fire-");
 
       // Limit to 500 points for performance
-      const maxPoints = 500;
+      const maxPoints = 300;
       let count = 0;
 
       for (let i = 0; i < lines.length && count < maxPoints; i++) {

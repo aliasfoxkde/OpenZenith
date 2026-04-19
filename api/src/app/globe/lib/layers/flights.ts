@@ -248,7 +248,7 @@ export function loadFlights(
 
       if (!Cesium || !viewer || !data.states) return;
 
-      const MAX_FLIGHTS = 500;
+      const MAX_FLIGHTS = 300;
       const states = data.states
         .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
         .slice(0, MAX_FLIGHTS);

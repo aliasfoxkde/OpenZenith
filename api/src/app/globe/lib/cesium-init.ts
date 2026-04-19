@@ -9,31 +9,30 @@ import type { DashboardState } from "./types";
 async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {
   const w = window as any;
 
-  if (!w.Cesium) {
+  // Load both scripts in parallel (they're independent)
+  const cesiumPromise = new Promise<void>((res, rej) => {
+    if (w.Cesium) { res(); return; }
     w.CESIUM_BASE_URL = "https://unpkg.com/cesium@1.119/Build/Cesium/";
     const css = document.createElement("link");
     css.rel = "stylesheet";
     css.href = "https://unpkg.com/cesium@1.119/Build/Cesium/Widgets/widgets.css";
     document.head.appendChild(css);
-
     const js = document.createElement("script");
     js.src = "https://unpkg.com/cesium@1.119/Build/Cesium/Cesium.js";
     document.head.appendChild(js);
-    await new Promise<void>((res, rej) => {
-      js.onload = () => res();
-      js.onerror = rej;
-    });
-  }
+    js.onload = () => res();
+    js.onerror = rej;
+  });
 
-  if (!w.satellite) {
+  const satJsPromise = new Promise<void>((res) => {
+    if (w.satellite) { res(); return; }
     const sj = document.createElement("script");
     sj.src = "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
     document.head.appendChild(sj);
-    await new Promise<void>((res) => {
-      sj.onload = () => res();
-    });
-  }
+    sj.onload = () => res();
+  });
 
+  await Promise.all([cesiumPromise, satJsPromise]);
   return { Cesium: w.Cesium, satJs: w.satellite };
 }
 
@@ -95,8 +94,8 @@ export async function initCesiumViewer(
   scene.globe.lightingFadeOutDistance = 1e8;
   scene.screenSpaceCameraController.enableCollisionDetection = true;
 
-  // Improve rendering quality
-  scene.postProcessStages.fxaa.enabled = true;
+  // FXAA anti-aliasing (off by default for performance — enable via state)
+  scene.postProcessStages.fxaa.enabled = false;
   scene.globe.show = true;
 
   // ─── Terrain: CSR-first heightmap from HuggingFace ───
@@ -154,12 +153,17 @@ export async function initCesiumViewer(
 
   switchBasemapOnViewer(viewer, initialState.basemap);
 
-  // ─── Cloud overlay (semi-transparent, always on) ───
+  // Cloud overlay (semi-transparent, always on)
   function addCloudOverlay() {
+    // Use yesterday's date for MODIS Terra imagery (GIBS needs a real date)
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const yesterday = d.toISOString().split("T")[0]; // YYYY-MM-DD
+
     const provider = new Cesium.UrlTemplateImageryProvider({
       url:
         "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best" +
-        "/MODIS_Terra_CorrectedReflectance_TrueColor/default/2026-03-31" +
+        `/MODIS_Terra_CorrectedReflectance_TrueColor/default/${yesterday}` +
         "/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg",
       credit: "",
       maximumLevel: 9,
@@ -167,7 +171,6 @@ export async function initCesiumViewer(
     const layer = viewer.imageryLayers.addImageryProvider(provider);
     layer.alpha = 0.25;
   }
-  addCloudOverlay();
 
   return {
     viewer,

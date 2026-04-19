@@ -9,6 +9,8 @@
 export interface LayerHandle {
   /** Interval IDs that need clearing on unmount / toggle-off. */
   intervals: ReturnType<typeof setInterval>[];
+  /** Cleanup callbacks for event listeners etc. */
+  cleanup?: () => void;
 }
 
 /* ─── Earthquakes ─── */
@@ -948,7 +950,7 @@ export function addElevationColor(map: maplibregl.Map, _handle: LayerHandle): vo
     type: "raster",
     tiles: ["/api/elevation-color/{z}/{x}/{y}"],
     tileSize: 256,
-    minzoom: 0,
+    minzoom: 7,
     maxzoom: 12,
   });
 
@@ -1005,7 +1007,7 @@ export function removeElevationAccuracy(map: maplibregl.Map): void {
 
 /* ─── Topo Contours ─── */
 
-export function addContours(map: maplibregl.Map, _handle: LayerHandle): void {
+export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("contours")) return;
 
   map.addSource("contours", {
@@ -1037,30 +1039,79 @@ export function addContours(map: maplibregl.Map, _handle: LayerHandle): void {
     filter: ["==", ["get", "type"], "major"],
   });
 
-  // Load contour data for current viewport
+  // Load contour data — refetches on pan/zoom
+  let loadTimeout: ReturnType<typeof setTimeout> | null = null;
+
   const loadContours = async () => {
     try {
       if (!map.getSource("contours")) return;
-      const bounds = map.getBounds();
-      const center = map.getCenter();
       const zoom = Math.floor(map.getZoom());
-      const { x, y } = latLonToTile(center.lat, center.lng, zoom);
+      if (zoom < 7) {
+        // Clear contours at low zoom (DEM assembly unreliable)
+        if (map.getSource("contours")) {
+          map.getSource("contours")?.setData?.({ type: "FeatureCollection", features: [] });
+        }
+        return;
+      }
 
-      // Fetch contours for center tile
-      const res = await fetch(`/api/contours/${zoom}/${x}/${y}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data?.features?.length) return;
+      const bounds = map.getBounds();
+      const nwLat = bounds.getNorthEast().lat;
+      const swLat = bounds.getSouthWest().lat;
+      const nwLon = bounds.getSouthWest().lng;
+      const seLon = bounds.getNorthEast().lng;
 
-      if (map.getSource("contours")) {
-        map.getSource("contours")?.setData?.(data);
+      // Fetch contours for all visible tiles
+      const allFeatures: GeoJSON.Feature[] = [];
+      const promises: Promise<void>[] = [];
+
+      const nw = latLonToTile(nwLat, nwLon, zoom);
+      const se = latLonToTile(swLat, seLon, zoom);
+
+      for (let tx = nw.x; tx <= se.x; tx++) {
+        for (let ty = nw.y; ty <= se.y; ty++) {
+          const maxTiles = 6;
+          const tileCount = (se.x - nw.x + 1) * (se.y - nw.y + 1);
+          if (tileCount > maxTiles) continue; // Don't overload at low zoom
+
+          promises.push(
+            fetch(`/api/contours/${zoom}/${tx}/${ty}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => {
+                if (data?.features?.length) {
+                  allFeatures.push(...data.features);
+                }
+              })
+              .catch(() => {}),
+          );
+        }
+      }
+
+      await Promise.allSettled(promises);
+
+      if (map.getSource("contours") && allFeatures.length > 0) {
+        map
+          .getSource("contours")
+          ?.setData?.({ type: "FeatureCollection", features: allFeatures });
       }
     } catch {
       /* skip */
     }
   };
 
+  const onMoveEnd = () => {
+    if (loadTimeout) clearTimeout(loadTimeout);
+    loadTimeout = setTimeout(loadContours, 300);
+  };
+
+  map.on("moveend", onMoveEnd);
+  map.on("zoomend", onMoveEnd);
   loadContours();
+
+  handle.cleanup = () => {
+    map.off("moveend", onMoveEnd);
+    map.off("zoomend", onMoveEnd);
+    if (loadTimeout) clearTimeout(loadTimeout);
+  };
 }
 
 function latLonToTile(lat: number, lon: number, zoom: number) {

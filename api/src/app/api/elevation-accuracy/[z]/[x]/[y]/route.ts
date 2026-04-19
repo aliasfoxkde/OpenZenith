@@ -106,6 +106,101 @@ function classifyResolution(lat: number, lon: number): [number, number, number] 
 }
 
 /**
+ * Simplified land detection using continent bounding polygons.
+ *
+ * This is NOT a precise coastline — it's a rough heuristic that covers
+ * the major landmasses. Ocean areas between landmasses may be incorrectly
+ * classified as land, but the visual result is acceptable for an overlay.
+ *
+ * For accurate land/ocean detection, use Natural Earth coastline data.
+ */
+const LAND_BOXES: Array<{ latMin: number; latMax: number; lonMin: number; lonMax: number }> = [
+  // North America
+  { latMin: 25, latMax: 72, lonMin: -170, lonMax: -52 },
+  // Central America
+  { latMin: 7, latMax: 25, lonMin: -120, lonMax: -77 },
+  // South America
+  { latMin: -56, latMax: 13, lonMin: -82, lonMax: -34 },
+  // Europe
+  { latMin: 36, latMax: 71, lonMin: -10, lonMax: 40 },
+  // Scandinavia
+  { latMin: 55, latMax: 71, lonMin: 4, lonMax: 31 },
+  // UK & Ireland
+  { latMin: 50, latMax: 60, lonMin: -11, lonMax: 2 },
+  // Africa
+  { latMin: -35, latMax: 37, lonMin: -18, lonMax: 52 },
+  // Middle East
+  { latMin: 12, latMax: 42, lonMin: 25, lonMax: 63 },
+  // Russia / Central Asia
+  { latMin: 40, latMax: 72, lonMin: 40, lonMax: 180 },
+  // South/East Asia
+  { latMin: -10, latMax: 40, lonMin: 63, lonMax: 145 },
+  // Japan
+  { latMin: 30, latMax: 46, lonMin: 128, lonMax: 146 },
+  // China / Mongolia
+  { latMin: 18, latMax: 54, lonMin: 73, lonMax: 135 },
+  // India
+  { latMin: 8, latMax: 35, lonMin: 68, lonMax: 97 },
+  // Southeast Asia / Indonesia
+  { latMin: -10, latMax: 20, lonMin: 95, lonMax: 141 },
+  // Australia
+  { latMin: -44, latMax: -10, lonMin: 112, lonMax: 154 },
+  // New Zealand
+  { latMin: -47, latMax: -34, lonMin: 166, lonMax: 179 },
+  // Greenland
+  { latMin: 60, latMax: 84, lonMin: -73, lonMax: -12 },
+  // Antarctica
+  { latMin: -90, latMax: -60, lonMin: -180, lonMax: 180 },
+  // Arctic Canada (high latitude land)
+  { latMin: 60, latMax: 84, lonMin: -141, lonMax: -52 },
+  // Iceland
+  { latMin: 63, latMax: 67, lonMin: -25, lonMax: -13 },
+];
+
+// Ocean polygons — areas within land boxes that are known to be ocean
+const OCEAN_BOXES: Array<{ latMin: number; latMax: number; lonMin: number; lonMax: number }> = [
+  // Hudson Bay
+  { latMin: 51, latMax: 64, lonMin: -95, lonMax: -78 },
+  // Great Lakes (partially)
+  { latMin: 41, latMax: 49, lonMin: -92, lonMax: -75 },
+  // Mediterranean
+  { latMin: 30, latMax: 46, lonMin: -6, lonMax: 36 },
+  // Baltic Sea
+  { latMin: 53, latMax: 66, lonMin: 9, lonMax: 30 },
+  // Caspian Sea
+  { latMin: 36, latMax: 47, lonMin: 46, lonMax: 54 },
+  // Persian Gulf
+  { latMin: 23, latMax: 31, lonMin: 47, lonMax: 57 },
+  // Red Sea
+  { latMin: 12, latMax: 29, lonMin: 31, lonMax: 44 },
+  // Bay of Bengal
+  { latMin: 5, latMax: 23, lonMin: 80, lonMax: 100 },
+  // Gulf of Mexico
+  { latMin: 18, latMax: 30, lonMin: -98, lonMax: -80 },
+  // Caribbean Sea
+  { latMin: 10, latMax: 24, lonMin: -90, lonMax: -60 },
+];
+
+function isLandHeuristic(lat: number, lon: number): boolean {
+  // Check ocean exclusions first
+  for (const box of OCEAN_BOXES) {
+    if (lat >= box.latMin && lat <= box.latMax && lon >= box.lonMin && lon <= box.lonMax) {
+      return false;
+    }
+  }
+
+  // Check if in any land box
+  for (const box of LAND_BOXES) {
+    if (lat >= box.latMin && lat <= box.latMax && lon >= box.lonMin && lon <= box.lonMax) {
+      return true;
+    }
+  }
+
+  // Default: ocean
+  return false;
+}
+
+/**
  * Convert tile z/x/y to lat/lon bounds.
  */
 function tileToLatLon(z: number, x: number, y: number) {
@@ -174,14 +269,11 @@ function encodeAccuracyTile(z: number, x: number, y: number): Uint8Array {
       const lon = bounds.west + (px + 0.5) * lonStep;
       const pixOff = rowOff + 1 + px * 3;
 
-      // For ocean detection: we use a simple heuristic.
-      // If the point is within SRTM coverage and would return NODATA,
-      // it's likely ocean → color it as GEBCO 450m (blue).
-      // For polar regions, most water is also GEBCO 450m.
-      const isInSrtm = lat >= SRTM_LAT_MIN && lat <= SRTM_LAT_MAX;
-      const isLikelyOcean = !isInSrtm || false; // We'll refine this
+      // Land/ocean detection using simplified continent bounding boxes.
+      // Not perfect, but good enough for a resolution heatmap overlay.
+      const isLand = isLandHeuristic(lat, lon);
 
-      if (isLikelyOcean) {
+      if (!isLand) {
         // Ocean → GEBCO 450m blue
         const [r, g, b] = ACCURACY_COLORS["450m_gebco"];
         raw[pixOff] = r;

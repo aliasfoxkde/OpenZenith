@@ -224,10 +224,6 @@ function isLandHeuristic(lat: number, lon: number): boolean {
   return LAND_MASK[y * 360 + x] === 1;
 }
 
-  // Default: ocean
-  return false;
-}
-
 /**
  * Convert tile z/x/y to lat/lon bounds.
  */

@@ -36,6 +36,16 @@ export interface TileResult {
 export async function getTileData(z: number, x: number, y: number, storage: ChunkBackend): Promise<TileResult> {
   const bounds = tileToLatLon(z, x, y);
 
+  // At very low zoom (z0-z2), HuggingFace chunk assembly is unreliable
+  // (too many 1° SRTM tiles needed → timeout). Use AWS directly.
+  if (z <= 2) {
+    const awsData = await fetchAWSTerrainTile(z, x, y);
+    if (awsData) {
+      return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
+    }
+    // If AWS also fails, fall through to HuggingFace
+  }
+
   // Check if any part of this tile overlaps SRTM coverage
   const outsideSRTM =
     bounds.south > SRTM_BOUNDS.latMax ||

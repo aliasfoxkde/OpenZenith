@@ -1,8 +1,10 @@
-# Delivery Optimization Plan: ~40% R2 Storage Reduction
+# Delivery Optimization Plan: ~93% R2 Storage Reduction
 
 **Status:** Planned (not yet implemented)
 **Created:** 2026-04-01
-**Based on:** `scripts/benchmark_v2.py` results across 12 terrain types
+**Updated:** 2026-04-14
+**Based on:** `scripts/benchmark_v2.py` results + `ELEVATION_STORAGE_AND_RESOLUTION_PLAN.md` compression benchmarks
+**Supersedes:** Original ~40% reduction target → now targeting 93% with OZT2 adaptive compression
 
 ---
 

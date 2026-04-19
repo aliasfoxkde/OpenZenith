@@ -7,6 +7,9 @@
   - [x] Copernicus GLO-30 (global land, 30m, HuggingFace merged chunks)
   - [x] GEBCO 2025 (global ocean bathymetry, 450m, COG tiles)
   - [x] Auto-cascade: SRTM → Copernicus → GEBCO
+- [x] Compression benchmarking (15+ strategies, see `PHASE2_EXPERIMENT_REPORT.md`)
+- [x] OZT1 custom binary format (signal compression, lossless + quantized modes)
+- [x] OZT2 storage plan with adaptive quantization (see `ELEVATION_STORAGE_AND_RESOLUTION_PLAN.md`)
 - [x] Unified query API with include= filtering (`/api/query`)
   - [x] Elevation (default)
   - [x] Address (reverse geocode via Nominatim)
@@ -46,6 +49,9 @@
 - [ ] Add riverway data for use with flood data, flow, etc.
 - [ ] PWA Support, caching and Manifest.json file
 - [ ] Build and deploy pipeline optimization
+- [ ] WebP lossless tile delivery (28% storage reduction)
+- [ ] OZT2 format + WASM decoder (93% storage reduction)
+- [ ] Ingest NASADEM (improved ±60° base) and ArcticDEM (2m >60°N)
 
 ## Planning
 - [ ] Integrate Self-Hosted OSM and Overpass Turbo servers and data

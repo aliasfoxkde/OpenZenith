@@ -11,12 +11,14 @@ The platform has **four distinct performance domains**, each with different bott
 
 | Domain | Primary Bottleneck | Impact | Fix Complexity |
 |--------|-------------------|--------|----------------|
-| **Tile API** | Broken CF Cache API → every request hits HuggingFace cold | 0.4–0.7s per tile | Low |
+| **Tile API** | HuggingFace redirect chain (302→XET storage) + CF CDN bypass | 0.4–0.7s per tile | Medium |
 | **Frontend (Map)** | 2241-line monolith re-renders 60×/s on mouse move | Jank on slow devices | Medium |
 | **Frontend (Globe)** | 5MB Cesium + CallbackProperty per-frame overhead | 5s initial load, frame drops | Medium |
 | **Python SDK** | Two functions use Python loops (800× slower than vectorized) | viewshed 200×200 = 18s | Low |
 
-**The single highest-impact fix is #1 below** — it eliminates ~400ms from every tile request with ~20 lines of code.
+**Completed fixes:** Python slope vectorized (154× faster), cursor debounce (6× fewer re-renders), SW TTL caching, CF Cache API code fix deployed.
+
+**Key finding:** CF Pages Functions with `_routes.json: include [/*]` bypass CDN caching entirely. The CF Cache API (`caches.open()`) code is correct but doesn't provide immediate speedup — likely because each request may hit different edge PoPs or the Pages runtime isolates don't share cache namespaces. **The real fix is R2 cache-aside or pre-rendered static tiles.**
 
 ---
 
@@ -48,11 +50,12 @@ const cfCache = await caches.open("openzenith-chunks");
 ### Fix
 Change `cacheGet`/`cachePut` in `api/src/lib/storage/cache.ts` to use `caches.open()`. Also ensure the cache key includes the full URL so it matches correctly.
 
-### Expected Result
-- Cold tile: 0.4–0.7s (same as now)
-- Warm tile: **<10ms** (CF Cache hit, same datacenter)
-- Map load at z2: ~5s cold → **<1s warm**
-- Map load at z10: ~25s cold → **<2s warm** (after first visit)
+### Status
+- ✅ Code fix deployed (`caches.open()` replaces broken `(caches as any).default`)
+- ⚠️ Measured improvement: **none yet** — CF Pages Functions bypass CDN cache
+- Root cause: `_routes.json: include [/*]` routes ALL traffic through Worker
+- CF Cache API works but likely doesn't share across edge PoPs in Pages context
+- **Next step:** R2 cache-aside (wire `env.DEM_TILES` binding + store generated tiles)
 
 ---
 
@@ -78,9 +81,8 @@ if (cached) {
 }
 ```
 
-### Expected Result
-- Tile data: cached for 24h client-side (complements server-side CF Cache)
-- Real-time data: cached for 2min, then revalidated (matches server TTL)
+### Status
+- ✅ Deployed (SW v2 with per-path TTL, stale-while-revalidate)
 
 ---
 
@@ -138,9 +140,9 @@ map.on("mousemove", (ev) => {
 });
 ```
 
-### Expected Result
-- 6× fewer re-renders from mouse movement
-- Combined with #3: near-zero unnecessary re-renders during idle panning
+### Status
+- ✅ Deployed (80ms debounce, cursorDebounceRef added)
+- **6× fewer re-renders** from mouse movement
 
 ---
 
@@ -261,10 +263,10 @@ result = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2)))
 result[nodata_mask] = np.nan
 ```
 
-### Expected Result
-- **800× faster** (3.4s → 0.02s for 500×500)
-- Identical output to current Horn's method
-- Zero new dependencies
+### Status
+- ✅ Deployed — **154× faster** (3.4s → 0.022s for 500×500)
+- Identical output (same Horn weighting, same nodata handling)
+- Edge cells correctly NaN (same as original)
 
 ---
 
@@ -342,10 +344,10 @@ The R2 bucket `openzenith-dem` exists but has **no binding** in `wrangler.toml` 
 2. Estimated size: z0-z6 from AWS (~50MB) + z7-z10 from HuggingFace (~1GB) = **~1.1GB**
 3. Well within the 10GB R2 budget
 
-### Expected Result
-- Phase A: First request to a tile = 0.4s, all subsequent = **~10ms**
-- Phase B: Even first requests = **~10ms** (pre-populated)
-- Eliminates HuggingFace dependency for common zoom levels
+### Status
+- ✅ Deployed (merged file cache now uses CF Cache API as first layer)
+- ⚠️ Same CDN bypass limitation as #1 — may not show immediate improvement
+- In-memory fallback still provides same-isolate caching
 
 ---
 
@@ -373,20 +375,20 @@ if (url.pathname.match(/^\/api\/(dem-tile|elevation-color|contours|elevation-acc
 
 ## Priority Matrix
 
-| # | Fix | Impact | Effort | Risk | Priority |
-|---|-----|--------|--------|------|----------|
-| 1 | Fix CF Cache API | 🔴 Critical | Low (20 lines) | None | **P0 — Do Now** |
-| 2 | SW TTL for API data | 🟡 Medium | Low (10 lines) | Low | **P1** |
-| 3 | Extract map sub-components | 🟡 Medium | Medium | Low | **P1** |
-| 4 | Debounce cursorPos | 🟡 Medium | Low (5 lines) | None | **P1** |
-| 5 | Lazy-load layer modules | 🟡 Medium | Medium | Low | **P2** |
-| 8 | Vectorize slope() | 🟡 Medium | Low (15 lines) | None | **P1** |
-| 12 | SW cache terrain tiles | 🟡 Medium | Low (5 lines) | None | **P1** |
-| 11 | R2 cache-aside for tiles | 🟡 Medium | Medium | Low | **P2** |
-| 6 | Reduce CallbackProperty | 🟢 Low | Medium | Low | **P2** |
-| 9 | Vectorize fill_depressions | 🟢 Low | Medium | Low | **P2** |
-| 10 | Numba JIT for viewshed | 🟢 Low | Low | None | **P2** |
-| 7 | Preload Cesium assets | 🟢 Low | Low | None | **P3** |
+| # | Fix | Impact | Effort | Status |
+|---|-----|--------|--------|--------|
+| 1 | Fix CF Cache API code | 🔴 Critical | Low | ✅ Deployed (no measurable improvement yet — CF CDN bypass) |
+| 2 | SW TTL for API data | 🟡 Medium | Low | ✅ Deployed |
+| 3 | Extract map sub-components | 🟡 Medium | Medium | 🔲 Not started |
+| 4 | Debounce cursorPos | 🟡 Medium | Low | ✅ Deployed (6× fewer re-renders) |
+| 5 | Lazy-load layer modules | 🟡 Medium | Medium | 🔲 Not started |
+| 8 | Vectorize slope() | 🟡 Medium | Low | ✅ Deployed (154× faster) |
+| 12 | SW cache terrain tiles | 🟡 Medium | Low | ✅ Deployed (24h TTL for terrain) |
+| 11 | R2 cache-aside for tiles | 🟡 Medium | Medium | 🔲 Not started (needs wrangler binding) |
+| 6 | Reduce CallbackProperty | 🟢 Low | Medium | 🔲 Not started |
+| 9 | Vectorize fill_depressions | 🟢 Low | Medium | ⚠️ Edge init vectorized, heap still sequential |
+| 10 | Numba JIT for viewshed | 🟢 Low | Low | 🔲 Not started |
+| 7 | Preload Cesium assets | 🟢 Low | Low | 🔲 Not started |
 
 ---
 

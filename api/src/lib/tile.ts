@@ -13,7 +13,6 @@ import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM, SRTM_B
 import { tileToLatLon } from "./srtm/zoom-math";
 import type { ChunkBackend } from "./storage/backend";
 import { cacheGet, cachePut } from "./storage/cache";
-import { inflateSync } from "fflate";
 
 const TILE_SIZE = 256;
 const NODATA = -32768;
@@ -257,10 +256,9 @@ async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int
 
     const buf = await resp.arrayBuffer();
     console.log(`[tile] AWS body received: ${buf.byteLength} bytes`);
-    const pngBytes = new Uint8Array(buf);
 
-    const decoded = decodeTerrariumPNG(pngBytes);
-    console.log(`[tile] AWS decode result: ${decoded ? 'OK' : 'null'}`);
+    const decoded = await decodeTerrariumPNG(new Uint8Array(buf));
+    console.log(`[tile] AWS decode result: ${decoded ? 'OK (' + decoded.length + ' pixels)' : 'null'}`);
     return decoded;
   } catch (err) {
     console.log(`[tile] AWS fetch error: ${err}`);
@@ -277,7 +275,7 @@ async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int
  * @param png - Raw PNG file bytes
  * @returns 256x256 Int16Array of elevation values
  */
-function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
+async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
   try {
     let offset = 8; // Skip PNG signature
 
@@ -315,7 +313,7 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
       off += chunk.length;
     }
 
-    const raw = inflateSync(compressed);
+    const raw = await inflateDecompress(compressed);
 
     // Bytes per pixel (RGB=3, RGBA=4, Grayscale=1)
     const bpp = colorType === 2 ? 3 : colorType === 6 ? 4 : colorType === 0 ? 1 : 3;
@@ -385,6 +383,44 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Inflate zlib-compressed data using DecompressionStream.
+ * fflate's inflateSync fails on some zlib streams ("invalid block type"),
+ * but the browser's native DecompressionStream handles them correctly.
+ */
+async function inflateDecompress(data: Uint8Array): Promise<Uint8Array> {
+  // Try DecompressionStream first (handles all zlib formats)
+  if (typeof DecompressionStream !== "undefined") {
+    try {
+      const ds = new DecompressionStream("deflate");
+      const writer = ds.writable.getWriter();
+      writer.write(data.buffer as ArrayBuffer);
+      writer.close();
+      const reader = ds.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+      const result = new Uint8Array(totalLen);
+      let off = 0;
+      for (const c of chunks) {
+        result.set(c, off);
+        off += c.length;
+      }
+      return result;
+    } catch {
+      // Fall through to fflate
+    }
+  }
+
+  // Fallback: fflate inflateSync (may fail on some zlib streams)
+  const { inflateSync } = await import("fflate");
+  return inflateSync(data);
 }
 
 /**

@@ -199,7 +199,8 @@ def viewshed(
 ) -> np.ndarray:
     """Compute viewshed — which cells are visible from the observer point.
 
-    Uses the Bresenham line-of-sight algorithm with terrain interpolation.
+    Uses vectorized Bresenham line-of-sight with terrain interpolation.
+    Optionally accelerated with Numba JIT (falls back to NumPy).
 
     Args:
         dem: 2D elevation grid (meters)
@@ -213,74 +214,236 @@ def viewshed(
     Returns:
         2D bool array (True = visible from observer)
     """
+    # Try Numba-accelerated version first
+    try:
+        return _viewshed_numba(
+            dem, observer_row, observer_col, observer_height,
+            cell_size_deg, nodata, max_distance_cells
+        )
+    except ImportError:
+        pass
+
+    # Vectorized NumPy fallback
+    return _viewshed_numpy(
+        dem, observer_row, observer_col, observer_height,
+        cell_size_deg, nodata, max_distance_cells
+    )
+
+
+def _viewshed_numpy(
+    dem: np.ndarray,
+    observer_row: int,
+    observer_col: int,
+    observer_height: float,
+    cell_size_deg: float,
+    nodata: float,
+    max_distance_cells: Optional[int],
+) -> np.ndarray:
+    """Viewshed using angular ray casting with vectorized sampling.
+
+    Casts rays in angular sectors from the observer. Each ray is sampled
+    at fixed intervals, and the max slope along the ray determines
+    visibility. Cells between rays are interpolated.
+
+    This is much faster than per-cell iteration because the number of
+    rays is O(max_distance) rather than O(rows*cols).
+    """
     rows, cols = dem.shape
     visible = np.zeros((rows, cols), dtype=bool)
     visible[observer_row, observer_col] = True
 
-    # Observer's absolute elevation
     if dem[observer_row, observer_col] <= nodata:
         return visible
-    observer_elev = dem[observer_row, observer_col] + observer_height
 
-    # Cell size in meters
+    observer_elev = float(dem[observer_row, observer_col]) + observer_height
     cell_m = cell_size_deg * 111320.0
 
     if max_distance_cells is None:
         max_distance_cells = max(rows, cols)
 
-    # Check line of sight to each cell
-    for r in range(rows):
-        for c in range(cols):
-            if r == observer_row and c == observer_col:
-                continue
-            if dem[r, c] <= nodata:
-                continue
+    # Cast rays at angular intervals (360 rays = 1 per degree)
+    n_angles = 720
+    angles = np.linspace(0, 2 * np.pi, n_angles, endpoint=False)
+    cos_a = np.cos(angles)
+    sin_a = np.sin(angles)
 
-            # Distance in cells
-            dr = r - observer_row
-            dc = c - observer_col
-            dist_cells = np.sqrt(dr * dr + dc * dc)
+    # Sample each ray at fixed cell-distance intervals
+    max_r = min(max_distance_cells, max(rows, cols))
+    n_samples = max_r * 2  # 2 samples per cell
+    t_values = np.arange(1, n_samples + 1) / 2.0  # distance in cells
 
-            if dist_cells > max_distance_cells:
-                continue
+    # Precompute ray endpoints for all angles
+    ray_dr = (t_values[np.newaxis, :] * sin_a[:, np.newaxis])  # (n_angles, n_samples)
+    ray_dc = (t_values[np.newaxis, :] * cos_a[:, np.newaxis])
 
-            # Check line of sight along the ray from observer to target
-            n_steps = max(int(dist_cells * 2), 2)
-            max_slope = -np.inf  # Maximum slope along the ray (observer to target)
+    # Absolute positions
+    ray_r = observer_row + ray_dr
+    ray_c = observer_col + ray_dc
 
-            for i in range(1, n_steps + 1):
-                # Interpolate position along ray
-                t = i / n_steps
-                ir = observer_row + dr * t
-                ic = observer_col + dc * t
+    # Mask out-of-bounds samples
+    oob = (ray_r < 0) | (ray_r >= rows - 1) | (ray_c < 0) | (ray_c >= cols - 1)
+    ray_r = np.clip(ray_r, 0, rows - 2).astype(int)
+    ray_c = np.clip(ray_c, 0, cols - 2).astype(int)
 
-                # Bilinear interpolation of elevation
-                r0, c0 = int(np.floor(ir)), int(np.floor(ic))
-                r1, c1 = min(r0 + 1, rows - 1), min(c0 + 1, cols - 1)
-                r0, c0 = max(r0, 0), max(c0, 0)
-                fr, fc = ir - r0, ic - c0
+    # Bilinear interpolation (vectorized across all rays and samples)
+    r0 = ray_r
+    c0 = ray_c
+    fr = (observer_row + ray_dr) - r0
+    fc = (observer_col + ray_dc) - c0
+    fr = np.clip(fr, 0, 1)
+    fc = np.clip(fc, 0, 1)
 
-                e00 = dem[r0, c0] if dem[r0, c0] > nodata else dem[observer_row, observer_col]
-                e01 = dem[r0, c1] if dem[r0, c1] > nodata else e00
-                e10 = dem[r1, c0] if dem[r1, c0] > nodata else e00
-                e11 = dem[r1, c1] if dem[r1, c1] > nodata else e00
-                elev = e00 * (1 - fr) * (1 - fc) + e01 * (1 - fr) * fc + e10 * fr * (1 - fc) + e11 * fr * fc
+    obs_e = dem[observer_row, observer_col]
+    e00 = np.where(dem[r0, c0] > nodata, dem[r0, c0], obs_e)
+    e01 = np.where(dem[r0, c0 + 1] > nodata, dem[r0, c0 + 1], e00)
+    e10 = np.where(dem[r0 + 1, c0] > nodata, dem[r0 + 1, c0], e00)
+    e11 = np.where(dem[r0 + 1, c0 + 1] > nodata, dem[r0 + 1, c0 + 1], e00)
+    elev = e00 * (1 - fr) * (1 - fc) + e01 * (1 - fr) * fc + e10 * fr * (1 - fc) + e11 * fr * fc
 
-                # Slope from observer to this point
-                horiz_dist = t * dist_cells * cell_m
-                if horiz_dist < 1e-6:
-                    continue
-                slope_to_point = (elev - observer_elev) / horiz_dist
+    # Distance in meters for each sample
+    horiz_dist = np.maximum(t_values[np.newaxis, :] * cell_m, 1e-6)
 
-                if slope_to_point > max_slope:
-                    max_slope = slope_to_point
+    # Slope from observer to each sample
+    slope_map = (elev - observer_elev) / horiz_dist
+    slope_map[oob] = -np.inf
 
-            # Target is visible if its slope is >= maximum slope along the ray
-            target_dist = dist_cells * cell_m
-            target_slope = (dem[r, c] - observer_elev) / target_dist
-            visible[r, c] = target_slope >= max_slope - 1e-10
+    # Cumulative max slope along each ray
+    max_slope_map = np.maximum.accumulate(slope_map, axis=1)
+
+    # Now determine visibility for each cell by finding the nearest ray
+    # For each cell, check if its slope >= max slope of the nearest ray at that distance
+    rr, cc = np.mgrid[0:rows, 0:cols]
+    cell_dr = rr - observer_row
+    cell_dc = cc - observer_col
+    cell_dist = np.sqrt(cell_dr ** 2 + cell_dc ** 2)
+
+    valid = (cell_dist > 0) & (cell_dist <= max_distance_cells) & (dem > nodata)
+
+    # For valid cells, compute angle and check visibility
+    valid_rs = rr[valid]
+    valid_cs = cc[valid]
+    valid_dr = cell_dr[valid].astype(np.float64)
+    valid_dc = cell_dc[valid].astype(np.float64)
+    valid_dist = cell_dist[valid]
+
+    if len(valid_rs) == 0:
+        return visible
+
+    # Angle from observer to each cell
+    cell_angles = np.arctan2(valid_dr, valid_dc) % (2 * np.pi)
+
+    # Find nearest ray index for each cell
+    ray_idx = ((cell_angles / (2 * np.pi) * n_angles)).astype(int) % n_angles
+
+    # Find sample index for each cell's distance
+    sample_idx = np.clip((valid_dist * 2).astype(int) - 1, 0, n_samples - 1)
+
+    # Get max slope at each cell's position along its nearest ray
+    cell_max_slope = max_slope_map[ray_idx, sample_idx]
+
+    # Compute cell's own slope
+    cell_horiz = np.maximum(valid_dist * cell_m, 1e-6)
+    cell_slope = (dem[valid_rs, valid_cs] - observer_elev) / cell_horiz
+
+    # Visible if cell slope >= max slope along ray
+    vis_mask = cell_slope >= cell_max_slope - 1e-10
+    visible[valid_rs[vis_mask], valid_cs[vis_mask]] = True
 
     return visible
+
+
+def _viewshed_numba(
+    dem: np.ndarray,
+    observer_row: int,
+    observer_col: int,
+    observer_height: float,
+    cell_size_deg: float,
+    nodata: float,
+    max_distance_cells: Optional[int],
+) -> np.ndarray:
+    """Numba JIT-accelerated viewshed.
+
+    Falls back to _viewshed_numpy if Numba is not installed.
+    First call incurs ~1s compilation overhead.
+    """
+    try:
+        from numba import jit, prange
+    except ImportError:
+        raise ImportError("numba")
+
+    @jit(nopython=True, parallel=True)
+    def _viewshed_core(
+        dem: np.ndarray,
+        obs_r: int, obs_c: int,
+        obs_elev: float,
+        cell_m: float,
+        nodata_val: float,
+        max_dist: int,
+    ) -> np.ndarray:
+        rows, cols = dem.shape
+        visible = np.zeros((rows, cols), dtype=np.bool_)
+        visible[obs_r, obs_c] = True
+
+        for r in prange(rows):
+            for c in range(cols):
+                if r == obs_r and c == obs_c:
+                    continue
+                if dem[r, c] <= nodata_val:
+                    continue
+
+                dr = r - obs_r
+                dc = c - obs_c
+                dist = (dr * dr + dc * dc) ** 0.5
+                if dist > max_dist:
+                    continue
+
+                n_steps = max(int(dist * 2), 2)
+                max_slope = -1e30
+
+                for i in range(1, n_steps + 1):
+                    t = i / n_steps
+                    ir = obs_r + dr * t
+                    ic = obs_c + dc * t
+
+                    r0 = int(ir)
+                    c0 = int(ic)
+                    r1 = min(r0 + 1, rows - 1)
+                    c1 = min(c0 + 1, cols - 1)
+                    if r0 < 0: r0 = 0
+                    if c0 < 0: c0 = 0
+                    fr = ir - r0
+                    fc = ic - c0
+
+                    e00 = dem[r0, c0] if dem[r0, c0] > nodata_val else dem[obs_r, obs_c]
+                    e01 = dem[r0, c1] if dem[r0, c1] > nodata_val else e00
+                    e10 = dem[r1, c0] if dem[r1, c0] > nodata_val else e00
+                    e11 = dem[r1, c1] if dem[r1, c1] > nodata_val else e00
+                    elev = e00 * (1 - fr) * (1 - fc) + e01 * (1 - fr) * fc + e10 * fr * (1 - fc) + e11 * fr * fc
+
+                    h_dist = t * dist * cell_m
+                    if h_dist < 1e-6:
+                        continue
+                    s = (elev - obs_elev) / h_dist
+                    if s > max_slope:
+                        max_slope = s
+
+                t_dist = dist * cell_m
+                t_slope = (dem[r, c] - obs_elev) / t_dist
+                if t_slope >= max_slope - 1e-10:
+                    visible[r, c] = True
+
+        return visible
+
+    if max_distance_cells is None:
+        max_distance_cells = max(dem.shape)
+
+    if dem[observer_row, observer_col] <= nodata:
+        return np.zeros(dem.shape, dtype=bool)
+
+    obs_elev = float(dem[observer_row, observer_col]) + observer_height
+    cell_m = cell_size_deg * 111320.0
+
+    return _viewshed_core(dem, observer_row, observer_col, obs_elev, cell_m, nodata, max_distance_cells)
 
 
 def profile(dem: np.ndarray, points: list[tuple[int, int]], cell_size_deg: float = 0.001) -> list[dict]:

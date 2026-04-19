@@ -17,6 +17,16 @@ import { cacheGet, cachePut } from "./storage/cache";
 const TILE_SIZE = 256;
 const NODATA = -32768;
 
+// Known corrupted SRTM chunks in HuggingFace (aliasfox/srtm30m-merged).
+// These tiles have valid-looking but wildly incorrect elevation values.
+// Skip them during assembly so AWS fallback provides correct data.
+const BLACKLISTED_SRTM_TILES = new Set([
+  "N36W116", // Death Valley: reports 1668m instead of -85m
+  "S03E037", // Kilimanjaro: reports 1352m instead of 5895m
+  "S32W070", // Aconcagua: reports 2153m instead of 6961m
+  "N19W155", // Hawaii: reports 0m instead of 4205m
+]);
+
 // AWS Terrain Tiles — same SRTM 30m data as pre-built Terrarium PNG
 const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
@@ -70,8 +80,12 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
   const srtmTiles = findOverlappingSrtmTiles(bounds);
   const data = new Int16Array(TILE_SIZE * TILE_SIZE).fill(NODATA);
 
-  // Process each SRTM tile
+  // Check if any overlapping SRTM tile is blacklisted (corrupted data)
+  const hasBlacklisted = srtmTiles.some((t) => BLACKLISTED_SRTM_TILES.has(t));
+
+  // Process each SRTM tile (skip blacklisted ones)
   for (const srtmName of srtmTiles) {
+    if (BLACKLISTED_SRTM_TILES.has(srtmName)) continue;
     try {
       await fillTileFromSrtm(data, srtmName, bounds, storage);
     } catch {
@@ -86,9 +100,9 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
     if (data[i] !== NODATA) validCount++;
   }
 
-  // If less than 5% of pixels have valid data, try AWS fallback
+  // If less than 5% valid, OR any blacklisted tile overlaps, try AWS fallback
   const validPct = validCount / data.length;
-  const needsFallback = validPct < 0.05 || validCount === 0;
+  const needsFallback = validPct < 0.05 || validCount === 0 || hasBlacklisted;
 
   if (needsFallback) {
     console.log(`[tile] HuggingFace sparse for ${z}/${x}/${y} (${(validPct * 100).toFixed(1)}% valid), trying AWS`);
@@ -396,7 +410,7 @@ async function inflateDecompress(data: Uint8Array): Promise<Uint8Array> {
     try {
       const ds = new DecompressionStream("deflate");
       const writer = ds.writable.getWriter();
-      writer.write(data.buffer as ArrayBuffer);
+      writer.write(data as unknown as BufferSource);
       writer.close();
       const reader = ds.readable.getReader();
       const chunks: Uint8Array[] = [];

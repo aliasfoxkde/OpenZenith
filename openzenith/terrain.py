@@ -20,7 +20,7 @@ def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.
     """Compute terrain slope in degrees using Horn's method (3×3 window).
 
     Uses the four 3×3 neighborhoods for smoother results than simple
-    finite differences.
+    finite differences. Fully vectorized — no Python loops.
 
     Args:
         dem: 2D elevation grid (meters)
@@ -31,33 +31,43 @@ def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.
         2D float32 array of slope in degrees (0-90)
     """
     # Approximate cell size in meters (WGS84 ellipsoid approximation)
+    valid_mask = dem > nodata
     cell_y = cell_size_deg * 111320.0  # meters per degree latitude
-    cell_x = cell_size_deg * 111320.0 * np.cos(np.radians(np.nanmean(
-        dem[dem > nodata]) if np.any(dem > nodata) else 0.0))  # meters per degree longitude
+    cell_x = cell_size_deg * 111320.0 * np.cos(np.radians(
+        np.nanmean(dem[valid_mask]) if np.any(valid_mask) else 0.0))
 
     # Pad with NODATA for edge handling
-    padded = np.pad(dem, 1, mode="constant", constant_values=nodata)
-    rows, cols = dem.shape
-    result = np.full_like(dem, np.nan, dtype=np.float32)
+    padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
+
+    # Extract all 9 cells of the 3×3 window simultaneously
+    # Layout:  a b c
+    #         d e f
+    #         g h i
+    a = padded[:-2, :-2]
+    b = padded[:-2, 1:-1]
+    c = padded[:-2, 2:]
+    d = padded[1:-1, :-2]
+    # e = padded[1:-1, 1:-1]  # center — not needed for Horn's method
+    f = padded[1:-1, 2:]
+    g = padded[2:, :-2]
+    h = padded[2:, 1:-1]
+    i = padded[2:, 2:]
+
+    # Cells with any NODATA neighbor → NaN output
+    nodata_mask = (a <= nodata) | (b <= nodata) | (c <= nodata) | \
+                  (d <= nodata) | (f <= nodata) | \
+                  (g <= nodata) | (h <= nodata) | (i <= nodata)
 
     # Horn's method: weighted average of 4 3×3 neighborhoods
-    for r in range(rows):
-        for c in range(cols):
-            # 3×3 window from padded array
-            a = padded[r:r + 3, c:c + 3].astype(np.float64)
-            if np.any(a <= nodata):
-                continue
+    # x-direction (EW): (c + 2f + i) - (a + 2d + g) / 8*cell_x
+    # y-direction (NS): (a + 2b + c) - (g + 2h + i) / 8*cell_y
+    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell_x)
+    dz_dy = ((a + 2 * b + c) - (g + 2 * h + i)) / (8 * cell_y)
 
-            # x-direction (EW) slope
-            dz_dx = ((a[2, 0] + 2 * a[2, 1] + a[2, 2]) -
-                     (a[0, 0] + 2 * a[0, 1] + a[0, 2])) / (8 * cell_x)
-            # y-direction (NS) slope
-            dz_dy = ((a[0, 2] + 2 * a[1, 2] + a[2, 2]) -
-                     (a[0, 0] + 2 * a[1, 0] + a[2, 0])) / (8 * cell_y)
+    result = np.degrees(np.arctan(np.sqrt(dz_dx ** 2 + dz_dy ** 2)))
+    result[nodata_mask | ~valid_mask] = np.nan
 
-            result[r, c] = np.degrees(np.arctan(np.sqrt(dz_dx ** 2 + dz_dy ** 2)))
-
-    return result
+    return result.astype(np.float32)
 
 
 def slope_fast(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:

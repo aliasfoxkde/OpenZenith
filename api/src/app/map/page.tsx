@@ -408,6 +408,7 @@ export default function MapPage() {
   type DrawMode = "none" | "point" | "line" | "polygon";
   const [drawMode, setDrawMode] = useState<DrawMode>("none");
   const drawModeRef = useRef<DrawMode>("none");
+  const cursorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [annotations, setAnnotations] = useState<import("./lib/layers/annotations").Annotation[]>(() =>
     loadAnnotations(),
   );
@@ -859,7 +860,12 @@ export default function MapPage() {
 
         map.on("mousemove", (e: unknown) => {
           const ev = e as { lngLat: { lat: number; lng: number } };
-          setCursorPos({ lat: ev.lngLat.lat, lon: ev.lngLat.lng });
+          // Debounce cursor updates — 100ms is still smooth for coordinate display
+          // Prevents 60 full-component re-renders/second on mouse move
+          if (cursorDebounceRef.current) clearTimeout(cursorDebounceRef.current);
+          cursorDebounceRef.current = setTimeout(() => {
+            setCursorPos({ lat: ev.lngLat.lat, lon: ev.lngLat.lng });
+          }, 80);
         });
         map.on("mouseout", () => setCursorPos(null));
 

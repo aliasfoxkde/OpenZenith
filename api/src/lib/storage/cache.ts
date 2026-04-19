@@ -3,14 +3,24 @@
  *
  * Stores pre-extracted chunk data to avoid repeated fetches.
  * Falls back to in-memory Map when Cache API is unavailable (local dev).
+ *
+ * Cloudflare Cache API (Workers):
+ *   - Same datacenter as the Worker — reads are ~1ms
+ *   - Persists across Worker invocations (unlike in-memory Map)
+ *   - Keys are Request objects or URL strings
+ *   - Max entry size: 512 MB
+ *   - No eviction pressure for small entries
  */
+
+const CACHE_NAME = "openzenith-dem-chunks";
 
 interface CacheEntry {
   data: ArrayBuffer;
   timestamp: number;
 }
 
-const cache = new Map<string, CacheEntry>();
+/** In-memory fallback for local dev (no CF Cache API). */
+const memoryCache = new Map<string, CacheEntry>();
 
 /** Default TTL: 30 days — elevation data is static and never changes. */
 const TTL = 30 * 24 * 3600;
@@ -23,25 +33,22 @@ export async function cacheGet(key: string): Promise<ArrayBuffer | null> {
   // Try Cloudflare Cache API first
   if (typeof caches !== "undefined") {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cfCache = (caches as any).default as Cache | undefined;
-      if (cfCache) {
-        const cached = await cfCache.match(key);
-        if (cached) return cached.arrayBuffer();
-      }
+      const cfCache = await caches.open(CACHE_NAME);
+      const cached = await cfCache.match(key);
+      if (cached) return cached.arrayBuffer();
     } catch {
       // Cache API not available (local dev)
     }
   }
 
   // Fall back to in-memory cache
-  const entry = cache.get(key);
+  const entry = memoryCache.get(key);
   if (entry) {
     const age = (Date.now() - entry.timestamp) / 1000;
     if (age < TTL) {
       return entry.data;
     }
-    cache.delete(key);
+    memoryCache.delete(key);
   }
 
   return null;
@@ -54,22 +61,20 @@ export async function cachePut(key: string, data: ArrayBuffer): Promise<void> {
   // Try Cloudflare Cache API first
   if (typeof caches !== "undefined") {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cfCache = (caches as any).default as Cache | undefined;
-      if (cfCache) {
-        const response = new Response(data, {
-          headers: {
-            "Cache-Control": `public, max-age=${TTL}`,
-            "Content-Type": "application/octet-stream",
-          },
-        });
-        await cfCache.put(key, response);
-      }
+      const cfCache = await caches.open(CACHE_NAME);
+      const response = new Response(data, {
+        headers: {
+          "Cache-Control": `public, max-age=${TTL}`,
+          "Content-Type": "application/octet-stream",
+        },
+      });
+      // Ignore errors — caching is best-effort
+      cfCache.put(key, response).catch(() => {});
     } catch {
       // Cache API not available (local dev)
     }
   }
 
   // Also store in memory as fallback
-  cache.set(key, { data, timestamp: Date.now() });
+  memoryCache.set(key, { data, timestamp: Date.now() });
 }

@@ -61,17 +61,22 @@ def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
     processed = np.zeros((rows, cols), dtype=bool)
 
     # Priority queue: (elevation, row, col)
-    heap = []
+    heap: list[tuple[float, int, int]] = []
 
-    # Add edge cells to heap
-    for r in range(rows):
-        for c in range(cols):
-            if r == 0 or r == rows - 1 or c == 0 or c == cols - 1:
-                if filled[r, c] > nodata:
-                    heapq.heappush(heap, (float(filled[r, c]), r, c))
-                    processed[r, c] = True
+    # Add edge cells to heap (vectorized initialization)
+    valid = filled > nodata
+    edge_mask = np.zeros((rows, cols), dtype=bool)
+    edge_mask[0, :] = True
+    edge_mask[-1, :] = True
+    edge_mask[:, 0] = True
+    edge_mask[:, -1] = True
+    edge_valid = edge_mask & valid
 
-    heapq.heapify(heap)
+    edge_rows, edge_cols = np.where(edge_valid)
+    edge_elevs = filled[edge_rows, edge_cols].astype(np.float64)
+    for idx in range(len(edge_rows)):
+        heapq.heappush(heap, (float(edge_elevs[idx]), int(edge_rows[idx]), int(edge_cols[idx])))
+    processed[edge_valid] = True
 
     while heap:
         elev, r, c = heapq.heappop(heap)

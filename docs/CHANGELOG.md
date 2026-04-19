@@ -1,38 +1,45 @@
 # Changelog
 
-All notable changes to OpenZenith.
+## v0.5.0 (2026-04-18)
 
-## [0.2.0] - 2026-03-25
+### Terrain System
+- Fixed all zoom levels z0-z10 — AWS Terrain Tiles direct for z0-z6, HuggingFace for z7-z10
+- Fixed 4 corrupted SRTM tiles (N36W116, S03E037, S32W070, N19W155) with AWS fallback
+- Replaced fflate inflateSync with DecompressionStream("deflate") for PNG IDAT decoding
+- Reduced tile cache TTL from 30 days to 1 hour
+- Added elevation-color heatmap (minzoom 7), elevation-accuracy overlay, topo contours
 
-### Added
-- Interactive API documentation page (`/api/docs`) with endpoint details, parameter tables, response examples, and try-it-out buttons
-- Hero banner with mountain silhouette on landing page
-- Sticky navigation bar that stays on top during scroll
-- Self-hosting section to landing page features
-- Bilinear interpolation for elevation queries (improved accuracy from nearest-neighbor)
-- OpenAPI 3.0.3 specification endpoint (`/api/openapi.json`)
-- USAGE.md documentation with detailed API guide
-- CHANGELOG.md
+### Data Sources
+- Flights: Slimmed response, graceful 200 on timeout, 60s cache
+- Satellites: Default "space-station" group, 500-entry truncation
+- NLNOG: Fixed nested API response parsing (results.nodes)
+- Wildfires: Graceful empty response with helpful message
+- All sources return 200 on failure (no more 502 map breakage)
 
-### Fixed
-- Map page (`/demo`) white screen - MapLibre GL script loading issue with polling retry
-- MapLibre script loading strategy changed from `lazyOnload` to `afterInteractive`
-- Turbopack root configuration for correct workspace resolution
-- Elevation lookup card missing closing div causing build failure
+### Map UX
+- Layer status tracking: loading ⟳, loaded ✓, empty ∅, error ✕
+- Live status badges in sidebar layer toggles
+- LayerHandle with onStatusChange callback
 
-### Changed
-- Moved OpenAPI spec from `/api/docs` route to `/api/openapi.json` route
-- API docs now render as interactive HTML instead of raw JSON
+### Python SDK
+- 16 pytest tests (elevation + hydrology)
+- Fixed Mercator coordinate calculation in load_elevation_grid
+- Fixed NaN handling in hydrology/tracing modules
+- flow_accumulation_fast (topological sort) verified correct
 
-## [0.1.0] - 2026-03-22
+### Code Quality
+- Version: 0.1.0 → 0.5.0
+- TypeScript: 0 errors, 7 pre-existing warnings
+- All 178 tests passing
+- Prettier formatted
+- Documentation consolidated (13 planning docs → archive)
 
-### Added
-- Initial deployment to Cloudflare Pages at openzenith.pages.dev
-- Elevation API endpoint with SRTM 30m data
-- Tile server endpoint (z/x/y) with raw Int16 binary format
-- Health check endpoint
-- Interactive demo map with MapLibre GL and hillshade
-- Landing page with elevation lookup form
-- HuggingFace storage backend with merged chunk format
-- Cloudflare Cache API integration for edge caching
-- Deflate decompression for chunk data (fflate)
+## v0.1.0 (2026-03-25)
+
+### Initial Release
+- 3D globe (CesiumJS) + 2D map (MapLibre GL)
+- 49 API routes
+- Terrain elevation from SRTM 30m
+- Earthquakes, hurricanes, vessels, NLNOG, satellites, weather radar
+- Hillshade, boundaries, measurement tools
+- 5 basemap themes

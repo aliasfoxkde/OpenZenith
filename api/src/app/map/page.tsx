@@ -237,16 +237,20 @@ export default function MapPage() {
     setLayerOpacity((prev) => ({ ...prev, [layerId]: value }));
     const map = mapRef.current;
     if (!map) return;
-    // Apply to all layers with this ID prefix
-    const style = map.getStyle();
-    if (!style) return;
-    for (const layer of style.layers) {
-      if (layer.id.startsWith(layerId) && layer.type === "raster") {
-        map.setPaintProperty(layer.id, "raster-opacity", value / 100);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const style = (map as any).getStyle();
+      if (!style?.layers) return;
+      for (const layer of style.layers) {
+        if (layer.id.startsWith(layerId) && layer.type === "raster") {
+          map.setPaintProperty(layer.id, "raster-opacity", value / 100);
+        }
+        if (layer.id.startsWith(layerId) && layer.type === "symbol") {
+          map.setPaintProperty(layer.id, "text-opacity", value / 100);
+        }
       }
-      if (layer.id.startsWith(layerId) && layer.type === "symbol") {
-        map.setPaintProperty(layer.id, "text-opacity", value / 100);
-      }
+    } catch {
+      /* getStyle may not be available */
     }
   }, []);
 

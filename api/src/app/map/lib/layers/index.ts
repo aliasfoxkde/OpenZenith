@@ -18,7 +18,7 @@ export { addElevationAccuracy, removeElevationAccuracy } from "./elevation-accur
 export { addContours, removeContours } from "./contours";
 
 // Weather
-export { addEarthquakes, removeEarthquakes } from "./earthquakes";
+export { addEarthquakes, removeEarthquakes, setEarthquakeFeed, setEarthquakeTimeFilter, getEarthquakeTimeRange, refreshEarthquakeFilter } from "./earthquakes";
 export { addWarnings, removeWarnings } from "./warnings";
 export { addNaturalEvents, removeNaturalEvents } from "./events";
 export { addRadar, removeRadar } from "./radar";
@@ -57,6 +57,7 @@ export { addGdacs, removeGdacs } from "./gdacs";
 // SAR / Environmental
 export { addFloods, removeFloods } from "./floods";
 export { addSeaIce, removeSeaIce } from "./sea-ice";
+export { addBurnScars, removeBurnScars } from "./burn-scars";
 
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
@@ -92,6 +93,7 @@ import { addVolcanoes, removeVolcanoes } from "./volcanoes";
 import { addGdacs, removeGdacs } from "./gdacs";
 import { addFloods, removeFloods } from "./floods";
 import { addSeaIce, removeSeaIce } from "./sea-ice";
+import { addBurnScars, removeBurnScars } from "./burn-scars";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -128,6 +130,7 @@ const LAYER_HANDLERS: Record<
   gdacs: { add: addGdacs, remove: removeGdacs },
   floods: { add: addFloods, remove: removeFloods },
   seaIce: { add: addSeaIce, remove: removeSeaIce },
+  burnScars: { add: addBurnScars, remove: removeBurnScars },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

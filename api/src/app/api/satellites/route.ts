@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cachedFetch } from "@/lib/cache";
+import { cachedFetch, staleWhileRevalidate } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
 const CACHE_TTL_SATS = 600; // 10 minutes — Celestrak is slow from CF edge
+const STALE_TTL_SATS = 1800; // 30 minutes stale-while-revalidate window
 
 const VALID_GROUPS = new Set([
   "stations",
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=json`;
-    const resp = await cachedFetch(url, CACHE_TTL_SATS, {
+    const resp = await staleWhileRevalidate(url, CACHE_TTL_SATS, STALE_TTL_SATS, {
       signal: AbortSignal.timeout(15000),
       headers: { "User-Agent": "OpenZenith/1.0" },
     });

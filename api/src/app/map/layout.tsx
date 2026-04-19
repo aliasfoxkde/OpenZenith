@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 
 export const metadata: Metadata = {
   title: "2D Map",
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function MapLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <ServiceWorkerRegistration />
+      {children}
+    </>
+  );
 }

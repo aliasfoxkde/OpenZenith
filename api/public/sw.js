@@ -1,128 +1,81 @@
-const CACHE_NAME = "openzenith-v1";
+/// <reference lib="webworker" />
 
-// CDN hosts to cache (CesiumJS, MapLibre tiles, etc.)
-const CDN_HOSTS = [
-  "cesium.com",
-  "unpkg.com",
-  "cdn.jsdelivr.net",
-  "tile.openstreetmap.org",
-  "basemaps.cartocdn.com",
-  "tiles.stadiamaps.com",
-  "map1.vis.earthdata.nasa.gov",
-  "gibs.earthdata.nasa.gov",
-  "tilecache.rainviewer.com",
+const CACHE_NAME = "openzenith-v1";
+const PRECACHE_URLS = [
+  "/",
+  "/map",
+  "/explore",
 ];
 
-self.addEventListener("install", (event) => {
+// Tile domains to cache on-demand
+const TILE_CACHE_DOMAINS = [
+  "basemaps.cartocdn.com",
+  "tile.openstreetmap.org",
+  "server.arcgisonline.com",
+  "tile.opentopomap.org",
+  "tiles.stadiamaps.com",
+];
+
+self.addEventListener("install", (event: ExtendableEvent) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.addAll([
-        "/",
-        "/globe",
-        "/map",
-        "/manifest.json",
-        "/favicon.svg",
-        "/icon-192.png",
-        "/icon-512.png",
-        "/apple-touch-icon.png",
-        "/offline.html",
-      ])
-    )
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)),
   );
-  self.skipWaiting();
+  (self as unknown as ServiceWorkerGlobalScope).skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", (event: ExtendableEvent) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-      )
-    )
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))),
+    ),
   );
-  self.clients.claim();
+  (self as unknown as ServiceWorkerGlobalScope).clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-
+self.addEventListener("fetch", (event: FetchEvent) => {
   const url = new URL(event.request.url);
 
-  // Only handle same-origin or known CDN requests
-  if (url.origin !== location.origin && !CDN_HOSTS.some((h) => url.hostname.includes(h))) return;
-
-  // Static assets: cache first
-  if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirst(event.request));
-    return;
-  }
-
-  // DEM terrain tiles: cache first with long TTL (tiles are immutable)
-  if (url.pathname.startsWith("/api/dem-tile/") || url.pathname.startsWith("/api/tile/")) {
-    event.respondWith(cacheFirst(event.request));
-    return;
-  }
-
-  // API routes: stale while revalidate
+  // Cache API responses (OpenZenith API routes)
   if (url.pathname.startsWith("/api/")) {
-    event.respondWith(staleWhileRevalidate(event.request));
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        if (cached) {
+          // Return cached, refresh in background
+          const fresh = fetch(event.request).then((resp) => {
+            if (resp.ok) cache.put(event.request, resp.clone());
+            return resp;
+          });
+          return cached;
+        }
+        const resp = await fetch(event.request);
+        if (resp.ok) cache.put(event.request, resp.clone());
+        return resp;
+      }),
+    );
     return;
   }
 
-  // Navigation requests: network first with offline fallback
+  // Cache tile requests on-demand (stale-while-revalidate)
+  if (TILE_CACHE_DOMAINS.some((d) => url.hostname.includes(d)) && url.pathname.match(/\\d+\\/\\d+\\/\\d+/)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+        const resp = await fetch(event.request);
+        if (resp.ok) cache.put(event.request, resp.clone());
+        return resp;
+      }),
+    );
+    return;
+  }
+
+  // Navigation requests — cache-first
   if (event.request.mode === "navigate") {
-    event.respondWith(networkFirst(event.request, "/offline.html"));
-    return;
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request)),
+    );
   }
-
-  // Everything else: stale while revalidate
-  event.respondWith(staleWhileRevalidate(event.request));
 });
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    return cached;
-  }
-}
-
-async function networkFirst(request, fallbackUrl) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    if (fallbackUrl) {
-      const fallback = await caches.match(fallbackUrl);
-      if (fallback) return fallback;
-    }
-    return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
-  }
-}
-
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-
-  const networkPromise = fetch(request).then((response) => {
-    if (response.ok) {
-      cache.put(request, response.clone());
-    }
-    return response;
-  }).catch(() => cached);
-
-  return cached || networkPromise;
-}
+export {};

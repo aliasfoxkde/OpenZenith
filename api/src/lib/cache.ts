@@ -88,6 +88,80 @@ export async function cachedFetch(url: string, ttlSeconds = 60, fetchOpts?: Requ
 }
 
 /**
+ * Fetch with stale-while-revalidate pattern.
+ *
+ * If cached data exists (even if expired), return it immediately.
+ * Then fetch fresh data in the background and update cache.
+ * This avoids the "cold cache penalty" where the first request after
+ * expiry is slow.
+ *
+ * @param url - The URL to fetch
+ * @param ttlSeconds - How long cached data is considered fresh
+ * @param staleSeconds - How long stale data can be served while revalidating (default: same as ttl)
+ * @param fetchOpts - Optional fetch options
+ */
+export async function staleWhileRevalidate(
+  url: string,
+  ttlSeconds = 60,
+  staleSeconds?: number,
+  fetchOpts?: RequestInit,
+): Promise<Response> {
+  const staleWindow = staleSeconds ?? ttlSeconds;
+
+  if (typeof caches !== "undefined") {
+    try {
+      const cache = await caches.open(CACHE_NAMESPACE);
+      const key = cacheKey(url);
+      const cached = await cache.match(key);
+
+      if (cached) {
+        const cachedTime = cached.headers.get("x-cached-at");
+        if (cachedTime) {
+          const age = (Date.now() - parseInt(cachedTime, 10)) / 1000;
+          if (age < ttlSeconds + staleWindow) {
+            // Return stale data immediately
+            const headers = new Headers(cached.headers);
+            headers.set("x-cache-status", age < ttlSeconds ? "HIT" : "STALE");
+            const body = await cached.arrayBuffer();
+
+            // Revalidate in background if stale
+            if (age >= ttlSeconds) {
+              fetch(url, fetchOpts).then((resp) => {
+                if (resp.ok) {
+                  resp.arrayBuffer().then((buf) => {
+                    const h = new Headers(resp.headers);
+                    h.set("x-cached-at", String(Date.now()));
+                    cache.put(key, new Response(buf, { status: resp.status, headers: h })).catch(() => {});
+                  });
+                }
+              });
+            }
+
+            return new Response(body, { status: cached.status, headers });
+          }
+        }
+      }
+
+      // No cache or expired beyond stale window — must wait for fresh data
+      const resp = await fetch(url, fetchOpts);
+      if (resp.ok) {
+        const headers = new Headers(resp.headers);
+        headers.set("x-cached-at", String(Date.now()));
+        headers.set("x-cache-status", "MISS");
+        const body = await resp.arrayBuffer();
+        cache.put(key, new Response(body, { status: resp.status, headers })).catch(() => {});
+        return new Response(body, { status: resp.status, headers: resp.headers });
+      }
+      return resp;
+    } catch {
+      // Fall through
+    }
+  }
+
+  return fetch(url, fetchOpts);
+}
+
+/**
  * Predefined TTL values for common data sources.
  */
 export const CACHE_TTL = {

@@ -9,7 +9,11 @@ import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MapLoading } from "@/components/MapLoading";
 import { waitForMapLibre } from "@/app/landing/maplibre-loader";
-import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, createLayerHandle, type LayerHandle } from "./lib/layers";
+import {
+  addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, createLayerHandle, type LayerHandle,
+  setEarthquakeFeed, setEarthquakeTimeFilter, getEarthquakeTimeRange, refreshEarthquakeFilter,
+} from "./lib/layers";
+import { renderAnnotations, removeAnnotations, loadAnnotations, saveAnnotations, randomColor, uid } from "./lib/layers/annotations";
 import {
   createMeasureController,
   type MeasureMode,
@@ -71,7 +75,25 @@ const BASEMAPS: Record<string, { label: string; url: string; attribution: string
     url: "https://tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution: "&copy; OpenTopoMap",
   },
+  // Additional basemaps
+  dark_nolabel: {
+    label: "Dark (no labels)",
+    url: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+    attribution: "&copy; CartoDB &copy; OSM",
+  },
+  positron: {
+    label: "Positron",
+    url: "https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png",
+    attribution: "&copy; CartoDB &copy; OSM",
+  },
+  terrain: {
+    label: "Terrain (Stamen)",
+    url: "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; Stamen Design &copy; Stadia Maps",
+  },
 };
+
+const BASEMAP_ORDER = ["dark", "dark_nolabel", "voyager", "light", "positron", "osm", "satellite", "topo", "terrain"];
 
 const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
@@ -289,6 +311,50 @@ export default function MapPage() {
 
   const [coordFormat, setCoordFormat] = useState<"dd" | "dms">("dd");
 
+  // Earthquake time filter
+  const [eqFeed, setEqFeed] = useState("7d");
+  const [eqTimeSlider, setEqTimeSlider] = useState<number | null>(null); // null = all
+  const [eqRange, setEqRange] = useState<{ min: number; max: number }>({ min: Date.now() - 604800000, max: Date.now() });
+  const [eqPlaying, setEqPlaying] = useState(false);
+  const eqPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleEqFeedChange = useCallback((feed: string) => {
+    setEqFeed(feed);
+    setEarthquakeFeed(feed);
+    setEqTimeSlider(null);
+    setEarthquakeTimeFilter(null);
+  }, []);
+
+  const handleEqTimeChange = useCallback((val: number) => {
+    setEqTimeSlider(val);
+    setEarthquakeTimeFilter(val);
+    refreshEarthquakeFilter(mapRef.current!);
+  }, []);
+
+  const handleEqPlay = useCallback(() => {
+    if (eqPlaying) {
+      if (eqPlayRef.current) clearInterval(eqPlayRef.current);
+      setEqPlaying(false);
+      return;
+    }
+    const range = getEarthquakeTimeRange();
+    setEqRange(range);
+    if (range.max - range.min < 1000) return;
+    setEqPlaying(true);
+    let t = range.min;
+    eqPlayRef.current = setInterval(() => {
+      t += (range.max - range.min) / 100;
+      if (t >= range.max) {
+        t = range.max;
+        if (eqPlayRef.current) clearInterval(eqPlayRef.current);
+        setEqPlaying(false);
+      }
+      setEqTimeSlider(t);
+      setEarthquakeTimeFilter(t);
+      refreshEarthquakeFilter(mapRef.current!);
+    }, 100);
+  }, [eqPlaying, eqRange]);
+
   const formatCoord = useCallback((lat: number, lon: number) => {
     if (coordFormat === "dms") {
       const toDms = (v: number, pos: string, neg: string) => {
@@ -306,6 +372,92 @@ export default function MapPage() {
   // Elevation profile state
   const [profileData, setProfileData] = useState<{ distance: number; elevation: number }[] | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+
+  // Annotation drawing state
+  type DrawMode = "none" | "point" | "line" | "polygon";
+  const [drawMode, setDrawMode] = useState<DrawMode>("none");
+  const drawModeRef = useRef<DrawMode>("none");
+  const [annotations, setAnnotations] = useState<import("./lib/layers/annotations").Annotation[]>(() =>
+    loadAnnotations(),
+  );
+  const drawPointsRef = useRef<[number, number][]>([]);
+  const drawLineRef = useRef<unknown>(null);
+  const drawVertexRef = useRef<maplibregl.Marker[]>([]);
+  const [annotationName, setAnnotationName] = useState("");
+
+  const renderAnnotationsOnMap = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    renderAnnotations(map, annotations);
+  }, [annotations]);
+
+  // Re-render annotations when they change
+  useEffect(() => {
+    renderAnnotationsOnMap();
+  }, [renderAnnotationsOnMap]);
+
+  const finishDrawing = useCallback(() => {
+    const pts = drawPointsRef.current;
+    const mode = drawModeRef.current;
+    if (mode === "none" || pts.length === 0) return;
+
+    let ann: import("./lib/layers/annotations").Annotation;
+    if (mode === "point" && pts.length >= 1) {
+      ann = { id: uid(), type: "point", coordinates: [pts[0]], color: randomColor(), name: annotationName || `Pin ${annotations.length + 1}`, timestamp: Date.now() };
+    } else if (mode === "line" && pts.length >= 2) {
+      ann = { id: uid(), type: "line", coordinates: pts, color: randomColor(), name: annotationName || `Line ${annotations.length + 1}`, timestamp: Date.now() };
+    } else if (mode === "polygon" && pts.length >= 3) {
+      ann = { id: uid(), type: "polygon", coordinates: pts, color: randomColor(), name: annotationName || `Area ${annotations.length + 1}`, timestamp: Date.now() };
+    } else {
+      return; // Not enough points
+    }
+
+    const next = [...annotations, ann];
+    setAnnotations(next);
+    saveAnnotations(next);
+    setAnnotationName("");
+
+    // Clear draw state
+    drawPointsRef.current = [];
+    drawVertexRef.current.forEach((m) => m.remove());
+    drawVertexRef.current = [];
+    setDrawMode("none");
+    drawModeRef.current = "none";
+
+    // Remove draw source
+    const map = mapRef.current;
+    if (map) {
+      try { map.removeLayer("draw-preview-line"); } catch {}
+      try { map.removeLayer("draw-preview-fill"); } catch {}
+      try { map.removeSource("draw-preview"); } catch {}
+    }
+  }, [drawMode, annotations, annotationName]);
+
+  const cancelDrawing = useCallback(() => {
+    drawPointsRef.current = [];
+    drawVertexRef.current.forEach((m) => m.remove());
+    drawVertexRef.current = [];
+    setDrawMode("none");
+    drawModeRef.current = "none";
+    setAnnotationName("");
+    const map = mapRef.current;
+    if (map) {
+      try { map.removeLayer("draw-preview-line"); } catch {}
+      try { map.removeLayer("draw-preview-fill"); } catch {}
+      try { map.removeSource("draw-preview"); } catch {}
+    }
+  }, []);
+
+  const deleteAnnotation = useCallback((id: string) => {
+    const next = annotations.filter((a) => a.id !== id);
+    setAnnotations(next);
+    saveAnnotations(next);
+  }, [annotations]);
+
+  const clearAnnotations = useCallback(() => {
+    setAnnotations([]);
+    saveAnnotations([]);
+  }, []);
 
   const fetchElevationProfile = useCallback(async (points: [number, number][]) => {
     if (points.length < 2) { setProfileData(null); return; }
@@ -436,19 +588,31 @@ export default function MapPage() {
     }
   }, [measurePoints, measureMode, fetchElevationProfile]);
 
-  // Keyboard shortcut: Escape to cancel measure
+  // Keyboard shortcuts for measure and draw modes
   useEffect(() => {
-    if (measureMode === "none") return;
+    if (measureMode === "none" && drawMode === "none") return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") clearMeasure();
+      if (e.key === "Escape") {
+        if (drawMode !== "none") cancelDrawing();
+        else clearMeasure();
+      }
+      if (e.key === "Enter" && drawMode !== "none") {
+        e.preventDefault();
+        finishDrawing();
+      }
       if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        setMeasurePoints((prev) => prev.slice(0, -1));
+        if (measureMode !== "none") setMeasurePoints((prev) => prev.slice(0, -1));
+        if (drawMode !== "none") {
+          drawPointsRef.current = drawPointsRef.current.slice(0, -1);
+          const m = drawVertexRef.current.pop();
+          m?.remove();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [measureMode, clearMeasure]);
+  }, [measureMode, drawMode, clearMeasure, cancelDrawing, finishDrawing]);
 
   // Initialize map
   useEffect(() => {
@@ -506,6 +670,42 @@ export default function MapPage() {
             const pt: [number, number] = [lng, lat];
             measurePointsRef.current = [...measurePointsRef.current, pt];
             setMeasurePoints([...measurePointsRef.current]);
+            return;
+          }
+
+          // Draw mode: add point to current drawing
+          if (drawModeRef.current !== "none") {
+            const pt: [number, number] = [lng, lat];
+            drawPointsRef.current = [...drawPointsRef.current, pt];
+
+            // Add vertex marker
+            const el = document.createElement("div");
+            el.style.cssText = "width:10px;height:10px;background:#00ff88;border:2px solid white;border-radius:50%;cursor:pointer;";
+            const marker = new mlgl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+            drawVertexRef.current.push(marker);
+
+            // Update preview line/fill
+            const src = map.getSource("draw-preview");
+            const pts = drawPointsRef.current;
+            if (src && pts.length >= 2) {
+              const coords = [...pts, pts[0]] as [number, number][]; // close polygon preview
+              if (drawModeRef.current === "polygon" && pts.length >= 3) {
+                src.setData({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: {} }] });
+              } else {
+                src.setData({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: pts }, properties: {} }] });
+              }
+            } else if (!src) {
+              try {
+                map.addSource("draw-preview", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+                map.addLayer({ id: "draw-preview-line", type: "line", source: "draw-preview", paint: { "line-color": "#00ff88", "line-width": 2, "line-dasharray": [4, 2] } });
+                map.addLayer({ id: "draw-preview-fill", type: "fill", source: "draw-preview", paint: { "fill-color": "#00ff88", "fill-opacity": 0.1 } });
+              } catch {}
+            }
+
+            // Auto-finish for point mode
+            if (drawModeRef.current === "point") {
+              setTimeout(() => finishDrawing(), 0);
+            }
             return;
           }
           setFetchingElevation(true);
@@ -857,6 +1057,68 @@ export default function MapPage() {
           )}
         </div>
 
+        {/* Draw tools */}
+        <div style={{ position: "absolute", top: 82, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
+          <button
+            onClick={() => { if (drawMode === "point") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("point"); drawModeRef.current = "point"; } }}
+            title="Draw point annotation"
+            style={{
+              background: drawMode === "point" ? "#00ff88" : T.panel,
+              border: `1px solid ${drawMode === "point" ? "#00ff88" : T.border}`,
+              borderRadius: 4,
+              color: drawMode === "point" ? "#0a0f1a" : T.textMuted,
+              padding: "4px 8px", cursor: "pointer", fontSize: "0.72rem",
+              fontFamily: T.fontMono, backdropFilter: "blur(8px)",
+            }}
+          >
+            ◎
+          </button>
+          <button
+            onClick={() => { if (drawMode === "line") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("line"); drawModeRef.current = "line"; } }}
+            title="Draw line annotation (click points, Enter to finish)"
+            style={{
+              background: drawMode === "line" ? "#00ff88" : T.panel,
+              border: `1px solid ${drawMode === "line" ? "#00ff88" : T.border}`,
+              borderRadius: 4,
+              color: drawMode === "line" ? "#0a0f1a" : T.textMuted,
+              padding: "4px 8px", cursor: "pointer", fontSize: "0.72rem",
+              fontFamily: T.fontMono, backdropFilter: "blur(8px)",
+            }}
+          >
+            ━
+          </button>
+          <button
+            onClick={() => { if (drawMode === "polygon") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("polygon"); drawModeRef.current = "polygon"; } }}
+            title="Draw polygon annotation (click points, Enter to finish)"
+            style={{
+              background: drawMode === "polygon" ? "#00ff88" : T.panel,
+              border: `1px solid ${drawMode === "polygon" ? "#00ff88" : T.border}`,
+              borderRadius: 4,
+              color: drawMode === "polygon" ? "#0a0f1a" : T.textMuted,
+              padding: "4px 8px", cursor: "pointer", fontSize: "0.72rem",
+              fontFamily: T.fontMono, backdropFilter: "blur(8px)",
+            }}
+          >
+            △
+          </button>
+          {drawMode !== "none" && (
+            <>
+              <input
+                value={annotationName}
+                onChange={(e) => setAnnotationName(e.target.value)}
+                placeholder="Name..."
+                style={{
+                  background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3,
+                  color: T.text, padding: "3px 6px", fontSize: "0.68rem", fontFamily: T.fontMono,
+                  width: 100, outline: "none",
+                }}
+              />
+              <button onClick={finishDrawing} title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>✓</button>
+              <button onClick={cancelDrawing} title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>✕</button>
+            </>
+          )}
+        </div>
+
         {/* Measure result */}
         {measureMode !== "none" && measurePoints.length >= 2 && (
           <div
@@ -917,6 +1179,8 @@ export default function MapPage() {
               pulse={loading}
             />
             {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}
+            {annotations.length > 0 && <StatusIndicator color="#00ff88" label={`${annotations.length} ANNOT`} />}
+            {drawMode !== "none" && <StatusIndicator color="#00ff88" label={`DRAW: ${drawMode.toUpperCase()}`} />}
             <button
               onClick={() => exportMapScreenshot(mapRef.current!, "openzenith-map")}
               title="Export screenshot"
@@ -1280,6 +1544,70 @@ export default function MapPage() {
               );
             })}
 
+            {/* Earthquake time filter */}
+            {mapState.layers.earthquakes && (
+              <SurveillancePanel title="Earthquake Timeline" style={{ marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                  {["1d", "7d", "30d"].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => handleEqFeedChange(f)}
+                      style={{
+                        ...btnStyle, flex: 1, fontSize: "0.6rem",
+                        background: eqFeed === f ? T.accent : T.panel,
+                        color: eqFeed === f ? "#0a0f1a" : T.textMuted,
+                      }}
+                    >
+                      {f === "1d" ? "24H" : f === "7d" ? "7D" : "30D"}
+                    </button>
+                  ))}
+                  <button onClick={handleEqPlay} style={{ ...btnStyle, fontSize: "0.7rem", color: eqPlaying ? T.red : T.green }}>
+                    {eqPlaying ? "⏸" : "▶"}
+                  </button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "0.55rem", color: T.textMuted, fontFamily: T.fontMono, minWidth: 60 }}>
+                    {eqTimeSlider ? new Date(eqTimeSlider).toLocaleDateString() : "All"}
+                  </span>
+                  <input
+                    type="range"
+                    min={eqRange.min}
+                    max={eqRange.max}
+                    value={eqTimeSlider ?? eqRange.max}
+                    onChange={(e) => handleEqTimeChange(Number(e.target.value))}
+                    style={{ flex: 1, height: 3, accentColor: T.accent, cursor: "pointer" }}
+                  />
+                </div>
+                {eqTimeSlider && (
+                  <button onClick={() => { setEqTimeSlider(null); setEarthquakeTimeFilter(null); refreshEarthquakeFilter(mapRef.current!); }} style={{ ...btnStyle, fontSize: "0.58rem", marginTop: 4 }}>
+                    Show All
+                  </button>
+                )}
+              </SurveillancePanel>
+            )}
+
+            {/* Basemap selector */}
+            <SurveillancePanel title="Basemap" style={{ marginBottom: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
+                {BASEMAP_ORDER.filter((k) => BASEMAPS[k]).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setMapState((prev) => ({ ...prev, basemap: key }))}
+                    style={{
+                      ...btnStyle,
+                      fontSize: "0.58rem",
+                      padding: "3px 4px",
+                      background: mapState.basemap === key ? T.accent : T.panel,
+                      color: mapState.basemap === key ? "#0a0f1a" : T.textMuted,
+                      border: `1px solid ${mapState.basemap === key ? T.accent : T.border}`,
+                    }}
+                  >
+                    {BASEMAPS[key].label}
+                  </button>
+                ))}
+              </div>
+            </SurveillancePanel>
+
             {/* View controls */}
             <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>
               <div style={{ display: "flex", gap: "0.35rem" }}>
@@ -1442,6 +1770,45 @@ export default function MapPage() {
                       </div>
                     ))}
                 </div>
+              </SurveillancePanel>
+            )}
+
+            {/* Annotations list */}
+            {annotations.length > 0 && (
+              <SurveillancePanel title={`Annotations (${annotations.length})`} style={{ marginBottom: "0.75rem" }}>
+                <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                  {annotations.map((a) => (
+                    <div
+                      key={a.id}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "2px 0", borderBottom: `1px solid ${T.border}`,
+                        fontSize: "0.65rem", fontFamily: T.fontMono,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ color: a.color }}>
+                          {a.type === "point" ? "◎" : a.type === "line" ? "━" : "△"}
+                        </span>
+                        <span style={{ color: T.text }}>{a.name}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <span style={{ color: T.textMuted, fontSize: "0.58rem" }}>
+                          {new Date(a.timestamp).toLocaleDateString()}
+                        </span>
+                        <button
+                          onClick={() => deleteAnnotation(a.id)}
+                          style={{ background: "none", border: "none", color: T.red, cursor: "pointer", fontSize: "0.7rem", padding: 0, opacity: 0.6 }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={clearAnnotations} style={{ ...btnStyle, marginTop: 4, fontSize: "0.6rem", width: "100%" }}>
+                  Clear All Annotations
+                </button>
               </SurveillancePanel>
             )}
 

@@ -339,6 +339,15 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#93c5fd",
     dataSource: "https://nsidc.org/",
   },
+  {
+    id: "burnScars",
+    name: "Active Fires",
+    category: "weather",
+    description: "NASA VIIRS active fire detections — global wildfire monitoring",
+    defaultEnabled: false,
+    accent: "#f97316",
+    dataSource: "https://firms.modaps.eosdis.nasa.gov/",
+  },
 
   /* ── Lightning ────────────────────────────────────────── */
   {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cachedFetch, CACHE_TTL } from "@/lib/cache";
+import { cachedFetch, staleWhileRevalidate, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const resp = await cachedFetch(url.toString(), CACHE_TTL.FLIGHTS, {
+    const resp = await staleWhileRevalidate(url.toString(), CACHE_TTL.FLIGHTS, 900, {
       signal: AbortSignal.timeout(20000),
       headers: { Accept: "application/json" },
     });

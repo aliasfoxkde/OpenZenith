@@ -965,7 +965,7 @@ export default function Home() {
               {
                 label: "Data layers",
                 value: "20+",
-                tip: "Globe integrates 20+ real-time data layers including earthquakes, radar, flights, military ADS-B, vessels, weather warnings, satellites, space weather, air quality, volcanoes, wildfires, lightning, marine weather, disaster alerts, and more.",
+                tip: "Globe integrates 37 data layers including earthquakes, flights, vessels, satellites, hurricanes, weather radar, wildfires, lightning, space weather, air quality, volcanoes, and more.",
               },
             ].map((s) => (
               <div
@@ -1087,7 +1087,7 @@ export default function Home() {
               {
                 emoji: "\uD83D\uDDFA\uFE0F",
                 title: "Interactive Map",
-                desc: "MapLibre GL dark theme, 3D terrain, 5 basemaps, elevation pins, context menu, elevation profile.",
+                desc: "MapLibre GL dark theme, 3D terrain, 9 basemaps, annotations, bookmarks, elevation profile, offline support.",
                 back: "Click any point for elevation. Drag to draw profile. Right-click context menu with copy coordinates and tile info.",
                 href: "/map",
                 btn: "Open Map",
@@ -1095,7 +1095,7 @@ export default function Home() {
               {
                 emoji: "\uD83C\uDF0D",
                 title: "Globe 3D",
-                desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, 5 themes, and 20+ real-time data layers.",
+                desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, terrain elevation, and 37 real-time data layers.",
                 back: "Switch between 3D globe, Columbus 3D, and 2D map. Five built-in themes from Dark to Classified Intel HUD.",
                 href: "/globe",
                 btn: "Launch Globe",
@@ -1135,7 +1135,7 @@ export default function Home() {
               {
                 emoji: "\uD83D\uDEF0\uFE0F",
                 title: "Satellite Tracking",
-                desc: "3,000+ active satellites from Celestrak TLE data, propagated to real-time positions using satellite.js.",
+                desc: "1,500+ active satellites from Celestrak TLE data, propagated to real-time positions using satellite.js.",
                 back: "Real-time orbital propagation from TLE elements. Visible, communication, navigation, and more satellite groups.",
                 href: "/globe",
                 btn: "Track Satellites",
@@ -1372,7 +1372,7 @@ export default function Home() {
               {
                 emoji: "\uD83D\uDEF0\uFE0F",
                 title: "Satellites",
-                desc: "3,000+ active satellites from Celestrak. Real-time orbital positions.",
+                desc: "1,500+ active satellites from Celestrak. Real-time orbital positions.",
                 back: "SGP4 propagation via satellite.js. Grouped by type: visible, communication, navigation, science.",
                 color: "#06b6d4",
               },

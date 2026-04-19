@@ -3,7 +3,7 @@ import { CACHE_TTL } from "@/lib/cache";
 
 describe("CACHE_TTL", () => {
   it("has all expected TTL values", () => {
-    expect(CACHE_TTL.FLIGHTS).toBe(120);
+    expect(CACHE_TTL.FLIGHTS).toBe(300);
     expect(CACHE_TTL.MILITARY).toBe(30);
     expect(CACHE_TTL.EARTHQUAKES).toBe(60);
     expect(CACHE_TTL.RADAR).toBe(120);

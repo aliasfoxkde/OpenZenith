@@ -226,6 +226,30 @@ export default function MapPage() {
   const [pins, setPins] = useState<ElevationPin[]>([]);
   const [activePin, setActivePin] = useState<ElevationPin | null>(null);
 
+  // Opacity control for raster layers
+  const RASTER_LAYERS = new Set([
+    "hillshade", "elevationColor", "elevationAccuracy", "contours",
+    "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
+    "populationDensity", "landCover",
+  ]);
+  const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>({});
+  const setOpacity = useCallback((layerId: string, value: number) => {
+    setLayerOpacity((prev) => ({ ...prev, [layerId]: value }));
+    const map = mapRef.current;
+    if (!map) return;
+    // Apply to all layers with this ID prefix
+    const style = map.getStyle();
+    if (!style) return;
+    for (const layer of style.layers) {
+      if (layer.id.startsWith(layerId) && layer.type === "raster") {
+        map.setPaintProperty(layer.id, "raster-opacity", value / 100);
+      }
+      if (layer.id.startsWith(layerId) && layer.type === "symbol") {
+        map.setPaintProperty(layer.id, "text-opacity", value / 100);
+      }
+    }
+  }, []);
+
   // Toast notifications for layer errors
   const [toasts, setToasts] = useState<{ id: number; msg: string; type: "error" | "info" }[]>([]);
   const toastIdRef = useRef(0);
@@ -1105,6 +1129,21 @@ export default function MapPage() {
                                     ? `✓ ${layerStatus[layer.id].count}`
                                     : "✓"}
                           </span>
+                        )}
+                        {mapState.layers[layer.id] && RASTER_LAYERS.has(layer.id) && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                            <input
+                              type="range"
+                              min={10}
+                              max={100}
+                              value={layerOpacity[layer.id] ?? 100}
+                              onChange={(e) => setOpacity(layer.id, Number(e.target.value))}
+                              style={{ width: 80, height: 3, accentColor: layer.accent, cursor: "pointer" }}
+                            />
+                            <span style={{ fontSize: "0.58rem", fontFamily: T.fontMono, color: T.textMuted, minWidth: 24 }}>
+                              {layerOpacity[layer.id] ?? 100}%
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>

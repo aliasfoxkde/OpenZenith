@@ -22,7 +22,7 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 export const runtime = "edge";
 
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=2592000, s-maxage=2592000",
+  "Cache-Control": "public, max-age=3600, s-maxage=3600",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
@@ -30,26 +30,26 @@ const CACHE_HEADERS: Record<string, string> = {
 // ─── Hypsometric color ramp ───
 // Compact: array of [elevation_m, R, G, B] stops
 const COLOR_STOPS = [
-  [-500, 0, 0, 68],       // deep ocean
-  [-100, 8, 48, 107],     // ocean
-  [0, 8, 48, 107],        // sea level
-  [10, 33, 113, 181],     // coastline
-  [50, 103, 169, 207],    // low coast
-  [100, 65, 182, 196],    // near-shore transition
-  [200, 35, 139, 69],     // lowland green
-  [500, 65, 171, 93],     // green hills
-  [800, 144, 190, 109],   // rolling
-  [1000, 237, 248, 177],  // foothills
-  [1500, 255, 237, 160],  // lower mountain
-  [2000, 254, 178, 76],   // mountain
-  [2500, 253, 141, 60],   // high mountain
-  [3000, 240, 59, 32],    // alpine
-  [4000, 189, 0, 38],     // very high
-  [5000, 128, 0, 0],      // extreme
-  [6000, 150, 130, 120],  // rocky peaks
-  [7000, 200, 190, 180],  // high peaks
-  [8000, 230, 225, 220],  // snow line
-  [8849, 255, 255, 255],  // Everest+
+  [-500, 0, 0, 68], // deep ocean
+  [-100, 8, 48, 107], // ocean
+  [0, 8, 48, 107], // sea level
+  [10, 33, 113, 181], // coastline
+  [50, 103, 169, 207], // low coast
+  [100, 65, 182, 196], // near-shore transition
+  [200, 35, 139, 69], // lowland green
+  [500, 65, 171, 93], // green hills
+  [800, 144, 190, 109], // rolling
+  [1000, 237, 248, 177], // foothills
+  [1500, 255, 237, 160], // lower mountain
+  [2000, 254, 178, 76], // mountain
+  [2500, 253, 141, 60], // high mountain
+  [3000, 240, 59, 32], // alpine
+  [4000, 189, 0, 38], // very high
+  [5000, 128, 0, 0], // extreme
+  [6000, 150, 130, 120], // rocky peaks
+  [7000, 200, 190, 180], // high peaks
+  [8000, 230, 225, 220], // snow line
+  [8849, 255, 255, 255], // Everest+
 ];
 
 function lerpColor(elevation: number): [number, number, number] {
@@ -66,11 +66,7 @@ function lerpColor(elevation: number): [number, number, number] {
     if (e >= e0 && e <= e1) {
       if (e1 === e0) return [r0, g0, b0];
       const t = (e - e0) / (e1 - e0);
-      return [
-        Math.round(r0 + (r1 - r0) * t),
-        Math.round(g0 + (g1 - g0) * t),
-        Math.round(b0 + (b1 - b0) * t),
-      ];
+      return [Math.round(r0 + (r1 - r0) * t), Math.round(g0 + (g1 - g0) * t), Math.round(b0 + (b1 - b0) * t)];
     }
   }
 
@@ -154,8 +150,8 @@ function encodeColorPNG(data: Int16Array, width: number, height: number): Uint8A
   const ihdrView = new DataView(ihdrData.buffer);
   ihdrView.setUint32(0, width);
   ihdrView.setUint32(4, height);
-  ihdrData[8] = 8;  // bit depth
-  ihdrData[9] = 2;  // color type: RGB
+  ihdrData[8] = 8; // bit depth
+  ihdrData[9] = 2; // color type: RGB
 
   const ihdr = pngChunk("IHDR", ihdrData);
   const idat = pngChunk("IDAT", compressed);
@@ -163,9 +159,12 @@ function encodeColorPNG(data: Int16Array, width: number, height: number): Uint8A
 
   const result = new Uint8Array(signature.length + ihdr.length + idat.length + iend.length);
   let off = 0;
-  result.set(signature, off); off += signature.length;
-  result.set(ihdr, off); off += ihdr.length;
-  result.set(idat, off); off += idat.length;
+  result.set(signature, off);
+  off += signature.length;
+  result.set(ihdr, off);
+  off += ihdr.length;
+  result.set(idat, off);
+  off += idat.length;
   result.set(iend, off);
   return result;
 }

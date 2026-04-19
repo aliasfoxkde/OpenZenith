@@ -23,28 +23,30 @@ export async function GET() {
 
     const data = await resp.json();
 
+    // NLNOG API returns {info: {...}, results: {nodes: [...]}}
+
+    const rawNodes = Array.isArray(data) ? data : data?.results?.nodes || [];
+
     // Transform nodes to a simpler format with parsed coordinates
-    const nodes = Array.isArray(data)
-      ? data
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter((n: any) => n.geo)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((n: any) => {
-            const [lat, lon] = n.geo.split(",").map(Number);
-            return {
-              id: n.id,
-              hostname: n.hostname,
-              asn: n.asn,
-              ipv4: n.ipv4,
-              city: n.city,
-              country: n.countrycode,
-              lat: isNaN(lat) ? null : lat,
-              lon: isNaN(lon) ? null : lon,
-            };
-          })
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter((n: any) => n.lat !== null && n.lon !== null)
-      : [];
+    const nodes = rawNodes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((n: any) => n.geo)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((n: any) => {
+        const [lat, lon] = n.geo.split(",").map(Number);
+        return {
+          id: n.id,
+          hostname: n.hostname,
+          asn: n.asn,
+          ipv4: n.ipv4,
+          city: n.city,
+          country: n.countrycode,
+          lat: isNaN(lat) ? null : lat,
+          lon: isNaN(lon) ? null : lon,
+        };
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((n: any) => n.lat !== null && n.lon !== null);
 
     return NextResponse.json(
       { nodes, count: nodes.length },

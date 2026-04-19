@@ -24,7 +24,7 @@ export const runtime = "edge";
 
 // Cache headers — tiles are deterministic, cache aggressively
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=2592000, s-maxage=2592000",
+  "Cache-Control": "public, max-age=3600, s-maxage=3600",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };

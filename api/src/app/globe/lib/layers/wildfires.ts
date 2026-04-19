@@ -94,7 +94,9 @@ export function loadWildfires(
       intervalsRef.current.push(iv);
     } catch {
       retry.recordFailure();
-      updateStatus("wildfires", { error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable" });
+      updateStatus("wildfires", {
+        error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable",
+      });
     }
   };
 

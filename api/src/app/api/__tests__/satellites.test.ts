@@ -16,8 +16,8 @@ describe("Satellites API", () => {
     const resp = await GET(mockRequest("/api/satellites?group=active"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
-    expect(Array.isArray(data)).toBe(true);
-    expect(data[0].name).toBe("ISS (ZARYA)");
+    expect(data.satellites).toBeDefined();
+    expect(data.satellites[0].name).toBe("ISS (ZARYA)");
   });
 
   it("rejects invalid group", async () => {
@@ -28,13 +28,13 @@ describe("Satellites API", () => {
     expect(data.error).toContain("Invalid group");
   });
 
-  it("defaults to active group", async () => {
+  it("defaults to space-station group", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
 
     const { GET } = await import("@/app/api/satellites/route");
     await GET(mockRequest("/api/satellites"));
 
     const calledUrl = spy.mock.calls[0][0] as string;
-    expect(calledUrl).toContain("GROUP=active");
+    expect(calledUrl).toContain("GROUP=space-station");
   });
 });

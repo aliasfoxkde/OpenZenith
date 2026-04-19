@@ -48,13 +48,13 @@ const REMA_LAT_MAX = -60;
 
 // Resolution tiers (ordered best → worst)
 const ACCURACY_COLORS: Record<string, [number, number, number]> = {
-  "2m_arctic": [0, 210, 230],       // cyan
-  "2m_rema": [0, 210, 230],          // cyan
-  "10m_eea": [34, 197, 94],          // bright green
-  "30m_srtm": [34, 139, 34],         // green
-  "90m_glo90": [154, 205, 50],       // yellow-green
-  "450m_gebco": [33, 113, 181],      // blue
-  "nodata": [20, 22, 28],            // dark gray (no data)
+  "2m_arctic": [0, 210, 230], // cyan
+  "2m_rema": [0, 210, 230], // cyan
+  "10m_eea": [34, 197, 94], // bright green
+  "30m_srtm": [34, 139, 34], // green
+  "90m_glo90": [154, 205, 50], // yellow-green
+  "450m_gebco": [33, 113, 181], // blue
+  nodata: [20, 22, 28], // dark gray (no data)
 };
 
 /**
@@ -304,9 +304,12 @@ function encodeAccuracyTile(z: number, x: number, y: number): Uint8Array {
 
   const result = new Uint8Array(signature.length + ihdr.length + idat.length + iend.length);
   let off = 0;
-  result.set(signature, off); off += signature.length;
-  result.set(ihdr, off); off += ihdr.length;
-  result.set(idat, off); off += idat.length;
+  result.set(signature, off);
+  off += signature.length;
+  result.set(ihdr, off);
+  off += ihdr.length;
+  result.set(idat, off);
+  off += idat.length;
   result.set(iend, off);
   return result;
 }

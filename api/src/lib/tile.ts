@@ -45,9 +45,9 @@ export interface TileResult {
 export async function getTileData(z: number, x: number, y: number, storage: ChunkBackend): Promise<TileResult> {
   const bounds = tileToLatLon(z, x, y);
 
-  // At very low zoom (z0-z2), HuggingFace chunk assembly is unreliable
+  // At low zoom (z0-z6), HuggingFace chunk assembly is unreliable
   // (too many 1° SRTM tiles needed → timeout). Use AWS directly.
-  if (z <= 2) {
+  if (z <= 6) {
     const awsData = await fetchAWSTerrainTile(z, x, y);
     if (awsData) {
       return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
@@ -265,14 +265,16 @@ async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int
     console.log(`[tile] Fetching AWS: ${url}`);
 
     const resp = await fetch(url);
-    console.log(`[tile] AWS response: ${resp.status} ${resp.headers.get('content-type')} ${resp.headers.get('content-length')}`);
+    console.log(
+      `[tile] AWS response: ${resp.status} ${resp.headers.get("content-type")} ${resp.headers.get("content-length")}`,
+    );
     if (!resp.ok) return null;
 
     const buf = await resp.arrayBuffer();
     console.log(`[tile] AWS body received: ${buf.byteLength} bytes`);
 
     const decoded = await decodeTerrariumPNG(new Uint8Array(buf));
-    console.log(`[tile] AWS decode result: ${decoded ? 'OK (' + decoded.length + ' pixels)' : 'null'}`);
+    console.log(`[tile] AWS decode result: ${decoded ? "OK (" + decoded.length + " pixels)" : "null"}`);
     return decoded;
   } catch (err) {
     console.log(`[tile] AWS fetch error: ${err}`);
@@ -296,7 +298,6 @@ async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
     const idatChunks: Uint8Array[] = [];
     let width = 0;
     let height = 0;
-    let bitDepth = 0;
     let colorType = 0;
 
     while (offset < png.length) {
@@ -307,7 +308,6 @@ async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
       if (chunkType === "IHDR") {
         width = (chunkData[0] << 24) | (chunkData[1] << 16) | (chunkData[2] << 8) | chunkData[3];
         height = (chunkData[4] << 24) | (chunkData[5] << 16) | (chunkData[6] << 8) | chunkData[7];
-        bitDepth = chunkData[8];
         colorType = chunkData[9];
       } else if (chunkType === "IDAT") {
         idatChunks.push(chunkData);
@@ -388,7 +388,7 @@ async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
         const r = currRow[i];
         const g = currRow[i + 1];
         const b = currRow[i + 2];
-        const elev = (r * 256 + g + b / 256) - 32768;
+        const elev = r * 256 + g + b / 256 - 32768;
         data[py * width + px] = r === 0 && g === 0 && b === 0 ? NODATA : Math.round(elev);
       }
     }

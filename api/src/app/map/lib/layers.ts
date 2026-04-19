@@ -401,21 +401,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
             type: "circle",
             source: "hurricanes",
             paint: {
-              "circle-radius": [
-                "interpolate",
-                ["linear"],
-                ["get", "wind"],
-                0,
-                4,
-                34,
-                5,
-                64,
-                6,
-                96,
-                7,
-                130,
-                9,
-              ],
+              "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 4, 34, 5, 64, 6, 96, 7, 130, 9],
               "circle-color": [
                 "interpolate",
                 ["linear"],
@@ -444,17 +430,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
               type: "circle",
               source: "hurricanes",
               paint: {
-                "circle-radius": [
-                  "interpolate",
-                  ["linear"],
-                  ["get", "wind"],
-                  0,
-                  8,
-                  64,
-                  14,
-                  130,
-                  22,
-                ],
+                "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 8, 64, 14, 130, 22],
                 "circle-color": [
                   "interpolate",
                   ["linear"],
@@ -536,17 +512,27 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
 
       const geojson: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
-        features: nodes.map((n: { lat: number; lon: number; id: number; hostname?: string; asn?: number; city?: string; country?: string }) => ({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [n.lon, n.lat] },
-          properties: {
-            id: n.id,
-            hostname: n.hostname || "",
-            asn: n.asn || 0,
-            city: n.city || "",
-            country: n.country || "",
-          },
-        })),
+        features: nodes.map(
+          (n: {
+            lat: number;
+            lon: number;
+            id: number;
+            hostname?: string;
+            asn?: number;
+            city?: string;
+            country?: string;
+          }) => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [n.lon, n.lat] },
+            properties: {
+              id: n.id,
+              hostname: n.hostname || "",
+              asn: n.asn || 0,
+              city: n.city || "",
+              country: n.country || "",
+            },
+          }),
+        ),
       };
 
       try {
@@ -1089,9 +1075,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
       await Promise.allSettled(promises);
 
       if (map.getSource("contours") && allFeatures.length > 0) {
-        map
-          .getSource("contours")
-          ?.setData?.({ type: "FeatureCollection", features: allFeatures });
+        map.getSource("contours")?.setData?.({ type: "FeatureCollection", features: allFeatures });
       }
     } catch {
       /* skip */

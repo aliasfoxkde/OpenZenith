@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       headers: {
         "Content-Type": "application/octet-stream",
         "Content-Length": String(buffer.byteLength),
-        "Cache-Control": "public, max-age=2592000",
+        "Cache-Control": "public, max-age=3600",
         ...CORS_HEADERS,
         "X-Tile-Size": String(TILE_SIZE),
         "X-Zoom": String(zoom),

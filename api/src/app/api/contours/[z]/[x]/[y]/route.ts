@@ -21,7 +21,7 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 export const runtime = "edge";
 
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=2592000, s-maxage=2592000",
+  "Cache-Control": "public, max-age=3600, s-maxage=3600",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
@@ -50,7 +50,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const tileY = parseInt(y, 10);
 
   if (isNaN(zoom) || zoom < 4 || zoom > 14 || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "Invalid tile coordinates (z must be 4-14)" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json(
+      { error: "Invalid tile coordinates (z must be 4-14)" },
+      { status: 400, headers: CORS_HEADERS },
+    );
   }
 
   try {
@@ -68,7 +71,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     console.error(`Contour tile error: ${zoom}/${tileX}/${tileY}`, error);
     return NextResponse.json(
       { type: "FeatureCollection", features: [] },
-      { headers: { ...CACHE_HEADERS, "Content-Type": "application/geojson" } }
+      { headers: { ...CACHE_HEADERS, "Content-Type": "application/geojson" } },
     );
   }
 }
@@ -131,11 +134,7 @@ function generateContours(
         if (nw === NODATA || ne === NODATA || sw === NODATA || se === NODATA) continue;
 
         // Marching squares: determine case from corner comparisons
-        const caseIndex =
-          (nw >= level ? 8 : 0) |
-          (ne >= level ? 4 : 0) |
-          (se >= level ? 2 : 0) |
-          (sw >= level ? 1 : 0);
+        const caseIndex = (nw >= level ? 8 : 0) | (ne >= level ? 4 : 0) | (se >= level ? 2 : 0) | (sw >= level ? 1 : 0);
 
         if (caseIndex === 0 || caseIndex === 15) continue;
 
@@ -207,21 +206,42 @@ function marchingSquaresCase(
   left: [number, number],
 ): [[number, number], [number, number]][] {
   switch (caseIndex) {
-    case 1:  return [[left, bottom]];
-    case 2:  return [[bottom, right]];
-    case 3:  return [[left, right]];
-    case 4:  return [[right, top]];
-    case 5:  return [[left, top], [bottom, right]]; // saddle
-    case 6:  return [[bottom, top]];
-    case 7:  return [[left, top]];
-    case 8:  return [[top, left]];
-    case 9:  return [[top, bottom]];
-    case 10: return [[top, right], [left, bottom]]; // saddle
-    case 11: return [[top, right]];
-    case 12: return [[right, left]];
-    case 13: return [[bottom, left]];
-    case 14: return [[right, bottom]];
-    default: return [];
+    case 1:
+      return [[left, bottom]];
+    case 2:
+      return [[bottom, right]];
+    case 3:
+      return [[left, right]];
+    case 4:
+      return [[right, top]];
+    case 5:
+      return [
+        [left, top],
+        [bottom, right],
+      ]; // saddle
+    case 6:
+      return [[bottom, top]];
+    case 7:
+      return [[left, top]];
+    case 8:
+      return [[top, left]];
+    case 9:
+      return [[top, bottom]];
+    case 10:
+      return [
+        [top, right],
+        [left, bottom],
+      ]; // saddle
+    case 11:
+      return [[top, right]];
+    case 12:
+      return [[right, left]];
+    case 13:
+      return [[bottom, left]];
+    case 14:
+      return [[right, bottom]];
+    default:
+      return [];
   }
 }
 

@@ -159,7 +159,7 @@ interface ContextMenuProps {
   cesiumRef: React.RefObject<any>;
   toolManagerRef: React.RefObject<any>;
   elevationProfileRef: React.RefObject<any>;
-  activeTool: ToolMode; // eslint-disable-line @typescript-eslint/no-unused-vars
+  activeTool: ToolMode;
   setActiveTool: React.Dispatch<React.SetStateAction<ToolMode>>;
   setSelectedSat: (s: any) => void;
   setFollowSat: (f: boolean) => void;

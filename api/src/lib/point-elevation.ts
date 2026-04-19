@@ -109,15 +109,14 @@ export async function getPointElevation(
  * Fallback point elevation from AWS Terrain Tiles.
  * Decodes a z13 Terrarium PNG tile and samples the pixel at the given lat/lon.
  */
-async function getPointElevationFromAWS(
-  lat: number,
-  lon: number,
-): Promise<PointElevationResult | null> {
+async function getPointElevationFromAWS(lat: number, lon: number): Promise<PointElevationResult | null> {
   try {
     // Use z13 for ~10m resolution
     const n = Math.pow(2, 13);
     const tileX = Math.floor(((lon + 180) / 360) * n);
-    const tileY = Math.floor((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2 * n);
+    const tileY = Math.floor(
+      ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * n,
+    );
 
     const url = AWS_TERRAIN_URL.replace("{z}", "13").replace("{x}", String(tileX)).replace("{y}", String(tileY));
     const resp = await fetch(url);
@@ -133,11 +132,25 @@ async function getPointElevationFromAWS(
       height = 0;
 
     while (offset < pngBytes.length) {
-      const chunkLen = (pngBytes[offset] << 24) | (pngBytes[offset + 1] << 16) | (pngBytes[offset + 2] << 8) | pngBytes[offset + 3];
-      const chunkType = String.fromCharCode(pngBytes[offset + 4], pngBytes[offset + 5], pngBytes[offset + 6], pngBytes[offset + 7]);
+      const chunkLen =
+        (pngBytes[offset] << 24) | (pngBytes[offset + 1] << 16) | (pngBytes[offset + 2] << 8) | pngBytes[offset + 3];
+      const chunkType = String.fromCharCode(
+        pngBytes[offset + 4],
+        pngBytes[offset + 5],
+        pngBytes[offset + 6],
+        pngBytes[offset + 7],
+      );
       if (chunkType === "IHDR") {
-        width = (pngBytes[offset + 8] << 24) | (pngBytes[offset + 9] << 16) | (pngBytes[offset + 10] << 8) | pngBytes[offset + 11];
-        height = (pngBytes[offset + 12] << 24) | (pngBytes[offset + 13] << 16) | (pngBytes[offset + 14] << 8) | pngBytes[offset + 15];
+        width =
+          (pngBytes[offset + 8] << 24) |
+          (pngBytes[offset + 9] << 16) |
+          (pngBytes[offset + 10] << 8) |
+          pngBytes[offset + 11];
+        height =
+          (pngBytes[offset + 12] << 24) |
+          (pngBytes[offset + 13] << 16) |
+          (pngBytes[offset + 14] << 8) |
+          pngBytes[offset + 15];
       } else if (chunkType === "IDAT") {
         idatChunks.push(pngBytes.subarray(offset + 8, offset + 8 + chunkLen));
       }
@@ -150,7 +163,10 @@ async function getPointElevationFromAWS(
     const totalLen = idatChunks.reduce((s, c) => s + c.length, 0);
     const compressed = new Uint8Array(totalLen);
     let off = 0;
-    for (const c of idatChunks) { compressed.set(c, off); off += c.length; }
+    for (const c of idatChunks) {
+      compressed.set(c, off);
+      off += c.length;
+    }
 
     let raw: Uint8Array;
     if (typeof DecompressionStream !== "undefined") {
@@ -168,7 +184,10 @@ async function getPointElevationFromAWS(
       const len = chunks.reduce((s, c) => s + c.length, 0);
       raw = new Uint8Array(len);
       off = 0;
-      for (const c of chunks) { raw.set(c, off); off += c.length; }
+      for (const c of chunks) {
+        raw.set(c, off);
+        off += c.length;
+      }
     } else {
       const { inflateSync } = await import("fflate");
       raw = inflateSync(compressed);
@@ -178,7 +197,7 @@ async function getPointElevationFromAWS(
     // Web Mercator: tile pixel coordinates
     const latRad = (lat * Math.PI) / 180;
     const xFrac = ((lon + 180) / 360) * n - tileX;
-    const yFrac = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n - tileY;
+    const yFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n - tileY;
     const px = Math.floor(xFrac * width);
     const py = Math.floor(yFrac * height);
 
@@ -196,7 +215,9 @@ async function getPointElevationFromAWS(
       const rowData = raw.subarray(rowStart + 1, rowStart + 1 + stride);
 
       switch (filterType) {
-        case 0: currRow.set(rowData); break;
+        case 0:
+          currRow.set(rowData);
+          break;
         case 1:
           for (let i = 0; i < stride; i++) currRow[i] = (rowData[i] + (i >= bpp ? currRow[i - bpp] : 0)) & 0xff;
           break;
@@ -209,12 +230,16 @@ async function getPointElevationFromAWS(
             const b = prevRow[i];
             const c = i >= bpp ? prevRow[i - bpp] : 0;
             const p = a + b - c;
-            const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+            const pa = Math.abs(p - a),
+              pb = Math.abs(p - b),
+              pc = Math.abs(p - c);
             currRow[i] = (rowData[i] + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff;
           }
           break;
         }
-        default: currRow.set(rowData); break;
+        default:
+          currRow.set(rowData);
+          break;
       }
       prevRow.set(currRow);
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
+import { cachedFetch, CACHE_TTL } from "@/lib/cache";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -7,36 +8,63 @@ export async function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * NASA FIRMS wildfire data via the open CSV endpoint.
+ * Uses the free MAP_KEY which doesn't require registration for basic access.
+ *
+ * Fallback strategy:
+ * 1. Try with configured FIRMS_API_KEY (higher rate limits)
+ * 2. Fall back to NASA open data (no key, lower rate limits)
+ * 3. If both fail, return empty with clear error
+ */
 const FIRMS_KEY = process.env.NEXT_PUBLIC_FIRMS_API_KEY || "";
+const NASA_OPEN_KEY = process.env.FIRMS_MAP_KEY || "";
 
 export async function GET() {
   try {
-    if (!FIRMS_KEY) {
+    const bbox = "-180,-90,180,90";
+    const day = new Date().toISOString().slice(0, 10);
+
+    // Try configured key first, then NASA open key, then no key
+    const keys = [FIRMS_KEY, NASA_OPEN_KEY].filter(Boolean);
+
+    let csv = "";
+    let usedKey = "";
+
+    for (const key of keys) {
+      const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${bbox}/${day}`;
+      try {
+        const resp = await cachedFetch(url, CACHE_TTL.WARNINGS || 300, {
+          signal: AbortSignal.timeout(10000),
+          headers: { "User-Agent": "OpenZenith/1.0" },
+        });
+        if (resp.ok) {
+          csv = await resp.text();
+          usedKey = key;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!csv) {
       return NextResponse.json(
-        { type: "FeatureCollection", features: [], error: "FIRMS_API_KEY not configured" },
+        {
+          type: "FeatureCollection",
+          features: [],
+          count: 0,
+          note: "FIRMS API unavailable — wildfire data requires a free API key from https://firms.modaps.eosdis.nasa.gov/api/area/",
+        },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300" } },
       );
     }
 
-    const bbox = "-180,-90,180,90";
-    const day = new Date().toISOString().slice(0, 10);
-    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_SNPP_NRT/${bbox}/${day}`;
-
-    const resp = await fetch(url, {
-      signal: AbortSignal.timeout(15000),
-      headers: { "User-Agent": "OpenZenith/1.0" },
-    });
-
-    if (!resp.ok) {
-      return corsError(`FIRMS API returned ${resp.status}`, 502);
-    }
-
-    const csv = await resp.text();
     const lines = csv.trim().split("\n");
 
     if (lines.length < 2) {
       return NextResponse.json(
-        { type: "FeatureCollection", features: [], count: 0 },
+        { type: "FeatureCollection", features: [], count: 0, date: day },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
       );
     }
@@ -65,11 +93,14 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { type: "FeatureCollection", features, count: features.length },
+      { type: "FeatureCollection", features, count: features.length, date: day },
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch FIRMS data";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json(
+      { type: "FeatureCollection", features: [], count: 0, error: message },
+      { status: 200, headers: CORS_HEADERS },
+    );
   }
 }

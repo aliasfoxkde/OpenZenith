@@ -1280,11 +1280,7 @@ export default function Globe() {
       {/* Coordinate formats panel */}
       {coordFormats && showCoordPanel && (
         <div className="wv-coord-panel">
-          <button
-            className="wv-coord-close"
-            onClick={() => setShowCoordPanel(false)}
-            title="Close (C)"
-          >
+          <button className="wv-coord-close" onClick={() => setShowCoordPanel(false)} title="Close (C)">
             &times;
           </button>
           {Object.entries(coordFormats).map(([fmt, val]) => (
@@ -1375,7 +1371,9 @@ export default function Globe() {
               <span>{ds.label}</span>
               {ds.error && <span style={{ color: "var(--error, #ff4444)" }}>({ds.error})</span>}
               {isActive && !ds.error && ds.count > 0 && <span style={{ color: "#555" }}>({ds.count})</span>}
-              {isActive && !ds.error && ds.lastUpdate && <span style={{ color: "#444" }}>{fmtTime(ds.lastUpdate)}</span>}
+              {isActive && !ds.error && ds.lastUpdate && (
+                <span style={{ color: "#444" }}>{fmtTime(ds.lastUpdate)}</span>
+              )}
             </div>
           );
         })}

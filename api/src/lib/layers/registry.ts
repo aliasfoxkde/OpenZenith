@@ -38,7 +38,8 @@ export const LAYERS: readonly LayerDefinition[] = [
     id: "elevationAccuracy",
     name: "Data Accuracy",
     category: "terrain",
-    description: "Shows resolution of elevation sources: 2m (cyan) / 10m (green) / 30m (dark green) / 450m ocean (blue)",
+    description:
+      "Shows resolution of elevation sources: 2m (cyan) / 10m (green) / 30m (dark green) / 450m ocean (blue)",
     defaultEnabled: true,
     accent: "#38bdf8",
     dataSource: "/api/elevation-accuracy/{z}/{x}/{y}",

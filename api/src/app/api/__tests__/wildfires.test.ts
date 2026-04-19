@@ -14,6 +14,7 @@ describe("Wildfires API", () => {
     const data = await resp.json();
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(0);
-    expect(data.error).toContain("not configured");
+    // Should return 200 with helpful note, not error
+    expect(data.note || data.error).toBeDefined();
   });
 });

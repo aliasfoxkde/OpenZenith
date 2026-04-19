@@ -4,7 +4,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-const CACHE_TTL_SATS = 300;
+const CACHE_TTL_SATS = 300; // 5 minutes
 
 const VALID_GROUPS = new Set([
   "active",
@@ -46,13 +46,24 @@ const VALID_GROUPS = new Set([
   "other-comm",
 ]);
 
+/**
+ * Celestrak GP data can be very large (10k+ satellites for "active").
+ * Edge workers have 30s CPU limits; large responses can time out.
+ *
+ * Strategy:
+ * - Default to "space-station" (1 satellite) for fast loading
+ * - Limit "active" group to first 500 entries to avoid timeout
+ * - Use server-side cache so only first request hits upstream
+ * - Return count so client knows data was truncated
+ */
 export async function OPTIONS() {
   return corsPreflightResponse();
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const group = searchParams.get("group") || "active";
+  const group = searchParams.get("group") || "space-station";
+  const limit = Math.min(Number(searchParams.get("limit")) || 500, 2000);
 
   if (!VALID_GROUPS.has(group)) {
     return NextResponse.json(
@@ -64,7 +75,7 @@ export async function GET(request: NextRequest) {
   try {
     const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=json`;
     const resp = await cachedFetch(url, CACHE_TTL_SATS, {
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(10000),
       headers: { "User-Agent": "OpenZenith/1.0" },
     });
 
@@ -73,11 +84,35 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await resp.json();
-    return NextResponse.json(data, {
+
+    // Large groups need truncation to avoid edge worker timeouts
+    if (Array.isArray(data) && data.length > limit) {
+      const truncated = data.slice(0, limit);
+      const headers = new Headers({
+        ...CORS_HEADERS,
+        "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`,
+        "Content-Type": "application/json",
+      });
+      return new Response(
+        JSON.stringify({
+          count: data.length,
+          truncated: true,
+          limit,
+          satellites: truncated,
+        }),
+        { status: 200, headers },
+      );
+    }
+
+    return NextResponse.json(Array.isArray(data) ? { count: data.length, truncated: false, satellites: data } : data, {
       headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}` },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Satellite data fetch failed";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    // Return empty instead of 502 so the map doesn't break
+    return NextResponse.json(
+      { count: 0, truncated: false, satellites: [], error: message },
+      { status: 200, headers: CORS_HEADERS },
+    );
   }
 }

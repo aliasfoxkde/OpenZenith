@@ -17,6 +17,7 @@ import {
   getTileBase,
   type MergedIndex,
 } from "@/lib/srtm/merged-parser";
+import { cacheGet, cachePut } from "./cache";
 
 export interface ChunkBackend {
   /** Fetch a single 256x256 chunk by SRTM tile name and grid position. */
@@ -36,10 +37,24 @@ abstract class BaseChunkBackend implements ChunkBackend {
   abstract buildUrl(path: string): string;
 
   private async fetchMergedFile(srtmName: string): Promise<{ data: Uint8Array; index: MergedIndex } | null> {
-    const cacheKey = srtmName;
-    const cached = mergedFileCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < MERGED_CACHE_TTL) {
-      return { data: cached.data, index: cached.index };
+    const cacheKey = `oz:merged:${srtmName}`;
+
+    // Try CF Cache API / in-memory cache first
+    try {
+      const cached = await cacheGet(cacheKey);
+      if (cached) {
+        const data = new Uint8Array(cached);
+        const index = parseMergedHeader(data);
+        if (index) return { data, index };
+      }
+    } catch {
+      // Cache miss or unavailable
+    }
+
+    // In-memory cache (separate from CF Cache — fast lookup for same-isolate hits)
+    const memCached = mergedFileCache.get(srtmName);
+    if (memCached && Date.now() - memCached.timestamp < MERGED_CACHE_TTL) {
+      return { data: memCached.data, index: memCached.index };
     }
 
     const latDir = getLatDir(srtmName);
@@ -59,7 +74,11 @@ abstract class BaseChunkBackend implements ChunkBackend {
       const index = parseMergedHeader(data);
       if (!index) return null;
 
-      mergedFileCache.set(cacheKey, { data, index, timestamp: Date.now() });
+      mergedFileCache.set(srtmName, { data, index, timestamp: Date.now() });
+
+      // Store in CF Cache / in-memory cache for cross-isolate persistence
+      cachePut(cacheKey, buffer).catch(() => {});
+
       return { data, index };
     } catch {
       clearTimeout(timeout);

@@ -62,6 +62,8 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
       ws = new WebSocket(config.wsUrl);
       vesselCount = 0;
 
+      let dataTimeout: ReturnType<typeof setTimeout>;
+
       ws.onopen = () => {
         // Subscribe to global vessel positions
         ws?.send(
@@ -72,6 +74,14 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
           }),
         );
         setStatus(handle, "vessels", "loaded", 0);
+
+        // If no data arrives within 15s, mark as empty
+        // (AISstream free tier may be non-functional)
+        dataTimeout = setTimeout(() => {
+          if (vesselCount === 0) {
+            setStatus(handle, "vessels", "empty");
+          }
+        }, 15000);
       };
 
       ws.onmessage = (evt) => {
@@ -81,6 +91,9 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
 
           if (report?.MessageType === "PositionReport") {
             vesselCount++;
+            if (vesselCount === 1 && dataTimeout) {
+              clearTimeout(dataTimeout); // Cancel empty-timeout once data flows
+            }
 
             // Update source with latest position (accumulate on map)
             const source = map.getSource("vessels") as any;
@@ -138,10 +151,11 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
       };
 
       ws.onclose = () => {
-        // Auto-reconnect after 10s
+        if (dataTimeout) clearTimeout(dataTimeout);
+        // Auto-reconnect after 30s (not 10s — reduce load on non-functional service)
         setTimeout(() => {
           if (map.getSource("vessels")) connect();
-        }, 10000);
+        }, 30000);
       };
     } catch {
       setStatus(handle, "vessels", "error");

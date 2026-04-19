@@ -109,7 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <script
           dangerouslySetInnerHTML={{
-            __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js",{scope:"/"})})}`,
+            __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");`,
           }}
         />
         <Providers>{children}</Providers>

@@ -51,9 +51,6 @@ all = [
 [project.scripts]
 openzenith = "openzenith.cli:main"
 
-[project.scripts]
-openzenith = "openzenith.cli:main"
-
 [project.urls]
 Homepage = "https://openzenith.cyopsys.com"
 Documentation = "https://github.com/aliasfoxkde/OpenZenith"

@@ -12,6 +12,7 @@ import { waitForMapLibre } from "@/app/landing/maplibre-loader";
 import {
   addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, createLayerHandle, type LayerHandle,
   setEarthquakeFeed, setEarthquakeTimeFilter, getEarthquakeTimeRange, refreshEarthquakeFilter,
+  startHurricaneAnimation, stopHurricaneAnimation,
 } from "./lib/layers";
 import { renderAnnotations, removeAnnotations, loadAnnotations, saveAnnotations, randomColor, uid } from "./lib/layers/annotations";
 import {
@@ -253,7 +254,7 @@ export default function MapPage() {
   const RASTER_LAYERS = new Set([
     "hillshade", "elevationColor", "elevationAccuracy", "contours",
     "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
-    "populationDensity", "landCover", "seaIce",
+    "populationDensity", "landCover", "seaIce", "satellite",
   ]);
   const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>({});
   const setOpacity = useCallback((layerId: string, value: number) => {
@@ -354,6 +355,35 @@ export default function MapPage() {
       refreshEarthquakeFilter(mapRef.current!);
     }, 100);
   }, [eqPlaying, eqRange]);
+
+  /* Hurricane animation */
+  const [hurricaneAnimating, setHurricaneAnimating] = useState(false);
+  const [hurricaneProgress, setHurricaneProgress] = useState(0);
+
+  const toggleHurricaneAnimation = useCallback(() => {
+    const map = mapRef.current;
+    const handle = layerHandleRef.current;
+    if (!map || !handle) return;
+    if (hurricaneAnimating) {
+      stopHurricaneAnimation(map, handle);
+      setHurricaneAnimating(false);
+      setHurricaneProgress(0);
+    } else {
+      setHurricaneAnimating(true);
+      startHurricaneAnimation(map, handle, setHurricaneProgress);
+    }
+  }, [hurricaneAnimating]);
+
+  // Stop hurricane animation when layer is toggled off
+  useEffect(() => {
+    if (!mapState.layers.hurricaneTracks && hurricaneAnimating) {
+      const map = mapRef.current;
+      const handle = layerHandleRef.current;
+      if (map && handle) stopHurricaneAnimation(map, handle);
+      setHurricaneAnimating(false);
+      setHurricaneProgress(0);
+    }
+  }, [mapState.layers.hurricaneTracks, hurricaneAnimating]);
 
   const formatCoord = useCallback((lat: number, lon: number) => {
     if (coordFormat === "dms") {
@@ -1583,6 +1613,41 @@ export default function MapPage() {
                     Show All
                   </button>
                 )}
+              </SurveillancePanel>
+            )}
+
+            {/* Hurricane animation controls */}
+            {mapState.layers.hurricaneTracks && (
+              <SurveillancePanel title="Hurricane Animation" style={{ marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    onClick={toggleHurricaneAnimation}
+                    style={{ ...btnStyle, fontSize: "0.65rem", color: hurricaneAnimating ? T.red : T.green, minWidth: 28 }}
+                    aria-label={hurricaneAnimating ? "Pause hurricane animation" : "Play hurricane animation"}
+                  >
+                    {hurricaneAnimating ? "⏸" : "▶"}
+                  </button>
+                  {hurricaneAnimating && (
+                    <>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(hurricaneProgress * 100)}
+                        readOnly
+                        style={{ flex: 1, height: 3, accentColor: "#f97316", cursor: "pointer" }}
+                      />
+                      <span style={{ fontSize: "0.58rem", fontFamily: T.fontMono, color: T.textMuted, minWidth: 30 }}>
+                        {Math.round(hurricaneProgress * 100)}%
+                      </span>
+                    </>
+                  )}
+                  {!hurricaneAnimating && (
+                    <span style={{ fontSize: "0.58rem", color: T.textMuted }}>
+                      Animates active storm track positions over time
+                    </span>
+                  )}
+                </div>
               </SurveillancePanel>
             )}
 

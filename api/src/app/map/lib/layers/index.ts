@@ -62,6 +62,18 @@ export { addBurnScars, removeBurnScars } from "./burn-scars";
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
 
+// Aviation Weather
+export { addAviationWeather, removeAviationWeather } from "./aviation-weather";
+
+// Satellites
+export { addSatellites, removeSatellites } from "./satellites";
+
+// Bathymetry
+export { addBathymetry, removeBathymetry } from "./bathymetry";
+
+// GOES Satellite Imagery
+export { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
+
 // ─── Master dispatcher ───
 
 import type { LayerHandle } from "./types";
@@ -94,6 +106,10 @@ import { addGdacs, removeGdacs } from "./gdacs";
 import { addFloods, removeFloods } from "./floods";
 import { addSeaIce, removeSeaIce } from "./sea-ice";
 import { addBurnScars, removeBurnScars } from "./burn-scars";
+import { addAviationWeather, removeAviationWeather } from "./aviation-weather";
+import { addSatellites, removeSatellites } from "./satellites";
+import { addBathymetry, removeBathymetry } from "./bathymetry";
+import { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -131,6 +147,10 @@ const LAYER_HANDLERS: Record<
   floods: { add: addFloods, remove: removeFloods },
   seaIce: { add: addSeaIce, remove: removeSeaIce },
   burnScars: { add: addBurnScars, remove: removeBurnScars },
+  aviationWeather: { add: addAviationWeather, remove: removeAviationWeather },
+  satellites: { add: addSatellites, remove: removeSatellites },
+  bathymetry: { add: addBathymetry, remove: removeBathymetry },
+  satellite: { add: addSatelliteImagery, remove: removeSatelliteImagery },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

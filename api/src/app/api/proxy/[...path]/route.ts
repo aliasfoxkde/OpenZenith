@@ -30,6 +30,7 @@ const ALLOWED_HOSTS = [
   "api.ring.nlnog.net",
   "lg.ring.nlnog.net",
   "unpkg.com",
+  "aviationweather.gov",
 ];
 
 /** Per-host Cache-Control max-age (seconds). Default: 30 */

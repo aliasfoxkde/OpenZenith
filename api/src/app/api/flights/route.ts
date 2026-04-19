@@ -81,12 +81,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const resp = await cachedFetch(url.toString(), CACHE_TTL.FLIGHTS, {
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(8000),
       headers: { Accept: "application/json" },
     });
 
     if (!resp.ok) {
-      return corsError(`OpenSky API returned ${resp.status}`, 502);
+      return NextResponse.json(
+        { time: Math.floor(Date.now() / 1000), states: [], error: `OpenSky API returned ${resp.status}` },
+        { status: 200, headers: CORS_HEADERS },
+      );
     }
 
     const data = (await resp.json()) as { time: number; states: OpenSkyState[] };

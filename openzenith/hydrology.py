@@ -3,6 +3,9 @@
 Implements standard terrain hydrology algorithms:
 - D8 flow direction (steepest descent neighbor)
 - Flow accumulation (upstream area counting)
+- Priority-flood depression filling
+- Stream extraction (accumulation threshold)
+- Watershed delineation (upstream tracing from pour point)
 - Stream extraction (accumulation threshold)
 - Watershed delineation (upstream tracing from pour point)
 
@@ -33,6 +36,59 @@ from typing import Optional
 D8_DR = np.array([0, 1, 1, 1, 0, -1, -1, -1], dtype=np.int16)
 D8_DC = np.array([1, 1, 0, -1, -1, -1, 0, 1], dtype=np.int16)
 D8_DISTANCE = np.array([1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)])
+
+
+def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
+    """Fill depressions using the priority-flood algorithm (Wang & Liu 2006).
+
+    Ensures every cell has a downhill path to the grid edge, eliminating
+    pits that would otherwise block flow accumulation and watershed tracing.
+
+    Uses a heap-based approach: process cells from lowest to highest,
+    raising any cell lower than its already-processed neighbor.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value to treat as invalid
+
+    Returns:
+        2D float32 array with depressions filled
+    """
+    import heapq
+
+    rows, cols = dem.shape
+    filled = dem.astype(np.float32).copy()
+    processed = np.zeros((rows, cols), dtype=bool)
+
+    # Priority queue: (elevation, row, col)
+    heap = []
+
+    # Add edge cells to heap
+    for r in range(rows):
+        for c in range(cols):
+            if r == 0 or r == rows - 1 or c == 0 or c == cols - 1:
+                if filled[r, c] > nodata:
+                    heapq.heappush(heap, (float(filled[r, c]), r, c))
+                    processed[r, c] = True
+
+    heapq.heapify(heap)
+
+    while heap:
+        elev, r, c = heapq.heappop(heap)
+
+        for d in range(8):
+            nr, nc = r + int(D8_DR[d]), c + int(D8_DC[d])
+            if 0 <= nr < rows and 0 <= nc < cols and not processed[nr, nc]:
+                if filled[nr, nc] <= nodata:
+                    processed[nr, nc] = True
+                    continue
+                # Raise cell if it's lower than the current water level
+                if filled[nr, nc] < elev:
+                    filled[nr, nc] = elev
+                heapq.heappush(heap, (float(filled[nr, nc]), nr, nc))
+                processed[nr, nc] = True
+
+    return filled
 
 
 def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
@@ -374,8 +430,9 @@ def delineate_watershed(
             print("❌ No valid elevation data in grid")
             return None
 
-    # Compute flow direction
-    flow_dir = d8_flow_direction(dem)
+    # Compute flow direction (with depression filling for better results)
+    dem_filled = fill_depressions(dem)
+    flow_dir = d8_flow_direction(dem_filled)
 
     # Compute flow accumulation (use fast topological sort)
     from openzenith.hydrology import flow_accumulation_fast

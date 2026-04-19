@@ -56,16 +56,18 @@
 
 ## Implementation Plan
 
-### Phase G1: Quick Wins (immediate)
+### Phase G1: Quick Wins (immediate) ✅ COMPLETE
 - [x] Fix cloud overlay date (dynamic)
-- [ ] Parallel script loading (Cesium + satellite.js)
-- [ ] Make FXAA toggleable (default off for performance)
+- [x] Parallel script loading (Cesium + satellite.js)
+- [x] Make FXAA toggleable (default off for performance)
+- [x] Entity limit reductions (flights 300, satellites 1500, wildfires 300)
+- [x] Critical render bug fix (requestRender after entity updates)
 
-### Phase G2: Entity Batching
-- [ ] Convert satellite scatter to PointPrimitiveCollection
+### Phase G2: Entity Batching (partial)
+- [x] Satellites already use PointPrimitiveCollection for scatter
 - [ ] Convert flights scatter to PointPrimitiveCollection
 - [ ] Convert lightning to PointPrimitiveCollection with recycling
-- [ ] Add LOD (hide points when zoomed out beyond threshold)
+- [x] LOD system implemented (4 altitude zones: surface/low-orbit/high-orbit/deep-space)
 
 ### Phase G3: Terrain & Cache
 - [ ] Audit terrain cache sizes and TTLs

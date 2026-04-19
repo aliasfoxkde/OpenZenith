@@ -289,6 +289,7 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [fetchingElevation, setFetchingElevation] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
@@ -617,6 +618,39 @@ export default function MapPage() {
       fetchElevationProfile(measurePoints);
     }
   }, [measurePoints, measureMode, fetchElevationProfile]);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Touch swipe to close sidebar on mobile
+  useEffect(() => {
+    if (!sidebarOpen || !isMobile) return;
+    let startX = 0;
+    const onTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX; };
+    const onTouchEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (dx > 60) setSidebarOpen(false); // swipe right to close
+    };
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [sidebarOpen, isMobile]);
+
+  // Close sidebar on outside click (mobile)
+  useEffect(() => {
+    if (!sidebarOpen || !isMobile) return;
+    const handler = () => setSidebarOpen(false);
+    document.addEventListener("backbutton" as any, handler);
+    return () => document.removeEventListener("backbutton" as any, handler);
+  }, [sidebarOpen, isMobile]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -1084,6 +1118,30 @@ export default function MapPage() {
       <div style={{ flex: 1, position: "relative" }}>
         {/* Toolbar overlay */}
         <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Toggle layer panel"
+              aria-expanded={sidebarOpen}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                background: sidebarOpen ? T.accent : T.panel,
+                border: `1px solid ${sidebarOpen ? T.accent : T.border}`,
+                borderRadius: 4,
+                color: sidebarOpen ? "#0a0f1a" : T.textMuted,
+                cursor: "pointer",
+                fontSize: "1.2rem",
+                backdropFilter: "blur(8px)",
+                marginRight: 4,
+              }}
+            >
+              {sidebarOpen ? "✕" : "☰"}
+            </button>
+          )}
           <Toolbar onSearch={handleSearch} onJumpTo={handleJumpTo} onScreenshot={handleScreenshot} />
         </div>
 
@@ -1491,6 +1549,24 @@ export default function MapPage() {
         {!loading && loadError && <MapLoading error dark message="Failed to load MapLibre GL" />}
         {loading && !loadError && <MapLoading dark message="Initializing map..." />}
 
+        {/* Mobile backdrop overlay */}
+        {sidebarOpen && isMobile && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              background: "rgba(0,0,0,0.5)",
+              zIndex: 49,
+              cursor: "pointer",
+            }}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Sidebar */}
         {sidebarOpen && (
           <div
@@ -1498,7 +1574,8 @@ export default function MapPage() {
               position: "absolute",
               top: 0,
               right: 0,
-              width: 280,
+              width: isMobile ? "85vw" : 280,
+              maxWidth: 320,
               height: "100%",
               background: T.panel,
               backdropFilter: "blur(12px)",
@@ -1507,7 +1584,11 @@ export default function MapPage() {
               padding: "0.75rem",
               overflowY: "auto",
               zIndex: 50,
+              WebkitOverflowScrolling: "touch",
+              transition: isMobile ? "transform 0.25s ease" : "none",
             }}
+            role="region"
+            aria-label="Map controls panel"
           >
             <div
               style={{

@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { setStatus } from "./types";
 
 /* ─── Hurricane Tracks ─── */
 
@@ -7,24 +8,90 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
 
   const doLoad = async () => {
     try {
-      // Use server API which parses IBTrACS CSV and returns clean GeoJSON
-      const res = await fetch("/api/hurricanes?active=true");
-      const data = await res.json();
+      setStatus(handle, "hurricaneTracks", "loading");
+
+      // Fetch active storms (points) and full tracks (polylines) in parallel
+      const [pointRes, trackRes] = await Promise.allSettled([
+        fetch("/api/hurricanes?active=true"),
+        fetch("/api/hurricanes?track=full"),
+      ]);
+
       if (!map.getSource) return;
-      if (!data?.features?.length) return;
+
+      // Build combined GeoJSON
+      const features: GeoJSON.Feature[] = [];
+
+      // Parse point data (active storms)
+      if (pointRes.status === "fulfilled" && pointRes.value.ok) {
+        const data = await pointRes.value.json();
+        if (data?.features) features.push(...data.features);
+      }
+
+      // Parse track data (polylines)
+      let trackCount = 0;
+      if (trackRes.status === "fulfilled" && trackRes.value.ok) {
+        const trackData = await trackRes.value.json();
+        if (trackData?.features) {
+          for (const f of trackData.features) {
+            if (f.geometry?.type === "MultiLineString") {
+              trackCount++;
+              features.push(f);
+            }
+          }
+        }
+      }
+
+      if (features.length === 0) {
+        setStatus(handle, "hurricaneTracks", "empty");
+        return;
+      }
 
       try {
+        const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
+
         if (!map.getSource("hurricanes")) {
-          map.addSource("hurricanes", { type: "geojson", data });
+          map.addSource("hurricanes", { type: "geojson", data: geojson });
         } else {
-          map.getSource("hurricanes")?.setData(data);
+          (map.getSource("hurricanes") as any).setData(geojson);
         }
 
+        // Track lines (MultiLineString features)
+        if (!map.getLayer("hurricane-tracks")) {
+          map.addLayer({
+            id: "hurricane-tracks",
+            type: "line",
+            source: "hurricanes",
+            filter: ["==", ["geometry-type"], "MultiLineString"],
+            paint: {
+              "line-color": [
+                "interpolate",
+                ["linear"],
+                ["get", "wind"],
+                0,
+                "#fbbf24",
+                34,
+                "#f97316",
+                64,
+                "#ef4444",
+                96,
+                "#dc2626",
+                130,
+                "#991b1b",
+              ],
+              "line-width": 2,
+              "line-opacity": 0.6,
+              "line-dasharray": [3, 1],
+            },
+          });
+        }
+
+        // Storm position points (Point features)
         if (!map.getLayer("hurricanes-points")) {
           map.addLayer({
             id: "hurricanes-points",
             type: "circle",
             source: "hurricanes",
+            filter: ["==", ["geometry-type"], "Point"],
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 4, 34, 5, 64, 6, 96, 7, 130, 9],
               "circle-color": [
@@ -42,7 +109,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
                 130,
                 "#dc2626",
               ],
-              "circle-opacity": 0.85,
+              "circle-opacity": 0.9,
               "circle-stroke-width": 1.5,
               "circle-stroke-color": "#fff",
             },
@@ -54,6 +121,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
               id: "hurricanes-glow",
               type: "circle",
               source: "hurricanes",
+              filter: ["==", ["geometry-type"], "Point"],
               paint: {
                 "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 8, 64, 14, 130, 22],
                 "circle-color": [
@@ -78,6 +146,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
               id: "hurricanes-labels",
               type: "symbol",
               source: "hurricanes",
+              filter: ["==", ["geometry-type"], "Point"],
               layout: {
                 "text-field": ["coalesce", ["get", "name"], ""],
                 "text-size": 11,
@@ -93,11 +162,13 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
             });
           }
         }
+
+        setStatus(handle, "hurricaneTracks", "loaded", features.length);
       } catch {
         /* style may have changed */
       }
     } catch {
-      /* fetch failed */
+      setStatus(handle, "hurricaneTracks", "error");
     }
   };
 
@@ -106,18 +177,10 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
 }
 
 export function removeHurricaneTracks(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("hurricanes-labels");
-  } catch {}
-  try {
-    map.removeLayer("hurricanes-glow");
-  } catch {}
-  try {
-    map.removeLayer("hurricanes-points");
-  } catch {}
-  try {
-    map.removeSource("hurricanes");
-  } catch {}
+  ["hurricanes-labels", "hurricanes-glow", "hurricanes-points", "hurricane-tracks"].forEach((id) => {
+    try { map.removeLayer(id); } catch {}
+  });
+  try { map.removeSource("hurricanes"); } catch {}
 }
 
 /* ─── Hurricane Animation ─── */
@@ -130,19 +193,30 @@ export function startHurricaneAnimation(
   const source = map.getSource("hurricanes");
   if (!source?._data?.features) return;
 
-  const times = source._data.features
-    .filter(
-      (f: GeoJSON.Feature) => f.geometry?.type === "Point" && (f.properties as Record<string, unknown>)?.timestamp,
-    )
-    .map((f: GeoJSON.Feature) => (f.properties as Record<string, unknown>).timestamp as number)
-    .filter((t: number) => t > 0)
-    .sort((a: number, b: number) => a - b);
+  // Collect timestamps from track data (MultiLineString features with times/winds arrays)
+  const trackFeatures = source._data.features.filter(
+    (f: GeoJSON.Feature) => f.geometry?.type === "MultiLineString" && (f.properties as Record<string, unknown>)?.times,
+  );
 
-  if (times.length === 0) return;
+  if (trackFeatures.length === 0) return;
 
-  const minTime = times[0];
-  const maxTime = times[times.length - 1];
-  const duration = 15000;
+  // Find the time range across all storms
+  let minTime = Infinity;
+  let maxTime = -Infinity;
+  for (const f of trackFeatures) {
+    const times = (f.properties as Record<string, unknown>).times as string[];
+    for (const t of times) {
+      const ms = new Date(t).getTime();
+      if (!isNaN(ms)) {
+        if (ms < minTime) minTime = ms;
+        if (ms > maxTime) maxTime = ms;
+      }
+    }
+  }
+
+  if (minTime === Infinity || maxTime === -Infinity || maxTime - minTime < 1000) return;
+
+  const duration = 20000;
   const startTime = Date.now();
 
   const animate = () => {
@@ -151,14 +225,29 @@ export function startHurricaneAnimation(
     const currentTime = minTime + progress * (maxTime - minTime);
     callback(progress);
 
+    // Filter track coordinates to show only points up to currentTime
     try {
-      if (map.getLayer("hurricanes-points")) {
-        map.setFilter("hurricanes-points", [
-          "all",
-          ["==", ["geometry-type"], "Point"],
-          ["<=", ["get", "timestamp"], currentTime],
-        ]);
+      for (const f of trackFeatures) {
+        const times = (f.properties as Record<string, unknown>).times as string[];
+        const winds = (f.properties as Record<string, unknown>).winds as number[];
+        const coords = (f.geometry as GeoJSON.MultiLineString).coordinates[0];
+
+        // Find how many track points are before currentTime
+        let visibleCount = 0;
+        for (let i = 0; i < times.length; i++) {
+          const ms = new Date(times[i]).getTime();
+          if (!isNaN(ms) && ms <= currentTime) visibleCount = i + 1;
+          else break;
+        }
+
+        // Truncate the line to visibleCount points
+        if (visibleCount < coords.length) {
+          (f.geometry as GeoJSON.MultiLineString).coordinates = [coords.slice(0, visibleCount)];
+        } else {
+          (f.geometry as GeoJSON.MultiLineString).coordinates = [coords];
+        }
       }
+      (source as any).setData({ type: "FeatureCollection", features: source._data?.features || [] });
     } catch {}
   };
 
@@ -170,9 +259,15 @@ export function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle)
   while (handle.intervals.length > 0) {
     clearInterval(handle.intervals.pop()!);
   }
-  try {
-    if (map.getLayer("hurricanes-points")) {
-      map.setFilter("hurricanes-points", ["==", ["geometry-type"], "Point"]);
-    }
-  } catch {}
+  // Re-fetch to restore full tracks
+  if (map.getSource("hurricanes")) {
+    fetch("/api/hurricanes?track=full")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.features) {
+          try { (map.getSource("hurricanes") as any).setData(data); } catch {}
+        }
+      })
+      .catch(() => {});
+  }
 }

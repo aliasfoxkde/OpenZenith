@@ -1,11 +1,11 @@
 # OpenZenith — Remaining Tasks & Progress
 
-**Version:** 0.5.1 | **Last Updated:** 2026-04-19  
-**Deploy:** `cd api && npm run build && npm run pages:build && npx wrangler pages deploy .vercel/output/static --project-name=openzenith --commit-dirty=true`
+**Version:** 0.5.2 | **Last Updated:** 2026-04-19  
+**Deploy:** `cd api && npm run build && npx vercel build && npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=openzenith --commit-dirty=true`
 
 ---
 
-## Task Status — 35/37 Complete
+## Task Status — 37/39 Complete
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
@@ -49,6 +49,12 @@
 | **D** | **Visibility-aware polling** | **✅** | **Pause/resume when tab hidden** |
 | **E** | **Python geo_utils tests** | **✅** | **12 new tests (42 total)** |
 | **F** | **Vessel timeout fix** | **✅** | **15s empty timeout, 30s reconnect** |
+| **G** | **Hurricane full tracks** | **✅** | **API returns track polylines, 2D renders track lines + animation** |
+| **H** | **Responsive mobile sidebar** | **✅** | **85vw on mobile, backdrop overlay, swipe-to-close, hamburger button** |
+| **I** | **Globe LOD system** | **✅** | **4 altitude zones, entity visibility toggle per zone** |
+| **J** | **Python tile_format tests** | **✅** | **34 tests (encode/decode, quantization, compression ratios)** |
+| **K** | **Python converter tests** | **✅** | **7 tests (convert_tile, convert_directory, quantization)** |
+| **L** | **Globe performance G1** | **✅** | **Parallel scripts, FXAA off, entity limits, render bug fix** |
 
 ---
 
@@ -100,12 +106,12 @@
 
 1. **ADSB Exchange subscription** ($30/yr) — unlocks military aircraft data
 2. **COMET-LiCS subsidence** — static InSAR velocity maps
-3. **Hurricane track animation** ✅ Done
-4. **Layer comparison** — split view
-5. **Annotation styling** — color picker, line width
-6. **Responsive mobile design** — collapsible sidebar/drawer
-7. **AISHub feeder** — vessel data via RTL-SDR hardware
-8. **Bundle size optimization** — lazy layer loading
+3. **Layer comparison** — split view
+4. **Annotation styling** — color picker, line width
+5. **AISHub feeder** — vessel data via RTL-SDR hardware
+6. **Bundle size optimization** — lazy layer loading
+7. **Custom Cesium build** — strip unused features (~2.5MB savings)
+8. **WebWorker TLE computation** — offload satellite propagation
 
 See also:
 - `docs/GAP_ANALYSIS.md` — Full gap analysis with priorities

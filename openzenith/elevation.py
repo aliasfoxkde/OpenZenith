@@ -48,6 +48,7 @@ def get_elevation(
     lon: float,
     tile_dir: str | Path | None = None,
     zoom_levels: list[int] | None = None,
+    cache_dir: str | Path | None = None,
 ) -> float | None:
     """Get elevation at a lat/lon by querying Terrarium PNG tiles.
 
@@ -59,6 +60,7 @@ def get_elevation(
         lon: Longitude (-180 to 180)
         tile_dir: Path to tile directory (default: loaded tiles dir)
         zoom_levels: Zoom levels to try (default: [8, 7, 6, 5])
+        cache_dir: Alias for tile_dir
 
     Returns:
         Elevation in meters, or None if no data found.
@@ -66,13 +68,13 @@ def get_elevation(
     if zoom_levels is None:
         zoom_levels = [8, 7, 6, 5]
 
-    base = Path(tile_dir) if tile_dir else Path(DEFAULT_TILE_DIR)
-    if base is None:
+    _dir = Path(tile_dir or cache_dir or DEFAULT_TILE_DIR)
+    if _dir is None:
         raise ValueError("No tile directory. Call load_tiles() or pass tile_dir.")
 
     for zoom in zoom_levels:
         x, y = latlon_to_tile(lat, lon, zoom)
-        tile_path = base / str(zoom) / str(x) / f"{y}.png"
+        tile_path = _dir / str(zoom) / str(x) / f"{y}.png"
 
         if not tile_path.exists():
             continue
@@ -205,6 +207,116 @@ def load_tiles(
     DEFAULT_TILE_DIR = Path(local_dir)
     print(f"Tiles cached at: {DEFAULT_TILE_DIR}")
     return DEFAULT_TILE_DIR
+
+
+def load_elevation_grid(
+    lat: float,
+    lon: float,
+    zoom: int,
+    radius_cells: int = 100,
+    cache_dir: str | Path | None = None,
+) -> dict:
+    """Load a rectangular elevation grid centered on a point.
+
+    Loads all tiles needed to cover the requested area and assembles
+    them into a single numpy array.
+
+    Args:
+        lat: Center latitude
+        lon: Center longitude
+        zoom: Tile zoom level
+        radius_cells: Grid radius in cells (total grid = 2*radius_cells + 1)
+        cache_dir: Tile cache directory (default: loaded tiles dir)
+
+    Returns:
+        Dict with 'grid', 'center_row', 'center_col', 'lat_min', 'lon_min',
+        'cell_size_deg', 'center_lat', 'center_lon'
+    """
+    base = Path(cache_dir) if cache_dir else (Path(DEFAULT_TILE_DIR) if DEFAULT_TILE_DIR else None)
+    if base is None:
+        raise ValueError("No tile directory. Call load_tiles() or pass cache_dir.")
+
+    # Cell size in degrees at this zoom level
+    n = 2**zoom
+    cell_size_deg = 180.0 / (n * 256)
+
+    # Convert radius to tile coordinates
+    cx, cy = latlon_to_tile(lat, lon, zoom)
+
+    # Fractional position within center tile
+    x_frac = ((lon + 180) / 360) * n - cx
+    lat_rad = (lat * math.pi) / 180
+    y_frac = ((1 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2) * n - cy
+
+    # Grid dimensions
+    grid_rows = 2 * radius_cells + 1
+    grid_cols = 2 * radius_cells + 1
+
+    grid = np.full((grid_rows, grid_cols), np.nan, dtype=np.float32)
+
+    # Determine which tiles we need
+    min_pixel_x = cx * 256 - radius_cells + int(x_frac * 256)
+    max_pixel_x = cx * 256 + radius_cells + int(x_frac * 256)
+    min_pixel_y = cy * 256 - radius_cells + int(y_frac * 256)
+    max_pixel_y = cy * 256 + radius_cells + int(y_frac * 256)
+
+    tile_x_min = min_pixel_x // 256
+    tile_x_max = max_pixel_x // 256
+    tile_y_min = min_pixel_y // 256
+    tile_y_max = max_pixel_y // 256
+
+    # Load and place tiles
+    for tx in range(tile_x_min, tile_x_max + 1):
+        for ty in range(tile_y_min, tile_y_max + 1):
+            tile_path = base / str(zoom) / str(tx) / f"{ty}.png"
+            if not tile_path.exists():
+                continue
+            try:
+                with open(tile_path, "rb") as f:
+                    png_bytes = f.read()
+                tile_data = decode_tile(png_bytes)
+            except Exception:
+                continue
+
+            th, tw = tile_data.shape
+
+            # Pixel range in global coordinates
+            global_x_start = tx * 256
+            global_y_start = ty * 256
+
+            for gy in range(th):
+                global_y = global_y_start + gy
+                local_y = global_y - min_pixel_y
+                if local_y < 0 or local_y >= grid_rows:
+                    continue
+                for gx in range(tw):
+                    global_x = global_x_start + gx
+                    local_x = global_x - min_pixel_x
+                    if local_x < 0 or local_x >= grid_cols:
+                        continue
+                    val = tile_data[gy, gx]
+                    if not math.isnan(val):
+                        grid[local_y, local_x] = val
+
+    # Compute geographic bounds
+    center_row = radius_cells
+    center_col = radius_cells
+
+    # Global pixel of grid origin
+    global_origin_lat = 90.0 - (min_pixel_y / 256.0) * (180.0 / n)
+    lat_min = global_origin_lat - grid_rows * cell_size_deg
+    lon_min = -180.0 + (min_pixel_x / 256.0) * (360.0 / n)
+
+    return {
+        "grid": grid,
+        "center_row": center_row,
+        "center_col": center_col,
+        "lat_min": lat_min,
+        "lon_min": lon_min,
+        "cell_size_deg": cell_size_deg,
+        "center_lat": lat,
+        "center_lon": lon,
+    }
 
 
 def get_tile_count(tile_dir: str | Path) -> dict[int, int]:

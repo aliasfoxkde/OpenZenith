@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -52,10 +53,31 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
   }
 
+  // R2 cache-aside: check R2 first
+  try {
+    const cached = await r2GetTile("dem-tile", zoom, tileX, tileY);
+    if (cached) {
+      return new Response(cached, {
+        headers: {
+          ...CACHE_HEADERS,
+          "Content-Type": "image/png",
+          "Content-Length": String(cached.byteLength),
+          "X-Dem-Tile-Source": "r2-cache",
+          "X-Cache": "HIT",
+        },
+      });
+    }
+  } catch {
+    // R2 unavailable — fall through to generation
+  }
+
   // Assemble tile from HuggingFace chunks
   try {
     const tileData = await getTileData(zoom, tileX, tileY, HF_BACKEND);
     const png = encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
+
+    // Store in R2 for future requests
+    r2PutTile("dem-tile", zoom, tileX, tileY, png.buffer as ArrayBuffer, "image/png").catch(() => {});
 
     return new Response(png.buffer as ArrayBuffer, {
       headers: {
@@ -63,6 +85,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         "Content-Type": "image/png",
         "Content-Length": String(png.byteLength),
         "X-Dem-Tile-Source": "huggingface",
+        "X-Cache": "MISS",
       },
     });
   } catch (error) {

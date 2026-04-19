@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -36,10 +37,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
 
+  // R2 cache-aside
+  try {
+    const cached = await r2GetTile("dem-raw", zoom, tileX, tileY);
+    if (cached) {
+      return new NextResponse(cached, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(cached.byteLength),
+          "Cache-Control": "public, max-age=3600",
+          ...CORS_HEADERS,
+          "X-Tile-Size": String(TILE_SIZE),
+          "X-Zoom": String(zoom),
+          "X-Cache": "HIT",
+        },
+      });
+    }
+  } catch {
+    // R2 unavailable
+  }
+
   try {
     const result = await getTileData(zoom, tileX, tileY, HF_BACKEND);
 
     const buffer = result.data.buffer.slice(result.data.byteOffset, result.data.byteOffset + result.data.byteLength);
+
+    // Store in R2
+    r2PutTile("dem-raw", zoom, tileX, tileY, buffer as ArrayBuffer, "application/octet-stream").catch(() => {});
 
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
@@ -49,6 +73,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ...CORS_HEADERS,
         "X-Tile-Size": String(TILE_SIZE),
         "X-Zoom": String(zoom),
+        "X-Cache": "MISS",
       },
     });
   } catch (err) {

@@ -1,3 +1,10 @@
+// Cloudflare Pages environment bindings (R2, KV, D1, etc.)
+declare global {
+  interface CloudflareEnv {
+    DEM_TILES: R2Bucket;
+  }
+}
+
 // Augment Response.json() to return Promise<any> instead of Promise<unknown>
 // This avoids having to cast every res.json() call throughout the codebase.
 interface Response {

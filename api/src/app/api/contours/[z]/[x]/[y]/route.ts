@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 /**
@@ -56,15 +57,37 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     );
   }
 
+  // R2 cache-aside: check R2 first
+  try {
+    const cached = await r2GetTile("contours", zoom, tileX, tileY);
+    if (cached) {
+      return new Response(cached, {
+        headers: {
+          ...CACHE_HEADERS,
+          "Content-Type": "application/geojson",
+          "X-Tile-Type": "contours",
+          "X-Cache": "HIT",
+        },
+      });
+    }
+  } catch {
+    // R2 unavailable
+  }
+
   try {
     const tileData = await getTileData(zoom, tileX, tileY, HF_BACKEND);
     const geojson = generateContours(tileData, zoom, tileX, tileY);
+    const body = JSON.stringify(geojson);
 
-    return NextResponse.json(geojson, {
+    // Store in R2
+    r2PutTile("contours", zoom, tileX, tileY, new TextEncoder().encode(body), "application/geojson").catch(() => {});
+
+    return new Response(body, {
       headers: {
         ...CACHE_HEADERS,
         "Content-Type": "application/geojson",
         "X-Tile-Type": "contours",
+        "X-Cache": "MISS",
       },
     });
   } catch (error) {

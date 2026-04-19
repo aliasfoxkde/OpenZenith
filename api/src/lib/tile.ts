@@ -13,9 +13,13 @@ import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM, SRTM_B
 import { tileToLatLon } from "./srtm/zoom-math";
 import type { ChunkBackend } from "./storage/backend";
 import { cacheGet, cachePut } from "./storage/cache";
+import { inflateSync } from "fflate";
 
 const TILE_SIZE = 256;
 const NODATA = -32768;
+
+// AWS Terrain Tiles — same SRTM 30m data as pre-built Terrarium PNG
+const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
 export interface TileResult {
   data: Int16Array;
@@ -33,12 +37,18 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
   const bounds = tileToLatLon(z, x, y);
 
   // Check if any part of this tile overlaps SRTM coverage
-  if (
+  const outsideSRTM =
     bounds.south > SRTM_BOUNDS.latMax ||
     bounds.north < SRTM_BOUNDS.latMin ||
     bounds.west > SRTM_BOUNDS.lonMax ||
-    bounds.east < SRTM_BOUNDS.lonMin
-  ) {
+    bounds.east < SRTM_BOUNDS.lonMin;
+
+  if (outsideSRTM) {
+    // Outside SRTM — try AWS (which includes GEBCO bathymetry)
+    const awsData = await fetchAWSTerrainTile(z, x, y);
+    if (awsData) {
+      return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
+    }
     return {
       data: new Int16Array(TILE_SIZE * TILE_SIZE).fill(NODATA),
       width: TILE_SIZE,
@@ -58,6 +68,27 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
     } catch {
       // Skip tiles that fail (not all 1° tiles have data)
     }
+  }
+
+  // Check if HuggingFace assembly produced any real data
+  let hasData = false;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] !== NODATA) {
+      hasData = true;
+      break;
+    }
+  }
+
+  // Fallback: if HuggingFace produced all-NODATA (common at low zoom due to
+  // chunk fetch timeouts), decode from AWS Terrain Tiles (same SRTM 30m data)
+  if (!hasData) {
+    console.log(`[tile] HuggingFace all-NODATA for ${z}/${x}/${y}, trying AWS fallback`);
+    const awsData = await fetchAWSTerrainTile(z, x, y);
+    if (awsData) {
+      console.log(`[tile] AWS fallback success for ${z}/${x}/${y}`);
+      return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
+    }
+    console.log(`[tile] AWS fallback FAILED for ${z}/${x}/${y}`);
   }
 
   return { data, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
@@ -184,5 +215,114 @@ async function fillTileFromSrtm(
         }
       }
     }
+  }
+}
+
+/**
+ * Fetch and decode a Terrarium PNG tile from AWS Terrain Tiles.
+ *
+ * AWS hosts the same SRTM 30m data as pre-built Terrarium PNG tiles at all
+ * zoom levels (z0-z15). This is our fallback when HuggingFace chunk assembly
+ * fails (typically at z0-z7 due to too many chunk fetches).
+ *
+ * AWS tile size is 256x256 (z0-z12) which matches our TILE_SIZE.
+ *
+ * @returns Decoded elevation Int16Array, or null on failure
+ */
+async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int16Array | null> {
+  try {
+    const url = AWS_TERRAIN_URL.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
+    console.log(`[tile] Fetching AWS: ${url}`);
+
+    const resp = await fetch(url);
+    console.log(`[tile] AWS response: ${resp.status} ${resp.headers.get('content-type')} ${resp.headers.get('content-length')}`);
+    if (!resp.ok) return null;
+
+    const buf = await resp.arrayBuffer();
+    console.log(`[tile] AWS body received: ${buf.byteLength} bytes`);
+    const pngBytes = new Uint8Array(buf);
+
+    const decoded = decodeTerrariumPNG(pngBytes);
+    console.log(`[tile] AWS decode result: ${decoded ? 'OK' : 'null'}`);
+    return decoded;
+  } catch (err) {
+    console.log(`[tile] AWS fetch error: ${err}`);
+    return null;
+  }
+}
+
+/**
+ * Decode a Terrarium PNG to elevation Int16Array.
+ *
+ * Terrarium encoding: height_m = (R * 256 + G + B / 256) - 32768
+ * PNG format: 8-bit RGB, no alpha, zlib-compressed IDAT chunks.
+ *
+ * @param png - Raw PNG file bytes
+ * @returns 256x256 Int16Array of elevation values
+ */
+function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
+  try {
+    let offset = 8; // Skip PNG signature
+
+    const idatChunks: Uint8Array[] = [];
+    let width = 0;
+    let height = 0;
+    let bitDepth = 0;
+    let colorType = 0;
+
+    while (offset < png.length) {
+      const chunkLen = (png[offset] << 24) | (png[offset + 1] << 16) | (png[offset + 2] << 8) | png[offset + 3];
+      const chunkType = String.fromCharCode(png[offset + 4], png[offset + 5], png[offset + 6], png[offset + 7]);
+      const chunkData = png.subarray(offset + 8, offset + 8 + chunkLen);
+
+      if (chunkType === "IHDR") {
+        width = (chunkData[0] << 24) | (chunkData[1] << 16) | (chunkData[2] << 8) | chunkData[3];
+        height = (chunkData[4] << 24) | (chunkData[5] << 16) | (chunkData[6] << 8) | chunkData[7];
+        bitDepth = chunkData[8];
+        colorType = chunkData[9];
+      } else if (chunkType === "IDAT") {
+        idatChunks.push(chunkData);
+      }
+
+      offset += 12 + chunkLen; // 4 (len) + 4 (type) + data + 4 (crc)
+    }
+
+    if (width === 0 || height === 0 || idatChunks.length === 0) return null;
+
+    // Concatenate IDAT chunks and decompress
+    const totalLen = idatChunks.reduce((sum, c) => sum + c.length, 0);
+    const compressed = new Uint8Array(totalLen);
+    let off = 0;
+    for (const chunk of idatChunks) {
+      compressed.set(chunk, off);
+      off += chunk.length;
+    }
+
+    const raw = inflateSync(compressed);
+
+    // Bytes per pixel (RGB=3, RGBA=4, Grayscale=1)
+    const bpp = colorType === 2 ? 3 : colorType === 6 ? 4 : colorType === 0 ? 1 : 3;
+    const bytesPerRow = 1 + width * bpp; // +1 for PNG filter byte
+
+    const data = new Int16Array(width * height);
+
+    for (let py = 0; py < height; py++) {
+      const rowStart = py * bytesPerRow;
+      // Skip filter byte at rowStart
+      for (let px = 0; px < width; px++) {
+        const i = rowStart + 1 + px * bpp;
+        const r = raw[i];
+        const g = raw[i + 1];
+        const b = raw[i + 2];
+        // Terrarium: height = (R * 256 + G + B / 256) - 32768
+        const elev = (r * 256 + g + b / 256) - 32768;
+        // Detect NODATA (all-zero RGB → -32768)
+        data[py * width + px] = (r === 0 && g === 0 && b === 0) ? NODATA : Math.round(elev);
+      }
+    }
+
+    return data;
+  } catch {
+    return null;
   }
 }

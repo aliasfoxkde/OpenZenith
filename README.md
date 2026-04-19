@@ -1,33 +1,87 @@
 # OpenZenith
 
-Free, fast, global elevation data API. Query any point on Earth for elevation from NASA SRTM 30m.
+Free, fast, global elevation data platform with interactive 3D globe, 2D map views, and Python SDK.
 
-**Live:** [https://openzenith.pages.dev](https://openzenith.pages.dev) | **Map:** [/map](https://openzenith.pages.dev/map) | **WorldView:** [/worldview](https://openzenith.pages.dev/worldview) | **Explore:** [/explore](https://openzenith.pages.dev/explore)
+**Live:** [https://openzenith.cyopsys.com](https://openzenith.cyopsys.com) | **Map:** [/map](https://openzenith.cyopsys.com/map) | **Globe:** [/globe](https://openzenith.cyopsys.com/globe) | **Explore:** [/explore](https://openzenith.cyopsys.com/explore)
 
 ---
 
 ## Features
 
-- **Elevation API** - Query elevation by latitude/longitude, returns height in meters with bilinear interpolation
-- **Tile Server** - Slippy map tiles (z/x/y) serving raw Int16 elevation data, compatible with MapLibre and Leaflet
-- **Interactive Map** - Dark theme, 3D terrain, multiple basemaps, layer controls, elevation pins with click-to-query
-- **WorldView Dashboard** - Real-time geospatial intelligence: flights, earthquakes, weather radar, satellites, hurricanes
-- **Data Explorer** - Discover ArcGIS REST services and query OpenStreetMap via Overpass API
-- **Self-Hostable** - Deploy anywhere with the data on HuggingFace or your own storage backend
-- **No Authentication** - Free and open, no API keys, no rate limits, no sign-up required
-- **Edge-Deployed** - Runs on Cloudflare Pages edge runtime for low latency worldwide
+### 🗺️ Interactive Map & Globe
+- **3D Globe** (CesiumJS) with terrain and real-time data layers
+- **2D Map** (MapLibre) with dark theme, 5 basemaps, layer controls
+- **Elevation heatmap** — hypsometric color ramp (toggleable)
+- **Accuracy heatmap** — data source resolution overlay (default on)
+- **Contour lines** — auto-generated major/minor topo contours
+- **Hillshade** — terrain shading for depth perception
+
+### 📡 Real-Time Data Layers
+- **Earthquakes** (USGS) — global seismic activity
+- **Flights** (OpenSky) — live aircraft positions
+- **Vessels** (AISstream) — ship tracking
+- **Military aircraft** (ADSB Exchange)
+- **Satellites** (Celestrak) — orbital positions
+- **Hurricanes** (NOAA) — active tropical cyclones
+- **Weather radar** (RainViewer) — global precipitation
+- **Wildfires** (NASA EONET) — fire events
+- **Air quality** (WAQI) — AQI measurements
+- **NLNOG nodes** — network infrastructure
+- **Buildings** (Overture Maps) — building footprints
+- **Population density** — census gridded data
+- **Land cover** — ESA WorldCover classification
+
+### 📐 Elevation Tools
+- Click-to-query elevation at any point
+- Elevation profiling
+- Measurement tools (distance, area)
+- Annotations and bookmarks
+- Terrain 3D extrusion
+
+### 🐍 Python SDK
+- `openzenith download` — regional tile download with HuggingFace
+- `openzenith query` — batch elevation queries
+- `openzenith trace` — downstream flow tracing
+- `openzenith watershed` — watershed delineation
+- D8 flow direction, flow accumulation, stream extraction
+- OZT2 compression (67% smaller than Terrarium PNG, lossless)
+- Works offline after initial tile download
+
+### 🔧 API Endpoints (47 routes)
+
+| Category | Endpoints |
+|----------|-----------|
+| Elevation | `/api/elevation`, `/api/elevation/batch`, `/api/dem-tile/{z}/{x}/{y}`, `/api/elevation-color/{z}/{x}/{y}`, `/api/elevation-accuracy/{z}/{x}/{y}`, `/api/contours/{z}/{x}/{y}` |
+| Real-time | `/api/earthquakes`, `/api/flights`, `/api/vessels`, `/api/satellites`, `/api/military` |
+| Weather | `/api/hurricanes`, `/api/weather/warnings`, `/api/weather/radar` |
+| Environment | `/api/wildfires`, `/api/airquality`, `/api/bathymetry` |
+| Infrastructure | `/api/nlnog`, `/api/waterways` |
+| Overlay tiles | `/api/landcover/{z}/{x}/{y}`, `/api/population/{z}/{x}/{y}` |
+| Search | `/api/geocode` |
+
+---
 
 ## Quick Start
 
-### Query elevation
+### Query Elevation
 
 ```bash
-curl "https://openzenith.pages.dev/api/elevation?lat=28.0&lon=86.9"
+curl "https://openzenith.cyopsys.com/api/elevation?lat=28.0&lon=86.9"
+# {"elevation":8848,"unit":"meters","source":"huggingface","tile":"N28E086","resolution":30}
 ```
 
-Response:
-```json
-{"elevation":8848,"unit":"meters","location":{"lat":28.0,"lon":86.9},"source":"srtm30m","srtmTile":"N28E086.tif","resolution":30}
+### Python SDK
+
+```bash
+pip install -e ".[download]"
+openzenith download --region europe --zoom-levels 0-8
+openzenith query --lat 40.7128 --lon -74.0060
+```
+
+```python
+import openzenith
+elev = openzenith.get_elevation(40.7128, -74.0060)
+print(f"NYC: {elev:.1f}m")
 ```
 
 ### JavaScript
@@ -38,118 +92,77 @@ const { elevation } = await res.json();
 console.log(elevation); // 35
 ```
 
-### Python
+---
 
-```python
-import urllib.request, json
-url = "https://openzenith.pages.dev/api/elevation?lat=48.8566&lon=2.3522"
-data = json.loads(urllib.request.urlopen(url).read())
-print(data["elevation"])  # 35
-```
+## Local SDK vs API
 
-## API Endpoints
+| Use Case | Recommended | Speed |
+|----------|-------------|-------|
+| Single query | API | 200-500ms |
+| Web dashboard | API | Real-time |
+| Flow simulation | Local SDK | <2s |
+| Batch 100+ points | Local SDK | <10ms |
+| Contour generation | Local SDK | <1s |
+| Offline use | Local SDK | No network |
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/elevation?lat={lat}&lon={lon}` | Elevation at a point |
-| `GET /api/tile/{z}/{x}/{y}` | Raw Int16 binary tile (256x256) |
-| `GET /api/health` | Service health and status |
-| `GET /api/docs` | Interactive API documentation |
-| `GET /api/openapi.json` | OpenAPI 3.0.3 specification |
-| `GET /api/arcgis?url=` | Proxy for ArcGIS REST API service discovery |
-| `POST /api/overpass` | Proxy for Overpass API / OpenStreetMap queries |
+See [docs/LOCAL_VS_API.md](docs/LOCAL_VS_API.md) for full comparison.
 
-See [docs/USAGE.md](docs/USAGE.md) for detailed API documentation.
+---
 
-## Data Source
+## Data Sources
 
-- **Dataset:** NASA SRTM GL1 v3 (Shuttle Radar Topography Mission)
-- **Resolution:** 1 arc-second (~30 meters)
-- **Coverage:** 56S - 60N latitude, ~80% of Earth's land surface
-- **Tiles:** 14,296 files, 1x1 degree, 3601x3601 pixels each
-- **Format:** Int16 binary, signed 16-bit integer in meters, -32768 = nodata
+| Source | Resolution | Coverage | Accuracy |
+|--------|-----------|----------|----------|
+| SRTM 30m | 30m | ±60° latitude | ±16m |
+| Copernicus GLO-30 | 30m | ±60° | ±16m |
+| ArcticDEM | 2m | >60°N land | ±1m |
+| EEA DTM | 10m | Europe | ±5m |
+| GEBCO 2025 | 450m | Global ocean | ±100-500m |
+
+Validation: 30 benchmark points tested, 76.7% pass rate (no encoding bugs found).
+See [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md) for details.
+
+---
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 with App Router
-- **Runtime:** Cloudflare Pages (Edge Runtime)
-- **Storage:** HuggingFace Datasets (merged binary chunks)
-- **Map:** MapLibre GL with terrarium-encoded elevation tiles
-- **Compression:** Deflate (fflate) for chunk decompression
+- **Frontend:** Next.js 15 App Router, MapLibre GL, CesiumJS
+- **Runtime:** Cloudflare Pages (Edge Workers)
+- **Storage:** HuggingFace Datasets (DEM tiles), Cloudflare R2 (cache)
+- **Python SDK:** NumPy, Pillow, requests, optional Zstd/Brotli
+- **Deploy:** GitHub Actions → Cloudflare Pages (automatic)
 
-## Self-Hosting
-
-OpenZenith can be deployed on any platform that supports Next.js:
-
-1. Clone the repository
-2. Install dependencies: `cd api && npm install`
-3. Build: `npm run build`
-4. Run: `npm start`
-
-### Configuration
-
-Environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STORAGE_BACKEND` | `huggingface` | Storage backend: `huggingface` or `http` |
-| `HF_REPO` | `aliasfox/srtm30m-merged` | HuggingFace dataset repository |
-| `USE_MERGED` | `true` | Use merged files instead of individual chunks |
-| `TILES_BASE_URL` | - | Custom HTTP backend base URL |
-
-### Cloudflare Pages Deployment
-
-1. Connect your GitHub repo to Cloudflare Pages
-2. Set build command: `npx @cloudflare/next-on-pages`
-3. Set output directory: `.vercel/output/static`
-4. Set environment variables (see table above)
-5. Deploy!
+---
 
 ## Project Structure
 
 ```
-api/
-  src/
-    app/              # Next.js App Router pages and API routes
-      api/
-        elevation/    # Elevation endpoint
-        tile/[z]/[x]/[y]/ # Tile endpoint
-        health/        # Health check
-        docs/          # Interactive API docs page
-        openapi.json/  # OpenAPI spec endpoint
-      demo/            # Interactive elevation map
-      page.tsx         # Landing page
-      layout.tsx       # Root layout
-    lib/
-      elevation.ts     # Core elevation lookup with bilinear interpolation
-      srtm/            # SRTM tile math and coordinate conversions
-      storage/         # Chunk backend (HuggingFace, HTTP) and caching
-  scripts/             # Data extraction and upload scripts
-  wrangler.toml        # Cloudflare Pages configuration
+api/                    # Next.js 15 application
+  src/app/              # Pages and API routes (47 routes)
+  src/lib/              # Shared libraries (elevation, weather, layers)
+  src/components/       # React components
+openzenith/             # Python SDK
+  cli.py                # CLI: download/query/trace/watershed/info/validate
+  elevation.py          # Elevation queries and grid loading
+  hydrology.py          # D8 flow direction, accumulation, streams
+  tracing.py            # Downstream tracing
+  terrarium.py          # PNG tile encoding/decoding
+  tile_format_v2.py     # OZT2 compression (gradient + Brotli)
+scripts/                # Utility scripts (validation, benchmarking, DEM pipeline)
+docs/                   # Documentation
+examples/               # Tutorials
 ```
+
+---
 
 ## Documentation
 
-- [USAGE.md](docs/USAGE.md) - Detailed API usage guide
-- [CHANGELOG.md](docs/CHANGELOG.md) - Version history and changes
+- [LOCAL_VS_API.md](docs/LOCAL_VS_API.md) — Local SDK vs API usage guide
+- [VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md) — Elevation data validation
+- [REVAMP_PLAN.md](docs/REVAMP_PLAN.md) — Development roadmap and task tracking
+- [examples/README.md](examples/README.md) — Python SDK tutorials
 
-## Sponsor / Support
-
-OpenZenith runs entirely client-side on Cloudflare's free tier — no servers, no databases, no monthly costs. That keeps it free and zero-dependency, but it also limits what we can do: heavy terrain processing, custom data collection, and advanced simulation tools all need real hardware.
-
-**What your support funds:**
-
-| Goal | Details |
-|------|---------|
-| **Dedicated hardware** | GPU servers for viewshed analysis, water flow simulation, flood modeling, and terrain processing that can't run in a browser tab |
-| **Self-hosted data collection** | ADS-B receiver for live flight data, AIS antenna for marine vessel tracking, weather stations — our own data, no rate limits |
-| **Mapping tools** | Elevation profiling, contour generation, slope/aspect analysis, 3D terrain flythroughs, and proper GIS tools |
-| **Further development** | Real-time hurricane spaghetti models, vessel tracking, advanced WorldView features, and everything on the roadmap |
-
-Every contribution goes directly to hardware, data processing, and development. No platform fees, no middlemen.
-
-- [Sponsor on GitHub](https://github.com/sponsors/aliasfoxkde)
-- [Support on Ko-fi](https://ko-fi.com/aliasfoxkde)
+---
 
 ## License
 

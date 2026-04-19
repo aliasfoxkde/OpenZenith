@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openzenith"
-version = "0.5.0"
+version = "0.5.1"
 description = "Global elevation data tools — query, download, analyze, simulate"
 readme = "README.md"
 license = "MIT"
@@ -47,6 +47,9 @@ dev = [
 all = [
     "openzenith[compression,download,dev]",
 ]
+
+[project.scripts]
+openzenith = "openzenith.cli:main"
 
 [project.scripts]
 openzenith = "openzenith.cli:main"

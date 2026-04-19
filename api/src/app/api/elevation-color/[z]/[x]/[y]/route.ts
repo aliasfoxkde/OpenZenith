@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { encodeTerrariumPNG } from "@/lib/terrarium-png";
 import { zlibSync } from "fflate";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 

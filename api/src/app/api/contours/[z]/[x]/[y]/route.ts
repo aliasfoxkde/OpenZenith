@@ -27,8 +27,8 @@ const CACHE_HEADERS: Record<string, string> = {
 };
 
 const NODATA = -32768;
-const MINOR_INTERVAL = 100; // meters between minor contours
-const MAJOR_INTERVAL = 500; // meters between major contours
+const _MINOR_INTERVAL = 100; // meters between minor contours
+const _MAJOR_INTERVAL = 500; // meters between major contours
 
 // Zoom level determines which contour interval to use (higher zoom = finer)
 function getContourInterval(zoom: number) {
@@ -249,7 +249,7 @@ function marchingSquaresCase(
  * Chain disconnected segments into polylines by connecting endpoints.
  * Uses simple greedy matching with a distance tolerance.
  */
-function chainSegments(segments: [number, number][], tolerance: number = 0.0005): [number, number][][] {
+function chainSegments(segments: [number, number][], _tolerance: number = 0.0005): [number, number][][] {
   // Build an adjacency structure from paired points
   const pointStr = (lat: number, lon: number) => `${lat.toFixed(6)},${lon.toFixed(6)}`;
   const edgeMap = new Map<string, [number, number][]>();

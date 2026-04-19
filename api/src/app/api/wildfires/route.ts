@@ -29,7 +29,7 @@ export async function GET() {
     const keys = [FIRMS_KEY, NASA_OPEN_KEY].filter(Boolean);
 
     let csv = "";
-    let usedKey = "";
+    let _usedKey = "";
 
     for (const key of keys) {
       const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${bbox}/${day}`;
@@ -40,7 +40,7 @@ export async function GET() {
         });
         if (resp.ok) {
           csv = await resp.text();
-          usedKey = key;
+          _usedKey = key;
           break;
         }
       } catch {

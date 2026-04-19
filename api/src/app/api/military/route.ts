@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
-import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
           { status: 200, headers: CORS_HEADERS },
         );
       }
-      return corsError(`ADSB Exchange returned ${resp.status}`, 502);
+      return NextResponse.json(
+        { error: `ADSB Exchange returned ${resp.status}`, ac: [] },
+        { status: 200, headers: CORS_HEADERS },
+      );
     }
 
     const data = await resp.json();
@@ -55,6 +58,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
-    return NextResponse.json({ error: message, ac: [] }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message, ac: [] }, { status: 200, headers: CORS_HEADERS });
   }
 }

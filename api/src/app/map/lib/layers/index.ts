@@ -37,6 +37,22 @@ export { addSentinel2, removeSentinel2 } from "./sentinel2";
 
 // Aviation
 export { addFlights, removeFlights } from "./flights";
+export { addMilitary, removeMilitary } from "./military";
+
+// Maritime
+export { addVessels, removeVessels } from "./vessels";
+export { addMarineWeather, removeMarineWeather } from "./marine-weather";
+
+// Space / Space Weather
+export { addSpaceWeather, removeSpaceWeather } from "./space-weather";
+export { addLightning, removeLightning } from "./lightning";
+
+// Imagery
+export { addNightLights, removeNightLights } from "./night-lights";
+
+// Disaster
+export { addVolcanoes, removeVolcanoes } from "./volcanoes";
+export { addGdacs, removeGdacs } from "./gdacs";
 
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
@@ -62,6 +78,14 @@ import { addLandCover, removeLandCover } from "./landcover";
 import { addSentinel2, removeSentinel2 } from "./sentinel2";
 import { addAirQuality, removeAirQuality } from "./airquality";
 import { addFlights, removeFlights } from "./flights";
+import { addMilitary, removeMilitary } from "./military";
+import { addVessels, removeVessels } from "./vessels";
+import { addMarineWeather, removeMarineWeather } from "./marine-weather";
+import { addSpaceWeather, removeSpaceWeather } from "./space-weather";
+import { addLightning, removeLightning } from "./lightning";
+import { addNightLights, removeNightLights } from "./night-lights";
+import { addVolcanoes, removeVolcanoes } from "./volcanoes";
+import { addGdacs, removeGdacs } from "./gdacs";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -88,6 +112,14 @@ const LAYER_HANDLERS: Record<
   sentinel2: { add: addSentinel2, remove: removeSentinel2 },
   airQuality: { add: addAirQuality, remove: removeAirQuality },
   flights: { add: addFlights, remove: removeFlights },
+  militaryFlights: { add: addMilitary, remove: removeMilitary },
+  vessels: { add: addVessels, remove: removeVessels },
+  marineWeather: { add: addMarineWeather, remove: removeMarineWeather },
+  spaceWeather: { add: addSpaceWeather, remove: removeSpaceWeather },
+  lightning: { add: addLightning, remove: removeLightning },
+  nightLights: { add: addNightLights, remove: removeNightLights },
+  volcanoes: { add: addVolcanoes, remove: removeVolcanoes },
+  gdacs: { add: addGdacs, remove: removeGdacs },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

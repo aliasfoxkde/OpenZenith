@@ -1,5 +1,4 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
 
 /* ─── Air Quality ─── */
 

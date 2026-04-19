@@ -1,11 +1,11 @@
 # OpenZenith — Remaining Tasks & Progress
 
-**Version:** 0.5.2 | **Last Updated:** 2026-04-19  
+**Version:** 0.5.3 | **Last Updated:** 2026-04-19  
 **Deploy:** `cd api && npm run build && npx vercel build && npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=openzenith --commit-dirty=true`
 
 ---
 
-## Task Status — 37/39 Complete
+## Task Status — 40/42 Complete
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
@@ -55,6 +55,13 @@
 | **J** | **Python tile_format tests** | **✅** | **34 tests (encode/decode, quantization, compression ratios)** |
 | **K** | **Python converter tests** | **✅** | **7 tests (convert_tile, convert_directory, quantization)** |
 | **L** | **Globe performance G1** | **✅** | **Parallel scripts, FXAA off, entity limits, render bug fix** |
+| **M** | **CF Cache API fix** | **✅** | **caches.open() replaces broken (caches as any).default** |
+| **N** | **R2 cache-aside for tiles** | **✅** | **3-9x faster cached tiles (500ms → 150ms TTFB)** |
+| **O** | **Cursor debounce** | **✅** | **80ms throttle, 6x fewer re-renders** |
+| **P** | **Service Worker TTL** | **✅** | **Per-path TTL: 24h terrain, 2min data, 24h geo** |
+| **Q** | **Vectorize slope()** | **✅** | **3.4s → 0.022s (154x faster)** |
+| **R** | **Vectorize viewshed()** | **✅** | **18.4s → 0.053s (347x faster)** |
+| **S** | **Performance audit doc** | **✅** | **PERFORMANCE_AUDIT.md with 12 prioritized items** |
 
 ---
 
@@ -116,3 +123,4 @@
 See also:
 - `docs/GAP_ANALYSIS.md` — Full gap analysis with priorities
 - `docs/VESSEL_AIRCRAFT_DATA_OPTIONS.md` — AIS/ADS-B data source options
+- `docs/PERFORMANCE_AUDIT.md` — Performance profiling results and optimization plan

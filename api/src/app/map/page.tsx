@@ -618,6 +618,29 @@ export default function MapPage() {
     }
   }, [measurePoints, measureMode, fetchElevationProfile]);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "l" || e.key === "L") {
+        e.preventDefault();
+        setSidebarOpen((prev) => !prev);
+      }
+      if (e.key === "?" || e.key === "/") {
+        e.preventDefault();
+        setSidebarOpen(true);
+      }
+      if (e.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   // Keyboard shortcuts for measure and draw modes
   useEffect(() => {
     if (measureMode === "none" && drawMode === "none") return;
@@ -1007,6 +1030,8 @@ export default function MapPage() {
 
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Toggle layer panel"
+              aria-expanded={sidebarOpen}
               style={{
                 background: "transparent",
                 border: `1px solid ${T.border}`,
@@ -1036,6 +1061,8 @@ export default function MapPage() {
           <button
             onClick={() => toggleMeasureMode("distance")}
             title="Measure distance (Esc to cancel)"
+            aria-label="Measure distance"
+            aria-pressed={measureMode === "distance"}
             style={{
               background: measureMode === "distance" ? T.accent : T.panel,
               border: `1px solid ${measureMode === "distance" ? T.accent : T.border}`,
@@ -1053,6 +1080,8 @@ export default function MapPage() {
           <button
             onClick={() => toggleMeasureMode("area")}
             title="Measure area (Esc to cancel)"
+            aria-label="Measure area"
+            aria-pressed={measureMode === "area"}
             style={{
               background: measureMode === "area" ? T.accent : T.panel,
               border: `1px solid ${measureMode === "area" ? T.accent : T.border}`,
@@ -1071,6 +1100,7 @@ export default function MapPage() {
             <button
               onClick={clearMeasure}
               title="Clear measurement"
+              aria-label="Clear measurement"
               style={{
                 background: "transparent",
                 border: `1px solid ${T.border}`,
@@ -1092,6 +1122,8 @@ export default function MapPage() {
           <button
             onClick={() => { if (drawMode === "point") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("point"); drawModeRef.current = "point"; } }}
             title="Draw point annotation"
+            aria-label="Draw point annotation"
+            aria-pressed={drawMode === "point"}
             style={{
               background: drawMode === "point" ? "#00ff88" : T.panel,
               border: `1px solid ${drawMode === "point" ? "#00ff88" : T.border}`,
@@ -1106,6 +1138,8 @@ export default function MapPage() {
           <button
             onClick={() => { if (drawMode === "line") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("line"); drawModeRef.current = "line"; } }}
             title="Draw line annotation (click points, Enter to finish)"
+            aria-label="Draw line annotation"
+            aria-pressed={drawMode === "line"}
             style={{
               background: drawMode === "line" ? "#00ff88" : T.panel,
               border: `1px solid ${drawMode === "line" ? "#00ff88" : T.border}`,
@@ -1120,6 +1154,8 @@ export default function MapPage() {
           <button
             onClick={() => { if (drawMode === "polygon") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("polygon"); drawModeRef.current = "polygon"; } }}
             title="Draw polygon annotation (click points, Enter to finish)"
+            aria-label="Draw polygon annotation"
+            aria-pressed={drawMode === "polygon"}
             style={{
               background: drawMode === "polygon" ? "#00ff88" : T.panel,
               border: `1px solid ${drawMode === "polygon" ? "#00ff88" : T.border}`,
@@ -1410,6 +1446,8 @@ export default function MapPage() {
         <ErrorBoundary>
           <div
             ref={containerRef}
+            role="application"
+            aria-label="Interactive map"
             style={{
               width: "100%",
               height: "100%",
@@ -1526,6 +1564,8 @@ export default function MapPage() {
                         {layer.description}
                         {mapState.layers[layer.id] && layerStatus[layer.id] && (
                           <span
+                            aria-live="polite"
+                            aria-label={`${layer.name} status: ${layerStatus[layer.id].status}`}
                             style={{
                               marginLeft: 8,
                               padding: "0 4px",

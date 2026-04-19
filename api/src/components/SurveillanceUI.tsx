@@ -14,6 +14,8 @@ interface PanelProps {
 export function SurveillancePanel({ children, title, style }: PanelProps) {
   return (
     <div
+      role={title ? "region" : undefined}
+      aria-label={title}
       style={{
         background: T.panel,
         border: `1px solid ${T.border}`,
@@ -36,6 +38,8 @@ export function SurveillancePanel({ children, title, style }: PanelProps) {
             fontFamily: T.fontMono,
             textShadow: "0 0 6px rgba(0, 229, 255, 0.25)",
           }}
+          role="heading"
+          aria-level={3}
         >
           {title}
         </div>
@@ -137,6 +141,16 @@ export function LayerToggle({ label, checked, onChange, color = T.accent }: Togg
       }}
     >
       <span
+        role="checkbox"
+        aria-checked={checked}
+        aria-label={`${label} layer`}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === " " || e.key === "Enter") {
+            e.preventDefault();
+            onChange(!checked);
+          }
+        }}
         style={{
           width: 10,
           height: 10,
@@ -162,6 +176,7 @@ export function LayerToggle({ label, checked, onChange, color = T.accent }: Togg
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         style={{ display: "none" }}
+        aria-hidden="true"
       />
     </label>
   );

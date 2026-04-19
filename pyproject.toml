@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "openzenith"
@@ -42,6 +42,7 @@ download = [
 dev = [
     "pytest>=7.0",
     "ruff>=0.1",
+    "hatchling",
 ]
 all = [
     "openzenith[compression,download,dev]",
@@ -55,12 +56,12 @@ Homepage = "https://openzenith.cyopsys.com"
 Documentation = "https://github.com/aliasfoxkde/OpenZenith"
 Repository = "https://github.com/aliasfoxkde/OpenZenith"
 
-[tool.setuptools.packages.find]
-include = ["openzenith*"]
+[tool.hatch.build.targets.wheel]
+packages = ["openzenith"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["openzenith/tests"]

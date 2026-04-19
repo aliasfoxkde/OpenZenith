@@ -1,0 +1,104 @@
+/**
+ * MapLibre data layer loaders for 2D map page.
+ *
+ * Each layer module provides add/remove functions compatible with MapLibre GL's
+ * source/layer API. Layers that fetch GeoJSON data from APIs include
+ * auto-refresh via setInterval (returned for cleanup).
+ *
+ * Layer status tracking: callers can pass a statusCallback to get notified
+ * when layers load, error, or return empty data.
+ */
+
+export { type LayerStatus, type LayerHandle, createLayerHandle, setStatus, latLonToTile } from "./types";
+
+// Terrain
+export { addHillshade, removeHillshade } from "./hillshade";
+export { addElevationColor, removeElevationColor } from "./elevation-color";
+export { addElevationAccuracy, removeElevationAccuracy } from "./elevation-accuracy";
+export { addContours, removeContours } from "./contours";
+
+// Weather
+export { addEarthquakes, removeEarthquakes } from "./earthquakes";
+export { addWarnings, removeWarnings } from "./warnings";
+export { addNaturalEvents, removeNaturalEvents } from "./events";
+export { addRadar, removeRadar } from "./radar";
+export { addHurricaneTracks, removeHurricaneTracks, startHurricaneAnimation, stopHurricaneAnimation } from "./hurricanes";
+export { addWildfires, removeWildfires } from "./wildfires";
+
+// Infrastructure
+export { addNLNOGNodes, removeNLNOGNodes } from "./nlnog";
+export { addBuildings, removeBuildings } from "./buildings";
+export { addPopulationDensity, removePopulationDensity } from "./population";
+export { addLandCover, removeLandCover } from "./landcover";
+export { addWaterways, removeWaterways } from "./waterways";
+
+// Imagery
+export { addSentinel2, removeSentinel2 } from "./sentinel2";
+
+// Aviation
+export { addFlights, removeFlights } from "./flights";
+
+// Environment
+export { addAirQuality, removeAirQuality } from "./airquality";
+
+// ─── Master dispatcher ───
+
+import type { LayerHandle } from "./types";
+import { addHillshade, removeHillshade } from "./hillshade";
+import { addElevationColor, removeElevationColor } from "./elevation-color";
+import { addElevationAccuracy, removeElevationAccuracy } from "./elevation-accuracy";
+import { addContours, removeContours } from "./contours";
+import { addEarthquakes, removeEarthquakes } from "./earthquakes";
+import { addWarnings, removeWarnings } from "./warnings";
+import { addNaturalEvents, removeNaturalEvents } from "./events";
+import { addRadar, removeRadar } from "./radar";
+import { addWaterways, removeWaterways } from "./waterways";
+import { addHurricaneTracks, removeHurricaneTracks } from "./hurricanes";
+import { addNLNOGNodes, removeNLNOGNodes } from "./nlnog";
+import { addWildfires, removeWildfires } from "./wildfires";
+import { addBuildings, removeBuildings } from "./buildings";
+import { addPopulationDensity, removePopulationDensity } from "./population";
+import { addLandCover, removeLandCover } from "./landcover";
+import { addSentinel2, removeSentinel2 } from "./sentinel2";
+import { addAirQuality, removeAirQuality } from "./airquality";
+import { addFlights, removeFlights } from "./flights";
+
+const LAYER_HANDLERS: Record<
+  string,
+  {
+    add: (map: maplibregl.Map, handle: LayerHandle) => void;
+    remove: (map: maplibregl.Map) => void;
+  }
+> = {
+  hillshade: { add: addHillshade, remove: removeHillshade },
+  elevationColor: { add: addElevationColor, remove: removeElevationColor },
+  elevationAccuracy: { add: addElevationAccuracy, remove: removeElevationAccuracy },
+  contours: { add: addContours, remove: removeContours },
+  earthquakes: { add: addEarthquakes, remove: removeEarthquakes },
+  warnings: { add: addWarnings, remove: removeWarnings },
+  events: { add: addNaturalEvents, remove: removeNaturalEvents },
+  radar: { add: addRadar, remove: removeRadar },
+  waterways: { add: addWaterways, remove: removeWaterways },
+  hurricaneTracks: { add: addHurricaneTracks, remove: removeHurricaneTracks },
+  nlnogNodes: { add: addNLNOGNodes, remove: removeNLNOGNodes },
+  wildfires: { add: addWildfires, remove: removeWildfires },
+  buildings: { add: addBuildings, remove: removeBuildings },
+  populationDensity: { add: addPopulationDensity, remove: removePopulationDensity },
+  landCover: { add: addLandCover, remove: removeLandCover },
+  sentinel2: { add: addSentinel2, remove: removeSentinel2 },
+  airQuality: { add: addAirQuality, remove: removeAirQuality },
+  flights: { add: addFlights, remove: removeFlights },
+};
+
+export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {
+  const handler = LAYER_HANDLERS[layerId];
+  if (handler) handler.add(map, handle);
+}
+
+export function removeDataLayer(map: maplibregl.Map, layerId: string): void {
+  const handler = LAYER_HANDLERS[layerId];
+  if (handler) handler.remove(map);
+}
+
+/** Layer IDs that are available in MapLibre 2D context. */
+export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_HANDLERS));

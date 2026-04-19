@@ -84,6 +84,8 @@ const DEFAULT_STATE: MapViewState = {
   layers: buildDefaultLayers(),
 };
 
+const LAYER_STATE_KEY = "openzenith-map-layers";
+
 function buildDefaultLayers(): Record<string, boolean> {
   const layers: Record<string, boolean> = {
     // Map-specific layers
@@ -97,6 +99,18 @@ function buildDefaultLayers(): Record<string, boolean> {
     if (MAP_2D_LAYER_IDS.has(layer.id)) {
       layers[layer.id] = layer.defaultEnabled;
     }
+  }
+  // Restore saved layer preferences from localStorage
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem(LAYER_STATE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        for (const key of Object.keys(parsed)) {
+          if (key in layers) layers[key] = parsed[key];
+        }
+      }
+    } catch {}
   }
   return layers;
 }
@@ -231,6 +245,11 @@ export default function MapPage() {
   const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
   const measureModeRef = useRef<MeasureMode>("none");
   const measurePointsRef = useRef<[number, number][]>([]);
+
+  // Keep mapStateRef current for localStorage persistence
+  useEffect(() => {
+    mapStateRef.current = mapState;
+  }, [mapState]);
 
   // Sync hash on state change
   useEffect(() => {
@@ -484,7 +503,15 @@ export default function MapPage() {
 
       return { ...prev, layers };
     });
+
+    // Persist layer state to localStorage
+    try {
+      const current = { ...mapStateRef.current.layers, [layerName]: enabled };
+      localStorage.setItem(LAYER_STATE_KEY, JSON.stringify(current));
+    } catch {}
   }, []);
+
+  const mapStateRef = useRef(mapState);
 
   // Reset view
   const resetView = useCallback(() => {

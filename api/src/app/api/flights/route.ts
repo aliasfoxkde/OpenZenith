@@ -17,7 +17,9 @@ export async function OPTIONS() {
  * - Without bbox: request from OpenSky but strip heavy fields (callsign,
  *   velocity vectors, sensors) and return only position + basic info.
  *   This reduces response from ~6MB to ~1MB.
- * - Server-side cache: 15s TTL so multiple clients share one upstream fetch
+ * - Server-side cache: 120s TTL — OpenSky is slow from CF edge (~10-15s)
+ * - 20s fetch timeout to accommodate CF edge latency
+ * - With bbox: smaller response, much more likely to succeed
  */
 
 function parseBboxParam(val: string | null, min: number, max: number): number | null {
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const resp = await cachedFetch(url.toString(), CACHE_TTL.FLIGHTS, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(20000),
       headers: { Accept: "application/json" },
     });
 

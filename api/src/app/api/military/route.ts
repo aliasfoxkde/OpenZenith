@@ -17,6 +17,9 @@ function parseCoord(val: string | null, fallback: number, min: number, max: numb
 /**
  * Military flight data — proxies to ADSB Exchange to avoid CORS.
  *
+ * NOTE: ADSB Exchange requires a paid subscription for API access.
+ * Without an API key, the endpoint returns limited/no data.
+ *
  * Parameters:
  *   lat  - Center latitude (default: 30)
  *   lon  - Center longitude (default: -90)
@@ -39,25 +42,39 @@ export async function GET(request: NextRequest) {
     });
 
     if (!resp.ok) {
-      if (resp.status === 402 || resp.status === 403) {
-        return NextResponse.json(
-          { error: "ADSB Exchange requires API key", ac: [] },
-          { status: 200, headers: CORS_HEADERS },
-        );
+      const status = resp.status;
+      let errorMsg = `ADSB Exchange returned ${status}`;
+
+      if (status === 402 || status === 403) {
+        errorMsg = "ADSB Exchange requires API key — subscription needed at https://adsbexchange.com/data/";
+      } else if (status === 429) {
+        errorMsg = "ADSB Exchange rate limit exceeded — try again later";
       }
+
       return NextResponse.json(
-        { error: `ADSB Exchange returned ${resp.status}`, ac: [] },
+        { error: errorMsg, ac: [], count: 0 },
         { status: 200, headers: CORS_HEADERS },
       );
     }
 
     const data = await resp.json();
 
-    return NextResponse.json(data, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=15" },
-    });
+    // Handle various response formats
+    const aircraft = data?.ac || data?.aircraft || data?.results || [];
+
+    return NextResponse.json(
+      {
+        ac: aircraft,
+        count: Array.isArray(aircraft) ? aircraft.length : 0,
+        total: data?.totalCount ?? data?.total ?? null,
+      },
+      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=30" } },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
-    return NextResponse.json({ error: message, ac: [] }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json(
+      { error: message, ac: [], count: 0 },
+      { status: 200, headers: CORS_HEADERS },
+    );
   }
 }

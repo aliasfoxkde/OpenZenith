@@ -8,7 +8,7 @@ export const runtime = "edge";
  *
  * Returns AISstream.io configuration for client-side WebSocket connection.
  * If AISSTREAM_KEY is set, returns the WebSocket URL and key.
- * Otherwise returns a helpful error message.
+ * Otherwise returns empty config with helpful message.
  */
 export async function GET(_request: NextRequest) {
   const apiKey = process.env.AISSTREAM_KEY;
@@ -17,11 +17,12 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json(
       {
         error: "AISSTREAM_KEY not configured",
-        message: "Set AISSTREAM_KEY in .env.local to enable vessel tracking",
-        wsUrl: "wss://stream.aisstream.io/v0/stream",
-        signupUrl: "https://www.aisstream.io/",
+        message: "Register free at https://www.aisstream.io/ and set AISSTREAM_KEY",
+        wsUrl: null,
+        apiKey: null,
+        configured: false,
       },
-      { status: 503 },
+      { status: 200, headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=60" } },
     );
   }
 
@@ -30,6 +31,7 @@ export async function GET(_request: NextRequest) {
       wsUrl: "wss://stream.aisstream.io/v0/stream",
       apiKey,
       messageTypes: ["PositionReport"],
+      configured: true,
     },
     {
       headers: {

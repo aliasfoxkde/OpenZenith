@@ -1,37 +1,19 @@
 import type { LayerHandle } from "./types";
 import { setStatus } from "./types";
 
-/* ─── Burn Scars / Active Fires (NASA VIIRS) ─── */
+/* ─── Active Fires (NASA FIRMS VIIRS via /api/wildfires proxy) ─── */
 
 export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("burnScars")) return;
 
   const doLoad = async () => {
     try {
-      // NASA FIRMS VIIRS Active Fire data — no API key for basic CSV
-      const res = await fetch(
-        "https://firms.modaps.eosdis.nasa.gov/api/area/csv/VIIRS_SNPP_NRT/0,-90,360,90/1",
-        { signal: AbortSignal.timeout(15000) },
-      );
-      const text = await res.text();
-      const lines = text.trim().split("\n");
-      const features: GeoJSON.Feature[] = [];
-
-      for (let i = 1; i < lines.length && features.length < 2000; i++) {
-        const cols = lines[i].split(",");
-        if (cols.length < 10) continue;
-        const lat = parseFloat(cols[0]);
-        const lon = parseFloat(cols[1]);
-        const confidence = parseFloat(cols[9]);
-        const frp = parseFloat(cols[12]);
-        if (isNaN(lat) || isNaN(lon)) continue;
-
-        features.push({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [lon, lat] },
-          properties: { confidence, frp, date: cols[5] },
-        });
-      }
+      // Use the API proxy which has the FIRMS_MAP_KEY
+      const res = await fetch("/api/wildfires", {
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await res.json();
+      const features = data?.features || [];
 
       setStatus(handle, "burnScars", features.length ? "loaded" : "empty", features.length);
 
@@ -84,7 +66,7 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
   };
 
   doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000));
+  handle.intervals.push(setInterval(doLoad, 600000)); // 10 min
 }
 
 export function removeBurnScars(map: maplibregl.Map): void {

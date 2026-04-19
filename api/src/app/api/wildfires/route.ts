@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -9,68 +9,69 @@ export async function OPTIONS() {
 }
 
 /**
- * NASA FIRMS wildfire data via the open CSV endpoint.
- * Uses the free MAP_KEY which doesn't require registration for basic access.
+ * NASA FIRMS wildfire data via CSV endpoint.
  *
- * Fallback strategy:
- * 1. Try with configured FIRMS_API_KEY (higher rate limits)
- * 2. Fall back to NASA open data (no key, lower rate limits)
- * 3. If both fail, return empty with clear error
+ * Uses FIRMS_MAP_KEY (set via wrangler pages secret or .env.local).
+ * Rate limit: 5000 transactions per 10 minutes.
+ *
+ * Parameters:
+ *   days  - Number of days back (default: 1, max: 7)
+ *   bbox  - Bounding box "lon_min,lat_min,lon_max,lat_max" (default: global)
+ *   satellite - VIIRS_SNPP_NRT | VIIRS_NOAA20_NRT | MODIS_NRT (default: VIIRS_SNPP_NRT)
  */
-const FIRMS_KEY = process.env.NEXT_PUBLIC_FIRMS_API_KEY || "";
-const NASA_OPEN_KEY = process.env.FIRMS_MAP_KEY || "";
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const bbox = "-180,-90,180,90";
-    const day = new Date().toISOString().slice(0, 10);
+    const { searchParams } = new URL(request.url);
+    const days = Math.min(Number(searchParams.get("days")) || 1, 7);
+    const bbox = searchParams.get("bbox") || "-180,-90,180,90";
+    const satellite = searchParams.get("satellite") || "VIIRS_SNPP_NRT";
 
-    // Try configured key first, then NASA open key, then no key
-    const keys = [FIRMS_KEY, NASA_OPEN_KEY].filter(Boolean);
+    const apiKey = process.env.FIRMS_MAP_KEY;
 
-    let csv = "";
-    let _usedKey = "";
-
-    for (const key of keys) {
-      const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${bbox}/${day}`;
-      try {
-        const resp = await cachedFetch(url, CACHE_TTL.WARNINGS || 300, {
-          signal: AbortSignal.timeout(10000),
-          headers: { "User-Agent": "OpenZenith/1.0" },
-        });
-        if (resp.ok) {
-          csv = await resp.text();
-          _usedKey = key;
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    if (!csv) {
+    if (!apiKey) {
       return NextResponse.json(
         {
           type: "FeatureCollection",
           features: [],
           count: 0,
-          note: "FIRMS API unavailable — wildfire data requires a free API key from https://firms.modaps.eosdis.nasa.gov/api/area/",
+          error: "FIRMS_MAP_KEY not configured",
         },
-        { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300" } },
+        { status: 200, headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300" } },
       );
     }
 
+    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${apiKey}/${satellite}/${bbox}/${days}`;
+
+    const resp = await cachedFetch(url, CACHE_TTL.WARNINGS || 300, {
+      signal: AbortSignal.timeout(10000),
+      headers: { "User-Agent": "OpenZenith/1.0" },
+    });
+
+    if (!resp.ok) {
+      const statusText = await resp.text().catch(() => "");
+      return NextResponse.json(
+        {
+          type: "FeatureCollection",
+          features: [],
+          count: 0,
+          error: `FIRMS API returned ${resp.status}: ${statusText.slice(0, 100)}`,
+        },
+        { status: 200, headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=60" } },
+      );
+    }
+
+    const csv = await resp.text();
     const lines = csv.trim().split("\n");
 
     if (lines.length < 2) {
       return NextResponse.json(
-        { type: "FeatureCollection", features: [], count: 0, date: day },
+        { type: "FeatureCollection", features: [], count: 0, days, bbox, satellite, date: new Date().toISOString().slice(0, 10) },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
       );
     }
 
     const features: GeoJSON.Feature[] = [];
-    const maxFeatures = 2000;
+    const maxFeatures = 3000;
 
     for (let i = 1; i < lines.length && i <= maxFeatures; i++) {
       const cols = lines[i].split(",");
@@ -88,12 +89,21 @@ export async function GET() {
       features.push({
         type: "Feature",
         geometry: { type: "Point", coordinates: [lon, lat] },
-        properties: { confidence, brightness, frp, daynight, satellite: "VIIRS_SNPP" },
+        properties: { confidence, brightness, frp, daynight, satellite },
       });
     }
 
     return NextResponse.json(
-      { type: "FeatureCollection", features, count: features.length, date: day },
+      {
+        type: "FeatureCollection",
+        features,
+        count: features.length,
+        days,
+        bbox,
+        satellite,
+        date: new Date().toISOString().slice(0, 10),
+        apiKeyStatus: "configured",
+      },
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch (err) {

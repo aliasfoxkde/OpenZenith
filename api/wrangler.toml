@@ -9,4 +9,8 @@ HF_REPO = "aliasfox/srtm30m-merged"
 USE_MERGED = "true"
 
 # Secrets set via: wrangler pages secret put <NAME> --project-name openzenith
-# OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET, AISSTREAM_KEY
+# OPENSKY_CLIENT_ID     - OpenSky Network API client ID
+# OPENSKY_CLIENT_SECRET - OpenSky Network API client secret
+# AISSTREAM_KEY         - AISstream.io vessel tracking key
+# FIRMS_MAP_KEY         - NASA FIRMS wildfire data key
+# ADSB_EXCHANGE_KEY     - ADSB Exchange military aircraft (subscription required)

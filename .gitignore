@@ -3,6 +3,16 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+
+# Node
+node_modules/
+.next/
+.vercel/
+
+# Build
+*.tsbuildinfo
+.env
+.env.local
 *.egg-info/
 dist/
 build/

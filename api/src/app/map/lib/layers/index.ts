@@ -54,6 +54,10 @@ export { addNightLights, removeNightLights } from "./night-lights";
 export { addVolcanoes, removeVolcanoes } from "./volcanoes";
 export { addGdacs, removeGdacs } from "./gdacs";
 
+// SAR / Environmental
+export { addFloods, removeFloods } from "./floods";
+export { addSeaIce, removeSeaIce } from "./sea-ice";
+
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
 
@@ -86,6 +90,8 @@ import { addLightning, removeLightning } from "./lightning";
 import { addNightLights, removeNightLights } from "./night-lights";
 import { addVolcanoes, removeVolcanoes } from "./volcanoes";
 import { addGdacs, removeGdacs } from "./gdacs";
+import { addFloods, removeFloods } from "./floods";
+import { addSeaIce, removeSeaIce } from "./sea-ice";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -120,6 +126,8 @@ const LAYER_HANDLERS: Record<
   nightLights: { add: addNightLights, remove: removeNightLights },
   volcanoes: { add: addVolcanoes, remove: removeVolcanoes },
   gdacs: { add: addGdacs, remove: removeGdacs },
+  floods: { add: addFloods, remove: removeFloods },
+  seaIce: { add: addSeaIce, remove: removeSeaIce },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

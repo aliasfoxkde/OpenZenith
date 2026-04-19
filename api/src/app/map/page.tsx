@@ -231,7 +231,7 @@ export default function MapPage() {
   const RASTER_LAYERS = new Set([
     "hillshade", "elevationColor", "elevationAccuracy", "contours",
     "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
-    "populationDensity", "landCover",
+    "populationDensity", "landCover", "seaIce",
   ]);
   const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>({});
   const setOpacity = useCallback((layerId: string, value: number) => {

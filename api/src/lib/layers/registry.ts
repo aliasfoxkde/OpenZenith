@@ -320,6 +320,26 @@ export const LAYERS: readonly LayerDefinition[] = [
     dataSource: "https://firms.modaps.eosdis.nasa.gov/api/area/",
   },
 
+  /* ── Environmental / SAR ────────────────────────────── */
+  {
+    id: "floods",
+    name: "Flood Extent",
+    category: "weather",
+    description: "Copernicus EMS / GLOFAS flood monitoring and river flood forecasts",
+    defaultEnabled: false,
+    accent: "#3b82f6",
+    dataSource: "https://floods.jrc.ec.europa.eu/",
+  },
+  {
+    id: "seaIce",
+    name: "Sea Ice",
+    category: "weather",
+    description: "Sea ice concentration from NSIDC and OSI SAF satellite observations",
+    defaultEnabled: false,
+    accent: "#93c5fd",
+    dataSource: "https://nsidc.org/",
+  },
+
   /* ── Lightning ────────────────────────────────────────── */
   {
     id: "lightning",

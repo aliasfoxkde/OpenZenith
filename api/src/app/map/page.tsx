@@ -85,6 +85,7 @@ const DEFAULT_STATE: MapViewState = {
 };
 
 const LAYER_STATE_KEY = "openzenith-map-layers";
+const BOOKMARKS_KEY = "openzenith-bookmarks";
 
 function buildDefaultLayers(): Record<string, boolean> {
   const layers: Record<string, boolean> = {
@@ -286,6 +287,102 @@ export default function MapPage() {
   const measureModeRef = useRef<MeasureMode>("none");
   const measurePointsRef = useRef<[number, number][]>([]);
 
+  const [coordFormat, setCoordFormat] = useState<"dd" | "dms">("dd");
+
+  const formatCoord = useCallback((lat: number, lon: number) => {
+    if (coordFormat === "dms") {
+      const toDms = (v: number, pos: string, neg: string) => {
+        const a = Math.abs(v);
+        const d = Math.floor(a);
+        const m = Math.floor((a - d) * 60);
+        const s = ((a - d - m / 60) * 3600).toFixed(1);
+        return `${d}°${m}'${s}"${v >= 0 ? pos : neg}`;
+      };
+      return `${toDms(lat, "N", "S")} ${toDms(lon, "E", "W")}`;
+    }
+    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  }, [coordFormat]);
+
+  // Elevation profile state
+  const [profileData, setProfileData] = useState<{ distance: number; elevation: number }[] | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const fetchElevationProfile = useCallback(async (points: [number, number][]) => {
+    if (points.length < 2) { setProfileData(null); return; }
+    setProfileLoading(true);
+    try {
+      const [start, end] = points;
+      const steps = Math.min(50, Math.max(10, Math.round(
+        Math.sqrt((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) * 111 / 5
+      )));
+      const lats: number[] = [];
+      const lons: number[] = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        lats.push(start[0] + (end[0] - start[0]) * t);
+        lons.push(start[1] + (end[1] - start[1]) * t);
+      }
+      const res = await fetch(`/api/elevation/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points: lats.map((lat, i) => [lat, lons[i]]) }),
+      });
+      const data = await res.json();
+      const elevations = data?.elevations || data?.results || [];
+      let dist = 0;
+      const profile = [{ distance: 0, elevation: elevations[0] ?? 0 }];
+      for (let i = 1; i <= steps; i++) {
+        const dlat = (lats[i] - lats[i - 1]) * 111320;
+        const dlon = (lons[i] - lons[i - 1]) * 111320 * Math.cos((lats[i] * Math.PI) / 180);
+        dist += Math.sqrt(dlat * dlat + dlon * dlon);
+        profile.push({ distance: Math.round(dist), elevation: elevations[i] ?? 0 });
+      }
+      setProfileData(profile);
+    } catch {
+      setProfileData(null);
+    }
+    setProfileLoading(false);
+  }, []);
+
+  // Bookmarks system
+  type Bookmark = { name: string; center: [number, number]; zoom: number; layers: Record<string, boolean>; timestamp: number };
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
+    try {
+      const saved = localStorage.getItem(BOOKMARKS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [bookmarkName, setBookmarkName] = useState("");
+  const [showBookmarks, setShowBookmarks] = useState(false);
+
+  const saveBookmark = useCallback(() => {
+    const name = bookmarkName.trim() || `View ${bookmarks.length + 1}`;
+    const map = mapRef.current;
+    if (!map) return;
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const currentLayers = mapState.layers;
+    const bm: Bookmark = { name, center: [center.lng, center.lat], zoom, layers: { ...currentLayers }, timestamp: Date.now() };
+    const next = [...bookmarks, bm];
+    setBookmarks(next);
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next));
+    setBookmarkName("");
+  }, [bookmarkName, bookmarks, mapState.layers]);
+
+  const loadBookmark = useCallback((bm: Bookmark) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({ center: bm.center, zoom: bm.zoom, duration: 1500 });
+    setMapState((prev) => ({ ...prev, layers: bm.layers }));
+    localStorage.setItem(LAYER_STATE_KEY, JSON.stringify(bm.layers));
+  }, []);
+
+  const deleteBookmark = useCallback((idx: number) => {
+    const next = bookmarks.filter((_, i) => i !== idx);
+    setBookmarks(next);
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next));
+  }, [bookmarks]);
+
   // Keep mapStateRef current for localStorage persistence
   useEffect(() => {
     mapStateRef.current = mapState;
@@ -303,6 +400,7 @@ export default function MapPage() {
   const clearMeasure = useCallback(() => {
     setMeasureMode("none");
     setMeasurePoints([]);
+    setProfileData(null);
     const map = mapRef.current;
     if (map) measureRef.current.removeLayers(map);
   }, []);
@@ -332,7 +430,11 @@ export default function MapPage() {
     if (measureMode === "none") return;
     const map = mapRef.current;
     if (map) measureRef.current.updateMap(map, measurePoints, measureMode);
-  }, [measurePoints, measureMode]);
+    // Fetch elevation profile when 2+ points in distance mode
+    if (measureMode === "distance" && measurePoints.length >= 2) {
+      fetchElevationProfile(measurePoints);
+    }
+  }, [measurePoints, measureMode, fetchElevationProfile]);
 
   // Keyboard shortcut: Escape to cancel measure
   useEffect(() => {
@@ -602,6 +704,28 @@ export default function MapPage() {
     link.href = canvas.toDataURL("image/png");
     link.click();
   }, []);
+
+  // Export visible layers as GeoJSON
+  const handleExportGeoJSON = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+    for (const layerId of MAP_2D_LAYER_IDS) {
+      if (!mapState.layers[layerId]) continue;
+      try {
+        const src = map.getSource(layerId);
+        if (src && "_data" in src && src._data?.features) {
+          geojson.features.push(...src._data.features);
+        }
+      } catch {}
+    }
+    if (geojson.features.length === 0) return;
+    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/geo+json" });
+    const link = document.createElement("a");
+    link.download = `openzenith-layers-${Date.now()}.geojson`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+  }, [mapState.layers]);
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg }}>
@@ -1166,17 +1290,82 @@ export default function MapPage() {
                   Clear Pins
                 </button>
               </div>
+              <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
+                <button onClick={handleExportGeoJSON} style={{ ...btnStyle, flex: 1 }}>
+                  Export GeoJSON
+                </button>
+                <button onClick={handleScreenshot} style={{ ...btnStyle, flex: 1 }}>
+                  Screenshot
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
+                <button onClick={() => setShowBookmarks((v) => !v)} style={{ ...btnStyle, flex: 1 }}>
+                  {showBookmarks ? "▾" : "▸"} Bookmarks
+                </button>
+              </div>
+              {showBookmarks && (
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                    <input
+                      value={bookmarkName}
+                      onChange={(e) => setBookmarkName(e.target.value)}
+                      placeholder="Bookmark name..."
+                      onKeyDown={(e) => e.key === "Enter" && saveBookmark()}
+                      style={{
+                        flex: 1, padding: "3px 6px", fontSize: "0.68rem",
+                        background: T.panel, border: `1px solid ${T.border}`,
+                        color: T.text, borderRadius: 3, fontFamily: T.fontMono,
+                      }}
+                    />
+                    <button onClick={saveBookmark} style={{ ...btnStyle }}>
+                      +
+                    </button>
+                  </div>
+                  {bookmarks.length === 0 && (
+                    <div style={{ fontSize: "0.62rem", color: T.textMuted, fontFamily: T.fontMono }}>
+                      No bookmarks yet
+                    </div>
+                  )}
+                  {bookmarks.map((bm, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "2px 0", fontSize: "0.65rem", fontFamily: T.fontMono,
+                      }}
+                    >
+                      <button
+                        onClick={() => loadBookmark(bm)}
+                        style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: "0.65rem", padding: 0 }}
+                      >
+                        ◎ {bm.name}
+                      </button>
+                      <button
+                        onClick={() => deleteBookmark(i)}
+                        style={{ background: "none", border: "none", color: T.red, cursor: "pointer", fontSize: "0.7rem", padding: 0, opacity: 0.6 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </SurveillancePanel>
 
             {/* Coordinate info */}
             <SurveillancePanel title="Position" style={{ marginBottom: "0.75rem" }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
-                <div>
-                  Center:{" "}
-                  <span style={{ color: T.accent }}>
-                    {mapState.center[0].toFixed(4)}, {mapState.center[1].toFixed(4)}
-                  </span>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
+                  Center: <span style={{ color: T.accent }}>{formatCoord(mapState.center[0], mapState.center[1])}</span>
                 </div>
+                <button
+                  onClick={() => setCoordFormat((f) => (f === "dd" ? "dms" : "dd"))}
+                  style={{ ...btnStyle, fontSize: "0.6rem", padding: "1px 6px" }}
+                >
+                  {coordFormat.toUpperCase()}
+                </button>
+              </div>
+              <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
                 <div>
                   Zoom: <span style={{ color: T.accent }}>{mapState.zoom.toFixed(1)}</span>
                   {" | Bearing: "}
@@ -1186,6 +1375,40 @@ export default function MapPage() {
                 </div>
               </div>
             </SurveillancePanel>
+
+            {/* Elevation profile */}
+            {profileData && profileData.length > 1 && (
+              <SurveillancePanel title="Elevation Profile" style={{ marginBottom: "0.75rem" }}>
+                {profileLoading && <div style={{ fontSize: "0.65rem", color: T.amber, fontFamily: T.fontMono }}>⟳ Loading...</div>}
+                <div style={{ position: "relative", height: 60, background: "rgba(0,0,0,0.2)", borderRadius: 3, overflow: "hidden", marginTop: 4 }}>
+                  <svg viewBox={`0 0 ${profileData.length * 4} 60`} preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+                    {(() => {
+                      const elevs = profileData.map((p) => p.elevation);
+                      const minE = Math.min(...elevs);
+                      const maxE = Math.max(...elevs);
+                      const range = maxE - minE || 1;
+                      const w = profileData.length * 4;
+                      const points = profileData.map((p, i) => `${i * 4},${60 - ((p.elevation - minE) / range) * 55 - 2}`).join(" ");
+                      return <polyline points={points} fill="none" stroke={T.green} strokeWidth="1.5" />;
+                    })()}
+                  </svg>
+                  <div style={{ position: "absolute", top: 2, left: 4, fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted }}>
+                    {Math.max(...profileData.map((p) => p.elevation))}m
+                  </div>
+                  <div style={{ position: "absolute", bottom: 2, left: 4, fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted }}>
+                    {Math.min(...profileData.map((p) => p.elevation))}m
+                  </div>
+                  <div style={{ position: "absolute", bottom: 2, right: 4, fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted }}>
+                    {(profileData[profileData.length - 1].distance / 1000).toFixed(1)}km
+                  </div>
+                </div>
+                <div style={{ fontSize: "0.58rem", fontFamily: T.fontMono, color: T.textMuted, marginTop: 2, display: "flex", justifyContent: "space-between" }}>
+                  <span>Start: {profileData[0].elevation}m</span>
+                  <span>End: {profileData[profileData.length - 1].elevation}m</span>
+                  <span>Δ{(Math.abs(profileData[0].elevation - profileData[profileData.length - 1].elevation)).toFixed(0)}m</span>
+                </div>
+              </SurveillancePanel>
+            )}
 
             {/* Pin history */}
             {pins.length > 0 && (

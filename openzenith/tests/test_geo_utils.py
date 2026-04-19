@@ -1,0 +1,95 @@
+"""Tests for geo_utils module."""
+
+import pytest
+import numpy as np
+from openzenith.geo_utils import (
+    srtm_filename_to_bounds,
+    elevation_to_latlon,
+    latlon_to_elevation_index,
+    classify_terrain,
+)
+
+
+class TestSrtmFilenameToBounds:
+    """Test SRTM filename parsing."""
+
+    def test_northern_eastern(self):
+        lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("N40W072.tif")
+        assert lat_min == 40
+        assert lat_max == 41
+        assert lon_min == -73
+        assert lon_max == -72
+
+    def test_southern_eastern(self):
+        lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("S01E036.tif")
+        assert lat_min == -2
+        assert lat_max == -1
+        assert lon_min == 36
+        assert lon_max == 37
+
+    def test_equator_prime_meridian(self):
+        lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("N00E000.tif")
+        assert lat_min == 0
+        assert lat_max == 1
+        assert lon_min == 0
+        assert lon_max == 1
+
+    def test_without_extension(self):
+        bounds = srtm_filename_to_bounds("N27E086")
+        assert bounds[0] == 27
+        assert bounds[2] == 28
+
+
+class TestElevationToLatlon:
+    """Test pixel-to-geographic coordinate conversion."""
+
+    def test_top_left(self):
+        lat, lon = elevation_to_latlon(0, 0, 40.0, -73.0)
+        # Row 0 = northernmost = lat_max = lat_min + 1
+        assert lat == 41.0
+        assert lon == -73.0
+
+    def test_bottom_right(self):
+        lat, lon = elevation_to_latlon(3600, 3600, 40.0, -73.0)
+        assert lat == pytest.approx(40.0, abs=0.001)
+        assert lon == pytest.approx(-72.0, abs=0.001)
+
+    def test_center(self):
+        lat, lon = elevation_to_latlon(1800, 1800, 40.0, -73.0)
+        assert 40.4 < lat < 40.6
+        assert -72.6 < lon < -72.4
+
+
+class TestLatlonToElevationIndex:
+    """Test geographic-to-pixel coordinate conversion."""
+
+    def test_top_left(self):
+        row, col = latlon_to_elevation_index(41.0, -73.0, 40.0, -73.0)
+        assert row == 0
+        assert col == 0
+
+    def test_bottom_right(self):
+        row, col = latlon_to_elevation_index(40.0, -72.0, 40.0, -73.0)
+        assert row == 3600
+        assert col == 3600
+
+
+class TestClassifyTerrain:
+    """Test terrain classification from elevation array."""
+
+    def test_ocean(self):
+        data = np.array([[-5000, -3000], [-2000, -1000]], dtype=np.int16)
+        assert classify_terrain(data) == "ocean"
+
+    def test_flat_lowland(self):
+        data = np.array([[50, 55], [48, 52]], dtype=np.int16)
+        assert classify_terrain(data) == "flat_lowland"
+
+    def test_mountain(self):
+        data = np.array([[100, 2000], [300, 3500]], dtype=np.int16)
+        result = classify_terrain(data)
+        assert result in ("high_mountain", "mountain", "alpine", "highland")
+
+    def test_nodata(self):
+        data = np.full((2, 2), -32768, dtype=np.int16)
+        assert classify_terrain(data) == "nodata"

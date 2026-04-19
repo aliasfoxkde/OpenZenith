@@ -667,6 +667,37 @@ export default function MapPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [measureMode, drawMode, clearMeasure, cancelDrawing, finishDrawing]);
 
+  // Pause/resume layer polling when tab is hidden/visible
+  useEffect(() => {
+    const handle = layerHandleRef.current;
+    let savedIntervals: ReturnType<typeof setInterval>[] = [];
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        // Pause all intervals
+        savedIntervals = [...handle.intervals];
+        handle.intervals.forEach(clearInterval);
+        handle.intervals = [];
+      } else {
+        // Resume: re-add layers (which will restart their intervals)
+        const map = mapRef.current;
+        if (!map) return;
+        for (const layerId of MAP_2D_LAYER_IDS) {
+          if (mapState.layers[layerId]) {
+            addDataLayer(map, handle, layerId);
+          }
+        }
+        // Restore hillshade if enabled
+        if (mapState.layers.hillshade) addDataLayer(map, handle, "hillshade");
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [mapState.layers]);
+
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;

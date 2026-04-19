@@ -210,24 +210,40 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
         if (!map.getLayer("natural-events-points")) {
           map.addLayer({
             id: "natural-events-points",
-            type: "symbol",
+            type: "circle",
             source: "natural-events",
-            layout: {
-              "icon-image": "marker-15",
-              "icon-size": 0.8,
-              "text-field": ["coalesce", ["get", "title"], ""],
-              "text-font": ["Open Sans Regular"],
-              "text-size": 10,
-              "text-offset": [0, 1.2],
-              "text-anchor": "top",
-              "text-max-width": 8,
-            },
             paint: {
-              "text-color": "#ef4444",
-              "text-halo-color": "rgba(0,0,0,0.8)",
-              "text-halo-width": 1.5,
+              "circle-radius": 6,
+              "circle-color": [
+                "match",
+                ["coalesce", ["get", "category"], ""],
+                ["volcanoes", "severeStorms", "icebergs"],
+                "#ef4444",
+                ["wildfires", "seaLakeIce"],
+                "#f97316",
+                ["floods", "landslides"],
+                "#3b82f6",
+                "#eab308",
+              ],
+              "circle-opacity": 0.85,
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "rgba(255,255,255,0.6)",
             },
           });
+
+          // Glow underneath
+          if (!map.getLayer("natural-events-glow")) {
+            map.addLayer({
+              id: "natural-events-glow",
+              type: "circle",
+              source: "natural-events",
+              paint: {
+                "circle-radius": 14,
+                "circle-color": "rgba(239, 68, 68, 0.2)",
+                "circle-blur": 1,
+              },
+            });
+          }
         }
       } catch {
         /* style may have changed */
@@ -242,6 +258,9 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
 }
 
 export function removeNaturalEvents(map: maplibregl.Map): void {
+  try {
+    map.removeLayer("natural-events-glow");
+  } catch {}
   try {
     map.removeLayer("natural-events-points");
   } catch {}
@@ -361,128 +380,48 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
 
   const doLoad = async () => {
     try {
-      const res = await fetch(
-        "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv",
-      );
-      const csv = await res.text();
+      // Use server API which parses IBTrACS CSV and returns clean GeoJSON
+      const res = await fetch("/api/hurricanes?active=true");
+      const data = await res.json();
       if (!map.getSource) return;
-
-      const lines = csv.trim().split("\n");
-      if (lines.length < 3) return;
-      const headers = lines[0]
-        .replace(/^"/, "")
-        .split(",")
-        .map((h: string) => h.trim());
-      const sidIdx = headers.indexOf("SID");
-      const latIdx = headers.indexOf("LAT");
-      const lonIdx = headers.indexOf("LON");
-      const nameIdx = headers.indexOf("NAME");
-      const seasonIdx = headers.indexOf("SEASON");
-      const windIdx = headers.indexOf("WMO_WIND");
-      const timeIdx = headers.indexOf("ISO_TIME");
-
-      if (sidIdx < 0 || latIdx < 0 || lonIdx < 0) return;
-
-      // Group by storm ID with timestamps
-      const storms: Record<
-        string,
-        {
-          coords: [number, number][];
-          name: string;
-          season: string;
-          maxWind: number;
-          times: string[];
-        }
-      > = {};
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",");
-        const sid = cols[sidIdx]?.trim();
-        const lat = parseFloat(cols[latIdx]);
-        const lon = parseFloat(cols[lonIdx]);
-        if (!sid || isNaN(lat) || isNaN(lon)) continue;
-
-        if (!storms[sid])
-          storms[sid] = {
-            coords: [],
-            name: cols[nameIdx]?.replace(/"/g, "") || "UNNAMED",
-            season: cols[seasonIdx]?.trim() || "",
-            maxWind: 0,
-            times: [],
-          };
-        storms[sid].coords.push([lon, lat]);
-        storms[sid].times.push(cols[timeIdx]?.trim() || "");
-        const wind = parseFloat(cols[windIdx]);
-        if (!isNaN(wind) && wind > storms[sid].maxWind) storms[sid].maxWind = wind;
-      }
-
-      // Create point features with time for animation
-      const pointFeatures: GeoJSON.Feature[] = [];
-      for (const s of Object.values(storms)) {
-        if (s.coords.length < 3) continue;
-        for (let j = 0; j < s.coords.length; j++) {
-          const ts = new Date(s.times[j]).getTime();
-          pointFeatures.push({
-            type: "Feature",
-            properties: {
-              name: s.name,
-              season: s.season,
-              maxWind: s.maxWind,
-              timestamp: isNaN(ts) ? 0 : ts,
-              wind: parseFloat(lines.find((l) => l.includes(s.coords[j][0].toString()))?.split(",")[windIdx] || "0"),
-            },
-            geometry: { type: "Point", coordinates: s.coords[j] },
-          });
-        }
-      }
-
-      // LineString features for tracks
-      const lineFeatures = Object.values(storms)
-        .filter((s) => s.coords.length > 3)
-        .map((s) => ({
-          type: "Feature" as const,
-          properties: { name: s.name, season: s.season, maxWind: s.maxWind },
-          geometry: { type: "LineString" as const, coordinates: s.coords },
-        }));
-
-      const geojson = { type: "FeatureCollection" as const, features: [...lineFeatures, ...pointFeatures] };
+      if (!data?.features?.length) return;
 
       try {
         if (!map.getSource("hurricanes")) {
-          map.addSource("hurricanes", { type: "geojson", data: geojson });
+          map.addSource("hurricanes", { type: "geojson", data });
         } else {
-          map.getSource("hurricanes")?.setData(geojson);
+          map.getSource("hurricanes")?.setData(data);
         }
 
-        if (!map.getLayer("hurricanes-line")) {
-          map.addLayer({
-            id: "hurricanes-line",
-            type: "line",
-            source: "hurricanes",
-            filter: ["==", ["geometry-type"], "LineString"],
-            paint: {
-              "line-color": "#f97316",
-              "line-width": 1.5,
-              "line-opacity": 0.5,
-            },
-          });
-        }
-
-        // Animated point markers — filtered by timestamp
         if (!map.getLayer("hurricanes-points")) {
           map.addLayer({
             id: "hurricanes-points",
             type: "circle",
             source: "hurricanes",
-            filter: ["==", ["geometry-type"], "Point"],
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 2, 64, 4, 96, 5, 130, 7],
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["get", "wind"],
+                0,
+                4,
+                34,
+                5,
+                64,
+                6,
+                96,
+                7,
+                130,
+                9,
+              ],
               "circle-color": [
                 "interpolate",
                 ["linear"],
                 ["get", "wind"],
                 0,
                 "#fbbf24",
+                34,
+                "#f97316",
                 64,
                 "#f97316",
                 96,
@@ -490,11 +429,66 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
                 130,
                 "#dc2626",
               ],
-              "circle-opacity": 0.8,
-              "circle-stroke-width": 1,
+              "circle-opacity": 0.85,
+              "circle-stroke-width": 1.5,
               "circle-stroke-color": "#fff",
             },
           });
+
+          // Glow layer
+          if (!map.getLayer("hurricanes-glow")) {
+            map.addLayer({
+              id: "hurricanes-glow",
+              type: "circle",
+              source: "hurricanes",
+              paint: {
+                "circle-radius": [
+                  "interpolate",
+                  ["linear"],
+                  ["get", "wind"],
+                  0,
+                  8,
+                  64,
+                  14,
+                  130,
+                  22,
+                ],
+                "circle-color": [
+                  "interpolate",
+                  ["linear"],
+                  ["get", "wind"],
+                  0,
+                  "rgba(251,191,36,0.15)",
+                  64,
+                  "rgba(249,115,22,0.15)",
+                  130,
+                  "rgba(220,38,38,0.2)",
+                ],
+                "circle-blur": 1,
+              },
+            });
+          }
+
+          // Labels for storm names
+          if (!map.getLayer("hurricanes-labels")) {
+            map.addLayer({
+              id: "hurricanes-labels",
+              type: "symbol",
+              source: "hurricanes",
+              layout: {
+                "text-field": ["coalesce", ["get", "name"], ""],
+                "text-size": 11,
+                "text-offset": [0, 1.5],
+                "text-anchor": "top",
+                "text-max-width": 8,
+              },
+              paint: {
+                "text-color": "#f97316",
+                "text-halo-color": "rgba(0,0,0,0.9)",
+                "text-halo-width": 2,
+              },
+            });
+          }
         }
       } catch {
         /* style may have changed */
@@ -505,15 +499,18 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
   };
 
   doLoad();
-  handle.intervals.push(setInterval(doLoad, 3600000));
+  handle.intervals.push(setInterval(doLoad, 600000));
 }
 
 export function removeHurricaneTracks(map: maplibregl.Map): void {
   try {
-    map.removeLayer("hurricanes-points");
+    map.removeLayer("hurricanes-labels");
   } catch {}
   try {
-    map.removeLayer("hurricanes-line");
+    map.removeLayer("hurricanes-glow");
+  } catch {}
+  try {
+    map.removeLayer("hurricanes-points");
   } catch {}
   try {
     map.removeSource("hurricanes");
@@ -529,13 +526,32 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const res = await fetch("/api/nlnog");
       const data = await res.json();
-      if (!map.getSource || !data?.features) return;
+      if (!map.getSource) return;
+
+      // API returns {nodes: [...], count: N}, not GeoJSON — convert
+      const nodes = data?.nodes || data?.features || [];
+      if (!nodes.length) return;
+
+      const geojson: GeoJSON.FeatureCollection = {
+        type: "FeatureCollection",
+        features: nodes.map((n: { lat: number; lon: number; id: number; hostname?: string; asn?: number; city?: string; country?: string }) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [n.lon, n.lat] },
+          properties: {
+            id: n.id,
+            hostname: n.hostname || "",
+            asn: n.asn || 0,
+            city: n.city || "",
+            country: n.country || "",
+          },
+        })),
+      };
 
       try {
         if (!map.getSource("nlnog-nodes")) {
-          map.addSource("nlnog-nodes", { type: "geojson", data });
+          map.addSource("nlnog-nodes", { type: "geojson", data: geojson });
         } else {
-          map.getSource("nlnog-nodes")?.setData(data);
+          map.getSource("nlnog-nodes")?.setData(geojson);
         }
 
         if (!map.getLayer("nlnog-circles")) {
@@ -923,6 +939,150 @@ export function removeAirQuality(map: maplibregl.Map): void {
   } catch {}
 }
 
+/* ─── Elevation Color Heatmap ─── */
+
+export function addElevationColor(map: maplibregl.Map, _handle: LayerHandle): void {
+  if (map.getSource("elevation-color")) return;
+
+  map.addSource("elevation-color", {
+    type: "raster",
+    tiles: ["/api/elevation-color/{z}/{x}/{y}"],
+    tileSize: 256,
+    minzoom: 0,
+    maxzoom: 12,
+  });
+
+  map.addLayer({
+    id: "elevation-color-layer",
+    type: "raster",
+    source: "elevation-color",
+    paint: {
+      "raster-opacity": 0.85,
+    },
+  });
+}
+
+export function removeElevationColor(map: maplibregl.Map): void {
+  try {
+    map.removeLayer("elevation-color-layer");
+  } catch {}
+  try {
+    map.removeSource("elevation-color");
+  } catch {}
+}
+
+/* ─── Elevation Accuracy Heatmap ─── */
+
+export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle): void {
+  if (map.getSource("elevation-accuracy")) return;
+
+  map.addSource("elevation-accuracy", {
+    type: "raster",
+    tiles: ["/api/elevation-accuracy/{z}/{x}/{y}"],
+    tileSize: 256,
+    minzoom: 0,
+    maxzoom: 12,
+  });
+
+  map.addLayer({
+    id: "elevation-accuracy-layer",
+    type: "raster",
+    source: "elevation-accuracy",
+    paint: {
+      "raster-opacity": 0.4,
+    },
+  });
+}
+
+export function removeElevationAccuracy(map: maplibregl.Map): void {
+  try {
+    map.removeLayer("elevation-accuracy-layer");
+  } catch {}
+  try {
+    map.removeSource("elevation-accuracy");
+  } catch {}
+}
+
+/* ─── Topo Contours ─── */
+
+export function addContours(map: maplibregl.Map, _handle: LayerHandle): void {
+  if (map.getSource("contours")) return;
+
+  map.addSource("contours", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+  });
+
+  // Minor contours — thin, subtle
+  map.addLayer({
+    id: "contours-minor",
+    type: "line",
+    source: "contours",
+    paint: {
+      "line-color": "rgba(148, 163, 184, 0.3)",
+      "line-width": 0.5,
+    },
+    filter: ["==", ["get", "type"], "minor"],
+  });
+
+  // Major contours — thicker, brighter
+  map.addLayer({
+    id: "contours-major",
+    type: "line",
+    source: "contours",
+    paint: {
+      "line-color": "rgba(203, 213, 225, 0.6)",
+      "line-width": 1.2,
+    },
+    filter: ["==", ["get", "type"], "major"],
+  });
+
+  // Load contour data for current viewport
+  const loadContours = async () => {
+    try {
+      if (!map.getSource("contours")) return;
+      const bounds = map.getBounds();
+      const center = map.getCenter();
+      const zoom = Math.floor(map.getZoom());
+      const { x, y } = latLonToTile(center.lat, center.lng, zoom);
+
+      // Fetch contours for center tile
+      const res = await fetch(`/api/contours/${zoom}/${x}/${y}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.features?.length) return;
+
+      if (map.getSource("contours")) {
+        map.getSource("contours")?.setData?.(data);
+      }
+    } catch {
+      /* skip */
+    }
+  };
+
+  loadContours();
+}
+
+function latLonToTile(lat: number, lon: number, zoom: number) {
+  const n = 2 ** zoom;
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
+  return { x, y };
+}
+
+export function removeContours(map: maplibregl.Map): void {
+  try {
+    map.removeLayer("contours-major");
+  } catch {}
+  try {
+    map.removeLayer("contours-minor");
+  } catch {}
+  try {
+    map.removeSource("contours");
+  } catch {}
+}
+
 /* ─── Hillshade (terrain overlay) ─── */
 
 export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
@@ -957,6 +1117,9 @@ const LAYER_HANDLERS: Record<
   }
 > = {
   hillshade: { add: addHillshade, remove: removeHillshade },
+  elevationColor: { add: addElevationColor, remove: removeElevationColor },
+  elevationAccuracy: { add: addElevationAccuracy, remove: removeElevationAccuracy },
+  contours: { add: addContours, remove: removeContours },
   earthquakes: { add: addEarthquakes, remove: removeEarthquakes },
   warnings: { add: addWarnings, remove: removeWarnings },
   events: { add: addNaturalEvents, remove: removeNaturalEvents },

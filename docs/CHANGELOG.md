@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.5 (2026-04-20)
+## v0.6.0 (2026-04-20)
 
 ### Data Source Fixes (5 broken sources repaired)
 - **Marine weather**: Open-Meteo tile endpoint dead. Replaced with Open-Meteo Marine JSON API, displaying wave height data as color-coded grid points across 36 ocean sample locations.

@@ -324,7 +324,61 @@ def cmd_viewshed(args):
             print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
 
 
-# ─── Helpers ───
+def cmd_twi(args):
+    """Compute Topographic Wetness Index."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.hydrology import twi
+
+    print(f"💧 Computing TWI around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = twi(grid["data"], cell_size_deg=grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ TWI: range [{np.min(valid):.1f}, {np.max(valid):.1f}], median={np.median(valid):.1f} ({elapsed:.1f}s)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_contour(args):
+    """Export DEM contours as GeoJSON."""
+    import json as _json
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.export import contour_to_geojson
+
+    print(f"🗺️  Extracting contours at {args.interval}m interval around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = contour_to_geojson(grid["data"], interval=args.interval, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
+    elapsed = time.time() - t0
+
+    out_path = args.output or f"contours_{args.interval}m.geojson"
+    with open(out_path, "w") as f:
+        _json.dump(result, f)
+    print(f"✅ {len(result['features'])} contour lines → {out_path} ({elapsed:.1f}s)")
+
+
+def cmd_geojson(args):
+    """Export terrain grid as GeoJSON."""
+    import json as _json
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.export import grid_to_geojson
+
+    kind = args.kind or "elevation"
+    name = args.name or kind
+    print(f"📄 Exporting {kind} grid as GeoJSON around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = grid_to_geojson(grid["data"], name=name, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
+    elapsed = time.time() - t0
+
+    out_path = args.output or f"{kind}.geojson"
+    with open(out_path, "w") as f:
+        _json.dump(result, f)
+    print(f"✅ {len(result['features'])} points → {out_path} ({elapsed:.1f}s)")
 
 REGION_BBOXES = {
     "world": (-90, -180, 90, 180),
@@ -421,6 +475,30 @@ def main():
     vw.add_argument("--max-dist", type=int, default=None, help="Max distance in cells")
     vw.add_argument("--output", type=str, default=None, help="Output PNG or .npy file")
 
+    # twi
+    tw = sub.add_parser("twi", help="Compute Topographic Wetness Index")
+    tw.add_argument("--lat", type=float, required=True)
+    tw.add_argument("--lon", type=float, required=True)
+    tw.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    tw.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # contour
+    ct = sub.add_parser("contour", help="Export DEM contours as GeoJSON")
+    ct.add_argument("--lat", type=float, required=True)
+    ct.add_argument("--lon", type=float, required=True)
+    ct.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    ct.add_argument("--interval", type=float, default=100, help="Contour interval in meters")
+    ct.add_argument("--output", type=str, default=None, help="Output .geojson file")
+
+    # geojson
+    gj = sub.add_parser("geojson", help="Export terrain grid as GeoJSON points")
+    gj.add_argument("--lat", type=float, required=True)
+    gj.add_argument("--lon", type=float, required=True)
+    gj.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    gj.add_argument("--kind", type=str, default="elevation", help="Data kind label")
+    gj.add_argument("--name", type=str, default=None, help="Property name")
+    gj.add_argument("--output", type=str, default=None, help="Output .geojson file")
+
     args = parser.parse_args()
 
     commands = {
@@ -433,6 +511,9 @@ def main():
         "slope": cmd_slope,
         "hillshade": cmd_hillshade,
         "viewshed": cmd_viewshed,
+        "twi": cmd_twi,
+        "contour": cmd_contour,
+        "geojson": cmd_geojson,
     }
 
     if args.command in commands:

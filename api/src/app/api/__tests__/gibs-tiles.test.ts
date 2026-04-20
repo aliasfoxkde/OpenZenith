@@ -20,6 +20,11 @@ const GIBS_ROUTES = [
   { name: "Aboveground Biomass", prefix: "biomass", minZoom: 0, maxZoom: 8 },
   { name: "Sea Surface Salinity", prefix: "sea-salinity", minZoom: 0, maxZoom: 5 },
   { name: "Sea Surface Height", prefix: "sea-height", minZoom: 0, maxZoom: 6 },
+  { name: "Flood Hazard", prefix: "flood-hazard", minZoom: 0, maxZoom: 8 },
+  { name: "Landslide Hazard", prefix: "landslide-hazard", minZoom: 0, maxZoom: 8 },
+  { name: "Drought Hazard", prefix: "drought-hazard", minZoom: 0, maxZoom: 8 },
+  { name: "PM2.5 Concentration", prefix: "pm25", minZoom: 0, maxZoom: 5 },
+  { name: "Aerosol Optical Depth", prefix: "aod", minZoom: 0, maxZoom: 5 },
 ];
 
 for (const route of GIBS_ROUTES) {

@@ -75,6 +75,13 @@ export { addSnowCover, removeSnowCover } from "./snow-cover";
 export { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
 export { addSeaHeight, removeSeaHeight } from "./sea-height";
 
+// Risk & Air Quality
+export { addFloodHazard, removeFloodHazard } from "./flood-hazard";
+export { addLandslideHazard, removeLandslideHazard } from "./landslide-hazard";
+export { addDroughtHazard, removeDroughtHazard } from "./drought-hazard";
+export { addPM25, removePM25 } from "./pm25";
+export { addAOD, removeAOD } from "./aod";
+
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
 
@@ -140,6 +147,11 @@ import { addChlorophyll, removeChlorophyll } from "./chlorophyll";
 import { addSnowCover, removeSnowCover } from "./snow-cover";
 import { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
 import { addSeaHeight, removeSeaHeight } from "./sea-height";
+import { addFloodHazard, removeFloodHazard } from "./flood-hazard";
+import { addLandslideHazard, removeLandslideHazard } from "./landslide-hazard";
+import { addDroughtHazard, removeDroughtHazard } from "./drought-hazard";
+import { addPM25, removePM25 } from "./pm25";
+import { addAOD, removeAOD } from "./aod";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -195,6 +207,11 @@ const LAYER_HANDLERS: Record<
   snowCover: { add: addSnowCover, remove: removeSnowCover },
   seaSalinity: { add: addSeaSalinity, remove: removeSeaSalinity },
   seaHeight: { add: addSeaHeight, remove: removeSeaHeight },
+  floodHazard: { add: addFloodHazard, remove: removeFloodHazard },
+  landslideHazard: { add: addLandslideHazard, remove: removeLandslideHazard },
+  droughtHazard: { add: addDroughtHazard, remove: removeDroughtHazard },
+  pm25: { add: addPM25, remove: removePM25 },
+  aod: { add: addAOD, remove: removeAOD },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

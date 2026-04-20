@@ -21,9 +21,7 @@ export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: str
           id: `nlnog-${node.id}`,
           position: Cesium.Cartesian3.fromDegrees(node.lon, node.lat),
           point: {
-            pixelSize: new Cesium.CallbackProperty(() => {
-              return 4 + 2 * Math.sin(Date.now() / 800 + (node.id || 0));
-            }, false),
+            pixelSize: 5,
             color: Cesium.Color.fromCssColorString("#f97316"),
             outlineColor: Cesium.Color.WHITE.withAlpha(0.3),
             outlineWidth: 1,

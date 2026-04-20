@@ -45,16 +45,8 @@ export function loadLightning(
       id,
       position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
       point: {
-        pixelSize: new Cesium.CallbackProperty(() => {
-          const age = Date.now() - flashTime;
-          if (age > 30000) return 0;
-          return Math.max(0, 6 * (1 - age / 30000));
-        }, false),
-        color: new Cesium.CallbackProperty(() => {
-          const age = Date.now() - flashTime;
-          if (age > 30000) return Cesium.Color.TRANSPARENT;
-          return Cesium.Color.fromCssColorString("#ffff00").withAlpha(1 - age / 30000);
-        }, false),
+        pixelSize: 6,
+        color: Cesium.Color.fromCssColorString("#ffff00"),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
       billboard: {
@@ -62,10 +54,18 @@ export function loadLightning(
         width: 14,
         height: 14,
         scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 1e7, 0.3),
-        show: new Cesium.CallbackProperty(() => Date.now() - flashTime < 5000, false),
+        show: true,
       },
       properties: { type: "lightning-strike", timestamp: flashTime },
     });
+
+    // Hide billboard after 5s, remove point after 30s
+    const entity = viewer.entities.getById(id);
+    setTimeout(() => {
+      try {
+        if (entity?.billboard) entity.billboard.show = false;
+      } catch { /* */ }
+    }, 5000);
 
     // Auto-remove after 30s
     setTimeout(() => {

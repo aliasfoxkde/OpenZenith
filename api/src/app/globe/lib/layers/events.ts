@@ -69,9 +69,7 @@ export function loadEvents(
     const iconSize = isRecent ? 24 : 20;
 
     // Pulsing glow for recent events
-    const pulseAlpha = isRecent
-      ? new Cesium.CallbackProperty(() => 0.3 + 0.2 * Math.sin(Date.now() / 500), false)
-      : 0.3;
+    const pulseAlpha = isRecent ? 0.4 : 0.3;
 
     viewer.entities.add({
       id: `event-${i}`,
@@ -127,12 +125,8 @@ export function loadEvents(
         id: `event-pulse-${i}`,
         position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
         ellipse: {
-          semiMinorAxis: new Cesium.CallbackProperty(() => {
-            return 15000 + 5000 * Math.sin(Date.now() / 800);
-          }, false),
-          semiMajorAxis: new Cesium.CallbackProperty(() => {
-            return 15000 + 5000 * Math.sin(Date.now() / 800);
-          }, false),
+          semiMinorAxis: 17500,
+          semiMajorAxis: 17500,
           material: new Cesium.ColorMaterialProperty({
             color: c,
             transparent: true,

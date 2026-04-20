@@ -75,14 +75,8 @@ export function loadEarthquakes(
       name: `${type === "earthquake" ? "EQ" : type.toUpperCase()} ${mag.toFixed(1)}`,
       position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
       ellipse: {
-        semiMinorAxis: new Cesium.CallbackProperty(() => {
-          const pulse = ageHours < 2 ? 1 + 0.15 * Math.sin(Date.now() / 600) : 1;
-          return baseSize * pulse;
-        }, false),
-        semiMajorAxis: new Cesium.CallbackProperty(() => {
-          const pulse = ageHours < 2 ? 1 + 0.15 * Math.sin(Date.now() / 600) : 1;
-          return baseSize * pulse;
-        }, false),
+        semiMinorAxis: baseSize * (ageHours < 2 ? 1.1 : 1),
+        semiMajorAxis: baseSize * (ageHours < 2 ? 1.1 : 1),
         material: new Cesium.ColorMaterialProperty({
           color,
           transparent: true,
@@ -93,10 +87,7 @@ export function loadEarthquakes(
         outlineWidth: alert !== "green" ? 2 : 0,
       },
       point: {
-        pixelSize: new Cesium.CallbackProperty(() => {
-          const base = Math.max(4, mag * 1.5);
-          return ageHours < 2 ? base * (1 + 0.2 * Math.sin(Date.now() / 400)) : base;
-        }, false),
+        pixelSize: Math.max(4, mag * 1.5) * (ageHours < 2 ? 1.2 : 1),
         color,
         outlineColor: alertOutline,
         outlineWidth: alert !== "green" ? 2 : 1,
@@ -142,12 +133,8 @@ export function loadEarthquakes(
         id: `eq-ring-${i}`,
         position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
         ellipse: {
-          semiMinorAxis: new Cesium.CallbackProperty(() => {
-            return baseSize * 1.8 + 3000 * Math.sin(Date.now() / 1200);
-          }, false),
-          semiMajorAxis: new Cesium.CallbackProperty(() => {
-            return baseSize * 1.8 + 3000 * Math.sin(Date.now() / 1200);
-          }, false),
+          semiMinorAxis: baseSize * 1.8 + 1500,
+          semiMajorAxis: baseSize * 1.8 + 1500,
           material: new Cesium.ColorMaterialProperty({ color: Cesium.Color.WHITE, transparent: true, alpha: 0.12 }),
           outline: true,
           outlineColor: color.withAlpha(0.3),

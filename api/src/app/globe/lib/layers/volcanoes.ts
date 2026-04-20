@@ -114,8 +114,8 @@ export function loadVolcanoes(
             id: `vol-pulse-${i}`,
             position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
             ellipse: {
-              semiMinorAxis: new Cesium.CallbackProperty(() => 15000 + 5000 * Math.sin(Date.now() / 800), false),
-              semiMajorAxis: new Cesium.CallbackProperty(() => 15000 + 5000 * Math.sin(Date.now() / 800), false),
+              semiMinorAxis: 17500,
+              semiMajorAxis: 17500,
               material: new Cesium.ColorMaterialProperty({ color: c, transparent: true, alpha: 0.25 }),
             },
             properties: { type: "volcano-pulse" },

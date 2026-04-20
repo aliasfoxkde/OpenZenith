@@ -96,7 +96,7 @@ export async function fetchHurricaneTracks(signal?: AbortSignal): Promise<any> {
 /* ── Tier 1 new data sources ─────────────────────────────── */
 
 export async function fetchSWPCaurora(signal?: AbortSignal): Promise<any> {
-  const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_forecast_map.json", signal);
+  const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_latest.json", signal);
   return r.json();
 }
 

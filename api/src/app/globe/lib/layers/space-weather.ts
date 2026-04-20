@@ -63,33 +63,41 @@ export function loadSpaceWeather(
         if (!auroraData || !Cesium || !viewer) return;
         removeEntities("aurora-");
 
-        const features = auroraData.features || [];
-        for (let i = 0; i < features.length; i++) {
-          const f = features[i];
-          const coords = f.geometry?.coordinates;
-          if (!coords) continue;
+        // NOAA returns { coordinates: [[lon, lat, intensity], ...] }
+        const coords = auroraData.coordinates || [];
+        if (coords.length === 0) return;
 
-          // Aurora data uses a grid of points with probability values
-          const prob = f.properties?.probability ?? 0;
-          if (prob < 10) continue; // Skip low-probability areas
+        // Group by longitude to create latitude strips
+        const byLon = new Map<number, { lat: number; intensity: number }[]>();
+        for (const c of coords) {
+          const lon = Math.round(c[0]);
+          const lat = c[1];
+          const intensity = c[2];
+          if (intensity > 2) { // threshold: skip low-intensity
+            if (!byLon.has(lon)) byLon.set(lon, []);
+            byLon.get(lon)!.push({ lat, intensity });
+          }
+        }
 
-          const color =
-            prob > 70
+        // Create aurora band as colored ellipses at high-latitude grid points
+        let entityCount = 0;
+        for (const [lon, points] of byLon) {
+          for (const pt of points) {
+            if (entityCount > 2000) break; // limit entities
+            const prob = Math.min(pt.intensity * 10, 100);
+            const color = prob > 70
               ? Cesium.Color.fromCssColorString("#00ff88")
               : prob > 40
                 ? Cesium.Color.fromCssColorString("#00cc66")
                 : Cesium.Color.fromCssColorString("#008844");
 
-          if (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon") {
             viewer.entities.add({
-              id: `aurora-${i}`,
-              polygon: {
-                hierarchy: Cesium.Cartesian3.fromDegreesArray(
-                  f.geometry.type === "Polygon" ? coords[0].flat() : coords.flat(),
-                ),
-                material: color.withAlpha(prob / 200),
-                outline: true,
-                outlineColor: color.withAlpha(0.3),
+              id: `aurora-${entityCount++}`,
+              position: Cesium.Cartesian3.fromDegrees(lon, pt.lat, 100000),
+              ellipse: {
+                semiMinorAxis: 50000,
+                semiMajorAxis: 50000,
+                material: color.withAlpha(prob / 300),
                 height: 100000,
               },
               properties: { type: "aurora", probability: prob },

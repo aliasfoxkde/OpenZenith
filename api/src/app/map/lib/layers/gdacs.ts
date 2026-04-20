@@ -8,39 +8,40 @@ export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
 
   const doLoad = async () => {
     try {
-      const res = await fetch("https://www.gdacs.org/gdacsapi/api/events/geteventlist/ATOM");
+      // GDACS public API discontinued — use RSS feed as fallback
+      const res = await fetch("https://www.gdacs.org/rss.aspx");
       const text = await res.text();
 
-      // Parse ATOM XML — extract geo locations from gdacscountryinfo
       const features: GeoJSON.Feature[] = [];
-      const itemRegex = /<entry>([\s\S]*?)<\/entry>/g;
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
       let match: RegExpExecArray | null;
 
       while ((match = itemRegex.exec(text)) !== null) {
         const entry = match[1];
-
         const title = entry.match(/<title>([^<]*)<\/title>/)?.[1] || "";
-        const severity = entry.match(/<gdacs:severity>([^<]*)<\/gdacs:severity>/)?.[1] || "0";
-        const severityNum = parseFloat(severity) || 0;
 
-        // Extract coordinates from various gdacs fields
-        const latMatch = entry.match(/<gdacs:lat>([^<]*)<\/gdacs:lat>/);
-        const lonMatch = entry.match(/<gdacs:lon>([^<]*)<\/gdacs:lon>/);
+        // Extract coordinates from geo:lat / geo:long
+        const latMatch = entry.match(/<geo:lat>([^<]*)<\/geo:lat>/) ||
+                         entry.match(/<asgard:lat>([^<]*)<\/asgard:lat>/);
+        const lonMatch = entry.match(/<geo:long>([^<]*)<\/geo:long>/) ||
+                         entry.match(/<asgard:lon>([^<]*)<\/asgard:lon>/);
 
-        if (latMatch && lonMatch) {
-          const lat = parseFloat(latMatch[1]);
-          const lon = parseFloat(lonMatch[1]);
-          if (!isNaN(lat) && !isNaN(lon)) {
-            const color = severityNum >= 3 ? "#ef4444" : severityNum >= 2 ? "#f97316" : "#fbbf24";
-            features.push({
-              type: "Feature",
-              geometry: { type: "Point", coordinates: [lon, lat] },
-              properties: { title, severity: severityNum, color },
-            });
-          }
+        const lat = parseFloat(latMatch?.[1] || "");
+        const lon = parseFloat(lonMatch?.[1] || "");
+
+        if (!isNaN(lat) && !isNaN(lon) && title && !title.includes("RSS information")) {
+          const isRed = /alert|emergency|red/i.test(title);
+          const isOrange = /warning|watch|orange/i.test(title);
+          const color = isRed ? "#ef4444" : isOrange ? "#f97316" : "#fbbf24";
+          features.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [lon, lat] },
+            properties: { title, color },
+          });
         }
       }
 
+      // If no features from RSS, return empty gracefully
       setStatus(handle, "gdacs", features.length ? "loaded" : "empty", features.length);
 
       if (!map.getSource) return;

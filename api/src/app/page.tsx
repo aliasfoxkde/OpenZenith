@@ -237,6 +237,30 @@ export default function Home() {
             // Boundary tiles unavailable — continue without
           }
 
+          // Elevation accuracy overlay (shows data resolution)
+          try {
+            map.addSource("elevation-accuracy", {
+              type: "raster",
+              tiles: ["/api/elevation-accuracy/{z}/{x}/{y}"],
+              tileSize: 256,
+              maxzoom: 5,
+            });
+            map.addLayer(
+              {
+                id: "elevation-accuracy",
+                type: "raster",
+                source: "elevation-accuracy",
+                paint: {
+                  "raster-opacity": 0.4,
+                  "raster-fade-duration": 300,
+                },
+              },
+              "osm",
+            );
+          } catch {
+            // Accuracy layer unavailable
+          }
+
           setMapLoading(false);
         });
 

@@ -8,19 +8,18 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
 
   const doLoad = async () => {
     try {
-      const res = await fetch("https://services.swpc.noaa.gov/json/ovation_aurora_forecast_map.json");
+      const res = await fetch("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
       const data = await res.json();
       const coords = data?.coordinates || [];
-      setStatus(handle, "spaceWeather", coords.length ? "loaded" : "empty", coords.length / 3);
+      setStatus(handle, "spaceWeather", coords.length ? "loaded" : "empty", coords.length);
 
       if (!map.getSource) return;
       try {
-        // NOAA returns [lon, lat, intensity] triplets
         const features: GeoJSON.Feature[] = [];
-        for (let i = 0; i < coords.length - 2; i += 3) {
-          const lon = coords[i];
-          const lat = coords[i + 1];
-          const intensity = coords[i + 2];
+        for (const coord of coords) {
+          const lon = coord[0];
+          const lat = coord[1];
+          const intensity = coord[2];
           if (intensity > 0) {
             features.push({
               type: "Feature",

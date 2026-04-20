@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useCallback, useLayoutEffect } from "react";
 
 export function FlipCard({
   front,
@@ -16,32 +16,43 @@ export function FlipCard({
   minHeight?: number;
 }) {
   const [flipped, setFlipped] = useState(false);
-  const frontRef = useRef<HTMLDivElement>(null);
-  const backRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(minHeight);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Measure actual content height and use the max of front/back
-  useEffect(() => {
-    const frontH = frontRef.current?.scrollHeight ?? minHeight;
-    const backH = backRef.current?.scrollHeight ?? minHeight;
-    const h = Math.max(frontH, backH, minHeight);
-    if (h !== height) setHeight(h);
-  }, [front, back, minHeight]);
+  // Use a CSS approach: set explicit height via ref, no setState in effects
+  const measureHeight = useCallback(() => {
+    if (!containerRef.current) return;
+    // The inner div has position:absolute children, so its scrollHeight is 0.
+    // Instead, use the max of the two face heights via their actual content.
+    const faces = containerRef.current.querySelectorAll<HTMLElement>("[data-flip-face]");
+    let maxH = minHeight;
+    for (const face of faces) {
+      // Temporarily make it visible for measurement
+      const prev = face.style.position;
+      face.style.position = "relative";
+      maxH = Math.max(maxH, face.scrollHeight);
+      face.style.position = prev;
+    }
+    containerRef.current.style.height = maxH + "px";
+  }, [minHeight]);
+
+  useLayoutEffect(() => {
+    measureHeight();
+  }, [measureHeight, front, back]);
 
   return (
-    <div style={{ height, perspective: 600, cursor: "pointer" }} onClick={() => setFlipped((f) => !f)}>
+    <div ref={containerRef} style={{ minHeight, perspective: 600, cursor: "pointer" }} onClick={() => setFlipped((f) => !f)}>
       <div
         style={{
           position: "relative",
           width: "100%",
-          height,
+          height: "100%",
           transition: "transform 0.5s",
           transformStyle: "preserve-3d",
           transform: flipped ? "rotateY(180deg)" : "none",
         }}
       >
         <div
-          ref={frontRef}
+          data-flip-face
           style={{
             backfaceVisibility: "hidden",
             position: "absolute",
@@ -60,7 +71,7 @@ export function FlipCard({
           {front}
         </div>
         <div
-          ref={backRef}
+          data-flip-face
           style={{
             backfaceVisibility: "hidden",
             position: "absolute",

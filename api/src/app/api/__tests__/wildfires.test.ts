@@ -1,11 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 
-// Mock the cache module
-vi.mock("@/lib/cache", () => ({
-  cachedFetch: vi.fn((url: string) => fetch(url)),
-  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600, WARNINGS: 300 },
-}));
-
 // Mock env vars
 const originalEnv = process.env;
 
@@ -30,6 +24,11 @@ describe("Wildfires API", () => {
 
   it("accepts custom bbox and days parameters", async () => {
     process.env = { ...originalEnv, FIRMS_MAP_KEY: "test-key" };
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight", {
+        status: 200,
+      }),
+    );
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires?days=3&bbox=-130,25,-60,50"));

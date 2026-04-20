@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-vi.mock("@/lib/cache", () => ({
-  cachedFetch: vi.fn((url: string) => fetch(url)),
-  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600 },
-}));
 
 describe("Military API", () => {
   it("returns aircraft data from ADSB Exchange", async () => {

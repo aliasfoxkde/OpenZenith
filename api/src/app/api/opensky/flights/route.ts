@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       }
       return Response.json(
         { error: `OpenSky API returned ${resp.status}`, authenticated: !!token },
-        { status: resp.status, headers: CORS_HEADERS },
+        { status: 200, headers: CORS_HEADERS },
       );
     }
 

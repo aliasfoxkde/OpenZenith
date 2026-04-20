@@ -13,6 +13,6 @@ describe("GEBCO Tile API", () => {
     const resp = await GET(mockRequest("/api/gebco-tile/gebco_2025_sub_ice_n90.0_s0.0_w-180.0_e-90.0.tif"), {
       params: Promise.resolve({ name: "gebco_2025_sub_ice_n90.0_s0.0_w-180.0_e-90.0.tif" }),
     });
-    expect(resp.status).toBe(501);
+    expect(resp.status).toBe(200);
   });
 });

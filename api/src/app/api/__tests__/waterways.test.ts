@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest } from "./helpers";
 
-// Mock the cache module — cachedFetch falls through to real fetch
-vi.mock("@/lib/cache", () => ({
-  cachedFetch: vi.fn((url: string, _ttl: number, opts?: RequestInit) => fetch(url, opts)),
-  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600, WATERWAYS: 3600 },
-}));
 
 const mockOverpassResponse = {
   elements: [

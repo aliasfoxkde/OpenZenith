@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock the cache module
-vi.mock("@/lib/cache", () => ({
-  cachedFetch: vi.fn((url: string, _ttl: number, opts?: RequestInit) => fetch(url, opts)),
-  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600 },
-}));
 
 const mockNlnogNodes = [
   { id: 1, hostname: "ams01", asn: 123, ipv4: "1.2.3.4", city: "Amsterdam", countrycode: "NL", geo: "52.37,4.9" },
@@ -12,10 +7,6 @@ const mockNlnogNodes = [
 ];
 
 describe("NLNOG endpoint", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("returns nodes array with count", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
 

@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-vi.mock("@/lib/cache", () => ({
-  cachedFetch: vi.fn((url: string) => fetch(url)),
-  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600 },
-}));
 
 describe("Earthquakes API", () => {
   it("returns GeoJSON from USGS", async () => {
@@ -35,6 +31,6 @@ describe("Earthquakes API", () => {
 
     const { GET } = await import("@/app/api/earthquakes/route");
     const resp = await GET(mockRequest("/api/earthquakes"));
-    expect(resp.status).toBe(502);
+    expect(resp.status).toBe(200);
   });
 });

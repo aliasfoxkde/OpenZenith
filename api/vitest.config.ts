@@ -3,6 +3,7 @@ import path from "path";
 
 export default defineConfig({
   test: {
+    setupFiles: ["./src/test-setup.ts"],
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"],
     coverage: {

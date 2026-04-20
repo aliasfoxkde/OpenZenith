@@ -1,11 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-vi.mock("@/lib/cache", () => ({
-  cachedFetch: vi.fn((url: string) => fetch(url)),
-  CACHE_TTL: { FLIGHTS: 15, EARTHQUAKES: 60, NLNOG: 3600 },
-}));
-
 describe("Satellites API", () => {
   it("returns satellite data from Celestrak", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

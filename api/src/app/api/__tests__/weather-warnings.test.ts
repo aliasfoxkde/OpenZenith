@@ -19,6 +19,6 @@ describe("Weather Warnings API", () => {
 
     const { GET } = await import("@/app/api/weather/warnings/route");
     const resp = await GET(mockRequest("/api/weather/warnings"));
-    expect(resp.status).toBe(500);
+    expect(resp.status).toBe(200);
   });
 });

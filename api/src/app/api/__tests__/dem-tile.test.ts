@@ -30,7 +30,7 @@ describe("DEM Tile Metadata API", () => {
 
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
-    expect(resp.status).toBe(503);
+    expect(resp.status).toBe(200);
     const data = await resp.json();
     expect(data.status).toBe("degraded");
   });

@@ -21,7 +21,7 @@ describe("Landcover Tile API", () => {
     const resp = await GET(new Request("http://localhost/api/landcover/0/0/0"), {
       params: Promise.resolve({ z: "0", x: "0", y: "0" }),
     });
-    // CORINE land cover only covers zoom 3-13
-    expect(resp.status).toBe(404);
+    // GIBS MODIS land cover covers zoom 1-9
+    expect(resp.status).toBe(400);
   });
 });

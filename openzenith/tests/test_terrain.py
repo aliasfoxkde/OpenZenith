@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile
+from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri
 
 
 def make_slope_dem(rows=10, cols=10):
@@ -167,3 +167,108 @@ class TestProfile:
         """Profile with single point should return empty."""
         dem = np.ones((5, 5), dtype=np.float32)
         assert profile(dem, [(2, 2)], cell_size_deg=0.001) == []
+
+
+class TestTPI:
+    """Tests for Topographic Position Index."""
+
+    def test_flat_dem_zero_tpi(self):
+        """Flat terrain should have TPI ≈ 0 everywhere."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = tpi(dem)
+        assert np.allclose(result[1:-1, 1:-1], 0.0, atol=1e-6)
+
+    def test_peak_positive(self):
+        """A peak should have positive TPI at center."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        dem[10, 10] = 200.0
+        result = tpi(dem)
+        assert result[10, 10] > 50  # peak is much higher than neighbors
+
+    def test_valley_negative(self):
+        """A depression should have negative TPI at center."""
+        dem = np.full((20, 20), 200.0, dtype=np.float32)
+        dem[10, 10] = 100.0
+        result = tpi(dem)
+        assert result[10, 10] < -50  # valley is much lower than neighbors
+
+    def test_output_shape(self):
+        """Output should match input shape."""
+        dem = np.random.rand(50, 50).astype(np.float32) * 500 + 100
+        result = tpi(dem)
+        assert result.shape == (50, 50)
+
+
+class TestRoughness:
+    """Tests for Terrain Roughness Index."""
+
+    def test_flat_dem_zero_roughness(self):
+        """Flat terrain should have zero roughness."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = roughness(dem)
+        assert np.allclose(result[1:-1, 1:-1], 0.0, atol=1e-6)
+
+    def test_rough_terrain_higher(self):
+        """Random terrain should have non-zero roughness."""
+        np.random.seed(42)
+        dem = np.random.rand(50, 50).astype(np.float32) * 500 + 100
+        result = roughness(dem)
+        inner = result[1:-1, 1:-1]
+        assert np.nanmean(inner) > 0
+
+    def test_steep_gradient(self):
+        """Uniform slope should have consistent roughness."""
+        dem = np.zeros((20, 20), dtype=np.float32)
+        for i in range(20):
+            dem[i, :] = i * 10.0
+        result = roughness(dem)
+        inner = result[1:-1, 1:-1]
+        # Uniform slope: roughness should be constant
+        std = np.nanstd(inner)
+        assert std < 1.0  # nearly uniform
+
+
+class TestCurvature:
+    """Tests for Mean Curvature."""
+
+    def test_flat_dem_zero_curvature(self):
+        """Flat terrain should have near-zero curvature."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = curvature(dem)
+        assert np.allclose(result[1:-1, 1:-1], 0.0, atol=1e-6)
+
+    def test_output_shape(self):
+        """Output should match input shape."""
+        dem = np.random.rand(30, 30).astype(np.float32) * 500 + 100
+        result = curvature(dem)
+        assert result.shape == (30, 30)
+
+
+class TestTRI:
+    """Tests for Terrain Ruggedness Index."""
+
+    def test_flat_dem_zero_tri(self):
+        """Flat terrain should have TRI ≈ 0."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = tri(dem)
+        assert np.allclose(result[1:-1, 1:-1], 0.0, atol=1e-6)
+
+    def test_peak_high_tri(self):
+        """A peak should have high TRI at center."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        dem[10, 10] = 200.0
+        result = tri(dem)
+        assert result[10, 10] > 40
+
+    def test_output_shape(self):
+        """Output should match input shape."""
+        dem = np.random.rand(40, 40).astype(np.float32) * 500 + 100
+        result = tri(dem)
+        assert result.shape == (40, 40)
+
+    def test_tri_positive(self):
+        """TRI should always be non-negative."""
+        dem = np.random.rand(30, 30).astype(np.float32) * 500 + 100
+        result = tri(dem)
+        inner = result[1:-1, 1:-1]
+        assert np.all(inner[~np.isnan(inner)] >= 0)

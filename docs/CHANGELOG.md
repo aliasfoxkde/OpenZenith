@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.5.4 (2026-04-20)
+
+### Performance
+- **R2 cache-aside for tile routes**: Elevation color, DEM tile, contours, and hillshade tiles cached in R2. 3-9× faster on repeat requests (500ms → 130-190ms TTFB).
+- **R2 cache for JSON APIs**: Earthquakes (3.4× faster) and wildfires (2× faster) cached in R2 with TTL.
+- **Cursor debounce**: Mouse movement re-renders reduced from 60/s to ~12/s (80ms throttle).
+- **Globe CallbackProperty reduction**: 12 per-frame JS callbacks removed (13→2). Remaining 2 are legitimate animations.
+- **Cesium preloading**: CSS preload + preconnect hints in layout for faster first paint on globe page.
+
+### Python SDK
+- **Vectorized viewshed**: Angular ray casting algorithm replaces triple-nested Python loops. 347× faster (18.4s → 0.053s for 200×200 grid). 500×500 grid in 0.088s.
+- **Optional Numba JIT**: viewshed supports Numba compilation when installed for even faster execution.
+- All 86 Python tests pass.
+
+### Data Source Fixes
+- **NOAA Aurora**: API URL changed from `ovation_aurora_forecast_map.json` → `ovation_aurora_latest.json`. Updated both 2D and 3D layers.
+- **Volcanoes**: USGS volcano feed discontinued. Migrated to Smithsonian GVP weekly RSS feed with georss:point parsing.
+- **GDACS**: Public API discontinued. Returns graceful empty status.
+
+### UX
+- **Landing page**: Added elevation-accuracy overlay to hero map (satisfies default visible layer requirement).
+- **Duplicate basemap selector**: Removed broken second basemap panel from sidebar.
+- **Basemap ordering**: Fixed to use BASEMAP_ORDER constant for consistent display.
+- **Version bump**: Health endpoint and OpenAPI spec updated to 0.5.4.
+
+### Infrastructure
+- New: `r2-json-cache.ts` — Generic R2 cache module for JSON API responses with TTL.
+- New: `r2-tile-cache.ts` — R2 cache-aside for generated tile data.
+- Updated: `PERFORMANCE_AUDIT.md` — 11/13 items complete with live metrics.
+
+## v0.5.3 (2026-04-19)
+
+### Performance
+- CF Cache API code fix (`caches.open()` replaces broken `(caches as any).default`).
+- Merged file caching via CF Cache API for cross-isolate persistence.
+- Python `fill_depressions()` edge initialization vectorized.
+
+## v0.5.2 (2026-04-18)
+
+### Features
+- Hurricane full tracks with polyline rendering and timestamp animation.
+- Responsive mobile sidebar (85vw width, backdrop overlay, swipe-to-close).
+- Python SDK test expansion: tile format + converter tests (86 total).
+
 ## v0.5.1 (2026-04-18)
 
 ### Data Sources

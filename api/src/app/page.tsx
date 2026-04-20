@@ -959,7 +959,7 @@ export default function Home() {
               {
                 label: "Storage",
                 value: "Cloudflare R2",
-                tip: "Tiles served from Cloudflare R2 object storage via edge runtime. No Node.js dependency \u2014 full Cloudflare Pages deployment with <50ms global latency.",
+                tip: "Tiles served from Cloudflare R2 object storage via edge runtime with cache-aside (130\u2013190ms TTFB). Full Cloudflare Pages deployment \u2014 no Node.js dependency.",
               },
               {
                 label: "Resolution",
@@ -983,13 +983,13 @@ export default function Home() {
               },
               {
                 label: "API endpoints",
-                value: "24",
+                value: "47",
                 tip: "Elevation, DEM tiles, bathymetry, GEBCO, flights, vessels, military, weather warnings, geocoding, reverse geocoding, BGP, NLNOG, waterways, overpass, proxy, and more. OpenAPI 3.0 spec at /api/docs.",
               },
               {
                 label: "Data layers",
-                value: "20+",
-                tip: "Globe integrates 37 data layers including earthquakes, flights, vessels, satellites, hurricanes, weather radar, wildfires, lightning, space weather, air quality, volcanoes, and more.",
+                value: "37",
+                tip: "Map and globe integrate 37 data layers including earthquakes, flights, vessels, satellites, hurricanes, weather radar, wildfires, lightning, space weather, air quality, volcanoes, GDACS, and more.",
               },
             ].map((s) => (
               <div

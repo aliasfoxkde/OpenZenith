@@ -477,3 +477,136 @@ def profile(dem: np.ndarray, points: list[tuple[int, int]], cell_size_deg: float
         })
 
     return result
+
+
+def tpi(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Topographic Position Index (TPI).
+
+    Measures the difference between a cell's elevation and the mean elevation
+    of its surrounding cells. Positive values indicate ridges/peaks, negative
+    values indicate valleys/depressions, near-zero values indicate flat areas
+    or mid-slopes.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees (unused, kept for API consistency)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of TPI values
+    """
+    rows, cols = dem.shape
+    padded = np.pad(dem, 1, mode='constant', constant_values=np.nan)
+
+    neighbors = []
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            if dr == 0 and dc == 0:
+                continue
+            neighbors.append(padded[1 + dr:rows + 1 + dr, 1 + dc:cols + 1 + dc])
+
+    neighbor_mean = np.mean(neighbors, axis=0)
+    result = dem.astype(np.float64) - neighbor_mean
+
+    valid = padded[1:-1, 1:-1] != nodata
+    result[~valid] = np.nan
+
+    return result.astype(np.float32)
+
+
+def roughness(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Terrain Roughness Index.
+
+    The difference between the maximum and minimum elevation value in a
+    3×3 cell neighborhood. Higher values indicate rougher terrain.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of roughness values
+    """
+    rows, cols = dem.shape
+    padded = np.pad(dem, 1, mode='constant', constant_values=nodata)
+
+    patches = np.zeros((9, rows, cols), dtype=np.float64)
+    idx = 0
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            patches[idx] = padded[1 + dr:rows + 1 + dr, 1 + dc:cols + 1 + dc]
+            idx += 1
+
+    result = np.max(patches, axis=0) - np.min(patches, axis=0)
+
+    valid = padded[1:-1, 1:-1] != nodata
+    result[~valid] = np.nan
+
+    return result.astype(np.float32)
+
+
+def curvature(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Mean curvature (average of second derivatives).
+
+    Positive values indicate convex surfaces (accelerating flow),
+    negative values indicate concave surfaces (decelerating flow).
+    Uses central differences for the second derivative.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of curvature values (1/m)
+    """
+    rows, cols = dem.shape
+    cell_m = cell_size_deg * 111320.0
+    padded = np.pad(dem, 1, mode='constant', constant_values=np.nan)
+
+    z = padded[1:-1, 1:-1].astype(np.float64)
+    d2z_dx2 = (padded[1:-1, 2:] - 2 * z + padded[1:-1, :-2]) / (cell_m ** 2)
+    d2z_dy2 = (padded[2:, 1:-1] - 2 * z + padded[:-2, 1:-1]) / (cell_m ** 2)
+
+    result = (d2z_dx2 + d2z_dy2) / 2.0
+
+    valid = padded[1:-1, 1:-1] != nodata
+    result[~valid] = np.nan
+
+    return result.astype(np.float32)
+
+
+def tri(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Terrain Ruggedness Index (TRI).
+
+    The mean absolute elevation difference between a cell and its 8 neighbors.
+    Higher values indicate more rugged terrain.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of TRI values (meters)
+    """
+    rows, cols = dem.shape
+    padded = np.pad(dem, 1, mode='constant', constant_values=np.nan)
+    center = padded[1:-1, 1:-1].astype(np.float64)
+
+    total_diff = np.zeros((rows, cols), dtype=np.float64)
+    count = 0
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            if dr == 0 and dc == 0:
+                continue
+            total_diff += np.abs(center - padded[1 + dr:rows + 1 + dr, 1 + dc:cols + 1 + dc])
+            count += 1
+
+    result = total_diff / count
+
+    valid = padded[1:-1, 1:-1] != nodata
+    result[~valid] = np.nan
+
+    return result.astype(np.float32)

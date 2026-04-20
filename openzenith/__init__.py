@@ -83,6 +83,18 @@ def __getattr__(name):
     if name == "viewshed":
         from openzenith.terrain import viewshed
         return viewshed
+    if name == "tpi":
+        from openzenith.terrain import tpi
+        return tpi
+    if name == "roughness":
+        from openzenith.terrain import roughness
+        return roughness
+    if name == "curvature":
+        from openzenith.terrain import curvature
+        return curvature
+    if name == "tri":
+        from openzenith.terrain import tri
+        return tri
     if name == "fill_depressions":
         from openzenith.hydrology import fill_depressions
         return fill_depressions
@@ -132,6 +144,10 @@ __all__ = [
     "aspect",
     "hillshade",
     "viewshed",
+    "tpi",
+    "roughness",
+    "curvature",
+    "tri",
     # Hydrology extra (lazy)
     "fill_depressions",
 ]

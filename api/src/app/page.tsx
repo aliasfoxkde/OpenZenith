@@ -9,6 +9,7 @@ import { LOCATIONS, latLonToTile, pickRandomLocations } from "./landing/location
 import { useTheme, setThemeMode, getThemeMode, initTheme } from "./landing/useTheme";
 import { waitForMapLibre } from "./landing/maplibre-loader";
 import { FlipCard } from "./landing/FlipCard";
+import { HeroParticles } from "./landing/HeroParticles";
 import { addOrUpdatePin, flyToWithPadding } from "./landing/map-helpers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -45,6 +46,8 @@ export default function Home() {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroMapRef = useRef<HTMLDivElement>(null);
+  const heroCanvasRef = useRef<HTMLDivElement>(null);
+  const [heroSize, setHeroSize] = useState({ w: 0, h: 0 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const heroMapInstance = useRef<any>(null);
   const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -59,6 +62,19 @@ export default function Home() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Track hero section size for particle canvas
+  useEffect(() => {
+    const el = heroCanvasRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setHeroSize({ w: entry.contentRect.width, h: entry.contentRect.height });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   // Randomize sample locations on mount (client-only to avoid hydration mismatch)
@@ -153,6 +169,10 @@ export default function Home() {
         const mlgl = await waitForMapLibre();
         if (cancelled || !heroMapRef.current) return;
 
+        const basemapUrl = dark
+          ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
+          : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
+
         const map = new mlgl.Map({
           container: heroMapRef.current,
           style: {
@@ -160,7 +180,7 @@ export default function Home() {
             sources: {
               osm: {
                 type: "raster",
-                tiles: ["https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"],
+                tiles: [basemapUrl],
                 tileSize: 256,
                 attribution: "&copy; CartoDB",
               },
@@ -191,8 +211,8 @@ export default function Home() {
               type: "hillshade",
               source: "elevation",
               paint: {
-                "hillshade-shadow-color": "#000000",
-                "hillshade-highlight-color": "#444444",
+                "hillshade-shadow-color": dark ? "#000000" : "rgba(0,0,0,0.5)",
+                "hillshade-highlight-color": dark ? "#444444" : "rgba(255,255,255,0.6)",
                 "hillshade-exaggeration": 0.8,
               },
             },
@@ -206,6 +226,7 @@ export default function Home() {
               tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
               maxzoom: 6,
             });
+            const boundaryColor = dark ? "0, 229, 255" : "0, 80, 180";
             map.addLayer(
               {
                 id: "boundary-glow",
@@ -213,7 +234,7 @@ export default function Home() {
                 source: "boundaries",
                 "source-layer": "boundary",
                 paint: {
-                  "line-color": "rgba(0, 229, 255, 0.12)",
+                  "line-color": `rgba(${boundaryColor}, 0.12)`,
                   "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
                   "line-blur": 2,
                 },
@@ -227,7 +248,7 @@ export default function Home() {
                 source: "boundaries",
                 "source-layer": "boundary",
                 paint: {
-                  "line-color": "rgba(0, 229, 255, 0.25)",
+                  "line-color": `rgba(${boundaryColor}, 0.25)`,
                   "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
                   "line-opacity": 0.6,
                 },
@@ -289,6 +310,36 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Update hero map basemap when theme changes
+  useEffect(() => {
+    const map = heroMapInstance.current;
+    if (!map) return;
+    try {
+      const source = map.getSource("osm") as any;
+      if (source && source.setTiles) {
+        const url = dark
+          ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
+          : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
+        source.setTiles([url]);
+      }
+      // Update hillshade colors
+      if (map.getLayer("hillshade")) {
+        map.setPaintProperty("hillshade", "hillshade-shadow-color", dark ? "#000000" : "rgba(0,0,0,0.5)");
+        map.setPaintProperty("hillshade", "hillshade-highlight-color", dark ? "#444444" : "rgba(255,255,255,0.6)");
+      }
+      // Update boundary colors
+      const bc = dark ? "0, 229, 255" : "0, 80, 180";
+      if (map.getLayer("boundary-glow")) {
+        map.setPaintProperty("boundary-glow", "line-color", `rgba(${bc}, 0.12)`);
+      }
+      if (map.getLayer("boundary-line")) {
+        map.setPaintProperty("boundary-line", "line-color", `rgba(${bc}, 0.25)`);
+      }
+    } catch {
+      // Map not ready or source unavailable
+    }
+  }, [dark]);
 
   // Fly hero map to location after lookup
   useEffect(() => {
@@ -463,16 +514,19 @@ export default function Home() {
         >
           {/* Map background */}
           <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0 }} />
-          {/* Dark overlay */}
+          {/* Particle canvas — sits above map, below overlay */}
+          {heroSize.w > 0 && <HeroParticles dark={dark} width={heroSize.w} height={heroSize.h} />}
+          {/* Subtle overlay — lets map texture show through */}
           <div
             className="oz-hero-overlay"
             style={{
               position: "absolute",
               inset: 0,
               background: dark
-                ? "linear-gradient(180deg, rgba(10,10,10,0.75) 0%, rgba(10,10,10,0.3) 35%, rgba(10,10,10,0.7) 100%)"
-                : "linear-gradient(180deg, rgba(250,250,250,0.85) 0%, rgba(250,250,250,0.5) 35%, rgba(250,250,250,0.85) 100%)",
+                ? "linear-gradient(180deg, rgba(10,10,10,0.72) 0%, rgba(10,10,10,0.22) 40%, rgba(10,10,10,0.62) 100%)"
+                : "linear-gradient(180deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.40) 40%, rgba(255,255,255,0.80) 100%)",
               pointerEvents: "none",
+              zIndex: 2,
             }}
           />
           {/* Loading indicator */}
@@ -490,7 +544,7 @@ export default function Home() {
                 padding: "0.5rem 1rem",
                 borderRadius: 6,
                 fontSize: "0.85rem",
-                zIndex: 2,
+                zIndex: 4,
               }}
             >
               Loading elevation map...
@@ -500,9 +554,10 @@ export default function Home() {
           <div
             id="hero-content"
             className="oz-hero-content"
+            ref={heroCanvasRef}
             style={{
               position: "relative",
-              zIndex: 1,
+              zIndex: 3,
               maxWidth: 600,
               margin: "0 auto",
               padding: "2.5rem 1.5rem 2rem",

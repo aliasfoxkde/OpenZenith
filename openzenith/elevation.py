@@ -350,3 +350,101 @@ def get_tile_count(tile_dir: str | Path) -> dict[int, int]:
             count = sum(1 for _ in zdir.rglob("*.png"))
             counts[int(zdir.name)] = count
     return counts
+
+
+def download_tiles(
+    bbox: tuple[float, float, float, float] | None = None,
+    region: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius: float = 0.5,
+    zoom_levels: list[int] | None = None,
+    cache_dir: str | Path | None = None,
+) -> dict:
+    """Download elevation tiles for a specific region.
+
+    Provides a Python API equivalent to the CLI ``openzenith tiles`` command.
+    Downloads Terrarium PNG tiles from HuggingFace for the specified region.
+
+    Args:
+        bbox: Bounding box as (lat_min, lon_min, lat_max, lon_max).
+        region: Named region (europe, usa, asia, africa, world, etc.).
+        lat: Center latitude (use with lon and radius).
+        lon: Center longitude (use with lat and radius).
+        radius: Radius in degrees around lat/lon center (default: 0.5).
+        zoom_levels: Zoom levels to download (default: [0, 1, ..., 8]).
+        cache_dir: Local cache directory (default: ~/.cache/openzenith-dem).
+
+    Returns:
+        Dict with 'tile_dir', 'total_tiles', 'size_mb', 'zoom_breakdown'.
+
+    Raises:
+        ValueError: If no region specified or unknown region name.
+
+    Examples:
+        # By named region
+        result = download_tiles(region="europe", zoom_levels=[5, 6, 7, 8])
+
+        # By bounding box
+        result = download_tiles(
+            bbox=(34, -25, 72, 45),
+            zoom_levels=[5, 6, 7],
+        )
+
+        # By center point + radius
+        result = download_tiles(lat=40.7, lon=-74.0, radius=1.0, zoom_levels=[8, 9, 10])
+
+        print(f"Downloaded {result['total_tiles']:,} tiles to {result['tile_dir']}")
+    """
+    REGION_BBOXES = {
+        "world": (-90, -180, 90, 180),
+        "europe": (34, -25, 72, 45),
+        "usa": (24, -125, 50, -66),
+        "conus": (24, -125, 50, -66),
+        "asia": (0, 60, 55, 150),
+        "africa": (-35, -20, 37, 55),
+        "south-america": (-56, -82, 13, -34),
+        "australia": (-44, 112, -10, 155),
+        "arctic": (60, -180, 90, 180),
+        "antarctica": (-90, -180, -60, 180),
+    }
+
+    # Resolve bbox
+    if bbox is not None:
+        lat_min, lon_min, lat_max, lon_max = bbox
+    elif region is not None:
+        if region.lower() not in REGION_BBOXES:
+            raise ValueError(
+                f"Unknown region '{region}'. "
+                f"Available: {', '.join(sorted(REGION_BBOXES.keys()))}"
+            )
+        lat_min, lon_min, lat_max, lon_max = REGION_BBOXES[region.lower()]
+    elif lat is not None and lon is not None:
+        lat_min, lon_min = lat - radius, lon - radius
+        lat_max, lon_max = lat + radius, lon + radius
+    else:
+        raise ValueError("Provide bbox, region, or lat/lon parameters.")
+
+    if zoom_levels is None:
+        zoom_levels = list(range(0, 9))
+
+    # Count tiles
+    zoom_breakdown = {}
+    total_tiles = 0
+    for z in zoom_levels:
+        x1, y1 = latlon_to_tile(lat_max, lon_min, z)
+        x2, y2 = latlon_to_tile(lat_min, lon_max, z)
+        count = (x2 - x1 + 1) * (y2 - y1 + 1)
+        zoom_breakdown[z] = count
+        total_tiles += count
+
+    tile_dir = load_tiles(zoom_levels=zoom_levels, cache_dir=cache_dir)
+    size_bytes = sum(p.stat().st_size for p in Path(tile_dir).rglob("*.png"))
+
+    return {
+        "tile_dir": str(tile_dir),
+        "total_tiles": total_tiles,
+        "size_mb": size_bytes / 1e6,
+        "zoom_breakdown": zoom_breakdown,
+        "bbox": (lat_min, lon_min, lat_max, lon_max),
+    }

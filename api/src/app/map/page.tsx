@@ -840,8 +840,8 @@ export default function MapPage() {
                       type: "fill" as const,
                       source: "land",
                       paint: {
-                        "fill-color": "#1a2332",
-                        "fill-opacity": 0.45,
+                        "fill-color": "#1c2b3a",
+                        "fill-opacity": 0.55,
                       },
                     },
                   ]

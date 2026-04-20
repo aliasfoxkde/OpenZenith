@@ -22,6 +22,7 @@ from openzenith.elevation import (
     get_elevation_batch,
     get_tile_count,
     load_tiles,
+    download_tiles,
 )
 from openzenith.terrarium import decode_tile, encode_tile
 from openzenith.tile_format import (
@@ -122,6 +123,9 @@ def __getattr__(name):
     if name == "drainage_density":
         from openzenith.terrain import drainage_density
         return drainage_density
+    if name == "download_tiles":
+        from openzenith.elevation import download_tiles
+        return download_tiles
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -154,6 +158,7 @@ __all__ = [
     "get_elevation_batch",
     "get_tile_count",
     "load_tiles",
+    "download_tiles",
     # Hydrology (lazy)
     "d8_flow_direction",
     "flow_accumulation",

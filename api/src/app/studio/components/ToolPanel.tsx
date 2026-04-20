@@ -11,6 +11,7 @@ const WeatherTool = lazy(() => import("./WeatherTool").then((m) => ({ default: m
 const DataTool = lazy(() => import("./DataTool").then((m) => ({ default: m.DataTool })));
 const LayersTool = lazy(() => import("./LayersTool").then((m) => ({ default: m.LayersTool })));
 const DrawingTool = lazy(() => import("./DrawingTool").then((m) => ({ default: m.DrawingTool })));
+const TileDownloadTool = lazy(() => import("./TileDownloadTool").then((m) => ({ default: m.TileDownloadTool })));
 
 interface Props {
   activeTab: ToolTab;
@@ -45,6 +46,7 @@ const TABS: { id: ToolTab; label: string; icon: string }[] = [
   { id: "data", label: "Data", icon: "\ud83d\udcc1" },
   { id: "layers", label: "Layers", icon: "\ud83d\udcda" },
   { id: "draw", label: "Draw", icon: "\u270f" },
+  { id: "tiles", label: "Tiles", icon: "\ud83d\uddfa" },
 ];
 
 function ToolFallback({ dark }: { dark: boolean }) {
@@ -176,6 +178,13 @@ export function ToolPanel(props: Props) {
                 imperial={props.imperial}
                 onImperialChange={props.onImperialChange}
               />
+            </Suspense>
+          </div>
+        )}
+        {activeTab === "tiles" && (
+          <div role="tabpanel" id="panel-tiles" aria-label="Tile download tool">
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <TileDownloadTool dark={dark} map={props.map} />
             </Suspense>
           </div>
         )}

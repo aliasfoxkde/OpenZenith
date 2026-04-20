@@ -380,6 +380,96 @@ def cmd_geojson(args):
         _json.dump(result, f)
     print(f"✅ {len(result['features'])} points → {out_path} ({elapsed:.1f}s)")
 
+
+def cmd_tiles(args):
+    """Download tiles for a specific region and zoom levels.
+
+    Supports multiple data sources:
+    - dem: Terrarium PNG elevation tiles from HuggingFace
+    - Custom bbox or named region selection
+    - Specific zoom level ranges
+
+    Usage:
+        openzenith tiles --bbox 34,-25,72,45 --zoom 5-10
+        openzenith tiles --region europe --zoom 0-8
+        openzenith tiles --lat 40.7 --lon -74.0 --radius 0.5 --zoom 10-12
+    """
+    from openzenith.elevation import load_tiles, get_tile_count as _get_tile_count, latlon_to_tile
+
+    # Resolve bbox from args
+    if args.bbox:
+        parts = [float(v) for v in args.bbox.split(",")]
+        if len(parts) != 4:
+            print("❌ BBOX must be lat_min,lon_min,lat_max,lon_max")
+            sys.exit(1)
+        lat_min, lon_min, lat_max, lon_max = parts
+    elif args.region:
+        bbox = REGION_BBOXES.get(args.region.lower())
+        if not bbox:
+            print(f"❌ Unknown region '{args.region}'. Available: {', '.join(sorted(REGION_BBOXES.keys()))}")
+            sys.exit(1)
+        lat_min, lon_min, lat_max, lon_max = bbox
+    elif args.lat is not None and args.lon is not None:
+        # Use lat/lon as center with --radius (default 0.5 degrees)
+        r = args.radius
+        lat_min, lon_min = args.lat - r, args.lon - r
+        lat_max, lon_max = args.lat + r, args.lon + r
+    else:
+        print("❌ Provide --bbox, --region, or --lat/--lon (with optional --radius)")
+        sys.exit(1)
+
+    # Parse zoom levels
+    zoom_levels = _parse_zoom_levels(args.zoom) if args.zoom else list(range(0, 9))
+
+    # Count tiles needed
+    total_tiles = 0
+    zoom_breakdown = {}
+    for z in zoom_levels:
+        x1, y1 = latlon_to_tile(lat_max, lon_min, z)
+        x2, y2 = latlon_to_tile(lat_min, lon_max, z)
+        count = (x2 - x1 + 1) * (y2 - y1 + 1)
+        total_tiles += count
+        zoom_breakdown[z] = count
+
+    # Size estimate (~15KB per tile average)
+    size_mb = (total_tiles * 15) / (1024 * 1024)
+
+    print(f"📊 Region: [{lat_min:.4f}, {lon_min:.4f}] to [{lat_max:.4f}, {lon_max:.4f}]")
+    print(f"📈 Zoom: {min(zoom_levels)}-{max(zoom_levels)}")
+    print(f"📊 Tiles: {total_tiles:,}")
+    print(f"📦 Est. size: {size_mb:.1f} MB")
+    print(f"📈 Per zoom: {', '.join(f'z{z}={zoom_breakdown[z]:,}' for z in sorted(zoom_breakdown.keys()))}")
+
+    if total_tiles > 100000:
+        print(f"\n⚠️  {total_tiles:,} tiles is a large download. Use --zoom to narrow the range.")
+        if not args.force:
+            print("   Add --force to proceed.")
+            sys.exit(0)
+
+    # Download
+    cache_dir = args.cache_dir or str(Path.home() / ".cache" / "openzenith-dem")
+    print(f"\n⬇️  Downloading to {cache_dir}...")
+
+    t0 = time.time()
+    tile_dir = load_tiles(zoom_levels=zoom_levels, cache_dir=cache_dir)
+    elapsed = time.time() - t0
+
+    # Verify
+    counts = _get_tile_count(tile_dir)
+    total = sum(counts.values())
+    size_bytes = sum(p.stat().st_size for p in Path(tile_dir).rglob("*.png"))
+
+    print(f"\n✅ Done in {elapsed:.1f}s")
+    print(f"📊 Tiles: {total:,} ({size_bytes / 1e6:.1f} MB)")
+    print(f"📈 Per zoom: {', '.join(f'z{z}={counts.get(z, 0):,}' for z in sorted(counts.keys()))}")
+
+    # Generate usage example
+    print(f"\n📖 Usage example:")
+    print(f"  from openzenith import get_elevation, load_tiles")
+    print(f"  load_tiles(zoom_levels={zoom_levels})")
+    print(f"  elev = get_elevation({(lat_min+lat_max)/2:.4f}, {(lon_min+lon_max)/2:.4f})")
+    print(f"  # => {elev}m")
+
 REGION_BBOXES = {
     "world": (-90, -180, 90, 180),
     "europe": (34, -25, 72, 45),
@@ -507,6 +597,17 @@ def main():
     gj.add_argument("--name", type=str, default=None, help="Property name")
     gj.add_argument("--output", type=str, default=None, help="Output .geojson file")
 
+    # tiles
+    tl = sub.add_parser("tiles", help="Download tiles for a specific region")
+    tl.add_argument("--bbox", type=str, default=None, help="Bounding box: lat_min,lon_min,lat_max,lon_max")
+    tl.add_argument("--region", type=str, default=None, help="Named region (europe, usa, world, etc.)")
+    tl.add_argument("--lat", type=float, default=None, help="Center latitude")
+    tl.add_argument("--lon", type=float, default=None, help="Center longitude")
+    tl.add_argument("--radius", type=float, default=0.5, help="Radius in degrees (default: 0.5)")
+    tl.add_argument("--zoom", type=str, default=None, help="Zoom levels (e.g. '5-10' or '5,8,10')")
+    tl.add_argument("--cache-dir", type=str, default=None, help="Local cache directory")
+    tl.add_argument("--force", action="store_true", help="Proceed with large downloads")
+
     args = parser.parse_args()
 
     commands = {
@@ -522,6 +623,7 @@ def main():
         "twi": cmd_twi,
         "contour": cmd_contour,
         "geojson": cmd_geojson,
+        "tiles": cmd_tiles,
     }
 
     if args.command in commands:

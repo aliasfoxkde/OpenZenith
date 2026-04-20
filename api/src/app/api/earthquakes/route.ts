@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 
 export const runtime = "edge";
 
@@ -44,6 +45,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Try R2 cache first (cross-isolate persistence)
+    const cacheKey = apiCacheKey("earthquakes", { period });
+    const cached = await r2GetJson(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: {
+          ...CORS_HEADERS,
+          "Cache-Control": `public, max-age=${CACHE_TTL.EARTHQUAKES}`,
+          "X-Cache": "HIT",
+        },
+      });
+    }
+
     const url = `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${period}.geojson`;
     const resp = await cachedFetch(url, CACHE_TTL.EARTHQUAKES, {
       signal: AbortSignal.timeout(15000),
@@ -55,8 +69,12 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await resp.json();
+
+    // Store in R2 for future requests (best-effort)
+    r2PutJson(cacheKey, data, CACHE_TTL.EARTHQUAKES).catch(() => {});
+
     return NextResponse.json(data, {
-      headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL.EARTHQUAKES}` },
+      headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL.EARTHQUAKES}`, "X-Cache": "MISS" },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Earthquake data fetch failed";

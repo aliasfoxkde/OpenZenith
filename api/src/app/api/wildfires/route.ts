@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 
 export const runtime = "edge";
 
@@ -25,6 +26,16 @@ export async function GET(request: NextRequest) {
     const days = Math.min(Number(searchParams.get("days")) || 1, 7);
     const bbox = searchParams.get("bbox") || "-180,-90,180,90";
     const satellite = searchParams.get("satellite") || "VIIRS_SNPP_NRT";
+
+    const cacheKey = apiCacheKey("wildfires", { days: String(days), bbox, satellite });
+
+    // Try R2 cache first
+    const cached = await r2GetJson(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "HIT" },
+      });
+    }
 
     const apiKey = process.env.FIRMS_MAP_KEY;
 
@@ -93,19 +104,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      {
-        type: "FeatureCollection",
+    const result = {
+        type: "FeatureCollection" as const,
         features,
         count: features.length,
         days,
         bbox,
         satellite,
         date: new Date().toISOString().slice(0, 10),
-        apiKeyStatus: "configured",
-      },
-      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
-    );
+        apiKeyStatus: "configured" as const,
+      };
+
+    // Store in R2 (best-effort)
+    r2PutJson(cacheKey, result, 3600).catch(() => {});
+
+    return NextResponse.json(result, {
+      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "MISS" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch FIRMS data";
     return NextResponse.json(

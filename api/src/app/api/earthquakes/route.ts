@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!resp.ok) {
-      return NextResponse.json({ error: `USGS API returned ${resp.status}` }, { status: 502, headers: CORS_HEADERS });
+      return NextResponse.json({ error: `USGS API returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
     }
 
     const data = await resp.json();
@@ -78,6 +78,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Earthquake data fetch failed";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
   }
 }

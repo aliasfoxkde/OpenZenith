@@ -5,7 +5,7 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-const baseUrl = "https://openzenith.cyopsys.com";
+const baseUrl = "https://openzenith.pages.dev";
 
 export const viewport: Viewport = {
   themeColor: [

@@ -82,7 +82,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new Response(data, { status: resp.status, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Proxy error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
   }
 }
 

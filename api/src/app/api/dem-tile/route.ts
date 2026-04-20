@@ -86,7 +86,7 @@ async function handleHealthCheck() {
         message: `HuggingFace returned status ${res.status}`,
       },
       {
-        status: 503,
+        status: 200,
         headers: {
           ...CORS_HEADERS,
           "Cache-Control": "no-cache",
@@ -101,7 +101,7 @@ async function handleHealthCheck() {
         message: error instanceof Error ? error.message : "Health check failed",
       },
       {
-        status: 500,
+        status: 200,
         headers: {
           ...CORS_HEADERS,
           "Cache-Control": "no-cache",

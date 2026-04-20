@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     return new Response(JSON.stringify(data), { status: 200, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "ArcGIS proxy error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
   }
 }
 

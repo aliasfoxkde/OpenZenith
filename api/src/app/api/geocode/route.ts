@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json(
         { error: "Upstream geocoding service unavailable" },
-        { status: 502, headers: CORS_HEADERS },
+        { status: 200, headers: CORS_HEADERS },
       );
     }
 
@@ -46,6 +46,6 @@ export async function GET(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch {
-    return NextResponse.json({ error: "Geocoding request failed" }, { status: 500, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Geocoding request failed" }, { status: 200, headers: CORS_HEADERS });
   }
 }

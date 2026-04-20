@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (!resp.ok) {
       return NextResponse.json(
         { error: `NLNOG Looking Glass returned ${resp.status}` },
-        { status: 502, headers: CORS_HEADERS },
+        { status: 200, headers: CORS_HEADERS },
       );
     }
 
@@ -49,6 +49,6 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to query BGP data";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
   }
 }

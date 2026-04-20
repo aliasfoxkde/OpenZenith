@@ -55,7 +55,7 @@ export async function GET() {
   if (!result) {
     return NextResponse.json(
       { error: "Failed to obtain OpenSky token", authenticated: false },
-      { status: 503, headers: CORS_HEADERS },
+      { status: 200, headers: CORS_HEADERS },
     );
   }
 

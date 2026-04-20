@@ -167,3 +167,24 @@
 - Earthquakes, hurricanes, vessels, NLNOG, satellites, weather radar
 - Hillshade, boundaries, measurement tools
 - 5 basemap themes
+
+## v0.6.2 (2026-04-20)
+
+### Critical: All API routes now return 200 on failure
+- Changed 32 5xx status codes (502/500/503) → 200 across 23 routes
+- Map layers never break from upstream failures
+- Error details still included in response body
+
+### Performance
+- **Weather warnings**: 1.7MB → 348KB (80% reduction)
+  - Stripped verbose `description` (369KB), `parameters` (337KB), `instruction` (67KB)
+  - Retains display-relevant fields: headline, severity, event, geometry
+- Added R2 cache to `/api/weather/warnings` (2min TTL)
+
+### Python SDK Tests
+- **29 new tests** (163 total, was 134)
+- New test files: `test_tile_format_v2.py` (20 tests), `test_tracing.py` (6 tests), `test_terrarium.py` (8 tests)
+- Tests use proper tolerance for lossy OZT2 format (±1m precision)
+
+### Documentation
+- Fixed OG url: `openzenith.cyopsys.com` → `openzenith.pages.dev`

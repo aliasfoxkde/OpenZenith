@@ -94,6 +94,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
   }
 }

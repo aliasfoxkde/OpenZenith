@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      return corsError("Failed to fetch air quality data", 502);
+      return corsError("Failed to fetch air quality data", 200);
     }
 
     const data = await res.json();
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ type: "FeatureCollection", features: [feature] }, { headers: CORS_HEADERS });
   } catch {
-    return corsError("Internal server error", 500);
+    return corsError("Internal server error", 200);
   }
 }
 

@@ -122,5 +122,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     });
   }
 
-  return new Response("Imagery temporarily unavailable", { status: 502, headers: CORS_HEADERS });
+  return new Response("Imagery temporarily unavailable", { status: 200, headers: CORS_HEADERS });
 }

@@ -15,7 +15,7 @@ For compute-intensive applications, the local SDK is recommended over the web AP
 to avoid HTTPS chunk download overhead on each tile request.
 """
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 from openzenith.elevation import (
     get_elevation,

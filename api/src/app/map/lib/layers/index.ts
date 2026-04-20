@@ -60,6 +60,13 @@ export { addFireTemperature, removeFireTemperature } from "./fire-temperature";
 export { addSarBackscatter, removeSarBackscatter } from "./sar-backscatter";
 export { addSeaIce, removeSeaIce } from "./sea-ice";
 export { addBurnScars, removeBurnScars } from "./burn-scars";
+export { addDynamicSurfaceWater, removeDynamicSurfaceWater } from "./dynamic-surface-water";
+export { addDisturbanceAlerts, removeDisturbanceAlerts } from "./disturbance-alerts";
+export { addSo2Volcanic, removeSo2Volcanic } from "./so2-volcanic";
+export { addNo2Pollution, removeNo2Pollution } from "./no2-pollution";
+export { addPrecipitation, removePrecipitation } from "./precipitation";
+export { addSoilMoisture, removeSoilMoisture } from "./soil-moisture";
+export { addNdvi, removeNdvi } from "./ndvi";
 
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
@@ -114,6 +121,13 @@ import { addAviationWeather, removeAviationWeather } from "./aviation-weather";
 import { addSatellites, removeSatellites } from "./satellites";
 import { addBathymetry, removeBathymetry } from "./bathymetry";
 import { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
+import { addDynamicSurfaceWater, removeDynamicSurfaceWater } from "./dynamic-surface-water";
+import { addDisturbanceAlerts, removeDisturbanceAlerts } from "./disturbance-alerts";
+import { addSo2Volcanic, removeSo2Volcanic } from "./so2-volcanic";
+import { addNo2Pollution, removeNo2Pollution } from "./no2-pollution";
+import { addPrecipitation, removePrecipitation } from "./precipitation";
+import { addSoilMoisture, removeSoilMoisture } from "./soil-moisture";
+import { addNdvi, removeNdvi } from "./ndvi";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -157,6 +171,13 @@ const LAYER_HANDLERS: Record<
   satellites: { add: addSatellites, remove: removeSatellites },
   bathymetry: { add: addBathymetry, remove: removeBathymetry },
   satellite: { add: addSatelliteImagery, remove: removeSatelliteImagery },
+  dynamicSurfaceWater: { add: addDynamicSurfaceWater, remove: removeDynamicSurfaceWater },
+  disturbanceAlerts: { add: addDisturbanceAlerts, remove: removeDisturbanceAlerts },
+  so2Volcanic: { add: addSo2Volcanic, remove: removeSo2Volcanic },
+  no2Pollution: { add: addNo2Pollution, remove: removeNo2Pollution },
+  precipitation: { add: addPrecipitation, remove: removePrecipitation },
+  soilMoisture: { add: addSoilMoisture, remove: removeSoilMoisture },
+  ndvi: { add: addNdvi, remove: removeNdvi },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

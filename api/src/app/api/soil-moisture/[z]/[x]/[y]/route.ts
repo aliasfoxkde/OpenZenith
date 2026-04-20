@@ -1,8 +1,8 @@
 /**
- * Flood extent tile proxy.
+ * Soil Moisture tile proxy.
  *
- * Proxies WMS tiles from NASA GIBS VIIRS Combined 3-Day Flood product.
- * Replaces Copernicus EMS Rapid Mapping (discontinued 2025).
+ * Proxies WMS tiles from NASA GIBS SMAP L3 Active Soil Moisture.
+ * Shows L-band radar soil moisture from NASA's SMAP satellite.
  * Uses EPSG:3857 Web Mercator for XYZ tile compatibility.
  */
 
@@ -12,9 +12,9 @@ import { createGIBSHandler } from "@/lib/gibs-tile";
 export const runtime = "edge";
 export const OPTIONS = () => corsPreflightResponse();
 export const GET = createGIBSHandler({
-  layer: "VIIRS_Combined_Flood_3-Day",
-  cachePrefix: "floods-tile",
+  layer: "SMAP_L3_Active_Soil_Moisture",
+  cachePrefix: "soil-moisture",
   minZoom: 0,
-  maxZoom: 9,
-  cacheTtl: 86400, // 24h — daily flood monitoring
+  maxZoom: 3,
+  cacheTtl: 86400, // 24h — SMAP revisits every 2-3 days
 });

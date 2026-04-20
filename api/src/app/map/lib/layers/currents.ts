@@ -184,8 +184,8 @@ const OCEAN_CURRENTS = [
 let currentMarkers: any[] = [];
 let particleOffset = 0;
 
-const PARTICLES_PER_CURRENT = 4;
-const SPEED = 0.002;
+const PARTICLES_PER_CURRENT = 3;
+const SPEED = 0.003;
 
 export function addOceanCurrents(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("ocean-currents-paths")) return;
@@ -304,7 +304,7 @@ export function addOceanCurrents(map: maplibregl.Map, handle: LayerHandle): void
   };
 
   animate();
-  handle.intervals.push(setInterval(animate, 100));
+  handle.intervals.push(setInterval(animate, 250));
 }
 
 export function removeOceanCurrents(map: maplibregl.Map): void {

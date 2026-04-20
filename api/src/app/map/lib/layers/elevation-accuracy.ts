@@ -18,6 +18,48 @@ const ZONE_LABELS = [
   { text: "GEBCO 450m", lng: -150, lat: -20, color: "#2171b5" },
 ];
 
+/**
+ * Zone boundary lines matching the tile generation logic in
+ * api/elevation-accuracy/[z]/[x]/[y]/route.ts
+ */
+const ZONE_BOUNDARIES: Array<{
+  name: string;
+  color: string;
+  dash?: number[];
+  coordinates: number[][];
+}> = [
+  // ArcticDEM zone: lat > 60°N
+  {
+    name: "ArcticDEM (60°N)",
+    color: "#00d2e6",
+    dash: [4, 2],
+    coordinates: [
+      [-180, 60], [-90, 60], [0, 60], [90, 60], [180, 60],
+    ],
+  },
+  // REMA zone: lat < -60°S
+  {
+    name: "REMA (60°S)",
+    color: "#00d2e6",
+    dash: [4, 2],
+    coordinates: [
+      [-180, -60], [-90, -60], [0, -60], [90, -60], [180, -60],
+    ],
+  },
+  // EEA 10m Europe box: lat 34-72, lon -25 to 45
+  {
+    name: "EEA 10m",
+    color: "#22c55e",
+    dash: [3, 3],
+    coordinates: [
+      [-25, 34], [-25, 72], [45, 72], [45, 34], [-25, 34],
+    ],
+  },
+  // SRTM ±60° boundaries (already covered by ArcticDEM/REMA lines, but add visual emphasis)
+  // SRTM northern boundary is same as ArcticDEM (60°N) — skip duplicate
+  // SRTM southern boundary is same as REMA (60°S) — skip duplicate
+];
+
 export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("elevation-accuracy")) return;
 
@@ -54,20 +96,51 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     },
   });
 
-  // Coastline border — this IS the boundary between GEBCO ocean and land zones
+  // Zone boundary lines — match actual tile generation thresholds
+  const boundaryFeatures: GeoJSON.Feature[] = ZONE_BOUNDARIES.map((b) => ({
+    type: "Feature" as const,
+    geometry: {
+      type: "LineString" as const,
+      coordinates: b.coordinates,
+    },
+    properties: { name: b.name },
+  }));
+
+  map.addSource("accuracy-boundaries", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: boundaryFeatures },
+  });
+
+  // Draw each boundary as its own layer for per-line styling
+  for (let i = 0; i < ZONE_BOUNDARIES.length; i++) {
+    const b = ZONE_BOUNDARIES[i];
+    map.addLayer({
+      id: `accuracy-boundary-${i}`,
+      type: "line",
+      source: "accuracy-boundaries",
+      filter: ["==", ["get", "name"], b.name],
+      paint: {
+        "line-color": b.color,
+        "line-width": 2,
+        "line-opacity": 0.8,
+        "line-dasharray": b.dash || [1],
+      },
+    });
+  }
+
+  // Also add coastline as a secondary reference (where land meets ocean = GEBCO boundary)
   map.addSource("accuracy-coastline", {
     type: "geojson",
     data: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_coastline.geojson",
   });
-
   map.addLayer({
     id: "accuracy-coastline-line",
     type: "line",
     source: "accuracy-coastline",
     paint: {
-      "line-color": "rgba(255, 255, 255, 0.5)",
-      "line-width": 1.2,
-      "line-opacity": 0.6,
+      "line-color": "rgba(255, 255, 255, 0.25)",
+      "line-width": 0.8,
+      "line-opacity": 0.4,
     },
   });
 
@@ -101,8 +174,14 @@ export function removeElevationAccuracy(map: maplibregl.Map): void {
   }
   accuracyMarkers = [];
 
+  // Remove boundary layers (dynamic count)
+  for (let i = 0; i < 10; i++) {
+    try { map.removeLayer(`accuracy-boundary-${i}`); } catch {}
+  }
+  try { map.removeSource("accuracy-boundaries"); } catch {}
   try { map.removeLayer("accuracy-coastline-line"); } catch {}
   try { map.removeSource("accuracy-coastline"); } catch {}
+
   try { map.removeLayer("elevation-accuracy-edges"); } catch {}
   try { map.removeLayer("elevation-accuracy-layer"); } catch {}
   try { map.removeSource("elevation-accuracy"); } catch {}

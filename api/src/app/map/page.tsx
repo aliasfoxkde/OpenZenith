@@ -2269,97 +2269,69 @@ export default function MapPage() {
             border: "1px solid rgba(0, 229, 255, 0.35)",
             borderRadius: 6,
             padding: "12px 14px",
-            maxWidth: 340,
+            width: 220,
             pointerEvents: "auto",
             fontFamily: T.fontMono,
             boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
           }}
         >
           <div style={{ fontSize: "0.75rem", color: T.accent, marginBottom: 10, fontWeight: 700, letterSpacing: "0.06em" }}>LEGEND</div>
-          {/* Basemap indicator */}
-          <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: T.accent }} />
-            <span style={{ fontSize: "0.6rem", color: T.text }}>{BASEMAPS[mapState.basemap]?.label || mapState.basemap}</span>
-          </div>
-          {mapState.layers.bathymetry && (
-            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("bathymetry", false)} title="Click to disable">
-              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Bathymetry</div>
-              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ display: "flex", height: 14 }}>
-                  {["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"].map((c,i)=>(
-                    <div key={i} style={{ flex: 1, background: c }} />
-                  ))}
+
+          {/* Toggleable layer entries — always visible, click to toggle on/off */}
+          {([
+            { id: "bathymetry", name: "Bathymetry", colors: ["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"], labels: ["Deep","Shallow"], multi: false },
+            { id: "elevationColor", name: "Elevation", colors: ["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"], labels: ["Sea Level","Peaks"], multi: false },
+            { id: "elevationAccuracy", name: "Data Accuracy", colors: ["#00bcd4","#4caf50","#1b5e20","#9acd32","#1565c0"], labels: ["2m","","","","450m"], multi: true },
+            { id: "hillshade", name: "Hillshade", colors: ["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"], labels: ["Shadow","Highlight"], multi: false },
+            { id: "oceanCurrents", name: "Ocean Currents", colors: ["#ff4444","#4488ff","#00ccff"], labels: ["Warm","Cold","Circum."], multi: false },
+            { id: "equator", name: "Equator", colors: ["#ffffff"], labels: [""], multi: false },
+          ] as const).map((layer) => {
+            const on = !!mapState.layers[layer.id];
+            return (
+              <div
+                key={layer.id}
+                style={{ marginBottom: 8, cursor: "pointer", opacity: on ? 1 : 0.35 }}
+                onClick={() => toggleLayer(layer.id, !on)}
+                title={`Click to ${on ? "disable" : "enable"} ${layer.name}`}
+              >
+                <div style={{ fontSize: "0.62rem", color: T.text, marginBottom: 2, fontWeight: on ? 600 : 400, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ color: on ? T.accent : T.textMuted, fontSize: "0.55rem" }}>{on ? "●" : "○"}</span>
+                  {layer.name}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.55rem", color: T.text, padding: "2px 4px", background: "rgba(0,0,0,0.3)" }}>
-                  <span>Deep</span><span>Shallow</span>
-                </div>
-              </div>
-            </div>
-          )}
-          {mapState.layers.elevationColor && (
-            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("elevationColor", false)} title="Click to disable">
-              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Elevation</div>
-              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ display: "flex", height: 14 }}>
-                  {["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"].map((c,i)=>(
-                    <div key={i} style={{ flex: 1, background: c }} />
-                  ))}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.55rem", color: T.text, padding: "2px 4px", background: "rgba(0,0,0,0.3)" }}>
-                  <span>Sea Level</span><span>Peaks</span>
-                </div>
-              </div>
-            </div>
-          )}
-          {mapState.layers.elevationAccuracy && (
-            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("elevationAccuracy", false)} title="Click to disable">
-              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Data Accuracy</div>
-              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ display: "flex", height: 14 }}>
-                  {[
-                    { color: "#00bcd4", label: "2m" },
-                    { color: "#4caf50", label: "10m" },
-                    { color: "#1b5e20", label: "30m" },
-                    { color: "#9acd32", label: "90m" },
-                    { color: "#1565c0", label: "450m" },
-                  ].map((s, i) => (
-                    <div key={i} style={{ flex: 1, background: s.color }} />
-                  ))}
-                </div>
-                <div style={{ display: "flex", fontSize: "0.55rem", color: T.text, background: "rgba(0,0,0,0.3)" }}>
-                  {[
-                    { label: "2m", align: "left" as const },
-                    { label: "10m", align: "center" as const },
-                    { label: "30m", align: "center" as const },
-                    { label: "90m", align: "center" as const },
-                    { label: "450m", align: "right" as const },
-                  ].map((t, i) => (
-                    <div key={i} style={{ flex: 1, textAlign: t.align, padding: "2px 0" }}>
-                      <span>{t.label}</span>
+                {layer.id !== "equator" && (
+                  <div style={{ border: "1px solid rgba(0,229,255,0.3)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ display: "flex", height: 12 }}>
+                      {layer.colors.map((c, i) => (
+                        <div key={i} style={{ flex: 1, background: c }} />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                    {!layer.multi && layer.labels.length === 2 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.text, padding: "1px 3px", background: "rgba(0,0,0,0.3)" }}>
+                        <span>{layer.labels[0]}</span><span>{layer.labels[1]}</span>
+                      </div>
+                    )}
+                    {layer.multi && (
+                      <div style={{ display: "flex", fontSize: "0.5rem", color: T.text, background: "rgba(0,0,0,0.3)" }}>
+                        {layer.labels.map((t, i) => (
+                          <div key={i} style={{ flex: 1, textAlign: i === 0 ? "left" : i === layer.labels.length - 1 ? "right" : "center", padding: "1px 0" }}>
+                            <span>{t}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-          {mapState.layers.hillshade && (
-            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("hillshade", false)} title="Click to disable">
-              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Hillshade</div>
-              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ display: "flex", height: 14 }}>
-                  {["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"].map((c,i)=>(
-                    <div key={i} style={{ flex: 1, background: c }} />
-                  ))}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.55rem", color: T.text, padding: "2px 4px", background: "rgba(0,0,0,0.3)" }}>
-                  <span>Shadow</span><span>Highlight</span>
-                </div>
-              </div>
-            </div>
-          )}
-          {!mapState.layers.bathymetry && !mapState.layers.elevationColor && !mapState.layers.elevationAccuracy && !mapState.layers.hillshade && (
-            <div style={{ fontSize: "0.5rem", color: T.textMuted }}>Enable terrain layers</div>
-          )}
+            );
+          })}
+
+          {/* Basemap indicator at bottom */}
+          <div style={{ marginTop: 6, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, flexShrink: 0 }} />
+            <span style={{ fontSize: "0.58rem", color: T.textMuted }}>
+              {BASEMAPS[mapState.basemap]?.label || mapState.basemap}
+            </span>
+          </div>
         </div>
 
         {/* Click hint */}
@@ -2446,9 +2418,14 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     "elevation-color-layer",
     "elevation-accuracy-layer",
     "elevation-accuracy-edges",
+    "elevation-accuracy-coastline-line",
+    "accuracy-boundary-0",
+    "accuracy-boundary-1",
+    "accuracy-boundary-2",
     "bathymetry",
     "contours-minor",
     "contours-major",
+    "equator-line",
   ]);
   // Known hillshade layer IDs (rendered above terrain, below data)
   const HILLSHADE_IDS = new Set(["hillshade-base"]);

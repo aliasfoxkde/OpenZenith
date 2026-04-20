@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 
 export const runtime = "edge";
 
@@ -32,6 +33,15 @@ export async function GET(request: NextRequest) {
   const dist = Math.min(Number(searchParams.get("dist")) || 500, 1000);
 
   try {
+    // Try R2 cache first (ADSB Exchange is paid-only, cache what we get)
+    const cacheKey = apiCacheKey("military", { lat: String(lat), lon: String(lon), dist: String(dist) });
+    const cached = await r2GetJson(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=30", "X-Cache": "HIT" },
+      });
+    }
+
     const url = `https://adsbexchange.com/api/aircraft/v2/lat/${lat}/lon/${lon}/dist/${dist}`;
     const resp = await cachedFetch(url, CACHE_TTL.FLIGHTS, {
       signal: AbortSignal.timeout(15000),
@@ -62,14 +72,15 @@ export async function GET(request: NextRequest) {
     // Handle various response formats
     const aircraft = data?.ac || data?.aircraft || data?.results || [];
 
-    return NextResponse.json(
-      {
-        ac: aircraft,
-        count: Array.isArray(aircraft) ? aircraft.length : 0,
-        total: data?.totalCount ?? data?.total ?? null,
-      },
-      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=30" } },
-    );
+    const result = {
+      ac: aircraft,
+      count: Array.isArray(aircraft) ? aircraft.length : 0,
+      total: data?.totalCount ?? data?.total ?? null,
+    };
+    r2PutJson(cacheKey, result, 60).catch(() => {});
+    return NextResponse.json(result, {
+      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=30", "X-Cache": "MISS" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
     return NextResponse.json(

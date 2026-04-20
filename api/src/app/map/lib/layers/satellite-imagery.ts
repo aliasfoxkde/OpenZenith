@@ -8,9 +8,10 @@ import { setStatus } from "./types";
 // We compute a recent date at module load time.
 
 function getRecentGibsDate(): string {
-  // GIBS needs a specific date — use yesterday to ensure imagery exists
+  // GIBS needs a specific date — MODIS Terra has ~2 day processing delay.
+  // Use 3 days ago to ensure imagery is always available.
   const d = new Date();
-  d.setDate(d.getDate() - 1);
+  d.setDate(d.getDate() - 3);
   return d.toISOString().split("T")[0]; // YYYY-MM-DD
 }
 

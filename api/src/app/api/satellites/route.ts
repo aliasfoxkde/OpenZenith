@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, staleWhileRevalidate } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 
 export const runtime = "edge";
 
@@ -75,6 +76,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Try R2 cache first (Celestrak is 8-15s from CF edge)
+    const cacheKey = apiCacheKey("satellites", { group, limit: String(limit) });
+    const cached = await r2GetJson(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`, "X-Cache": "HIT" },
+      });
+    }
+
     const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=json`;
     const resp = await staleWhileRevalidate(url, CACHE_TTL_SATS, STALE_TTL_SATS, {
       signal: AbortSignal.timeout(15000),
@@ -108,16 +118,18 @@ export async function GET(request: NextRequest) {
 
     if (Array.isArray(data) && data.length > limit) {
       const truncated = data.slice(0, limit);
-      return NextResponse.json(
-        { count: data.length, truncated: true, limit, satellites: truncated },
-        { headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}` } },
-      );
+      const result = { count: data.length, truncated: true, limit, satellites: truncated };
+      r2PutJson(cacheKey, result, CACHE_TTL_SATS).catch(() => {});
+      return NextResponse.json(result, {
+        headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`, "X-Cache": "MISS" },
+      });
     }
 
-    return NextResponse.json(
-      Array.isArray(data) ? { count: data.length, truncated: false, satellites: data } : data,
-      { headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}` } },
-    );
+    const result = Array.isArray(data) ? { count: data.length, truncated: false, satellites: data } : data;
+    r2PutJson(cacheKey, result, CACHE_TTL_SATS).catch(() => {});
+    return NextResponse.json(result, {
+      headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`, "X-Cache": "MISS" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Satellite data fetch failed";
     return NextResponse.json(

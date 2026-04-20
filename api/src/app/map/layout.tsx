@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 
 export const metadata: Metadata = {
-  title: "2D Map",
+  title: "Interactive 2D Map — Terrain, Elevation & Live Data",
   description:
-    "Interactive 2D map with terrain elevation, measurement tools, and real-time data layers powered by MapLibre GL.",
+    "Interactive 2D map with 37 data layers: terrain elevation, earthquakes, flights, satellites, hurricanes, wildfires, weather radar, and more. Powered by MapLibre GL.",
+  openGraph: {
+    title: "OpenZenith 2D Map — 37 Real-Time Data Layers",
+    description: "Explore the world with terrain elevation, earthquakes, flights, satellites, and 33 more live data layers on an interactive map.",
+  },
 };
 
 export default function MapLayout({ children }: { children: React.ReactNode }) {

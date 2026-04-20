@@ -125,7 +125,7 @@ Service health check and status.
 ```json
 {
   "status": "healthy",
-  "version": "0.2.0",
+  "version": "0.6.2",
   "storage": {
     "backend": "huggingface",
     "type": "chunks",

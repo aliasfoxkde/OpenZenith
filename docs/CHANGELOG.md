@@ -188,3 +188,26 @@
 
 ### Documentation
 - Fixed OG url: `openzenith.cyopsys.com` → `openzenith.pages.dev`
+
+## v0.6.3 (2026-04-20)
+
+### Map UX: Keyboard shortcuts
+- **H** toggles hillshade, **R** toggles radar, **G** toggles earthquakes
+- **3** toggles satellite imagery, **P** toggles measure mode, **B** toggles boundaries
+- **L** toggles sidebar, **?** opens sidebar, **Esc** closes sidebar/cancels
+- Keyboard shortcut hints displayed at top of sidebar panel
+
+### Map UX: Opacity persistence
+- Layer opacity settings now persist to localStorage
+- Opacity preferences survive page reloads
+
+### Accessibility
+- Explore page: Added `role="tablist"` to tab bar, `role="tab"` + `aria-selected` to tab buttons, `role="tabpanel"` to content area
+
+### Python SDK
+- **5 new CLI tests** (168 total, was 163) — `test_cli.py`
+- Fixed `_parse_zoom_levels` to support mixed format: `0-3,5,7-9`
+- All 11 modules now have test files with coverage
+
+### Documentation
+- Updated stale version refs: `USAGE.md` (0.2.0 → 0.6.3), `GAP_ANALYSIS.md` (0.5.1 → 0.6.3)

@@ -394,11 +394,19 @@ REGION_BBOXES = {
 }
 
 def _parse_zoom_levels(s: str) -> list[int]:
-    """Parse zoom level specification: '0-8' or '0,1,2,5' or '8'."""
-    if "-" in s:
-        parts = s.split("-")
-        return list(range(int(parts[0]), int(parts[1]) + 1))
-    return [int(v.strip()) for v in s.split(",")]
+    """Parse zoom level specification: '0-8' or '0,1,2,5' or '8' or '0-3,5,7-9'."""
+    result = set()
+    for part in s.split(","):
+        part = part.strip()
+        if "-" in part:
+            a, b = part.split("-", 1)
+            lo, hi = int(a), int(b)
+            if lo > hi:
+                raise ValueError(f"Invalid range {lo}-{hi}")
+            result.update(range(lo, hi + 1))
+        else:
+            result.add(int(part))
+    return sorted(result)
 
 def _latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
     n = 2 ** zoom

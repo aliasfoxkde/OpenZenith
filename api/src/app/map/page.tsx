@@ -256,9 +256,19 @@ export default function MapPage() {
     "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
     "populationDensity", "landCover", "seaIce", "satellite",
   ]);
-  const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>({});
+  const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("openzenith-map-opacity");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const setOpacity = useCallback((layerId: string, value: number) => {
-    setLayerOpacity((prev) => ({ ...prev, [layerId]: value }));
+    setLayerOpacity((prev) => {
+      const next = { ...prev, [layerId]: value };
+      try { localStorage.setItem("openzenith-map-opacity", JSON.stringify(next)); } catch {}
+      return next;
+    });
     const map = mapRef.current;
     if (!map) return;
     try {
@@ -670,6 +680,46 @@ export default function MapPage() {
       }
       if (e.key === "Escape") {
         setSidebarOpen(false);
+      }
+      // H toggles hillshade
+      if (e.key === "h" || e.key === "H") {
+        setMapState((prev) => ({
+          ...prev,
+          layers: { ...prev.layers, hillshade: !prev.layers.hillshade },
+        }));
+      }
+      // R toggles radar
+      if (e.key === "r" || e.key === "R") {
+        setMapState((prev) => ({
+          ...prev,
+          layers: { ...prev.layers, radar: !prev.layers.radar },
+        }));
+      }
+      // G toggles earthquakes
+      if (e.key === "g" || e.key === "G") {
+        setMapState((prev) => ({
+          ...prev,
+          layers: { ...prev.layers, earthquakes: !prev.layers.earthquakes },
+        }));
+      }
+      // 3 toggles satellite imagery
+      if (e.key === "3") {
+        setMapState((prev) => ({
+          ...prev,
+          layers: { ...prev.layers, satellite: !prev.layers.satellite },
+        }));
+      }
+      // P toggles measure mode
+      if (e.key === "p" || e.key === "P") {
+        if (measureMode === "none") setMeasureMode("distance");
+        else setMeasureMode("none");
+      }
+      // B toggles boundaries
+      if (e.key === "b" || e.key === "B") {
+        setMapState((prev) => ({
+          ...prev,
+          layers: { ...prev.layers, boundaries: !prev.layers.boundaries },
+        }));
       }
     };
     window.addEventListener("keydown", handler);
@@ -1329,6 +1379,11 @@ export default function MapPage() {
               </span>
             )}
           </SurveillancePanel>
+          {sidebarOpen && !isMobile && (
+            <div style={{ position: "absolute", top: 4, right: 4, fontSize: "0.6rem", color: T.textMuted, fontFamily: T.fontMono, opacity: 0.6, pointerEvents: "none" }}>
+              H hillshade · R radar · G quakes · 3 sat · P measure · B boundaries
+            </div>
+          )}
         </div>
 
         {/* Status indicators */}

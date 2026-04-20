@@ -666,15 +666,16 @@ export default function ExplorePage() {
           </p>
 
           {/* Tabs */}
-          <div className="ex-tabs">
+          <div className="ex-tabs" role="tablist">
             {TABS.map((t) => (
-              <button key={t.id} className={`ex-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+              <button key={t.id} role="tab" aria-selected={tab === t.id} className={`ex-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
                 {t.icon} {t.label}
               </button>
             ))}
           </div>
 
           {/* ═══ NOAA & USGS TAB ═══ */}
+          <div role="tabpanel" aria-label="Explore data panel">
           {tab === "noaa" && (
             <>
               <h2>NOAA &amp; USGS Data Sources</h2>
@@ -1594,6 +1595,7 @@ export default function ExplorePage() {
               )}
             </>
           )}
+          </div>
         </div>
       </div>
     </ErrorBoundary>

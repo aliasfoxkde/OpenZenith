@@ -44,10 +44,22 @@ export function loadLightning(
     viewer.entities.add({
       id,
       position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+      // Bright flash point
       point: {
         pixelSize: 6,
         color: Cesium.Color.fromCssColorString("#ffff00"),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      // Glow ellipse for flash illumination
+      ellipse: {
+        semiMinorAxis: 30000,
+        semiMajorAxis: 30000,
+        material: new Cesium.ColorMaterialProperty({
+          color: Cesium.Color.fromCssColorString("#ffff00"),
+          transparent: true,
+          alpha: 0.15,
+        }),
+        height: 0,
       },
       billboard: {
         image: LIGHTNING_ICON,

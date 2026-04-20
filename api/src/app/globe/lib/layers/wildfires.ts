@@ -3,13 +3,31 @@ import type { DataStatus } from "../types";
 import { fetchFIRMS } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 
+/**
+ * Fire icon SVG — used for billboard markers at close range.
+ */
 const FIRE_ICON = `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-1 4-4 6-4 10a4 4 0 008 0c0-4-3-6-4-10z" fill="#ff8800" opacity="0.9"/><path d="M12 8c-.5 2-2 3-2 5a2 2 0 004 0c0-2-1.5-3-2-5z" fill="#ffcc00" opacity="1"/></svg>`;
 
+/**
+ * Confidence-based color mapping.
+ * Higher confidence = more intense red.
+ */
 function fireColor(confidence: number): string {
   if (confidence >= 80) return "#ff0000";
   if (confidence >= 50) return "#ff6600";
   if (confidence >= 30) return "#ff8800";
   return "#ffaa00";
+}
+
+/**
+ * Fire Radiative Power → glow radius scaling.
+ * FRP (MW) ranges from ~0 to ~3000+ for extreme fires.
+ */
+function frpToRadius(frp: number): number {
+  // Log scale: 10MW → 25km, 100MW → 60km, 1000MW → 100km
+  const base = 25000;
+  const scale = 35000;
+  return base + scale * Math.log10(Math.max(frp, 1) + 1);
 }
 
 export function loadWildfires(
@@ -33,7 +51,7 @@ export function loadWildfires(
       removeEntities("fire-");
 
       // Limit to 500 points for performance
-      const maxPoints = 300;
+      const maxPoints = 400;
       let count = 0;
 
       for (let i = 0; i < lines.length && count < maxPoints; i++) {
@@ -43,7 +61,7 @@ export function loadWildfires(
         const lat = parseFloat(cols[0]);
         const lon = parseFloat(cols[1]);
         const confidence = parseFloat(cols[9]);
-        const frp = parseFloat(cols[13]) || 0; // Fire Radiative Power
+        const frp = parseFloat(cols[13]) || 0; // Fire Radiative Power (MW)
         const brightness = parseFloat(cols[2]) || 0;
         const daynight = cols[14]?.trim() || "D";
 
@@ -51,29 +69,68 @@ export function loadWildfires(
 
         const colorStr = fireColor(confidence);
         const c = Cesium.Color.fromCssColorString(colorStr);
+        const isHighConfidence = confidence >= 80;
+        const glowRadius = frpToRadius(frp);
 
+        // ─── Glow ellipse (thermal radiation visualization) ───
+        viewer.entities.add({
+          id: `fire-glow-${count}`,
+          position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+          ellipse: {
+            semiMinorAxis: glowRadius,
+            semiMajorAxis: glowRadius,
+            material: new Cesium.ColorMaterialProperty({
+              color: c.withAlpha(0.08),
+            }),
+            height: 0,
+          },
+          properties: { type: "wildfire-glow", confidence, frp },
+        });
+
+        // ─── Outer glow ring for high-confidence fires ───
+        if (isHighConfidence) {
+          viewer.entities.add({
+            id: `fire-ring-${count}`,
+            position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+            ellipse: {
+              semiMinorAxis: glowRadius * 1.3,
+              semiMajorAxis: glowRadius * 1.3,
+              material: Cesium.Color.TRANSPARENT,
+              outline: true,
+              outlineColor: c.withAlpha(0.25),
+              outlineWidth: 1,
+              height: 0,
+            },
+            properties: { type: "wildfire-ring", confidence, frp },
+          });
+        }
+
+        // ─── Billboard icon (close range) ───
         viewer.entities.add({
           id: `fire-${count}`,
           position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
           billboard: {
             image: FIRE_ICON,
-            width: 14,
-            height: 14,
+            width: isHighConfidence ? 16 : 12,
+            height: isHighConfidence ? 16 : 12,
             scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 1e7, 0.3),
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1e7),
           },
+          // Bright center point
           point: {
-            pixelSize: confidence >= 80 ? 5 : 3,
+            pixelSize: isHighConfidence ? 6 : 4,
             color: c,
-            outlineColor: Cesium.Color.WHITE.withAlpha(0.3),
+            outlineColor: Cesium.Color.WHITE.withAlpha(0.4),
             outlineWidth: 1,
+            scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 5e7, 0.2),
           },
           description: [
-            `Active Fire Detection`,
-            `Confidence: ${confidence}%`,
+            `🔥 Active Fire Detection`,
+            `Confidence: ${confidence}%${isHighConfidence ? " ⚠️ HIGH" : ""}`,
             `Brightness: ${brightness.toFixed(1)} K`,
             frp > 0 ? `Fire Radiative Power: ${frp.toFixed(1)} MW` : null,
-            daynight === "N" ? "Night detection" : "Day detection",
+            `Glow Radius: ~${(glowRadius / 1000).toFixed(0)} km`,
+            daynight === "N" ? "🌙 Night detection" : "☀️ Day detection",
             `Lat: ${lat.toFixed(3)}, Lon: ${lon.toFixed(3)}`,
             `Source: NASA FIRMS (VIIRS)`,
           ]

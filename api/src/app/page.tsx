@@ -1289,9 +1289,7 @@ export default function Home() {
                 }
               />
             ))}
-          </div>
-          {/* Bottom feature cards — full-width on mobile */}
-          <div className="oz-features-bottom">
+            {/* No Ads, OpenAPI, Self-Hostable — same FlipCard pattern */}
             {[
               {
                 emoji: "\uD83D\uDEAB",

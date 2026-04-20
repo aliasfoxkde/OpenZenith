@@ -9,7 +9,6 @@ import { LOCATIONS, latLonToTile, pickRandomLocations } from "./landing/location
 import { useTheme, setThemeMode, getThemeMode, initTheme } from "./landing/useTheme";
 import { waitForMapLibre } from "./landing/maplibre-loader";
 import { FlipCard } from "./landing/FlipCard";
-import { HeroParticles } from "./landing/HeroParticles";
 import { addOrUpdatePin, flyToWithPadding } from "./landing/map-helpers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -46,8 +45,6 @@ export default function Home() {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroMapRef = useRef<HTMLDivElement>(null);
-  const heroCanvasRef = useRef<HTMLDivElement>(null);
-  const [heroSize, setHeroSize] = useState({ w: 0, h: 0 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const heroMapInstance = useRef<any>(null);
   const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -62,19 +59,6 @@ export default function Home() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  // Track hero section size for particle canvas
-  useEffect(() => {
-    const el = heroCanvasRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setHeroSize({ w: entry.contentRect.width, h: entry.contentRect.height });
-      }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
   }, []);
 
   // Randomize sample locations on mount (client-only to avoid hydration mismatch)
@@ -189,30 +173,9 @@ export default function Home() {
                 tileSize: 256,
                 attribution: "&copy; CartoDB",
               },
-              ...(dark
-                ? {
-                    land: {
-                      type: "geojson",
-                      data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
-                    },
-                  }
-                : {}),
             },
             layers: [
               { id: "osm", type: "raster", source: "osm" },
-              ...(dark
-                ? [
-                    {
-                      id: "land-contrast",
-                      type: "fill" as const,
-                      source: "land",
-                      paint: {
-                        "fill-color": "#1a2838",
-                        "fill-opacity": 0.6,
-                      },
-                    },
-                  ]
-                : []),
             ],
             glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
           },
@@ -363,14 +326,6 @@ export default function Home() {
       }
       if (map.getLayer("boundary-line")) {
         map.setPaintProperty("boundary-line", "line-color", `rgba(${bc}, 0.25)`);
-      }
-      // Update land contrast layer
-      if (map.getLayer("land-contrast")) {
-        if (!dark) {
-          map.setLayoutProperty("land-contrast", "visibility", "none");
-        } else {
-          map.setLayoutProperty("land-contrast", "visibility", "visible");
-        }
       }
     } catch {
       // Map not ready or source unavailable
@@ -549,9 +504,7 @@ export default function Home() {
           style={{ position: "relative", height: 660, overflow: "hidden", marginBottom: "2rem" }}
         >
           {/* Map background */}
-          <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0 }} />
-          {/* Particle canvas — sits above map, below overlay */}
-          {heroSize.w > 0 && <HeroParticles dark={dark} width={heroSize.w} height={heroSize.h} />}
+          <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0, filter: dark ? "brightness(1.4) contrast(0.9) saturate(0.6)" : undefined }} />
           {/* Subtle overlay — lets map texture show through */}
           <div
             className="oz-hero-overlay"
@@ -590,7 +543,6 @@ export default function Home() {
           <div
             id="hero-content"
             className="oz-hero-content"
-            ref={heroCanvasRef}
             style={{
               position: "relative",
               zIndex: 3,

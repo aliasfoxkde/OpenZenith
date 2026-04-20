@@ -74,6 +74,7 @@ export { addChlorophyll, removeChlorophyll } from "./chlorophyll";
 export { addSnowCover, removeSnowCover } from "./snow-cover";
 export { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
 export { addSeaHeight, removeSeaHeight } from "./sea-height";
+export { addOceanCurrents, removeOceanCurrents } from "./currents";
 
 // Risk & Air Quality
 export { addFloodHazard, removeFloodHazard } from "./flood-hazard";
@@ -93,6 +94,9 @@ export { addSatellites, removeSatellites } from "./satellites";
 
 // Bathymetry
 export { addBathymetry, removeBathymetry } from "./bathymetry";
+
+// Reference
+export { addEquator, removeEquator } from "./equator";
 
 // GOES Satellite Imagery
 export { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
@@ -135,6 +139,7 @@ import { addAviationWeather, removeAviationWeather } from "./aviation-weather";
 import { addSatellites, removeSatellites } from "./satellites";
 import { addBathymetry, removeBathymetry } from "./bathymetry";
 import { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
+import { addEquator, removeEquator } from "./equator";
 import { addDynamicSurfaceWater, removeDynamicSurfaceWater } from "./dynamic-surface-water";
 import { addDisturbanceAlerts, removeDisturbanceAlerts } from "./disturbance-alerts";
 import { addSo2Volcanic, removeSo2Volcanic } from "./so2-volcanic";
@@ -147,6 +152,7 @@ import { addChlorophyll, removeChlorophyll } from "./chlorophyll";
 import { addSnowCover, removeSnowCover } from "./snow-cover";
 import { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
 import { addSeaHeight, removeSeaHeight } from "./sea-height";
+import { addOceanCurrents, removeOceanCurrents } from "./currents";
 import { addFloodHazard, removeFloodHazard } from "./flood-hazard";
 import { addLandslideHazard, removeLandslideHazard } from "./landslide-hazard";
 import { addDroughtHazard, removeDroughtHazard } from "./drought-hazard";
@@ -207,11 +213,13 @@ const LAYER_HANDLERS: Record<
   snowCover: { add: addSnowCover, remove: removeSnowCover },
   seaSalinity: { add: addSeaSalinity, remove: removeSeaSalinity },
   seaHeight: { add: addSeaHeight, remove: removeSeaHeight },
+  oceanCurrents: { add: addOceanCurrents, remove: removeOceanCurrents },
   floodHazard: { add: addFloodHazard, remove: removeFloodHazard },
   landslideHazard: { add: addLandslideHazard, remove: removeLandslideHazard },
   droughtHazard: { add: addDroughtHazard, remove: removeDroughtHazard },
   pm25: { add: addPM25, remove: removePM25 },
   aod: { add: addAOD, remove: removeAOD },
+  equator: { add: addEquator, remove: removeEquator },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

@@ -297,6 +297,9 @@ export default function MapPage() {
         if (layer.id.startsWith(layerId) && layer.type === "raster") {
           map.setPaintProperty(layer.id, "raster-opacity", value / 100);
         }
+        if (layer.id.startsWith(layerId) && layer.type === "hillshade") {
+          map.setPaintProperty(layer.id, "hillshade-opacity", value / 100);
+        }
         if (layer.id.startsWith(layerId) && layer.type === "symbol") {
           map.setPaintProperty(layer.id, "text-opacity", value / 100);
         }
@@ -2259,68 +2262,98 @@ export default function MapPage() {
         <div
           style={{
             position: "absolute",
-            bottom: 12,
-            right: 12,
+            bottom: 40,
+            left: 12,
             zIndex: 10,
-            background: "rgba(10, 15, 26, 0.88)",
-            border: "1px solid rgba(0, 229, 255, 0.2)",
+            background: "rgba(10, 15, 26, 0.94)",
+            border: "1px solid rgba(0, 229, 255, 0.35)",
             borderRadius: 6,
-            padding: "8px 10px",
-            maxWidth: 220,
-            pointerEvents: "none",
+            padding: "12px 14px",
+            maxWidth: 340,
+            pointerEvents: "auto",
             fontFamily: T.fontMono,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
           }}
         >
-          <div style={{ fontSize: "0.65rem", color: T.accent, marginBottom: 6, fontWeight: 600, letterSpacing: "0.04em" }}>LEGEND</div>
+          <div style={{ fontSize: "0.75rem", color: T.accent, marginBottom: 10, fontWeight: 700, letterSpacing: "0.06em" }}>LEGEND</div>
+          {/* Basemap indicator */}
+          <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: T.accent }} />
+            <span style={{ fontSize: "0.6rem", color: T.text }}>{BASEMAPS[mapState.basemap]?.label || mapState.basemap}</span>
+          </div>
           {mapState.layers.bathymetry && (
-            <div style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Bathymetry</div>
-              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
-                {["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"].map((c,i)=>(
-                  <div key={i} style={{ flex: 1, background: c }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
-                <span>Deep</span><span>Shallow</span>
+            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("bathymetry", false)} title="Click to disable">
+              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Bathymetry</div>
+              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ display: "flex", height: 14 }}>
+                  {["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"].map((c,i)=>(
+                    <div key={i} style={{ flex: 1, background: c }} />
+                  ))}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.55rem", color: T.text, padding: "2px 4px", background: "rgba(0,0,0,0.3)" }}>
+                  <span>Deep</span><span>Shallow</span>
+                </div>
               </div>
             </div>
           )}
           {mapState.layers.elevationColor && (
-            <div style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Elevation</div>
-              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
-                {["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"].map((c,i)=>(
-                  <div key={i} style={{ flex: 1, background: c }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
-                <span>Sea Level</span><span>Peaks</span>
+            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("elevationColor", false)} title="Click to disable">
+              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Elevation</div>
+              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ display: "flex", height: 14 }}>
+                  {["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"].map((c,i)=>(
+                    <div key={i} style={{ flex: 1, background: c }} />
+                  ))}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.55rem", color: T.text, padding: "2px 4px", background: "rgba(0,0,0,0.3)" }}>
+                  <span>Sea Level</span><span>Peaks</span>
+                </div>
               </div>
             </div>
           )}
           {mapState.layers.elevationAccuracy && (
-            <div style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Data Accuracy</div>
-              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
-                {["#00bcd4","#4caf50","#1b5e20","#1565c0"].map((c,i)=>(
-                  <div key={i} style={{ flex: 1, background: c }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
-                <span>2m</span><span>10m</span><span>30m</span><span>450m</span>
+            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("elevationAccuracy", false)} title="Click to disable">
+              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Data Accuracy</div>
+              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ display: "flex", height: 14 }}>
+                  {[
+                    { color: "#00bcd4", label: "2m" },
+                    { color: "#4caf50", label: "10m" },
+                    { color: "#1b5e20", label: "30m" },
+                    { color: "#9acd32", label: "90m" },
+                    { color: "#1565c0", label: "450m" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ flex: 1, background: s.color }} />
+                  ))}
+                </div>
+                <div style={{ display: "flex", fontSize: "0.55rem", color: T.text, background: "rgba(0,0,0,0.3)" }}>
+                  {[
+                    { label: "2m", align: "left" as const },
+                    { label: "10m", align: "center" as const },
+                    { label: "30m", align: "center" as const },
+                    { label: "90m", align: "center" as const },
+                    { label: "450m", align: "right" as const },
+                  ].map((t, i) => (
+                    <div key={i} style={{ flex: 1, textAlign: t.align, padding: "2px 0" }}>
+                      <span>{t.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
           {mapState.layers.hillshade && (
-            <div style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Hillshade</div>
-              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
-                {["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"].map((c,i)=>(
-                  <div key={i} style={{ flex: 1, background: c }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
-                <span>Shadow</span><span>Highlight</span>
+            <div style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => toggleLayer("hillshade", false)} title="Click to disable">
+              <div style={{ fontSize: "0.65rem", color: T.text, marginBottom: 3, fontWeight: 500 }}>Hillshade</div>
+              <div style={{ border: "1px solid rgba(0,229,255,0.5)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ display: "flex", height: 14 }}>
+                  {["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"].map((c,i)=>(
+                    <div key={i} style={{ flex: 1, background: c }} />
+                  ))}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.55rem", color: T.text, padding: "2px 4px", background: "rgba(0,0,0,0.3)" }}>
+                  <span>Shadow</span><span>Highlight</span>
+                </div>
               </div>
             </div>
           )}
@@ -2405,29 +2438,47 @@ function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
 }
 
 /** Enforce correct z-order: basemap → terrain → hillshade → data → labels. */
-function reorderMapLayers(map: maplibregl.Map, layers: Record<string, boolean>): void {
+function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>): void {
   const style = (map as any).getStyle();
   if (!style?.layers) return;
-  const terrainIds = ["elevation-color-layer", "elevation-accuracy-layer", "elevation-accuracy-edges", "bathymetry", "contours-layer"];
-  const hillshadeIds = ["hillshade-base", "hillshade-detail"];
-  const dataIds: string[] = [];
-  // Collect all non-terrain, non-hillshade, non-label, non-basemap layers
-  for (const id of Object.keys(style.layers)) {
-    const lid = style.layers[id].id;
-    if (!terrainIds.includes(lid) && !hillshadeIds.includes(lid) && lid !== "labels-raster" && lid !== "basemap" && lid !== "land-contrast" && !lid.startsWith("boundary")) {
-      dataIds.push(lid);
-    }
+  // Known terrain layer IDs (rendered first, above basemap)
+  const TERRAIN_IDS = new Set([
+    "elevation-color-layer",
+    "elevation-accuracy-layer",
+    "elevation-accuracy-edges",
+    "bathymetry",
+    "contours-minor",
+    "contours-major",
+  ]);
+  // Known hillshade layer IDs (rendered above terrain, below data)
+  const HILLSHADE_IDS = new Set(["hillshade-base"]);
+  // Known label IDs (always on top)
+  const LABEL_IDS = new Set(["labels-raster"]);
+  // Known basemap/system IDs (stay at bottom)
+  const SYSTEM_IDS = new Set(["basemap", "land-contrast"]);
+
+  // Collect all layer IDs from the current style
+  const terrainLayers: string[] = [];
+  const hillshadeLayers: string[] = [];
+  const dataLayers: string[] = [];
+  const labelLayers: string[] = [];
+
+  for (const layer of style.layers) {
+    const id = layer.id;
+    if (SYSTEM_IDS.has(id)) continue;
+    if (LABEL_IDS.has(id)) { labelLayers.push(id); continue; }
+    if (HILLSHADE_IDS.has(id)) { hillshadeLayers.push(id); continue; }
+    if (TERRAIN_IDS.has(id)) { terrainLayers.push(id); continue; }
+    // Everything else is a data layer
+    dataLayers.push(id);
   }
-  // Build ordered stack: terrain → hillshade → data
-  const ordered = [...terrainIds, ...hillshadeIds, ...dataIds];
+
+  // Re-add in correct order (moveLayer without beforeId moves to top)
+  const ordered = [...terrainLayers, ...hillshadeLayers, ...dataLayers, ...labelLayers];
   for (const id of ordered) {
     if (map.getLayer(id)) {
-      try { (map as any).moveLayer(id); } catch { /* ignore */ }
+      try { (map as any).moveLayer(id); } catch { /* skip */ }
     }
-  }
-  // Labels always on top
-  if (map.getLayer("labels-raster")) {
-    try { (map as any).moveLayer("labels-raster"); } catch {}
   }
 }
 

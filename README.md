@@ -177,6 +177,7 @@ const { elevation } = await res.json(); // 35m (Paris)
 | 3D Globe | CesiumJS 1.119 + satellite.js |
 | Runtime | Cloudflare Pages (Edge Workers) |
 | Storage | Cloudflare R2 (terrain tiles, ~1.7GB) |
+| Elevation Data | [HuggingFace Datasets](https://huggingface.co/datasets/aliasfox/srtm30m-merged) (SRTM 30m global terrain) |
 | Python | NumPy, Pillow, requests, Zstd/Brotli |
 | Tests | 178 TypeScript (Vitest) + 42 Python (pytest) |
 
@@ -214,6 +215,8 @@ scripts/                      # Utility scripts
 | ArcticDEM | 2m | >60°N | ±1m |
 | EEA DTM | 10m | Europe | ±5m |
 
+Elevation tiles sourced from [aliasfox/srtm30m-merged](https://huggingface.co/datasets/aliasfox/srtm30m-merged) on HuggingFace Datasets.
+
 **Benchmark:** 30 validation points, Everest 8,729m, Kilimanjaro 5,832m, Death Valley -83m, Denali 6,141m.
 
 ---
@@ -234,7 +237,7 @@ scripts/                      # Utility scripts
 ## 📋 Pending (requires external resources)
 
 - **ADSB Exchange** ($30/yr subscription) — military aircraft data
-- **Vessel tracking** — AISstream free tier non-functional; needs AISHub feeder ($30 RTL-SDR) or paid API
+- **Vessel tracking** — AISstream free tier non-functional; needs AISHub feeder (~$100 RTL-SDR + integration) or paid API
 - **COMET-LiCS** — InSAR subsidence monitoring (needs dataset identification)
 
 See [VESSEL_AIRCRAFT_DATA_OPTIONS.md](docs/VESSEL_AIRCRAFT_DATA_OPTIONS.md) for hardware/software setup details.
@@ -243,4 +246,4 @@ See [VESSEL_AIRCRAFT_DATA_OPTIONS.md](docs/VESSEL_AIRCRAFT_DATA_OPTIONS.md) for 
 
 ## License
 
-MIT
+GPL-3.0

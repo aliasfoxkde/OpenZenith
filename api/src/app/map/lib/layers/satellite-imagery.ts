@@ -18,12 +18,12 @@ function getRecentGibsDate(): string {
 const GIBS_DATE = getRecentGibsDate();
 
 export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("satellite")) return;
+  if (map.getSource("satellite-imagery")) return;
 
   try {
-    if (!map.getSource("satellite")) {
+    if (!map.getSource("satellite-imagery")) {
       // NASA GIBS MODIS Terra True Color (daily, global coverage)
-      map.addSource("satellite", {
+      map.addSource("satellite-imagery", {
         type: "raster",
         tiles: [
           `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${GIBS_DATE}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
@@ -35,13 +35,13 @@ export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): v
       });
     }
 
-    if (!map.getLayer("satellite")) {
+    if (!map.getLayer("satellite-imagery")) {
       map.addLayer({
-        id: "satellite",
+        id: "satellite-imagery",
         type: "raster",
-        source: "satellite",
+        source: "satellite-imagery",
         paint: {
-          "raster-opacity": 0.8,
+          "raster-opacity": 0.85,
         },
       });
     }
@@ -53,6 +53,6 @@ export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): v
 }
 
 export function removeSatelliteImagery(map: maplibregl.Map): void {
-  try { map.removeLayer("satellite"); } catch {}
-  try { map.removeSource("satellite"); } catch {}
+  try { map.removeLayer("satellite-imagery"); } catch {}
+  try { map.removeSource("satellite-imagery"); } catch {}
 }

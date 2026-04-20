@@ -4,8 +4,6 @@ import { setStatus } from "./types";
 /* ─── Bathymetry (Ocean Depth) ─── */
 
 export function addBathymetry(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("bathymetry")) return;
-
   try {
     if (!map.getSource("bathymetry")) {
       map.addSource("bathymetry", {
@@ -16,26 +14,24 @@ export function addBathymetry(map: maplibregl.Map, handle: LayerHandle): void {
         maxzoom: 10,
       });
     }
-
     if (!map.getLayer("bathymetry")) {
       map.addLayer({
         id: "bathymetry",
         type: "raster",
         source: "bathymetry",
         paint: {
-          "raster-opacity": 0.6,
-          "raster-blend": "multiply",
-          "raster-saturation": 0.4,
-          "raster-brightness-max": 0.8,
+          "raster-opacity": 0.55,
+          "raster-saturation": 0.3,
+          "raster-contrast": 0.3,
+          "raster-brightness-max": 0.75,
           "raster-brightness-min": 0.3,
         },
       });
     }
+    setStatus(handle, "bathymetry", "loaded");
   } catch {
-    /* layers may already exist */
+    setStatus(handle, "bathymetry", "error");
   }
-
-  setStatus(handle, "bathymetry", "loaded");
 }
 
 export function removeBathymetry(map: maplibregl.Map): void {

@@ -54,6 +54,14 @@ export const LAYERS: readonly LayerDefinition[] = [
     dataSource: "/api/bathymetry",
   },
   {
+    id: "equator",
+    name: "Equator Line",
+    category: "terrain",
+    description: "Reference line at 0 degrees latitude",
+    defaultEnabled: false,
+    accent: "#94a3b8",
+  },
+  {
     id: "hillshade",
     name: "Hillshade",
     category: "terrain",
@@ -238,7 +246,7 @@ export const LAYERS: readonly LayerDefinition[] = [
     name: "Natural Events",
     category: "space",
     description: "NASA EONET natural events (volcanoes, wildfires, icebergs)",
-    defaultEnabled: true,
+    defaultEnabled: false,
     accent: "#ef4444",
     dataSource: "https://eonet.gsfc.nasa.gov/api/v3/events",
   },
@@ -475,6 +483,14 @@ export const LAYERS: readonly LayerDefinition[] = [
     defaultEnabled: false,
     accent: "#7c3aed",
     dataSource: "/api/sea-height/{z}/{x}/{y}",
+  },
+  {
+    id: "oceanCurrents",
+    name: "Ocean Currents",
+    category: "ocean",
+    description: "18 major ocean circulation patterns with animated flow particles (warm/cold/circumpolar)",
+    defaultEnabled: false,
+    accent: "#00ccff",
   },
 
   /* ── Risk & Air Quality ─────────────────────────────── */

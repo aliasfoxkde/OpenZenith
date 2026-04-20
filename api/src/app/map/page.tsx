@@ -866,25 +866,29 @@ export default function MapPage() {
         // Add elevation protocol and source
         map.on("load", () => {
           if (cancelled) return;
-          addElevationSource(map, mlgl);
-          // Phase 1: Terrain base layers (color, accuracy, bathymetry, contours)
-          for (const layer of LAYERS) {
-            if (layer.category === "terrain" && layer.id !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
-              addDataLayer(map, layerHandleRef.current, layer.id);
+          try {
+            addElevationSource(map, mlgl);
+            // Phase 1: Terrain base layers (color, accuracy, bathymetry, contours)
+            for (const layer of LAYERS) {
+              if (layer.category === "terrain" && layer.id !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+                addDataLayer(map, layerHandleRef.current, layer.id);
+              }
             }
-          }
-          // Phase 2: Hillshade on top of terrain
-          if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
-          // Phase 3: Data layers (non-terrain) on top of terrain
-          for (const layer of LAYERS) {
-            if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
-              addDataLayer(map, layerHandleRef.current, layer.id);
+            // Phase 2: Hillshade on top of terrain
+            if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
+            // Phase 3: Data layers (non-terrain) on top of terrain
+            for (const layer of LAYERS) {
+              if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+                addDataLayer(map, layerHandleRef.current, layer.id);
+              }
             }
+            // Phase 4: Labels on very top
+            addLabelLayer(map, mapState.basemap);
+            // Enforce z-order
+            reorderMapLayers(map, mapState.layers);
+          } catch (e) {
+            console.error("Error adding layers:", e);
           }
-          // Phase 4: Labels on very top
-          addLabelLayer(map, mapState.basemap);
-          // Enforce z-order
-          reorderMapLayers(map, mapState.layers);
           setLoading(false);
         });
 
@@ -2418,7 +2422,7 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     "elevation-color-layer",
     "elevation-accuracy-layer",
     "elevation-accuracy-edges",
-    "elevation-accuracy-coastline-line",
+    "accuracy-coastline-line",
     "accuracy-boundary-0",
     "accuracy-boundary-1",
     "accuracy-boundary-2",

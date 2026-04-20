@@ -9,6 +9,15 @@ vi.mock("@/lib/tile", () => ({
   }),
 }));
 
+vi.mock("@/lib/storage/r2-tile-cache", () => ({
+  r2GetTile: vi.fn().mockResolvedValue(null),
+  r2PutTile: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/storage/cache", () => ({
+  staleWhileRevalidate: vi.fn().mockResolvedValue(null),
+}));
+
 describe("DEM Tile XYZ API", () => {
   it("returns a PNG tile for valid coordinates", async () => {
     const { GET } = await import("@/app/api/dem-tile/[z]/[x]/[y]/route");

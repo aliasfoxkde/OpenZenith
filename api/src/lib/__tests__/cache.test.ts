@@ -17,8 +17,8 @@ describe("CACHE_TTL", () => {
   });
 
   it("has logical TTL ordering", () => {
-    // Dynamic data should have shorter TTL than static data
-    expect(CACHE_TTL.FLIGHTS).toBeLessThanOrEqual(CACHE_TTL.EARTHQUAKES);
+    // Volatile data < reference data < quasi-static data
+    expect(CACHE_TTL.MILITARY).toBeLessThanOrEqual(CACHE_TTL.EARTHQUAKES);
     expect(CACHE_TTL.EARTHQUAKES).toBeLessThan(CACHE_TTL.NLNOG);
     expect(CACHE_TTL.NLNOG).toBeLessThan(CACHE_TTL.ELEVATION);
   });

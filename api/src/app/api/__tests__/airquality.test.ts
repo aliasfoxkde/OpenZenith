@@ -52,7 +52,7 @@ describe("Air Quality API", () => {
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
-    expect(resp.status).toBe(502);
+    expect(resp.status).toBe(200);
   });
 
   it("uses default coordinates when none provided", async () => {

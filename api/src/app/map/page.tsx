@@ -2413,47 +2413,51 @@ function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
   });
 }
 
-/** Enforce correct z-order: basemap → terrain → hillshade → data → labels. */
+/** Enforce correct z-order (bottom to top). */
 function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>): void {
   const style = (map as any).getStyle();
   if (!style?.layers) return;
-  // Known terrain layer IDs (rendered first, above basemap)
-  const TERRAIN_IDS = new Set([
+
+  // Definitive bottom-to-top order. Layers not in this list keep their relative order.
+  const Z_ORDER = [
+    // System / basemap — stay at bottom, don't move
+    "basemap",
+    "land-contrast",
+    // Terrain — in specific order
+    "bathymetry",
     "elevation-color-layer",
     "elevation-accuracy-layer",
     "elevation-accuracy-edges",
     "accuracy-zones-line",
     "accuracy-coastline-line",
-    "bathymetry",
     "contours-minor",
     "contours-major",
+    // Hillshade
+    "hillshade-base",
+    // Data layers — everything else
+    // Ocean currents static paths
+    "ocean-currents-lines",
+    // Reference
     "equator-line",
-  ]);
-  // Known hillshade layer IDs (rendered above terrain, below data)
-  const HILLSHADE_IDS = new Set(["hillshade-base"]);
-  // Known label IDs (always on top)
-  const LABEL_IDS = new Set(["labels-raster"]);
-  // Known basemap/system IDs (stay at bottom)
-  const SYSTEM_IDS = new Set(["basemap", "land-contrast"]);
+    // Labels — always on top
+    "labels-raster",
+  ];
 
-  // Collect all layer IDs from the current style
-  const terrainLayers: string[] = [];
-  const hillshadeLayers: string[] = [];
-  const dataLayers: string[] = [];
-  const labelLayers: string[] = [];
+  const zSet = new Set(Z_ORDER);
+  const knownLayers: string[] = [];
+  const otherLayers: string[] = [];
 
   for (const layer of style.layers) {
     const id = layer.id;
-    if (SYSTEM_IDS.has(id)) continue;
-    if (LABEL_IDS.has(id)) { labelLayers.push(id); continue; }
-    if (HILLSHADE_IDS.has(id)) { hillshadeLayers.push(id); continue; }
-    if (TERRAIN_IDS.has(id)) { terrainLayers.push(id); continue; }
-    // Everything else is a data layer
-    dataLayers.push(id);
+    if (zSet.has(id)) {
+      knownLayers.push(id);
+    } else {
+      otherLayers.push(id);
+    }
   }
 
-  // Re-add in correct order (moveLayer without beforeId moves to top)
-  const ordered = [...terrainLayers, ...hillshadeLayers, ...dataLayers, ...labelLayers];
+  // Re-add in z-order: known layers first (in order), then other layers, then labels
+  const ordered = [...knownLayers, ...otherLayers];
   for (const id of ordered) {
     if (map.getLayer(id)) {
       try { (map as any).moveLayer(id); } catch { /* skip */ }

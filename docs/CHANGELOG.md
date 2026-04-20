@@ -1,5 +1,96 @@
 # Changelog
 
+## v0.7.0 (2026-04-19)
+
+### System Theme & Landing Page
+- **System/auto theme**: Respects OS light/dark preference, persisted to localStorage
+- **Theme toggle button**: ☀️/🌙 on landing page Navbar to switch manually
+- **Layout boot script**: Reads saved theme before first paint (no flash)
+- **Landing page spacing fixes**: Features section padding, section gaps, grid improvements
+- **Globe Data Layers section**: Proper heading + subtitle, better visual hierarchy
+- **Disclaimer separator**: border-top with padding for clearer section breaks
+- **Feature grid**: Wider min (260px), 480px single-column breakpoint
+
+### Map Dark Mode Contrast
+- **Land contrast overlay**: Semi-transparent #1a2332 fill on dark basemaps using Natural Earth 110m land GeoJSON
+- **Applied to**: dark, dark_nolabel, dark_contrast basemaps
+- **New 'Dark+' basemap option**: In basemap selector
+- **Default basemap follows OS theme**: dark/voyager auto-selected based on system preference
+- **'Match OS' button**: Quick theme sync in map sidebar
+- **Hash param uses dynamic default**: No longer hardcoded to 'dark'
+
+### Globe Fixes (Phase 1)
+- **Layer toggle bug fixed**: `dataLoadedRef.current[key] = false` added to all 16 OFF branches
+  - Layers now properly reload when toggled OFF then back ON
+  - Affects: radar, flights, militaryFlights, vessels, warnings, satellites,
+    hurricaneTracks, nlnogNodes, flightArcs, orbitalTracks, groundTracks, currents,
+    earthquakes, events
+- **Terrain provider rewritten**: Replaced EllipsoidTerrainProvider override with proper
+  TerrainProvider prototype chain (Object.create). Added required CesiumJS 1.119 interface
+  methods: getLevelMaximumGeometricError, tilingScheme, ellipsoid, ready, etc.
+
+### Globe Symbology Upgrades (Phase 3)
+- **Wildfires**: Thermal glow ellipses proportional to Fire Radiative Power (FRP),
+  log-scaled radius (10MW→25km, 100MW→60km, 1000MW→100km), outer glow rings
+  for high-confidence fires, scaled billboard icons
+- **Lightning**: 30km glow ellipse for each strike (yellow, 15% opacity) for
+  flash illumination effect visible from orbit
+
+### GIBS Environmental Layers — 26 New Tile Routes
+- **Shared infrastructure**: Created `/lib/gibs-tile.ts` with `createGIBSHandler()` factory
+  function. Eliminates code duplication. Standardizes: param validation, R2 cache,
+  WMS proxy, error handling.
+
+**Sprint A — SAR & Fire (3 routes, refactored to shared helper)**
+- Floods: VIIRS Combined 3-Day Flood (z0-9, 24h cache)
+- Fire Temperature: GOES-East ABI FireTemp (z1-9, 1h)
+- SAR Backscatter: OPERA L2 RTC Sentinel-1 (z1-10, 7d)
+
+**Sprint B — Environmental Monitoring (7 routes)**
+- Dynamic Surface Water: OPERA L3 Surface Water Extent (z0-9, 24h)
+- Disturbance Alerts: OPERA L3 DIST-ALERT HLS (z0-8, 24h)
+- SO₂ Volcanic: TROPOMI Sulfur Dioxide Column (z0-5, 1h)
+- NO₂ Pollution: TROPOMI Nitrogen Dioxide Column (z0-5, 1h)
+- Precipitation: IMERG Precipitation Rate (z0-8, 1h)
+- Soil Moisture: SMAP L3 Active Soil Moisture (z0-3, 24h)
+- NDVI Vegetation: MODIS Terra 16-Day NDVI (z0-9, 7d)
+
+**Sprint C — Ocean & Terrain (7 routes)**
+- Sea Surface Temp: GHRSST L4 MUR SST (z0-8, 24h)
+- Chlorophyll-a: MODIS Aqua Chlorophyll A (z0-7, 24h)
+- Snow Cover: MODIS Terra Snow Extent 8-Day (z0-8, 7d)
+- Canopy Height: GEDI ISS L3 Canopy Height Mean (z0-8, 7d)
+- Aboveground Biomass: GEDI ISS L4B Biomass Density (z0-8, 7d)
+- Sea Surface Salinity: SMAP L3 Sea Surface Salinity Monthly (z0-5, 7d)
+- Sea Surface Height: JPL Sea Surface Height Anomalies (z0-6, 24h)
+
+**Sprint D — Risk & Air Quality (5 routes)**
+- Flood Hazard: NDH Flood Hazard Frequency 1985-2003 (z0-8, 7d)
+- Landslide Hazard: NDH Landslide Hazard Distribution 2000 (z0-8, 7d)
+- Drought Hazard: NDH Drought Hazard Frequency 1980-2000 (z0-8, 7d)
+- PM2.5: Particulate Matter Below 2.5μm 2010-2012 (z0-5, 7d)
+- AOD: MODIS Aqua AOD Deep Blue Combined (z0-5, 24h)
+
+### Layer Registry
+- **59 total layers** (was 37)
+- 26 new raster tile layers with MapLibre dispatchers
+- All registered in shared registry, available on 2D map
+- RASTER_LAYERS set: 28 total
+
+### Tests
+- **76 GIBS tile tests** (4 per route × 19 routes in shared test file)
+- **3 individual route tests** (floods-tile, fire-temperature, sar-backscatter)
+- **Total test files**: 47
+- **All tests pass, TypeScript clean**
+
+### API Routes
+- **63 total** (was 50)
+- All with `export const runtime = 'edge'`
+- **Zero 5xx status codes**
+
+### R2 Cached Routes
+- **26+ total** (14 previous + 12 new GIBS tile routes with r2GetTile/r2PutTile)
+
 ## v0.6.1 (2026-04-20)
 
 ### Critical Data Source Fixes (2 dead WMS services replaced)

@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri
+from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri, multi_hillshade, color_relief
 
 
 def make_slope_dem(rows=10, cols=10):
@@ -272,3 +272,81 @@ class TestTRI:
         result = tri(dem)
         inner = result[1:-1, 1:-1]
         assert np.all(inner[~np.isnan(inner)] >= 0)
+
+
+class TestMultiHillshade:
+    """Tests for multi-directional hillshade."""
+
+    def test_flat_dem(self):
+        """Flat terrain should produce uniform moderate brightness."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = multi_hillshade(dem)
+        assert result.shape == (20, 20)
+        assert result.dtype == np.uint8
+        # Flat terrain should be mostly lit (values > 100)
+        assert np.mean(result) > 100
+
+    def test_output_range(self):
+        """Output should be 0-255."""
+        np.random.seed(42)
+        dem = np.random.randint(100, 500, size=(50, 50)).astype(np.float32)
+        result = multi_hillshade(dem)
+        assert result.min() >= 0
+        assert result.max() <= 255
+
+    def test_nodata_handling(self):
+        """NODATA cells should be 0."""
+        dem = np.full((10, 10), 100.0, dtype=np.float32)
+        dem[5, 5] = -32768.0
+        result = multi_hillshade(dem)
+        assert result[5, 5] == 0
+
+    def test_rougher_than_single(self):
+        """Multi-hillshade should show more terrain detail than single."""
+        np.random.seed(42)
+        dem = np.random.randint(100, 500, size=(30, 30)).astype(np.float32)
+        single = hillshade(dem)
+        multi = multi_hillshade(dem)
+        # Multi should have higher variance (more visible detail)
+        assert np.std(multi) >= np.std(single) * 0.5
+
+
+class TestColorRelief:
+    """Tests for color relief."""
+
+    def test_output_shape(self):
+        """Output should be (rows, cols, 4) RGBA."""
+        dem = np.random.randint(0, 1000, size=(20, 30)).astype(np.float32)
+        result = color_relief(dem)
+        assert result.shape == (20, 30, 4)
+        assert result.dtype == np.uint8
+
+    def test_nodata_transparent(self):
+        """NODATA cells should be transparent (alpha=0)."""
+        dem = np.full((10, 10), 100.0, dtype=np.float32)
+        dem[5, 5] = -32768.0
+        result = color_relief(dem)
+        assert result[5, 5, 3] == 0  # alpha = 0
+
+    def test_valid_opaque(self):
+        """Valid cells should be opaque (alpha=255)."""
+        dem = np.full((10, 10), 500.0, dtype=np.float32)
+        result = color_relief(dem)
+        assert np.all(result[:, :, 3] == 255)
+
+    def test_custom_breaks(self):
+        """Custom breaks should produce different colors."""
+        dem = np.full((5, 5), 500.0, dtype=np.float32)
+        breaks = [(0, "#000000"), (1000, "#ffffff")]
+        result = color_relief(dem, breaks=breaks)
+        # 500 is midway → should be gray-ish
+        r, g, b = result[0, 0, 0], result[0, 0, 1], result[0, 0, 2]
+        assert 100 < r < 155  # approximately gray
+
+    def test_deep_ocean_blue(self):
+        """Very negative values should be dark blue."""
+        dem = np.full((5, 5), -8000.0, dtype=np.float32)
+        result = color_relief(dem)
+        r, g, b = result[0, 0, 0], result[0, 0, 1], result[0, 0, 2]
+        assert b > r  # blue dominant
+        assert b > g

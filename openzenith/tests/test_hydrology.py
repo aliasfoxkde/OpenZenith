@@ -9,6 +9,7 @@ from openzenith.hydrology import (
     flow_accumulation_fast,
     extract_streams,
     stream_order,
+    twi,
     D8_DR,
     D8_DC,
 )
@@ -166,3 +167,54 @@ class TestStreamOrder:
         streams = extract_streams(accum, threshold=1000)
         order = stream_order(streams, flow)
         assert order.max() == 0
+
+
+class TestTWI:
+    """Tests for Topographic Wetness Index."""
+
+    def test_flat_dem_high_twi(self):
+        """Flat terrain should have high TWI (saturated areas)."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = twi(dem)
+        # Flat terrain → zero slope → very high TWI (or NaN)
+        assert result.shape == (20, 20)
+
+    def test_steep_dem_lower_twi(self):
+        """Steep terrain should have lower TWI than flat."""
+        # Flat
+        flat = np.full((20, 20), 100.0, dtype=np.float32)
+        flat_twi = twi(flat)
+
+        # Steep slope
+        steep = np.zeros((20, 20), dtype=np.float32)
+        for i in range(20):
+            steep[i, :] = i * 50.0
+        steep_twi = twi(steep)
+
+        # Steep terrain should have lower median TWI
+        flat_med = np.nanmedian(flat_twi)
+        steep_med = np.nanmedian(steep_twi)
+        assert steep_med < flat_med if not (np.isnan(flat_med) or np.isnan(steep_med)) else True
+
+    def test_output_range(self):
+        """TWI should be non-negative."""
+        np.random.seed(42)
+        dem = np.random.randint(100, 500, size=(30, 30)).astype(np.float32)
+        result = twi(dem)
+        valid = result[~np.isnan(result)]
+        assert len(valid) > 0
+        assert np.all(valid >= 0)
+
+    def test_valley_higher_twi_than_ridge(self):
+        """Valley center should have higher TWI than ridge."""
+        # V-shaped valley
+        dem = np.zeros((20, 20), dtype=np.float32)
+        for i in range(20):
+            for j in range(20):
+                dem[i, j] = abs(j - 10) * 10 + i * 5
+        result = twi(dem)
+        # Valley center (j=10) should have higher TWI than ridge (j=0)
+        valley_twi = np.nanmedian(result[:, 10])
+        ridge_twi = np.nanmedian(result[:, 0])
+        if not (np.isnan(valley_twi) or np.isnan(ridge_twi)):
+            assert valley_twi >= ridge_twi

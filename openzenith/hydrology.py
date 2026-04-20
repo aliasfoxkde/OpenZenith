@@ -521,3 +521,63 @@ def delineate_watershed(
         "cell_size_deg": cell_size_deg,
         "grid_shape": list(dem.shape),
     }
+
+
+def twi(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Topographic Wetness Index (TWI).
+
+    TWI = ln(a / tan(β))
+    where a = specific catchment area (flow_accumulation × cell_area)
+    and β = slope in radians.
+
+    High TWI indicates areas prone to saturation and water accumulation.
+    Low TWI indicates well-drained ridges and slopes.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of TWI values. NODATA cells and cells with
+        zero slope are set to NaN.
+    """
+    from openzenith.terrain import slope as calc_slope
+
+    # Fill depressions for proper flow routing
+    filled = fill_depressions(dem, nodata)
+
+    # Flow direction and accumulation
+    fd = d8_flow_direction(filled, nodata)
+    accum = flow_accumulation_fast(fd)
+
+    # Slope in degrees
+    slp = calc_slope(dem, cell_size_deg, nodata)
+
+    # Cell area in square meters
+    cell_m = cell_size_deg * 111320.0
+    cell_area = cell_m * cell_m
+
+    # Specific catchment area
+    sca = accum.astype(np.float64) * cell_area
+
+    # TWI = ln(sca / tan(slope_rad))
+    # Avoid division by zero: mask slope < 0.1 degrees
+    slope_rad = np.deg2rad(slp)
+    slope_rad[slope_rad < np.deg2rad(0.1)] = np.nan
+
+    tan_slope = np.tan(slope_rad)
+    result = np.log(sca / tan_slope)
+
+    # Mask nodata cells
+    valid = dem != nodata
+    result[~valid] = np.nan
+
+    # Clip to reasonable range
+    result = np.clip(result, 0, 25)
+
+    return result.astype(np.float32)

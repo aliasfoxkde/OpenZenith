@@ -95,9 +95,24 @@ def __getattr__(name):
     if name == "tri":
         from openzenith.terrain import tri
         return tri
+    if name == "multi_hillshade":
+        from openzenith.terrain import multi_hillshade
+        return multi_hillshade
+    if name == "color_relief":
+        from openzenith.terrain import color_relief
+        return color_relief
+    if name == "grid_to_geojson":
+        from openzenith.export import grid_to_geojson
+        return grid_to_geojson
+    if name == "contour_to_geojson":
+        from openzenith.export import contour_to_geojson
+        return contour_to_geojson
     if name == "fill_depressions":
         from openzenith.hydrology import fill_depressions
         return fill_depressions
+    if name == "twi":
+        from openzenith.hydrology import twi
+        return twi
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -148,6 +163,12 @@ __all__ = [
     "roughness",
     "curvature",
     "tri",
+    "multi_hillshade",
+    "color_relief",
+    # Export
+    "grid_to_geojson",
+    "contour_to_geojson",
     # Hydrology extra (lazy)
     "fill_depressions",
+    "twi",
 ]

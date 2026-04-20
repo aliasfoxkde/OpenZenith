@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { GetInTouch } from "@/components/GetInTouch";
 import { CodeBlock } from "@/components/CodeBlock";
 import { LOCATIONS, latLonToTile, pickRandomLocations } from "./landing/locations";
-import { useTheme, setThemeMode, getThemeMode } from "./landing/useTheme";
+import { useTheme, setThemeMode, getThemeMode, initTheme } from "./landing/useTheme";
 import { waitForMapLibre } from "./landing/maplibre-loader";
 import { FlipCard } from "./landing/FlipCard";
 import { addOrUpdatePin, flyToWithPadding } from "./landing/map-helpers";
@@ -64,6 +64,7 @@ export default function Home() {
   // Randomize sample locations on mount (client-only to avoid hydration mismatch)
   useEffect(() => {
     setSampleLocations(pickRandomLocations(5));
+    initTheme();
   }, []);
 
   // Auto-detect user location via GeoIP and pre-populate
@@ -1230,7 +1231,7 @@ export default function Home() {
                 key={f.title}
                 cardBg={cardBg}
                 border={border}
-                minHeight={150}
+                height={150}
                 front={
                   <>
                     <div
@@ -1321,7 +1322,7 @@ export default function Home() {
                 key={f.title}
                 cardBg={cardBg}
                 border={border}
-                minHeight={150}
+                height={150}
                 front={
                   <>
                     <div
@@ -1479,7 +1480,7 @@ export default function Home() {
                 key={d.title}
                 cardBg={cardBg}
                 border={border}
-                minHeight={130}
+                height={130}
                 front={
                   <>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
@@ -1526,7 +1527,7 @@ export default function Home() {
               key="contribute"
               cardBg={cardBg}
               border={border}
-              minHeight={120}
+              height={120}
               front={
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
@@ -1568,7 +1569,7 @@ export default function Home() {
               key="integrations"
               cardBg={cardBg}
               border={border}
-              minHeight={120}
+              height={120}
               front={
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
@@ -1927,13 +1928,15 @@ export default function Home() {
               style={{
                 fontSize: "0.95rem",
                 color: textSecondary,
-                maxWidth: 600,
+                maxWidth: 640,
                 margin: "0 auto 1.5rem",
                 lineHeight: 1.65,
               }}
             >
-              OpenZenith runs entirely client-side on Cloudflare's free tier &mdash; no servers, no databases, no
-              monthly costs. That keeps it free for everyone, but it also means we're limited to what a browser can do.
+              OpenZenith runs on Cloudflare's free tier &mdash; no servers to maintain, minimal monthly costs.
+              Elevation tiles live in Cloudflare R2 (~1.7GB), API responses are cached at the edge, and everything
+              else executes in your browser. That keeps it free for everyone, but it also means we're limited
+              by what edge functions and client-side compute can do.
             </p>
             <div
               style={{
@@ -1962,9 +1965,14 @@ export default function Home() {
                   desc: "Build proper elevation profiling, contour generation, flood simulation, and terrain analysis tools that go beyond what edge functions can handle.",
                 },
                 {
+                  icon: "U",
+                  title: "User Accounts",
+                  desc: "Save preferences, bookmarks, and custom maps across devices. Higher API rate limits for registered users. Requires a database and auth infrastructure.",
+                },
+                {
                   icon: "F",
                   title: "Further Development",
-                  desc: "Time to build the cool stuff: 3D terrain flythroughs, real-time hurricane spaghetti models, vessel tracking, and all the features we have planned.",
+                  desc: "3D terrain flythroughs, real-time hurricane spaghetti models, vessel tracking, and all the features we have planned.",
                 },
               ].map((item) => (
                 <div key={item.title} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
@@ -1994,7 +2002,8 @@ export default function Home() {
             </div>
             <p style={{ fontSize: "0.8rem", color: textSecondary, marginBottom: "1.25rem", lineHeight: 1.5 }}>
               Every contribution directly funds hardware, data processing, and new features. No middlemen, no platform
-              fees &mdash; just geospatial tools that keep getting better.
+              fees &mdash; just geospatial tools that keep getting better. User accounts and persistence are on the
+              roadmap once we prove out the platform and understand what people need.
             </p>
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
               <a

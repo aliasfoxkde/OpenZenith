@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useSyncExternalStore, useEffect, useRef } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const THEME_KEY = "openzenith-theme";
 type ThemeMode = "system" | "dark" | "light";
 
-// ── Global listeners so all useTheme() instances re-render on change ──
+// ── Module-level shared state (single source of truth) ──
+let currentMode: ThemeMode = "system";
 const listeners = new Set<() => void>();
 
 function notifyAll() {
-  listeners.forEach((fn) => fn());
+  for (const fn of listeners) fn();
 }
 
 function subscribeGlobal(callback: () => void) {
@@ -26,18 +27,15 @@ function resolveDark(mode: ThemeMode): boolean {
     : false;
 }
 
-/** React hook that subscribes to the system dark/light theme preference.
- *  Supports three modes: "system" (follows OS), "dark", "light".
- *  Persists choice to localStorage. Returns `true` if dark. */
+/** React hook — returns `true` if dark theme is active. */
 export function useTheme() {
-  const modeRef = useRef<ThemeMode>("system");
-
   const subscribe = useCallback((callback: () => void) => {
-    // Re-render on manual theme change
     const unsub = subscribeGlobal(callback);
-    // Also re-render on OS preference change
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => callback();
+    const handler = () => {
+      // If mode is "system", OS change should trigger re-render
+      if (currentMode === "system") callback();
+    };
     mq.addEventListener("change", handler);
     return () => {
       unsub();
@@ -45,62 +43,49 @@ export function useTheme() {
     };
   }, []);
 
-  const getSnapshot = useCallback(() => {
-    return resolveDark(modeRef.current);
-  }, []);
+  const getSnapshot = useCallback(() => resolveDark(currentMode), []);
 
-  const getServerSnapshot = useCallback(() => false, []);
-
-  const dark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  // Read persisted preference on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved === "dark" || saved === "light" || saved === "system") {
-        modeRef.current = saved;
-      }
-    } catch {
-      /* storage unavailable */
-    }
-    // Force re-render after reading persisted value
-    notifyAll();
-  }, []);
-
+  const dark = useSyncExternalStore(subscribe, getSnapshot, () => false);
   return dark;
 }
 
-/** Cycle theme: system → dark → light → system.
- *  Returns the new mode and updates localStorage + data-theme attribute. */
-export function cycleTheme(): ThemeMode {
-  const current = getThemeMode();
-  const next: ThemeMode = current === "system" ? "dark" : current === "dark" ? "light" : "system";
-  setThemeMode(next);
-  return next;
+/**
+ * Initialize theme on the client.
+ * Call once on mount (e.g., in a top-level useEffect).
+ * Reads localStorage, sets the module-level mode, applies data-theme.
+ */
+export function initTheme(): ThemeMode {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark" || saved === "light" || saved === "system") {
+      currentMode = saved;
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  applyTheme(currentMode);
+  return currentMode;
 }
 
-/** Set the theme mode. Updates localStorage, DOM, and triggers React re-renders. */
+/** Set the theme mode. Updates everything: module state, localStorage, DOM, React. */
 export function setThemeMode(mode: ThemeMode): void {
+  currentMode = mode;
   try {
     localStorage.setItem(THEME_KEY, mode);
   } catch {
     /* storage unavailable */
   }
-  document.documentElement.setAttribute(
-    "data-theme",
-    resolveDark(mode) ? "dark" : "light",
-  );
-  // Notify all useTheme() subscribers
+  applyTheme(mode);
   notifyAll();
 }
 
-/** Get the current theme mode ("system" | "dark" | "light"). */
+/** Get the current theme mode. */
 export function getThemeMode(): ThemeMode {
-  try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === "dark" || saved === "light" || saved === "system") return saved;
-  } catch {
-    /* storage unavailable */
+  return currentMode;
+}
+
+function applyTheme(mode: ThemeMode): void {
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", resolveDark(mode) ? "dark" : "light");
   }
-  return "system";
 }

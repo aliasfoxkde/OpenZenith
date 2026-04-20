@@ -392,9 +392,14 @@
 
 /* ─── Feature Cards Grid ─── */
 .oz-features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
+  justify-content: center;
+}
+.oz-features-grid > * {
+  width: calc(33.333% - 0.67rem);
+  min-width: 240px;
 }
 
 /* ─── Bottom Feature Cards ─── */
@@ -406,27 +411,22 @@
   margin-top: 1rem;
 }
 .oz-features-bottom > * {
-  flex: 0 1 calc(33.333% - 0.67rem);
+  width: calc(33.333% - 0.67rem);
   min-width: 240px;
 }
 
 /* ─── Mobile Responsive ─── */
 @media (max-width: 768px) {
-  .oz-features-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-  }
+  .oz-features-grid > *,
   .oz-features-bottom > * {
-    flex: 0 1 calc(50% - 0.375rem);
+    width: calc(50% - 0.375rem);
   }
 }
 
 @media (max-width: 480px) {
-  .oz-features-grid {
-    grid-template-columns: 1fr;
-  }
+  .oz-features-grid > *,
   .oz-features-bottom > * {
-    flex: 0 1 100%;
+    width: 100%;
   }
 }
 

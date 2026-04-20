@@ -841,44 +841,45 @@ export default function Globe() {
           case "earthquakes":
             if (on && !dataLoadedRef.current.earthquakes)
               loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-            if (!on) removeEntities("eq-");
+            if (!on) { removeEntities("eq-"); dataLoadedRef.current.earthquakes = false; }
             break;
           case "radar":
             if (on) loadLayerDynamic("radar");
-            if (!on) removeEntities("radar-");
+            if (!on) { removeEntities("radar-"); dataLoadedRef.current.radar = false; }
             break;
           case "flights":
             if (on) loadLayerDynamic("flights");
-            if (!on) removeEntities("flight-");
+            if (!on) { removeEntities("flight-"); dataLoadedRef.current.flights = false; }
             break;
           case "militaryFlights":
             if (on) loadLayerDynamic("militaryFlights");
-            if (!on) removeEntities("mil-");
+            if (!on) { removeEntities("mil-"); dataLoadedRef.current.militaryFlights = false; }
             break;
           case "vessels":
             if (on) loadLayerDynamic("vessels");
             if (!on) {
               removeEntities("vessel-");
+              dataLoadedRef.current.vessels = false;
               const vesselMod = layerModulesRef.current.vessels;
               if (vesselMod) vesselMod.cleanupVessels();
             }
             break;
           case "warnings":
             if (on) loadLayerDynamic("warnings");
-            if (!on) removeEntities("warn-");
+            if (!on) { removeEntities("warn-"); dataLoadedRef.current.warnings = false; }
             break;
           case "events":
             if (on && !dataLoadedRef.current.events)
               loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-            if (!on) removeEntities("event-");
+            if (!on) { removeEntities("event-"); dataLoadedRef.current.events = false; }
             break;
           case "satellites":
             if (on) loadLayerDynamic("satellites");
-            if (!on) removeEntities("sat-");
+            if (!on) { removeEntities("sat-"); dataLoadedRef.current.satellites = false; }
             break;
           case "hurricaneTracks":
             if (on) loadLayerDynamic("hurricaneTracks");
-            if (!on) removeEntities("storm-");
+            if (!on) { removeEntities("storm-"); dataLoadedRef.current.hurricaneTracks = false; }
             break;
           case "satellite":
             if (on)
@@ -911,11 +912,11 @@ export default function Globe() {
             break;
           case "nlnogNodes":
             if (on) loadLayerDynamic("nlnogNodes");
-            if (!on) removeEntities("nlnog-");
+            if (!on) { removeEntities("nlnog-"); dataLoadedRef.current.nlnogNodes = false; }
             break;
           case "flightArcs":
             if (on) loadLayerDynamic("flightArcs");
-            if (!on) removeEntities("arc-");
+            if (!on) { removeEntities("arc-"); dataLoadedRef.current.flightArcs = false; }
             break;
           case "hillshade":
             break;
@@ -931,15 +932,15 @@ export default function Globe() {
             break;
           case "orbitalTracks":
             if (on) loadLayerDynamic("orbitalTracks");
-            if (!on) removeEntities("orbit-");
+            if (!on) { removeEntities("orbit-"); dataLoadedRef.current.orbitalTracks = false; }
             break;
           case "groundTracks":
             if (on) loadLayerDynamic("groundTracks");
-            if (!on) removeEntities("gtrack-");
+            if (!on) { removeEntities("gtrack-"); dataLoadedRef.current.groundTracks = false; }
             break;
           case "currents":
             if (on) loadLayerDynamic("currents");
-            if (!on) removeEntities("current-");
+            if (!on) { removeEntities("current-"); dataLoadedRef.current.currents = false; }
             break;
         }
         return next;

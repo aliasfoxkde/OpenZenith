@@ -7,6 +7,9 @@
  *
  * Falls back to server PNG tiles (/api/dem-tile) when HuggingFace
  * is unreachable (CORS blocked, offline, etc.).
+ *
+ * Uses a custom TerrainProvider approach compatible with CesiumJS 1.119
+ * instead of overriding EllipsoidTerrainProvider (which is unreliable).
  */
 
 import { getClientTileData } from "@/lib/client-elevation";
@@ -16,38 +19,51 @@ type CesiumType = any;
 const TERRAIN_URL = "/api/dem-tile";
 const MAX_TERRAIN_ZOOM = 10;
 
+const HEIGHTMAP_STRUCTURE = {
+  heightScale: 1.0,
+  heightOffset: 0.0,
+  elementsPerHeight: 1,
+  stride: 1,
+  elementMultiplier: 1.0,
+  isBigEndian: false,
+};
+
 /**
- * Create a CSR-first terrain provider that fetches elevation data
- * directly from HuggingFace, bypassing the server.
+ * Create a CSR-first terrain provider.
+ *
+ * Returns an object that satisfies Cesium's TerrainProvider interface.
+ * Uses the prototype chain to ensure CesiumJS 1.119 recognizes it
+ * as a valid TerrainProvider.
  */
 export function createCSRTerrainProvider(Cesium: CesiumType) {
-  const provider = new (Cesium as any).EllipsoidTerrainProvider();
+  // Access Cesium's internal terrain provider infrastructure
+  const TDT = Cesium.HeightmapTerrainData;
+  const Resource = Cesium.Resource;
 
-  const HDT = (Cesium as any).HeightmapTerrainData;
+  // Build a plain object that CesiumJS treats as a TerrainProvider
+  // by assigning the constructor prototype
+  const provider: any = Object.create(Cesium.TerrainProvider.prototype);
 
-  const heightmapStructure = {
-    heightScale: 1.0,
-    heightOffset: 0.0,
-    elementsPerHeight: 1,
-    stride: 1,
-    elementMultiplier: 1.0,
-    isBigEndian: false,
-  };
+  provider.ready = true;
+  provider.readyPromise = Promise.resolve(provider);
+  provider.hasVertexNormals = false;
+  provider.hasWaterMask = false;
+  provider.errorEvent = new Cesium.Event();
 
   provider.requestTileGeometry = function (x: number, y: number, level: number, _request: any) {
-    if (level > MAX_TERRAIN_ZOOM || !HDT) {
+    if (level > MAX_TERRAIN_ZOOM || !TDT) {
       return Promise.resolve(null);
     }
 
     // Try CSR-direct from HuggingFace first
     return getClientTileData(level, x, y)
-      .then((result) => {
+      .then((result: any) => {
         if (result && result.heights) {
-          return new HDT({
+          return new TDT({
             buffer: result.heights,
             width: result.width,
             height: result.height,
-            structure: heightmapStructure,
+            structure: HEIGHTMAP_STRUCTURE,
             childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
           });
         }
@@ -56,7 +72,7 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
         return fallbackServerTile(Cesium, level, x, y);
       })
       .catch(() => {
-        // Both failed — return flat terrain
+        // Both failed — try server fallback
         return fallbackServerTile(Cesium, level, x, y);
       });
   };
@@ -66,6 +82,19 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
     return undefined; // Cesium interprets as "assume available"
   };
 
+  provider.getLevelMaximumGeometricError = function (level: number) {
+    // Earth circumference ~40075017m; 2^level tiles at that level
+    return (40075017.0 * 2.0) / ((1 << level) * 65);
+  };
+
+  provider.tilingScheme = new Cesium.GeographicTilingScheme({
+    ellipsoid: Cesium.Ellipsoid.WGS84,
+    numberOfLevelZeroTilesX: 2,
+    numberOfLevelZeroTilesY: 1,
+  });
+
+  provider.ellipsoid = Cesium.Ellipsoid.WGS84;
+
   return provider;
 }
 
@@ -74,7 +103,7 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
  */
 function fallbackServerTile(Cesium: CesiumType, level: number, x: number, y: number): Promise<any> {
   const url = `${TERRAIN_URL}/${level}/${x}/${y}`;
-  const HDT = (Cesium as any).HeightmapTerrainData;
+  const HDT = Cesium.HeightmapTerrainData;
   if (!HDT) return Promise.resolve(null);
 
   return Cesium.Resource.fetchImage({ url })
@@ -103,14 +132,7 @@ function fallbackServerTile(Cesium: CesiumType, level: number, x: number, y: num
         buffer: heights,
         width: w,
         height: h,
-        structure: {
-          heightScale: 1.0,
-          heightOffset: 0.0,
-          elementsPerHeight: 1,
-          stride: 1,
-          elementMultiplier: 1.0,
-          isBigEndian: false,
-        },
+        structure: HEIGHTMAP_STRUCTURE,
         childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
       });
     })
@@ -121,14 +143,7 @@ function fallbackServerTile(Cesium: CesiumType, level: number, x: number, y: num
         buffer: flat,
         width: 256,
         height: 256,
-        structure: {
-          heightScale: 1.0,
-          heightOffset: 0.0,
-          elementsPerHeight: 1,
-          stride: 1,
-          elementMultiplier: 1.0,
-          isBigEndian: false,
-        },
+        structure: HEIGHTMAP_STRUCTURE,
       });
     });
 }

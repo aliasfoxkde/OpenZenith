@@ -68,6 +68,13 @@ export { addPrecipitation, removePrecipitation } from "./precipitation";
 export { addSoilMoisture, removeSoilMoisture } from "./soil-moisture";
 export { addNdvi, removeNdvi } from "./ndvi";
 
+// Ocean & Climate
+export { addSST, removeSST } from "./sst";
+export { addChlorophyll, removeChlorophyll } from "./chlorophyll";
+export { addSnowCover, removeSnowCover } from "./snow-cover";
+export { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
+export { addSeaHeight, removeSeaHeight } from "./sea-height";
+
 // Environment
 export { addAirQuality, removeAirQuality } from "./airquality";
 
@@ -128,6 +135,11 @@ import { addNo2Pollution, removeNo2Pollution } from "./no2-pollution";
 import { addPrecipitation, removePrecipitation } from "./precipitation";
 import { addSoilMoisture, removeSoilMoisture } from "./soil-moisture";
 import { addNdvi, removeNdvi } from "./ndvi";
+import { addSST, removeSST } from "./sst";
+import { addChlorophyll, removeChlorophyll } from "./chlorophyll";
+import { addSnowCover, removeSnowCover } from "./snow-cover";
+import { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
+import { addSeaHeight, removeSeaHeight } from "./sea-height";
 
 const LAYER_HANDLERS: Record<
   string,
@@ -178,6 +190,11 @@ const LAYER_HANDLERS: Record<
   precipitation: { add: addPrecipitation, remove: removePrecipitation },
   soilMoisture: { add: addSoilMoisture, remove: removeSoilMoisture },
   ndvi: { add: addNdvi, remove: removeNdvi },
+  sst: { add: addSST, remove: removeSST },
+  chlorophyll: { add: addChlorophyll, remove: removeChlorophyll },
+  snowCover: { add: addSnowCover, remove: removeSnowCover },
+  seaSalinity: { add: addSeaSalinity, remove: removeSeaSalinity },
+  seaHeight: { add: addSeaHeight, remove: removeSeaHeight },
 };
 
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {

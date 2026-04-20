@@ -13,6 +13,13 @@ const GIBS_ROUTES = [
   { name: "Precipitation", prefix: "precipitation", minZoom: 0, maxZoom: 8 },
   { name: "Soil Moisture", prefix: "soil-moisture", minZoom: 0, maxZoom: 3 },
   { name: "NDVI Vegetation", prefix: "ndvi", minZoom: 0, maxZoom: 9 },
+  { name: "Sea Surface Temp", prefix: "sst", minZoom: 0, maxZoom: 8 },
+  { name: "Chlorophyll-a", prefix: "chlorophyll", minZoom: 0, maxZoom: 7 },
+  { name: "Snow Cover", prefix: "snow-cover", minZoom: 0, maxZoom: 8 },
+  { name: "Canopy Height", prefix: "canopy-height", minZoom: 0, maxZoom: 8 },
+  { name: "Aboveground Biomass", prefix: "biomass", minZoom: 0, maxZoom: 8 },
+  { name: "Sea Surface Salinity", prefix: "sea-salinity", minZoom: 0, maxZoom: 5 },
+  { name: "Sea Surface Height", prefix: "sea-height", minZoom: 0, maxZoom: 6 },
 ];
 
 for (const route of GIBS_ROUTES) {

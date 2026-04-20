@@ -6,6 +6,7 @@
  */
 
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
+import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 
 export const runtime = "edge";
 
@@ -45,6 +46,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   const { north, south, east, west } = tileToLatLon(zoom, tileX, tileY);
   wmsUrl.searchParams.set("BBOX", `${south},${west},${north},${east}`);
 
+  // Try R2 cache first (EEA WMS can be slow)
+  const cached = await r2GetTile("landcover", zoom, tileX, tileY);
+  if (cached) {
+    return new Response(cached, {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800", "X-Cache": "HIT", ...CORS_HEADERS },
+    });
+  }
+
   try {
     const res = await fetch(wmsUrl.toString(), {
       signal: AbortSignal.timeout(30000),
@@ -57,11 +66,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
 
     const contentType = res.headers.get("content-type") || "image/png";
     const buffer = await res.arrayBuffer();
+    r2PutTile("landcover", zoom, tileX, tileY, buffer, contentType).catch(() => {});
 
     return new Response(buffer, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=604800",
+        "X-Cache": "MISS",
         ...CORS_HEADERS,
       },
     });

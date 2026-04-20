@@ -6,6 +6,7 @@
  */
 
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
+import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 
 export const runtime = "edge";
 
@@ -90,9 +91,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     }
 
     // Fetch tile from TiTiler
-    const titilerUrl = `https://titiler.planetarycomputer.microsoft.gov/cog/tiles/${z}/${x}/${y}?url=${encodeURIComponent(assetUrl)}&rescale=0,3000&color_map=viridis&bidx=1,2,3`;
+    const titlerUrl = `https://titiler.planetarycomputer.microsoft.gov/cog/tiles/${z}/${x}/${y}?url=${encodeURIComponent(assetUrl)}&rescale=0,3000&color_map=viridis&bidx=1,2,3`;
 
-    const tileRes = await fetch(titilerUrl, {
+    // Check R2 cache (STAC+TiTler can be very slow)
+    const cached = await r2GetTile("sentinel2", zoom, tileX, tileY);
+    if (cached) {
+      return new Response(cached, {
+        headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "X-Cache": "HIT", ...CORS_HEADERS },
+      });
+    }
+
+    const tileRes = await fetch(titlerUrl, {
       signal: AbortSignal.timeout(30000),
       headers: {
         "User-Agent": "OpenZenith/1.0",
@@ -105,11 +114,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
 
     const buffer = await tileRes.arrayBuffer();
     const contentType = tileRes.headers.get("content-type") || "image/png";
+    r2PutTile("sentinel2", zoom, tileX, tileY, buffer, contentType).catch(() => {});
 
     return new Response(buffer, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400",
+        "X-Cache": "MISS",
         ...CORS_HEADERS,
       },
     });

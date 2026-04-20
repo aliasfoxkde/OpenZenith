@@ -406,7 +406,40 @@ export default function Home() {
   return (
     <ErrorBoundary>
       <div id="page-root" className="oz-page" data-theme={dark ? "dark" : "light"}>
-        <Navbar dark={dark} />
+        <Navbar
+          dark={dark}
+          extra={
+            <button
+              onClick={() => {
+                try {
+                  const current = document.documentElement.getAttribute("data-theme");
+                  const next = current === "dark" ? "light" : "dark";
+                  document.documentElement.setAttribute("data-theme", next);
+                  localStorage.setItem("openzenith-theme", next);
+                  window.dispatchEvent(new Event("theme-change"));
+                } catch {}
+              }}
+              title={`Switch to ${dark ? "light" : "dark"} mode`}
+              aria-label={`Switch to ${dark ? "light" : "dark"} mode`}
+              style={{
+                background: "none",
+                border: `1px solid ${border}`,
+                borderRadius: 6,
+                padding: "0.3rem 0.5rem",
+                cursor: "pointer",
+                color: text,
+                fontSize: "1rem",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background 0.15s",
+              }}
+            >
+              {dark ? "☀️" : "🌙"}
+            </button>
+          }
+        />
 
         {/* Hero: Map background + Elevation lookup */}
         <section
@@ -1081,13 +1114,12 @@ export default function Home() {
           style={{
             maxWidth: W,
             margin: "0 auto",
-            padding: "0 1.5rem 1.5rem",
+            padding: "3rem 1.5rem 2rem",
             borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`,
-            paddingTop: "2rem",
           }}
         >
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.4rem", textAlign: "center" }}>Features</h2>
-          <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.5rem", textAlign: "center" }}>Features</h2>
+          <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.75rem", textAlign: "center" }}>
             Core API &amp; Map Tools
           </p>
           <div className="oz-features-grid">
@@ -1338,9 +1370,10 @@ export default function Home() {
 
           <p className="oz-disclaimer">This Application was Developed with TaskWizer AI technologies.</p>
         </section>
-        <section style={{ maxWidth: W, margin: "0 auto", padding: "0 1.5rem 1.5rem" }}>
-          <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.25rem", textAlign: "center" }}>
-            Globe Data Layers
+        <section style={{ maxWidth: W, margin: "0 auto", padding: "2rem 1.5rem 2rem" }}>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.5rem", textAlign: "center" }}>Globe Data Layers</h2>
+          <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.5rem", textAlign: "center" }}>
+            Real-time geospatial intelligence overlays
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.75rem" }}>
             {[

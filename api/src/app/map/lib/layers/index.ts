@@ -56,6 +56,8 @@ export { addGdacs, removeGdacs } from "./gdacs";
 
 // SAR / Environmental
 export { addFloods, removeFloods } from "./floods";
+export { addFireTemperature, removeFireTemperature } from "./fire-temperature";
+export { addSarBackscatter, removeSarBackscatter } from "./sar-backscatter";
 export { addSeaIce, removeSeaIce } from "./sea-ice";
 export { addBurnScars, removeBurnScars } from "./burn-scars";
 
@@ -104,6 +106,8 @@ import { addNightLights, removeNightLights } from "./night-lights";
 import { addVolcanoes, removeVolcanoes } from "./volcanoes";
 import { addGdacs, removeGdacs } from "./gdacs";
 import { addFloods, removeFloods } from "./floods";
+import { addFireTemperature, removeFireTemperature } from "./fire-temperature";
+import { addSarBackscatter, removeSarBackscatter } from "./sar-backscatter";
 import { addSeaIce, removeSeaIce } from "./sea-ice";
 import { addBurnScars, removeBurnScars } from "./burn-scars";
 import { addAviationWeather, removeAviationWeather } from "./aviation-weather";
@@ -145,6 +149,8 @@ const LAYER_HANDLERS: Record<
   volcanoes: { add: addVolcanoes, remove: removeVolcanoes },
   gdacs: { add: addGdacs, remove: removeGdacs },
   floods: { add: addFloods, remove: removeFloods },
+  fireTemperature: { add: addFireTemperature, remove: removeFireTemperature },
+  sarBackscatter: { add: addSarBackscatter, remove: removeSarBackscatter },
   seaIce: { add: addSeaIce, remove: removeSeaIce },
   burnScars: { add: addBurnScars, remove: removeBurnScars },
   aviationWeather: { add: addAviationWeather, remove: removeAviationWeather },

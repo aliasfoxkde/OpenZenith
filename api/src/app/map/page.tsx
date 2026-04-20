@@ -92,18 +92,35 @@ const BASEMAPS: Record<string, { label: string; url: string; attribution: string
     url: "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png",
     attribution: "&copy; Stamen Design &copy; Stadia Maps",
   },
+  // High-contrast dark variant with elevated land visibility
+  dark_contrast: {
+    label: "Dark+",
+    url: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+    attribution: "&copy; CartoDB &copy; OSM",
+  },
 };
 
-const BASEMAP_ORDER = ["dark", "dark_nolabel", "voyager", "light", "positron", "osm", "satellite", "topo", "terrain"];
+const BASEMAP_ORDER = ["dark", "dark_contrast", "dark_nolabel", "voyager", "light", "positron", "osm", "satellite", "topo", "terrain"];
 
 const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
+
+function getDefaultBasemap(): string {
+  if (typeof window === "undefined") return "dark";
+  try {
+    const saved = localStorage.getItem("openzenith-theme");
+    if (saved === "light") return "voyager";
+    if (saved === "dark") return "dark";
+  } catch {}
+  // system mode: follow OS preference
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "voyager";
+}
 
 const DEFAULT_STATE: MapViewState = {
   center: [0, 20],
   zoom: 2,
   bearing: 0,
   pitch: 0,
-  basemap: "dark",
+  basemap: getDefaultBasemap(),
   layers: buildDefaultLayers(),
 };
 
@@ -234,7 +251,7 @@ function buildHash(state: MapViewState): string {
   p.set("zoom", state.zoom.toFixed(1));
   if (state.bearing) p.set("b", state.bearing.toFixed(1));
   if (state.pitch) p.set("p", state.pitch.toFixed(1));
-  if (state.basemap !== "dark") p.set("bm", state.basemap);
+  if (state.basemap !== getDefaultBasemap()) p.set("bm", state.basemap);
   return "#" + p.toString();
 }
 
@@ -255,6 +272,7 @@ export default function MapPage() {
     "hillshade", "elevationColor", "elevationAccuracy", "contours",
     "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
     "populationDensity", "landCover", "seaIce", "satellite",
+    "floods", "fireTemperature", "sarBackscatter",
   ]);
   const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>(() => {
     if (typeof window === "undefined") return {};
@@ -796,15 +814,40 @@ export default function MapPage() {
 
         const basemap = BASEMAPS[mapState.basemap] || BASEMAPS.dark;
 
+        const isDark = mapState.basemap === "dark" || mapState.basemap === "dark_nolabel" || mapState.basemap === "dark_contrast";
+
         const map = new mlgl.Map({
           container: containerRef.current,
           style: {
             version: 8,
             sources: {
               basemap: { type: "raster", tiles: [basemap.url], tileSize: 256, attribution: basemap.attribution },
+              ...(isDark
+                ? {
+                    land: {
+                      type: "geojson",
+                      data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
+                    },
+                  }
+                : {}),
             },
-            layers: [{ id: "basemap", type: "raster", source: "basemap" }],
-            ...(mapState.basemap === "dark"
+            layers: [
+              { id: "basemap", type: "raster", source: "basemap" },
+              ...(isDark
+                ? [
+                    {
+                      id: "land-contrast",
+                      type: "fill" as const,
+                      source: "land",
+                      paint: {
+                        "fill-color": "#1a2332",
+                        "fill-opacity": 0.45,
+                      },
+                    },
+                  ]
+                : []),
+            ],
+            ...(isDark
               ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" }
               : {}),
           },
@@ -968,11 +1011,38 @@ export default function MapPage() {
       const bm = BASEMAPS[key];
       if (!bm) return;
 
+      const isDark = key === "dark" || key === "dark_nolabel" || key === "dark_contrast";
+
       map.setStyle({
         version: 8,
-        sources: { basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution } },
-        layers: [{ id: "basemap", type: "raster", source: "basemap" }],
-        ...(key === "dark" ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" } : {}),
+        sources: {
+          basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution },
+          ...(isDark
+            ? {
+                land: {
+                  type: "geojson",
+                  data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
+                },
+              }
+            : {}),
+        },
+        layers: [
+          { id: "basemap", type: "raster", source: "basemap" },
+          ...(isDark
+            ? [
+                {
+                  id: "land-contrast",
+                  type: "fill" as const,
+                  source: "land",
+                  paint: {
+                    "fill-color": "#1a2332",
+                    "fill-opacity": 0.45,
+                  },
+                },
+              ]
+            : []),
+        ],
+        ...(isDark ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" } : {}),
       });
 
       map.once("styledata", () => {
@@ -1717,6 +1787,34 @@ export default function MapPage() {
                 })}
               </div>
             </SurveillancePanel>
+
+            {/* System theme toggle — switches basemap between dark/voyager */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", padding: "0.35rem 0" }}>
+              <span style={{ fontSize: "0.72rem", color: T.textMuted, fontFamily: T.fontMono }}>AUTO THEME</span>
+              <button
+                onClick={() => {
+                  const map = mapRef.current;
+                  const mlgl = mlglRef.current;
+                  if (!map || !mlgl) return;
+                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                  const newBm = prefersDark ? "dark" : "voyager";
+                  switchBasemap(newBm);
+                }}
+                title="Switch basemap to match your OS theme"
+                style={{
+                  padding: "0.2rem 0.5rem",
+                  borderRadius: 3,
+                  border: `1px solid ${T.border}`,
+                  background: "transparent",
+                  color: T.accent,
+                  cursor: "pointer",
+                  fontSize: "0.68rem",
+                  fontFamily: T.fontMono,
+                }}
+              >
+                ⚙ Match OS
+              </button>
+            </div>
 
             {/* Layer toggles — registry-driven */}
             {CATEGORY_ORDER.filter((cat) => cat !== "space" && cat !== "imagery").map((cat) => {

@@ -112,7 +112,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <script
           dangerouslySetInnerHTML={{
-            __html: `document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");`,
+            __html: `(function(){
+  try{var m=localStorage.getItem("openzenith-theme")||"system";
+  var d=m==="dark"||(m==="system"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+  document.documentElement.setAttribute("data-theme",d?"dark":"light");
+  }catch(e){document.documentElement.setAttribute("data-theme",window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");}
+})();`,
           }}
         />
         <Providers>{children}</Providers>

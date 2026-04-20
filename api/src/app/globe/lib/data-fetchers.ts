@@ -124,13 +124,49 @@ export async function fetchAirmets(signal?: AbortSignal): Promise<any> {
 }
 
 export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<any> {
-  const r = await dedupFetch("/api/proxy/https://volcanoes.usgs.gov/feed/v0.1/all.geojson", signal);
-  return r.json();
+  // USGS feed discontinued — use Smithsonian GVP weekly RSS
+  try {
+    const r = await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml", { signal });
+    const text = await r.text();
+
+    const features: GeoJSON.Feature[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = itemRegex.exec(text)) !== null) {
+      const entry = match[1];
+      const title = entry.match(/<title>([^<]*)<\/title>/)?.[1] || "";
+      const pointMatch = entry.match(/<georss:point>([^<]*)<\/georss:point>/);
+
+      if (pointMatch) {
+        const [latStr, lonStr] = pointMatch[1].trim().split(/\s+/);
+        const lat = parseFloat(latStr);
+        const lon = parseFloat(lonStr);
+
+        if (!isNaN(lat) && !isNaN(lon)) {
+          const isErupting = /Erupting/i.test(title);
+          const isNew = /New Unrest|New Activity/i.test(title);
+          const alert = isErupting ? "WARNING" : isNew ? "WATCH" : "ADVISORY";
+          const color = alert === "WARNING" ? "#ef4444" : alert === "WATCH" ? "#f97316" : "#fbbf24";
+
+          features.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [lon, lat] },
+            properties: { title, alertLevel: alert, color },
+          });
+        }
+      }
+    }
+
+    return { type: "FeatureCollection", features };
+  } catch {
+    return { type: "FeatureCollection", features: [] };
+  }
 }
 
 export async function fetchGDACS(signal?: AbortSignal): Promise<any> {
-  const r = await dedupFetch("/api/proxy/https://www.gdacs.org/gdacsapi/api/events/geteventlist/ATOM", signal);
-  return r.json();
+  // GDACS public API discontinued — return empty
+  return { type: "FeatureCollection", features: [] };
 }
 
 export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {

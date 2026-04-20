@@ -1,35 +1,51 @@
 import type { LayerHandle } from "./types";
 import { setStatus } from "./types";
 
-/* ─── Volcano Alerts (USGS) ─── */
+/* ─── Volcano Alerts (Smithsonian GVP / USGS Weekly Report) ─── */
 
 export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("volcanoes")) return;
 
   const doLoad = async () => {
     try {
-      const res = await fetch("https://volcanoes.usgs.gov/feed/v0.1/all.geojson");
-      const data = await res.json();
-      const feats = data?.features || [];
-      setStatus(handle, "volcanoes", feats.length ? "loaded" : "empty", feats.length);
+      const res = await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml");
+      const text = await res.text();
+
+      // Parse RSS XML — extract volcano names and coordinates
+      const features: GeoJSON.Feature[] = [];
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+      let match: RegExpExecArray | null;
+
+      while ((match = itemRegex.exec(text)) !== null) {
+        const entry = match[1];
+        const title = entry.match(/<title>([^<]*)<\/title>/)?.[1] || "";
+        const pointMatch = entry.match(/<georss:point>([^<]*)<\/georss:point>/);
+
+        if (pointMatch) {
+          const [latStr, lonStr] = pointMatch[1].trim().split(/\s+/);
+          const lat = parseFloat(latStr);
+          const lon = parseFloat(lonStr);
+
+          if (!isNaN(lat) && !isNaN(lon)) {
+            // Determine color from activity type in title
+            const isNew = /New Unrest|New Activity/i.test(title);
+            const isErupting = /Erupting/i.test(title);
+            const color = isErupting ? "#ef4444" : isNew ? "#f97316" : "#fbbf24";
+
+            features.push({
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [lon, lat] },
+              properties: { name: title, color, alert: isErupting ? "WARNING" : isNew ? "WATCH" : "ADVISORY" },
+            });
+          }
+        }
+      }
+
+      setStatus(handle, "volcanoes", features.length ? "loaded" : "empty", features.length);
 
       if (!map.getSource) return;
       try {
-        const geojson: GeoJSON.FeatureCollection = {
-          type: "FeatureCollection",
-          features: feats.map((f: GeoJSON.Feature) => ({
-            type: "Feature" as const,
-            geometry: f.geometry,
-            properties: {
-              name: f.properties?.title || "",
-              alert: f.properties?.alertLevel || "unknown",
-              color: f.properties?.alertLevel === "WARNING" ? "#ff0000"
-                : f.properties?.alertLevel === "WATCH" ? "#ff8800"
-                : f.properties?.alertLevel === "ADVISORY" ? "#ffcc00"
-                : "#888888",
-            },
-          })),
-        };
+        const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
 
         if (!map.getSource("volcanoes")) {
           map.addSource("volcanoes", { type: "geojson", data: geojson });
@@ -74,7 +90,7 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
   };
 
   doLoad();
-  handle.intervals.push(setInterval(doLoad, 300000)); // 5 min
+  handle.intervals.push(setInterval(doLoad, 600000)); // 10 min (weekly report)
 }
 
 export function removeVolcanoes(map: maplibregl.Map): void {

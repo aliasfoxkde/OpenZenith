@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export function FlipCard({
   front,
@@ -16,20 +16,32 @@ export function FlipCard({
   minHeight?: number;
 }) {
   const [flipped, setFlipped] = useState(false);
+  const frontRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(minHeight);
+
+  // Measure actual content height and use the max of front/back
+  useEffect(() => {
+    const frontH = frontRef.current?.scrollHeight ?? minHeight;
+    const backH = backRef.current?.scrollHeight ?? minHeight;
+    const h = Math.max(frontH, backH, minHeight);
+    if (h !== height) setHeight(h);
+  }, [front, back, minHeight]);
 
   return (
-    <div style={{ minHeight, perspective: 600, cursor: "pointer" }} onClick={() => setFlipped((f) => !f)}>
+    <div style={{ height, perspective: 600, cursor: "pointer" }} onClick={() => setFlipped((f) => !f)}>
       <div
         style={{
           position: "relative",
           width: "100%",
-          minHeight,
+          height,
           transition: "transform 0.5s",
           transformStyle: "preserve-3d",
           transform: flipped ? "rotateY(180deg)" : "none",
         }}
       >
         <div
+          ref={frontRef}
           style={{
             backfaceVisibility: "hidden",
             position: "absolute",
@@ -48,6 +60,7 @@ export function FlipCard({
           {front}
         </div>
         <div
+          ref={backRef}
           style={{
             backfaceVisibility: "hidden",
             position: "absolute",

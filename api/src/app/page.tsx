@@ -160,8 +160,13 @@ export default function Home() {
 
   const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: "smooth" }), []);
 
-  // Init hero map
+  // Init hero map — deferred one tick so initTheme() sets correct dark state first
+  const heroMapReady = useRef(false);
   useEffect(() => {
+    if (!heroMapReady.current) {
+      heroMapReady.current = true;
+      return; // skip first render; initTheme() runs in parallel, next tick has correct dark
+    }
     if (!heroMapRef.current || heroMapInstance.current) return;
     let cancelled = false;
     (async () => {
@@ -184,8 +189,31 @@ export default function Home() {
                 tileSize: 256,
                 attribution: "&copy; CartoDB",
               },
+              ...(dark
+                ? {
+                    land: {
+                      type: "geojson",
+                      data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
+                    },
+                  }
+                : {}),
             },
-            layers: [{ id: "osm", type: "raster", source: "osm" }],
+            layers: [
+              { id: "osm", type: "raster", source: "osm" },
+              ...(dark
+                ? [
+                    {
+                      id: "land-contrast",
+                      type: "fill" as const,
+                      source: "land",
+                      paint: {
+                        "fill-color": "#1a2838",
+                        "fill-opacity": 0.6,
+                      },
+                    },
+                  ]
+                : []),
+            ],
             glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
           },
           center: [0, 25],
@@ -309,7 +337,7 @@ export default function Home() {
         heroMapInstance.current = null;
       }
     };
-  }, []);
+  }, [dark]); // depends on dark — deferred first render, then stable
 
   // Update hero map basemap when theme changes
   useEffect(() => {
@@ -335,6 +363,14 @@ export default function Home() {
       }
       if (map.getLayer("boundary-line")) {
         map.setPaintProperty("boundary-line", "line-color", `rgba(${bc}, 0.25)`);
+      }
+      // Update land contrast layer
+      if (map.getLayer("land-contrast")) {
+        if (!dark) {
+          map.setLayoutProperty("land-contrast", "visibility", "none");
+        } else {
+          map.setLayoutProperty("land-contrast", "visibility", "visible");
+        }
       }
     } catch {
       // Map not ready or source unavailable

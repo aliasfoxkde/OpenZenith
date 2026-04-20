@@ -10,9 +10,9 @@ export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
     type: "hillshade",
     source: "elevation",
     paint: {
-      "hillshade-shadow-color": "#000000",
-      "hillshade-highlight-color": "#ffffff",
-      "hillshade-accent-color": "#333333",
+      "hillshade-shadow-color": "#1a1a1a",
+      "hillshade-highlight-color": "#d0d0d0",
+      "hillshade-accent-color": "#888888",
       "hillshade-exaggeration": 0.5,
     },
   });

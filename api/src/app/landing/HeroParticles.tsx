@@ -22,11 +22,12 @@ interface Props {
 }
 
 const PARTICLE_COUNT = 60;
-const MOUSE_RADIUS = 120;
-const MOUSE_FORCE = 0.015;
+const MOUSE_RADIUS = 150;
+const MOUSE_FORCE = 0.04;
 
 export function HeroParticles({ dark, width, height }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const rafRef = useRef<number>(0);
   const particlesRef = useRef<Particle[]>([]);
@@ -40,8 +41,8 @@ export function HeroParticles({ dark, width, height }: Props) {
         particles.push({
           x: Math.random() * w,
           y: Math.random() * h,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: (Math.random() - 0.5) * 0.6,
           radius: 1 + Math.random() * 2,
           alpha: baseAlpha,
           baseAlpha,
@@ -65,16 +66,19 @@ export function HeroParticles({ dark, width, height }: Props) {
 
     initParticles(width, height);
 
+    // Track mouse on the parent hero section (canvas has pointer-events: none)
+    const container = canvas.parentElement;
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
+      const rect = container ? container.getBoundingClientRect() : canvas.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     };
     const handleMouseLeave = () => {
       mouseRef.current = { x: -1000, y: -1000 };
     };
 
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseleave", handleMouseLeave);
+    (container || canvas).addEventListener("mousemove", handleMouseMove);
+    (container || canvas).addEventListener("mouseleave", handleMouseLeave);
+    const eventTarget = container || canvas;
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
@@ -102,8 +106,8 @@ export function HeroParticles({ dark, width, height }: Props) {
         p.y += p.vy;
 
         // Damping
-        p.vx *= 0.995;
-        p.vy *= 0.995;
+        p.vx *= 0.992;
+        p.vy *= 0.992;
 
         // Wrap edges
         if (p.x < -10) p.x = width + 10;
@@ -138,12 +142,12 @@ export function HeroParticles({ dark, width, height }: Props) {
           const ddy = a.y - b.y;
           const d = Math.sqrt(ddx * ddx + ddy * ddy);
           if (d < 100) {
-            const lineAlpha = ((100 - d) / 100) * 0.08 * Math.min(a.alpha, b.alpha);
+            const lineAlpha = ((100 - d) / 100) * 0.15 * Math.min(a.alpha, b.alpha);
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
             ctx.strokeStyle = `rgba(${color}, ${lineAlpha})`;
-            ctx.lineWidth = 0.5;
+            ctx.lineWidth = 0.8;
             ctx.stroke();
           }
         }
@@ -156,22 +160,21 @@ export function HeroParticles({ dark, width, height }: Props) {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mouseleave", handleMouseLeave);
+      eventTarget.removeEventListener("mousemove", handleMouseMove);
+      eventTarget.removeEventListener("mouseleave", handleMouseLeave);
     };
   }, [width, height, color, initParticles]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "absolute",
-        inset: 0,
-        width,
-        height,
-        pointerEvents: "none",
-        zIndex: 1,
-      }}
-    />
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, zIndex: 1 }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width,
+          height,
+          pointerEvents: "none",
+        }}
+      />
+    </div>
   );
 }

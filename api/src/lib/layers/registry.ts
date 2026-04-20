@@ -40,7 +40,7 @@ export const LAYERS: readonly LayerDefinition[] = [
     category: "terrain",
     description:
       "Shows resolution of elevation sources: 2m (cyan) / 10m (green) / 30m (dark green) / 450m ocean (blue)",
-    defaultEnabled: true,
+    defaultEnabled: false,
     accent: "#38bdf8",
     dataSource: "/api/elevation-accuracy/{z}/{x}/{y}",
   },
@@ -58,7 +58,7 @@ export const LAYERS: readonly LayerDefinition[] = [
     name: "Bathymetry",
     category: "terrain",
     description: "Ocean depth shading from GEBCO 2024 data",
-    defaultEnabled: false,
+    defaultEnabled: true,
     accent: "#3b82f6",
     dataSource: "/api/bathymetry",
   },

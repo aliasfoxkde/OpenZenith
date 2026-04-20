@@ -116,11 +116,11 @@ function getDefaultBasemap(): string {
 }
 
 const DEFAULT_STATE: MapViewState = {
-  center: [0, 20],
+  center: [0, 0],
   zoom: 2,
   bearing: 0,
   pitch: 0,
-  basemap: getDefaultBasemap(),
+  basemap: "satellite",
   layers: buildDefaultLayers(),
 };
 
@@ -133,7 +133,7 @@ function buildDefaultLayers(): Record<string, boolean> {
     hillshade: true,
     contour: false,
     terrain3d: false,
-    boundaries: true,
+    boundaries: false,
   };
   // Registry defaults for 2D-compatible layers
   for (const layer of LAYERS) {
@@ -840,8 +840,8 @@ export default function MapPage() {
                       type: "fill" as const,
                       source: "land",
                       paint: {
-                        "fill-color": "#1c2b3a",
-                        "fill-opacity": 0.55,
+                        "fill-color": "#1e3040",
+                        "fill-opacity": 0.65,
                       },
                     },
                   ]
@@ -863,7 +863,6 @@ export default function MapPage() {
         map.on("load", () => {
           if (cancelled) return;
           addElevationSource(map, mlgl);
-          if (mapState.layers.boundaries) addBoundaryLayers(map);
           // Load initially-enabled data layers from registry
           for (const layer of LAYERS) {
             if (MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
@@ -1035,8 +1034,8 @@ export default function MapPage() {
                   type: "fill" as const,
                   source: "land",
                   paint: {
-                    "fill-color": "#1a2332",
-                    "fill-opacity": 0.45,
+                    "fill-color": "#1e3040",
+                    "fill-opacity": 0.65,
                   },
                 },
               ]
@@ -1047,10 +1046,9 @@ export default function MapPage() {
 
       map.once("styledata", () => {
         addElevationSource(map, mlgl);
-        // Re-add hillshade/terrain/boundaries if enabled
+        // Re-add hillshade/terrain if enabled
         if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
         if (mapState.layers.terrain3d) enable3DTerrain(map);
-        if (mapState.layers.boundaries) addBoundaryLayers(map);
       });
 
       setMapState((prev) => ({ ...prev, basemap: key }));

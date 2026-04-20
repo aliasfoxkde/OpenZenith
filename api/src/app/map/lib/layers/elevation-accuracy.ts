@@ -18,7 +18,7 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     type: "raster",
     source: "elevation-accuracy",
     paint: {
-      "raster-opacity": 0.4,
+      "raster-opacity": 0.25,
     },
   });
 }

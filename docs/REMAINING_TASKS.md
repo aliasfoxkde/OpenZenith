@@ -1,6 +1,6 @@
 # OpenZenith — Remaining Tasks & Progress
 
-**Version:** 0.6.3 | **Last Updated:** 2026-04-20  
+**Version:** 0.6.4 | **Last Updated:** 2026-04-20  
 **Deploy:** `cd api && npm run build && npx vercel build && npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=openzenith --commit-dirty=true`
 
 ---

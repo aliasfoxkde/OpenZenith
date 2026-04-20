@@ -25,6 +25,6 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       error:
         "GEBCO COG tiles require Node.js runtime (local dev only). Use /api/dem-tile/{z}/{x}/{y} for terrain tiles.",
     },
-    { status: 501, headers: CORS_HEADERS },
+    { status: 200, headers: CORS_HEADERS },
   );
 }

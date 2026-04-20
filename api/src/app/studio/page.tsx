@@ -105,6 +105,19 @@ export default function StudioPage() {
     if (map && mapReady) updateDrawLayers(map, drawState);
   }, [drawState, mapReady]);
 
+  /* ─── Keyboard shortcuts ─── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "l" || e.key === "L") setSidebarOpen((v) => !v);
+      if (e.key === "i" || e.key === "I") setImperial((v) => !v);
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   /* ─── Map init ─── */
 
   useEffect(() => {

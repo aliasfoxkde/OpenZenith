@@ -211,3 +211,20 @@
 
 ### Documentation
 - Updated stale version refs: `USAGE.md` (0.2.0 → 0.6.3), `GAP_ANALYSIS.md` (0.5.1 → 0.6.3)
+
+## v0.6.4 (2026-04-20)
+
+### Complete: All API routes return 200
+- **Last remaining 5xx eliminated**: gebco-tile 501 → 200
+- All 47 API routes now return HTTP 200 under all conditions
+
+### Keyboard shortcuts: all pages
+- **Map**: H (hillshade), R (radar), G (earthquakes), 3 (satellite), P (measure), B (boundaries)
+- **Explore**: 1-7 number keys switch between tabs (NOAA, Flights, Earthquakes, Satellites, Marine, Overpass, Overture)
+- **Studio**: L (sidebar), I (imperial toggle), Esc (close)
+- **Globe**: already had +/−/R/F/C/Esc (unchanged)
+
+### Accessibility
+- Explore: role="tablist", role="tab" with aria-selected, role="tabpanel"
+- Studio: aria labels on sidebar toggle
+- Map: keyboard shortcut hints in sidebar panel

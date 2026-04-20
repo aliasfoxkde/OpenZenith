@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -650,6 +650,20 @@ export default function ExplorePage() {
     { id: "overpass", label: "Overpass / OSM", icon: "\uD83D\uDD0D" },
     { id: "overture", label: "Overture Maps", icon: "\uD83C\uDF10" },
   ];
+
+  // Keyboard shortcuts: number keys switch tabs
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= TABS.length) {
+        setTab(TABS[num - 1].id);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   return (
     <ErrorBoundary>

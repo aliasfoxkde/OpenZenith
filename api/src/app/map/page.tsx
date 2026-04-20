@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
@@ -130,7 +130,7 @@ const BOOKMARKS_KEY = "openzenith-bookmarks";
 function buildDefaultLayers(): Record<string, boolean> {
   const layers: Record<string, boolean> = {
     // Map-specific layers
-    hillshade: true,
+    hillshade: false,
     contour: false,
     terrain3d: false,
     boundaries: false,
@@ -1968,6 +1968,100 @@ export default function MapPage() {
                 </div>
               </SurveillancePanel>
             )}
+
+            {/* Layer Legend — shows color keys for enabled terrain layers */}
+            {(() => {
+              const terrainLegend: { id: string; name: string; swatch: React.ReactNode }[] = [];
+              if (mapState.layers.bathymetry) {
+                terrainLegend.push({
+                  id: "bathymetry",
+                  name: "Bathymetry",
+                  swatch: (
+                    <div>
+                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                        {["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"].map((c,i)=>(
+                          <div key={i} style={{ flex: 1, background: c }} />
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
+                        <span>Deep</span><span>Shallow</span>
+                      </div>
+                    </div>
+                  ),
+                });
+              }
+              if (mapState.layers.elevationColor) {
+                terrainLegend.push({
+                  id: "elevationColor",
+                  name: "Elevation",
+                  swatch: (
+                    <div>
+                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                        {["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"].map((c,i)=>(
+                          <div key={i} style={{ flex: 1, background: c }} />
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
+                        <span>Sea Level</span><span>Peaks</span>
+                      </div>
+                    </div>
+                  ),
+                });
+              }
+              if (mapState.layers.elevationAccuracy) {
+                terrainLegend.push({
+                  id: "elevationAccuracy",
+                  name: "Data Accuracy",
+                  swatch: (
+                    <div>
+                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                        {["#00bcd4","#4caf50","#1b5e20","#1565c0"].map((c, i) => (
+                          <div key={i} style={{ flex: 1, background: c }} />
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
+                        <span>2m</span><span>10m</span><span>30m</span><span>450m</span>
+                      </div>
+                    </div>
+                  ),
+                });
+              }
+              if (mapState.layers.hillshade) {
+                terrainLegend.push({
+                  id: "hillshade",
+                  name: "Hillshade",
+                  swatch: (
+                    <div>
+                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                        {["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"].map((c,i)=>(
+                          <div key={i} style={{ flex: 1, background: c }} />
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
+                        <span>Shadow</span><span>Highlight</span>
+                      </div>
+                    </div>
+                  ),
+                });
+              }
+              if (terrainLegend.length === 0) return null;
+              return (
+                <SurveillancePanel title="Legend" style={{ marginBottom: "0.75rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {terrainLegend.map((item) => (
+                      <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <div style={{ fontSize: "0.6rem", fontFamily: T.fontMono, color: T.text, fontWeight: 500 }}>
+                          {item.name}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {item.swatch}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SurveillancePanel>
+              );
+            })()}
 
             {/* View controls */}
             <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>

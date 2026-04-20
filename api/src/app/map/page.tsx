@@ -117,7 +117,7 @@ function getDefaultBasemap(): string {
 
 const DEFAULT_STATE: MapViewState = {
   center: [0, 0],
-  zoom: 2,
+  zoom: 2.5,
   bearing: 0,
   pitch: 0,
   basemap: "satellite",
@@ -130,7 +130,7 @@ const BOOKMARKS_KEY = "openzenith-bookmarks";
 function buildDefaultLayers(): Record<string, boolean> {
   const layers: Record<string, boolean> = {
     // Map-specific layers
-    hillshade: false,
+    hillshade: true,
     contour: false,
     terrain3d: false,
     boundaries: false,
@@ -317,6 +317,7 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [fetchingElevation, setFetchingElevation] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
@@ -863,12 +864,24 @@ export default function MapPage() {
         map.on("load", () => {
           if (cancelled) return;
           addElevationSource(map, mlgl);
-          // Load initially-enabled data layers from registry
+          // Phase 1: Terrain base layers (color, accuracy, bathymetry, contours)
           for (const layer of LAYERS) {
-            if (MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+            if (layer.category === "terrain" && layer.id !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
               addDataLayer(map, layerHandleRef.current, layer.id);
             }
           }
+          // Phase 2: Hillshade on top of terrain
+          if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
+          // Phase 3: Data layers (non-terrain) on top of terrain
+          for (const layer of LAYERS) {
+            if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+              addDataLayer(map, layerHandleRef.current, layer.id);
+            }
+          }
+          // Phase 4: Labels on very top
+          addLabelLayer(map, mapState.basemap);
+          // Enforce z-order
+          reorderMapLayers(map, mapState.layers);
           setLoading(false);
         });
 
@@ -1046,8 +1059,20 @@ export default function MapPage() {
 
       map.once("styledata", () => {
         addElevationSource(map, mlgl);
-        // Re-add hillshade/terrain if enabled
+        // Re-add all layers in correct order after style change
+        for (const layer of LAYERS) {
+          if (layer.category === "terrain" && layer.id !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+            addDataLayer(map, layerHandleRef.current, layer.id);
+          }
+        }
         if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
+        for (const layer of LAYERS) {
+          if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+            addDataLayer(map, layerHandleRef.current, layer.id);
+          }
+        }
+        addLabelLayer(map, key);
+        reorderMapLayers(map, mapState.layers);
         if (mapState.layers.terrain3d) enable3DTerrain(map);
       });
 
@@ -1081,8 +1106,12 @@ export default function MapPage() {
 
       // Data layers from shared registry
       if (MAP_2D_LAYER_IDS.has(layerName)) {
-        if (enabled) addDataLayer(map, layerHandleRef.current, layerName);
-        else removeDataLayer(map, layerName);
+        if (enabled) {
+          addDataLayer(map, layerHandleRef.current, layerName);
+          reorderMapLayers(map, layers);
+        } else {
+          removeDataLayer(map, layerName);
+        }
       }
 
       return { ...prev, layers };
@@ -1170,7 +1199,7 @@ export default function MapPage() {
   }, [mapState.layers]);
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg, overflow: "hidden" }}>
       {/* Top bar */}
       <Navbar
         dark
@@ -1239,7 +1268,7 @@ export default function MapPage() {
       />
 
       {/* Map */}
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
         {/* Toolbar overlay */}
         <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
           {isMobile && (
@@ -1814,81 +1843,114 @@ export default function MapPage() {
               </button>
             </div>
 
-            {/* Layer toggles — registry-driven */}
-            {CATEGORY_ORDER.filter((cat) => cat !== "space" && cat !== "imagery").map((cat) => {
+            {/* Layer toggles — accordion groups */}
+            {CATEGORY_ORDER.map((cat) => {
               const layers = LAYERS.filter(
                 (l) =>
                   l.category === cat &&
                   (MAP_2D_LAYER_IDS.has(l.id) || ["hillshade", "terrain3d", "boundaries", "contour"].includes(l.id)),
               );
               if (layers.length === 0) return null;
+              const isOpen = expandedCategory === cat;
+              const enabledCount = layers.filter((l) => mapState.layers[l.id]).length;
               return (
-                <SurveillancePanel key={cat} title={CATEGORY_LABELS[cat] || cat} style={{ marginBottom: "0.75rem" }}>
-                  {layers.map((layer) => (
-                    <div
-                      key={layer.id}
-                      style={{
-                        padding: "0.35rem 0",
-                        borderBottom: `1px solid ${T.border}`,
-                      }}
-                    >
-                      <LayerToggle
-                        label={layer.name}
-                        checked={!!mapState.layers[layer.id]}
-                        onChange={(checked) => toggleLayer(layer.id, checked)}
-                        color={layer.accent}
-                      />
-                      <div style={{ color: T.textMuted, fontSize: "0.65rem", marginLeft: 18, marginTop: -2 }}>
-                        {layer.description}
-                        {mapState.layers[layer.id] && layerStatus[layer.id] && (
-                          <span
-                            aria-live="polite"
-                            aria-label={`${layer.name} status: ${layerStatus[layer.id].status}`}
-                            style={{
-                              marginLeft: 8,
-                              padding: "0 4px",
-                              borderRadius: 2,
-                              fontSize: "0.6rem",
-                              fontFamily: T.fontMono,
-                              ...(layerStatus[layer.id].status === "loading"
-                                ? { color: T.amber }
-                                : layerStatus[layer.id].status === "error"
-                                  ? { color: T.red }
-                                  : layerStatus[layer.id].status === "empty"
-                                    ? { color: T.textMuted }
-                                    : { color: T.green }),
-                            }}
-                          >
-                            {layerStatus[layer.id].status === "loading"
-                              ? "⟳"
-                              : layerStatus[layer.id].status === "error"
-                                ? "✕ ERR"
-                                : layerStatus[layer.id].status === "empty"
-                                  ? "∅ 0"
-                                  : layerStatus[layer.id].count !== undefined
-                                    ? `✓ ${layerStatus[layer.id].count}`
-                                    : "✓"}
-                          </span>
-                        )}
-                        {mapState.layers[layer.id] && RASTER_LAYERS.has(layer.id) && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                            <input
-                              type="range"
-                              min={10}
-                              max={100}
-                              value={layerOpacity[layer.id] ?? 100}
-                              onChange={(e) => setOpacity(layer.id, Number(e.target.value))}
-                              style={{ width: 80, height: 3, accentColor: layer.accent, cursor: "pointer" }}
-                            />
-                            <span style={{ fontSize: "0.58rem", fontFamily: T.fontMono, color: T.textMuted, minWidth: 24 }}>
-                              {layerOpacity[layer.id] ?? 100}%
-                            </span>
+                <div key={cat} style={{ marginBottom: "0.4rem" }}>
+                  <button
+                    onClick={() => setExpandedCategory(isOpen ? null : cat)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "0.45rem 0.5rem",
+                      background: isOpen ? `rgba(0, 229, 255, 0.08)` : "transparent",
+                      border: `1px solid ${isOpen ? T.border : "transparent"}`,
+                      borderRadius: 4,
+                      color: T.text,
+                      fontSize: "0.7rem",
+                      fontFamily: T.fontMono,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s",
+                    }}
+                  >
+                    <span>{CATEGORY_LABELS[cat] || cat}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {enabledCount > 0 && (
+                        <span style={{ fontSize: "0.58rem", color: T.green, fontFamily: T.fontMono }}>{enabledCount}/{layers.length}</span>
+                      )}
+                      <span style={{ fontSize: "0.6rem", color: T.textMuted }}>{isOpen ? "▾" : "▸"}</span>
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ padding: "0.25rem 0.15rem" }}>
+                      {layers.map((layer) => (
+                        <div
+                          key={layer.id}
+                          style={{
+                            padding: "0.3rem 0.35rem",
+                            borderBottom: `1px solid rgba(0,229,255,0.08)`,
+                          }}
+                        >
+                          <LayerToggle
+                            label={layer.name}
+                            checked={!!mapState.layers[layer.id]}
+                            onChange={(checked) => toggleLayer(layer.id, checked)}
+                            color={layer.accent}
+                          />
+                          <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
+                            {layer.description}
+                            {mapState.layers[layer.id] && layerStatus[layer.id] && (
+                              <span
+                                aria-live="polite"
+                                aria-label={`${layer.name} status: ${layerStatus[layer.id].status}`}
+                                style={{
+                                  marginLeft: 6,
+                                  padding: "0 3px",
+                                  borderRadius: 2,
+                                  fontSize: "0.55rem",
+                                  fontFamily: T.fontMono,
+                                  ...(layerStatus[layer.id].status === "loading"
+                                    ? { color: T.amber }
+                                    : layerStatus[layer.id].status === "error"
+                                      ? { color: T.red }
+                                      : layerStatus[layer.id].status === "empty"
+                                        ? { color: T.textMuted }
+                                        : { color: T.green }),
+                                }}
+                              >
+                                {layerStatus[layer.id].status === "loading"
+                                  ? "⟳"
+                                  : layerStatus[layer.id].status === "error"
+                                    ? "✕ ERR"
+                                    : layerStatus[layer.id].status === "empty"
+                                      ? "∅ 0"
+                                      : layerStatus[layer.id].count !== undefined
+                                        ? `✓ ${layerStatus[layer.id].count}`
+                                        : "✓"}
+                              </span>
+                            )}
+                            {mapState.layers[layer.id] && RASTER_LAYERS.has(layer.id) && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                                <input
+                                  type="range"
+                                  min={10}
+                                  max={100}
+                                  value={layerOpacity[layer.id] ?? 100}
+                                  onChange={(e) => setOpacity(layer.id, Number(e.target.value))}
+                                  style={{ width: 70, height: 3, accentColor: layer.accent, cursor: "pointer" }}
+                                />
+                                <span style={{ fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted, minWidth: 22 }}>
+                                  {layerOpacity[layer.id] ?? 100}%
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </SurveillancePanel>
+                  )}
+                </div>
               );
             })}
 
@@ -1968,100 +2030,6 @@ export default function MapPage() {
                 </div>
               </SurveillancePanel>
             )}
-
-            {/* Layer Legend — shows color keys for enabled terrain layers */}
-            {(() => {
-              const terrainLegend: { id: string; name: string; swatch: React.ReactNode }[] = [];
-              if (mapState.layers.bathymetry) {
-                terrainLegend.push({
-                  id: "bathymetry",
-                  name: "Bathymetry",
-                  swatch: (
-                    <div>
-                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
-                        {["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"].map((c,i)=>(
-                          <div key={i} style={{ flex: 1, background: c }} />
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
-                        <span>Deep</span><span>Shallow</span>
-                      </div>
-                    </div>
-                  ),
-                });
-              }
-              if (mapState.layers.elevationColor) {
-                terrainLegend.push({
-                  id: "elevationColor",
-                  name: "Elevation",
-                  swatch: (
-                    <div>
-                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
-                        {["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"].map((c,i)=>(
-                          <div key={i} style={{ flex: 1, background: c }} />
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
-                        <span>Sea Level</span><span>Peaks</span>
-                      </div>
-                    </div>
-                  ),
-                });
-              }
-              if (mapState.layers.elevationAccuracy) {
-                terrainLegend.push({
-                  id: "elevationAccuracy",
-                  name: "Data Accuracy",
-                  swatch: (
-                    <div>
-                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
-                        {["#00bcd4","#4caf50","#1b5e20","#1565c0"].map((c, i) => (
-                          <div key={i} style={{ flex: 1, background: c }} />
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
-                        <span>2m</span><span>10m</span><span>30m</span><span>450m</span>
-                      </div>
-                    </div>
-                  ),
-                });
-              }
-              if (mapState.layers.hillshade) {
-                terrainLegend.push({
-                  id: "hillshade",
-                  name: "Hillshade",
-                  swatch: (
-                    <div>
-                      <div style={{ display: "flex", height: 10, borderRadius: 2, overflow: "hidden", border: `1px solid ${T.border}` }}>
-                        {["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"].map((c,i)=>(
-                          <div key={i} style={{ flex: 1, background: c }} />
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.textMuted, fontFamily: T.fontMono, marginTop: 1 }}>
-                        <span>Shadow</span><span>Highlight</span>
-                      </div>
-                    </div>
-                  ),
-                });
-              }
-              if (terrainLegend.length === 0) return null;
-              return (
-                <SurveillancePanel title="Legend" style={{ marginBottom: "0.75rem" }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {terrainLegend.map((item) => (
-                      <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <div style={{ fontSize: "0.6rem", fontFamily: T.fontMono, color: T.text, fontWeight: 500 }}>
-                          {item.name}
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {item.swatch}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </SurveillancePanel>
-              );
-            })()}
 
             {/* View controls */}
             <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>
@@ -2287,6 +2255,80 @@ export default function MapPage() {
           </div>
         )}
 
+        {/* Map Legend — always visible overlay */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 12,
+            right: 12,
+            zIndex: 10,
+            background: "rgba(10, 15, 26, 0.88)",
+            border: "1px solid rgba(0, 229, 255, 0.2)",
+            borderRadius: 6,
+            padding: "8px 10px",
+            maxWidth: 220,
+            pointerEvents: "none",
+            fontFamily: T.fontMono,
+          }}
+        >
+          <div style={{ fontSize: "0.65rem", color: T.accent, marginBottom: 6, fontWeight: 600, letterSpacing: "0.04em" }}>LEGEND</div>
+          {mapState.layers.bathymetry && (
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Bathymetry</div>
+              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
+                {["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"].map((c,i)=>(
+                  <div key={i} style={{ flex: 1, background: c }} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
+                <span>Deep</span><span>Shallow</span>
+              </div>
+            </div>
+          )}
+          {mapState.layers.elevationColor && (
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Elevation</div>
+              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
+                {["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"].map((c,i)=>(
+                  <div key={i} style={{ flex: 1, background: c }} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
+                <span>Sea Level</span><span>Peaks</span>
+              </div>
+            </div>
+          )}
+          {mapState.layers.elevationAccuracy && (
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Data Accuracy</div>
+              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
+                {["#00bcd4","#4caf50","#1b5e20","#1565c0"].map((c,i)=>(
+                  <div key={i} style={{ flex: 1, background: c }} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
+                <span>2m</span><span>10m</span><span>30m</span><span>450m</span>
+              </div>
+            </div>
+          )}
+          {mapState.layers.hillshade && (
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: "0.55rem", color: T.text, marginBottom: 2 }}>Hillshade</div>
+              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden", border: `1px solid rgba(0,229,255,0.3)` }}>
+                {["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"].map((c,i)=>(
+                  <div key={i} style={{ flex: 1, background: c }} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.45rem", color: T.textMuted, marginTop: 1 }}>
+                <span>Shadow</span><span>Highlight</span>
+              </div>
+            </div>
+          )}
+          {!mapState.layers.bathymetry && !mapState.layers.elevationColor && !mapState.layers.elevationAccuracy && !mapState.layers.hillshade && (
+            <div style={{ fontSize: "0.5rem", color: T.textMuted }}>Enable terrain layers</div>
+          )}
+        </div>
+
         {/* Click hint */}
         {mapState.layers.terrain3d && (
           <div
@@ -2360,6 +2402,55 @@ function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
     maxzoom: 10,
     encoding: "terrarium",
   });
+}
+
+/** Enforce correct z-order: basemap → terrain → hillshade → data → labels. */
+function reorderMapLayers(map: maplibregl.Map, layers: Record<string, boolean>): void {
+  const style = (map as any).getStyle();
+  if (!style?.layers) return;
+  const terrainIds = ["elevation-color-layer", "elevation-accuracy-layer", "elevation-accuracy-edges", "bathymetry", "contours-layer"];
+  const hillshadeIds = ["hillshade-base", "hillshade-detail"];
+  const dataIds: string[] = [];
+  // Collect all non-terrain, non-hillshade, non-label, non-basemap layers
+  for (const id of Object.keys(style.layers)) {
+    const lid = style.layers[id].id;
+    if (!terrainIds.includes(lid) && !hillshadeIds.includes(lid) && lid !== "labels-raster" && lid !== "basemap" && lid !== "land-contrast" && !lid.startsWith("boundary")) {
+      dataIds.push(lid);
+    }
+  }
+  // Build ordered stack: terrain → hillshade → data
+  const ordered = [...terrainIds, ...hillshadeIds, ...dataIds];
+  for (const id of ordered) {
+    if (map.getLayer(id)) {
+      try { (map as any).moveLayer(id); } catch { /* ignore */ }
+    }
+  }
+  // Labels always on top
+  if (map.getLayer("labels-raster")) {
+    try { (map as any).moveLayer("labels-raster"); } catch {}
+  }
+}
+
+/** Add transparent label tiles on top of everything. */
+function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
+  if (map.getLayer("labels-raster")) return;
+  // Only add labels for basemaps that don't have them (satellite, dark_nolabel, positron)
+  const needsLabels = ["satellite", "dark_nolabel", "positron"].includes(basemapKey);
+  if (!needsLabels) return;
+  try {
+    const labelUrl = basemapKey === "positron"
+      ? "https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png"
+      : "https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png";
+    if (!map.getSource("labels")) {
+      map.addSource("labels", { type: "raster", tiles: [labelUrl], tileSize: 256 });
+    }
+    map.addLayer({
+      id: "labels-raster",
+      type: "raster",
+      source: "labels",
+      paint: { "raster-opacity": 0.9 },
+    });
+  } catch { /* layer may already exist */ }
 }
 
 function addBoundaryLayers(map: maplibregl.Map) {

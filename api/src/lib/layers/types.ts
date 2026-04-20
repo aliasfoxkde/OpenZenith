@@ -3,15 +3,18 @@
  */
 
 export type LayerCategory =
-  | "weather"
-  | "infrastructure"
   | "terrain"
-  | "imagery"
-  | "hydro"
-  | "geocoding"
+  | "atmosphere"
+  | "hazards"
+  | "ocean"
   | "aviation"
+  | "infrastructure"
+  | "imagery"
+  | "space"
+  | "hydro"
+  | "weather"
   | "maritime"
-  | "space";
+  | "geocoding";
 
 export interface LayerDefinition {
   id: string;

@@ -17,15 +17,6 @@ import type { LayerDefinition, LayerToggleState } from "./types";
 export const LAYERS: readonly LayerDefinition[] = [
   /* ── Terrain ──────────────────────────────────────────── */
   {
-    id: "hillshade",
-    name: "Hillshade",
-    category: "terrain",
-    description: "Terrain hillshade shading derived from SRTM 30m elevation data",
-    defaultEnabled: false,
-    accent: "#8b7355",
-    dataSource: "/api/tile/{z}/{x}/{y}",
-  },
-  {
     id: "elevationColor",
     name: "Elevation Color",
     category: "terrain",
@@ -62,30 +53,39 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#3b82f6",
     dataSource: "/api/bathymetry",
   },
+  {
+    id: "hillshade",
+    name: "Hillshade",
+    category: "terrain",
+    description: "Terrain hillshade shading derived from SRTM 30m elevation data",
+    defaultEnabled: true,
+    accent: "#8b7355",
+    dataSource: "/api/tile/{z}/{x}/{y}",
+  },
 
   /* ── Weather ──────────────────────────────────────────── */
   {
     id: "earthquakes",
     name: "Earthquakes",
-    category: "weather",
+    category: "hazards",
     description: "Real-time earthquake data from USGS (magnitude, depth, location)",
-    defaultEnabled: true,
+    defaultEnabled: false,
     accent: "#ef4444",
     dataSource: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
   },
   {
     id: "radar",
     name: "Weather Radar",
-    category: "weather",
+    category: "atmosphere",
     description: "NEXRAD weather radar mosaic from RainViewer",
-    defaultEnabled: false,
+    defaultEnabled: true,
     accent: "#22c55e",
     dataSource: "https://api.rainviewer.com/public/weather-maps.json",
   },
   {
     id: "warnings",
     name: "Weather Warnings",
-    category: "weather",
+    category: "atmosphere",
     description: "NWS watches, warnings, and advisories (US only)",
     defaultEnabled: false,
     accent: "#f59e0b",
@@ -94,7 +94,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "hurricaneTracks",
     name: "Hurricane Tracks",
-    category: "weather",
+    category: "hazards",
     description: "Active tropical cyclone tracks and forecast cones",
     defaultEnabled: false,
     accent: "#f97316",
@@ -114,7 +114,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "vessels",
     name: "Vessels (AIS)",
-    category: "maritime",
+    category: "ocean",
     description: "Real-time ship positions from AISstream.io (requires API key)",
     defaultEnabled: false,
     accent: "#00e5ff",
@@ -247,7 +247,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "spaceWeather",
     name: "Space Weather",
-    category: "weather",
+    category: "atmosphere",
     description: "NOAA SWPC aurora forecast, Kp index, geomagnetic storm alerts",
     defaultEnabled: false,
     accent: "#00ff88",
@@ -258,7 +258,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "airQuality",
     name: "Air Quality",
-    category: "weather",
+    category: "atmosphere",
     description: "Global AQI, PM2.5, PM10, NO₂, O₃ from Open-Meteo Air Quality API",
     defaultEnabled: false,
     accent: "#22c55e",
@@ -280,7 +280,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "volcanoes",
     name: "Volcano Alerts",
-    category: "weather",
+    category: "hazards",
     description: "USGS real-time volcano alert status (advisory, watch, warning)",
     defaultEnabled: false,
     accent: "#ff4444",
@@ -291,7 +291,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "gdacs",
     name: "Disaster Alerts",
-    category: "weather",
+    category: "hazards",
     description: "GDACS global disaster aggregation — earthquakes, cyclones, floods, volcanoes",
     defaultEnabled: false,
     accent: "#f59e0b",
@@ -302,7 +302,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "marineWeather",
     name: "Marine Weather",
-    category: "maritime",
+    category: "ocean",
     description: "Global wave height, SST, wind waves from Open-Meteo Marine API",
     defaultEnabled: false,
     accent: "#0ea5e9",
@@ -313,7 +313,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "wildfires",
     name: "Wildfires",
-    category: "weather",
+    category: "hazards",
     description: "NASA FIRMS active fire/hotspot detection (VIIRS satellite)",
     defaultEnabled: false,
     accent: "#ff6600",
@@ -324,7 +324,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "floods",
     name: "Flood Extent",
-    category: "weather",
+    category: "hazards",
     description: "VIIRS satellite flood detection (NASA GIBS, 3-day composite)",
     defaultEnabled: false,
     accent: "#3b82f6",
@@ -333,7 +333,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "fireTemperature",
     name: "Fire Temperature",
-    category: "weather",
+    category: "hazards",
     description: "GOES-16 thermal fire detection — real-time hotspot imagery from geostationary satellite",
     defaultEnabled: false,
     accent: "#ff2200",
@@ -351,7 +351,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "dynamicSurfaceWater",
     name: "Surface Water",
-    category: "weather",
+    category: "hazards",
     description: "OPERA L3 dynamic surface water extent from Sentinel-1 SAR (flooding, seasonal change)",
     defaultEnabled: false,
     accent: "#2563eb",
@@ -360,7 +360,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "disturbanceAlerts",
     name: "Disturbance Alerts",
-    category: "weather",
+    category: "hazards",
     description: "OPERA L3 HLS disturbance detection — fire, deforestation, urbanization alerts",
     defaultEnabled: false,
     accent: "#dc2626",
@@ -369,7 +369,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "so2Volcanic",
     name: "SO₂ Volcanic",
-    category: "weather",
+    category: "atmosphere",
     description: "TROPOMI sulfur dioxide monitoring for volcanic eruption detection and aviation safety",
     defaultEnabled: false,
     accent: "#a855f7",
@@ -378,7 +378,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "no2Pollution",
     name: "NO₂ Pollution",
-    category: "weather",
+    category: "atmosphere",
     description: "TROPOMI tropospheric NO₂ — tracks industrial, traffic, and wildfire pollution",
     defaultEnabled: false,
     accent: "#eab308",
@@ -387,7 +387,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "precipitation",
     name: "Precipitation",
-    category: "weather",
+    category: "atmosphere",
     description: "IMERG global precipitation rate from GPM satellite constellation",
     defaultEnabled: false,
     accent: "#3b82f6",
@@ -396,7 +396,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "soilMoisture",
     name: "Soil Moisture",
-    category: "weather",
+    category: "atmosphere",
     description: "SMAP L-band radar soil moisture for drought and flood risk monitoring",
     defaultEnabled: false,
     accent: "#854d0e",
@@ -416,7 +416,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "sst",
     name: "Sea Surface Temp",
-    category: "maritime",
+    category: "ocean",
     description: "GHRSST L4 MUR sea surface temperature — ocean thermal patterns and currents",
     defaultEnabled: false,
     accent: "#ef4444",
@@ -425,7 +425,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "chlorophyll",
     name: "Chlorophyll-a",
-    category: "maritime",
+    category: "ocean",
     description: "MODIS Aqua ocean chlorophyll concentration — phytoplankton blooms, marine productivity",
     defaultEnabled: false,
     accent: "#22c55e",
@@ -434,7 +434,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "snowCover",
     name: "Snow Cover",
-    category: "weather",
+    category: "atmosphere",
     description: "MODIS Terra 8-day snow extent — global snow and ice coverage monitoring",
     defaultEnabled: false,
     accent: "#e0f2fe",
@@ -461,7 +461,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "seaSalinity",
     name: "Sea Surface Salinity",
-    category: "maritime",
+    category: "ocean",
     description: "SMAP L3 sea surface salinity — ocean circulation, freshwater input tracking",
     defaultEnabled: false,
     accent: "#0284c7",
@@ -470,7 +470,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "seaHeight",
     name: "Sea Surface Height",
-    category: "maritime",
+    category: "ocean",
     description: "JPL MEaSUREs sea surface height anomalies — ENSO, ocean circulation monitoring",
     defaultEnabled: false,
     accent: "#7c3aed",
@@ -481,7 +481,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "floodHazard",
     name: "Flood Hazard",
-    category: "weather",
+    category: "hazards",
     description: "NASA NDH global flood hazard frequency distribution (1985-2003 baseline)",
     defaultEnabled: false,
     accent: "#2563eb",
@@ -490,7 +490,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "landslideHazard",
     name: "Landslide Hazard",
-    category: "weather",
+    category: "hazards",
     description: "NASA NDH global landslide hazard distribution (2000 baseline)",
     defaultEnabled: false,
     accent: "#92400e",
@@ -499,7 +499,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "droughtHazard",
     name: "Drought Hazard",
-    category: "weather",
+    category: "hazards",
     description: "NASA NDH global drought hazard frequency distribution (1980-2000 baseline)",
     defaultEnabled: false,
     accent: "#ca8a04",
@@ -508,7 +508,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "pm25",
     name: "PM2.5 Concentration",
-    category: "weather",
+    category: "atmosphere",
     description: "Global particulate matter below 2.5μm — air quality health risk indicator",
     defaultEnabled: false,
     accent: "#b91c1c",
@@ -517,7 +517,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "aod",
     name: "Aerosol Optical Depth",
-    category: "weather",
+    category: "atmosphere",
     description: "MODIS Aqua AOD — atmospheric aerosol load from dust, smoke, pollution",
     defaultEnabled: false,
     accent: "#a16207",
@@ -526,7 +526,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "seaIce",
     name: "Sea Ice",
-    category: "weather",
+    category: "ocean",
     description: "Sea ice concentration from NSIDC and OSI SAF satellite observations",
     defaultEnabled: false,
     accent: "#93c5fd",
@@ -535,7 +535,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "burnScars",
     name: "Active Fires",
-    category: "weather",
+    category: "hazards",
     description: "NASA VIIRS active fire detections — global wildfire monitoring",
     defaultEnabled: false,
     accent: "#f97316",
@@ -546,7 +546,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "lightning",
     name: "Lightning",
-    category: "weather",
+    category: "atmosphere",
     description: "Real-time global lightning strikes from Blitzortung.org",
     defaultEnabled: false,
     accent: "#fbbf24",
@@ -602,23 +602,25 @@ export function getDefaultToggleState(): LayerToggleState {
 
 /** Ordered category labels for sidebar rendering. */
 export const CATEGORY_ORDER = [
-  "weather",
-  "aviation",
-  "maritime",
-  "infrastructure",
-  "hydro",
   "terrain",
+  "atmosphere",
+  "hazards",
+  "ocean",
+  "aviation",
+  "infrastructure",
   "imagery",
   "space",
+  "hydro",
 ] as const;
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  weather: "Weather",
-  aviation: "Aviation",
-  maritime: "Maritime",
-  infrastructure: "Infrastructure",
-  hydro: "Hydrography",
-  terrain: "Terrain",
-  imagery: "Imagery",
-  space: "Space",
+  terrain: "🏔️ Terrain",
+  atmosphere: "🌤️ Atmosphere",
+  hazards: "⚠️ Hazards & Disasters",
+  ocean: "🌊 Ocean",
+  aviation: "✈️ Aviation",
+  infrastructure: "🏗️ Infrastructure",
+  imagery: "🛰️ Imagery",
+  space: "🚀 Space",
+  hydro: "💧 Hydrography",
 };

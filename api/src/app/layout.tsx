@@ -99,7 +99,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <head />
+      <head>
+        <link rel="preload" href="https://unpkg.com/cesium@1.119/Build/Cesium/Widgets/widgets.css" as="style" />
+        <link rel="preconnect" href="https://unpkg.com" />
+      </head>
       <body
         style={{
           margin: 0,

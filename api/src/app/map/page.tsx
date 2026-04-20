@@ -1637,7 +1637,10 @@ export default function MapPage() {
             {/* Basemap selector */}
             <SurveillancePanel title="Basemap" style={{ marginBottom: "0.75rem" }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                {Object.entries(BASEMAPS).map(([key, bm]) => (
+                {BASEMAP_ORDER.map((key) => {
+                  const bm = BASEMAPS[key];
+                  if (!bm) return null;
+                  return (
                   <button
                     key={key}
                     onClick={() => switchBasemap(key)}
@@ -1655,7 +1658,8 @@ export default function MapPage() {
                   >
                     {bm.label}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </SurveillancePanel>
 
@@ -1813,28 +1817,6 @@ export default function MapPage() {
                 </div>
               </SurveillancePanel>
             )}
-
-            {/* Basemap selector */}
-            <SurveillancePanel title="Basemap" style={{ marginBottom: "0.75rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
-                {BASEMAP_ORDER.filter((k) => BASEMAPS[k]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setMapState((prev) => ({ ...prev, basemap: key }))}
-                    style={{
-                      ...btnStyle,
-                      fontSize: "0.58rem",
-                      padding: "3px 4px",
-                      background: mapState.basemap === key ? T.accent : T.panel,
-                      color: mapState.basemap === key ? "#0a0f1a" : T.textMuted,
-                      border: `1px solid ${mapState.basemap === key ? T.accent : T.border}`,
-                    }}
-                  >
-                    {BASEMAPS[key].label}
-                  </button>
-                ))}
-              </div>
-            </SurveillancePanel>
 
             {/* View controls */}
             <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>

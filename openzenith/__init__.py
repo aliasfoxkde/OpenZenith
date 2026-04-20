@@ -15,7 +15,7 @@ For compute-intensive applications, the local SDK is recommended over the web AP
 to avoid HTTPS chunk download overhead on each tile request.
 """
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 from openzenith.elevation import (
     get_elevation,
@@ -113,6 +113,15 @@ def __getattr__(name):
     if name == "twi":
         from openzenith.hydrology import twi
         return twi
+    if name == "profile_curvature":
+        from openzenith.terrain import profile_curvature
+        return profile_curvature
+    if name == "planform_curvature":
+        from openzenith.terrain import planform_curvature
+        return planform_curvature
+    if name == "drainage_density":
+        from openzenith.terrain import drainage_density
+        return drainage_density
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -171,4 +180,8 @@ __all__ = [
     # Hydrology extra (lazy)
     "fill_depressions",
     "twi",
+    # Terrain extra (lazy)
+    "profile_curvature",
+    "planform_curvature",
+    "drainage_density",
 ]

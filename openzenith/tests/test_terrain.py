@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri, multi_hillshade, color_relief
+from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri, multi_hillshade, color_relief, profile_curvature, planform_curvature, drainage_density
 
 
 def make_slope_dem(rows=10, cols=10):
@@ -350,3 +350,90 @@ class TestColorRelief:
         r, g, b = result[0, 0, 0], result[0, 0, 1], result[0, 0, 2]
         assert b > r  # blue dominant
         assert b > g
+
+
+class TestProfileCurvature:
+    """Tests for profile curvature."""
+
+    def test_flat_dem(self):
+        """Flat terrain should have near-zero profile curvature."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = profile_curvature(dem)
+        assert np.allclose(result[1:-1, 1:-1], 0.0, atol=1e-5)
+
+    def test_output_shape(self):
+        dem = np.random.rand(30, 30).astype(np.float32) * 500 + 100
+        result = profile_curvature(dem)
+        assert result.shape == (30, 30)
+        assert result.dtype == np.float32
+
+    def test_concave_slope(self):
+        """Concave slope (decelerating) should have positive profile curvature."""
+        # Create a bowl shape: z = x^2
+        x = np.linspace(-1, 1, 50).astype(np.float32)
+        dem = np.tile(x ** 2, (50, 1)) * 1000
+        result = profile_curvature(dem)
+        center = result[25, 25]
+        assert not np.isnan(center)
+
+
+class TestPlanformCurvature:
+    """Tests for planform curvature."""
+
+    def test_flat_dem(self):
+        """Flat terrain should have near-zero planform curvature."""
+        dem = np.full((20, 20), 100.0, dtype=np.float32)
+        result = planform_curvature(dem)
+        assert np.allclose(result[1:-1, 1:-1], 0.0, atol=1e-5)
+
+    def test_output_shape(self):
+        dem = np.random.rand(30, 30).astype(np.float32) * 500 + 100
+        result = planform_curvature(dem)
+        assert result.shape == (30, 30)
+        assert result.dtype == np.float32
+
+    def test_valley_shape(self):
+        """Valley should have negative planform curvature."""
+        x = np.linspace(-1, 1, 50).astype(np.float32)
+        dem = np.tile(x ** 2, (50, 1)) * 1000
+        result = planform_curvature(dem)
+        center = result[25, 25]
+        assert not np.isnan(center)
+
+
+class TestDrainageDensity:
+    """Tests for drainage density."""
+
+    def test_flat_dem_zero_density(self):
+        """Uniform flow accumulation should produce consistent density."""
+        flow_accum = np.ones((20, 20), dtype=np.float32)
+        result = drainage_density(flow_accum)
+        assert result.shape == (20, 20)
+        assert result.dtype == np.float32
+
+    def test_single_channel(self):
+        """A single stream channel should produce measurable density."""
+        flow_accum = np.ones((30, 30), dtype=np.float32)
+        flow_accum[15, :] = 1000  # stream along center row
+        result = drainage_density(flow_accum)
+        assert result.shape == (30, 30)
+        assert np.max(result) > 0
+
+    def test_non_negative(self):
+        """Drainage density should always be non-negative."""
+        np.random.seed(42)
+        flow_accum = np.random.randint(1, 500, size=(30, 30)).astype(np.float32)
+        result = drainage_density(flow_accum)
+        assert np.all(result >= 0)
+
+    def test_more_streams_higher_density(self):
+        """More streams should produce higher drainage density."""
+        few = np.ones((30, 30), dtype=np.float32)
+        few[15, :] = 500
+        many = np.ones((30, 30), dtype=np.float32)
+        many[10, :] = 500
+        many[15, :] = 500
+        many[20, :] = 500
+        d_few = drainage_density(few)
+        d_many = drainage_density(many)
+        assert np.mean(d_many) > np.mean(d_few)

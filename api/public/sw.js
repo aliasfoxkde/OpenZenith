@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "openzenith-v2";
+const CACHE_NAME = "openzenith-v3";
 
 const PRECACHE_URLS = ["/", "/map", "/explore"];
 

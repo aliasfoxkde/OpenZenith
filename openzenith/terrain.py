@@ -577,6 +577,120 @@ def curvature(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32
     return result.astype(np.float32)
 
 
+def profile_curvature(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Profile curvature (curvature along slope direction).
+
+    Positive = concave (decelerating flow, deposition zones)
+    Negative = convex (accelerating flow, erosion zones)
+    Zero = planar.
+
+    Uses the second derivative in the direction of maximum slope.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of profile curvature values (1/m)
+    """
+    cell_m = cell_size_deg * 111320.0
+    padded = np.pad(dem.astype(np.float64), 1, mode='constant', constant_values=np.nan)
+    z = padded[1:-1, 1:-1]
+
+    # First derivatives (Horn's 3x3 weighted)
+    dz_dx = (padded[2:, 2:] + 2*padded[1:-1, 2:] + padded[:-2, 2:]
+           - padded[2:, :-2] - 2*padded[1:-1, :-2] - padded[:-2, :-2]) / (8 * cell_m)
+    dz_dy = (padded[:-2, 2:] + 2*padded[:-2, 1:-1] + padded[:-2, :-2]
+           - padded[2:, 2:] - 2*padded[2:, 1:-1] - padded[2:, :-2]) / (8 * cell_m)
+
+    # Second derivatives
+    d2z_dx2 = (padded[1:-1, 2:] - 2*z + padded[1:-1, :-2]) / (cell_m**2)
+    d2z_dy2 = (padded[2:, 1:-1] - 2*z + padded[:-2, 1:-1]) / (cell_m**2)
+    d2z_dxdy = (padded[2:, 2:] - padded[2:, :-2] - padded[:-2, 2:] + padded[:-2, :-2]) / (4 * cell_m**2)
+
+    p = dz_dx**2 + dz_dy**2
+    p = np.where(p < 1e-10, 1e-10, p)  # avoid division by zero
+    q = p + 1.0
+
+    result = -(d2z_dx2 * dz_dx**2 + 2 * d2z_dxdy * dz_dx * dz_dy + d2z_dy2 * dz_dy**2) / (p * np.sqrt(q))
+    valid = padded[1:-1, 1:-1] != nodata
+    result[~valid] = np.nan
+    return result.astype(np.float32)
+
+
+def planform_curvature(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Planform curvature (curvature perpendicular to slope direction).
+
+    Positive = convex across slope (converging flow, ridges)
+    Negative = concave across slope (diverging flow, valleys)
+    Zero = planar.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of planform curvature values (1/m)
+    """
+    cell_m = cell_size_deg * 111320.0
+    padded = np.pad(dem.astype(np.float64), 1, mode='constant', constant_values=np.nan)
+    z = padded[1:-1, 1:-1]
+
+    dz_dx = (padded[2:, 2:] + 2*padded[1:-1, 2:] + padded[:-2, 2:]
+           - padded[2:, :-2] - 2*padded[1:-1, :-2] - padded[:-2, :-2]) / (8 * cell_m)
+    dz_dy = (padded[:-2, 2:] + 2*padded[:-2, 1:-1] + padded[:-2, :-2]
+           - padded[2:, 2:] - 2*padded[2:, 1:-1] - padded[2:, :-2]) / (8 * cell_m)
+
+    d2z_dx2 = (padded[1:-1, 2:] - 2*z + padded[1:-1, :-2]) / (cell_m**2)
+    d2z_dy2 = (padded[2:, 1:-1] - 2*z + padded[:-2, 1:-1]) / (cell_m**2)
+    d2z_dxdy = (padded[2:, 2:] - padded[2:, :-2] - padded[:-2, 2:] + padded[:-2, :-2]) / (4 * cell_m**2)
+
+    p = dz_dx**2 + dz_dy**2
+    p = np.where(p < 1e-10, 1e-10, p)
+    q = p + 1.0
+
+    result = (d2z_dx2 * dz_dy**2 - 2 * d2z_dxdy * dz_dx * dz_dy + d2z_dy2 * dz_dx**2) / (p * np.sqrt(q))
+    valid = padded[1:-1, 1:-1] != nodata
+    result[~valid] = np.nan
+    return result.astype(np.float32)
+
+
+def drainage_density(flow_accum: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
+    """Drainage density from flow accumulation grid.
+
+    Total stream length per unit area. Higher values indicate more
+    dissected terrain with more channels.
+
+    Args:
+        flow_accum: 2D flow accumulation grid (from flow_accumulation())
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of drainage density (km/km²)
+    """
+    cell_km = cell_size_deg * 111.32
+    cell_area_km2 = cell_km ** 2
+    threshold = np.sqrt(flow_accum.size)
+    streams = (flow_accum >= threshold).astype(np.float64)
+    streams[flow_accum <= 0] = 0
+    streams[np.isnan(flow_accum)] = 0
+    # Smooth with 11x11 uniform filter (numpy-only, shape-preserving)
+    kernel_size = 11
+    pad = kernel_size // 2
+    padded = np.pad(streams, pad, mode='reflect')
+    # Integral image approach
+    cumsum = np.cumsum(np.cumsum(padded, axis=0), axis=1)
+    cumsum = np.pad(cumsum, ((1, 0), (1, 0)), mode='constant')  # prepend zeros
+    smoothed = (cumsum[kernel_size:, kernel_size:] - cumsum[:-kernel_size, kernel_size:]
+               - cumsum[kernel_size:, :-kernel_size] + cumsum[:-kernel_size, :-kernel_size]) / (kernel_size ** 2)
+    # Trim padding to match input shape
+    result = smoothed[:flow_accum.shape[0], :flow_accum.shape[1]] / cell_area_km2
+    return np.maximum(result, 0).astype(np.float32)
+
+
 def tri(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
     """Terrain Ruggedness Index (TRI).
 

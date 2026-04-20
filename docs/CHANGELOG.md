@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.6.1 (2026-04-20)
+
+### Critical Data Source Fixes (2 dead WMS services replaced)
+- **Land cover**: EEA CORINE WMS infrastructure fully discontinued. Replaced with NASA GIBS MODIS IGBP Land Cover (EPSG:3857).
+- **Population density**: EEA JRC GHSL WMS also discontinued. Replaced with NASA GIBS VIIRS Black Marble (nighttime lights as population proxy).
+- **Sentinel-2**: Microsoft TiTiler intermittently down (530 errors). Added GIBS MODIS Terra True Color as automatic fallback.
+
+### Lazy-Load Layer Investigation
+- Investigated dynamic imports for 34 off-by-default layers (~8-12KB potential savings).
+- **Result: Not viable** — `@cloudflare/next-on-pages` bundles all dynamic imports into single 64KB worker at build time. No code splitting on CF Pages Edge runtime. Reverted cleanly.
+
+### R2 Tile Cache Expansion
+- Added R2 cache-aside to 3 more proxy tile routes:
+  - `/api/landcover/{z}/{x}/{y}` — GIBS MODIS Land Cover
+  - `/api/population/{z}/{x}/{y}` — GIBS VIIRS Black Marble
+  - `/api/sentinel2/{z}/{x}/{y}` — PC TiTiler + GIBS MODIS fallback
+- Total R2 cached routes: 7 tile + 6 JSON = 13 routes.
+
+### Python SDK — 3 new terrain functions
+- `profile_curvature()`: Curvature along slope direction (erosion/deposition indicator)
+- `planform_curvature()`: Curvature perpendicular to slope (ridge/valley indicator)
+- `drainage_density()`: Stream length per unit area from flow accumulation
+- All vectorized NumPy — sub-millisecond for 100×100 grid.
+- 10 new tests (134 total passing).
+
+### Service Worker
+- Bumped cache version v2 → v3 to bust stale cached tiles.
+
 ## v0.6.0 (2026-04-20)
 
 ### Data Source Fixes (5 broken sources repaired)

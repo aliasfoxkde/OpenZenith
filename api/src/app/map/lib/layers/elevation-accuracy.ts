@@ -2,7 +2,6 @@ import type { LayerHandle } from "./types";
 
 /* ─── Elevation Accuracy Heatmap ─── */
 
-// Store marker references for cleanup
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let accuracyMarkers: any[] = [];
 
@@ -18,6 +17,37 @@ const ZONE_LABELS = [
   { text: "GEBCO 450m", lng: -150, lat: -20, color: "#2171b5" },
 ];
 
+/**
+ * Zone boundaries matching tile generation thresholds in
+ * api/elevation-accuracy/[z]/[x]/[y]/route.ts:
+ *   ArcticDEM: lat > 60°N
+ *   REMA: lat < -60°S
+ *   EEA 10m: lat 34-72, lon -25 to 45
+ */
+const ZONE_BOUNDARIES: GeoJSON.Feature[] = [
+  // 60°N — ArcticDEM / SRTM boundary
+  {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: [[-180, 60], [180, 60]] },
+    properties: { zone: "60N" },
+  },
+  // 60°S — REMA / SRTM boundary
+  {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: [[-180, -60], [180, -60]] },
+    properties: { zone: "60S" },
+  },
+  // EEA 10m Europe box
+  {
+    type: "Feature",
+    geometry: {
+      type: "LineString",
+      coordinates: [[-25, 34], [-25, 72], [45, 72], [45, 34], [-25, 34]],
+    },
+    properties: { zone: "EEA" },
+  },
+];
+
 export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("elevation-accuracy")) return;
 
@@ -29,18 +59,13 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     maxzoom: 12,
   });
 
-  // Base fill — subtle, transparent
   map.addLayer({
     id: "elevation-accuracy-layer",
     type: "raster",
     source: "elevation-accuracy",
-    paint: {
-      "raster-opacity": 0.2,
-      "raster-saturation": 0.5,
-    },
+    paint: { "raster-opacity": 0.2, "raster-saturation": 0.5 },
   });
 
-  // Edge/contour overlay — high saturation, low opacity, shows zone boundaries
   map.addLayer({
     id: "elevation-accuracy-edges",
     type: "raster",
@@ -54,7 +79,31 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     },
   });
 
-  // Coastline — the actual boundary between land zones and GEBCO ocean
+  // Zone boundary lines (60°N, 60°S, EEA box)
+  map.addSource("accuracy-zones", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: ZONE_BOUNDARIES },
+  });
+
+  map.addLayer({
+    id: "accuracy-zones-line",
+    type: "line",
+    source: "accuracy-zones",
+    paint: {
+      "line-color": [
+        "match", ["get", "zone"],
+        "60N", "#00d2e6",
+        "60S", "#00d2e6",
+        "EEA", "#22c55e",
+        "#ffffff",
+      ],
+      "line-width": 1.5,
+      "line-opacity": 0.6,
+      "line-dasharray": [6, 3],
+    },
+  });
+
+  // Coastline — land/ocean boundary
   map.addSource("accuracy-coastline", {
     type: "geojson",
     data: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_coastline.geojson",
@@ -70,7 +119,7 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     },
   });
 
-  // HTML marker labels — always visible, no font dependency
+  // Labels
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const MlglMarker = (map as any).constructor as typeof maplibregl.Marker;
   for (const zone of ZONE_LABELS) {
@@ -94,12 +143,11 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
 }
 
 export function removeElevationAccuracy(map: maplibregl.Map): void {
-  // Remove markers
-  for (const m of accuracyMarkers) {
-    m.remove();
-  }
+  for (const m of accuracyMarkers) { m.remove(); }
   accuracyMarkers = [];
 
+  try { map.removeLayer("accuracy-zones-line"); } catch {}
+  try { map.removeSource("accuracy-zones"); } catch {}
   try { map.removeLayer("accuracy-coastline-line"); } catch {}
   try { map.removeSource("accuracy-coastline"); } catch {}
   try { map.removeLayer("elevation-accuracy-edges"); } catch {}

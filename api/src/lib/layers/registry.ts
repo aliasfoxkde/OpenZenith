@@ -58,7 +58,7 @@ export const LAYERS: readonly LayerDefinition[] = [
     name: "Equator Line",
     category: "terrain",
     description: "Reference line at 0 degrees latitude",
-    defaultEnabled: false,
+    defaultEnabled: true,
     accent: "#94a3b8",
   },
   {

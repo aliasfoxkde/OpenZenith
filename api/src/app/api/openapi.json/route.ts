@@ -11,7 +11,7 @@ const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "OpenZenith API",
-    version: "0.5.3",
+    version: "0.5.5",
     description:
       "Free, fast, global elevation and geospatial API. Query any point on Earth for elevation data from NASA SRTM 30m, track flights, monitor weather, explore OpenStreetMap, and more. No API key required.",
     contact: {

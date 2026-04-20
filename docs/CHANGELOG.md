@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.5.5 (2026-04-20)
+
+### Data Source Fixes (5 broken sources repaired)
+- **Marine weather**: Open-Meteo tile endpoint dead. Replaced with Open-Meteo Marine JSON API, displaying wave height data as color-coded grid points across 36 ocean sample locations.
+- **Building footprints**: Overture Maps free tile endpoint dead. Replaced with OpenStreetMap building footprints via Overpass API, loaded on-demand at zoom 12+.
+- **Satellite imagery**: GIBS MODIS Terra 1-day date often 404 due to processing delay. Changed to 3-day fallback.
+- **Floods**: JRC CDF-Proxy no longer publicly accessible. Returns graceful empty status.
+- **GDACS**: RSS feed returns only header (requires auth). Returns graceful empty status.
+
+### Performance — R2 JSON Cache Expansion
+- Added R2 cache-aside to 4 more API routes (total: 6 JSON + 4 tile = 10 cached routes).
+- `/api/hurricanes` — NOAA IBTrACS (30 min TTL)
+- `/api/satellites` — Celestrak (10 min TTL) — eliminates 8-15s cold starts from CF edge
+- `/api/nlnog` — Ring NLNOG (60 min TTL)
+- `/api/military` — ADSB Exchange (60s TTL)
+
+### SEO
+- Enhanced page titles with descriptive keywords for all 4 sub-pages.
+- Added OpenGraph metadata to /map, /globe, /explore, /studio.
+
+### Python SDK
+- New terrain analysis functions: `tpi()`, `roughness()`, `curvature()`, `tri()`.
+- All vectorized with NumPy — 6-50ms for 500×500 grid.
+- 13 new tests (99 total passing).
+
 ## v0.5.4 (2026-04-20)
 
 ### Performance

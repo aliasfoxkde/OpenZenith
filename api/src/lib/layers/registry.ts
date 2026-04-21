@@ -19,7 +19,7 @@ export const LAYERS: readonly LayerDefinition[] = [
   {
     id: "hillshade",
     name: "Hillshade",
-    category: "terrain",
+    category: "hillshade",
     description: "Terrain hillshade shading derived from SRTM 30m elevation data",
     defaultEnabled: true,
     accent: "#8b7355",
@@ -618,6 +618,7 @@ export function getDefaultToggleState(): LayerToggleState {
 
 /** Ordered category labels for sidebar rendering. */
 export const CATEGORY_ORDER = [
+  "hillshade",
   "terrain",
   "atmosphere",
   "hazards",
@@ -630,6 +631,7 @@ export const CATEGORY_ORDER = [
 ] as const;
 
 export const CATEGORY_LABELS: Record<string, string> = {
+  hillshade: "🏔️ Hillshade",
   terrain: "🏔️ Terrain",
   atmosphere: "🌤️ Atmosphere",
   hazards: "⚠️ Hazards & Disasters",

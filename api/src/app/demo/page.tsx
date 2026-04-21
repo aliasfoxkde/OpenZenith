@@ -11,6 +11,7 @@ function addElevationLayer(map: any, _mlgl: any) {
     type: "raster-dem",
     tiles: ["/api/dem-tile/{z}/{x}/{y}"],
     tileSize: 256,
+    demTileSize: 512,
     maxzoom: 12,
     encoding: "terrarium",
   });

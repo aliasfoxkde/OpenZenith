@@ -193,6 +193,7 @@ export default function Home() {
             type: "raster-dem",
             tiles: ["/api/dem-tile/{z}/{x}/{y}"],
             tileSize: 256,
+            demTileSize: 512,
             maxzoom: 10,
             encoding: "terrarium",
           });

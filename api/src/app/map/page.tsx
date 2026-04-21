@@ -870,13 +870,13 @@ export default function MapPage() {
             addElevationSource(map, mlgl);
             // Phase 1: Terrain base layers (color, accuracy, bathymetry, contours)
             for (const layer of LAYERS) {
-              if (layer.category === "terrain" && layer.id !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+              if (layer.category === "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
                 addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
-            // Phase 2: Data layers (non-terrain) on top of terrain
+            // Phase 2: Data layers (non-terrain, non-hillshade) on top of terrain
             for (const layer of LAYERS) {
-              if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+              if (layer.category !== "terrain" && layer.category !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
                 addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
@@ -1068,12 +1068,12 @@ export default function MapPage() {
         addElevationSource(map, mlgl);
         // Re-add all layers in correct order after style change
         for (const layer of LAYERS) {
-          if (layer.category === "terrain" && layer.id !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+          if (layer.category === "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
             addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
         for (const layer of LAYERS) {
-          if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+          if (layer.category !== "terrain" && layer.category !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
             addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
@@ -2409,6 +2409,7 @@ function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
     type: "raster-dem",
     tiles: ["/api/dem-tile/{z}/{x}/{y}"],
     tileSize: 256,
+    demTileSize: 512,
     maxzoom: 10,
     encoding: "terrarium",
   });

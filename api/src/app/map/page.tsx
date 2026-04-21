@@ -2287,7 +2287,7 @@ export default function MapPage() {
             { id: "elevationColor", name: "Elevation", colors: ["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"], labels: ["Sea Level","Peaks"], multi: false },
             { id: "elevationAccuracy", name: "Data Accuracy", colors: ["#00bcd4","#4caf50","#1b5e20","#9acd32","#1565c0"], labels: ["2m","","","","450m"], multi: true },
             { id: "hillshade", name: "Hillshade", colors: ["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"], labels: ["Shadow","Highlight"], multi: false },
-            { id: "oceanCurrents", name: "Ocean Currents", colors: ["#ff4444","#4488ff","#00ccff"], labels: ["Warm","Cold","Circum."], multi: false },
+            { id: "oceanCurrents", name: "Ocean Currents", colors: ["#2878ff","#328cff","#00b4ff"], labels: ["Flow","","Circum."], multi: false },
             { id: "equator", name: "Equator", colors: ["#ffffff"], labels: [""], multi: false },
           ] as const).map((layer) => {
             const on = !!mapState.layers[layer.id];
@@ -2415,15 +2415,12 @@ function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
 
 /** Enforce correct z-order (bottom to top). */
 function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>): void {
-  const style = (map as any).getStyle();
-  if (!style?.layers) return;
-
-  // Definitive bottom-to-top order. Layers not in this list keep their relative order.
+  // Definitive bottom-to-top order.
+  // moveLayer(id) without beforeId moves the layer to the top of the stack.
+  // By iterating bottom-to-top, each successive moveLayer places the next
+  // layer on top, building the correct visual stack.
   const Z_ORDER = [
-    // System / basemap — stay at bottom, don't move
-    "basemap",
-    "land-contrast",
-    // Terrain — in specific order
+    // Terrain
     "bathymetry",
     "elevation-color-layer",
     "elevation-accuracy-layer",
@@ -2434,8 +2431,7 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     "contours-major",
     // Hillshade
     "hillshade-base",
-    // Data layers — everything else
-    // Ocean currents static paths
+    // Data layers
     "ocean-currents-lines",
     // Reference
     "equator-line",
@@ -2443,22 +2439,7 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     "labels-raster",
   ];
 
-  const zSet = new Set(Z_ORDER);
-  const knownLayers: string[] = [];
-  const otherLayers: string[] = [];
-
-  for (const layer of style.layers) {
-    const id = layer.id;
-    if (zSet.has(id)) {
-      knownLayers.push(id);
-    } else {
-      otherLayers.push(id);
-    }
-  }
-
-  // Re-add in z-order: known layers first (in order), then other layers, then labels
-  const ordered = [...knownLayers, ...otherLayers];
-  for (const id of ordered) {
+  for (const id of Z_ORDER) {
     if (map.getLayer(id)) {
       try { (map as any).moveLayer(id); } catch { /* skip */ }
     }

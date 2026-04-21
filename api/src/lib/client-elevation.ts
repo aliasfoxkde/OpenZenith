@@ -239,6 +239,9 @@ export async function getClientElevation(
   surfaceType: "land" | "ocean" | "unknown";
   tile: string;
 } | null> {
+  // Normalize longitude to -180..180 (handles map wrap-around coordinates like 540)
+  lon = ((lon % 360) + 540) % 360 - 180;
+
   // Try client-side first
   try {
     const result = await clientElevationDirect(lat, lon);
@@ -319,9 +322,15 @@ async function clientElevationDirect(
 export async function getClientElevationBatch(
   points: Array<{ lat: number; lon: number; id?: string }>,
 ): Promise<Array<{ lat: number; lon: number; elevation: number | null; id?: string }>> {
+  // Normalize longitudes to -180..180 (handles map wrap-around)
+  const normalizedPoints = points.map((p) => ({
+    ...p,
+    lon: ((p.lon % 360) + 540) % 360 - 180,
+  }));
+
   // Try client-side batch first
   try {
-    return await clientBatchDirect(points);
+    return await clientBatchDirect(normalizedPoints);
   } catch {
     // Fall through to server
   }
@@ -331,7 +340,7 @@ export async function getClientElevationBatch(
     const res = await fetch("/api/elevation/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ points }),
+      body: JSON.stringify({ points: normalizedPoints }),
     });
     if (res.ok) {
       const d = await res.json();

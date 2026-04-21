@@ -5,39 +5,32 @@ import type { LayerHandle } from "./types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let accuracyMarkers: any[] = [];
 
+/**
+ * Zone labels placed at representative positions within each accuracy zone.
+ * Colors match the tile colors from the server-side accuracy endpoint.
+ */
 const ZONE_LABELS = [
-  { text: "ArcticDEM 2m", lng: 40, lat: 73, color: "#00d2e6" },
+  { text: "ArcticDEM 2m", lng: -42, lat: 72, color: "#00d2e6" },
   { text: "REMA 2m", lng: 0, lat: -73, color: "#00d2e6" },
-  { text: "EEA 10m", lng: 15, lat: 52, color: "#22c55e" },
-  { text: "SRTM / GLO-30 30m", lng: -80, lat: 38, color: "#228b22" },
-  { text: "GLO-90 90m", lng: 110, lat: 5, color: "#9acd32" },
-  { text: "GEBCO 450m", lng: -40, lat: 15, color: "#2171b5" },
-  { text: "GEBCO 450m", lng: 60, lat: -30, color: "#2171b5" },
-  { text: "GEBCO 450m", lng: 170, lat: 40, color: "#2171b5" },
-  { text: "GEBCO 450m", lng: -150, lat: -20, color: "#2171b5" },
+  { text: "EEA 10m", lng: 10, lat: 55, color: "#22c55e" },
+  { text: "SRTM / GLO-30 30m", lng: -90, lat: 38, color: "#228b22" },
+  { text: "SRTM / GLO-30 30m", lng: 80, lat: 30, color: "#228b22" },
+  { text: "GLO-90 90m", lng: 100, lat: 10, color: "#9acd32" },
+  { text: "Ocean — GEBCO 450m", lng: -30, lat: 20, color: "#2171b5" },
+  { text: "Ocean — GEBCO 450m", lng: 70, lat: -25, color: "#2171b5" },
+  { text: "Ocean — GEBCO 450m", lng: 160, lat: 30, color: "#2171b5" },
+  { text: "Ocean — GEBCO 450m", lng: -130, lat: -15, color: "#2171b5" },
+  { text: "Land", lng: -95, lat: 45, color: "#228b22" },
+  { text: "Ocean", lng: -40, lat: 45, color: "#2171b5" },
 ];
 
 /**
- * Zone boundaries matching tile generation thresholds in
- * api/elevation-accuracy/[z]/[x]/[y]/route.ts:
- *   ArcticDEM: lat > 60°N
- *   REMA: lat < -60°S
- *   EEA 10m: lat 34-72, lon -25 to 45
+ * Only the EEA 10m bounding box is a clean geographic boundary.
+ * The 60°N/60°S lines are NOT drawn because they don't align with
+ * tile colors — the tiles use a land mask, so ocean at 60°N is
+ * still GEBCO blue, not ArcticDEM cyan.
  */
 const ZONE_BOUNDARIES: GeoJSON.Feature[] = [
-  // 60°N — ArcticDEM / SRTM boundary
-  {
-    type: "Feature",
-    geometry: { type: "LineString", coordinates: [[-180, 60], [180, 60]] },
-    properties: { zone: "60N" },
-  },
-  // 60°S — REMA / SRTM boundary
-  {
-    type: "Feature",
-    geometry: { type: "LineString", coordinates: [[-180, -60], [180, -60]] },
-    properties: { zone: "60S" },
-  },
-  // EEA 10m Europe box
   {
     type: "Feature",
     geometry: {
@@ -63,7 +56,7 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     id: "elevation-accuracy-layer",
     type: "raster",
     source: "elevation-accuracy",
-    paint: { "raster-opacity": 0.2, "raster-saturation": 0.5 },
+    paint: { "raster-opacity": 0.25, "raster-saturation": 0.5 },
   });
 
   map.addLayer({
@@ -79,7 +72,7 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     },
   });
 
-  // Zone boundary lines (60°N, 60°S, EEA box)
+  // EEA 10m bounding box (the only clean geographic boundary)
   map.addSource("accuracy-zones", {
     type: "geojson",
     data: { type: "FeatureCollection", features: ZONE_BOUNDARIES },
@@ -90,20 +83,14 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
     type: "line",
     source: "accuracy-zones",
     paint: {
-      "line-color": [
-        "match", ["get", "zone"],
-        "60N", "#00d2e6",
-        "60S", "#00d2e6",
-        "EEA", "#22c55e",
-        "#ffffff",
-      ],
+      "line-color": "#22c55e",
       "line-width": 1.5,
       "line-opacity": 0.6,
       "line-dasharray": [6, 3],
     },
   });
 
-  // Coastline — land/ocean boundary
+  // Coastline — land/ocean boundary from Natural Earth
   map.addSource("accuracy-coastline", {
     type: "geojson",
     data: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_coastline.geojson",

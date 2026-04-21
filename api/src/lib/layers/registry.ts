@@ -15,6 +15,16 @@ import type { LayerDefinition, LayerToggleState } from "./types";
    ═══════════════════════════════════════════════════════════════ */
 
 export const LAYERS: readonly LayerDefinition[] = [
+  /* ── Hillshade — top of list, loaded last on map ──── */
+  {
+    id: "hillshade",
+    name: "Hillshade",
+    category: "terrain",
+    description: "Terrain hillshade shading derived from SRTM 30m elevation data",
+    defaultEnabled: true,
+    accent: "#8b7355",
+    dataSource: "/api/tile/{z}/{x}/{y}",
+  },
   /* ── Terrain ──────────────────────────────────────────── */
   {
     id: "elevationColor",
@@ -61,16 +71,6 @@ export const LAYERS: readonly LayerDefinition[] = [
     defaultEnabled: true,
     accent: "#94a3b8",
   },
-  {
-    id: "hillshade",
-    name: "Hillshade",
-    category: "terrain",
-    description: "Terrain hillshade shading derived from SRTM 30m elevation data",
-    defaultEnabled: true,
-    accent: "#8b7355",
-    dataSource: "/api/tile/{z}/{x}/{y}",
-  },
-
   /* ── Weather ──────────────────────────────────────────── */
   {
     id: "earthquakes",

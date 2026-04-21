@@ -196,6 +196,7 @@ export default function Home() {
             maxzoom: 10,
             encoding: "terrarium",
           });
+          // Hillshade — added last so it renders on top of everything
           map.addLayer(
             {
               id: "hillshade",
@@ -207,7 +208,6 @@ export default function Home() {
                 "hillshade-exaggeration": 0.8,
               },
             },
-            "osm",
           );
 
           // Admin boundary glow layers

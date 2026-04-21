@@ -15,6 +15,7 @@ function addElevationLayer(map: any, _mlgl: any) {
     encoding: "terrarium",
   });
 
+  // Hillshade — added last so it renders on top of everything
   map.addLayer(
     {
       id: "hillshade",
@@ -27,7 +28,6 @@ function addElevationLayer(map: any, _mlgl: any) {
         "hillshade-exaggeration": 0.3,
       },
     },
-    "osm",
   );
 }
 

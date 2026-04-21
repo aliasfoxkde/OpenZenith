@@ -874,14 +874,14 @@ export default function MapPage() {
                 addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
-            // Phase 2: Hillshade on top of terrain
-            if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
-            // Phase 3: Data layers (non-terrain) on top of terrain
+            // Phase 2: Data layers (non-terrain) on top of terrain
             for (const layer of LAYERS) {
               if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
                 addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
+            // Phase 3: Hillshade — loaded last (on top of everything except labels)
+            if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
             // Phase 4: Labels on very top
             addLabelLayer(map, mapState.basemap);
             // Enforce z-order
@@ -1072,12 +1072,13 @@ export default function MapPage() {
             addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
-        if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
         for (const layer of LAYERS) {
           if (layer.category !== "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
             addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
+        // Hillshade — loaded last (on top of everything except labels)
+        if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
         addLabelLayer(map, key);
         reorderMapLayers(map, mapState.layers);
         if (mapState.layers.terrain3d) enable3DTerrain(map);
@@ -2433,8 +2434,6 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     "ocean-currents-lines",
     // Reference
     "equator-line",
-    // Hillshade — on top of everything except labels
-    "hillshade-base",
     // Labels — always on top
     "labels-raster",
   ];
@@ -2443,6 +2442,17 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     if (map.getLayer(id)) {
       try { (map as any).moveLayer(id); } catch { /* skip */ }
     }
+  }
+
+  // Hillshade — always move to the very top (above all data layers)
+  // Must happen after the Z_ORDER loop so it sits above everything moved there,
+  // then labels are moved back to the absolute top.
+  if (map.getLayer("hillshade-base")) {
+    try { (map as any).moveLayer("hillshade-base"); } catch { /* skip */ }
+  }
+  // Labels — always on absolute top (above hillshade)
+  if (map.getLayer("labels-raster")) {
+    try { (map as any).moveLayer("labels-raster"); } catch { /* skip */ }
   }
 }
 

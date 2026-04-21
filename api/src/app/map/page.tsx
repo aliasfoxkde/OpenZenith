@@ -2286,9 +2286,9 @@ export default function MapPage() {
             { id: "bathymetry", name: "Bathymetry", colors: ["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"], labels: ["Deep","Shallow"], multi: false },
             { id: "elevationColor", name: "Elevation", colors: ["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"], labels: ["Sea Level","Peaks"], multi: false },
             { id: "elevationAccuracy", name: "Data Accuracy", colors: ["#00bcd4","#4caf50","#1b5e20","#9acd32","#1565c0"], labels: ["2m","","","","450m"], multi: true },
-            { id: "hillshade", name: "Hillshade", colors: ["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"], labels: ["Shadow","Highlight"], multi: false },
             { id: "oceanCurrents", name: "Ocean Currents", colors: ["#2878ff","#328cff","#00b4ff"], labels: ["Flow","","Circum."], multi: false },
             { id: "equator", name: "Equator", colors: ["#ffffff"], labels: [""], multi: false },
+            { id: "hillshade", name: "Hillshade", colors: ["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"], labels: ["Shadow","Highlight"], multi: false },
           ] as const).map((layer) => {
             const on = !!mapState.layers[layer.id];
             return (
@@ -2429,12 +2429,12 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
     "accuracy-coastline-line",
     "contours-minor",
     "contours-major",
-    // Hillshade
-    "hillshade-base",
     // Data layers
     "ocean-currents-lines",
     // Reference
     "equator-line",
+    // Hillshade — on top of everything except labels
+    "hillshade-base",
     // Labels — always on top
     "labels-raster",
   ];

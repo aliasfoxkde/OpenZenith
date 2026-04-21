@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 
 /* ─── SurveillancePanel ─────────────────────────────────── */
@@ -11,7 +11,7 @@ interface PanelProps {
   style?: React.CSSProperties;
 }
 
-export function SurveillancePanel({ children, title, style }: PanelProps) {
+export const SurveillancePanel = memo(function SurveillancePanel({ children, title, style }: PanelProps) {
   return (
     <div
       role={title ? "region" : undefined}
@@ -47,7 +47,7 @@ export function SurveillancePanel({ children, title, style }: PanelProps) {
       {children}
     </div>
   );
-}
+});
 
 /* ─── StatusIndicator ───────────────────────────────────── */
 
@@ -57,7 +57,7 @@ interface StatusProps {
   pulse?: boolean;
 }
 
-export function StatusIndicator({ color = T.green, label, pulse = false }: StatusProps) {
+export const StatusIndicator = memo(function StatusIndicator({ color = T.green, label, pulse = false }: StatusProps) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span
@@ -85,7 +85,7 @@ export function StatusIndicator({ color = T.green, label, pulse = false }: Statu
       )}
     </span>
   );
-}
+});
 
 /* ─── CoordinateReadout ─────────────────────────────────── */
 
@@ -95,7 +95,7 @@ interface CoordProps {
   zoom?: number;
 }
 
-export function CoordinateReadout({ lat, lon, zoom }: CoordProps) {
+export const CoordinateReadout = memo(function CoordinateReadout({ lat, lon, zoom }: CoordProps) {
   return (
     <div
       style={{
@@ -118,7 +118,7 @@ export function CoordinateReadout({ lat, lon, zoom }: CoordProps) {
       )}
     </div>
   );
-}
+});
 
 /* ─── LayerToggle ───────────────────────────────────────── */
 
@@ -129,7 +129,7 @@ interface ToggleProps {
   color?: string;
 }
 
-export function LayerToggle({ label, checked, onChange, color = T.accent }: ToggleProps) {
+export const LayerToggle = memo(function LayerToggle({ label, checked, onChange, color = T.accent }: ToggleProps) {
   return (
     <label
       style={{
@@ -180,4 +180,4 @@ export function LayerToggle({ label, checked, onChange, color = T.accent }: Togg
       />
     </label>
   );
-}
+});

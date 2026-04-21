@@ -189,28 +189,6 @@ export default function Home() {
           if (cancelled) return;
 
           // Add DEM terrain source (Terrarium PNG tiles from R2)
-          map.addSource("elevation", {
-            type: "raster-dem",
-            tiles: ["/api/dem-tile/{z}/{x}/{y}"],
-            tileSize: 256,
-            demTileSize: 512,
-            maxzoom: 10,
-            encoding: "terrarium",
-          });
-          // Hillshade — added last so it renders on top of everything
-          map.addLayer(
-            {
-              id: "hillshade",
-              type: "hillshade",
-              source: "elevation",
-              paint: {
-                "hillshade-shadow-color": dark ? "#000000" : "rgba(0,0,0,0.5)",
-                "hillshade-highlight-color": dark ? "#444444" : "rgba(255,255,255,0.6)",
-                "hillshade-exaggeration": 0.8,
-              },
-            },
-          );
-
           // Admin boundary glow layers
           try {
             map.addSource("boundaries", {
@@ -314,11 +292,6 @@ export default function Home() {
           ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
           : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
         source.setTiles([url]);
-      }
-      // Update hillshade colors
-      if (map.getLayer("hillshade")) {
-        map.setPaintProperty("hillshade", "hillshade-shadow-color", dark ? "#000000" : "rgba(0,0,0,0.5)");
-        map.setPaintProperty("hillshade", "hillshade-highlight-color", dark ? "#444444" : "rgba(255,255,255,0.6)");
       }
       // Update boundary colors
       const bc = dark ? "0, 229, 255" : "0, 80, 180";

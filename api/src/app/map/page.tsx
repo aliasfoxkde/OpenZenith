@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
@@ -257,6 +257,13 @@ function buildHash(state: MapViewState): string {
 
 /* ─── Component ─── */
 
+const RASTER_LAYERS = new Set([
+  "hillshade", "elevationColor", "elevationAccuracy", "contours",
+  "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
+  "populationDensity", "landCover", "seaIce", "satellite",
+  "floods", "fireTemperature", "sarBackscatter",
+]);
+
 export default function MapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -267,13 +274,6 @@ export default function MapPage() {
   const [pins, setPins] = useState<ElevationPin[]>([]);
   const [activePin, setActivePin] = useState<ElevationPin | null>(null);
 
-  // Opacity control for raster layers
-  const RASTER_LAYERS = new Set([
-    "hillshade", "elevationColor", "elevationAccuracy", "contours",
-    "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
-    "populationDensity", "landCover", "seaIce", "satellite",
-    "floods", "fireTemperature", "sarBackscatter",
-  ]);
   const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -1851,8 +1851,21 @@ export default function MapPage() {
               </button>
             </div>
 
+            {/* Hillshade — always visible at the top, no accordion */}
+            {LAYERS.filter((l) => l.id === "hillshade").map((layer) => (
+              <div key={layer.id} style={{ padding: "0.3rem 0.35rem", borderBottom: "1px solid rgba(0,229,255,0.15)" }}>
+                <LayerToggle
+                  label={layer.name}
+                  checked={!!mapState.layers[layer.id]}
+                  onChange={(checked) => toggleLayer(layer.id, checked)}
+                  color={layer.accent}
+                />
+                <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>{layer.description}</div>
+              </div>
+            ))}
             {/* Layer toggles — accordion groups */}
             {CATEGORY_ORDER.map((cat) => {
+              if (cat === "hillshade") return null;
               const layers = LAYERS.filter(
                 (l) =>
                   l.category === cat &&

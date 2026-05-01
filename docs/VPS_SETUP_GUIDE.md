@@ -48,31 +48,97 @@ Based on actual land coverage (~29% of world):
 | z11 | ~1.2M | ~5.2 GB | 6.9 GB |
 | z12 | ~4.9M | ~21 GB | **28 GB** |
 | z13 | ~19.5M | ~85 GB | 113 GB |
-| z14 | ~78M | ~340 GB | 453 GB |
 
-### Recommendations
+### Storage Strategy with R2 + VPS
 
-| Option | Coverage | Storage | VPS Cost | Provider Suggestion |
-|--------|----------|---------|----------|---------------------|
-| **A** | z0-12 | ~30 GB | $10-17/mo | Hetzner CPX21 |
-| **B** | z0-13 | ~120 GB | $17-25/mo | Hetzner CPX31 |
-| **C** | z0-14 | ~460 GB | $35-50/mo | Contabo VPS L |
+Since you're using Cloudflare R2 (10GB free) + HuggingFace, your architecture is:
 
-**Recommended Start:** Option A ($10-17/month)
+```
+Request → CF Pages → CF Cache → R2 Cache → VPS (hot tiles) → HuggingFace (origin)
+```
+
+**VPS role:** Cache hot tiles (most-requested regions), not full world.
+
+| Tier | Coverage | Storage | Purpose |
+|------|----------|---------|---------|
+| Hot (VPS) | Top 10% by usage | ~5-10 GB | Instant response |
+| Warm (R2) | Pre-generated | ~30 GB | Fast fallback |
+| Cold (HuggingFace) | Full world | Unlimited | Origin |
+
+This means VPS storage could be **as low as 20-50 GB** if you only cache popular regions!
 
 ---
 
-## Part 2: VPS Setup Checklist
+## Part 2: Provider Recommendations
 
-### 2.1 Server Provisioning
+### VPS Options Compared
+
+| Provider | Plan | vCPU | RAM | Storage | Price/mo | Verdict |
+|---------|------|------|-----|---------|----------|---------|
+| **OVH US** | VPS Model 3 | 8 | 24 GB | 200 GB NVMe | **$19.97** | ⭐ **Best Overall** |
+| OVH US | VPS Model 2 | ? | ? | ? | $9.99 | Good budget |
+| OVH US | VPS Model 1 | ? | ? | ? | $6.46 | Entry level |
+| Hetzner | CPX31 | 4 | 16 GB | 160 GB SSD | $17.49 | Good EU alternative |
+| Contabo | VPS M | 8 | 30 GB | 400 GB | $14.99 | Best storage per $ |
+| Time4VPS | Linux 4 | 4 | 8 GB | 200 GB | $7.99 | Cheapest |
+
+### Dedicated Server Options (OVH Eco)
+
+| Provider | Plan | vCPU | RAM | Storage | Price/mo | Verdict |
+|---------|------|------|-----|---------|----------|---------|
+| **OVH Eco** | Rise-1 | 4 | 16 GB | ? | $77 | ⭐ Best dedicated value |
+| OVH Eco | Rise-M1 | 4 | 32 GB | ? | $118 | More RAM |
+| OVH Eco | Rise-L1 | 8 | 64 GB | ? | $177 | High performance |
+| OVH Eco | Rise-XL1 | 8 | 128 GB | ? | $354 | Maximum |
+
+### ⭐ Recommended: OVH VPS Model 3 ($19.97/mo)
+
+**Why OVH over others:**
+- **8 vCPU** (vs 4 in Hetzner) - better parallel processing
+- **24 GB RAM** (vs 16 in Hetzner) - more cache for tiles
+- **200 GB NVMe** (vs 160 in Hetzner) - enough for z0-13 tiles
+- **1.5 Gbps public bandwidth** - fast tile delivery
+- **US location** - good latency for US users
+- **Daily backup included** - peace of mind
+
+**Storage breakdown:**
+- z0-13 tiles: ~110 GB (if full world)
+- Or: Hot tiles only: ~10-30 GB (if selective caching)
+- Leaves room for OS, logs, growth
+
+**Cost:**
+- Monthly: $19.97
+- Yearly: ~$240
+- 3-Year: ~$647 (15% discount available)
+
+### When to Choose OVH Eco Dedicated
+
+Only consider dedicated if:
+1. You want to **replace Cloudflare R2** entirely
+2. You need **>500 GB storage** (full z0-14)
+3. You expect **millions of requests/day**
+4. You want **full offline capability**
+
+For most cases: **VPS is sufficient**.
+
+### Quick Order Links
+
+- **OVH US VPS:** https://us.ovhcloud.com/vps/
+- **OVH Eco Dedicated:** https://eco.us.ovhcloud.com/
+
+---
+
+## Part 3: Server Setup Checklist
+
+### 3.1 Server Provisioning
 
 ```bash
-# 1. Choose provider (see Part 3 for recommendations)
+# 1. Choose provider (see Part 2 for recommendations)
 # 2. Deploy Ubuntu 22.04 LTS
 # 3. SSH in as root
 ```
 
-### 2.2 Initial Server Setup
+### 3.2 Initial Server Setup
 
 ```bash
 # Update system
@@ -106,7 +172,7 @@ ufw enable
 apt install -y curl wget git htop tree nginx certbot
 ```
 
-### 2.3 Directory Structure
+### 3.3 Directory Structure
 
 ```bash
 # Create directory structure
@@ -123,7 +189,7 @@ chmod -R 755 /var/www/openzenith
 
 ---
 
-## Part 3: Nginx Configuration
+## Part 4: Nginx Configuration
 
 ### 3.1 Basic Nginx Config
 
@@ -189,7 +255,7 @@ certbot --nginx -d tiles.yourdomain.com
 
 ---
 
-## Part 4: Tile Generation
+## Part 5: Tile Generation
 
 ### 4.1 Tile Generation Script
 
@@ -466,7 +532,7 @@ EOF
 
 ---
 
-## Part 5: API Integration
+## Part 6: API Integration
 
 ### 5.1 Proxy Configuration
 
@@ -525,7 +591,7 @@ VPS_TILE_URL=https://tiles.yourdomain.com
 
 ---
 
-## Part 6: Satellite TLE Sync
+## Part 7: Satellite TLE Sync
 
 ### 6.1 CelesTrak Sync Script
 
@@ -566,7 +632,7 @@ chmod +x /opt/openzenith/tile-generator/sync_satellites.sh
 
 ---
 
-## Part 7: Monitoring & Maintenance
+## Part 8: Monitoring & Maintenance
 
 ### 7.1 Systemd Service
 
@@ -628,7 +694,7 @@ EOF
 
 ---
 
-## Part 8: Cost Summary
+## Part 9: Cost Summary
 
 ### Monthly Costs
 
@@ -657,7 +723,7 @@ EOF
 
 ---
 
-## Part 9: Quick Start Script
+## Part 10: Quick Start Script
 
 ```bash
 #!/bin/bash

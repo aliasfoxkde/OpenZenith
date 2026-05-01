@@ -36,7 +36,7 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
   {
     title: "Intelligence",
     key: "intelligence",
-    layerIds: ["gpsJamming", "dayNight", "imageryFootprints"],
+    layerIds: ["gpsJamming", "dayNight"],
   },
   {
     title: "Space",
@@ -91,7 +91,6 @@ export const DEFAULT_LAYERS: LayerState = {
   lightning: false,
   gpsJamming: false,
   dayNight: false,
-  imageryFootprints: false,
 };
 
 export const DEFAULT_STATE: DashboardState = {

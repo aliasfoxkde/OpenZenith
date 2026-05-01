@@ -607,15 +607,6 @@ export const LAYERS: readonly LayerDefinition[] = [
     defaultEnabled: false,
     accent: "#fbbf24",
   },
-  {
-    id: "imageryFootprints",
-    name: "Satellite Imagery",
-    category: "intelligence",
-    description:
-      "Satellite imagery coverage footprints for Sentinel-2, Landsat, Planet, VIIRS, MODIS",
-    defaultEnabled: false,
-    accent: "#00ff88",
-  },
 ];
 
 /* ═══════════════════════════════════════════════════════════════

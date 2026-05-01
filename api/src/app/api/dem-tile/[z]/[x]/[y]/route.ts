@@ -11,6 +11,11 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
  * Serves Terrarium-encoded PNG tiles by assembling them on-the-fly
  * from HuggingFace SRTM 30m chunk datasets.
  *
+ * Uses multi-layer caching:
+ * 1. Cloudflare Cache API (edge PoP, <10ms)
+ * 2. R2 Storage (durable, ~300ms)
+ * 3. HuggingFace (origin, ~1000ms)
+ *
  * Used by CesiumJS terrain provider and MapLibre raster-dem source.
  *
  * Tile URL pattern: /api/dem-tile/{z}/{x}/{y}
@@ -29,6 +34,60 @@ const CACHE_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
+
+// Cache namespace for Cloudflare Cache API (edge-level caching)
+const DEM_CACHE_NAMESPACE = "dem-tiles-v1";
+
+/**
+ * Get cached tile from Cloudflare Cache API.
+ * Returns null on miss or if Cache API unavailable.
+ */
+async function getCfCacheTile(z: number, x: number, y: number): Promise<ArrayBuffer | null> {
+  if (typeof caches === "undefined") return null;
+  
+  try {
+    const cache = await caches.open(DEM_CACHE_NAMESPACE);
+    const key = `/api/dem-tile/${z}/${x}/${y}`;
+    const cached = await cache.match(key);
+    
+    if (cached) {
+      const cachedTime = cached.headers.get("x-cached-at");
+      // Cache for 1 hour (same as Cache-Control header)
+      if (cachedTime) {
+        const age = (Date.now() - parseInt(cachedTime, 10)) / 1000;
+        if (age < 3600) {
+          return await cached.arrayBuffer();
+        }
+      } else {
+        return await cached.arrayBuffer();
+      }
+    }
+  } catch {
+    // Cache API unavailable
+  }
+  return null;
+}
+
+/**
+ * Store tile in Cloudflare Cache API for fast edge retrieval.
+ */
+async function putCfCacheTile(z: number, x: number, y: number, data: ArrayBuffer): Promise<void> {
+  if (typeof caches === "undefined") return;
+  
+  try {
+    const cache = await caches.open(DEM_CACHE_NAMESPACE);
+    const key = `/api/dem-tile/${z}/${x}/${y}`;
+    const headers = new Headers({
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "x-cached-at": String(Date.now()),
+      "X-Cache": "HIT",
+    });
+    cache.put(key, new Response(data, { headers })).catch(() => {});
+  } catch {
+    // Best-effort caching
+  }
+}
 
 export async function OPTIONS() {
   return corsPreflightResponse();
@@ -53,10 +112,31 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  // R2 cache-aside: check R2 first
+  // Layer 1: Cloudflare Cache API (edge PoP, <10ms)
+  try {
+    const cfCached = await getCfCacheTile(zoom, tileX, tileY);
+    if (cfCached) {
+      return new Response(cfCached, {
+        headers: {
+          ...CACHE_HEADERS,
+          "Content-Type": "image/png",
+          "Content-Length": String(cfCached.byteLength),
+          "X-Dem-Tile-Source": "cf-cache",
+          "X-Cache": "HIT",
+        },
+      });
+    }
+  } catch {
+    // CF Cache unavailable — fall through
+  }
+
+  // Layer 2: R2 Storage (~300ms)
   try {
     const cached = await r2GetTile("dem-tile", zoom, tileX, tileY);
     if (cached) {
+      // Also store in CF Cache for next request
+      putCfCacheTile(zoom, tileX, tileY, cached).catch(() => {});
+      
       return new Response(cached, {
         headers: {
           ...CACHE_HEADERS,
@@ -76,8 +156,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const tileData = await getTileData(zoom, tileX, tileY, HF_BACKEND);
     const png = encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
 
-    // Store in R2 for future requests
+    // Store in R2 and CF Cache for future requests
     r2PutTile("dem-tile", zoom, tileX, tileY, png.buffer as ArrayBuffer, "image/png").catch(() => {});
+    putCfCacheTile(zoom, tileX, tileY, png.buffer as ArrayBuffer).catch(() => {});
 
     return new Response(png.buffer as ArrayBuffer, {
       headers: {

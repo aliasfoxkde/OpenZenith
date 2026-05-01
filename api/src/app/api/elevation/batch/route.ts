@@ -2,10 +2,10 @@
  * Batch elevation endpoint.
  *
  * Accepts multiple lat/lon points and returns elevations in a single request.
- * Uses HuggingFace SRTM 30m chunk backend via getTileData() at zoom 8 (~1.7km).
+ * Uses getTileData() at zoom 12 (~1.7km tiles) for reliable SRTM coverage.
+ * Falls back to AWS Terrain Tiles if HuggingFace assembly fails.
  *
- * For sub-tile precision with multi-zoom fallback, use the single-point
- * /api/elevation endpoint instead.
+ * For single-point precision, use /api/elevation instead.
  *
  * POST /api/elevation/batch
  * Body: { points: [{lat, lon, id?}, ...] }
@@ -111,7 +111,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const zoom = 8;
+    // Use zoom 12 for reliable SRTM coverage (~300m resolution)
+    // Zoom 8 was unreliable due to too many chunks per tile
+    const zoom = 12;
     const results: BatchResult[] = new Array(points.length);
     const tileCache = new Map<string, { data: Int16Array; width: number; height: number } | null>();
 

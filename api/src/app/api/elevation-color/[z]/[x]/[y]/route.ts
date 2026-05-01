@@ -12,6 +12,11 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
  * from HuggingFace SRTM 30m chunks and mapping elevation values
  * to a standard hypsometric color ramp.
  *
+ * Uses multi-layer caching:
+ * 1. Cloudflare Cache API (edge PoP, <10ms)
+ * 2. R2 Storage (durable, ~300ms)
+ * 3. HuggingFace (origin, ~1000ms)
+ *
  * Tile URL pattern: /api/elevation-color/{z}/{x}/{y}
  * Format: PNG 256x256
  * Colors: deep blue (ocean) → cyan → green → yellow → brown → gray → white (peaks)
@@ -74,6 +79,57 @@ function lerpColor(elevation: number): [number, number, number] {
   return [last[1], last[2], last[3]];
 }
 
+// Cloudflare Cache API namespace for elevation-color tiles
+const EC_CACHE_NAMESPACE = "elevation-color-v1";
+
+/**
+ * Get cached tile from Cloudflare Cache API.
+ */
+async function getEcCfCache(z: number, x: number, y: number): Promise<ArrayBuffer | null> {
+  if (typeof caches === "undefined") return null;
+  
+  try {
+    const cache = await caches.open(EC_CACHE_NAMESPACE);
+    const key = `/api/elevation-color/${z}/${x}/${y}`;
+    const cached = await cache.match(key);
+    
+    if (cached) {
+      const cachedTime = cached.headers.get("x-cached-at");
+      if (cachedTime) {
+        const age = (Date.now() - parseInt(cachedTime, 10)) / 1000;
+        if (age < 3600) {
+          return await cached.arrayBuffer();
+        }
+      } else {
+        return await cached.arrayBuffer();
+      }
+    }
+  } catch {
+    // Cache API unavailable
+  }
+  return null;
+}
+
+/**
+ * Store tile in Cloudflare Cache API.
+ */
+async function putEcCfCache(z: number, x: number, y: number, data: ArrayBuffer): Promise<void> {
+  if (typeof caches === "undefined") return;
+  
+  try {
+    const cache = await caches.open(EC_CACHE_NAMESPACE);
+    const key = `/api/elevation-color/${z}/${x}/${y}`;
+    const headers = new Headers({
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "x-cached-at": String(Date.now()),
+    });
+    cache.put(key, new Response(data, { headers })).catch(() => {});
+  } catch {
+    // Best-effort
+  }
+}
+
 export async function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -90,10 +146,31 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  // R2 cache-aside: check R2 first (~10ms), then generate (~500ms)
+  // Layer 1: Cloudflare Cache API (<10ms)
+  try {
+    const cfCached = await getEcCfCache(zoom, tileX, tileY);
+    if (cfCached) {
+      return new Response(cfCached, {
+        headers: {
+          ...CACHE_HEADERS,
+          "Content-Type": "image/png",
+          "Content-Length": String(cfCached.byteLength),
+          "X-Tile-Type": "elevation-color",
+          "X-Cache": "HIT",
+        },
+      });
+    }
+  } catch {
+    // CF Cache unavailable — fall through
+  }
+
+  // Layer 2: R2 Storage (~300ms)
   try {
     const cached = await r2GetTile("elevation-color", zoom, tileX, tileY);
     if (cached) {
+      // Also store in CF Cache
+      putEcCfCache(zoom, tileX, tileY, cached).catch(() => {});
+      
       return new Response(cached, {
         headers: {
           ...CACHE_HEADERS,
@@ -112,8 +189,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const tileData = await getTileData(zoom, tileX, tileY, HF_BACKEND);
     const png = encodeColorPNG(tileData.data, tileData.width, tileData.height);
 
-    // Store in R2 for future requests (best-effort)
+    // Store in R2 and CF Cache
     r2PutTile("elevation-color", zoom, tileX, tileY, png.buffer as ArrayBuffer, "image/png").catch(() => {});
+    putEcCfCache(zoom, tileX, tileY, png.buffer as ArrayBuffer).catch(() => {});
 
     return new Response(png.buffer as ArrayBuffer, {
       headers: {

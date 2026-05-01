@@ -3,37 +3,76 @@ import { switchBasemapOnViewer } from "./helpers";
 import { createCSRTerrainProvider } from "./terrain-csr";
 import type { DashboardState } from "./types";
 
+const CESIUM_CDNS = [
+  "https://unpkg.com/cesium@1.119/Build/Cesium/",
+  "https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/",
+];
+
 /**
- * Load CesiumJS and satellite.js from CDN if not already present.
+ * Load CesiumJS from CDN with fallback support.
+ * If primary CDN fails, tries secondary. If all fail, throws.
+ */
+async function loadCesiumWithFallback(baseUrl: string, timeoutMs = 15000): Promise<any> {
+  const w = window as any;
+  if (w.Cesium) return w.Cesium;
+
+  // Load CSS
+  const css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = `${baseUrl}Widgets/widgets.css`;
+  document.head.appendChild(css);
+
+  for (const cdn of CESIUM_CDNS) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const js = document.createElement("script");
+        js.src = `${cdn}Cesium.js`;
+        js.onload = () => resolve();
+        js.onerror = () => reject(new Error(`CDN failed: ${cdn}`));
+        // Timeout
+        const t = setTimeout(() => {
+          js.remove();
+          reject(new Error("Timeout"));
+        }, timeoutMs);
+        js.onload = () => { clearTimeout(t); resolve(); };
+        js.onerror = () => { clearTimeout(t); reject(new Error(`CDN failed: ${cdn}`)); };
+        document.head.appendChild(js);
+      });
+      w.CESIUM_BASE_URL = cdn;
+      return w.Cesium;
+    } catch {
+      // Try next CDN
+    }
+  }
+  throw new Error("All Cesium CDN sources failed");
+}
+
+/**
+ * Load CesiumJS and satellite.js from CDN.
+ * Includes timeout and fallback CDN support.
  */
 async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {
   const w = window as any;
 
-  // Load both scripts in parallel (they're independent)
-  const cesiumPromise = new Promise<void>((res, rej) => {
-    if (w.Cesium) { res(); return; }
-    w.CESIUM_BASE_URL = "https://unpkg.com/cesium@1.119/Build/Cesium/";
-    const css = document.createElement("link");
-    css.rel = "stylesheet";
-    css.href = "https://unpkg.com/cesium@1.119/Build/Cesium/Widgets/widgets.css";
-    document.head.appendChild(css);
-    const js = document.createElement("script");
-    js.src = "https://unpkg.com/cesium@1.119/Build/Cesium/Cesium.js";
-    document.head.appendChild(js);
-    js.onload = () => res();
-    js.onerror = rej;
-  });
+  // Load both scripts — Cesium with CDN fallback, satellite.js with timeout
+  const cesiumPromise = loadCesiumWithFallback(CESIUM_CDNS[0]);
 
-  const satJsPromise = new Promise<void>((res) => {
-    if (w.satellite) { res(); return; }
+  const satJsPromise = new Promise<void>((resolve) => {
+    if (w.satellite) { resolve(); return; }
     const sj = document.createElement("script");
     sj.src = "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
+    const t = setTimeout(() => {
+      // Satellite.js is optional — continue without it if it fails
+      resolve();
+    }, 10000);
+    sj.onload = () => { clearTimeout(t); resolve(); };
+    sj.onerror = () => { clearTimeout(t); resolve(); }; // Don't fail the whole init
     document.head.appendChild(sj);
-    sj.onload = () => res();
   });
 
-  await Promise.all([cesiumPromise, satJsPromise]);
-  return { Cesium: w.Cesium, satJs: w.satellite };
+  const cesium = await cesiumPromise;
+  await satJsPromise;
+  return { Cesium: cesium, satJs: w.satellite };
 }
 
 export interface CesiumInitResult {
@@ -46,9 +85,12 @@ export interface CesiumInitResult {
 /**
  * Create and configure the Cesium viewer.
  *
- * Fixes applied in Phase 17:
- * - `logarithmicDepthBuffer = true` for depth precision at all zoom levels
- * - `frustum.far = 500_000_000` (5x max zoom distance) so Earth stays visible
+ * Key configuration:
+ * - Ion token undefined → no 401 spam from Cesium Ion default assets
+ * - logarithmicDepthBuffer → correct rendering at all zoom levels
+ * - frustum.far = 500M → Earth visible from space
+ * - CSR terrain provider → SRTM from HuggingFace, falls back to server tiles
+ * - No default Ion imagery → prevents 401 on api.cesium.com
  */
 export async function initCesiumViewer(
   container: HTMLElement,
@@ -56,8 +98,19 @@ export async function initCesiumViewer(
 ): Promise<CesiumInitResult> {
   const { Cesium } = await loadScripts();
 
-  // Suppress Cesium Ion default token to prevent 401 spam
+  // ─── Kill ALL Cesium Ion default asset loading ───
+  // Setting only defaultAccessToken is insufficient — CesiumJS 1.119 also
+  // fetches default imagery assets from Ion even without a token.
+  // These cause 401 errors in the console.
   Cesium.Ion.defaultAccessToken = undefined;
+  Cesium.Ion._terrainProvider = undefined;
+  // Override the imageryProvider factory so Viewer() never creates Ion defaults
+  const origCreateDefaultImageryProvider = Cesium.createDefaultImageryProvider;
+  Cesium.createDefaultImageryProvider = () => {
+    // Return an empty UrlTemplateImageryProvider pointing to nothing
+    // The basemap system replaces this via switchBasemapOnViewer anyway
+    return new Cesium.UrlTemplateImageryProvider({ url: "https://example.com/{z}/{x}/{y}.png" });
+  };
 
   const viewer = new Cesium.Viewer(container, {
     baseLayerPicker: false,
@@ -74,10 +127,13 @@ export async function initCesiumViewer(
     sceneMode: Cesium.SceneMode.SCENE3D,
     requestRenderMode: true,
     maximumRenderTimeChange: Infinity,
-    // Phase 17 fix: enable logarithmic depth buffer for correct rendering
-    // at extreme zoom ranges (close terrain + far Earth visibility)
+    // logDepthBuffer: true would also work, but logarithmicDepthBuffer is
+    // more robust across the full zoom range (surface to deep space)
     logarithmicDepthBuffer: true,
   });
+
+  // Restore factory after Viewer() has been constructed
+  Cesium.createDefaultImageryProvider = origCreateDefaultImageryProvider;
 
   // ─── Scene configuration ───
   const scene = viewer.scene;
@@ -93,28 +149,19 @@ export async function initCesiumViewer(
   scene.globe.lightingFadeInDistance = 0;
   scene.globe.lightingFadeOutDistance = 1e8;
   scene.screenSpaceCameraController.enableCollisionDetection = true;
-
-  // FXAA anti-aliasing (off by default for performance — enable via state)
   scene.postProcessStages.fxaa.enabled = false;
   scene.globe.show = true;
 
   // ─── Terrain: CSR-first heightmap from HuggingFace ───
-  // Fetches SRTM chunks directly from HuggingFace in the browser,
-  // assembles Float32Array heightmaps. Falls back to server PNG
-  // tiles when HuggingFace is unreachable.
   viewer.terrainProvider = createCSRTerrainProvider(Cesium);
   scene.globe.depthTestAgainstTerrain = true;
 
-  // Remove default Cesium Ion imagery layer (causes 401 without valid token)
-  // Our basemap system adds its own layers via switchBasemapOnViewer below
+  // Remove all default imagery layers (Ion or otherwise)
+  // The basemap system adds its own via switchBasemapOnViewer
   viewer.imageryLayers.removeAll();
 
-  // NOTE: ElevationColorMap material removed — it was blocking imagery layer
-  // compositing with EllipsoidTerrainProvider in CesiumJS 1.119, causing a
-  // black sphere. The Carto basemap provides all visual detail needed.
-
-  // Phase 17 fix: extend frustum far plane to 500M meters (5x max zoom distance)
-  // Previously 50M which caused Earth to clip/disappear when zoomed out
+  // Phase 17 fix: extend frustum far plane to 500M meters
+  // This prevents Earth from clipping/disappearing when zoomed out to space
   viewer.camera.frustum.far = 500_000_000;
 
   viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10000;
@@ -122,18 +169,17 @@ export async function initCesiumViewer(
 
   // Gesture / input configuration
   const ssc = viewer.scene.screenSpaceCameraController;
-  ssc.minimumZoomRate = 5000; // slow down zoom near surface
-  ssc.maximumZoomRate = 500000; // fast zoom from orbit
-  ssc.zoomFactor = 3.0; // scroll wheel zoom multiplier
-  ssc.inertiaSpin = 0.92; // reduce rotation drift
-  ssc.inertiaTranslate = 0.92; // reduce pan drift
-  ssc.inertiaZoom = 0.92; // reduce zoom drift
+  ssc.minimumZoomRate = 5000;
+  ssc.maximumZoomRate = 500000;
+  ssc.zoomFactor = 3.0;
+  ssc.inertiaSpin = 0.92;
+  ssc.inertiaTranslate = 0.92;
+  ssc.inertiaZoom = 0.92;
   ssc.enableRotate = true;
   ssc.enableTranslate = true;
   ssc.enableZoom = true;
   ssc.enableTilt = true;
   ssc.enableLook = true;
-  // Smooth zoom with momentum
   ssc.minimumCollisionTerrainHeight = 10000;
 
   if (scene.skyBox) scene.skyBox.show = true;
@@ -155,10 +201,9 @@ export async function initCesiumViewer(
 
   // Cloud overlay (semi-transparent, always on)
   function addCloudOverlay() {
-    // Use yesterday's date for MODIS Terra imagery (GIBS needs a real date)
     const d = new Date();
-    d.setDate(d.getDate() - 1);
-    const yesterday = d.toISOString().split("T")[0]; // YYYY-MM-DD
+    d.setDate(d.getDate() - 1); // Yesterday's date for MODIS Terra imagery
+    const yesterday = d.toISOString().split("T")[0];
 
     const provider = new Cesium.UrlTemplateImageryProvider({
       url:

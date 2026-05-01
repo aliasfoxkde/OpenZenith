@@ -4,11 +4,6 @@
  *
  * Automatically hides/shows entity types based on camera altitude
  * to maintain performance at all zoom levels.
- *
- * Optimization notes:
- * - Uses a Set of known prefixes for O(1) entity ID lookup
- * - Pre-computes a prefix→visibility map for each zone
- * - Only runs when zone actually changes, not on every frame
  */
 
 export interface LODZone {
@@ -102,39 +97,14 @@ const ENTITY_PREFIXES: Record<string, string[]> = {
 /** Flat array of all managed prefixes for fast lookup (avoids nested loop) */
 const ALL_MANAGED_PREFIXES = Object.values(ENTITY_PREFIXES).flat();
 
-/** Set of all managed prefixes — O(1) lookup instead of O(n) array scan */
-const MANAGED_PREFIX_SET = new Set(ALL_MANAGED_PREFIXES);
-
-/** Pre-built prefix sets per zone for O(1) visibility checks */
-const ZONE_PREFIX_SETS: Record<string, Set<string>> = {};
-for (const zone of LOD_ZONES) {
-  ZONE_PREFIX_SETS[zone.name] = new Set(zone.visible);
-}
-
 /** Get the LOD zone for a given camera altitude */
 export function getZoneForAltitude(alt: number): LODZone {
   return LOD_ZONES.find((z) => alt >= z.minAlt && alt < z.maxAlt) || LOD_ZONES[LOD_ZONES.length - 1];
 }
 
-/**
- * Check if an entity ID should be visible in a given LOD zone.
- * Used by tests and external callers.
- */
+/** Check if a given entity ID should be visible in the given zone */
 export function isEntityVisibleInZone(entityId: string, zone: LODZone): boolean {
   for (const prefix of zone.visible) {
-    if (entityId.startsWith(prefix)) return true;
-  }
-  return false;
-}
-
-/**
- * Check if an entity ID is managed by the LOD system.
- * Uses Set lookup — O(1) instead of O(n) array scan.
- */
-export function isEntityManaged(entityId: string): boolean {
-  // Check by trying each managed prefix as a startsWith
-  // This is still O(n) prefixes but n is small (16) and Set.has is O(1)
-  for (const prefix of ALL_MANAGED_PREFIXES) {
     if (entityId.startsWith(prefix)) return true;
   }
   return false;
@@ -145,53 +115,41 @@ export function getZoneLabel(alt: number): string {
   return getZoneForAltitude(alt).label;
 }
 
-/**
- * Apply LOD to all entities in the viewer.
- * Only updates entity visibility when the zone actually changes.
- *
- * Performance: Uses Set-based prefix matching. Skips the loop entirely
- * if the zone hasn't changed (caller should already check this, but we
- * double-check here for safety).
- */
+/** Apply LOD to all entities in the viewer */
 export function applyLOD(viewer: any, Cesium: any, currentAlt: number, currentZone: LODZone | null): LODZone {
   const zone = getZoneForAltitude(currentAlt);
 
   // Skip if zone hasn't changed
   if (currentZone && currentZone.name === zone.name) return zone;
 
-  // Get the prefix set for this zone — O(1) lookup
-  const visibleSet = ZONE_PREFIX_SETS[zone.name] ?? new Set();
-
-  // Update entity show/hide using entity ID prefix matching
-  // Uses startsWith on each managed prefix (n=16, fast enough)
+  // Update entity show/hide using entity ID prefix matching only
+  // (avoid calling .getValue() on properties which crashes CallbackProperty without time arg)
   const entities = viewer.entities.values;
   for (let i = 0; i < entities.length; i++) {
     const entity = entities[i];
     const id = entity.id || "";
 
-    // Fast path: check if ID starts with any managed prefix
+    // Only manage LOD for known entity types (flat prefix lookup)
     let managed = false;
-    let shouldShow = false;
     for (const prefix of ALL_MANAGED_PREFIXES) {
       if (id.startsWith(prefix)) {
         managed = true;
-        shouldShow = visibleSet.has(prefix);
         break;
       }
     }
 
     if (!managed) continue;
-    entity.show = shouldShow;
+
+    entity.show = isEntityVisibleInZone(id, zone);
   }
 
-  // Manage point primitive collections (satellites use these)
-  // Show satellite points only in orbit zones and above
+  // Also manage point primitive collections (satellites use these)
   const primitives = viewer.scene.primitives;
-  const satPointsVisible = currentAlt >= 500_000;
   for (let i = 0; i < primitives.length; i++) {
     const p = primitives.get(i);
     if (p instanceof Cesium.PointPrimitiveCollection) {
-      p.show = satPointsVisible;
+      // Show satellite points only in orbit zones and above
+      p.show = currentAlt >= 500_000;
     }
   }
 

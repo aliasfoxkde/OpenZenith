@@ -248,17 +248,13 @@ export default function Globe() {
 
     const container = containerRef.current;
     (async () => {
-      let viewer: any = null;
-      try {
-        const result = await initCesiumViewer(container!, state);
-        if (destroyed) {
-          result.viewer.destroy();
-          return;
-        }
-        viewer = result.viewer;
-        const { Cesium, addCloudOverlay } = result;
+      const { viewer, Cesium, addCloudOverlay } = await initCesiumViewer(container!, state);
+      if (destroyed) {
+        viewer.destroy();
+        return;
+      }
 
-        const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
       handler.setInputAction((movement: any) => {
         const cart = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
         if (cart) {
@@ -498,17 +494,6 @@ export default function Globe() {
         followEntity = entity;
       };
       viewer.scene.preRender.addEventListener(preRenderListener);
-      } catch(err: any) {
-        // Only update state if component is still mounted
-        if (!destroyed) {
-          console.error("[Globe] Cesium initialization failed:", err);
-          setLoading(false);
-          // Show error in status
-          setDataStatus((prev) =>
-            prev.map((d) => (d.key === "earthquakes" ? { ...d, error: "Cesium failed to load" } : d)),
-          );
-        }
-      }
     })();
 
     return () => {

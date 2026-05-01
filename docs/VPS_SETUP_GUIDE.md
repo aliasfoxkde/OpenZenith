@@ -808,3 +808,99 @@ https://tiles.example.com/dem/5/15/10.png → /api/dem-tile/5/15/10
 - Check firewall: `ufw status`
 - Check nginx: `systemctl status nginx`
 - Check logs: `tail -f /var/log/nginx/error.log`
+---
+
+## Part 11: Budget Dedicated Options (Under $25/mo)
+
+### Why Most Budget Dedicated Servers Use HDD
+
+At the $20-25/month price point, **virtually ALL dedicated servers use HDD**:
+
+| Provider | Model | Storage | Type | Speed |
+|----------|-------|---------|------|-------|
+| Kimsufi | KS-3 | 500 GB | HDD | Slow |
+| So You Start | SYS-1 | 2 TB | HDD | Slow |
+| Budget providers | Various | 1-4 TB | HDD | Slow |
+
+### The Problem with HDD for Tile Serving
+
+```
+Tile Request Pattern:
+  - 30KB files
+  - Random access (any tile, any zoom)
+  - 100s-1000s per second
+  
+HDD Performance:
+  - ~100 IOPS random read
+  - ~5,000 tiles/sec max
+  
+NVMe Performance:
+  - ~100,000 IOPS random read  
+  - ~50,000 tiles/sec max
+```
+
+**10x performance difference** for the exact workload OpenZenith has.
+
+### If You MUST Have Dedicated Hardware
+
+#### Kimsufi KS-3 (~$20/mo)
+
+| Spec | Value |
+|------|-------|
+| vCPU | 4 |
+| RAM | 8 GB |
+| Storage | 500 GB HDD |
+| Type | Dedicated |
+| IP | 1 IPv4 |
+
+**Pros:**
+- Full root access, no noisy neighbors
+- Can add multiple IPs
+- Good for: archival, batch processing
+
+**Cons:**
+- HDD = slow for real-time tile serving
+- Less RAM than VPS Model 3
+- Fewer vCPUs
+
+**Use case:** If you need >200GB storage AND dedicated hardware.
+
+#### So You Start SYS-1 (~$25/mo)
+
+| Spec | Value |
+|------|-------|
+| vCPU | 2 |
+| RAM | 8 GB |
+| Storage | 2 TB HDD |
+| Type | Dedicated |
+
+**Same tradeoffs as Kimsufi, just more storage.**
+
+### Bottom Line
+
+For OpenZenith tile serving:
+
+| Option | Price | Storage | Speed | Verdict |
+|--------|-------|---------|-------|---------|
+| OVH VPS Model 3 | $19.97 | 200GB NVMe | Fast | ⭐ **Best** |
+| Kimsufi KS-3 | ~$20 | 500GB HDD | Slow | Alternative |
+| So You Start SYS-1 | ~$25 | 2TB HDD | Slow | Not recommended |
+
+**If speed matters (it does for tiles): Get the VPS.**
+**If storage size matters more than speed: Get Kimsufi KS-3.**
+
+---
+
+## Quick Decision Guide
+
+```
+Need >200GB storage AND speed doesn't matter?
+  → Kimsufi KS-3 (~$20/mo, HDD)
+
+Need speed AND ~200GB is enough?
+  → OVH VPS Model 3 ($19.97/mo, NVMe)
+
+Need >500GB AND speed?
+  → Wait for larger VPS or dedicated upgrade
+```
+

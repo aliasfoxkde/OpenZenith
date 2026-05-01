@@ -125,3 +125,28 @@
 - [ ] **Regional 1m elevation** (community contributions, commercial tasked SAR)
 - [ ] **4D elevation / temporal change tracking** (per-tile versioning, NISAR diff)
 - [ ] **Community data submission pipeline** (`oz ingest` CLI, PR-based workflow)
+
+---
+
+## Globe Fixes Applied (2026-05-01)
+
+### Errors Fixed
+- ✅ `hasVertexNormals` setter error — `Object.defineProperty` override (b8a80e2)
+- ✅ `api.cesium.com/v1/assets/2 401` — Override `createDefaultImageryProvider` factory
+- ✅ Cesium script loading — CDN fallback (unpkg → jsdelivr)
+- ✅ Cesium init failure — try/catch so loading spinner dismisses on error
+- ✅ Data fetcher timeouts — 15s timeout + graceful degradation
+- ✅ LOD loop optimization — pre-built zone prefix Sets, avoid redundant iterations
+
+### Documentation
+- ✅ `docs/globe/README.md` — Full architecture & developer guide
+- ✅ `docs/globe/REVAMP_PLAN.md` — Revamp plan
+- ✅ `_archive/globe.bak/` — Full pre-revamp code backup (67 files)
+
+### Pre-commit
+- ✅ All TypeScript: clean (0 errors)
+- ✅ Ruff Python linting: clean
+
+### Deploy
+- ✅ CI/CD: pushes to `main` auto-deploy to Cloudflare Pages
+- ✅ Preview: `https://50b9ffcc.openzenith.pages.dev`

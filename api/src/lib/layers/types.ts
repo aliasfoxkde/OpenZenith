@@ -15,7 +15,8 @@ export type LayerCategory =
   | "hydro"
   | "weather"
   | "maritime"
-  | "geocoding";
+  | "geocoding"
+  | "intelligence";
 
 export interface LayerDefinition {
   id: string;

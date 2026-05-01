@@ -30,10 +30,10 @@ describe("Layer Registry", () => {
 
   it("getLayersByCategory returns layers grouped by category", () => {
     const groups = getLayersByCategory();
-    expect(groups.weather).toBeDefined();
-    expect(groups.weather!.length).toBeGreaterThan(0);
-    for (const layer of groups.weather!) {
-      expect(layer.category).toBe("weather");
+    expect(groups.atmosphere).toBeDefined();
+    expect(groups.atmosphere!.length).toBeGreaterThan(0);
+    for (const layer of groups.atmosphere!) {
+      expect(layer.category).toBe("atmosphere");
     }
     expect(groups.terrain).toBeDefined();
     expect(groups.aviation).toBeDefined();
@@ -51,7 +51,7 @@ describe("Layer Registry", () => {
   });
 
   it("CATEGORY_ORDER has expected categories", () => {
-    expect(CATEGORY_ORDER).toContain("weather");
+    expect(CATEGORY_ORDER).toContain("atmosphere");
     expect(CATEGORY_ORDER).toContain("terrain");
     expect(CATEGORY_ORDER).toContain("aviation");
     expect(CATEGORY_ORDER).toContain("infrastructure");

@@ -587,6 +587,26 @@ export const LAYERS: readonly LayerDefinition[] = [
     accent: "#00b8d4",
     dataSource: "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
   },
+
+  /* ── Intelligence & Security ───────────────────────────── */
+  {
+    id: "gpsJamming",
+    name: "GPS Jamming",
+    category: "intelligence",
+    description:
+      "Hex-grid visualization of GPS interference/jamming zones detected via ADS-B analysis",
+    defaultEnabled: false,
+    accent: "#ff4444",
+  },
+  {
+    id: "dayNight",
+    name: "Day/Night Terminator",
+    category: "intelligence",
+    description:
+      "Day/night terminator line showing illuminated vs dark portions of Earth",
+    defaultEnabled: false,
+    accent: "#fbbf24",
+  },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -628,6 +648,7 @@ export const CATEGORY_ORDER = [
   "imagery",
   "space",
   "hydro",
+  "intelligence",
 ] as const;
 
 export const CATEGORY_LABELS: Record<string, string> = {
@@ -641,4 +662,5 @@ export const CATEGORY_LABELS: Record<string, string> = {
   imagery: "🛰️ Imagery",
   space: "🚀 Space",
   hydro: "💧 Hydrography",
+  intelligence: "🛡️ Intelligence",
 };

@@ -26,6 +26,10 @@ export interface LayerState {
   marineWeather: boolean;
   wildfires: boolean;
   lightning: boolean;
+  /** GPS Jamming hex grid - electronic warfare detection */
+  gpsJamming: boolean;
+  /** Day/Night terminator overlay */
+  dayNight: boolean;
 }
 
 export interface DashboardState {

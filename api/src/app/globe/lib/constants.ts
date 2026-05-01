@@ -34,6 +34,11 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
     layerIds: ["vessels", "marineWeather"],
   },
   {
+    title: "Intelligence",
+    key: "intelligence",
+    layerIds: ["gpsJamming", "dayNight"],
+  },
+  {
     title: "Space",
     key: "space",
     layerIds: ["satellites", "orbitalTracks", "groundTracks"],
@@ -84,6 +89,8 @@ export const DEFAULT_LAYERS: LayerState = {
   marineWeather: false,
   wildfires: false,
   lightning: false,
+  gpsJamming: false,
+  dayNight: false,
 };
 
 export const DEFAULT_STATE: DashboardState = {

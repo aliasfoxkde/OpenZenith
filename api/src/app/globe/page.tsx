@@ -96,6 +96,8 @@ export default function Globe() {
     { key: "nlnogNodes", label: "NLNOG Nodes", lastUpdate: null, count: 0, error: null },
     { key: "flightArcs", label: "Flight Arcs", lastUpdate: null, count: 0, error: null },
     { key: "currents", label: "Currents", lastUpdate: null, count: 0, error: null },
+    { key: "gpsJamming", label: "GPS Jamming", lastUpdate: null, count: 0, error: null },
+    { key: "dayNight", label: "Day/Night", lastUpdate: null, count: 0, error: null },
   ]);
   const [ctxMenu, setCtxMenu] = useState<{
     x: number;
@@ -227,6 +229,8 @@ export default function Globe() {
             "orbitalTracks",
             "groundTracks",
             "currents",
+            "gpsJamming",
+            "dayNight",
           ] as const;
           for (const dk of dynamicKeys) {
             if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {
@@ -746,6 +750,12 @@ export default function Globe() {
         case "lightning":
           mod = layerModulesRef.current.lightning ??= await import("./lib/layers/lightning");
           break;
+        case "gpsJamming":
+          mod = layerModulesRef.current.gpsJamming ??= await import("./lib/layers/gps-jamming");
+          break;
+        case "dayNight":
+          mod = layerModulesRef.current.dayNight ??= await import("./lib/layers/day-night");
+          break;
       }
       if (!mod) return;
 
@@ -818,6 +828,12 @@ export default function Globe() {
           break;
         case "lightning":
           mod.loadLightning(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          break;
+        case "gpsJamming":
+          mod.loadGpsJamming(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
+          break;
+        case "dayNight":
+          mod.loadDayNightTerminator(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
           break;
       }
       dataLoadedRef.current[key] = true;
@@ -941,6 +957,14 @@ export default function Globe() {
           case "currents":
             if (on) loadLayerDynamic("currents");
             if (!on) { removeEntities("current-"); dataLoadedRef.current.currents = false; }
+            break;
+          case "gpsJamming":
+            if (on) loadLayerDynamic("gpsJamming");
+            if (!on) { removeEntities("gps-jam-"); dataLoadedRef.current.gpsJamming = false; }
+            break;
+          case "dayNight":
+            if (on) loadLayerDynamic("dayNight");
+            if (!on) { removeEntities("day-night"); dataLoadedRef.current.dayNight = false; }
             break;
         }
         return next;

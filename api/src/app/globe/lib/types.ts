@@ -30,6 +30,8 @@ export interface LayerState {
   gpsJamming: boolean;
   /** Day/Night terminator overlay */
   dayNight: boolean;
+  /** Satellite imagery footprints */
+  imageryFootprints: boolean;
 }
 
 export interface DashboardState {

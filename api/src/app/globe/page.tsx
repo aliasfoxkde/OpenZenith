@@ -98,6 +98,7 @@ export default function Globe() {
     { key: "currents", label: "Currents", lastUpdate: null, count: 0, error: null },
     { key: "gpsJamming", label: "GPS Jamming", lastUpdate: null, count: 0, error: null },
     { key: "dayNight", label: "Day/Night", lastUpdate: null, count: 0, error: null },
+    { key: "imageryFootprints", label: "Imagery", lastUpdate: null, count: 0, error: null },
   ]);
   const [ctxMenu, setCtxMenu] = useState<{
     x: number;
@@ -231,6 +232,7 @@ export default function Globe() {
             "currents",
             "gpsJamming",
             "dayNight",
+            "imageryFootprints",
           ] as const;
           for (const dk of dynamicKeys) {
             if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {
@@ -756,6 +758,9 @@ export default function Globe() {
         case "dayNight":
           mod = layerModulesRef.current.dayNight ??= await import("./lib/layers/day-night");
           break;
+        case "imageryFootprints":
+          mod = layerModulesRef.current.imageryFootprints ??= await import("./lib/layers/imagery-footprints");
+          break;
       }
       if (!mod) return;
 
@@ -834,6 +839,9 @@ export default function Globe() {
           break;
         case "dayNight":
           mod.loadDayNightTerminator(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
+          break;
+        case "imageryFootprints":
+          mod.loadImageryFootprints(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
           break;
       }
       dataLoadedRef.current[key] = true;
@@ -965,6 +973,10 @@ export default function Globe() {
           case "dayNight":
             if (on) loadLayerDynamic("dayNight");
             if (!on) { removeEntities("day-night"); dataLoadedRef.current.dayNight = false; }
+            break;
+          case "imageryFootprints":
+            if (on) loadLayerDynamic("imageryFootprints");
+            if (!on) { removeEntities("sat-footprint"); removeEntities("sat-imagery"); dataLoadedRef.current.imageryFootprints = false; }
             break;
         }
         return next;

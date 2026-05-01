@@ -46,8 +46,11 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
 
   provider.ready = true;
   provider.readyPromise = Promise.resolve(provider);
-  provider.hasVertexNormals = false;
-  provider.hasWaterMask = false;
+  // Use Object.defineProperty so hasVertexNormals is a writable property,
+  // not a read-only getter inherited from TerrainProvider.prototype.
+  // This fixes: "Cannot set property hasVertexNormals of #<nl> which has only a getter"
+  Object.defineProperty(provider, "hasVertexNormals", { value: false, writable: true, configurable: true });
+  Object.defineProperty(provider, "hasWaterMask", { value: false, writable: true, configurable: true });
   provider.errorEvent = new Cesium.Event();
 
   provider.requestTileGeometry = function (x: number, y: number, level: number, _request: any) {

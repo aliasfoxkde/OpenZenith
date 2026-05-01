@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: api
-        run: npm ci
+        run: npm install  # Using install since package-lock.json is gitignored
 
       - name: Lint
         working-directory: api
@@ -62,7 +62,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: api
-        run: npm ci
+        run: npm install  # Using install since package-lock.json is gitignored
 
       - name: Build for Cloudflare Pages
         working-directory: api

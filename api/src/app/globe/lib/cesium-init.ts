@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { switchBasemapOnViewer } from "./helpers";
+import { createOZTTerrainProvider } from "./terrain-ozt2";
 import { createCSRTerrainProvider } from "./terrain-csr";
 import type { DashboardState } from "./types";
 
@@ -152,8 +153,11 @@ export async function initCesiumViewer(
   scene.postProcessStages.fxaa.enabled = false;
   scene.globe.show = true;
 
-  // ─── Terrain: CSR-first heightmap from HuggingFace ───
-  viewer.terrainProvider = createCSRTerrainProvider(Cesium);
+  // ─── Terrain: OZT2-first CesiumJS terrain provider ───
+  // OZT2 tiles are pre-generated and stored in R2 (~93% smaller than PNG).
+  // Falls back to PNG tiles (on-the-fly from HuggingFace) when OZT2 not in R2.
+  // Further falls back to CSR-direct HuggingFace if server is unreachable.
+  viewer.terrainProvider = createOZTTerrainProvider(Cesium);
   scene.globe.depthTestAgainstTerrain = true;
 
   // Remove all default imagery layers (Ion or otherwise)

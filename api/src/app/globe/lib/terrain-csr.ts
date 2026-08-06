@@ -105,7 +105,7 @@ export function createCSRTerrainProvider(Cesium: CesiumType) {
  * Fallback: fetch server-side PNG tile and decode Terrarium encoding.
  */
 function fallbackServerTile(Cesium: CesiumType, level: number, x: number, y: number): Promise<any> {
-  const url = `${TERRAIN_URL}/${level}/${x}/${y}`;
+  const url = `${TERRAIN_URL}/${level}/${x}/${y}?format=png`;
   const HDT = Cesium.HeightmapTerrainData;
   if (!HDT) return Promise.resolve(null);
 

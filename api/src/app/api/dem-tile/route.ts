@@ -7,10 +7,17 @@ import { CORS_HEADERS } from "@/lib/cors";
  * GET /api/dem-tile — TileJSON metadata for CesiumJS/MapLibre
  * GET /api/dem-tile?health=1 — Tile source health check
  *
- * CesiumJS usage:
+ * Tile formats (use ?format= query param):
+ *   ?format=ozt2 — OZT2 binary (default for CesiumJS globe, ~93% smaller than PNG)
+ *   ?format=png  — Terrarium PNG (MapLibre raster-dem, legacy)
+ *
+ * OZT2 tiles are pre-generated and stored in R2. If not in R2, the API falls back
+ * to PNG generation. CesiumJS terrain provider (terrain-ozt2.ts) auto-negotiates.
+ *
+ * CesiumJS usage (OZT2-first):
  *   new Cesium.CesiumTerrainProvider({ url: "/api/dem-tile" })
  *
- * MapLibre usage:
+ * MapLibre usage (PNG, Terrarium encoding):
  *   map.addSource("dem", {
  *     type: "raster-dem",
  *     tiles: ["/api/dem-tile/{z}/{x}/{y}"],
@@ -25,18 +32,32 @@ const TERRAIN_METADATA = {
   tilejson: "3.0.0" as const,
   tiles: ["/api/dem-tile/{z}/{x}/{y}"],
   minzoom: 0,
-  maxzoom: 10,
+  maxzoom: 12,
   bounds: [-180, -90, 180, 90],
   center: [0, 0, 4],
   encoding: "terrarium" as const,
   format: "terrarium",
-  tileFormat: "terrarium",
+  tileFormat: "ozt2",
   available: true,
-  version: "1.0.0",
+  version: "2.0.0",
   name: "OpenZenith Global DEM",
-  description: "Global terrain assembled on-the-fly from HuggingFace SRTM 30m chunks.",
+  description:
+    "OZT2 tiles (CesiumJS): pre-generated gradient+Brotli, ~93% smaller than PNG. " +
+    "PNG tiles (MapLibre): on-the-fly Terrarium encoding from SRTM 30m via HuggingFace.",
   attribution: "SRTM 30m via HuggingFace",
   scheme: "xyz",
+  formats: {
+    ozt2: {
+      url: "/api/dem-tile/{z}/{x}/{y}?format=ozt2",
+      description: "OZT2 binary (gradient+Brotli), CesiumJS terrain",
+      mime: "application/octet-stream",
+    },
+    png: {
+      url: "/api/dem-tile/{z}/{x}/{y}?format=png",
+      description: "Terrarium PNG, MapLibre raster-dem",
+      mime: "image/png",
+    },
+  },
 };
 
 export async function GET(request: NextRequest) {

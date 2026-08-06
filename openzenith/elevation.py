@@ -1,17 +1,18 @@
 """High-level elevation query API for OpenZenith.
 
-Query elevation at any lat/lon using Terrarium PNG tiles from the
-HuggingFace dataset (aliasfox/openzenith-dem) or a local tile directory.
+Query elevation at any lat/lon using:
+- OZT2 tiles (preferred, v2 dataset)
+- Terrarium PNG tiles from HuggingFace (legacy v1)
 
 Usage:
-    from openzenith import get_elevation, load_tiles
+    from openzenith import get_elevation, get_elevation_from_ozt2
 
-    # Download tiles from HuggingFace (optional, for local use)
-    tiles = load_tiles(zoom_levels=[0, 1, 2, 3, 4, 5, 6, 7, 8])
-
-    # Query single point
+    # Query single point (auto-selects best backend)
     elev = get_elevation(40.7128, -74.0060)
     print(f"NYC elevation: {elev:.1f}m")
+
+    # Query from OZT2 tiles directly
+    elev = get_elevation_from_ozt2(40.7128, -74.0060, ozt2_dir="/data/ozt2_tiles")
 
     # Batch query
     elevations = get_elevation_batch([
@@ -28,10 +29,12 @@ from pathlib import Path
 import numpy as np
 
 from .terrarium import decode_tile
+from .tile_format_v2 import decode as decode_ozt2
 
 # Default HuggingFace dataset
 HF_REPO = "aliasfox/openzenith-dem"
 DEFAULT_TILE_DIR = None  # Set via load_tiles()
+DEFAULT_OZT2_DIR = None  # Set via load_ozt2_tiles()
 
 
 def latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
@@ -49,11 +52,12 @@ def get_elevation(
     tile_dir: str | Path | None = None,
     zoom_levels: list[int] | None = None,
     cache_dir: str | Path | None = None,
+    use_ozt2: bool = False,
 ) -> float | None:
-    """Get elevation at a lat/lon by querying Terrarium PNG tiles.
+    """Get elevation at a lat/lon.
 
-    Tries each zoom level from highest to lowest resolution.
-    Uses bilinear interpolation for sub-pixel accuracy.
+    Tries OZT2 tiles first if use_ozt2=True and OZT2 tiles are configured,
+    otherwise falls back to Terrarium PNG tiles.
 
     Args:
         lat: Latitude (-90 to 90)
@@ -61,10 +65,18 @@ def get_elevation(
         tile_dir: Path to tile directory (default: loaded tiles dir)
         zoom_levels: Zoom levels to try (default: [8, 7, 6, 5])
         cache_dir: Alias for tile_dir
+        use_ozt2: If True, try OZT2 tiles first (default: False)
 
     Returns:
         Elevation in meters, or None if no data found.
     """
+    # Try OZT2 backend if available
+    if use_ozt2 and DEFAULT_OZT2_DIR is not None:
+        elev = _get_elevation_from_ozt2(lat, lon, DEFAULT_OZT2_DIR, zoom_levels)
+        if elev is not None:
+            return elev
+
+    # Fall back to PNG tiles
     if zoom_levels is None:
         zoom_levels = [8, 7, 6, 5]
 
@@ -332,6 +344,117 @@ def load_elevation_grid(
         "center_lat": lat,
         "center_lon": lon,
     }
+
+
+def _get_elevation_from_ozt2(
+    lat: float,
+    lon: float,
+    ozt2_dir: Path,
+    zoom_levels: list[int] | None = None,
+) -> float | None:
+    """Get elevation from OZT2 tiles (internal).
+
+    Args:
+        lat: Latitude
+        lon: Longitude
+        ozt2_dir: Path to OZT2 tiles directory
+        zoom_levels: Zoom levels to try (default: [12, 11, 10, 9, 8])
+
+    Returns:
+        Elevation in meters, or None if not found.
+    """
+    if zoom_levels is None:
+        zoom_levels = [12, 11, 10, 9, 8]
+
+    for zoom in zoom_levels:
+        x, y = latlon_to_tile(lat, lon, zoom)
+        tile_path = ozt2_dir / f"z{zoom}" / str(x) / f"{y}.ozt2"
+
+        if not tile_path.exists():
+            continue
+
+        try:
+            data = tile_path.read_bytes()
+            elevation, meta = decode_ozt2(data)
+            h, w = elevation.shape
+
+            # Bilinear interpolation within tile
+            n = 2 ** zoom
+            lon_min = x / n * 360.0 - 180.0
+            lon_max = (x + 1) / n * 360.0 - 180.0
+            lat_max = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y / n))))
+            lat_min = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (y + 1) / n))))
+
+            fx = (lon - lon_min) / (lon_max - lon_min) if lon_max != lon_min else 0.5
+            fy = (lat_max - lat) / (lat_max - lat_min) if lat_max != lat_min else 0.5
+
+            px = fx * (w - 1)
+            py = fy * (h - 1)
+
+            x0 = int(px)
+            y0 = int(py)
+            x1 = min(x0 + 1, w - 1)
+            y1 = min(y0 + 1, h - 1)
+
+            fx_frac = px - x0
+            fy_frac = py - y0
+
+            v00 = elevation[y0, x0]
+            v10 = elevation[y0, x1]
+            v01 = elevation[y1, x0]
+            v11 = elevation[y1, x1]
+
+            if v00 == -32768 and v10 == -32768 and v01 == -32768 and v11 == -32768:
+                continue
+
+            elev = (
+                v00 * (1 - fx_frac) * (1 - fy_frac) +
+                v10 * fx_frac * (1 - fy_frac) +
+                v01 * (1 - fx_frac) * fy_frac +
+                v11 * fx_frac * fy_frac
+            )
+            return round(float(elev), 1)
+        except Exception:
+            continue
+
+    return None
+
+
+def get_elevation_from_ozt2(
+    lat: float,
+    lon: float,
+    ozt2_dir: str | Path | None = None,
+    zoom_levels: list[int] | None = None,
+) -> float | None:
+    """Get elevation at a lat/lon from OZT2 tiles.
+
+    Args:
+        lat: Latitude (-90 to 90)
+        lon: Longitude (-180 to 180)
+        ozt2_dir: Path to OZT2 tiles directory
+        zoom_levels: Zoom levels to try (default: [12, 11, 10, 9, 8])
+
+    Returns:
+        Elevation in meters, or None if no data found.
+    """
+    _dir = Path(ozt2_dir or DEFAULT_OZT2_DIR)
+    if _dir is None:
+        raise ValueError("No OZT2 directory. Call load_ozt2_tiles() or pass ozt2_dir.")
+    return _get_elevation_from_ozt2(lat, lon, _dir, zoom_levels)
+
+
+def load_ozt2_tiles(tile_dir: str | Path) -> Path:
+    """Set the default OZT2 tile directory for elevation queries.
+
+    Args:
+        tile_dir: Path to OZT2 tiles directory (z{z}/{x}/{y}.ozt2 structure)
+
+    Returns:
+        The configured directory path.
+    """
+    global DEFAULT_OZT2_DIR
+    DEFAULT_OZT2_DIR = Path(tile_dir)
+    return DEFAULT_OZT2_DIR
 
 
 def get_tile_count(tile_dir: str | Path) -> dict[int, int]:

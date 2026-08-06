@@ -20,8 +20,10 @@ __version__ = "0.6.4"
 from openzenith.elevation import (
     get_elevation,
     get_elevation_batch,
+    get_elevation_from_ozt2,
     get_tile_count,
     load_tiles,
+    load_ozt2_tiles,
     download_tiles,
 )
 from openzenith.terrarium import decode_tile, encode_tile
@@ -48,6 +50,16 @@ from openzenith.tile_format_v2 import (
     auto_encode,
     validate_roundtrip as validate_roundtrip_v2,
 )
+
+# OZT2 backends (lazy — require boto3 for R2)
+def __getattr__(name):
+    if name == "OZT2Backend":
+        from openzenith.backends.ozt2 import OZT2Backend
+        return OZT2Backend
+    if name == "OZT2R2Backend":
+        from openzenith.backends.ozt2 import OZT2R2Backend
+        return OZT2R2Backend
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # Lazy imports for optional heavy dependencies
 def __getattr__(name):
@@ -150,14 +162,19 @@ __all__ = [
     "decode_v2",
     "auto_encode",
     "validate_roundtrip_v2",
+    # Backends
+    "OZT2Backend",
+    "OZT2R2Backend",
     # Terrarium
     "decode_tile",
     "encode_tile",
     # Elevation
     "get_elevation",
     "get_elevation_batch",
+    "get_elevation_from_ozt2",
     "get_tile_count",
     "load_tiles",
+    "load_ozt2_tiles",
     "download_tiles",
     # Hydrology (lazy)
     "d8_flow_direction",

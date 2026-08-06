@@ -12,6 +12,7 @@ const DataTool = lazy(() => import("./DataTool").then((m) => ({ default: m.DataT
 const LayersTool = lazy(() => import("./LayersTool").then((m) => ({ default: m.LayersTool })));
 const DrawingTool = lazy(() => import("./DrawingTool").then((m) => ({ default: m.DrawingTool })));
 const TileDownloadTool = lazy(() => import("./TileDownloadTool").then((m) => ({ default: m.TileDownloadTool })));
+const FlowPathTool = lazy(() => import("./FlowPathTool").then((m) => ({ default: m.FlowPathTool })));
 
 interface Props {
   activeTab: ToolTab;
@@ -36,6 +37,8 @@ interface Props {
   onImperialChange?: (imperial: boolean) => void;
   onProfileChange?: (coords: [number, number][] | null) => void;
   profileClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
+  flowPathClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
+  flowPathActive?: boolean;
 }
 
 const TABS: { id: ToolTab; label: string; icon: string }[] = [
@@ -47,6 +50,7 @@ const TABS: { id: ToolTab; label: string; icon: string }[] = [
   { id: "layers", label: "Layers", icon: "\ud83d\udcda" },
   { id: "draw", label: "Draw", icon: "\u270f" },
   { id: "tiles", label: "Tiles", icon: "\ud83d\uddfa" },
+  { id: "flowpath", label: "Flow Path", icon: "\u21c9" },
 ];
 
 function ToolFallback({ dark }: { dark: boolean }) {
@@ -185,6 +189,19 @@ export function ToolPanel(props: Props) {
           <div role="tabpanel" id="panel-tiles" aria-label="Tile download tool">
             <Suspense fallback={<ToolFallback dark={dark} />}>
               <TileDownloadTool dark={dark} map={props.map} />
+            </Suspense>
+          </div>
+        )}
+        {activeTab === "flowpath" && (
+          <div role="tabpanel" id="panel-flowpath" aria-label="Flow path tool">
+            <Suspense fallback={<ToolFallback dark={dark} />}>
+              <FlowPathTool
+                dark={dark}
+                map={props.map}
+                cursorPos={props.cursorPos}
+                imperial={props.imperial}
+                flowPathClickRef={props.flowPathClickRef}
+              />
             </Suspense>
           </div>
         )}

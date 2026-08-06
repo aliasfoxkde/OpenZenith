@@ -92,6 +92,7 @@ export default function StudioPage() {
   const [overpassLayerId, setOverpassLayerId] = useState<string | null>(null);
   const [profileCoords, setProfileCoords] = useState<[number, number][] | null>(null);
   const profileClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
+  const flowPathClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
 
   const [drawState, setDrawState] = useState<DrawState>(createDrawState());
   const drawStateRef = useRef<DrawState>(drawState);
@@ -175,11 +176,16 @@ export default function StudioPage() {
           addDrawLayers(map);
         });
 
-        // Drawing mode / profile mode click handler
+        // Drawing mode / profile mode / flowpath click handler
         map.on("click", (e: { lngLat: { lat: number; lng: number }; point: { x: number; y: number } }) => {
-          // Profile mode takes priority — delegate to ElevationTool
+          // Profile mode takes priority
           if (profileClickRef.current) {
             profileClickRef.current(e.lngLat.lat, e.lngLat.lng);
+            return;
+          }
+          // Flow path mode
+          if (flowPathClickRef.current) {
+            flowPathClickRef.current(e.lngLat.lat, e.lngLat.lng);
             return;
           }
 
@@ -821,6 +827,8 @@ export default function StudioPage() {
               onImperialChange={setImperial}
               onProfileChange={handleProfileChange}
               profileClickRef={profileClickRef}
+              flowPathClickRef={flowPathClickRef}
+              flowPathActive={activeTab === "flowpath"}
             />
           )}
         </div>

@@ -1443,12 +1443,12 @@ Week 4: Phase 4 (Client Integration) ✅ COMPLETE
   ⬜ 4.5  End-to-end test: zoom from z0 to z12, verify no gaps
   ⬜ 4.6  Verify decode speed in browser (Chrome DevTools)
 
-Week 5–6: Phase 5 (Community Pipeline) ⬜ PENDING
-  ⬜ 5.1  Write oz ingest CLI command (contribute/ingest subcommand)
-  ⬜ 5.2  Create elevation-manifest.json schema
-  ⬜ 5.3  Write validate CLI command (checks tile integrity)
-  ⬜ 5.4  Create openzenith-data repo structure
-  ⬜ 5.5  Document contribution workflow in docs/
+Week 5–6: Phase 5 (Community Pipeline) ✅ COMPLETE
+  ✅ 5.1  Write oz ingest CLI command (cmd_ingest in cli.py)
+  ✅ 5.2  Create elevation-manifest.json schema (in CONTRIBUTING.md + OPZENITH_DATA_REPO.md)
+  ✅ 5.3  Write validate_ozt2_tiles.py (tile integrity, header sanity, RMSE, parallel)
+  ✅ 5.4  Create openzenith-data repo structure (OPZENITH_DATA_REPO.md)
+  ✅ 5.5  Document contribution workflow in docs/ (CONTRIBUTING.md)
 
 Week 7–8: Phase 6 (Higher Resolution) ⬜ PENDING
   ⬜ 6.1  Set up 10m Copernicus GLO-30 ingestion
@@ -1485,6 +1485,8 @@ Week 9+: Phase 7 (Testing & Polish) ⬜ PENDING
 | `api/src/lib/storage/backend.ts` | Modify (add LocalTifBackend) | 3 |
 | `scripts/benchmark_ozt2.py` | Create | 7 |
 | `docs/CONTRIBUTING.md` | Create | 5 |
+| `docs/OPZENITH_DATA_REPO.md` | Create | 5 |
+| `scripts/validate_ozt2_tiles.py` | Create | 5 |
 | `data/elevation-manifest.json` | Create | 5 |
 | `openzenith/tests/test_tile_format_v2.py` | Modify (expand) | 7 |
 

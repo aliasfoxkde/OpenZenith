@@ -12,6 +12,7 @@ Usage:
     print(grid.shape)  # (256, 256)
 """
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -51,7 +52,7 @@ class OZT2Backend:
             return None
         try:
             data = tile_path.read_bytes()
-            elevation, meta = decode(data)
+            elevation, _meta = decode(data)
             return elevation
         except Exception:
             return None
@@ -90,28 +91,28 @@ class OZT2Backend:
 
         h, w = tile.shape
 
-        # Convert lat/lon to fractional pixel coordinates within tile
-        # (same as xyz_tile_to_lat_lon_bounds logic)
+        # Web Mercator tile bounds
         n = 2 ** z
         lon_min = x / n * 360.0 - 180.0
         lon_max = (x + 1) / n * 360.0 - 180.0
+        # y=0 in tile coords = north (lat_max), y increases southward
         lat_max = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y / n))))
         lat_min = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (y + 1) / n))))
 
-        # Fractional position
+        # Fractional position within tile
         fx = (lon - lon_min) / (lon_max - lon_min) if lon_max != lon_min else 0.5
         fy = (lat_max - lat) / (lat_max - lat_min) if lat_max != lat_min else 0.5
 
         px = fx * (w - 1)
         py = fy * (h - 1)
 
-        x0 = int(px)
-        y0 = int(py)
+        x0 = min(max(0, int(px)), w - 1)
+        y0 = min(max(0, int(py)), h - 1)
         x1 = min(x0 + 1, w - 1)
         y1 = min(y0 + 1, h - 1)
 
-        fx_frac = px - x0
-        fy_frac = py - y0
+        fx_frac = px - int(px)
+        fy_frac = py - int(py)
 
         v00 = tile[y0, x0]
         v10 = tile[y0, x1]
@@ -130,9 +131,6 @@ class OZT2Backend:
         )
 
         return round(float(elev), 1)
-
-
-import math
 
 
 class OZT2R2Backend:
@@ -160,7 +158,6 @@ class OZT2R2Backend:
         self.prefix = prefix.rstrip("/") + "/"
         self._client = None
 
-        # Credentials from env if not provided
         import os
         self.r2_account_id = r2_account_id or os.environ.get("CLOUDFLARE_ACCOUNT_ID")
         self.r2_access_key_id = r2_access_key_id or os.environ.get("R2_ACCESS_KEY_ID")

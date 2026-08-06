@@ -14,14 +14,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
-import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { HuggingFaceChunkBackend, LOCAL_BACKEND } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-// Direct HuggingFace backend — avoids process.env which may not work on edge
+// Try local .tif files first, fall back to HuggingFace
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
+const PRIMARY_BACKEND = LOCAL_BACKEND; // local SRTM .tif files
 
 export async function OPTIONS() {
   return corsPreflightResponse();
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       if (!tileCache.has(tileKey)) {
         try {
           const [x, y] = tileKey.split("/").map(Number);
-          const tileData = await getTileData(zoom, x, y, HF_BACKEND);
+          const tileData = await getTileData(zoom, x, y, PRIMARY_BACKEND);
           tileCache.set(tileKey, tileData);
         } catch {
           tileCache.set(tileKey, null);

@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPointElevation } from "@/lib/point-elevation";
-import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
+import { HuggingFaceChunkBackend, LOCAL_BACKEND } from "@/lib/storage/backend";
 import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-// Direct HuggingFace backend — avoids process.env which may not work on edge
+// Try local .tif files first (100x faster than HTTPS), fall back to HuggingFace
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 async function getElevation(lat: number, lon: number) {
-  // Try SRTM (land elevation, 30m resolution) first
+  // Try local SRTM .tif files first (zero network overhead)
+  try {
+    const result = await getPointElevation(lat, lon, LOCAL_BACKEND);
+    if (result) {
+      return {
+        elevation: result.elevation,
+        surface_type: result.surfaceType,
+        unit: "meters" as const,
+        location: { lat, lon },
+        source: "local" as const,
+        tile: result.tile,
+        resolution: 30,
+      };
+    }
+  } catch {
+    // Fall through to HuggingFace
+  }
+
+  // Fall back to HuggingFace merged chunks
   try {
     const result = await getPointElevation(lat, lon, HF_BACKEND);
     if (result) {
@@ -28,7 +46,7 @@ async function getElevation(lat: number, lon: number) {
     // Fall through to GEBCO
   }
 
-  // SRTM returned null (ocean or outside -60..61 lat) — fall back to GEBCO 2025
+  // GEBCO 2025 for ocean / outside SRTM coverage
   try {
     const gebco = await getGebcoElevation(lat, lon);
     if (gebco.elevation !== null) {
@@ -43,7 +61,7 @@ async function getElevation(lat: number, lon: number) {
       };
     }
   } catch {
-    // Both sources failed
+    // All sources failed
   }
 
   return {

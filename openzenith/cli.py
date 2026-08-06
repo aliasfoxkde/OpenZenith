@@ -381,6 +381,291 @@ def cmd_geojson(args):
     print(f"✅ {len(result['features'])} points → {out_path} ({elapsed:.1f}s)")
 
 
+# ─── Helper functions for encode/ingest ───────────────────────────────────────
+
+def _load_geotiff(path: str) -> np.ndarray:
+    """Load a GeoTIFF as int16 array (delegates to geo_utils)."""
+    from openzenith.geo_utils import load_geotiff as _lg
+    return _lg(path)
+
+
+def _load_merged(path: str) -> np.ndarray:
+    """Load a .merged file (OZCHNK01) as a 3601x3601 int16 array.
+
+    Returns the full tile with horizontal-differencing undone.
+    """
+    from openzenith.merged import MergedFile
+    mf = MergedFile(path)
+    # Merge all 15x15 chunks into one 3601x3601 array
+    tile = np.empty((3601, 3601), dtype=np.int16)
+    for row in range(mf.rows):
+        for col in range(mf.cols):
+            chunk = mf.get_chunk(row, col)
+            r0 = row * 256
+            c0 = col * 256
+            r1 = min(r0 + 256, 3601)
+            c1 = min(c0 + 256, 3601)
+            # Chunks may be edge-adjusted
+            chunk_r = chunk.shape[0]
+            chunk_c = chunk.shape[1]
+            tile[r0:r0 + chunk_r, c0:c0 + chunk_c] = chunk
+    return tile
+
+
+def _load_rawint16(path: str) -> np.ndarray:
+    """Load a raw int16 binary file as a 2D numpy array.
+
+    Detects square dimensions automatically.
+    """
+    data = np.fromfile(path, dtype=np.int16)
+    side = int(np.sqrt(data.size))
+    if side * side != data.size:
+        raise ValueError(f"Raw int16 file size {data.size} is not a perfect square")
+    return data.reshape(side, side)
+
+
+def _filename_to_bbox(filename: str) -> dict | None:
+    """Parse a SRTM-style filename to get coverage bbox.
+
+    Supports: N00E006, N00E006.tif, Copernicus_DSM_COG_10_N22_00_E016_DEM.tif
+    """
+    import re
+
+    # SRTM style: N36W116.tif
+    m = re.match(r"([NS])(\d{2})([EW])(\d{3})", filename, re.IGNORECASE)
+    if m:
+        lat_dir, lat_deg, lon_dir, lon_deg = m.groups()
+        lat_d = int(lat_deg)
+        lon_d = int(lon_deg)
+        lat_min = lat_d if lat_dir == "N" else -lat_d - 1
+        lon_min = lon_d if lon_dir == "E" else -lon_d - 1
+        return {"bbox": [lon_min, lat_min, lon_min + 1, lat_min + 1]}
+
+    # Copernicus DEM style: Copernicus_DSM_COG_10_N22_00_E016_DEM
+    m = re.match(r".*_N(\d{2})_E(\d{3})_DEM", filename, re.IGNORECASE)
+    if m:
+        lat_deg, lon_deg = int(m.group(1)), int(m.group(2))
+        return {"bbox": [lon_deg, lat_deg, lon_deg + 1, lat_deg + 1]}
+
+    return None
+
+
+def cmd_encode(args):
+    """Encode a DEM file or directory of DEM files to OZT2 format."""
+    from openzenith.tile_format_v2 import auto_encode, encode, validate_roundtrip, PRED_GRADIENT
+
+    predictor_map = {"none": 0, "left": 1, "gradient": 2}
+    predictor = predictor_map.get(args.predictor, PRED_GRADIENT)
+
+    input_path = Path(args.input)
+    output_path = Path(args.output)
+
+    if not input_path.exists():
+        print(f"❌ Input not found: {input_path}")
+        sys.exit(1)
+
+    def encode_file(src_path: Path, dst_path: Path):
+        """Encode a single DEM file to OZT2."""
+        try:
+            # Detect format
+            ext = src_path.suffix.lower()
+            if ext == ".tif" or ext == ".tiff":
+                elev = _load_geotiff(str(src_path))
+            elif ext == ".merged":
+                elev = _load_merged(str(src_path))
+            elif ext == ".raw" or ext == ".int16":
+                elev = _load_rawint16(str(src_path))
+            else:
+                print(f"  ⚠️  Unknown format for {src_path.name}, skipping")
+                return None
+
+            # Encode
+            if args.bits:
+                encoded = encode(
+                    elev,
+                    bits_per_pixel=args.bits,
+                    predictor=predictor,
+                )
+                meta_r = {"bits_per_pixel": args.bits}
+            else:
+                encoded, meta_r = auto_encode(elev, max_rmse=args.max_rmse)
+                bits = meta_r.get("auto_selected_bits", 16)
+                encoded = encode(elev, bits_per_pixel=bits, predictor=predictor)
+
+            # Validate
+            if args.validate:
+                is_lossless, rmse, vmeta = validate_roundtrip(
+                    elev, bits_per_pixel=meta_r.get("auto_selected_bits", meta_r.get("bits_per_pixel", 16))
+                )
+            else:
+                is_lossless, rmse = True, 0.0
+
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            dst_path.write_bytes(encoded)
+
+            if not args.quiet:
+                bits = meta_r.get("auto_selected_bits", meta_r.get("bits_per_pixel", 16))
+                loss = "lossless" if bits == 16 else f"{bits}-bit"
+                print(
+                    f"  ✅ {src_path.name} → {dst_path.name} "
+                    f"({len(encoded):,}B, {loss}, RMSE={rmse:.2f}m)"
+                )
+
+            return {
+                "file": str(src_path),
+                "size": len(encoded),
+                "bits": meta_r.get("auto_selected_bits", meta_r.get("bits_per_pixel", 16)),
+                "rmse": rmse,
+                "lossless": is_lossless,
+            }
+
+        except Exception as e:
+            print(f"  💥 {src_path.name}: {e}")
+            return None
+
+    # Single file
+    if input_path.is_file():
+        if output_path.is_dir():
+            dst = output_path / f"{input_path.stem}.ozt2"
+        else:
+            dst = output_path
+        result = encode_file(input_path, dst)
+        if result:
+            print(f"✅ Encoded: {dst} ({result['size']:,} bytes)")
+        return
+
+    # Directory
+    files = list(input_path.rglob("*.tif")) + list(input_path.rglob("*.tiff")) + \
+            list(input_path.rglob("*.merged")) + list(input_path.rglob("*.raw"))
+
+    if not files:
+        print(f"❌ No DEM files found in {input_path}")
+        sys.exit(1)
+
+    print(f"Encoding {len(files)} files from {input_path} → {output_path}")
+    results = []
+    for f in sorted(files):
+        dst = output_path / f"{f.stem}.ozt2"
+        r = encode_file(f, dst)
+        if r:
+            results.append(r)
+
+    if results:
+        total_size = sum(r["size"] for r in results)
+        avg_rmse = sum(r["rmse"] for r in results) / len(results)
+        lossless_count = sum(1 for r in results if r["lossless"])
+        print(f"\n✅ Encoded {len(results)}/{len(files)} files")
+        print(f"   Total size: {total_size / 1e6:.1f} MB")
+        print(f"   Avg RMSE: {avg_rmse:.2f}m")
+        print(f"   Lossless: {lossless_count} ({100*lossless_count/len(results):.0f}%)")
+    else:
+        print(f"\n❌ No files encoded successfully")
+        sys.exit(1)
+
+
+def cmd_ingest(args):
+    """Prepare a contributed dataset for submission to OpenZenith."""
+    import json as _json
+    from openzenith.tile_format_v2 import auto_encode, encode, validate_roundtrip
+
+    dataset_path = Path(args.dataset)
+    if not dataset_path.is_dir():
+        print(f"❌ Dataset directory not found: {dataset_path}")
+        sys.exit(1)
+
+    output_dir = Path(args.output)
+    bundle_dir = output_dir / args.name
+    tiles_dir = bundle_dir / "tiles"
+    tiles_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"OpenZenith Dataset Ingest")
+    print(f"{'=' * 50}")
+    print(f"  Dataset:   {args.dataset}")
+    print(f"  Name:      {args.name}")
+    print(f"  License:   {args.license}")
+    print(f"  Output:   {bundle_dir}")
+    print(f"{'=' * 50}\n")
+
+    # Find all DEM files
+    dem_files = (
+        list(dataset_path.rglob("*.tif")) +
+        list(dataset_path.rglob("*.tiff")) +
+        list(dataset_path.rglob("*.merged"))
+    )
+
+    if not dem_files:
+        print(f"❌ No .tif or .merged files found in {dataset_path}")
+        sys.exit(1)
+
+    print(f"Found {len(dem_files)} DEM files")
+
+    # Encode tiles and build manifest
+    tiles = []
+    errors = []
+
+    for f in sorted(dem_files):
+        try:
+            # Load elevation
+            ext = f.suffix.lower()
+            if ext in (".tif", ".tiff"):
+                elev = _load_geotiff(str(f))
+            else:
+                elev = _load_merged(str(f))
+
+            # Encode to OZT2
+            encoded, meta = auto_encode(elev, max_rmse=1.0)
+            tile_name = f"{f.stem}.ozt2"
+            tile_path = tiles_dir / tile_name
+            tile_path.write_bytes(encoded)
+
+            # Compute bbox from filename (SRTM naming convention)
+            lat_dir = f.parent.name
+            bbox = _filename_to_bbox(f.name)
+
+            tiles.append({
+                "file": tile_name,
+                "source_file": str(f.relative_to(dataset_path)),
+                "size_bytes": len(encoded),
+                "bits": meta.get("auto_selected_bits", 16),
+                "rmse": meta.get("rmse", 0),
+                "coverage": bbox,
+            })
+            print(f"  ✅ {f.name} → {tile_name} ({len(encoded):,}B)")
+
+        except Exception as e:
+            errors.append({"file": str(f), "error": str(e)})
+            print(f"  💥 {f.name}: {e}")
+
+    # Build manifest
+    manifest = {
+        "name": args.name,
+        "version": "1.0.0",
+        "description": args.description,
+        "license": args.license,
+        "source_url": args.source_url,
+        "contributor": args.contributor,
+        "created": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "tile_format": "ozt2",
+        "total_tiles": len(tiles),
+        "errors": len(errors),
+        "tiles": tiles,
+    }
+
+    manifest_path = bundle_dir / "manifest.json"
+    manifest_path.write_text(_json.dumps(manifest, indent=2))
+
+    print(f"\n{'=' * 50}")
+    print(f"✅ Ingest complete: {len(tiles)} tiles encoded")
+    print(f"   Bundle: {bundle_dir}")
+    print(f"   Manifest: {manifest_path}")
+    if errors:
+        print(f"   Errors: {len(errors)}")
+    print(f"\nTo submit:")
+    print(f"  1. Review manifest: cat {manifest_path}")
+    print(f"  2. Create PR: https://github.com/openzenith/openzenith-data")
+    print(f"  3. Attach bundle as LFS file")
+
+
 def cmd_tiles(args):
     """Download tiles for a specific region and zoom levels.
 
@@ -597,6 +882,33 @@ def main():
     gj.add_argument("--name", type=str, default=None, help="Property name")
     gj.add_argument("--output", type=str, default=None, help="Output .geojson file")
 
+    # encode
+    en = sub.add_parser("encode", help="Encode GeoTIFF or raw DEM to OZT2 format")
+    en.add_argument("input", help="Input file or directory")
+    en.add_argument("output", help="Output .ozt2 file or directory")
+    en.add_argument("--format", default="auto", choices=["auto", "geotiff", "rawint16", "merged"],
+                    help="Input format (auto=detect from extension)")
+    en.add_argument("--max-rmse", type=float, default=1.0,
+                    help="Max RMSE for adaptive bit-depth selection (meters)")
+    en.add_argument("--bits", type=int, choices=[8, 10, 12, 16], default=None,
+                    help="Force fixed bit depth (default=auto)")
+    en.add_argument("--predictor", default="gradient",
+                    choices=["none", "left", "gradient"],
+                    help="Prediction method (default=gradient)")
+    en.add_argument("--validate", action="store_true",
+                    help="Validate roundtrip after encoding")
+    en.add_argument("--quiet", "-q", action="store_true", help="Suppress per-file output")
+
+    # ingest
+    ig = sub.add_parser("ingest", help="Prepare a contributed dataset for submission")
+    ig.add_argument("dataset", help="Dataset directory containing DEM files")
+    ig.add_argument("--name", required=True, help="Dataset name (e.g. 'alos-aw3d-30m-japan')")
+    ig.add_argument("--description", required=True, help="Human-readable description")
+    ig.add_argument("--license", default="CC-BY-4.0", help="License (default=CC-BY-4.0)")
+    ig.add_argument("--source-url", default="", help="Original data source URL")
+    ig.add_argument("--contributor", default="", help="Contributor contact (email or handle)")
+    ig.add_argument("--output", "-o", default="./dataset_bundle", help="Output bundle directory")
+
     # tiles
     tl = sub.add_parser("tiles", help="Download tiles for a specific region")
     tl.add_argument("--bbox", type=str, default=None, help="Bounding box: lat_min,lon_min,lat_max,lon_max")
@@ -623,6 +935,8 @@ def main():
         "twi": cmd_twi,
         "contour": cmd_contour,
         "geojson": cmd_geojson,
+        "encode": cmd_encode,
+        "ingest": cmd_ingest,
         "tiles": cmd_tiles,
     }
 

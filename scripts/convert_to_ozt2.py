@@ -31,7 +31,7 @@ import struct
 import sys
 import time
 import zlib
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, wait
 from pathlib import Path
 
 import numpy as np
@@ -370,6 +370,18 @@ def convert_tile(args) -> dict:
         return {"status": "error", "z": z, "x": x, "y": y, "error": str(e)}
 
 
+def convert_tile_batch(args_list: list) -> list[dict]:
+    """Convert a batch of tiles in one worker call.
+
+    Processing multiple tiles per submission reduces Python threading overhead.
+    Each tile is processed sequentially, but we amortize GIL contention.
+    """
+    results = []
+    for args in args_list:
+        results.append(convert_tile(args))
+    return results
+
+
 def iter_task_tuples(
     zoom_range: tuple[int, int],
     merged_dir: Path,
@@ -638,37 +650,47 @@ def main():
             for y in range(y_min, y_max + 1):
                 zoom_tasks.append((z, x, y, str(merged_dir), str(output_dir), args.max_rmse, args.brotli_quality, args.incremental))
 
-        # ThreadPoolExecutor with executor.map().
-        # executor.submit() + f.done() hangs in Python 3.13 (ThreadPoolExecutor bug).
-        # executor.map() works correctly and yields results in order.
-        with ThreadPoolExecutor(max_workers=args.workers) as executor:
-            # Use map (not submit+done polling) — map yields completed results correctly.
-            # chunksize=1 so we get results incrementally rather than batching.
-            it = executor.map(convert_tile, zoom_tasks, chunksize=1)
-            for r in it:
-                status = r.get("status", "error")
-                z_results[status] = z_results.get(status, 0) + 1
-                z_done += 1
+        # ProcessPoolExecutor with wait() polling.
+        # as_completed() hangs with ProcessPoolExecutor in this environment (Python 3.13 multiprocessing).
+        # wait() returns when all submitted futures complete (no notification needed).
+        # Process-level LRU caches in merged.py prevent memory growth.
+        import time as _time
+        with ProcessPoolExecutor(max_workers=args.workers) as executor:
+            futures: list = []
+            for t in zoom_tasks:
+                futures.append(executor.submit(convert_tile, t))
 
-                if status == "error":
-                    z_errors.append(r)
-                elif status in ("ok", "skipped"):
-                    z_bytes += r.get("size", 0)
+            # Poll with wait() in short intervals to get results incrementally
+            while futures:
+                done, futures = wait(futures, timeout=5.0)
+                for f in done:
+                    r = f.result()
+                    status = r.get("status", "error")
+                    z_results[status] = z_results.get(status, 0) + 1
+                    z_done += 1
 
-                # Progress every 5k tiles
-                if z_done % 5000 == 0 or z_done == z_tile_count:
-                    elapsed = time.time() - t0
-                    z_elapsed = time.time() - zoom_t0
-                    rate = z_done / z_elapsed if z_elapsed > 0.1 else 0
-                    pct = 100 * z_done / z_tile_count if z_tile_count > 0 else 0
-                    eta = (z_tile_count - z_done) / rate if rate > 0 else 0
-                    print(
-                        f"  [{z_done:>6,}/{z_tile_count:>6,} ({pct:>5.1f}%%)] "
-                        f"✅ {z_results['ok']:>6,} "
-                        f"🌊 {z_results['no-data']:>6,} "
-                        f"❌ {z_results['error']:>4,} "
-                        f"· {rate:>6,.0f}/s · ETA {eta:.0f}s"
-                    )
+                    if status == "error":
+                        z_errors.append(r)
+                    elif status in ("ok", "skipped"):
+                        z_bytes += r.get("size", 0)
+
+                    # Progress every 5k tiles
+                    if z_done % 5000 == 0 or z_done == z_tile_count:
+                        elapsed = time.time() - t0
+                        z_elapsed = time.time() - zoom_t0
+                        rate = z_done / z_elapsed if z_elapsed > 0.1 else 0
+                        pct = 100 * z_done / z_tile_count if z_tile_count > 0 else 0
+                        eta = (z_tile_count - z_done) / rate if rate > 0 else 0
+                        print(
+                            f"  [{z_done:>6,}/{z_tile_count:>6,} ({pct:>5.1f}%%)] "
+                            f"✅ {z_results['ok']:>6,} "
+                            f"🌊 {z_results['no-data']:>6,} "
+                            f"❌ {z_results['error']:>4,} "
+                            f"· {rate:>6,.0f}/s · ETA {eta:.0f}s"
+                        )
+                # Short sleep if no completed in this iteration
+                if not done:
+                    _time.sleep(0.5)
 
         z_elapsed = time.time() - zoom_t0
         z_ok = z_results.get("ok", 0)

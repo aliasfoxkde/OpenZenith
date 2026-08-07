@@ -121,15 +121,10 @@ class MergedFile:
             # Int16 with horizontal differencing predictor
             # Chunks are always 256x256 in storage (edge chunks have padding pixels)
             raw = np.frombuffer(decompressed, dtype=np.int16).reshape(256, 256)
-            # Undo horizontal predictor: first pixel of each row is absolute, rest are deltas
-            out = np.empty_like(raw)
-            out[0, 0] = raw[0, 0]
-            for c in range(1, 256):
-                out[0, c] = out[0, c - 1] + raw[0, c]
-            for r in range(1, 256):
-                out[r, 0] = raw[r, 0]
-                for c in range(1, 256):
-                    out[r, c] = out[r, c - 1] + raw[r, c]
+            # Undo horizontal predictor: cumulative sum along each row
+            # raw[row, col] stores: delta from left neighbor
+            # out[row, col] = sum of deltas in [0..col] for this row
+            out = np.cumsum(raw, axis=1, dtype=np.int16)
         else:
             # Float32 (no prediction)
             out = np.frombuffer(decompressed, dtype=np.float32).reshape(256, 256)

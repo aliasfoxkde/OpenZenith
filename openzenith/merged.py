@@ -25,6 +25,7 @@ import zlib
 from pathlib import Path
 
 import numpy as np
+from cachetools import LRUCache
 
 
 MAGIC = b"OZCHNK01"
@@ -32,10 +33,11 @@ HEADER_SIZE = 12
 INDEX_ENTRY_SIZE = 8
 
 # Process-level cache: path → MergedFile (avoids re-reading .merged files)
-_merged_cache: dict[str, "MergedFile"] = {}
+# Bounded to ~300MB: 64 files × ~5MB each + 512 chunks × 128KB ≈ 384MB per worker
+_merged_cache: LRUCache = LRUCache(maxsize=64)
 
 # Process-level cache: (path, row, col) → decompressed chunk array
-_chunk_cache: dict[tuple[str, int, int], np.ndarray] = {}
+_chunk_cache: LRUCache = LRUCache(maxsize=512)
 
 
 def get_merged_file(path: str | Path) -> "MergedFile":

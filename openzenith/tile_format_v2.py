@@ -425,6 +425,7 @@ def auto_encode(
     elevation: np.ndarray,
     nodata_value: int = -32768,
     max_rmse: float = 1.0,
+    compress_level: int = 11,
 ) -> tuple[bytes, dict]:
     """Automatically select the best encoding parameters.
 
@@ -435,6 +436,7 @@ def auto_encode(
         elevation: 2D int16 array
         nodata_value: NoData sentinel
         max_rmse: Maximum acceptable RMSE in meters
+        compress_level: Brotli/Zstd compression level (default 11)
 
     Returns:
         (encoded_bytes, metadata)
@@ -445,13 +447,13 @@ def auto_encode(
         is_lossless, rmse, meta = result
 
         if is_lossless or rmse <= max_rmse:
-            encoded = encode(elevation, nodata_value=nodata_value, bits_per_pixel=bits)
+            encoded = encode(elevation, nodata_value=nodata_value, bits_per_pixel=bits, compress_level=compress_level)
             meta["rmse"] = rmse
             meta["auto_selected_bits"] = bits
             return encoded, meta
 
     # Fallback: lossless
-    encoded = encode(elevation, nodata_value=nodata_value, bits_per_pixel=16)
+    encoded = encode(elevation, nodata_value=nodata_value, bits_per_pixel=16, compress_level=compress_level)
     _, rmse, meta = validate_roundtrip(elevation, nodata_value=nodata_value, bits_per_pixel=16)
     meta["rmse"] = rmse
     meta["auto_selected_bits"] = 16

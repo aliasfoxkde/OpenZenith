@@ -31,7 +31,7 @@ import struct
 import sys
 import time
 import zlib
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -333,7 +333,7 @@ def _init_worker(merged_dir_str: str) -> dict[tuple[int, int], dict]:
 
 def convert_tile(args) -> dict:
     """Convert a single tile: check land → generate grid → OZT2 encode → write."""
-    z, x, y, merged_dir, output_dir, max_rmse, incremental, validate = args
+    z, x, y, merged_dir, output_dir, max_rmse, compress_level, incremental = args
 
     out_path = Path(output_dir) / f"z{z}" / str(x) / f"{y}.ozt2"
 
@@ -352,7 +352,7 @@ def convert_tile(args) -> dict:
         if np.all(grid == NODATA):
             return {"status": "no-data", "z": z, "x": x, "y": y, "reason": "all-nodata"}
 
-        encoded, meta = auto_encode(grid, nodata_value=NODATA, max_rmse=max_rmse)
+        encoded, meta = auto_encode(grid, nodata_value=NODATA, max_rmse=max_rmse, compress_level=compress_level)
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(encoded)
@@ -370,20 +370,13 @@ def convert_tile(args) -> dict:
         return {"status": "error", "z": z, "x": x, "y": y, "error": str(e)}
 
 
-def build_task_list(
+def iter_task_tuples(
     zoom_range: tuple[int, int],
-    output_dir: Path,
     merged_dir: Path,
-) -> tuple[list, dict[tuple[int, int], dict]]:
-    """Build list of land-bearing tiles to convert.
-
-    Returns (tasks, srtm_tiles) where tasks is a list of convert_tile args
-    and srtm_tiles is the SRTM tile index.
-    """
-    srtm_tiles = discover_srtm_tiles(Path(merged_dir))
-    print(f"  Found {len(srtm_tiles)} SRTM tiles on disk")
-
-    tasks = []
+    max_rmse: float = 1.0,
+    compress_level: int = 9,
+):
+    """Generator that yields task tuples one at a time (memory-efficient)."""
     land_tiles = 0
     ocean_skipped = 0
 
@@ -398,7 +391,7 @@ def build_task_list(
 
         for x in range(n):
             for y in range(y_min, y_max + 1):
-                tasks.append((z, x, y, str(merged_dir), str(output_dir), 1.0, False, False))
+                yield (z, x, y, str(merged_dir), "", max_rmse, compress_level, False)
                 land_tiles += 1
 
         if z <= 6:
@@ -407,7 +400,23 @@ def build_task_list(
     print(f"  Land tiles (SRTM overlap): {land_tiles:,}")
     if ocean_skipped > 0:
         print(f"  Ocean tiles (skipped):     {ocean_skipped:,}")
-    return tasks
+
+
+def build_task_list(
+    zoom_range: tuple[int, int],
+    output_dir: Path,
+    merged_dir: Path,
+    max_rmse: float = 1.0,
+    compress_level: int = 9,
+) -> tuple[list, dict[tuple[int, int], dict]]:
+    """Build list of land-bearing tiles to convert.
+
+    Returns (tasks, srtm_tiles) where tasks is a list of convert_tile args
+    and srtm_tiles is the SRTM tile index.
+    """
+    srtm_tiles = discover_srtm_tiles(Path(merged_dir))
+    print(f"  Found {len(srtm_tiles)} SRTM tiles on disk")
+    return list(iter_task_tuples(zoom_range, merged_dir, max_rmse, compress_level))
 
 
 def count_estimated_tiles(zoom_range: tuple[int, int]) -> int:
@@ -424,7 +433,7 @@ def count_estimated_tiles(zoom_range: tuple[int, int]) -> int:
     return total
 
 
-def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: float) -> dict:
+def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: float, compress_level: int = 9) -> dict:
     """Generate a manifest.json for the converted tiles."""
     manifest = {
         "version": "1.0.0",
@@ -436,7 +445,7 @@ def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: fl
         "compression": {
             "predictor": "gradient",
             "compressor": "brotli",
-            "quality": 11,
+            "quality": compress_level,
             "max_rmse": 1.0,
         },
         "total_tiles": 0,
@@ -525,14 +534,20 @@ def main():
         help="Maximum RMSE for adaptive bit-depth selection (meters)",
     )
     parser.add_argument(
+        "--brotli-quality", "-q",
+        type=int, default=9,
+        dest="brotli_quality",
+        help="Brotli compression quality 0-11 (default 9, faster than 11, <1%% quality loss)",
+    )
+    parser.add_argument(
         "--incremental",
         action="store_true",
         help="Skip tiles that already exist in output",
     )
     parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate existing tiles when using --incremental",
+        "--nas-backup",
+        default="",
+        help="NAS path to backup tiles after each zoom level (e.g. /nas/Temp/repos/OpenZenith/data/ozt2_tiles)",
     )
     parser.add_argument(
         "--manifest",
@@ -543,6 +558,7 @@ def main():
 
     merged_dir = Path(args.input)
     output_dir = Path(args.output)
+    nas_backup = Path(args.nas_backup) if args.nas_backup else None
 
     if not merged_dir.exists():
         print(f"❌ Input directory not found: {merged_dir}")
@@ -558,7 +574,6 @@ def main():
         print(f"❌ Invalid zoom range: {args.zoom}")
         sys.exit(1)
 
-    estimated = count_estimated_tiles(zoom_range)
     print(f"OpenZenith OZT2 Tile Generator")
     print(f"{'=' * 60}")
     print(f"  Input:   {merged_dir}")
@@ -566,81 +581,142 @@ def main():
     print(f"  Zoom:    z{z_start}–z{z_end}")
     print(f"  Workers: {args.workers}")
     print(f"  Max RMSE: {args.max_rmse}m")
+    print(f"  Brotli:  quality={args.brotli_quality}")
+    print(f"  NAS backup: {nas_backup if nas_backup else 'none'}")
     print(f"  Mode:    {'incremental' if args.incremental else 'full convert'}")
     print(f"{'=' * 60}")
     print()
 
-    tasks = build_task_list(zoom_range, output_dir, merged_dir)
-    print(f"Tasks generated: {len(tasks):,}")
+    # Count total tiles for progress reporting
+    total_tiles_estimate = count_estimated_tiles(zoom_range)
+    print(f"Estimated tiles: {total_tiles_estimate:,}")
     print(f"Starting conversion...")
     print()
 
+    # Initialize worker globals in main thread (shared to all threads via memory)
+    print("Initializing worker...")
+    _init_worker(str(merged_dir))
+    print(f"Worker ready: {len(_worker_srtm_tiles)} SRTM tiles indexed")
+
+    # Pre-count tiles per zoom (fast — just math, no I/O)
+    zoom_tile_counts: dict[int, int] = {}
+    for z in range(z_start, z_end + 1):
+        n = 2 ** z
+        y_min = mercator_lat_to_tile_y(SRTM_LAT_MAX, z)
+        y_max = mercator_lat_to_tile_y(SRTM_LAT_MIN, z)
+        y_min = max(0, min(y_min, n - 1))
+        y_max = max(0, min(y_max, n - 1))
+        zoom_tile_counts[z] = n * (y_max - y_min + 1)
+
     t0 = time.time()
-    done = 0
-    results = {"ok": 0, "skipped": 0, "error": 0, "no-data": 0}
-    errors = []
+    all_errors = []
+    total_ok = 0
+    total_skipped = 0
+    total_no_data = 0
+    total_errors = 0
+    completed_zooms = []
 
-    with ProcessPoolExecutor(
-        max_workers=args.workers,
-        initializer=_init_worker,
-        initargs=(str(merged_dir),),
-    ) as executor:
-        futures = {executor.submit(convert_tile, t): t for t in tasks}
+    for z in range(z_start, z_end + 1):
+        zoom_t0 = time.time()
+        z_done = 0
+        z_bytes = 0
+        z_results = {"ok": 0, "skipped": 0, "error": 0, "no-data": 0}
+        z_errors = []
+        z_tile_count = zoom_tile_counts[z]
 
-        for future in as_completed(futures):
-            r = future.result()
-            status = r.get("status", "error")
-            results[status] = results.get(status, 0) + 1
-            done += 1
+        print(f"\n── z{z} ── ~{z_tile_count:,} tiles")
+        print(f"  Started: {time.strftime('%H:%M:%S')}")
 
-            if status == "error":
-                errors.append(r)
+        # Build full task list for this zoom
+        zoom_tasks: list = []
+        n = 2 ** z
+        y_min = mercator_lat_to_tile_y(SRTM_LAT_MAX, z)
+        y_max = mercator_lat_to_tile_y(SRTM_LAT_MIN, z)
+        y_min = max(0, min(y_min, n - 1))
+        y_max = max(0, min(y_max, n - 1))
+        for x in range(n):
+            for y in range(y_min, y_max + 1):
+                zoom_tasks.append((z, x, y, str(merged_dir), str(output_dir), args.max_rmse, args.brotli_quality, args.incremental))
 
-            if done % 10000 == 0 or done == len(tasks):
-                elapsed = time.time() - t0
-                rate = done / elapsed if elapsed > 0 else 0
-                pct = 100 * done / len(tasks)
-                print(
-                    f"  [{done:>8,}/{len(tasks):>8,} ({pct:>5.1f}%)] "
-                    f"✅ {results.get('ok', 0):>6,} "
-                    f"⏭  {results.get('skipped', 0):>6,} "
-                    f"🌊 {results.get('no-data', 0):>6,} "
-                    f"❌ {results.get('error', 0):>4,} "
-                    f"· {rate:>6,.0f} tiles/s · {elapsed:.0f}s"
-                )
+        # Use ThreadPoolExecutor (not ProcessPoolExecutor) — numpy and zlib release the GIL
+        # during decompression/compression, enabling true parallelism without serialization overhead.
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = {executor.submit(convert_tile, t): t for t in zoom_tasks}
+            for future in as_completed(futures):
+                r = future.result()
+                status = r.get("status", "error")
+                z_results[status] = z_results.get(status, 0) + 1
+                z_done += 1
+
+                if status == "error":
+                    z_errors.append(r)
+                elif status in ("ok", "skipped"):
+                    z_bytes += r.get("size", 0)
+
+                # Progress every 5k tiles
+                if z_done % 5000 == 0 or z_done == z_tile_count:
+                    elapsed = time.time() - t0
+                    z_elapsed = time.time() - zoom_t0
+                    rate = z_done / z_elapsed if z_elapsed > 0.1 else 0
+                    pct = 100 * z_done / z_tile_count if z_tile_count > 0 else 0
+                    eta = (z_tile_count - z_done) / rate if rate > 0 else 0
+                    print(
+                        f"  [{z_done:>6,}/{z_tile_count:>6,} ({pct:>5.1f}%%)] "
+                        f"✅ {z_results['ok']:>6,} "
+                        f"🌊 {z_results['no-data']:>6,} "
+                        f"❌ {z_results['error']:>4,} "
+                        f"· {rate:>6,.0f}/s · ETA {eta:.0f}s"
+                    )
+
+        z_elapsed = time.time() - zoom_t0
+        z_ok = z_results.get("ok", 0)
+        z_size_gb = z_bytes / 1e9
+
+        print(
+            f"  ✅ z{z}: {z_ok:,} tiles in {z_elapsed:.0f}s "
+            f"({z_ok/z_elapsed:.0f} tiles/s, ~{z_size_gb:.1f} GB)"
+        )
+
+        total_ok += z_ok
+        total_skipped += z_results.get("skipped", 0)
+        total_no_data += z_results.get("no-data", 0)
+        total_errors += z_results.get("error", 0)
+        all_errors.extend(z_errors)
+        completed_zooms.append(z)
+
+        # Per-zoom NAS backup
+        if nas_backup and z_ok > 0:
+            z_out = output_dir / f"z{z}"
+            if z_out.exists():
+                nas_z_dir = nas_backup / f"z{z}"
+                print(f"  📦 Backing up z{z} to NAS...")
+                import shutil
+                nas_z_dir.parent.mkdir(parents=True, exist_ok=True)
+                if nas_z_dir.exists():
+                    shutil.rmtree(nas_z_dir)
+                shutil.copytree(z_out, nas_z_dir)
+                nas_size = sum(f.stat().st_size for f in nas_z_dir.rglob("*.ozt2"))
+                print(f"  ✅ NAS backup: {nas_z_dir} ({nas_size/1e9:.1f} GB)")
 
     elapsed = time.time() - t0
 
-    ok_tiles = results.get("ok", 0)
-    skipped = results.get("skipped", 0)
-    no_data = results.get("no-data", 0)
-    error_tiles = results.get("error", 0)
-
     print(f"\n{'=' * 60}")
-    print(f"CONVERSION COMPLETE — {elapsed:.1f}s total")
+    print(f"CONVERSION COMPLETE — {elapsed:.1f}s total ({elapsed/3600:.1f}h)")
     print(f"{'=' * 60}")
-    print(f"  ✅ Converted:  {ok_tiles:>10,}")
-    print(f"  ⏭  Skipped:   {skipped:>10,}")
-    print(f"  🌊 No data:    {no_data:>10,}")
-    print(f"  ❌ Errors:     {error_tiles:>10,}")
-    print(f"  Speed:        {done / elapsed:>10,.0f} tiles/sec")
+    print(f"  ✅ Converted:  {total_ok:>10,} tiles")
+    print(f"  ⏭  Skipped:   {total_skipped:>10,}")
+    print(f"  🌊 No data:    {total_no_data:>10,}")
+    print(f"  ❌ Errors:     {total_errors:>10,}")
+    print(f"  Speed:        {total_ok / elapsed:>10,.0f} tiles/sec")
+    print(f"  Zooms:        {', '.join(f'z{z}' for z in completed_zooms)}")
 
-    if ok_tiles > 0:
-        avg_size = sum(
-            r.get("size", 0) for r in [future.result() for future in futures]
-            if r.get("status") == "ok"
-        ) / max(ok_tiles, 1)
-        est_total_gb = (avg_size * ok_tiles) / 1e9
-        print(f"  Avg tile size: {avg_size:>8.0f} bytes")
-        print(f"  Total OZT2:   {est_total_gb:>6.1f} GB")
-
-    if errors:
+    if total_errors > 0:
         print(f"\nErrors (first 10):")
-        for r in errors[:10]:
+        for r in all_errors[:10]:
             print(f"  z{r['z']}/{r['x']}/{r['y']}: {r.get('error', 'unknown')}")
 
     # Generate manifest
-    manifest = generate_manifest(output_dir, zoom_range, elapsed)
+    manifest = generate_manifest(output_dir, zoom_range, elapsed, args.brotli_quality)
     manifest_path = output_dir / args.manifest
     manifest_path.write_text(json.dumps(manifest, indent=2))
     print(f"\n  Manifest: {manifest_path}")
@@ -651,17 +727,17 @@ def main():
     results_data = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "elapsed_seconds": round(elapsed, 1),
-        "tiles_converted": ok_tiles,
-        "tiles_skipped": skipped,
-        "tiles_no_data": no_data,
-        "tiles_errored": error_tiles,
-        "errors": errors[:100],
+        "tiles_converted": total_ok,
+        "tiles_skipped": total_skipped,
+        "tiles_no_data": total_no_data,
+        "tiles_errored": total_errors,
+        "errors": all_errors[:100],
     }
     results_path = output_dir / "conversion_results.json"
     results_path.write_text(json.dumps(results_data, indent=2))
 
-    if error_tiles > 0:
-        print(f"\n⚠️  {error_tiles} tiles failed — see {results_path}")
+    if total_errors > 0:
+        print(f"\n⚠️  {total_errors} tiles failed — see {results_path}")
         sys.exit(1)
     else:
         print(f"\n✅ All tiles converted successfully")

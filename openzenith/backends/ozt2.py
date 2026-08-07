@@ -215,7 +215,8 @@ class OZT2HFBackend:
     """Fetch OZT2 tiles from HuggingFace datasets.
 
     Downloads tiles on-demand from a HuggingFace dataset repository,
-    with optional local disk caching.
+    with optional local disk caching. Uses direct HTTP requests to avoid
+    HfFileSystem issues.
 
     Usage:
         from openzenith.backends.ozt2 import OZT2HFBackend
@@ -236,26 +237,19 @@ class OZT2HFBackend:
     ):
         self.repo_id = repo_id
         self.revision = revision
-        self._client = None
         self._cache_dir = Path(cache_dir) if cache_dir else None
 
-    def _get_client(self):
-        """Lazily create HuggingFace hub client."""
-        if self._client is not None:
-            return self._client
-        try:
-            from huggingface_hub import HfFileSystem
-        except ImportError:
-            raise ImportError(
-                "huggingface_hub required for HuggingFace backend. "
-                "Install with: pip install huggingface_hub"
-            )
-        self._client = HfFileSystem(repo_id=self.repo_id, revision=self.revision)
-        return self._client
+    def _get_token(self) -> str | None:
+        """Get HF token from env or token attribute."""
+        import os
+        return os.environ.get("HF_TOKEN")
 
-    def _tile_key(self, z: int, x: int, y: int) -> str:
-        """Build the HuggingFace file path for a tile."""
-        return f"tiles/z{z}/{x}/{y}.ozt2"
+    def _tile_url(self, z: int, x: int, y: int) -> str:
+        """Build the HuggingFace raw URL for a tile."""
+        return (
+            f"https://huggingface.co/datasets/{self.repo_id}"
+            f"/resolve/{self.revision}/tiles/z{z}/{x}/{y}.ozt2"
+        )
 
     def _cached_path(self, z: int, x: int, y: int) -> Path | None:
         """Get local cache path for a tile, if cached."""
@@ -266,7 +260,7 @@ class OZT2HFBackend:
     def fetch_tile(self, z: int, x: int, y: int) -> np.ndarray | None:
         """Fetch and decode an OZT2 tile from HuggingFace.
 
-        Checks local cache first, then downloads from HuggingFace.
+        Checks local cache first, then downloads via HTTP.
         """
         # Check local cache
         cached = self._cached_path(z, x, y)
@@ -278,12 +272,18 @@ class OZT2HFBackend:
             except Exception:
                 pass
 
-        # Download from HuggingFace
-        key = self._tile_key(z, x, y)
+        # Download from HuggingFace via HTTP
+        url = self._tile_url(z, x, y)
+        token = self._get_token()
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
         try:
-            client = self._get_client()
-            with client.open(key, "rb") as f:
-                data = f.read()
+            import urllib.request
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = resp.read()
             elevation, _ = decode(data)
 
             # Cache locally if cache_dir is set
@@ -301,11 +301,17 @@ class OZT2HFBackend:
         if cached and cached.exists():
             return cached.read_bytes()
 
-        key = self._tile_key(z, x, y)
+        url = self._tile_url(z, x, y)
+        token = self._get_token()
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
         try:
-            client = self._get_client()
-            with client.open(key, "rb") as f:
-                data = f.read()
+            import urllib.request
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = resp.read()
             if cached:
                 cached.parent.mkdir(parents=True, exist_ok=True)
                 cached.write_bytes(data)
@@ -314,11 +320,18 @@ class OZT2HFBackend:
             return None
 
     def tile_exists(self, z: int, x: int, y: int) -> bool:
-        """Check if a tile exists on HuggingFace."""
-        key = self._tile_key(z, x, y)
+        """Check if a tile exists on HuggingFace via HEAD request."""
+        url = self._tile_url(z, x, y)
+        token = self._get_token()
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
         try:
-            client = self._get_client()
-            return client.exists(key)
+            import urllib.request
+            req = urllib.request.Request(url, method="HEAD", headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status == 200
         except Exception:
             return False
 
@@ -336,14 +349,19 @@ class OZT2HFBackend:
 
         cached_count = 0
         for z, x, y in tiles:
-            key = self._tile_key(z, x, y)
             cached = self._cached_path(z, x, y)
             if cached and cached.exists():
                 continue
             try:
-                client = self._get_client()
-                with client.open(key, "rb") as f:
-                    data = f.read()
+                url = self._tile_url(z, x, y)
+                token = self._get_token()
+                headers = {}
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                import urllib.request
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = resp.read()
                 if cached:
                     cached.parent.mkdir(parents=True, exist_ok=True)
                     cached.write_bytes(data)

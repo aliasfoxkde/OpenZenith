@@ -358,13 +358,13 @@ def _get_elevation_from_ozt2(
         lat: Latitude
         lon: Longitude
         ozt2_dir: Path to OZT2 tiles directory
-        zoom_levels: Zoom levels to try (default: [12, 11, 10, 9, 8])
+        zoom_levels: Zoom levels to try (default: [12, 11, 10, 9, 8, 7])
 
     Returns:
         Elevation in meters, or None if not found.
     """
     if zoom_levels is None:
-        zoom_levels = [12, 11, 10, 9, 8]
+        zoom_levels = [12, 11, 10, 9, 8, 7]
 
     for zoom in zoom_levels:
         x, y = latlon_to_tile(lat, lon, zoom)
@@ -432,7 +432,7 @@ def get_elevation_from_ozt2(
         lat: Latitude (-90 to 90)
         lon: Longitude (-180 to 180)
         ozt2_dir: Path to OZT2 tiles directory
-        zoom_levels: Zoom levels to try (default: [12, 11, 10, 9, 8])
+        zoom_levels: Zoom levels to try (default: [12, 11, 10, 9, 8, 7])
 
     Returns:
         Elevation in meters, or None if no data found.
@@ -517,8 +517,10 @@ def load_ozt2_tiles_from_hf(
     )
 
     # Set as default for elevation queries
+    # snapshot_download returns {cache}/datasets--{repo}/snapshots/{hash}/
+    # and tiles are stored at tiles/z{z}/{x}/{y}.ozt2 inside that directory
     global DEFAULT_OZT2_DIR
-    DEFAULT_OZT2_DIR = Path(local_dir)
+    DEFAULT_OZT2_DIR = Path(local_dir) / "tiles"
     print(f"OZT2 tiles cached at: {DEFAULT_OZT2_DIR}")
     return DEFAULT_OZT2_DIR
 

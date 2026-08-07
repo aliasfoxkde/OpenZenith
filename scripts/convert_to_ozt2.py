@@ -31,7 +31,7 @@ import struct
 import sys
 import time
 import zlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -525,8 +525,8 @@ def main():
     )
     parser.add_argument(
         "--workers", "-w",
-        type=int, default=32,
-        help="Number of parallel workers",
+        type=int, default=2,
+        help="Number of parallel workers (default 2, 4+ may cause OOM)",
     )
     parser.add_argument(
         "--max-rmse",
@@ -638,12 +638,14 @@ def main():
             for y in range(y_min, y_max + 1):
                 zoom_tasks.append((z, x, y, str(merged_dir), str(output_dir), args.max_rmse, args.brotli_quality, args.incremental))
 
-        # Use ThreadPoolExecutor (not ProcessPoolExecutor) — numpy and zlib release the GIL
-        # during decompression/compression, enabling true parallelism without serialization overhead.
+        # ThreadPoolExecutor with executor.map().
+        # executor.submit() + f.done() hangs in Python 3.13 (ThreadPoolExecutor bug).
+        # executor.map() works correctly and yields results in order.
         with ThreadPoolExecutor(max_workers=args.workers) as executor:
-            futures = {executor.submit(convert_tile, t): t for t in zoom_tasks}
-            for future in as_completed(futures):
-                r = future.result()
+            # Use map (not submit+done polling) — map yields completed results correctly.
+            # chunksize=1 so we get results incrementally rather than batching.
+            it = executor.map(convert_tile, zoom_tasks, chunksize=1)
+            for r in it:
                 status = r.get("status", "error")
                 z_results[status] = z_results.get(status, 0) + 1
                 z_done += 1

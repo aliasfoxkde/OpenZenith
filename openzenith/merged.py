@@ -1,4 +1,7 @@
-"""Reader for OZCHNK01 merged chunk files from HuggingFace (aliasfox/srtm30m-merged).
+"""Reader for OZCHNK01 merged chunk files.
+
+These are the source .merged files from HuggingFace (aliasfox/srtm30m-merged).
+Each 1°×1° tile contains 225 chunks (15×15) of 256×256 pixels each.
 
 Binary layout:
     [8 bytes]  Magic: b"OZCHNK01"
@@ -15,8 +18,17 @@ Each chunk is a 256x256 (or edge-adjusted) array of:
 Usage:
     from openzenith.merged import MergedFile
 
+    # Read from local .merged files (e.g. after downloading from HuggingFace)
     mf = MergedFile("/path/to/N00/N00E006.merged")
     chunk = mf.get_chunk(row=0, col=0)  # Returns decompressed Int16 array
+
+    # Or use the convenience function for single-point queries
+    from openzenith.merged import read_elevation_from_merged
+    elev = read_elevation_from_merged(40.7128, -74.0060, "/path/to/srtm30m-merged/")
+
+    # Download from HuggingFace first:
+    #   pip install huggingface_hub
+    #   huggingface-cli download aliasfox/srtm30m-merged --repo-type dataset --local-dir ./srtm30m-merged
 """
 
 import math

@@ -24,6 +24,7 @@ from openzenith.elevation import (
     get_tile_count,
     load_tiles,
     load_ozt2_tiles,
+    load_ozt2_tiles_from_hf,
     download_tiles,
 )
 from openzenith.terrarium import decode_tile, encode_tile
@@ -51,18 +52,19 @@ from openzenith.tile_format_v2 import (
     validate_roundtrip as validate_roundtrip_v2,
 )
 
-# OZT2 backends (lazy — require boto3 for R2)
+# Lazy imports for optional heavy dependencies
 def __getattr__(name):
+    # OZT2 backends
     if name == "OZT2Backend":
         from openzenith.backends.ozt2 import OZT2Backend
         return OZT2Backend
     if name == "OZT2R2Backend":
         from openzenith.backends.ozt2 import OZT2R2Backend
         return OZT2R2Backend
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-# Lazy imports for optional heavy dependencies
-def __getattr__(name):
+    if name == "OZT2HFBackend":
+        from openzenith.backends.ozt2 import OZT2HFBackend
+        return OZT2HFBackend
+    # Hydrology
     if name == "d8_flow_direction":
         from openzenith.hydrology import d8_flow_direction
         return d8_flow_direction
@@ -81,6 +83,7 @@ def __getattr__(name):
     if name == "trace_downstream":
         from openzenith.tracing import trace_downstream
         return trace_downstream
+    # Terrain
     if name == "slope":
         from openzenith.terrain import slope
         return slope
@@ -114,18 +117,21 @@ def __getattr__(name):
     if name == "color_relief":
         from openzenith.terrain import color_relief
         return color_relief
+    # Export
     if name == "grid_to_geojson":
         from openzenith.export import grid_to_geojson
         return grid_to_geojson
     if name == "contour_to_geojson":
         from openzenith.export import contour_to_geojson
         return contour_to_geojson
+    # Hydrology extra
     if name == "fill_depressions":
         from openzenith.hydrology import fill_depressions
         return fill_depressions
     if name == "twi":
         from openzenith.hydrology import twi
         return twi
+    # Terrain extra
     if name == "profile_curvature":
         from openzenith.terrain import profile_curvature
         return profile_curvature
@@ -135,9 +141,6 @@ def __getattr__(name):
     if name == "drainage_density":
         from openzenith.terrain import drainage_density
         return drainage_density
-    if name == "download_tiles":
-        from openzenith.elevation import download_tiles
-        return download_tiles
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -165,6 +168,7 @@ __all__ = [
     # Backends
     "OZT2Backend",
     "OZT2R2Backend",
+    "OZT2HFBackend",
     # Terrarium
     "decode_tile",
     "encode_tile",
@@ -175,6 +179,7 @@ __all__ = [
     "get_tile_count",
     "load_tiles",
     "load_ozt2_tiles",
+    "load_ozt2_tiles_from_hf",
     "download_tiles",
     # Hydrology (lazy)
     "d8_flow_direction",

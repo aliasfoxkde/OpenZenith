@@ -209,3 +209,145 @@ class OZT2R2Backend:
             return True
         except Exception:
             return False
+
+
+class OZT2HFBackend:
+    """Fetch OZT2 tiles from HuggingFace datasets.
+
+    Downloads tiles on-demand from a HuggingFace dataset repository,
+    with optional local disk caching.
+
+    Usage:
+        from openzenith.backends.ozt2 import OZT2HFBackend
+
+        backend = OZT2HFBackend("aliasfox/srtm30m-ozt2-v2")
+        grid = backend.fetch_tile(z=10, x=163, y=395)
+
+        # With local cache
+        backend = OZT2HFBackend("aliasfox/srtm30m-ozt2-v2", cache_dir="/tmp/ozt2_cache")
+        grid = backend.fetch_tile(z=10, x=163, y=395)
+    """
+
+    def __init__(
+        self,
+        repo_id: str = "aliasfox/srtm30m-ozt2-v2",
+        cache_dir: str | Path | None = None,
+        revision: str = "main",
+    ):
+        self.repo_id = repo_id
+        self.revision = revision
+        self._client = None
+        self._cache_dir = Path(cache_dir) if cache_dir else None
+
+    def _get_client(self):
+        """Lazily create HuggingFace hub client."""
+        if self._client is not None:
+            return self._client
+        try:
+            from huggingface_hub import HfFileSystem
+        except ImportError:
+            raise ImportError(
+                "huggingface_hub required for HuggingFace backend. "
+                "Install with: pip install huggingface_hub"
+            )
+        self._client = HfFileSystem(repo_id=self.repo_id, revision=self.revision)
+        return self._client
+
+    def _tile_key(self, z: int, x: int, y: int) -> str:
+        """Build the HuggingFace file path for a tile."""
+        return f"tiles/z{z}/{x}/{y}.ozt2"
+
+    def _cached_path(self, z: int, x: int, y: int) -> Path | None:
+        """Get local cache path for a tile, if cached."""
+        if self._cache_dir is None:
+            return None
+        return self._cache_dir / f"z{z}" / str(x) / f"{y}.ozt2"
+
+    def fetch_tile(self, z: int, x: int, y: int) -> np.ndarray | None:
+        """Fetch and decode an OZT2 tile from HuggingFace.
+
+        Checks local cache first, then downloads from HuggingFace.
+        """
+        # Check local cache
+        cached = self._cached_path(z, x, y)
+        if cached and cached.exists():
+            try:
+                data = cached.read_bytes()
+                elevation, _ = decode(data)
+                return elevation
+            except Exception:
+                pass
+
+        # Download from HuggingFace
+        key = self._tile_key(z, x, y)
+        try:
+            client = self._get_client()
+            with client.open(key, "rb") as f:
+                data = f.read()
+            elevation, _ = decode(data)
+
+            # Cache locally if cache_dir is set
+            if cached:
+                cached.parent.mkdir(parents=True, exist_ok=True)
+                cached.write_bytes(data)
+
+            return elevation
+        except Exception:
+            return None
+
+    def fetch_tile_bytes(self, z: int, x: int, y: int) -> bytes | None:
+        """Fetch raw OZT2 tile bytes from HuggingFace (no decode)."""
+        cached = self._cached_path(z, x, y)
+        if cached and cached.exists():
+            return cached.read_bytes()
+
+        key = self._tile_key(z, x, y)
+        try:
+            client = self._get_client()
+            with client.open(key, "rb") as f:
+                data = f.read()
+            if cached:
+                cached.parent.mkdir(parents=True, exist_ok=True)
+                cached.write_bytes(data)
+            return data
+        except Exception:
+            return None
+
+    def tile_exists(self, z: int, x: int, y: int) -> bool:
+        """Check if a tile exists on HuggingFace."""
+        key = self._tile_key(z, x, y)
+        try:
+            client = self._get_client()
+            return client.exists(key)
+        except Exception:
+            return False
+
+    def prefetch_tiles(self, tiles: list[tuple[int, int, int]]) -> int:
+        """Prefetch multiple tiles into local cache.
+
+        Args:
+            tiles: List of (z, x, y) tuples to download
+
+        Returns:
+            Number of tiles successfully cached.
+        """
+        if self._cache_dir is None:
+            return 0
+
+        cached_count = 0
+        for z, x, y in tiles:
+            key = self._tile_key(z, x, y)
+            cached = self._cached_path(z, x, y)
+            if cached and cached.exists():
+                continue
+            try:
+                client = self._get_client()
+                with client.open(key, "rb") as f:
+                    data = f.read()
+                if cached:
+                    cached.parent.mkdir(parents=True, exist_ok=True)
+                    cached.write_bytes(data)
+                    cached_count += 1
+            except Exception:
+                continue
+        return cached_count

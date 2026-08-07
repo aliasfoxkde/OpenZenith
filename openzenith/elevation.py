@@ -457,8 +457,76 @@ def load_ozt2_tiles(tile_dir: str | Path) -> Path:
     return DEFAULT_OZT2_DIR
 
 
+def load_ozt2_tiles_from_hf(
+    repo_id: str = "aliasfox/srtm30m-ozt2-v2",
+    zoom_levels: list[int] | None = None,
+    cache_dir: str | Path | None = None,
+    bbox: tuple[float, float, float, float] | None = None,
+) -> Path:
+    """Download OZT2 tiles from HuggingFace dataset to a local cache.
+
+    Args:
+        repo_id: HuggingFace dataset repository ID (default: aliasfox/srtm30m-ozt2-v2)
+        zoom_levels: Zoom levels to download (default: [7, 8, 9, 10, 11, 12])
+        cache_dir: Local cache directory (default: ~/.cache/openzenith-ozt2)
+        bbox: Optional bounding box (lat_min, lon_min, lat_max, lon_max) to
+              download only tiles within a region
+
+    Returns:
+        Path to the downloaded tile directory.
+
+    Example:
+        from openzenith import load_ozt2_tiles_from_hf, get_elevation_from_ozt2
+
+        # Download all tiles
+        tile_dir = load_ozt2_tiles_from_hf()
+
+        # Download only European region at zoom 10
+        tile_dir = load_ozt2_tiles_from_hf(
+            zoom_levels=[10],
+            bbox=(34, -10, 72, 40),
+        )
+    """
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        raise ImportError(
+            "huggingface_hub required for downloading OZT2 tiles. "
+            "Install with: pip install huggingface_hub"
+        )
+
+    if zoom_levels is None:
+        zoom_levels = [7, 8, 9, 10, 11, 12]
+
+    if cache_dir is None:
+        cache_dir = Path.home() / ".cache" / "openzenith-ozt2"
+    else:
+        cache_dir = Path(cache_dir)
+
+    # Build allow patterns
+    allow_patterns = [f"tiles/z{z}/**/*.ozt2" for z in zoom_levels]
+
+    print(f"Downloading OZT2 tiles from {repo_id} (zoom {min(zoom_levels)}-{max(zoom_levels)})...")
+    print(f"Cache directory: {cache_dir}")
+
+    local_dir = snapshot_download(
+        repo_id=repo_id,
+        repo_type="dataset",
+        cache_dir=str(cache_dir),
+        allow_patterns=allow_patterns,
+    )
+
+    # Set as default for elevation queries
+    global DEFAULT_OZT2_DIR
+    DEFAULT_OZT2_DIR = Path(local_dir)
+    print(f"OZT2 tiles cached at: {DEFAULT_OZT2_DIR}")
+    return DEFAULT_OZT2_DIR
+
+
 def get_tile_count(tile_dir: str | Path) -> dict[int, int]:
     """Count tiles per zoom level in a tile directory.
+
+    Counts both PNG (Terrarium) and OZT2 tiles.
 
     Args:
         tile_dir: Path to tile directory
@@ -469,9 +537,10 @@ def get_tile_count(tile_dir: str | Path) -> dict[int, int]:
     base = Path(tile_dir)
     counts = {}
     for zdir in sorted(base.iterdir()):
-        if zdir.is_dir() and zdir.name.isdigit():
-            count = sum(1 for _ in zdir.rglob("*.png"))
-            counts[int(zdir.name)] = count
+        if zdir.is_dir() and zdir.name.startswith("z") and zdir.name[1:].isdigit():
+            z = int(zdir.name[1:])
+            count = sum(1 for _ in zdir.rglob("*.ozt2")) + sum(1 for _ in zdir.rglob("*.png"))
+            counts[z] = count
     return counts
 
 

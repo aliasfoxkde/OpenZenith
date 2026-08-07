@@ -38,7 +38,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from openzenith.tile_format_v2 import auto_encode, decode, PRED_GRADIENT, COMP_BROTLI
+from openzenith.tile_format_v2 import encode, decode, PRED_GRADIENT, COMP_BROTLI, COMP_ZSTD, COMP_ZLIB
 from openzenith.merged import MergedFile, get_merged_file, lat_lon_to_srtm_name
 
 NODATA = -32768
@@ -333,7 +333,7 @@ def _init_worker(merged_dir_str: str) -> dict[tuple[int, int], dict]:
 
 def convert_tile(args) -> dict:
     """Convert a single tile: check land → generate grid → OZT2 encode → write."""
-    z, x, y, merged_dir, output_dir, max_rmse, compress_level, incremental = args
+    z, x, y, merged_dir, output_dir, max_rmse, codec, compress_level, incremental = args
 
     out_path = Path(output_dir) / f"z{z}" / str(x) / f"{y}.ozt2"
 
@@ -352,7 +352,13 @@ def convert_tile(args) -> dict:
         if np.all(grid == NODATA):
             return {"status": "no-data", "z": z, "x": x, "y": y, "reason": "all-nodata"}
 
-        encoded, meta = auto_encode(grid, nodata_value=NODATA, max_rmse=max_rmse, compress_level=compress_level)
+        # Encode with specified codec (default: Zstd — 30x faster than Brotli)
+        encoded = encode(
+            grid, nodata_value=NODATA,
+            predictor=PRED_GRADIENT,
+            compressor=codec,
+            compress_level=compress_level,
+        )
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(encoded)
@@ -361,10 +367,7 @@ def convert_tile(args) -> dict:
             "status": "ok",
             "z": z, "x": x, "y": y,
             "size": len(encoded),
-            "bits": meta.get("bits_per_pixel", 0),
-            "rmse": meta.get("rmse", 0),
-            "vmin": meta.get("min_elevation", 0),
-            "vmax": meta.get("max_elevation", 0),
+            "codec": codec,
         }
     except Exception as e:
         return {"status": "error", "z": z, "x": x, "y": y, "error": str(e)}
@@ -386,7 +389,8 @@ def iter_task_tuples(
     zoom_range: tuple[int, int],
     merged_dir: Path,
     max_rmse: float = 1.0,
-    compress_level: int = 9,
+    codec: int = COMP_ZSTD,
+    compress_level: int = 3,
 ):
     """Generator that yields task tuples one at a time (memory-efficient)."""
     land_tiles = 0
@@ -403,7 +407,7 @@ def iter_task_tuples(
 
         for x in range(n):
             for y in range(y_min, y_max + 1):
-                yield (z, x, y, str(merged_dir), "", max_rmse, compress_level, False)
+                yield (z, x, y, str(merged_dir), "", max_rmse, codec, compress_level, False)
                 land_tiles += 1
 
         if z <= 6:
@@ -419,7 +423,8 @@ def build_task_list(
     output_dir: Path,
     merged_dir: Path,
     max_rmse: float = 1.0,
-    compress_level: int = 9,
+    codec: int = COMP_ZSTD,
+    compress_level: int = 3,
 ) -> tuple[list, dict[tuple[int, int], dict]]:
     """Build list of land-bearing tiles to convert.
 
@@ -428,7 +433,7 @@ def build_task_list(
     """
     srtm_tiles = discover_srtm_tiles(Path(merged_dir))
     print(f"  Found {len(srtm_tiles)} SRTM tiles on disk")
-    return list(iter_task_tuples(zoom_range, merged_dir, max_rmse, compress_level))
+    return list(iter_task_tuples(zoom_range, merged_dir, max_rmse, codec, compress_level))
 
 
 def count_estimated_tiles(zoom_range: tuple[int, int]) -> int:
@@ -537,8 +542,8 @@ def main():
     )
     parser.add_argument(
         "--workers", "-w",
-        type=int, default=4,
-        help="Number of parallel workers",
+        type=int, default=8,
+        help="Number of parallel workers (default: 8)",
     )
     parser.add_argument(
         "--max-rmse",
@@ -546,10 +551,22 @@ def main():
         help="Maximum RMSE for adaptive bit-depth selection (meters)",
     )
     parser.add_argument(
+        "--codec",
+        choices=["brotli", "zstd", "zlib"],
+        default="zstd",
+        help="Compression codec (default: zstd, 30x faster than brotli)",
+    )
+    parser.add_argument(
+        "--compress-level",
+        type=int, default=3,
+        dest="compress_level",
+        help="Compression level (zstd: 1-22 default 3, brotli: 0-11 default 9)",
+    )
+    parser.add_argument(
         "--brotli-quality", "-q",
         type=int, default=9,
         dest="brotli_quality",
-        help="Brotli compression quality 0-11 (default 9, faster than 11, <1%% quality loss)",
+        help="(Deprecated) Use --codec zstd --compress-level 3 instead",
     )
     parser.add_argument(
         "--incremental",
@@ -572,6 +589,10 @@ def main():
     output_dir = Path(args.output)
     nas_backup = Path(args.nas_backup) if args.nas_backup else None
 
+    # Resolve codec string to constant
+    CODEC_MAP = {"brotli": COMP_BROTLI, "zstd": COMP_ZSTD, "zlib": COMP_ZLIB}
+    codec = CODEC_MAP[args.codec]
+
     if not merged_dir.exists():
         print(f"❌ Input directory not found: {merged_dir}")
         sys.exit(1)
@@ -593,7 +614,7 @@ def main():
     print(f"  Zoom:    z{z_start}–z{z_end}")
     print(f"  Workers: {args.workers}")
     print(f"  Max RMSE: {args.max_rmse}m")
-    print(f"  Brotli:  quality={args.brotli_quality}")
+    print(f"  Codec:   {args.codec} (level={args.compress_level})")
     print(f"  NAS backup: {nas_backup if nas_backup else 'none'}")
     print(f"  Mode:    {'incremental' if args.incremental else 'full convert'}")
     print(f"{'=' * 60}")
@@ -604,11 +625,6 @@ def main():
     print(f"Estimated tiles: {total_tiles_estimate:,}")
     print(f"Starting conversion...")
     print()
-
-    # Initialize worker globals in main thread (shared to all threads via memory)
-    print("Initializing worker...")
-    _init_worker(str(merged_dir))
-    print(f"Worker ready: {len(_worker_srtm_tiles)} SRTM tiles indexed")
 
     # Pre-count tiles per zoom (fast — just math, no I/O)
     zoom_tile_counts: dict[int, int] = {}
@@ -627,6 +643,9 @@ def main():
     total_no_data = 0
     total_errors = 0
     completed_zooms = []
+
+    # Batch size: tiles per convert_tile_batch submission
+    BATCH_SIZE = 32
 
     for z in range(z_start, z_end + 1):
         zoom_t0 = time.time()
@@ -648,31 +667,39 @@ def main():
         y_max = max(0, min(y_max, n - 1))
         for x in range(n):
             for y in range(y_min, y_max + 1):
-                zoom_tasks.append((z, x, y, str(merged_dir), str(output_dir), args.max_rmse, args.brotli_quality, args.incremental))
+                zoom_tasks.append((z, x, y, str(merged_dir), str(output_dir), args.max_rmse, codec, args.compress_level, args.incremental))
 
         # ProcessPoolExecutor with wait() polling.
         # as_completed() hangs with ProcessPoolExecutor in this environment (Python 3.13 multiprocessing).
         # wait() returns when all submitted futures complete (no notification needed).
         # Process-level LRU caches in merged.py prevent memory growth.
+        # Each worker initializes via _init_worker (set as initializer below).
         import time as _time
-        with ProcessPoolExecutor(max_workers=args.workers) as executor:
+        with ProcessPoolExecutor(
+            max_workers=args.workers,
+            initializer=_init_worker,
+            initargs=(str(merged_dir),),
+        ) as executor:
             futures: list = []
-            for t in zoom_tasks:
-                futures.append(executor.submit(convert_tile, t))
+            # Submit in batches of BATCH_SIZE for better chunk cache locality
+            for i in range(0, len(zoom_tasks), BATCH_SIZE):
+                batch = zoom_tasks[i:i + BATCH_SIZE]
+                futures.append(executor.submit(convert_tile_batch, batch))
 
             # Poll with wait() in short intervals to get results incrementally
             while futures:
                 done, futures = wait(futures, timeout=5.0)
                 for f in done:
-                    r = f.result()
-                    status = r.get("status", "error")
-                    z_results[status] = z_results.get(status, 0) + 1
-                    z_done += 1
+                    results = f.result()  # convert_tile_batch returns a list
+                    for r in results:
+                        status = r.get("status", "error")
+                        z_results[status] = z_results.get(status, 0) + 1
+                        z_done += 1
 
-                    if status == "error":
-                        z_errors.append(r)
-                    elif status in ("ok", "skipped"):
-                        z_bytes += r.get("size", 0)
+                        if status == "error":
+                            z_errors.append(r)
+                        elif status in ("ok", "skipped"):
+                            z_bytes += r.get("size", 0)
 
                     # Progress every 5k tiles
                     if z_done % 5000 == 0 or z_done == z_tile_count:

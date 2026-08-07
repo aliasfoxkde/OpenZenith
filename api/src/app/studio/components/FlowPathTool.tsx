@@ -67,7 +67,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
         type: "FeatureCollection",
         features: features.map((p) => p.geojson as GeoJSON.Feature),
       };
-      (mapRef2.current.getSource(FLOW_SOURCE) as maplibregl.GeoJSONSource).setData(fc);
+      ((mapRef2.current.getSource(FLOW_SOURCE) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void }).setData(fc));
     },
     [],
   );
@@ -229,7 +229,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           type: "FeatureCollection",
           features: [...segments, startFeature],
         };
-        const src = currentMap.getSource(FLOW_SOURCE) as maplibregl.GeoJSONSource | undefined;
+        const src = currentMap.getSource(FLOW_SOURCE) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void } | undefined;
         if (src) {
           src.setData(fc);
         }
@@ -238,7 +238,8 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
         if (result.coordinates.length > 0) {
           const lons = result.coordinates.map((c) => c[0]);
           const lats = result.coordinates.map((c) => c[1]);
-          currentMap.fitBounds(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (currentMap.fitBounds as (bounds: any, options?: any) => void)(
             [
               [Math.min(...lons), Math.min(...lats)],
               [Math.max(...lons), Math.max(...lats)],

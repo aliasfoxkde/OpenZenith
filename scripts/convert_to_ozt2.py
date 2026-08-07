@@ -24,7 +24,6 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -40,11 +39,15 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from openzenith.tile_format_v2 import auto_encode, decode, PRED_GRADIENT, COMP_BROTLI
-from openzenith.merged import MergedFile, lat_lon_to_srtm_name
+from openzenith.merged import MergedFile, get_merged_file, lat_lon_to_srtm_name
 
 NODATA = -32768
 TILE_SIZE = 256
-OUTPUT_ZOOMS = list(range(0, 15))  # z0–z14
+
+# SRTM latitude coverage
+SRTM_LAT_MIN = -60
+SRTM_LAT_MAX = 60
+
 
 # ─── Coordinate utilities ────────────────────────────────────────────────────
 
@@ -67,119 +70,288 @@ def xyz_tile_to_lat_lon_bounds(z: int, x: int, y: int) -> tuple[float, float, fl
     return lat_min, lat_max, lon_min, lon_max
 
 
-def mercator_sample(lat: float, lon: float, elevation_m: float | None) -> tuple[float, float]:
-    """Convert lat/lon/elev to Web Mercator meters (for tile sampling)."""
-    lat = max(-85.0511, min(85.0511, lat))
-    lon = max(-180.0, min(180.0, lon))
-    x = (lon + 180.0) / 360.0 * 256.0
-    y = (1.0 - math.log(math.tan(math.radians(lat)) + 1.0 / math.cos(math.radians(lat))) / math.pi) / 2.0 * 256.0
-    return x, y
+def mercator_lat_to_tile_y(lat: float, zoom: int) -> int:
+    """Convert latitude to tile y coordinate (Web Mercator)."""
+    n = 2 ** zoom
+    lat_rad = math.radians(lat)
+    y = int((1.0 - math.log(math.tan(lat_rad) + 1.0 / math.cos(lat_rad)) / math.pi) / 2.0 * n)
+    return y
 
 
-def sample_from_merged(lat: float, lon: float, merged_dir: Path) -> int | None:
-    """Sample elevation at a single lat/lon from .merged files.
+# ─── SRTM tile discovery ─────────────────────────────────────────────────────
 
-    Returns elevation in meters, or None if over ocean/no-data.
+# srtm_tiles maps (lat_deg, lon_deg) → info_dict
+# info_dict: {exists, has_data, rows, cols}
+
+
+def _tile_name_from_lat_lon(lat: int, lon: int) -> str:
+    """Construct SRTM tile name from integer lat/lon degrees."""
+    lat_dir = f"N{abs(lat):02d}" if lat >= 0 else f"S{abs(lat):02d}"
+    lon_dir = f"E{abs(lon):03d}" if lon >= 0 else f"W{abs(lon):03d}"
+    return f"{lat_dir}{lon_dir}"
+
+
+def load_srtm_index(merged_dir: Path) -> dict[tuple[int, int], dict]:
+    """Load SRTM tile index from cached JSON (fast path)."""
+    index_path = merged_dir / "srtm_index.json"
+    if index_path.exists():
+        import json as _json
+        try:
+            raw = _json.loads(index_path.read_text())
+            # JSON: {"35,-106": {has_data, rows, cols}} → {(lat, lon): info}
+            result = {}
+            for k, v in raw.items():
+                parts = k.split(",")
+                lat = int(parts[0])
+                lon = int(parts[1])
+                result[(lat, lon)] = v
+            return result
+        except Exception:
+            pass
+    return _scan_srtm_tiles(merged_dir)
+
+
+def _scan_srtm_tiles(merged_dir: Path) -> dict[tuple[int, int], dict]:
+    """Slow fallback: scan all .merged files to build index."""
+    from scripts.scan_srtm_tiles import scan_merged_header
+    tile_map = {}
+    if not merged_dir.exists():
+        return tile_map
+    for lat_dir in sorted(merged_dir.iterdir()):
+        if not lat_dir.is_dir():
+            continue
+        for merged_file in sorted(lat_dir.glob("*.merged")):
+            name = merged_file.stem
+            lat_str = name[:3]
+            lon_str = name[3:]
+            try:
+                lat_deg = int(lat_str[1:])
+                if lat_str[0] == "S":
+                    lat_deg = -lat_deg
+                lon_deg = int(lon_str[1:])
+                if lon_str[0] == "W":
+                    lon_deg = -lon_deg
+            except ValueError:
+                continue
+            info = scan_merged_header(merged_file)
+            if info:
+                tile_map[(lat_deg, lon_deg)] = info
+    return tile_map
+
+
+def discover_srtm_tiles(merged_dir: Path) -> dict[tuple[int, int], dict]:
+    """Load or build SRTM tile index (JSON cache → slow scan fallback)."""
+    return load_srtm_index(merged_dir)
+
+
+def tile_has_land(
+    z: int, x: int, y: int,
+    srtm_tiles: dict[tuple[int, int], dict],
+    merged_dir: Path,
+    sample_points: int = 16,
+) -> bool:
+    """Check if a Mercator tile has any land by sampling strategic points.
+
+    Groups sample points by SRTM tile and opens each MergedFile once,
+    avoiding redundant file opens. Returns False for ocean-only tiles.
     """
-    tile_name = lat_lon_to_srtm_name(lat, lon)
-    lat_dir = tile_name[:3]
-    merged_path = merged_dir / lat_dir / f"{tile_name}.merged"
+    lat_min, lat_max, lon_min, lon_max = xyz_tile_to_lat_lon_bounds(z, x, y)
 
-    if not merged_path.exists():
-        return None
+    # Skip tiles entirely outside SRTM latitude coverage
+    if lat_max < SRTM_LAT_MIN or lat_min > SRTM_LAT_MAX:
+        return False
 
-    try:
-        mf = MergedFile(merged_path)
-    except Exception:
-        return None
+    # Clamp sampling bounds to SRTM coverage
+    sample_lat_min = max(lat_min, SRTM_LAT_MIN)
+    sample_lat_max = min(lat_max, SRTM_LAT_MAX)
+    if sample_lat_max <= sample_lat_min:
+        return False
 
-    # Find which chunk contains this point
-    lat_frac = lat - math.floor(lat)
-    lon_frac = lon - math.floor(lon)
-    lat_pixel = min(3600, max(0, round((1.0 - lat_frac) * 3600)))
-    lon_pixel = min(3600, max(0, round(lon_frac * 3600)))
+    lat_step = (sample_lat_max - sample_lat_min) / sample_points
+    lon_step = (lon_max - lon_min) / sample_points
 
-    chunk_row = min(14, lat_pixel // 256)
-    chunk_col = min(14, lon_pixel // 256)
+    # Group sample points by SRTM tile to open each file once
+    # { (srtm_lat, srtm_lon): [(lat, lon), ...] }
+    samples_by_tile: dict[tuple[int, int], list[tuple[float, float]]] = {}
+    for row in range(sample_points):
+        for col in range(sample_points):
+            lat = sample_lat_min + (row + 0.5) * lat_step
+            lon = lon_min + (col + 0.5) * lon_step
 
-    idx = chunk_row * mf.cols + chunk_col
-    if idx >= len(mf.index) or mf.index[idx]["size"] == 0:
-        return None
+            srtm_lat = math.floor(lat)
+            srtm_lon = math.floor(lon)
 
-    try:
-        chunk = mf.get_chunk(chunk_row, chunk_col)
-    except Exception:
-        return None
+            if srtm_lat < -60 or srtm_lat >= 60 or srtm_lon < -180 or srtm_lon >= 180:
+                continue
+            if (srtm_lat, srtm_lon) not in srtm_tiles:
+                continue
+            if not srtm_tiles[(srtm_lat, srtm_lon)].get("has_data", False):
+                continue
 
-    local_row = lat_pixel - chunk_row * 256
-    local_col = lon_pixel - chunk_col * 256
-    local_row = min(local_row, chunk.shape[0] - 1)
-    local_col = min(local_col, chunk.shape[1] - 1)
+            samples_by_tile.setdefault((srtm_lat, srtm_lon), []).append((lat, lon))
 
-    elev = int(chunk[local_row, local_col])
-    if elev == NODATA:
-        return None
-    return elev
+    # Check each SRTM tile once, scanning all its sample points
+    for (srtm_lat, srtm_lon), sample_locs in samples_by_tile.items():
+        tile_name = _tile_name_from_lat_lon(srtm_lat, srtm_lon)
+        lat_dir = tile_name[:3]
+        merged_path = merged_dir / lat_dir / f"{tile_name}.merged"
+        if not merged_path.exists():
+            continue
+
+        try:
+            mf = get_merged_file(merged_path)
+        except Exception:
+            continue
+
+        for lat, lon in sample_locs:
+            lat_frac = lat - math.floor(lat)
+            lon_frac = lon - math.floor(lon)
+            lat_pixel = min(3600, max(0, round((1.0 - lat_frac) * 3600)))
+            lon_pixel = min(3600, max(0, round(lon_frac * 3600)))
+
+            chunk_row = min(14, lat_pixel // 256)
+            chunk_col = min(14, lon_pixel // 256)
+
+            idx = chunk_row * mf.cols + chunk_col
+            if idx >= len(mf.index) or mf.index[idx]["size"] == 0:
+                continue
+
+            try:
+                chunk = mf.get_chunk(chunk_row, chunk_col)
+                local_row = min(lat_pixel - chunk_row * 256, chunk.shape[0] - 1)
+                local_col = min(lon_pixel - chunk_col * 256, chunk.shape[1] - 1)
+                val = chunk[local_row, local_col]
+                if val != NODATA:
+                    return True
+            except Exception:
+                continue
+
+    return False
 
 
 def generate_tile_grid(
     z: int, x: int, y: int,
     merged_dir: Path,
-    srtm_dir: Path | None = None,
+    srtm_tiles: dict[tuple[int, int], dict],
 ) -> np.ndarray:
-    """Generate a 256×256 elevation grid for a tile from source data.
+    """Generate a 256×256 elevation grid for a tile.
 
-    Uses SRTM .merged files. For ocean tiles (no land), returns array of NODATA.
+    Groups all pixel lookups by (SRTM tile, chunk) and reads each chunk once,
+    then assigns values to all pixels that reference it.
+    Ocean pixels remain NODATA.
     """
     lat_min, lat_max, lon_min, lon_max = xyz_tile_to_lat_lon_bounds(z, x, y)
-
-    # Resolution at equator at this zoom
-    meters_per_pixel = (2 * math.pi * 6378137) / (256 * 2 ** z)
     deg_per_pixel_lat = (lat_max - lat_min) / TILE_SIZE
+    deg_per_pixel_lon = (lon_max - lon_min) / TILE_SIZE
 
     grid = np.full((TILE_SIZE, TILE_SIZE), NODATA, dtype=np.int16)
 
-    # Check if tile might have land (simple bbox check)
-    # SRTM covers ±60° latitude
-    if lat_min < -60 or lat_max > 60:
-        # Above/below SRTM coverage — still sample but will return None
-        pass
+    # Group pixel coordinates by (SRTM tile, chunk_row, chunk_col)
+    # {(srtm_lat, srtm_lon, chunk_row, chunk_col): [(grid_row, grid_col, local_row, local_col), ...]}
+    pixels_by_chunk: dict[
+        tuple[int, int, int, int],
+        list[tuple[int, int, int, int]]
+    ] = {}
 
-    for row in range(TILE_SIZE):
-        # Latitude at row center (tile coords: 0 = north, 255 = south)
-        lat = lat_max - (row + 0.5) * deg_per_pixel_lat
+    for grid_row in range(TILE_SIZE):
+        lat = lat_max - (grid_row + 0.5) * deg_per_pixel_lat
+        lat_frac = lat - math.floor(lat)
+        lat_pixel = min(3600, max(0, round((1.0 - lat_frac) * 3600)))
+        chunk_row = min(14, lat_pixel // 256)
+        local_row = min(lat_pixel - chunk_row * 256, 255)
+        srtm_lat = math.floor(lat)
 
-        for col in range(TILE_SIZE):
-            lon = lon_min + (col + 0.5) * (lon_max - lon_min) / TILE_SIZE
-            elev = sample_from_merged(lat, lon, merged_dir)
-            if elev is not None:
-                grid[row, col] = elev
+        for grid_col in range(TILE_SIZE):
+            lon = lon_min + (grid_col + 0.5) * deg_per_pixel_lon
+            lon_frac = lon - math.floor(lon)
+            lon_pixel = min(3600, max(0, round(lon_frac * 3600)))
+            chunk_col = min(14, lon_pixel // 256)
+            local_col = min(lon_pixel - chunk_col * 256, 255)
+            srtm_lon = math.floor(lon)
+
+            if srtm_lat < -60 or srtm_lat >= 60 or srtm_lon < -180 or srtm_lon >= 180:
+                continue
+            if (srtm_lat, srtm_lon) not in srtm_tiles:
+                continue
+            if not srtm_tiles[(srtm_lat, srtm_lon)].get("has_data", False):
+                continue
+
+            pixels_by_chunk.setdefault(
+                (srtm_lat, srtm_lon, chunk_row, chunk_col), []
+            ).append((grid_row, grid_col, local_row, local_col))
+
+    # Process each chunk once, assigning to all its pixels via numpy indexing
+    for (srtm_lat, srtm_lon, chunk_row, chunk_col), pixel_locs in pixels_by_chunk.items():
+        tile_name = _tile_name_from_lat_lon(srtm_lat, srtm_lon)
+        lat_dir = tile_name[:3]
+        merged_path = merged_dir / lat_dir / f"{tile_name}.merged"
+        if not merged_path.exists():
+            continue
+
+        try:
+            mf = get_merged_file(merged_path)
+        except Exception:
+            continue
+
+        idx = chunk_row * mf.cols + chunk_col
+        if idx >= len(mf.index) or mf.index[idx]["size"] == 0:
+            continue
+
+        try:
+            chunk = mf.get_chunk(chunk_row, chunk_col)
+        except Exception:
+            continue
+
+        # Batch-assign all pixels in this chunk using numpy
+        grid_rows = np.array([p[0] for p in pixel_locs], dtype=np.intp)
+        grid_cols = np.array([p[1] for p in pixel_locs], dtype=np.intp)
+        local_rows = np.array([p[2] for p in pixel_locs], dtype=np.intp)
+        local_cols = np.array([p[3] for p in pixel_locs], dtype=np.intp)
+
+        values = chunk[local_rows, local_cols]
+        mask = values != NODATA
+        grid[grid_rows[mask], grid_cols[mask]] = values[mask]
 
     return grid
 
 
+# ─── Worker globals (initialized once per process) ───────────────────────────
+_worker_srtm_tiles: dict[tuple[int, int], dict] = {}
+_worker_merged_dir: Path | None = None
+
+
+def _init_worker(merged_dir_str: str) -> dict[tuple[int, int], dict]:
+    """Initialize worker process: load SRTM index once per worker.
+
+    Returns the index dict so the main process can verify it loaded.
+    """
+    global _worker_srtm_tiles, _worker_merged_dir
+    _worker_merged_dir = Path(merged_dir_str)
+    _worker_srtm_tiles = discover_srtm_tiles(_worker_merged_dir)
+    return _worker_srtm_tiles
+
+
 def convert_tile(args) -> dict:
-    """Convert a single tile: generate grid → OZT2 encode → write."""
+    """Convert a single tile: check land → generate grid → OZT2 encode → write."""
     z, x, y, merged_dir, output_dir, max_rmse, incremental, validate = args
 
     out_path = Path(output_dir) / f"z{z}" / str(x) / f"{y}.ozt2"
 
-    # Incremental: skip if already exists and valid
+    # Incremental: skip if already exists
     if incremental and out_path.exists():
-        if validate:
-            try:
-                data = out_path.read_bytes()
-                decoded, meta = decode(data)
-                is_valid = True
-            except Exception:
-                is_valid = False
-            if is_valid:
-                return {"status": "skipped", "z": z, "x": x, "y": y, "size": out_path.stat().st_size}
-        else:
-            return {"status": "skipped", "z": z, "x": x, "y": y, "size": out_path.stat().st_size}
+        return {"status": "skipped", "z": z, "x": x, "y": y, "size": out_path.stat().st_size}
+
+    # Land check: sample 16 points across the tile (uses worker globals)
+    if not tile_has_land(z, x, y, _worker_srtm_tiles, _worker_merged_dir, sample_points=16):
+        return {"status": "no-data", "z": z, "x": x, "y": y, "reason": "ocean tile"}
 
     try:
-        grid = generate_tile_grid(z, x, y, Path(merged_dir))
+        grid = generate_tile_grid(z, x, y, _worker_merged_dir, _worker_srtm_tiles)
+
+        # Skip tiles that are entirely NODATA after generation
+        if np.all(grid == NODATA):
+            return {"status": "no-data", "z": z, "x": x, "y": y, "reason": "all-nodata"}
+
         encoded, meta = auto_encode(grid, nodata_value=NODATA, max_rmse=max_rmse)
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,23 +370,57 @@ def convert_tile(args) -> dict:
         return {"status": "error", "z": z, "x": x, "y": y, "error": str(e)}
 
 
-def build_task_list(zoom_range: tuple[int, int], output_dir: Path, merged_dir: Path) -> list:
-    """Build list of all tiles to convert for the given zoom range."""
+def build_task_list(
+    zoom_range: tuple[int, int],
+    output_dir: Path,
+    merged_dir: Path,
+) -> tuple[list, dict[tuple[int, int], dict]]:
+    """Build list of land-bearing tiles to convert.
+
+    Returns (tasks, srtm_tiles) where tasks is a list of convert_tile args
+    and srtm_tiles is the SRTM tile index.
+    """
+    srtm_tiles = discover_srtm_tiles(Path(merged_dir))
+    print(f"  Found {len(srtm_tiles)} SRTM tiles on disk")
+
     tasks = []
+    land_tiles = 0
+    ocean_skipped = 0
+
     for z in range(zoom_range[0], zoom_range[1] + 1):
         n = 2 ** z
+
+        # Compute y range that overlaps SRTM latitude coverage (-60 to +60)
+        y_min = mercator_lat_to_tile_y(SRTM_LAT_MAX, z)
+        y_max = mercator_lat_to_tile_y(SRTM_LAT_MIN, z)
+        y_min = max(0, min(y_min, n - 1))
+        y_max = max(0, min(y_max, n - 1))
+
         for x in range(n):
-            for y in range(n):
+            for y in range(y_min, y_max + 1):
                 tasks.append((z, x, y, str(merged_dir), str(output_dir), 1.0, False, False))
+                land_tiles += 1
+
+        if z <= 6:
+            ocean_skipped += n * n - (y_max - y_min + 1) * n
+
+    print(f"  Land tiles (SRTM overlap): {land_tiles:,}")
+    if ocean_skipped > 0:
+        print(f"  Ocean tiles (skipped):     {ocean_skipped:,}")
     return tasks
 
 
-def count_tile_tasks(zoom_range: tuple[int, int]) -> int:
-    """Count total tiles for zoom range (for progress display)."""
+def count_estimated_tiles(zoom_range: tuple[int, int]) -> int:
+    """Estimate tile count for zoom range (upper bound)."""
     total = 0
     for z in range(zoom_range[0], zoom_range[1] + 1):
         n = 2 ** z
-        total += n * n
+        y_min = mercator_lat_to_tile_y(SRTM_LAT_MAX, z)
+        y_max = mercator_lat_to_tile_y(SRTM_LAT_MIN, z)
+        y_min = max(0, min(y_min, n - 1))
+        y_max = max(0, min(y_max, n - 1))
+        tiles_in_zoom = n * (y_max - y_min + 1)
+        total += tiles_in_zoom
     return total
 
 
@@ -262,7 +468,6 @@ def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: fl
                 total_tiles += 1
                 total_bytes += size
 
-        # Estimate bit distribution from first 100 tiles
         sample_tiles = list(zdir.rglob("*.ozt2"))[:100]
         for t in sample_tiles:
             try:
@@ -343,7 +548,6 @@ def main():
         print(f"❌ Input directory not found: {merged_dir}")
         sys.exit(1)
 
-    # Parse zoom range
     try:
         if "-" in args.zoom:
             z_start, z_end = map(int, args.zoom.split("-"))
@@ -354,13 +558,12 @@ def main():
         print(f"❌ Invalid zoom range: {args.zoom}")
         sys.exit(1)
 
-    total_tiles = count_tile_tasks(zoom_range)
+    estimated = count_estimated_tiles(zoom_range)
     print(f"OpenZenith OZT2 Tile Generator")
     print(f"{'=' * 60}")
     print(f"  Input:   {merged_dir}")
     print(f"  Output:  {output_dir}")
     print(f"  Zoom:    z{z_start}–z{z_end}")
-    print(f"  Tiles:   {total_tiles:,}")
     print(f"  Workers: {args.workers}")
     print(f"  Max RMSE: {args.max_rmse}m")
     print(f"  Mode:    {'incremental' if args.incremental else 'full convert'}")
@@ -368,15 +571,21 @@ def main():
     print()
 
     tasks = build_task_list(zoom_range, output_dir, merged_dir)
+    print(f"Tasks generated: {len(tasks):,}")
+    print(f"Starting conversion...")
+    print()
 
-    print(f"Starting conversion of {len(tasks):,} tiles...")
     t0 = time.time()
     done = 0
-    results = {"ok": 0, "skipped": 0, "error": 0}
+    results = {"ok": 0, "skipped": 0, "error": 0, "no-data": 0}
     errors = []
 
-    with ProcessPoolExecutor(max_workers=args.workers) as executor:
-        futures = {executor.submit(convert_tile, (*t, args.incremental, args.validate)): t for t in tasks}
+    with ProcessPoolExecutor(
+        max_workers=args.workers,
+        initializer=_init_worker,
+        initargs=(str(merged_dir),),
+    ) as executor:
+        futures = {executor.submit(convert_tile, t): t for t in tasks}
 
         for future in as_completed(futures):
             r = future.result()
@@ -387,7 +596,7 @@ def main():
             if status == "error":
                 errors.append(r)
 
-            if done % 5000 == 0 or done == len(tasks):
+            if done % 10000 == 0 or done == len(tasks):
                 elapsed = time.time() - t0
                 rate = done / elapsed if elapsed > 0 else 0
                 pct = 100 * done / len(tasks)
@@ -395,15 +604,16 @@ def main():
                     f"  [{done:>8,}/{len(tasks):>8,} ({pct:>5.1f}%)] "
                     f"✅ {results.get('ok', 0):>6,} "
                     f"⏭  {results.get('skipped', 0):>6,} "
+                    f"🌊 {results.get('no-data', 0):>6,} "
                     f"❌ {results.get('error', 0):>4,} "
                     f"· {rate:>6,.0f} tiles/s · {elapsed:.0f}s"
                 )
 
     elapsed = time.time() - t0
 
-    # ── Summary ──
     ok_tiles = results.get("ok", 0)
     skipped = results.get("skipped", 0)
+    no_data = results.get("no-data", 0)
     error_tiles = results.get("error", 0)
 
     print(f"\n{'=' * 60}")
@@ -411,18 +621,18 @@ def main():
     print(f"{'=' * 60}")
     print(f"  ✅ Converted:  {ok_tiles:>10,}")
     print(f"  ⏭  Skipped:   {skipped:>10,}")
+    print(f"  🌊 No data:    {no_data:>10,}")
     print(f"  ❌ Errors:     {error_tiles:>10,}")
     print(f"  Speed:        {done / elapsed:>10,.0f} tiles/sec")
 
-    # Estimate total size
     if ok_tiles > 0:
         avg_size = sum(
             r.get("size", 0) for r in [future.result() for future in futures]
             if r.get("status") == "ok"
         ) / max(ok_tiles, 1)
-        est_total_gb = (avg_size * total_tiles) / 1e9
+        est_total_gb = (avg_size * ok_tiles) / 1e9
         print(f"  Avg tile size: {avg_size:>8.0f} bytes")
-        print(f"  Est. full size: {est_total_gb:>6.1f} GB (z{z_start}–z{z_end})")
+        print(f"  Total OZT2:   {est_total_gb:>6.1f} GB")
 
     if errors:
         print(f"\nErrors (first 10):")
@@ -438,16 +648,16 @@ def main():
     if manifest["total_bytes"] > 0:
         print(f"  Total size: {manifest['total_gb']:.2f} GB")
 
-    # Store results for reference
-    results_path = output_dir / "conversion_results.json"
     results_data = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "elapsed_seconds": round(elapsed, 1),
         "tiles_converted": ok_tiles,
         "tiles_skipped": skipped,
+        "tiles_no_data": no_data,
         "tiles_errored": error_tiles,
         "errors": errors[:100],
     }
+    results_path = output_dir / "conversion_results.json"
     results_path.write_text(json.dumps(results_data, indent=2))
 
     if error_tiles > 0:

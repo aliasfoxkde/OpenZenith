@@ -63,7 +63,9 @@ async function decompress(
   compressor: number,
 ): Promise<Uint8Array> {
   if (compressor === COMP_BROTLI) {
-    const ds = new DecompressionStream("br");
+    // "br" is supported in browsers but not in TypeScript's DOM lib types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ds = new DecompressionStream("br" as any);
     const writer = ds.writable.getWriter();
     writer.write(data);
     writer.close();
@@ -207,8 +209,8 @@ export async function decodeOZT2(
   // Parse header
   const vmin = view.getInt16(0, true);
   const elevRange = view.getUint16(2, true);
-  const bits = tileBytes[4];
-  const flags = tileBytes[5];
+  const bits = view.getUint8(4);
+  const flags = view.getUint8(5);
 
   const predictor = flags & 0x03;
   const compressor = (flags >> 2) & 0x03;
@@ -268,9 +270,9 @@ export async function decodeOZT2(
   // Reconstruct from prediction
   let quantized: Int16Array;
   if (predictor === PRED_GRADIENT) {
-    quantized = gradientReconstruct(residuals, height, width);
+    quantized = gradientReconstruct(residuals, height!, width!);
   } else if (predictor === PRED_LEFT) {
-    quantized = leftReconstruct(residuals, height, width);
+    quantized = leftReconstruct(residuals, height!, width!);
   } else {
     quantized = residuals;
   }
@@ -278,7 +280,7 @@ export async function decodeOZT2(
   // Dequantize
   let elevation: Int16Array;
   if (bits < 16 && elevRange > 0) {
-    elevation = dequantize(quantized, vmin, bits, elevRange, height, width);
+    elevation = dequantize(quantized, vmin, bits, elevRange, height!, width!);
   } else if (bits >= 16) {
     // Lossless: add vmin offset
     elevation = new Int16Array(nPixels);
@@ -291,7 +293,7 @@ export async function decodeOZT2(
   }
 
   const predictorNames: Array<"none" | "left" | "gradient"> = ["none", "left", "gradient"];
-  const compressorNames = ["brotli", "zstd", "zlib"];
+  const compressorNames: Array<"brotli" | "zstd" | "zlib"> = ["brotli", "zstd", "zlib"];
 
   const metadata: OZT2Metadata = {
     minElevation: vmin,
@@ -300,11 +302,11 @@ export async function decodeOZT2(
     bitsPerPixel: bits,
     predictor: predictorNames[predictor] ?? "none",
     compressor: compressorNames[compressor] ?? "brotli",
-    width,
-    height,
+    width: width!,
+    height: height!,
   };
 
-  return { elevation, width, height, metadata };
+  return { elevation, width: width!, height: height!, metadata };
 }
 
 // ─── Synchronous decode (for workers) ────────────────────────────────────────
@@ -380,9 +382,9 @@ export function decodeOZT2Sync(
   // Reconstruct
   let quantized: Int16Array;
   if (predictor === PRED_GRADIENT) {
-    quantized = gradientReconstruct(residuals, height, width);
+    quantized = gradientReconstruct(residuals, height!, width!);
   } else if (predictor === PRED_LEFT) {
-    quantized = leftReconstruct(residuals, height, width);
+    quantized = leftReconstruct(residuals, height!, width!);
   } else {
     quantized = residuals;
   }
@@ -390,7 +392,7 @@ export function decodeOZT2Sync(
   // Dequantize
   let elevation: Int16Array;
   if (bits < 16 && elevRange > 0) {
-    elevation = dequantize(quantized, vminVal, bits, elevRange, height, width);
+    elevation = dequantize(quantized, vminVal, bits, elevRange, height!, width!);
   } else if (bits >= 16) {
     elevation = new Int16Array(nPixels);
     for (let i = 0; i < nPixels; i++) elevation[i] = quantized[i] + vminVal;
@@ -400,12 +402,12 @@ export function decodeOZT2Sync(
   }
 
   const predictorNames: Array<"none" | "left" | "gradient"> = ["none", "left", "gradient"];
-  const compressorNames = ["brotli", "zstd", "zlib"];
+  const compressorNames: Array<"brotli" | "zstd" | "zlib"> = ["brotli", "zstd", "zlib"];
 
   return {
     elevation,
-    width,
-    height,
+    width: width!,
+    height: height!,
     metadata: {
       minElevation: vminVal,
       elevationRange: elevRange,
@@ -413,8 +415,8 @@ export function decodeOZT2Sync(
       bitsPerPixel: bits,
       predictor: predictorNames[predictor] ?? "none",
       compressor: compressorNames[compressor] ?? "brotli",
-      width,
-      height,
+      width: width!,
+      height: height!,
     },
   };
 }

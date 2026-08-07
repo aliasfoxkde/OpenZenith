@@ -1,11 +1,8 @@
 /**
- * Batch elevation endpoint.
+ * Batch elevation endpoint (edge-compatible).
  *
  * Accepts multiple lat/lon points and returns elevations in a single request.
- * Uses getTileData() at zoom 12 (~1.7km tiles) for reliable SRTM coverage.
- * Falls back to AWS Terrain Tiles if HuggingFace assembly fails.
- *
- * For single-point precision, use /api/elevation instead.
+ * Uses HuggingFace merged chunks for edge deployment.
  *
  * POST /api/elevation/batch
  * Body: { points: [{lat, lon, id?}, ...] }
@@ -14,15 +11,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
-import { HuggingFaceChunkBackend, LOCAL_BACKEND } from "@/lib/storage/backend";
+import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-// Try local .tif files first, fall back to HuggingFace
+// HuggingFace backend (edge-compatible)
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
-const PRIMARY_BACKEND = LOCAL_BACKEND; // local SRTM .tif files
 
 export async function OPTIONS() {
   return corsPreflightResponse();
@@ -69,7 +65,6 @@ function sampleElevation(
   const h01 = tileData.data[y1 * w + x0];
   const h11 = tileData.data[y1 * w + x1];
 
-  // Skip if all neighbors are nodata
   if (h00 === -32768 && h10 === -32768 && h01 === -32768 && h11 === -32768) {
     return null;
   }
@@ -112,13 +107,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Use zoom 12 for reliable SRTM coverage (~300m resolution)
-    // Zoom 8 was unreliable due to too many chunks per tile
     const zoom = 12;
     const results: BatchResult[] = new Array(points.length);
     const tileCache = new Map<string, { data: Int16Array; width: number; height: number } | null>();
 
-    // Group points by tile
     const tileGroups = new Map<string, number[]>();
     for (let i = 0; i < points.length; i++) {
       const { x, y } = latLonToTile(points[i].lat, points[i].lon, zoom);
@@ -127,12 +119,11 @@ export async function POST(request: NextRequest) {
       tileGroups.get(key)!.push(i);
     }
 
-    // Fetch and process each unique tile
     for (const [tileKey, indices] of tileGroups) {
       if (!tileCache.has(tileKey)) {
         try {
           const [x, y] = tileKey.split("/").map(Number);
-          const tileData = await getTileData(zoom, x, y, PRIMARY_BACKEND);
+          const tileData = await getTileData(zoom, x, y, HF_BACKEND);
           tileCache.set(tileKey, tileData);
         } catch {
           tileCache.set(tileKey, null);

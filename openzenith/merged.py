@@ -31,9 +31,27 @@ MAGIC = b"OZCHNK01"
 HEADER_SIZE = 12
 INDEX_ENTRY_SIZE = 8
 
+# Process-level cache: path → MergedFile (avoids re-reading .merged files)
+_merged_cache: dict[str, "MergedFile"] = {}
+
+# Process-level cache: (path, row, col) → decompressed chunk array
+_chunk_cache: dict[tuple[str, int, int], np.ndarray] = {}
+
+
+def get_merged_file(path: str | Path) -> "MergedFile":
+    """Get a MergedFile, using a cache to avoid re-reading files."""
+    key = str(path)
+    if key in _merged_cache:
+        return _merged_cache[key]
+    mf = MergedFile(path)
+    _merged_cache[key] = mf
+    return mf
+
 
 class MergedFile:
-    """Reader for a single .merged file."""
+    """Reader for a single .merged file. Immutable after construction."""
+
+    __slots__ = ("path", "data", "version", "rows", "cols", "index")
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -59,7 +77,7 @@ class MergedFile:
             self.index.append({"offset": offset, "size": size})
 
     def get_chunk(self, row: int, col: int) -> np.ndarray:
-        """Decompress and decode a single chunk.
+        """Decompress and decode a single chunk (cached globally by path+row+col).
 
         Args:
             row: Chunk row (0-based)
@@ -72,6 +90,11 @@ class MergedFile:
         """
         if row < 0 or row >= self.rows or col < 0 or col >= self.cols:
             raise ValueError(f"Chunk ({row}, {col}) out of range ({self.rows}x{self.cols})")
+
+        # Check global chunk cache first
+        cache_key = (str(self.path), row, col)
+        if cache_key in _chunk_cache:
+            return _chunk_cache[cache_key]
 
         idx = row * self.cols + col
         entry = self.index[idx]
@@ -93,10 +116,12 @@ class MergedFile:
                 out[r, 0] = raw[r, 0]
                 for c in range(1, 256):
                     out[r, c] = out[r, c - 1] + raw[r, c]
-            return out
         else:
             # Float32 (no prediction)
-            return np.frombuffer(decompressed, dtype=np.float32).reshape(256, 256)
+            out = np.frombuffer(decompressed, dtype=np.float32).reshape(256, 256)
+
+        _chunk_cache[cache_key] = out
+        return out
 
 
 def lat_lon_to_srtm_name(lat: float, lon: float) -> str:

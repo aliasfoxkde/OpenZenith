@@ -1,34 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPointElevation } from "@/lib/point-elevation";
-import { HuggingFaceChunkBackend, LOCAL_BACKEND } from "@/lib/storage/backend";
+import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-// Try local .tif files first (100x faster than HTTPS), fall back to HuggingFace
+// HuggingFace backend (edge-compatible)
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 async function getElevation(lat: number, lon: number) {
-  // Try local SRTM .tif files first (zero network overhead)
-  try {
-    const result = await getPointElevation(lat, lon, LOCAL_BACKEND);
-    if (result) {
-      return {
-        elevation: result.elevation,
-        surface_type: result.surfaceType,
-        unit: "meters" as const,
-        location: { lat, lon },
-        source: "local" as const,
-        tile: result.tile,
-        resolution: 30,
-      };
-    }
-  } catch {
-    // Fall through to HuggingFace
-  }
-
-  // Fall back to HuggingFace merged chunks
+  // Try HuggingFace merged chunks (edge-compatible)
   try {
     const result = await getPointElevation(lat, lon, HF_BACKEND);
     if (result) {

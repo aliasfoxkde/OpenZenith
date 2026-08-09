@@ -136,3 +136,120 @@ def test_load_elevation_grid_mercator_coords():
     assert lat_min_calc > 30.0, (
         f"lat_min={lat_min_calc:.4f} is way off — Mercator bug?"
     )
+
+
+# ─── Tests for _interpolate_from_tile ─────────────────────────────────────────
+
+
+def _make_terrarium_png(height: int) -> bytes:
+    """Create a 2×2 Terrarium PNG where all pixels decode to the given height (meters)."""
+    from PIL import Image
+    import io
+
+    def enc(h):
+        v = int(h) + 32768
+        return (min(255, v >> 8), v - (v >> 8) * 256, 0)
+
+    # Use fromarray / direct RGB fill to avoid palette mode issues
+    arr = np.full((2, 2, 3), enc(height), dtype=np.uint8)
+    img = Image.fromarray(arr, mode="RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_interpolate_from_tile_exact_center():
+    """Point exactly at tile center should return the tile elevation."""
+    from openzenith.elevation import _interpolate_from_tile, latlon_to_tile
+
+    png_bytes = _make_terrarium_png(1000)
+    z, lat, lon = 8, 40.0, -105.0
+    x, y = latlon_to_tile(lat, lon, z)
+    result = _interpolate_from_tile(png_bytes, lat, lon, z, x, y)
+    assert result is not None
+    assert abs(result - 1000.0) < 20.0
+
+
+def test_interpolate_from_tile_nodata():
+    """All-zero NODATA tile should return None."""
+    from openzenith.elevation import _interpolate_from_tile, latlon_to_tile
+
+    arr = np.zeros((2, 2, 3), dtype=np.uint8)
+    img = Image.fromarray(arr, mode="RGB")
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    png_bytes = buf.getvalue()
+
+    z, lat, lon = 8, 40.0, -105.0
+    x, y = latlon_to_tile(lat, lon, z)
+    result = _interpolate_from_tile(png_bytes, lat, lon, z, x, y)
+    assert result is None
+
+
+def test_interpolate_from_tile_bilinear():
+    """Bilinear interpolation returns a value in the range of the 4 corner pixels."""
+    from openzenith.elevation import _interpolate_from_tile, latlon_to_tile
+
+    def enc(h):
+        v = int(h) + 32768
+        return (min(255, v >> 8), v - (v >> 8) * 256, 0)
+
+    arr = np.array([[enc(0), enc(1000)], [enc(0), enc(1000)]], dtype=np.uint8)
+    img = Image.fromarray(arr, mode="RGB")
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    png_bytes = buf.getvalue()
+
+    # Use lat/lon within the tile to test interpolation
+    z, lat, lon = 8, 0.01, 0.01
+    x, y = latlon_to_tile(lat, lon, z)
+    result = _interpolate_from_tile(png_bytes, lat, lon, z, x, y)
+    assert result is not None
+    # Result should be between 0 and 1000
+    assert 0.0 <= result <= 1000.0
+
+
+# ─── Tests for get_elevation with temp tile dir ─────────────────────────────────
+
+
+def test_get_elevation_no_tile_dir_raises():
+    """get_elevation without tile_dir or DEFAULT_TILE_DIR raises ValueError."""
+    import openzenith.elevation as e
+
+    saved = e.DEFAULT_TILE_DIR
+    e.DEFAULT_TILE_DIR = None
+    try:
+        from openzenith.elevation import get_elevation
+        with pytest.raises(ValueError, match="No tile directory"):
+            get_elevation(40.0, -74.0)
+    finally:
+        e.DEFAULT_TILE_DIR = saved
+
+
+def test_get_elevation_missing_tile_returns_none(tmp_path):
+    """Point whose tile doesn't exist returns None (not an error)."""
+    from openzenith.elevation import get_elevation
+
+    # Point in the ocean — no tile should exist
+    result = get_elevation(0.0, 0.0, tile_dir=tmp_path)
+    assert result is None
+
+
+def test_get_elevation_batch(tmp_path):
+    """Batch query returns list of elevations."""
+    from openzenith.elevation import get_elevation_batch
+
+    results = get_elevation_batch([(40.0, -74.0), (35.0, -118.0)], tile_dir=tmp_path)
+    assert isinstance(results, list)
+    assert len(results) == 2
+    assert all(r is None for r in results)
+
+
+def test_get_elevation_batch_empty():
+    """Empty batch returns empty list."""
+    from openzenith.elevation import get_elevation_batch
+
+    results = get_elevation_batch([])
+    assert results == []

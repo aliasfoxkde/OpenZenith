@@ -481,36 +481,34 @@ def terrain_to_png(
         Raw PNG bytes.
     """
     pal = palette or DEFAULT_TERRAIN_PALETTE
-    valid = dem != -32768
-    rgb = np.zeros((*dem.shape, 3), dtype=np.uint8)
-    alpha = np.full(dem.shape, 255, dtype=np.uint8)
+    stop_elevs = np.array([p[0] for p in pal], dtype=np.float64)
+    stop_colors = np.array([p[1] for p in pal], dtype=np.uint8)
 
-    for r in range(dem.shape[0]):
-        for c in range(dem.shape[1]):
-            elev = dem[r, c]
-            if elev == -32768:
-                rgb[r, c] = (0, 0, 0)
-                if nodata_alpha:
-                    alpha[r, c] = 0
-                continue
+    dem_f = dem.astype(np.float64)
+    nodata_mask = dem_f == -32768
 
-            for i in range(len(pal) - 1):
-                e0, c0 = pal[i]
-                e1, c1 = pal[i + 1]
-                if e0 <= elev <= e1:
-                    t = (elev - e0) / (e1 - e0) if e1 != e0 else 0.0
-                    rgb[r, c] = (
-                        int(c0[0] + t * (c1[0] - c0[0])),
-                        int(c0[1] + t * (c1[1] - c0[1])),
-                        int(c0[2] + t * (c1[2] - c0[2])),
-                    )
-                    break
+    # Flatten for 1D vectorized operations
+    flat = dem_f.ravel()
+    indices = np.searchsorted(stop_elevs, flat, side="right") - 1
+    indices = np.clip(indices, 0, len(pal) - 2)
+
+    e0 = stop_elevs[indices]
+    e1 = stop_elevs[indices + 1]
+    diff_e = e1 - e0
+    t = np.where(diff_e != 0, (flat - e0) / diff_e, 0.0)
+
+    c0 = stop_colors[indices].astype(np.float64)
+    c1 = stop_colors[indices + 1].astype(np.float64)
+    rgb_flat = np.round(c0 + t[:, np.newaxis] * (c1 - c0)).astype(np.uint8)
+    rgb = rgb_flat.reshape(*dem.shape, 3)
 
     if nodata_alpha:
-        import PIL.Image
+        alpha = np.where(nodata_mask, np.uint8(0), np.uint8(255))
         rgba = np.dstack([rgb, alpha])
+        import PIL.Image
         img = PIL.Image.fromarray(rgba, mode="RGBA")
     else:
+        rgb = np.where(nodata_mask[:, :, np.newaxis], np.uint8(0), rgb)
         import PIL.Image
         img = PIL.Image.fromarray(rgb, mode="RGB")
 

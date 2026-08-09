@@ -11,8 +11,9 @@ from openzenith.async_client import (
 )
 
 
+@pytest.mark.integration
 class TestElevationClient:
-    """Tests for ElevationClient."""
+    """Tests for ElevationClient (requires live API)."""
 
     @pytest.mark.asyncio
     async def test_get_elevation_single(self):
@@ -100,8 +101,9 @@ class TestElevationClient:
         await client.close()
 
 
+@pytest.mark.integration
 class TestElevationBatchProcessor:
-    """Tests for ElevationBatchProcessor."""
+    """Tests for ElevationBatchProcessor (requires live API)."""
 
     @pytest.mark.asyncio
     async def test_process_all_small_batch(self):

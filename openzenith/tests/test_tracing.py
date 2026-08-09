@@ -30,8 +30,9 @@ class TestHaversineDistance:
         assert d1 == pytest.approx(d2, abs=1.0)
 
 
+@pytest.mark.integration
 class TestTraceDownstream:
-    """Tests for trace_downstream (integration — needs network/tiles)."""
+    """Tests for trace_downstream (requires live API/tiles)."""
 
     def test_invalid_coordinates_raise(self):
         """Out-of-range coordinates should raise an error."""

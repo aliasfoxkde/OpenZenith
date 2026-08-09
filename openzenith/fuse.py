@@ -236,7 +236,7 @@ class FusedDEM:
 
         # Build SRTM tiles index lazily
         if self._srtm_tiles is None:
-            from scripts.convert_to_ozt2 import discover_srtm_tiles
+            from openzenith.merged import discover_srtm_tiles
             self._srtm_tiles = discover_srtm_tiles(self.srtm_dir)
 
         if (srtm_lat, srtm_lon) not in self._srtm_tiles:

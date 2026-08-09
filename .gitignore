@@ -54,3 +54,6 @@ test-results/
 
 # Rust build output (regenerate with wasm-pack)
 openzenith-core/target/
+
+# HuggingFace cache (download at runtime)
+.hf_cache/

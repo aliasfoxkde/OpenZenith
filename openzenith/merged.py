@@ -207,6 +207,78 @@ def read_elevation_from_merged(
     return float(elev)
 
 
+# ─── SRTM tile index ─────────────────────────────────────────────────────────
+
+_INDEX_CACHE: dict[str, dict[tuple[int, int], dict]] = {}
+
+
+def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
+    """Build or load the SRTM tile index for a merged SRTM directory.
+
+    Scans the directory for ``.merged`` files and returns a dict mapping
+    ``(lat, lon)`` → ``{has_data, rows, cols}``.  Results are cached per
+    ``srtm_dir`` path within the process.
+
+    The index is also cached to ``srtm_dir / "srtm_index.json"`` when built,
+    so subsequent calls load instantly.
+    """
+    cache_key = str(srtm_dir)
+    if cache_key in _INDEX_CACHE:
+        return _INDEX_CACHE[cache_key]
+
+    index_path = srtm_dir / "srtm_index.json"
+    if index_path.exists():
+        import json as _json
+        try:
+            raw = _json.loads(index_path.read_text())
+            result: dict[tuple[int, int], dict] = {}
+            for k, v in raw.items():
+                parts = k.split(",")
+                result[(int(parts[0]), int(parts[1]))] = v
+            _INDEX_CACHE[cache_key] = result
+            return result
+        except Exception:
+            pass
+
+    # Scan .merged files
+    result = {}
+    if srtm_dir.exists():
+        for lat_dir in sorted(srtm_dir.iterdir()):
+            if not lat_dir.is_dir():
+                continue
+            for merged_file in sorted(lat_dir.glob("*.merged")):
+                name = merged_file.stem  # e.g. "N36W085"
+                lat_str = name[:3]
+                lon_str = name[3:]
+                try:
+                    lat_deg = int(lat_str[1:])
+                    if lat_str[0] == "S":
+                        lat_deg = -lat_deg
+                    lon_deg = int(lon_str[1:])
+                    if lon_str[0] == "W":
+                        lon_deg = -lon_deg
+                    # Read header only — fast (no chunk decompression)
+                    mf = MergedFile(merged_file)
+                    result[(lat_deg, lon_deg)] = {
+                        "has_data": True,
+                        "rows": mf.rows,
+                        "cols": mf.cols,
+                    }
+                except Exception:
+                    continue
+
+    # Persist for next time
+    try:
+        import json as _json
+        raw = {f"{k[0]},{k[1]}": v for k, v in result.items()}
+        index_path.write_text(_json.dumps(raw))
+    except Exception:
+        pass
+
+    _INDEX_CACHE[cache_key] = result
+    return result
+
+
 if __name__ == "__main__":
     import sys
 

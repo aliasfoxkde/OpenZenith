@@ -83,6 +83,7 @@ class TestFusedDEMQueryPoint:
 class TestLoadFusedElevationGrid:
     """Tests for load_fused_elevation_grid()."""
 
+    @pytest.mark.integration
     def test_returns_correct_types(self):
         """Returns (elevation, mask) tuple of correct types."""
         elev, mask = load_fused_elevation_grid(

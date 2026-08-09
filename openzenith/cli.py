@@ -241,7 +241,7 @@ def cmd_slope(args):
     print(f"📐 Computing slope at ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    sl = slope_fast(grid["data"], grid["cell_size_deg"])
+    sl = slope_fast(grid["grid"], grid["cell_size_deg"])
     elapsed = time.time() - t0
 
     valid = sl[~np.isnan(sl)]
@@ -268,7 +268,7 @@ def cmd_hillshade(args):
     print(f"   Azimuth: {args.azimuth}°  Altitude: {args.altitude}°")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    hs = hillshade(grid["data"], args.azimuth, args.altitude, grid["cell_size_deg"], z_factor=args.z_factor)
+    hs = hillshade(grid["grid"], args.azimuth, args.altitude, grid["cell_size_deg"], z_factor=args.z_factor)
     elapsed = time.time() - t0
 
     print(f"✅ {hs.shape[0]}×{hs.shape[1]} hillshade ({elapsed:.1f}s)")
@@ -298,9 +298,9 @@ def cmd_viewshed(args):
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
     vs = viewshed(
-        grid["data"],
-        grid["data"].shape[0] // 2,
-        grid["data"].shape[1] // 2,
+        grid["grid"],
+        grid["grid"].shape[0] // 2,
+        grid["grid"].shape[1] // 2,
         observer_height=args.height,
         cell_size_deg=grid["cell_size_deg"],
         max_distance_cells=args.max_dist,
@@ -332,7 +332,7 @@ def cmd_twi(args):
     print(f"💧 Computing TWI around ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    result = twi(grid["data"], cell_size_deg=grid["cell_size_deg"])
+    result = twi(grid["grid"], cell_size_deg=grid["cell_size_deg"])
     elapsed = time.time() - t0
 
     valid = result[~np.isnan(result)]
@@ -352,7 +352,7 @@ def cmd_contour(args):
     print(f"🗺️  Extracting contours at {args.interval}m interval around ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    result = contour_to_geojson(grid["data"], interval=args.interval, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
+    result = contour_to_geojson(grid["grid"], interval=args.interval, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
     elapsed = time.time() - t0
 
     out_path = args.output or f"contours_{args.interval}m.geojson"
@@ -372,7 +372,7 @@ def cmd_geojson(args):
     print(f"📄 Exporting {kind} grid as GeoJSON around ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    result = grid_to_geojson(grid["data"], name=name, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
+    result = grid_to_geojson(grid["grid"], name=name, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
     elapsed = time.time() - t0
 
     out_path = args.output or f"{kind}.geojson"

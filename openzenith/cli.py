@@ -6,8 +6,10 @@ Usage:
     openzenith trace --lat 40.7 --lon -74.0
     openzenith watershed --lat 40.7 --lon -74.0
     openzenith slope --lat 40.7 --lon -74.0
+    openzenith aspect --lat 40.7 --lon -74.0
     openzenith hillshade --lat 40.7 --lon -74.0 --azimuth 315
     openzenith viewshed --lat 40.7 --lon -74.0 --height 10
+    openzenith profile --lat1 40.7 --lon1 -74.0 --lat2 40.8 --lon2 -73.9
     openzenith info
     openzenith validate --mode spot
 """
@@ -340,6 +342,82 @@ def cmd_twi(args):
 
     if args.output:
         np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_aspect(args):
+    """Compute terrain aspect (compass direction of steepest descent)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import aspect
+
+    print(f"🧭 Computing aspect at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = aspect(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[result >= 0]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.1f}°  Median: {np.median(valid):.1f}°")
+    print(f"   Min:  {np.min(valid):.1f}°  Max: {np.max(valid):.1f}°")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def _latlon_to_grid_coords(lat: float, lon: float, grid: dict) -> tuple[int, int]:
+    """Convert lat/lon to grid (row, col) within an elevation grid."""
+    dlat = grid["center_lat"] - lat
+    dlon = lon - grid["center_lon"]
+    row = int(round(grid["center_row"] - dlat / grid["cell_size_deg"]))
+    col = int(round(grid["center_col"] + dlon / grid["cell_size_deg"]))
+    row = max(0, min(row, grid["grid"].shape[0] - 1))
+    col = max(0, min(col, grid["grid"].shape[1] - 1))
+    return row, col
+
+
+def cmd_profile(args):
+    """Extract elevation profile along a transect between two points."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import profile
+
+    print(f"📏 Computing profile from ({args.lat1:.4f}, {args.lon1:.4f}) → ({args.lat2:.4f}, {args.lon2:.4f})...")
+    t0 = time.time()
+    # Load at midpoint to ensure both endpoints are in the grid
+    mid_lat = (args.lat1 + args.lat2) / 2
+    mid_lon = (args.lon1 + args.lon2) / 2
+    grid = load_elevation_grid(mid_lat, mid_lon, args.radius)
+
+    r1, c1 = _latlon_to_grid_coords(args.lat1, args.lon1, grid)
+    r2, c2 = _latlon_to_grid_coords(args.lat2, args.lon2, grid)
+
+    # Generate evenly-spaced points along the line
+    n = max(args.samples, 2)
+    points = [(round(r1 + (r2 - r1) * i / (n - 1)), round(c1 + (c2 - c1) * i / (n - 1))) for i in range(n)]
+
+    result = profile(grid["grid"], points, grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    if not result:
+        print("❌ Profile is empty (points may be outside grid)")
+        return
+
+    dists = [p["distance_m"] for p in result]
+    elevs = [p["elevation"] for p in result]
+    print(f"✅ {len(result)} points, {dists[-1]:.1f}m total ({elapsed:.1f}s)")
+    print(f"   Elevation: {min(elevs):.0f}m → {max(elevs):.0f}m (range {max(elevs)-min(elevs):.0f}m)")
+
+    if args.output:
+        import json
+        if args.output.endswith(".csv"):
+            with open(args.output, "w") as f:
+                f.write("distance_m,elevation\n")
+                for p in result:
+                    f.write(f"{p['distance_m']:.1f},{p['elevation']}\n")
+        else:
+            with open(args.output, "w") as f:
+                json.dump(result, f)
         print(f"💾 Saved to {args.output}")
 
 
@@ -865,6 +943,23 @@ def main():
     tw.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
     tw.add_argument("--output", type=str, default=None, help="Output .npy file")
 
+    # aspect
+    asp = sub.add_parser("aspect", help="Compute terrain aspect (compass direction of steepest descent)")
+    asp.add_argument("--lat", type=float, required=True)
+    asp.add_argument("--lon", type=float, required=True)
+    asp.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    asp.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # profile
+    prf = sub.add_parser("profile", help="Extract elevation profile along a transect")
+    prf.add_argument("--lat1", type=float, required=True, help="Start latitude")
+    prf.add_argument("--lon1", type=float, required=True, help="Start longitude")
+    prf.add_argument("--lat2", type=float, required=True, help="End latitude")
+    prf.add_argument("--lon2", type=float, required=True, help="End longitude")
+    prf.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    prf.add_argument("--samples", type=int, default=100, help="Number of profile samples")
+    prf.add_argument("--output", type=str, default=None, help="Output .json or .csv file")
+
     # contour
     ct = sub.add_parser("contour", help="Export DEM contours as GeoJSON")
     ct.add_argument("--lat", type=float, required=True)
@@ -932,7 +1027,9 @@ def main():
         "slope": cmd_slope,
         "hillshade": cmd_hillshade,
         "viewshed": cmd_viewshed,
+        "aspect": cmd_aspect,
         "twi": cmd_twi,
+        "profile": cmd_profile,
         "contour": cmd_contour,
         "geojson": cmd_geojson,
         "encode": cmd_encode,

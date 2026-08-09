@@ -263,10 +263,10 @@ class OZT2HFBackend:
             return None
         return self._cache_dir / f"z{z}" / str(x) / f"{y}.ozt2"
 
-    def fetch_tile(self, z: int, x: int, y: int) -> np.ndarray | None:
-        """Fetch and decode an OZT2 tile from HuggingFace.
+    async def fetch_tile_async(self, z: int, x: int, y: int) -> np.ndarray | None:
+        """Fetch and decode a single OZT2 tile from HuggingFace (async).
 
-        Checks local cache first, then downloads via HTTP.
+        Checks local cache first, then downloads via aiohttp.
         """
         # Check local cache
         cached = self._cached_path(z, x, y)
@@ -274,11 +274,12 @@ class OZT2HFBackend:
             try:
                 data = cached.read_bytes()
                 elevation, _ = decode(data)
+                _logger.debug("HF tile fetch hit cache: z=%d x=%d y=%d", z, x, y)
                 return elevation
             except Exception as err:
                 _logger.debug("HF cache tile decode failed: %s: %s", cached, err)
 
-        # Download from HuggingFace via HTTP
+        # Download from HuggingFace via aiohttp
         url = self._tile_url(z, x, y)
         token = self._get_token()
         headers = {}
@@ -286,10 +287,14 @@ class OZT2HFBackend:
             headers["Authorization"] = f"Bearer {token}"
 
         try:
-            import urllib.request
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = resp.read()
+            import aiohttp
+        except ImportError:
+            raise ImportError("aiohttp required for async fetch. Install: pip install aiohttp")
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                    data = await resp.read()
             elevation, _ = decode(data)
 
             # Cache locally if cache_dir is set
@@ -297,10 +302,19 @@ class OZT2HFBackend:
                 cached.parent.mkdir(parents=True, exist_ok=True)
                 cached.write_bytes(data)
 
+            _logger.debug("HF tile fetch success: z=%d x=%d y=%d", z, x, y)
             return elevation
         except Exception as err:
             _logger.debug("HF tile fetch/decode failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
+
+    def fetch_tile(self, z: int, x: int, y: int) -> np.ndarray | None:
+        """Fetch and decode an OZT2 tile from HuggingFace.
+
+        Checks local cache first, then downloads via HTTP.
+        """
+        import asyncio
+        return asyncio.run(self.fetch_tile_async(z, x, y))
 
     def fetch_tile_bytes(self, z: int, x: int, y: int) -> bytes | None:
         """Fetch raw OZT2 tile bytes from HuggingFace (no decode)."""
@@ -344,6 +358,51 @@ class OZT2HFBackend:
             _logger.debug("HF tile exists check failed (url=%s): %s: %s", url, type(err).__name__, err)
             return False
 
+    async def prefetch_tiles_async(
+        self, tiles: list[tuple[int, int, int]], max_concurrent: int = 10
+    ) -> int:
+        """Prefetch multiple tiles into local cache concurrently.
+
+        Args:
+            tiles: List of (z, x, y) tuples to download
+            max_concurrent: Maximum number of concurrent downloads (default 10)
+
+        Returns:
+            Number of tiles successfully cached.
+        """
+        if self._cache_dir is None:
+            return 0
+
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def _fetch_one(z: int, x: int, y: int) -> bool:
+            cached = self._cached_path(z, x, y)
+            if cached and cached.exists():
+                return True
+            try:
+                url = self._tile_url(z, x, y)
+                token = self._get_token()
+                headers = {}
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+
+                import aiohttp
+                async with semaphore:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                            data = await resp.read()
+                if cached:
+                    cached.parent.mkdir(parents=True, exist_ok=True)
+                    cached.write_bytes(data)
+                _logger.debug("HF prefetch success: z=%d x=%d y=%d", z, x, y)
+                return True
+            except Exception as err:
+                _logger.debug("HF prefetch failed (z=%d,x=%d,y=%d): %s: %s", z, x, y, type(err).__name__, err)
+                return False
+
+        results = await asyncio.gather(*[_fetch_one(z, x, y) for z, x, y in tiles])
+        return sum(results)
+
     def prefetch_tiles(self, tiles: list[tuple[int, int, int]]) -> int:
         """Prefetch multiple tiles into local cache.
 
@@ -353,29 +412,5 @@ class OZT2HFBackend:
         Returns:
             Number of tiles successfully cached.
         """
-        if self._cache_dir is None:
-            return 0
-
-        cached_count = 0
-        for z, x, y in tiles:
-            cached = self._cached_path(z, x, y)
-            if cached and cached.exists():
-                continue
-            try:
-                url = self._tile_url(z, x, y)
-                token = self._get_token()
-                headers = {}
-                if token:
-                    headers["Authorization"] = f"Bearer {token}"
-                import urllib.request
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    data = resp.read()
-                if cached:
-                    cached.parent.mkdir(parents=True, exist_ok=True)
-                    cached.write_bytes(data)
-                    cached_count += 1
-            except Exception as err:
-                _logger.debug("HF prefetch failed (z=%d,x=%d,y=%d): %s: %s", z, x, y, type(err).__name__, err)
-                continue
-        return cached_count
+        import asyncio
+        return asyncio.run(self.prefetch_tiles_async(tiles))

@@ -26,6 +26,7 @@ __all__ = [
     "load_fused_elevation_grid",
 ]
 
+import asyncio
 import logging
 import math
 from pathlib import Path
@@ -219,6 +220,178 @@ class FusedDEM:
             return gebco_elev, "ocean"
 
         return None, "unknown"
+
+    async def query_async(
+        self,
+        lat_min: float,
+        lon_min: float,
+        lat_max: float,
+        lon_max: float,
+        *,
+        resolution: float = 0.001,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Async version of query() using aiohttp for GEBCO HTTP and asyncio.to_thread for SRTM.
+
+        Args:
+            lat_min, lon_min: Southwest corner of the query region.
+            lat_max, lon_max: Northeast corner.
+            resolution: Grid cell size in degrees (default: 0.001 ≈ 111m at equator).
+
+        Returns:
+            (elevation, mask) where elevation is int16 (meters, NODATA=-32768)
+            and mask is uint8 (0=ocean, 1=land, 2=SRTM nodata).
+        """
+        rows = max(1, int(math.ceil((lat_max - lat_min) / resolution)))
+        cols = max(1, int(math.ceil((lon_max - lon_min) / resolution)))
+
+        elevation = np.full((rows, cols), GEBCO_NODATA, dtype=np.int16)
+        mask = np.zeros((rows, cols), dtype=np.uint8)
+
+        lat_vals = np.linspace(lat_max, lat_min, rows)
+        lon_vals = np.linspace(lon_min, lon_max, cols)
+
+        # Pre-build SRTM tile index in thread (avoids blocking event loop)
+        if self._srtm_tiles is None and self.srtm_dir is not None:
+            from openzenith.merged import discover_srtm_tiles
+            self._srtm_tiles = await asyncio.to_thread(
+                discover_srtm_tiles, self.srtm_dir
+            )
+
+        # Collect all point tasks
+        tasks = []
+        coords = []
+        for r in range(rows):
+            for c in range(cols):
+                lat = lat_vals[r]
+                lon = lon_vals[c]
+                tasks.append(self._query_point_async(lat, lon))
+                coords.append((r, c))
+
+        # Run all queries concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for (r, c), result in zip(coords, results):
+            if isinstance(result, Exception):
+                _logger.debug("Async query failed for (%d,%d): %s", r, c, result)
+                continue
+            if result is not None:
+                elev, is_land = result
+                elevation[r, c] = elev
+                mask[r, c] = 1 if is_land else 0
+
+        return elevation, mask
+
+    async def query_batch_async(
+        self,
+        lat_lon_pairs: list[tuple[float, float]],
+    ) -> list[float | None]:
+        """Query multiple points asynchronously using concurrent I/O.
+
+        Args:
+            lat_lon_pairs: List of (lat, lon) tuples.
+
+        Returns:
+            List of elevations in meters (None if no data available),
+            in the same order as input pairs.
+        """
+        if not lat_lon_pairs:
+            return []
+
+        # Pre-build SRTM tile index in thread if needed
+        if self._srtm_tiles is None and self.srtm_dir is not None:
+            from openzenith.merged import discover_srtm_tiles
+            self._srtm_tiles = await asyncio.to_thread(
+                discover_srtm_tiles, self.srtm_dir
+            )
+
+        # Query all points concurrently
+        tasks = [self._query_point_async(lat, lon) for lat, lon in lat_lon_pairs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        output: list[float | None] = []
+        for result in results:
+            if isinstance(result, Exception):
+                output.append(None)
+            elif result is not None:
+                elev, _is_land = result
+                output.append(float(elev))
+            else:
+                output.append(None)
+
+        return output
+
+    async def _query_point_async(
+        self,
+        lat: float,
+        lon: float,
+    ) -> tuple[int, bool] | None:
+        """Async single-point query: SRTM in thread pool, GEBCO via aiohttp."""
+        # Try SRTM first (offload to thread pool to avoid blocking)
+        srtm_result = await asyncio.to_thread(self._srtm_elevation, lat, lon)
+        if srtm_result is not None:
+            return srtm_result
+
+        # Fall back to GEBCO via async HTTP
+        if self.gebco_dir is not None:
+            # Local GEBCO read (blocking, so offload to thread)
+            return await asyncio.to_thread(self._gebco_from_local, lat, lon)
+        elif self.use_http_fallback:
+            return await self._gebco_from_http_async(lat, lon)
+
+        return None
+
+    async def _gebco_from_http_async(self, lat: float, lon: float) -> int | None:
+        """Async GEBCO HTTP fetch using aiohttp with connection reuse."""
+        try:
+            import aiohttp
+        except ImportError:
+            return None
+
+        quad = _quad_name(lat, lon)
+        bounds = _quad_bounds(lat, lon)
+        url = f"{self.gebco_url}/{quad}"
+
+        row = int(round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG))
+        row = max(0, min(21600 - 1, row))
+
+        STRIP_BYTES = 21600 * 2
+        STRIP_DATA_START = 135948
+        offset = STRIP_DATA_START + row * STRIP_BYTES
+
+        headers = {"Range": f"bytes={offset}-{offset + STRIP_BYTES - 1}"}
+
+        # Get or create session
+        session = await self._get_gebco_session()
+
+        try:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status not in (200, 206):
+                    return None
+                data = await resp.read()
+                arr = np.frombuffer(data, dtype=np.int16)  # 21600 values
+                col = int(round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG))
+                col = max(0, min(21600 - 1, col))
+                elev = int(arr[col])
+                if elev < -11000 or elev > 9000:
+                    return None
+                return elev
+        except Exception as err:
+            _logger.debug("GEBCO async HTTP fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
+            return None
+
+    async def _get_gebco_session(self) -> "aiohttp.ClientSession":
+        """Get or create a shared aiohttp session for GEBCO HTTP requests."""
+        if not hasattr(self, "_gebco_session") or self._gebco_session is None or self._gebco_session.closed:
+            import aiohttp
+            connector = aiohttp.TCPConnector(limit=32)
+            self._gebco_session = aiohttp.ClientSession(connector=connector)
+        return self._gebco_session
+
+    async def close_gebco_session(self) -> None:
+        """Close the shared GEBCO HTTP session."""
+        if hasattr(self, "_gebco_session") and self._gebco_session is not None and not self._gebco_session.closed:
+            await self._gebco_session.close()
+            self._gebco_session = None
 
     # ─── SRTM ─────────────────────────────────────────────────────────────────
 

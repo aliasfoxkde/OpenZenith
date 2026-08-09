@@ -41,7 +41,7 @@ Thumbs.db
 
 # Claude Code
 .claude
-CLAUDE.md
+# Note: CLAUDE.md IS tracked — do not add it here
 
 # Scripts output
 upload_progress.json

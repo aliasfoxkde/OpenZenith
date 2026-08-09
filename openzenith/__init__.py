@@ -27,6 +27,12 @@ from openzenith.elevation import (
     load_ozt2_tiles_from_hf,
     download_tiles,
 )
+from openzenith.async_client import (
+    ElevationClient,
+    ElevationBatchProcessor,
+    ElevationResult,
+    ElevationPoint,
+)
 from openzenith.terrarium import decode_tile, encode_tile
 from openzenith.tile_format import (
     COMP_NONE,
@@ -124,6 +130,25 @@ def __getattr__(name):
     if name == "contour_to_geojson":
         from openzenith.export import contour_to_geojson
         return contour_to_geojson
+    # Visualization
+    if name == "plot_terrain":
+        from openzenith.viz import plot_terrain
+        return plot_terrain
+    if name == "plot_hillshade":
+        from openzenith.viz import plot_hillshade
+        return plot_hillshade
+    if name == "plot_contours":
+        from openzenith.viz import plot_contours
+        return plot_contours
+    if name == "terrain_to_3d_mesh":
+        from openzenith.viz import terrain_to_3d_mesh
+        return terrain_to_3d_mesh
+    if name == "terrain_to_glb":
+        from openzenith.viz import terrain_to_glb
+        return terrain_to_glb
+    if name == "terrain_to_png":
+        from openzenith.viz import terrain_to_png
+        return terrain_to_png
     # Hydrology extra
     if name == "fill_depressions":
         from openzenith.hydrology import fill_depressions
@@ -141,6 +166,26 @@ def __getattr__(name):
     if name == "drainage_density":
         from openzenith.terrain import drainage_density
         return drainage_density
+    # Multi-DEM fusion
+    if name == "FusedDEM":
+        from openzenith.fuse import FusedDEM
+        return FusedDEM
+    if name == "load_fused_tile":
+        from openzenith.fuse import load_fused_tile
+        return load_fused_tile
+    if name == "load_fused_elevation_grid":
+        from openzenith.fuse import load_fused_elevation_grid
+        return load_fused_elevation_grid
+    # GeoTIFF / COG export
+    if name == "export_geotiff":
+        from openzenith.geotiff import export_geotiff
+        return export_geotiff
+    if name == "export_cog":
+        from openzenith.geotiff import export_cog
+        return export_cog
+    if name == "grid_to_gtiff_metadata":
+        from openzenith.geotiff import grid_to_gtiff_metadata
+        return grid_to_gtiff_metadata
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -204,6 +249,11 @@ __all__ = [
     # Export
     "grid_to_geojson",
     "contour_to_geojson",
+    # Async client
+    "ElevationClient",
+    "ElevationBatchProcessor",
+    "ElevationResult",
+    "ElevationPoint",
     # Hydrology extra (lazy)
     "fill_depressions",
     "twi",
@@ -211,4 +261,19 @@ __all__ = [
     "profile_curvature",
     "planform_curvature",
     "drainage_density",
+    # Visualization
+    "plot_terrain",
+    "plot_hillshade",
+    "plot_contours",
+    "terrain_to_3d_mesh",
+    "terrain_to_glb",
+    "terrain_to_png",
+    # GeoTIFF / COG
+    "export_geotiff",
+    "export_cog",
+    "grid_to_gtiff_metadata",
+    # Multi-DEM fusion
+    "FusedDEM",
+    "load_fused_tile",
+    "load_fused_elevation_grid",
 ]

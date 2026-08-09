@@ -4,7 +4,7 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
   {
     title: "Overlays",
     key: "overlays",
-    layerIds: ["hillshade", "elevationColor", "satellite", "blueMarble", "nightLights"],
+    layerIds: ["hillshade", "elevationColor", "coverage", "satellite", "blueMarble", "nightLights"],
   },
   {
     title: "Real-Time Data",
@@ -91,6 +91,7 @@ export const DEFAULT_LAYERS: LayerState = {
   lightning: false,
   gpsJamming: false,
   dayNight: false,
+  coverage: false,
 };
 
 export const DEFAULT_STATE: DashboardState = {

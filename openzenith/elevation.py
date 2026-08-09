@@ -29,6 +29,7 @@ from pathlib import Path
 import numpy as np
 
 from .terrarium import decode_tile
+from typing import cast
 from .tile_format_v2 import decode as decode_ozt2
 
 # Default HuggingFace dataset
@@ -80,9 +81,10 @@ def get_elevation(
     if zoom_levels is None:
         zoom_levels = [8, 7, 6, 5]
 
-    _dir = Path(tile_dir or cache_dir or DEFAULT_TILE_DIR)
-    if _dir is None:
+    _tile_dir = tile_dir if tile_dir is not None else (cache_dir or DEFAULT_TILE_DIR)
+    if _tile_dir is None:
         raise ValueError("No tile directory. Call load_tiles() or pass tile_dir.")
+    _dir = Path(_tile_dir)
 
     for zoom in zoom_levels:
         x, y = latlon_to_tile(lat, lon, zoom)
@@ -437,10 +439,10 @@ def get_elevation_from_ozt2(
     Returns:
         Elevation in meters, or None if no data found.
     """
-    _dir = Path(ozt2_dir or DEFAULT_OZT2_DIR)
-    if _dir is None:
+    _ozt2_dir = ozt2_dir if ozt2_dir is not None else DEFAULT_OZT2_DIR
+    if _ozt2_dir is None:
         raise ValueError("No OZT2 directory. Call load_ozt2_tiles() or pass ozt2_dir.")
-    return _get_elevation_from_ozt2(lat, lon, _dir, zoom_levels)
+    return _get_elevation_from_ozt2(lat, lon, cast(Path, _ozt2_dir), zoom_levels)
 
 
 def load_ozt2_tiles(tile_dir: str | Path) -> Path:

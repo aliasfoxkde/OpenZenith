@@ -45,3 +45,12 @@ CLAUDE.md
 
 # Scripts output
 upload_progress.json
+
+# Cloudflare Wrangler (local dev state)
+.wrangler/
+
+# Test artifacts
+test-results/
+
+# Rust build output (regenerate with wasm-pack)
+openzenith-core/target/

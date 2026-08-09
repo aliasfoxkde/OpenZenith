@@ -39,13 +39,16 @@ compression = [
 download = [
     "huggingface_hub>=0.16",
 ]
+rust = [
+    "openzenith-core @ file://${PROJECT_ROOT}/openzenith-core/python",
+]
 dev = [
     "pytest>=7.0",
     "ruff>=0.1",
     "hatchling",
 ]
 all = [
-    "openzenith[compression,download,dev]",
+    "openzenith[compression,download,rust,dev]",
 ]
 
 [project.scripts]

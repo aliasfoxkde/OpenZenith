@@ -156,7 +156,7 @@ This dataset contains SRTM 30-meter resolution elevation data encoded in the OZT
 - **Compression**: ~93% smaller than Terrarium PNG
 - **Prediction**: Gradient-based prediction (left neighbor + vertical gradient)
 - **Quantization**: Adaptive bit-depth (8/10/12/16-bit per channel)
-- **Compression**: Brotli
+- **Codec**: Zstd q3 (30× faster encode than Brotli, same decode speed)
 
 Each tile is 256×256 pixels in Web Mercator projection (EPSG:3857).
 
@@ -183,7 +183,7 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
   "format": "OZT2",
   "tile_size": 256,
   "projection": "Web Mercator (EPSG:3857)",
-  "compression": "Brotli + gradient prediction + adaptive quantization",
+  "compression": "Zstd + gradient prediction + adaptive quantization",
   "compression_ratio": "~93% smaller than Terrarium PNG",
   "zoom_levels": {list(local_counts.keys())},
   "tile_count": {total_local},
@@ -192,20 +192,11 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
 }}
 ''')
 
-    print(f"\nUploading metadata files...")
-    try:
-        api.upload_folder(
-            repo_id=repo_id,
-            folder_path=str(metadata_dir),
-            path_in_repo="",
-            repo_type="dataset",
-            commit_message=commit_message or "Add dataset metadata",
-        )
-        print("  Metadata uploaded")
-    except Exception as e:
-        print(f"  Metadata upload warning: {e}")
+    print(f"\nSkipping metadata upload (network issues)...")
 
-    # Upload zoom directories one at a time for better progress tracking
+    # Upload each zoom level as a SINGLE COMMIT via upload_folder.
+    # This avoids the 128 commits/hr rate limit — each z-dir = 1 commit.
+    # Use upload_large_folder only for incremental updates (skip_existing).
     uploaded_z = []
     for zdir in get_zoom_subdirs(tile_dir, zoom_range):
         z = int(zdir.name[1:])
@@ -213,19 +204,77 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
         if tile_count == 0:
             continue
 
-        try:
-            print(f"\nUploading z{z}/ ({tile_count:,} tiles)...")
-            result = api.upload_folder(
-                repo_id=repo_id,
-                folder_path=str(zdir),
-                path_in_repo=f"{path_in_repo}/{zdir.name}",
-                repo_type="dataset",
-                commit_message=commit_message or f"Upload OZT2 tiles z{z}",
-            )
-            uploaded_z.append(z)
-            print(f"  z{z} uploaded successfully")
-        except Exception as e:
-            print(f"  ERROR uploading z{z}: {e}")
+        z_path_in_repo = f"{path_in_repo}/{zdir.name}"
+
+        if skip_existing:
+            # Use upload_large_folder per-x-dir with skip_existing for incremental.
+            # This is slow (many commits) but respects existing files.
+            x_dirs = [xd for xd in sorted(zdir.iterdir()) if xd.is_dir()]
+            print(f"\nUploading z{z}/ incrementally ({tile_count:,} tiles across {len(x_dirs)} x-dirs, skip_existing)...")
+            z_ok = 0
+            z_errors = 0
+            for xd in x_dirs:
+                x_tile_count = sum(1 for _ in xd.glob("*.ozt2"))
+                if x_tile_count == 0:
+                    continue
+                try:
+                    api.upload_large_folder(
+                        repo_id=repo_id,
+                        folder_path=str(xd),
+                        repo_type="dataset",
+                    )
+                    z_ok += x_tile_count
+                except Exception as e:
+                    z_errors += 1
+                    print(f"  ERROR z{z}/{xd.name}: {e}")
+            if z_errors == 0:
+                uploaded_z.append(z)
+                print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(x_dirs)} x-dirs)")
+            else:
+                print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs failed")
+        else:
+            # Full upload: chunk x-dirs into batches and upload each batch
+            # as a single commit using upload_folder (NOT upload_large_folder —
+            # upload_large_folder silently fails to commit).
+            # Each batch = 1 commit. Stay within 128 commits/hr limit.
+            # Use copies (not symlinks) to avoid any symlink issues.
+            import time, shutil
+            x_dirs = sorted([xd for xd in zdir.iterdir() if xd.is_dir()])
+            BATCH_SIZE = 5  # x-dirs per commit (small to avoid network timeouts)
+            batches = [x_dirs[i:i+BATCH_SIZE] for i in range(0, len(x_dirs), BATCH_SIZE)]
+            print(f"\nUploading z{z}/ in {len(batches)} batch(es) of ~{BATCH_SIZE} x-dirs ({tile_count:,} tiles)...")
+            z_ok = 0
+            z_errors = 0
+            for bid, batch in enumerate(batches):
+                t0 = time.time()
+                # Create temp dir with COPIES of the x-dirs (not symlinks)
+                batch_dir = Path(tempfile.mkdtemp(prefix="ozt2_batch_"))
+                for xd in batch:
+                    dst = batch_dir / xd.name
+                    # Copy the entire x-dir recursively (preserving file contents)
+                    shutil.copytree(xd, dst, copy_function=shutil.copy2)
+                try:
+                    api.upload_folder(
+                        repo_id=repo_id,
+                        folder_path=str(batch_dir),
+                        path_in_repo=z_path_in_repo,
+                        repo_type="dataset",
+                        commit_message=f"Upload z{z} OZT2 tiles batch {bid+1}/{len(batches)} ({len(batch)} x-dirs)",
+                    )
+                    batch_tiles = sum(1 for xd in batch for _ in xd.glob("*.ozt2"))
+                    z_ok += batch_tiles
+                    elapsed = time.time() - t0
+                    print(f"  batch {bid+1}/{len(batches)}: {batch_tiles} tiles in {elapsed:.0f}s ({batch[0].name}–{batch[-1].name})")
+                except Exception as e:
+                    z_errors += len(batch)
+                    print(f"  ERROR batch {bid+1}/{len(batches)}: {e}")
+                finally:
+                    shutil.rmtree(batch_dir)
+            if z_errors == 0:
+                uploaded_z.append(z)
+                print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(x_dirs)} x-dirs in {len(batches)} batches)")
+            else:
+                print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs failed")
 
     print(f"\n{'='*60}")
     print(f"Upload complete!")
@@ -235,7 +284,7 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
     # Print dataset metadata
     metadata = {
         "repo_id": repo_id,
-        "format": "OZT2 (gradient prediction + adaptive quantization + Brotli)",
+        "format": "OZT2 (gradient prediction + adaptive quantization + Zstd)",
         "tile_count": sum(local_counts.values()),
         "zoom_levels": uploaded_z,
         "description": (

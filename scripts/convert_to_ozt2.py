@@ -149,6 +149,7 @@ def tile_has_land(
     srtm_tiles: dict[tuple[int, int], dict],
     merged_dir: Path,
     sample_points: int = 16,
+    valid_tiles: set[tuple[int, int]] | None = None,
 ) -> bool:
     """Check if a Mercator tile has any land by sampling strategic points.
 
@@ -167,31 +168,113 @@ def tile_has_land(
     if sample_lat_max <= sample_lat_min:
         return False
 
+    # ── FAST PRE-CHECK: reject if NO SRTM tiles in bounding box have land ──
+    # Compute the SRTM tile bounding box that contains this Mercator tile.
+    # If none of those SRTM tiles have land data, reject immediately (no I/O).
+    srtm_lat_min = math.floor(sample_lat_min)
+    srtm_lat_max = math.floor(sample_lat_max)
+    srtm_lon_min = math.floor(lon_min)
+    srtm_lon_max = math.floor(lon_max)
+    has_land_srtm = False
+    for srtm_lat in range(srtm_lat_min, srtm_lat_max + 1):
+        for srtm_lon in range(srtm_lon_min, srtm_lon_max + 1):
+            if (srtm_lat, srtm_lon) in (valid_tiles or _worker_srtm_tiles_set):
+                has_land_srtm = True
+                break
+        if has_land_srtm:
+            break
+    if not has_land_srtm:
+        return False
+
     lat_step = (sample_lat_max - sample_lat_min) / sample_points
     lon_step = (lon_max - lon_min) / sample_points
 
-    # Group sample points by SRTM tile to open each file once
-    # { (srtm_lat, srtm_lon): [(lat, lon), ...] }
-    samples_by_tile: dict[tuple[int, int], list[tuple[float, float]]] = {}
-    for row in range(sample_points):
-        for col in range(sample_points):
-            lat = sample_lat_min + (row + 0.5) * lat_step
-            lon = lon_min + (col + 0.5) * lon_step
+    # Vectorized: compute all sample lat/lon at once
+    lat_vals = sample_lat_min + (np.arange(sample_points) + 0.5) * lat_step
+    lon_vals = lon_min + (np.arange(sample_points) + 0.5) * lon_step
 
-            srtm_lat = math.floor(lat)
-            srtm_lon = math.floor(lon)
+    lat_grid = lat_vals[:, np.newaxis] + np.zeros(sample_points, dtype=np.float64)
+    lon_grid = np.zeros((sample_points, sample_points), dtype=np.float64) + lon_vals[np.newaxis, :]
 
-            if srtm_lat < -60 or srtm_lat >= 60 or srtm_lon < -180 or srtm_lon >= 180:
+    # Compute SRTM tile coords (floor of lat/lon)
+    srtm_lat_grid = np.floor(lat_grid).astype(np.int32)
+    srtm_lon_grid = np.floor(lon_grid).astype(np.int32)
+
+    # Compute lat_frac/lon_frac for pixel calculation
+    lat_frac_grid = lat_grid - srtm_lat_grid.astype(np.float64)
+    lon_frac_grid = lon_grid - srtm_lon_grid.astype(np.float64)
+
+    # Compute pixel positions within 3600x3600 SRTM tile
+    lat_pixel_grid = np.clip(np.round((1.0 - lat_frac_grid) * 3600), 0, 3600).astype(np.int32)
+    lon_pixel_grid = np.clip(np.round(lon_frac_grid * 3600), 0, 3600).astype(np.int32)
+
+    # Compute chunk row/col and local position within chunk
+    chunk_row_grid = np.clip(lat_pixel_grid // 256, 0, 14)
+    chunk_col_grid = np.clip(lon_pixel_grid // 256, 0, 14)
+    local_row_grid = np.clip(lat_pixel_grid - chunk_row_grid * 256, 0, 255)
+    local_col_grid = np.clip(lon_pixel_grid - chunk_col_grid * 256, 0, 255)
+
+    # Use pre-computed valid_tiles set (passed in or from worker globals)
+    vt = valid_tiles if valid_tiles is not None else _worker_srtm_tiles_set
+
+    # ── FAST SRTM-CENTER CHECK ──────────────────────────────────────────────
+    # For each SRTM tile in the bounding box, check the center pixel directly.
+    # This catches land that a sparse sample grid might miss near tile edges.
+    # Grid size in degrees per SRTM tile = 1°. Mercator tile at z13 ≈ 0.039°.
+    # 16×16 grid → spacing ≈ 0.0024° ≈ 1 SRTM pixel (30m). Center check is
+    # essentially free (one pixel read per SRTM tile vs 256 for full grid).
+    for srtm_lat in range(srtm_lat_min, srtm_lat_max + 1):
+        for srtm_lon in range(srtm_lon_min, srtm_lon_max + 1):
+            if (srtm_lat, srtm_lon) not in vt:
                 continue
-            if (srtm_lat, srtm_lon) not in srtm_tiles:
-                continue
-            if not srtm_tiles[(srtm_lat, srtm_lon)].get("has_data", False):
+
+            tile_name = _tile_name_from_lat_lon(srtm_lat, srtm_lon)
+            lat_dir = tile_name[:3]
+            merged_path = merged_dir / lat_dir / f"{tile_name}.merged"
+            if not merged_path.exists():
                 continue
 
-            samples_by_tile.setdefault((srtm_lat, srtm_lon), []).append((lat, lon))
+            try:
+                mf = get_merged_file(merged_path)
+            except Exception:
+                continue
 
-    # Check each SRTM tile once, scanning all its sample points
-    for (srtm_lat, srtm_lon), sample_locs in samples_by_tile.items():
+            # Check center pixel of the SRTM tile: lat center = srtm_lat - 0.5,
+            # lon center = srtm_lon + 0.5. Pixel = round((1 - 0.5) * 3600) = 1800.
+            # Chunk = 1800 // 256 = 7, local = 1800 - 7*256 = 28.
+            cr_center, cc_center = 7, 7
+            idx_flat = cr_center * mf.cols + cc_center
+            if idx_flat >= len(mf.index) or mf.index[idx_flat]["size"] == 0:
+                continue
+
+            try:
+                chunk = mf.get_chunk(cr_center, cc_center)
+                # Sample 4 center-ish pixels to handle edge cases
+                for dr, dc in [(28, 28), (28, 227), (227, 28), (227, 227)]:
+                    if chunk[dr, dc] != NODATA:
+                        return True
+            except Exception:
+                continue
+
+    # ── GRID-BASED SAMPLE FALLBACK (redundant check skipped if center hit) ──
+    # Flatten all grids for fast iteration over unique SRTM tiles
+    flat_size = sample_points * sample_points
+    srtm_lats_flat = srtm_lat_grid.ravel()
+    srtm_lons_flat = srtm_lon_grid.ravel()
+    chunk_rows_flat = chunk_row_grid.ravel()
+    chunk_cols_flat = chunk_col_grid.ravel()
+    local_rows_flat = local_row_grid.ravel()
+    local_cols_flat = local_col_grid.ravel()
+
+    # Group by SRTM tile: tile_key → list of local indices
+    tile_to_indices: dict[tuple[int, int], list[int]] = {}
+    for i in range(flat_size):
+        key = (srtm_lats_flat[i], srtm_lons_flat[i])
+        if key in vt:
+            tile_to_indices.setdefault(key, []).append(i)
+
+    # Check each SRTM tile once
+    for (srtm_lat, srtm_lon), indices in tile_to_indices.items():
         tile_name = _tile_name_from_lat_lon(srtm_lat, srtm_lon)
         lat_dir = tile_name[:3]
         merged_path = merged_dir / lat_dir / f"{tile_name}.merged"
@@ -203,25 +286,18 @@ def tile_has_land(
         except Exception:
             continue
 
-        for lat, lon in sample_locs:
-            lat_frac = lat - math.floor(lat)
-            lon_frac = lon - math.floor(lon)
-            lat_pixel = min(3600, max(0, round((1.0 - lat_frac) * 3600)))
-            lon_pixel = min(3600, max(0, round(lon_frac * 3600)))
-
-            chunk_row = min(14, lat_pixel // 256)
-            chunk_col = min(14, lon_pixel // 256)
-
-            idx = chunk_row * mf.cols + chunk_col
-            if idx >= len(mf.index) or mf.index[idx]["size"] == 0:
+        for idx in indices:
+            cr = chunk_rows_flat[idx]
+            cc = chunk_cols_flat[idx]
+            idx_flat = cr * mf.cols + cc
+            if idx_flat >= len(mf.index) or mf.index[idx_flat]["size"] == 0:
                 continue
 
             try:
-                chunk = mf.get_chunk(chunk_row, chunk_col)
-                local_row = min(lat_pixel - chunk_row * 256, chunk.shape[0] - 1)
-                local_col = min(lon_pixel - chunk_col * 256, chunk.shape[1] - 1)
-                val = chunk[local_row, local_col]
-                if val != NODATA:
+                chunk = mf.get_chunk(cr, cc)
+                lr = local_rows_flat[idx]
+                lc = local_cols_flat[idx]
+                if chunk[lr, lc] != NODATA:
                     return True
             except Exception:
                 continue
@@ -246,42 +322,64 @@ def generate_tile_grid(
 
     grid = np.full((TILE_SIZE, TILE_SIZE), NODATA, dtype=np.int16)
 
-    # Group pixel coordinates by (SRTM tile, chunk_row, chunk_col)
-    # {(srtm_lat, srtm_lon, chunk_row, chunk_col): [(grid_row, grid_col, local_row, local_col), ...]}
-    pixels_by_chunk: dict[
-        tuple[int, int, int, int],
-        list[tuple[int, int, int, int]]
-    ] = {}
+    # Vectorized: compute all 65,536 pixel coordinates at once via numpy broadcasting
+    grid_rows_1d = np.arange(TILE_SIZE, dtype=np.float64)
+    lat_1d = lat_max - (grid_rows_1d + 0.5) * deg_per_pixel_lat
+    lon_1d = lon_min + (grid_rows_1d + 0.5) * deg_per_pixel_lon
 
-    for grid_row in range(TILE_SIZE):
-        lat = lat_max - (grid_row + 0.5) * deg_per_pixel_lat
-        lat_frac = lat - math.floor(lat)
-        lat_pixel = min(3600, max(0, round((1.0 - lat_frac) * 3600)))
-        chunk_row = min(14, lat_pixel // 256)
-        local_row = min(lat_pixel - chunk_row * 256, 255)
-        srtm_lat = math.floor(lat)
+    # Broadcast to 2D grids: (TILE_SIZE, TILE_SIZE) each
+    lat_grid = lat_1d[:, np.newaxis] + np.zeros(TILE_SIZE, dtype=np.float64)
+    lon_grid = np.zeros((TILE_SIZE, TILE_SIZE), dtype=np.float64) + lon_1d[np.newaxis, :]
 
-        for grid_col in range(TILE_SIZE):
-            lon = lon_min + (grid_col + 0.5) * deg_per_pixel_lon
-            lon_frac = lon - math.floor(lon)
-            lon_pixel = min(3600, max(0, round(lon_frac * 3600)))
-            chunk_col = min(14, lon_pixel // 256)
-            local_col = min(lon_pixel - chunk_col * 256, 255)
-            srtm_lon = math.floor(lon)
+    # SRTM tile coordinates
+    srtm_lat_grid = np.floor(lat_grid).astype(np.int32)
+    srtm_lon_grid = np.floor(lon_grid).astype(np.int32)
 
-            if srtm_lat < -60 or srtm_lat >= 60 or srtm_lon < -180 or srtm_lon >= 180:
-                continue
-            if (srtm_lat, srtm_lon) not in srtm_tiles:
-                continue
-            if not srtm_tiles[(srtm_lat, srtm_lon)].get("has_data", False):
-                continue
+    # Fractional position within the 1°×1° SRTM tile
+    lat_frac_grid = lat_grid - srtm_lat_grid.astype(np.float64)
+    lon_frac_grid = lon_grid - srtm_lon_grid.astype(np.float64)
 
-            pixels_by_chunk.setdefault(
-                (srtm_lat, srtm_lon, chunk_row, chunk_col), []
-            ).append((grid_row, grid_col, local_row, local_col))
+    # Pixel position within the 3600×3600 SRTM tile
+    lat_pixel_grid = np.clip(np.round((1.0 - lat_frac_grid) * 3600), 0, 3600).astype(np.int32)
+    lon_pixel_grid = np.clip(np.round(lon_frac_grid * 3600), 0, 3600).astype(np.int32)
 
-    # Process each chunk once, assigning to all its pixels via numpy indexing
-    for (srtm_lat, srtm_lon, chunk_row, chunk_col), pixel_locs in pixels_by_chunk.items():
+    # Chunk and local coordinates within chunk
+    chunk_row_grid = np.clip(lat_pixel_grid // 256, 0, 14)
+    chunk_col_grid = np.clip(lon_pixel_grid // 256, 0, 14)
+    local_row_grid = np.clip(lat_pixel_grid - chunk_row_grid * 256, 0, 255).astype(np.int32)
+    local_col_grid = np.clip(lon_pixel_grid - chunk_col_grid * 256, 0, 255).astype(np.int32)
+
+    # Pre-build valid-tile set for fast lookup
+    valid_tiles: set[tuple[int, int]] = {
+        (lat, lon) for (lat, lon), info in srtm_tiles.items()
+        if info.get("has_data", False)
+        and -60 <= lat < 60 and -180 <= lon < 180
+    }
+
+    # Flatten everything: (TILE_SIZE * TILE_SIZE,)
+    flat_size = TILE_SIZE * TILE_SIZE
+    srtm_lats_flat = srtm_lat_grid.ravel()
+    srtm_lons_flat = srtm_lon_grid.ravel()
+    chunk_rows_flat = chunk_row_grid.ravel()
+    chunk_cols_flat = chunk_col_grid.ravel()
+    local_rows_flat = local_row_grid.ravel()
+    local_cols_flat = local_col_grid.ravel()
+
+    # Group pixel indices by (srtm_lat, srtm_lon, chunk_row, chunk_col)
+    tile_to_pixels: dict[tuple[int, int, int, int], list[int]] = {}
+    for i in range(flat_size):
+        slat = srtm_lats_flat[i]
+        slon = srtm_lons_flat[i]
+        # Bounds check and valid-tile check
+        if slat < -60 or slat >= 60 or slon < -180 or slon >= 180:
+            continue
+        if (slat, slon) not in valid_tiles:
+            continue
+        key = (slat, slon, chunk_rows_flat[i], chunk_cols_flat[i])
+        tile_to_pixels.setdefault(key, []).append(i)
+
+    # Process each chunk once, batch-assign all its pixels
+    for (srtm_lat, srtm_lon, chunk_row, chunk_col), pixel_indices in tile_to_pixels.items():
         tile_name = _tile_name_from_lat_lon(srtm_lat, srtm_lon)
         lat_dir = tile_name[:3]
         merged_path = merged_dir / lat_dir / f"{tile_name}.merged"
@@ -302,33 +400,36 @@ def generate_tile_grid(
         except Exception:
             continue
 
-        # Batch-assign all pixels in this chunk using numpy
-        grid_rows = np.array([p[0] for p in pixel_locs], dtype=np.intp)
-        grid_cols = np.array([p[1] for p in pixel_locs], dtype=np.intp)
-        local_rows = np.array([p[2] for p in pixel_locs], dtype=np.intp)
-        local_cols = np.array([p[3] for p in pixel_locs], dtype=np.intp)
+        # Batch numpy indexing: all pixel positions in this chunk at once
+        idx_arr = np.array(pixel_indices, dtype=np.intp)
+        grid_row_idx = idx_arr // TILE_SIZE
+        grid_col_idx = idx_arr % TILE_SIZE
+        local_row_idx = local_rows_flat[idx_arr]
+        local_col_idx = local_cols_flat[idx_arr]
 
-        values = chunk[local_rows, local_cols]
+        values = chunk[local_row_idx, local_col_idx]
         mask = values != NODATA
-        grid[grid_rows[mask], grid_cols[mask]] = values[mask]
+        grid[grid_row_idx[mask], grid_col_idx[mask]] = values[mask]
 
     return grid
 
 
 # ─── Worker globals (initialized once per process) ───────────────────────────
 _worker_srtm_tiles: dict[tuple[int, int], dict] = {}
+_worker_srtm_tiles_set: set[tuple[int, int]] = set()
 _worker_merged_dir: Path | None = None
 
 
-def _init_worker(merged_dir_str: str) -> dict[tuple[int, int], dict]:
-    """Initialize worker process: load SRTM index once per worker.
-
-    Returns the index dict so the main process can verify it loaded.
-    """
-    global _worker_srtm_tiles, _worker_merged_dir
+def _init_worker(merged_dir_str: str) -> None:
+    """Initialize worker process: load SRTM index once per worker."""
+    global _worker_srtm_tiles, _worker_srtm_tiles_set, _worker_merged_dir
     _worker_merged_dir = Path(merged_dir_str)
     _worker_srtm_tiles = discover_srtm_tiles(_worker_merged_dir)
-    return _worker_srtm_tiles
+    _worker_srtm_tiles_set = {
+        (lat, lon) for (lat, lon), info in _worker_srtm_tiles.items()
+        if info.get("has_data", False)
+        and -60 <= lat < 60 and -180 <= lon < 180
+    }
 
 
 def convert_tile(args) -> dict:

@@ -19,6 +19,7 @@ import { STYLES } from "./lib/styles";
 import { loadEarthquakes } from "./lib/layers/earthquakes";
 import { loadEvents } from "./lib/layers/events";
 import { loadElevationColor } from "./lib/layers/elevation";
+import { addCoverage, removeCoverage } from "./lib/layers/coverage";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD } from "./lib/lod";
 
@@ -98,6 +99,7 @@ export default function Globe() {
     { key: "currents", label: "Currents", lastUpdate: null, count: 0, error: null },
     { key: "gpsJamming", label: "GPS Jamming", lastUpdate: null, count: 0, error: null },
     { key: "dayNight", label: "Day/Night", lastUpdate: null, count: 0, error: null },
+    { key: "coverage", label: "Elevation Coverage", lastUpdate: null, count: 0, error: null },
   ]);
   const [ctxMenu, setCtxMenu] = useState<{
     x: number;
@@ -980,6 +982,15 @@ export default function Globe() {
           case "dayNight":
             if (on) loadLayerDynamic("dayNight");
             if (!on) { removeEntities("day-night"); dataLoadedRef.current.dayNight = false; }
+            break;
+          case "coverage":
+            if (on) {
+              addCoverage(viewer, Cesium);
+              updateStatus("coverage", { lastUpdate: Date.now(), count: 1, error: null });
+            } else {
+              removeCoverage(viewer);
+              dataLoadedRef.current.coverage = false;
+            }
             break;
         }
         return next;

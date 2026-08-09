@@ -30,6 +30,8 @@ export interface LayerState {
   gpsJamming: boolean;
   /** Day/Night terminator overlay */
   dayNight: boolean;
+  /** Elevation data source coverage heatmap */
+  coverage: boolean;
 }
 
 export interface DashboardState {

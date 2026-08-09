@@ -35,6 +35,7 @@ import math
 import struct
 import zlib
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 from cachetools import LRUCache
@@ -124,13 +125,13 @@ class MergedFile:
             # Undo horizontal predictor: cumulative sum along each row
             # raw[row, col] stores: delta from left neighbor
             # out[row, col] = sum of deltas in [0..col] for this row
-            out = np.cumsum(raw, axis=1, dtype=np.int16)
+            out: np.ndarray = np.cumsum(raw, axis=1, dtype=np.int16)
         else:
             # Float32 (no prediction)
             out = np.frombuffer(decompressed, dtype=np.float32).reshape(256, 256)
 
         _chunk_cache[cache_key] = out
-        return out
+        return cast(np.ndarray, out)
 
 
 def lat_lon_to_srtm_name(lat: float, lon: float) -> str:

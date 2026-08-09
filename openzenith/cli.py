@@ -770,7 +770,7 @@ REGION_BBOXES = {
 
 def _parse_zoom_levels(s: str) -> list[int]:
     """Parse zoom level specification: '0-8' or '0,1,2,5' or '8' or '0-3,5,7-9'."""
-    result = set()
+    result: set[int] = set()
     for part in s.split(","):
         part = part.strip()
         if "-" in part:

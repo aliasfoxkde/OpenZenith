@@ -10,7 +10,7 @@ use rayon::prelude::*;
 // Direction offset tables (matches Python D8_DR, D8_DC)
 const DR: [isize; 8] = [0, 1, 1, 1, 0, -1, -1, -1];
 const DC: [isize; 8] = [1, 1, 0, -1, -1, -1, 0, 1];
-const DIST: [f32; 8] = [1.0, 1.4142136, 1.0, 1.4142136, 1.0, 1.4142136, 1.0, 1.4142136];
+const DIST: [f32; 8] = [1.0, std::f32::consts::SQRT_2, 1.0, std::f32::consts::SQRT_2, 1.0, std::f32::consts::SQRT_2, 1.0, std::f32::consts::SQRT_2];
 
 /// D8 flow direction for a DEM.
 ///

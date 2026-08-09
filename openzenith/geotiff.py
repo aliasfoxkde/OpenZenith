@@ -29,7 +29,6 @@ __all__ = [
     "grid_to_gtiff_metadata",
 ]
 
-import math
 from pathlib import Path
 from typing import Literal
 

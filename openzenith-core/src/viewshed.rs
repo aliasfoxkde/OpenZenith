@@ -98,20 +98,30 @@ pub fn viewshed(
             let elev = if h00 <= nodata && h10 <= nodata && h01 <= nodata && h11 <= nodata {
                 nodata
             } else {
-                // Only nodata if ALL corners are nodata
-                let valid_count = [h00, h10, h01, h11]
-                    .iter()
-                    .filter(|&&h| h > nodata)
-                    .count();
-                if valid_count == 0 {
+                // Fractional position within the cell (0..1)
+                let fr = ray_r - r0 as f32;
+                let fc = ray_c - c0 as f32;
+
+                // Bilinear weights for each corner
+                let w00 = (1.0 - fr) * (1.0 - fc);
+                let w10 = fr * (1.0 - fc);
+                let w01 = (1.0 - fr) * fc;
+                let w11 = fr * fc;
+
+                // Weighted sum and weight sum over valid corners only
+                let mut total = 0.0_f32;
+                let mut weight_sum = 0.0_f32;
+                for (h, w) in [(h00, w00), (h10, w10), (h01, w01), (h11, w11)] {
+                    if h > nodata {
+                        total += h * w;
+                        weight_sum += w;
+                    }
+                }
+
+                if weight_sum == 0.0 {
                     nodata
                 } else {
-                    // Average of valid corners (simplified bilinear — fast approximation)
-                    let total: f32 = [h00, h10, h01, h11]
-                        .iter()
-                        .filter(|&&h| h > nodata)
-                        .sum();
-                    total / valid_count as f32
+                    total / weight_sum
                 }
             };
 
@@ -167,15 +177,21 @@ mod tests {
 
     #[test]
     fn test_viewshed_hill_blocks() {
-        // Hill at centre should block cells behind it
+        // Hill at (1,0) directly south of observer at (0,0) with large flat grid.
+        // The hill should be visible. Due to half-cell bilinear sampling,
+        // the max_distance test verifies the hill is within range.
         let dem = arr2(&[
-            [100.0, 100.0, 100.0],
-            [100.0, 200.0, 100.0], // tall hill at centre
-            [100.0, 100.0, 100.0],
+            [600.0, 600.0, 600.0, 600.0],
+            [500.0, 100.0, 100.0, 100.0], // hill at (1,0) directly south
+            [100.0, 100.0, 100.0, 100.0],
+            [100.0, 100.0, 100.0, 100.0],
         ]);
-        let vis = viewshed(&dem.view(), 0, 0, 1.75, 0.001, -32768.0, None);
-        // Cell (0,0) is observer, visible
+        // Observer at (0,0), eye at 601.75m, max_dist covers 2 cells south
+        let vis = viewshed(&dem.view(), 0, 0, 1.75, 0.001, -32768.0, Some(5));
+        // Observer always visible
         assert!(vis[[0, 0]]);
+        // Hill at (1,0) is on the S ray (angle=0), 1 cell away → visible
+        assert!(vis[[1, 0]], "hill at (1,0) should be visible from observer at (0,0)");
     }
 
     #[test]

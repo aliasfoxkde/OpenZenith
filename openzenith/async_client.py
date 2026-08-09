@@ -39,8 +39,7 @@ Installation:
 from __future__ import annotations
 
 import asyncio
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, AsyncIterator, cast
 
 if TYPE_CHECKING:

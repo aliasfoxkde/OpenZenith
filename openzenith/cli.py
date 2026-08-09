@@ -18,7 +18,6 @@ import argparse
 import sys
 import json
 import time
-import os
 import math
 from pathlib import Path
 
@@ -66,7 +65,7 @@ def cmd_download(args):
 
     cache_dir = args.cache_dir or str(Path.home() / ".cache" / "openzenith-dem")
     print(f"📁 Cache directory: {cache_dir}")
-    print(f"⬇️  Downloading...")
+    print("⬇️  Downloading...")
 
     t0 = time.time()
     tile_dir = load_tiles(
@@ -366,6 +365,72 @@ def cmd_aspect(args):
         print(f"💾 Saved to {args.output}")
 
 
+def cmd_tpi(args):
+    """Compute Topographic Position Index (TPI)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import tpi
+
+    print(f"📍 Computing TPI at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = tpi(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.3f}  Median: {np.median(valid):.3f}")
+    print(f"   Min:  {np.min(valid):.3f}  Max: {np.max(valid):.3f}")
+    print(f"   Std:  {np.std(valid):.3f}")
+    print("   (positive=peak, negative=valley, ~0=flat or constant slope)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_roughness(args):
+    """Compute terrain roughness (range of elevations in 3×3 window)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import roughness
+
+    print(f"📍 Computing roughness at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = roughness(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.1f}m  Median: {np.median(valid):.1f}m")
+    print(f"   Min:  {np.min(valid):.1f}m  Max: {np.max(valid):.1f}m")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_curvature(args):
+    """Compute terrain curvature (second derivative of elevation)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import curvature
+
+    print(f"📍 Computing curvature at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = curvature(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.6f}  Median: {np.median(valid):.6f}")
+    print(f"   Min:  {np.min(valid):.6f}  Max: {np.max(valid):.6f}")
+    print("   (positive=convex, negative=concave)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
 def _latlon_to_grid_coords(lat: float, lon: float, grid: dict) -> tuple[int, int]:
     """Convert lat/lon to grid (row, col) within an elevation grid."""
     dlat = grid["center_lat"] - lat
@@ -637,14 +702,14 @@ def cmd_encode(args):
         print(f"   Avg RMSE: {avg_rmse:.2f}m")
         print(f"   Lossless: {lossless_count} ({100*lossless_count/len(results):.0f}%)")
     else:
-        print(f"\n❌ No files encoded successfully")
+        print("\n❌ No files encoded successfully")
         sys.exit(1)
 
 
 def cmd_ingest(args):
     """Prepare a contributed dataset for submission to OpenZenith."""
     import json as _json
-    from openzenith.tile_format_v2 import auto_encode, encode, validate_roundtrip
+    from openzenith.tile_format_v2 import auto_encode
 
     dataset_path = Path(args.dataset)
     if not dataset_path.is_dir():
@@ -656,7 +721,7 @@ def cmd_ingest(args):
     tiles_dir = bundle_dir / "tiles"
     tiles_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"OpenZenith Dataset Ingest")
+    print("OpenZenith Dataset Ingest")
     print(f"{'=' * 50}")
     print(f"  Dataset:   {args.dataset}")
     print(f"  Name:      {args.name}")
@@ -738,10 +803,10 @@ def cmd_ingest(args):
     print(f"   Manifest: {manifest_path}")
     if errors:
         print(f"   Errors: {len(errors)}")
-    print(f"\nTo submit:")
+    print("\nTo submit:")
     print(f"  1. Review manifest: cat {manifest_path}")
-    print(f"  2. Create PR: https://github.com/openzenith/openzenith-data")
-    print(f"  3. Attach bundle as LFS file")
+    print("  2. Create PR: https://github.com/openzenith/openzenith-data")
+    print("  3. Attach bundle as LFS file")
 
 
 def cmd_tiles(args):
@@ -827,11 +892,12 @@ def cmd_tiles(args):
     print(f"📈 Per zoom: {', '.join(f'z{z}={counts.get(z, 0):,}' for z in sorted(counts.keys()))}")
 
     # Generate usage example
-    print(f"\n📖 Usage example:")
-    print(f"  from openzenith import get_elevation, load_tiles")
+    print("\n📖 Usage example:")
+    print("  from openzenith import get_elevation, load_tiles")
     print(f"  load_tiles(zoom_levels={zoom_levels})")
-    print(f"  elev = get_elevation({(lat_min+lat_max)/2:.4f}, {(lon_min+lon_max)/2:.4f})")
-    print(f"  # => {elev}m")
+    mid_lat, mid_lon = (lat_min + lat_max) / 2, (lon_min + lon_max) / 2
+    print(f"  elev = get_elevation({mid_lat:.4f}, {mid_lon:.4f})")
+    print(f"  # => {{elev}}m")
 
 REGION_BBOXES = {
     "world": (-90, -180, 90, 180),
@@ -950,6 +1016,27 @@ def main():
     asp.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
     asp.add_argument("--output", type=str, default=None, help="Output .npy file")
 
+    # tpi (Topographic Position Index)
+    tpi_p = sub.add_parser("tpi", help="Compute Topographic Position Index (TPI)")
+    tpi_p.add_argument("--lat", type=float, required=True)
+    tpi_p.add_argument("--lon", type=float, required=True)
+    tpi_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    tpi_p.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # roughness
+    rough_p = sub.add_parser("roughness", help="Compute terrain roughness (max - min in 3×3 window)")
+    rough_p.add_argument("--lat", type=float, required=True)
+    rough_p.add_argument("--lon", type=float, required=True)
+    rough_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    rough_p.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # curvature
+    curv_p = sub.add_parser("curvature", help="Compute terrain curvature (second derivative of elevation)")
+    curv_p.add_argument("--lat", type=float, required=True)
+    curv_p.add_argument("--lon", type=float, required=True)
+    curv_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    curv_p.add_argument("--output", type=str, default=None, help="Output .npy file")
+
     # profile
     prf = sub.add_parser("profile", help="Extract elevation profile along a transect")
     prf.add_argument("--lat1", type=float, required=True, help="Start latitude")
@@ -1028,6 +1115,9 @@ def main():
         "hillshade": cmd_hillshade,
         "viewshed": cmd_viewshed,
         "aspect": cmd_aspect,
+        "tpi": cmd_tpi,
+        "roughness": cmd_roughness,
+        "curvature": cmd_curvature,
         "twi": cmd_twi,
         "profile": cmd_profile,
         "contour": cmd_contour,

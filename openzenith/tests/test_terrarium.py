@@ -1,7 +1,6 @@
 """Tests for terrarium PNG encoding/decoding."""
 
 import numpy as np
-import pytest
 from openzenith.terrarium import decode_tile, encode_tile
 
 

@@ -17,6 +17,39 @@ to avoid HTTPS chunk download overhead on each tile request.
 
 __version__ = "0.6.4"
 
+
+# ─── Exception hierarchy ───────────────────────────────────────────────────────
+
+
+class OpenZenithError(Exception):
+    """Base exception for OpenZenith SDK errors."""
+
+    pass
+
+
+class TileNotFoundError(OpenZenithError):
+    """Raised when a tile file or resource is not found."""
+
+    pass
+
+
+class TileDecodeError(OpenZenithError):
+    """Raised when tile data cannot be decoded."""
+
+    pass
+
+
+class NetworkError(OpenZenithError):
+    """Raised when a network request fails."""
+
+    pass
+
+
+class DataError(OpenZenithError):
+    """Raised when data validation fails."""
+
+    pass
+
 from openzenith.elevation import (
     get_elevation,
     get_elevation_batch,
@@ -49,7 +82,7 @@ from openzenith.tile_format_v2 import (
     PRED_LEFT,
     PRED_GRADIENT,
     COMP_BROTLI,
-    COMP_ZSTD,
+    COMP_ZSTD as COMP_ZSTD_V2,
     COMP_ZLIB,
     TileError as TileErrorV2,
     encode as encode_v2,
@@ -189,6 +222,12 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
+    # Exceptions
+    "OpenZenithError",
+    "TileNotFoundError",
+    "TileDecodeError",
+    "NetworkError",
+    "DataError",
     # OZT1
     "COMP_NONE",
     "COMP_ZSTD",
@@ -203,7 +242,7 @@ __all__ = [
     "PRED_LEFT",
     "PRED_GRADIENT",
     "COMP_BROTLI",
-    "COMP_ZSTD",
+    "COMP_ZSTD_V2",
     "COMP_ZLIB",
     "TileErrorV2",
     "encode_v2",

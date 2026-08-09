@@ -12,12 +12,15 @@ Usage:
     print(grid.shape)  # (256, 256)
 """
 
+import logging
 import math
 from pathlib import Path
 
 import numpy as np
 
 from ..tile_format_v2 import decode
+
+_logger = logging.getLogger(__name__)
 
 
 class OZT2Backend:
@@ -54,7 +57,8 @@ class OZT2Backend:
             data = tile_path.read_bytes()
             elevation, _meta = decode(data)
             return elevation
-        except Exception:
+        except Exception as err:
+            _logger.debug("local tile decode failed: %s: %s", tile_path, err)
             return None
 
     def fetch_tile_bytes(self, z: int, x: int, y: int) -> bytes | None:
@@ -197,7 +201,8 @@ class OZT2R2Backend:
             data = response["Body"].read()
             elevation, _ = decode(data)
             return elevation
-        except Exception:
+        except Exception as err:
+            _logger.debug("R2 tile fetch failed (key=%s): %s: %s", key, type(err).__name__, err)
             return None
 
     def tile_exists(self, z: int, x: int, y: int) -> bool:
@@ -207,7 +212,8 @@ class OZT2R2Backend:
             client = self._get_client()
             client.head_object(Bucket=self.bucket_name, Key=key)
             return True
-        except Exception:
+        except Exception as err:
+            _logger.debug("R2 tile exists check failed (key=%s): %s: %s", key, type(err).__name__, err)
             return False
 
 
@@ -269,8 +275,8 @@ class OZT2HFBackend:
                 data = cached.read_bytes()
                 elevation, _ = decode(data)
                 return elevation
-            except Exception:
-                pass
+            except Exception as err:
+                _logger.debug("HF cache tile decode failed: %s: %s", cached, err)
 
         # Download from HuggingFace via HTTP
         url = self._tile_url(z, x, y)
@@ -292,7 +298,8 @@ class OZT2HFBackend:
                 cached.write_bytes(data)
 
             return elevation
-        except Exception:
+        except Exception as err:
+            _logger.debug("HF tile fetch/decode failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 
     def fetch_tile_bytes(self, z: int, x: int, y: int) -> bytes | None:
@@ -316,7 +323,8 @@ class OZT2HFBackend:
                 cached.parent.mkdir(parents=True, exist_ok=True)
                 cached.write_bytes(data)
             return data
-        except Exception:
+        except Exception as err:
+            _logger.debug("HF tile bytes fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 
     def tile_exists(self, z: int, x: int, y: int) -> bool:
@@ -332,7 +340,8 @@ class OZT2HFBackend:
             req = urllib.request.Request(url, method="HEAD", headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status == 200
-        except Exception:
+        except Exception as err:
+            _logger.debug("HF tile exists check failed (url=%s): %s: %s", url, type(err).__name__, err)
             return False
 
     def prefetch_tiles(self, tiles: list[tuple[int, int, int]]) -> int:
@@ -366,6 +375,7 @@ class OZT2HFBackend:
                     cached.parent.mkdir(parents=True, exist_ok=True)
                     cached.write_bytes(data)
                     cached_count += 1
-            except Exception:
+            except Exception as err:
+                _logger.debug("HF prefetch failed (z=%d,x=%d,y=%d): %s: %s", z, x, y, type(err).__name__, err)
                 continue
         return cached_count

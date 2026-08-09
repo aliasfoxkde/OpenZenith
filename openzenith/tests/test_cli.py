@@ -1,11 +1,7 @@
 """Tests for CLI internal helpers and argument parsing."""
 
-import argparse
-import json
-import sys
 from unittest.mock import patch
 
-import numpy as np
 import pytest
 
 from openzenith.cli import (

@@ -1,7 +1,6 @@
 """Tests for OpenZenith Python SDK — hydrology module."""
 
 import numpy as np
-import pytest
 
 from openzenith.hydrology import (
     d8_flow_direction,
@@ -10,8 +9,6 @@ from openzenith.hydrology import (
     extract_streams,
     stream_order,
     twi,
-    D8_DR,
-    D8_DC,
 )
 
 

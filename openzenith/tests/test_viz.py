@@ -1,6 +1,5 @@
 """Tests for openzenith.viz visualization helpers."""
 
-import json
 import numpy as np
 import pytest
 

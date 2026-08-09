@@ -23,6 +23,8 @@ __all__ = [
     "d8_flow_direction",
     "flow_accumulation",
     "gradient_reconstruct",
+    "gradient_predict",
+    "stream_order",
     "viewshed",
 ]
 
@@ -237,6 +239,66 @@ def viewshed(
         payload["max_distance_cells"] = max_distance_cells
 
     out = _run("viewshed", payload)
+
+    data = out["data"]
+    if isinstance(data[0], str):
+        data = [int(x) for x in data]
+    return _to_2d(data, rows, cols)
+
+
+def stream_order(
+    flow_accum: list[list[int]],
+    threshold: int = 100,
+) -> list[list[int]]:
+    """Compute Strahler stream order from flow accumulation.
+
+    Args:
+        flow_accum: 2D grid of upstream cell counts (from flow_accumulation)
+        threshold: minimum accumulation to be considered a stream
+
+    Returns:
+        2D grid of stream order values (1 = first-order stream, etc.)
+    """
+    rows = len(flow_accum)
+    cols = len(flow_accum[0]) if rows > 0 else 0
+    flat = [cell for row in flow_accum for cell in row]
+
+    out = _run("stream-order", {
+        "rows": rows,
+        "cols": cols,
+        "threshold": threshold,
+        "data": flat,
+    })
+
+    data = out["data"]
+    if isinstance(data[0], str):
+        data = [int(x) for x in data]
+    return _to_2d(data, rows, cols)
+
+
+def gradient_predict(
+    elevation: list[list[float]],
+    nodata: float = -32768.0,
+) -> list[list[int]]:
+    """Compute gradient prediction residuals (OZT2 encode).
+
+    Args:
+        elevation: 2D elevation grid (f32)
+        nodata: nodata value
+
+    Returns:
+        2D grid of int16 residuals
+    """
+    rows = len(elevation)
+    cols = len(elevation[0]) if rows > 0 else 0
+    flat = [cell for row in elevation for cell in row]
+
+    out = _run("gradient-predict", {
+        "rows": rows,
+        "cols": cols,
+        "nodata": nodata,
+        "data": flat,
+    })
 
     data = out["data"]
     if isinstance(data[0], str):

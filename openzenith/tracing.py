@@ -13,9 +13,11 @@ Usage:
     # Returns: path coordinates, distances, elevations, total distance
 """
 
+import logging
 import math
-import numpy as np
-from typing import Optional, List, Tuple
+from typing import Optional
+
+_logger = logging.getLogger(__name__)
 
 # D8 direction encoding: 0=E, 1=SE, 2=S, 3=SW, 4=W, 5=NW, 6=N, 7=NE
 D8_DR = [0, 1, 1, 1, 0, -1, -1, -1]
@@ -239,7 +241,8 @@ def _load_grid_at(
             if best_dist == float('inf'):
                 return None
         return result
-    except Exception:
+    except Exception as err:
+        _logger.debug("trace_downstream failed (lat=%.4f, lon=%.4f): %s: %s", lat, lon, type(err).__name__, err)
         return None
 
 

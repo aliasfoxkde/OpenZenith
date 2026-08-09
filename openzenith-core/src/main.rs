@@ -22,7 +22,7 @@ fn main() {
     io::stdin().read_to_string(&mut input).unwrap();
 
     let cmd = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("Usage: openzenith_core_cli <command>  (d8|accum|reconstruct|viewshed)");
+        eprintln!("Usage: openzenith_core_cli <command>  (d8|accum|reconstruct|viewshed|stream-order|gradient-predict)");
         std::process::exit(1);
     });
 
@@ -31,6 +31,8 @@ fn main() {
         "accum" => cmd_accum(&input),
         "reconstruct" => cmd_gradient_reconstruct(&input),
         "viewshed" => cmd_viewshed(&input),
+        "stream-order" => cmd_stream_order(&input),
+        "gradient-predict" => cmd_gradient_predict(&input),
         _ => {
             eprintln!("Unknown command: {cmd}");
             std::process::exit(1);
@@ -70,7 +72,7 @@ fn cmd_d8(input: &str) -> String {
     let out = D8Output {
         rows: inp.rows,
         cols: inp.cols,
-        data: result.into_raw_vec(),
+        data: result.into_raw_vec_and_offset().0,
     };
     serde_json::to_string(&out).unwrap()
 }
@@ -103,7 +105,7 @@ fn cmd_accum(input: &str) -> String {
     let out = AccumOutput {
         rows: inp.rows,
         cols: inp.cols,
-        data: result.into_raw_vec(),
+        data: result.into_raw_vec_and_offset().0,
     };
     serde_json::to_string(&out).unwrap()
 }
@@ -138,7 +140,7 @@ fn cmd_gradient_reconstruct(input: &str) -> String {
     let out = ReconstructOutput {
         rows: inp.rows,
         cols: inp.cols,
-        data: result.into_raw_vec(),
+        data: result.into_raw_vec_and_offset().0,
     };
     serde_json::to_string(&out).unwrap()
 }
@@ -185,7 +187,78 @@ fn cmd_viewshed(input: &str) -> String {
     let out = ViewshedOutput {
         rows: inp.rows,
         cols: inp.cols,
-        data: result.into_raw_vec().iter().map(|&b| if b { 1u8 } else { 0u8 }).collect(),
+        data: result.into_raw_vec_and_offset().0.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect(),
     };
     serde_json::to_string(&out).unwrap()
 }
+
+// ─── Stream order ─────────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct StreamOrderInput {
+    rows: usize,
+    cols: usize,
+    threshold: i32,
+    data: Vec<i32>,
+}
+
+#[derive(serde::Serialize)]
+struct StreamOrderOutput {
+    rows: usize,
+    cols: usize,
+    data: Vec<u8>,
+}
+
+fn cmd_stream_order(input: &str) -> String {
+    let inp: StreamOrderInput = serde_json::from_str(input).unwrap();
+    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+
+    use openzenith_core::stream_order;
+    use ndarray::Array2;
+
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let result = stream_order(&arr.view(), inp.threshold);
+
+    let out = StreamOrderOutput {
+        rows: inp.rows,
+        cols: inp.cols,
+        data: result.into_raw_vec_and_offset().0,
+    };
+    serde_json::to_string(&out).unwrap()
+}
+
+// ─── Gradient predict (encode) ─────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct GradientPredictInput {
+    rows: usize,
+    cols: usize,
+    nodata: f32,
+    data: Vec<f32>,
+}
+
+#[derive(serde::Serialize)]
+struct GradientPredictOutput {
+    rows: usize,
+    cols: usize,
+    data: Vec<i16>,
+}
+
+fn cmd_gradient_predict(input: &str) -> String {
+    let inp: GradientPredictInput = serde_json::from_str(input).unwrap();
+    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+
+    use openzenith_core::gradient_predict;
+    use ndarray::Array2;
+
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let result = gradient_predict(&arr.view(), inp.nodata);
+
+    let out = GradientPredictOutput {
+        rows: inp.rows,
+        cols: inp.cols,
+        data: result.into_raw_vec_and_offset().0,
+    };
+    serde_json::to_string(&out).unwrap()
+}
+

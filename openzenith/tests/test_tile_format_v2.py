@@ -9,7 +9,6 @@ from openzenith.tile_format_v2 import (
     PRED_GRADIENT,
     PRED_LEFT,
     PRED_NONE,
-    TileError,
     auto_encode,
     decode,
     encode,

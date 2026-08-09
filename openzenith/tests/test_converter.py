@@ -2,7 +2,6 @@
 
 import json
 import os
-import struct
 import tempfile
 
 import numpy as np
@@ -10,7 +9,6 @@ import pytest
 from numpy.testing import assert_array_equal
 
 from openzenith.tile_format import (
-    COMP_ZSTD,
     COMP_ZSTD_PREDICT,
     decode,
 )

@@ -1,10 +1,8 @@
 """Tests for OZT2 tile backends."""
 
-import tempfile
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from openzenith.backends.ozt2 import OZT2Backend
 from openzenith.tile_format_v2 import auto_encode

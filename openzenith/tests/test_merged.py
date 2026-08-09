@@ -7,7 +7,7 @@ import zlib
 import numpy as np
 import pytest
 
-from openzenith.merged import MergedFile, MAGIC, HEADER_SIZE, INDEX_ENTRY_SIZE
+from openzenith.merged import MergedFile, MAGIC, INDEX_ENTRY_SIZE
 
 
 def make_merged_v1(chunks: list[np.ndarray]) -> tuple[bytes, list[int]]:

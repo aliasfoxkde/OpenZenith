@@ -1,13 +1,11 @@
 """Tests for openzenith.async_client."""
 
-import asyncio
 import pytest
 
 from openzenith.async_client import (
     ElevationClient,
     ElevationBatchProcessor,
     ElevationResult,
-    ElevationPoint,
 )
 
 

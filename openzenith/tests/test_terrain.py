@@ -2,7 +2,6 @@
 
 import math
 import numpy as np
-import pytest
 
 from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri, multi_hillshade, color_relief, profile_curvature, planform_curvature, drainage_density
 

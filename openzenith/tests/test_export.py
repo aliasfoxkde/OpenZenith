@@ -2,7 +2,6 @@
 
 import json
 import numpy as np
-import pytest
 
 from openzenith.export import grid_to_geojson, contour_to_geojson
 

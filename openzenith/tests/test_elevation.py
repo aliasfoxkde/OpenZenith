@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 from openzenith.terrarium import decode_tile
-from openzenith.elevation import latlon_to_tile, get_elevation, load_elevation_grid
+from openzenith.elevation import latlon_to_tile, get_elevation
 
 
 def test_latlon_to_tile():
@@ -230,7 +230,6 @@ def test_get_elevation_no_tile_dir_raises():
 
 def test_get_elevation_missing_tile_returns_none(tmp_path):
     """Point whose tile doesn't exist returns None (not an error)."""
-    from openzenith.elevation import get_elevation
 
     # Point in the ocean — no tile should exist
     result = get_elevation(0.0, 0.0, tile_dir=tmp_path)

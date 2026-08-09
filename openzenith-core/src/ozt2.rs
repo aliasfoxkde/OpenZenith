@@ -117,14 +117,12 @@ pub fn gradient_predict(elevation: &ArrayView2<f32>, nodata: f32) -> Array2<i16>
             let (pred, pred_count) = if i == 0 && j == 0 {
                 (0.0, 0)
             } else if i == 0 {
-                (elevation[[0, j - 1]] as f32, 1)
+                (elevation[[0, j - 1]], 1)
             } else if j == 0 {
-                (elevation[[i - 1, 0]] as f32, 1)
+                (elevation[[i - 1, 0]], 1)
             } else {
                 (
-                    elevation[[i, j - 1]] as f32
-                        + elevation[[i - 1, j]] as f32
-                        - elevation[[i - 1, j - 1]] as f32,
+                    elevation[[i, j - 1]] + elevation[[i - 1, j]] - elevation[[i - 1, j - 1]],
                     3,
                 )
             };

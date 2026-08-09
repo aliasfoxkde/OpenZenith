@@ -71,3 +71,7 @@ target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
+addopts = "-m \"not integration\""
+markers = [
+    "integration: marks tests that require network access",
+]

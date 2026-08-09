@@ -114,7 +114,8 @@ class TestExportCog:
     def test_cog_zstd_compression(self):
         """COG with zstd compression produces smaller output than uncompressed."""
         dem = np.full((256, 256), 1000, dtype=np.int16)
-        import tempfile, os
+        import tempfile
+        import os
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path_zstd = export_cog(dem, f.name, compress="zstd")
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:

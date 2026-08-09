@@ -22,8 +22,8 @@ Usage:
     ])
 """
 
+import logging
 import math
-import os
 from pathlib import Path
 
 import numpy as np
@@ -31,6 +31,14 @@ import numpy as np
 from .terrarium import decode_tile
 from typing import cast
 from .tile_format_v2 import decode as decode_ozt2
+
+_logger = logging.getLogger(__name__)
+
+
+def _log_tile_error(path: Path, operation: str, err: Exception) -> None:
+    """Log tile read/decode errors at debug level (these are frequent and expected)."""
+    _logger.debug("tile %s failed (%s): %s: %s", path, operation, type(err).__name__, err)
+
 
 # Default HuggingFace dataset
 HF_REPO = "aliasfox/openzenith-dem"
@@ -99,7 +107,11 @@ def get_elevation(
             elev = _interpolate_from_tile(png_bytes, lat, lon, zoom, x, y)
             if elev is not None and not math.isnan(elev):
                 return elev
-        except Exception:
+        except OSError as err:
+            _log_tile_error(tile_path, "read", err)
+            continue
+        except Exception as err:
+            _log_tile_error(tile_path, "decode", err)
             continue
 
     return None
@@ -289,7 +301,11 @@ def load_elevation_grid(
                 with open(tile_path, "rb") as f:
                     png_bytes = f.read()
                 tile_data = decode_tile(png_bytes)
-            except Exception:
+            except OSError as err:
+                _log_tile_error(tile_path, "read", err)
+                continue
+            except Exception as err:
+                _log_tile_error(tile_path, "decode", err)
                 continue
 
             th, tw = tile_data.shape
@@ -298,19 +314,25 @@ def load_elevation_grid(
             global_x_start = tx * 256
             global_y_start = ty * 256
 
-            for gy in range(th):
-                global_y = global_y_start + gy
-                local_y = global_y - min_pixel_y
-                if local_y < 0 or local_y >= grid_rows:
-                    continue
-                for gx in range(tw):
-                    global_x = global_x_start + gx
-                    local_x = global_x - min_pixel_x
-                    if local_x < 0 or local_x >= grid_cols:
-                        continue
-                    val = tile_data[gy, gx]
-                    if not math.isnan(val):
-                        grid[local_y, local_x] = val
+            # Compute local grid offsets (where this tile maps into the output grid)
+            local_x_start = global_x_start - min_pixel_x
+            local_y_start = global_y_start - min_pixel_y
+
+            # Determine overlap between tile pixels and output grid
+            src_x0 = max(0, -local_x_start)
+            src_y0 = max(0, -local_y_start)
+            src_x1 = min(tw, grid_cols - local_x_start)
+            src_y1 = min(th, grid_rows - local_y_start)
+
+            if src_x1 > src_x0 and src_y1 > src_y0:
+                dst_x0 = local_x_start + src_x0
+                dst_y0 = local_y_start + src_y0
+                tile_slice = tile_data[src_y0:src_y1, src_x0:src_x1]
+                # Only write non-NaN values; NaN pixels in the source are ocean/NODATA
+                valid = ~np.isnan(tile_slice)
+                grid[dst_y0:dst_y0 + (src_y1 - src_y0), dst_x0:dst_x0 + (src_x1 - src_x0)][valid] = (
+                    tile_slice[valid]
+                )
 
     # Compute geographic bounds
     center_row = radius_cells
@@ -416,7 +438,8 @@ def _get_elevation_from_ozt2(
                 v11 * fx_frac * fy_frac
             )
             return round(float(elev), 1)
-        except Exception:
+        except Exception as err:
+            _logger.debug("ozt2 interpolation failed: %s: %s", type(err).__name__, err)
             continue
 
     return None

@@ -26,11 +26,13 @@ __all__ = [
     "load_fused_elevation_grid",
 ]
 
+import logging
 import math
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
+
+_logger = logging.getLogger(__name__)
 
 
 # ─── GEBCO constants ────────────────────────────────────────────────────────────
@@ -278,7 +280,8 @@ class FusedDEM:
                 return None
             is_land = True
             return elev, is_land
-        except Exception:
+        except Exception as err:
+            _logger.debug("SRTM merged read failed (path=%s): %s: %s", merged_path, type(err).__name__, err)
             return None
 
     # ─── GEBCO ────────────────────────────────────────────────────────────────
@@ -365,7 +368,8 @@ class FusedDEM:
             if elev < -11000 or elev > 9000:
                 return None
             return elev
-        except Exception:
+        except Exception as err:
+            _logger.debug("GEBCO HTTP fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 
     # ─── Helpers ─────────────────────────────────────────────────────────────

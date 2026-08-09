@@ -32,11 +32,7 @@ __all__ = [
     "DEFAULT_TERRAIN_PALETTE",
 ]
 
-import json
 import math
-from pathlib import Path
-from typing import cast
-from typing import Literal
 
 import numpy as np
 
@@ -403,6 +399,24 @@ def terrain_to_glb(
     else:
         lat0, lon0, dlat, dlon = 0.0, 0.0, 0.001, 0.001
 
+    # Pre-compute RGBA colour for every grid cell using vectorized palette lookup
+    pal = palette or DEFAULT_TERRAIN_PALETTE
+    stop_elevs = np.array([p[0] for p in pal], dtype=np.float64)
+    stop_colors = np.array([p[1] for p in pal], dtype=np.uint8)
+
+    dem_f = dem.astype(np.float64)
+    flat = dem_f.ravel()
+    indices = np.searchsorted(stop_elevs, flat, side="right") - 1
+    indices = np.clip(indices, 0, len(pal) - 2)
+    e0 = stop_elevs[indices]
+    e1 = stop_elevs[indices + 1]
+    diff_e = e1 - e0
+    t = np.where(diff_e != 0, (flat - e0) / diff_e, 0.0)
+    c0 = stop_colors[indices].astype(np.float64)
+    c1 = stop_colors[indices + 1].astype(np.float64)
+    rgba_flat = np.round(c0 + t[:, np.newaxis] * (c1 - c0)).astype(np.uint8)
+    rgba = rgba_flat.reshape(rows, cols, 4)  # (rows, cols, 4) RGBA
+
     vertices: list = []
     colors: list = []
     indices: list = []
@@ -410,30 +424,33 @@ def terrain_to_glb(
 
     for r in range(0, rows - 1, step):
         for c in range(0, cols - 1, step):
-            pts = [
-                (lat0 + r * dlat, lon0 + c * dlon, dem[r, c]),
-                (lat0 + r * dlat, lon0 + (c + 1) * dlon, dem[r, c + 1]),
-                (lat0 + (r + 1) * dlat, lon0 + c * dlon, dem[r + 1, c]),
-                (lat0 + (r + 1) * dlat, lon0 + (c + 1) * dlon, dem[r + 1, c + 1]),
-            ]
-
-            if any(p[2] == -32768 for p in pts):
+            if dem[r, c] == -32768 or dem[r, c + 1] == -32768 or dem[r + 1, c] == -32768 or dem[r + 1, c + 1] == -32768:
                 continue
 
-            for pt in pts[:3]:
-                z = pt[2] * scale
-                vertices.append([pt[1], pt[0], z])  # lon, lat, alt
-                colors.append(_palette_color(pt[2], palette))
+            # Vertex 0: (lat, lon, alt) → lon, lat, alt for trimesh
+            vlon = lon0 + c * dlon
+            vlat = lat0 + r * dlat
+            vertices.extend([
+                [vlon, vlat, dem[r, c] * scale],
+                [vlon + dlon, vlat, dem[r, c + 1] * scale],
+                [vlon, vlat + dlat, dem[r + 1, c] * scale],
+                [vlon + dlon, vlat + dlat, dem[r + 1, c + 1] * scale],
+            ])
 
-            colors.append(_palette_color(pts[1][2] * scale, palette))
-            colors.append(_palette_color(pts[2][2] * scale, palette))
-            colors.append(_palette_color(pts[3][2] * scale, palette))
+            # Look up pre-computed per-cell RGBA colours
+            colors.extend([
+                rgba[r, c].tolist(),
+                rgba[r, c + 1].tolist(),
+                rgba[r + 1, c].tolist(),
+                rgba[r + 1, c + 1].tolist(),
+            ])
 
             indices.append([v_idx, v_idx + 1, v_idx + 2])
             indices.append([v_idx + 1, v_idx + 3, v_idx + 2])
             v_idx += 4
 
-    mesh = trimesh.Trimesh(        vertices=np.asarray(vertices, dtype=np.float32),
+    mesh = trimesh.Trimesh(
+        vertices=np.asarray(vertices, dtype=np.float32),
         faces=np.asarray(indices, dtype=np.uint32),
         vertex_colors=np.asarray(colors, dtype=np.float32),
     )

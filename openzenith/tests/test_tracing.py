@@ -1,6 +1,5 @@
 """Tests for downstream tracing module."""
 
-import numpy as np
 import pytest
 from openzenith.tracing import trace_downstream, _haversine_distance
 

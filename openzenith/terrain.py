@@ -498,14 +498,19 @@ def tpi(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0)
     rows, cols = dem.shape
     padded = np.pad(dem, 1, mode='constant', constant_values=np.nan)
 
-    neighbors = []
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            if dr == 0 and dc == 0:
-                continue
-            neighbors.append(padded[1 + dr:rows + 1 + dr, 1 + dc:cols + 1 + dc])
-
-    neighbor_mean = np.mean(neighbors, axis=0)
+    # Vectorized: stack all 8 neighbors into (8, rows, cols) in one shot
+    # Row-major iteration over (-1,0,1) x (-1,0,1), skipping (0,0)
+    patches = np.stack([
+        padded[0:rows, 0:cols],   # NW
+        padded[0:rows, 1:cols+1],  # N
+        padded[0:rows, 2:cols+2],  # NE
+        padded[1:rows+1, 0:cols],  # W
+        padded[1:rows+1, 2:cols+2], # E
+        padded[2:rows+2, 0:cols],  # SW
+        padded[2:rows+2, 1:cols+1], # S
+        padded[2:rows+2, 2:cols+2], # SE
+    ], axis=0)
+    neighbor_mean = np.mean(patches, axis=0)
     result = dem.astype(np.float64) - neighbor_mean
 
     valid = padded[1:-1, 1:-1] != nodata
@@ -531,13 +536,18 @@ def roughness(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32
     rows, cols = dem.shape
     padded = np.pad(dem, 1, mode='constant', constant_values=nodata)
 
-    patches = np.zeros((9, rows, cols), dtype=np.float64)
-    idx = 0
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            patches[idx] = padded[1 + dr:rows + 1 + dr, 1 + dc:cols + 1 + dc]
-            idx += 1
-
+    # Stack all 9 cells of the 3×3 window into (9, rows, cols) — center included
+    patches = np.stack([
+        padded[0:rows, 0:cols],    # NW
+        padded[0:rows, 1:cols+1],  # N
+        padded[0:rows, 2:cols+2],  # NE
+        padded[1:rows+1, 0:cols],  # W
+        padded[1:rows+1, 1:cols+1], # center
+        padded[1:rows+1, 2:cols+2], # E
+        padded[2:rows+2, 0:cols],  # SW
+        padded[2:rows+2, 1:cols+1], # S
+        padded[2:rows+2, 2:cols+2], # SE
+    ], axis=0)
     result = np.max(patches, axis=0) - np.min(patches, axis=0)
 
     valid = padded[1:-1, 1:-1] != nodata
@@ -709,16 +719,18 @@ def tri(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0)
     padded = np.pad(dem, 1, mode='constant', constant_values=np.nan)
     center = padded[1:-1, 1:-1].astype(np.float64)
 
-    total_diff = np.zeros((rows, cols), dtype=np.float64)
-    count = 0
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            if dr == 0 and dc == 0:
-                continue
-            total_diff += np.abs(center - padded[1 + dr:rows + 1 + dr, 1 + dc:cols + 1 + dc])
-            count += 1
-
-    result = total_diff / count
+    # Stack 8 neighbors (skipping center) into (8, rows, cols) — vectorized
+    patches = np.stack([
+        padded[0:rows, 0:cols],    # NW
+        padded[0:rows, 1:cols+1],  # N
+        padded[0:rows, 2:cols+2],  # NE
+        padded[1:rows+1, 0:cols],  # W
+        padded[1:rows+1, 2:cols+2], # E
+        padded[2:rows+2, 0:cols],  # SW
+        padded[2:rows+2, 1:cols+1], # S
+        padded[2:rows+2, 2:cols+2], # SE
+    ], axis=0)
+    result = np.mean(np.abs(center - patches), axis=0)
 
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan

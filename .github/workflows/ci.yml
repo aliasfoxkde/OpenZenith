@@ -21,7 +21,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -e openzenith[dev]
+        run: pip install -e ./openzenith[dev]
 
       - name: Ruff check
         run: ruff check openzenith/
@@ -36,7 +36,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -e openzenith[dev]
+        run: pip install -e ./openzenith[dev]
 
       - name: Pytest
         run: python3 -m pytest openzenith/tests/ -q --timeout=60
@@ -48,12 +48,15 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        working-directory: openzenith-core
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: openzenith-core
 
       - name: Test
         run: cargo test --lib
+        working-directory: openzenith-core
 
   api-lint:
     runs-on: ubuntu-latest

@@ -54,7 +54,7 @@ class TestConvertTile:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, "N00E000.tif")
-            arr = self._write_synthetic_geotiff(src)
+            self._write_synthetic_geotiff(src)
             result = convert_tile(src, tmpdir, compression=COMP_ZSTD_PREDICT, zstd_level=3)
 
             assert os.path.exists(os.path.join(tmpdir, "N00E000.ozt1"))

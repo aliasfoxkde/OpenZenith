@@ -7,6 +7,7 @@ MapLibre, QGIS, or any GeoJSON-compatible viewer.
 
 import numpy as np
 from typing import Optional
+from scipy.spatial import KDTree
 
 
 def grid_to_geojson(
@@ -143,24 +144,36 @@ def contour_to_geojson(
         all_lons = np.concatenate([h_lons, v_lons])
         n = len(all_lats)
 
-        # Simple nearest-neighbor ordering
+        # Use KDTree for O(n log n) nearest-neighbor ordering
+        if n == 0:
+            continue
+
         visited = np.zeros(n, dtype=bool)
         coords = []
+
+        # Build KDTree once
+        points = np.column_stack([all_lats, all_lons])
+        tree = KDTree(points)
+
+        # Pre-query all k=2 neighbors (skip 1st = self at distance 0)
+        dists, all_nearest = tree.query(points, k=2)
+        all_nearest = all_nearest.ravel()
+        dists = dists.ravel()
+
         idx = 0
         visited[idx] = True
         coords.append((float(all_lats[idx]), float(all_lons[idx])))
 
         for _ in range(n - 1):
-            last_lat, last_lon = coords[-1]
-            dists = (all_lats - last_lat) ** 2 + (all_lons - last_lon) ** 2
-            dists[visited] = np.inf
-
-            next_idx = np.argmin(dists)
-            if dists[next_idx] > (0.01 ** 2):
-                break  # gap too large
+            # Follow KDTree chain: each point's 2nd-nearest neighbor (1st is self)
+            next_idx = int(all_nearest[idx * 2 + 1])
+            next_dist = dists[idx * 2 + 1]
+            if visited[next_idx] or next_dist > 0.01:
+                break  # gap too large or stuck in visited cycle
 
             visited[next_idx] = True
             coords.append((float(all_lats[next_idx]), float(all_lons[next_idx])))
+            idx = next_idx
 
         if len(coords) >= 2:
             features.append({

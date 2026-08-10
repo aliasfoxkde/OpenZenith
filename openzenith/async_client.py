@@ -50,7 +50,6 @@ __all__ = [
     "ElevationBatchProcessor",
     "ElevationResult",
     "ElevationPoint",
-    "AsyncBatchIterator",
 ]
 
 

@@ -21,6 +21,7 @@ Usage:
 """
 
 from __future__ import annotations
+from matplotlib.figure import Figure
 
 __all__ = [
     "plot_terrain",
@@ -65,7 +66,7 @@ def plot_terrain(
     figsize: tuple[float, float] = (12, 8),
     title: str = "Elevation (m)",
     ax=None,
-):
+) -> Figure:
     """Plot a DEM as a filled-colour terrain map with matplotlib.
 
     Args:
@@ -86,7 +87,6 @@ def plot_terrain(
     """
     try:
         import matplotlib.pyplot as plt
-        import matplotlib.colors as mcolors
     except ImportError:
         raise ImportError(
             "matplotlib required. Install with: pip install matplotlib"
@@ -148,7 +148,7 @@ def plot_hillshade(
     show: bool = False,
     ax=None,
     **kwargs,
-):
+) -> Figure:
     """Plot a DEM shaded with a hillshade overlay.
 
     Args:
@@ -208,7 +208,7 @@ def plot_contours(
     figsize: tuple[float, float] = (12, 8),
     show: bool = False,
     ax=None,
-):
+) -> Figure:
     """Plot elevation contour lines over a terrain base.
 
     Args:
@@ -463,7 +463,7 @@ def terrain_to_glb(
     # Adjacent quads share an edge: stride between vertex rows = 2 * cols_valid + 1
     cols_valid = (cols - 1) // step + 1
     cols_vertices = 2 * cols_valid + 1    # vertices per row in global vertex array
-    rows_vertices = 2 * ((rows - 1) // step + 1)   # vertices per column
+    2 * ((rows - 1) // step + 1)   # vertices per column
     global_v0 = cols_vertices * (valid_r // step) + (valid_c // step)   # (r,c) → cols_vertices*r + c
     global_v = np.stack([global_v0, global_v0 + 1, global_v0 + cols_vertices, global_v0 + cols_vertices + 1], axis=1)  # (n_quads, 4)
 

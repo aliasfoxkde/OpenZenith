@@ -29,6 +29,7 @@ Usage:
 """
 
 import numpy as np
+from collections import deque
 from typing import Optional
 
 # D8 direction encoding: 0=E, 1=SE, 2=S, 3=SW, 4=W, 5=NW, 6=N, 7=NE
@@ -38,7 +39,7 @@ D8_DC = np.array([1, 1, 0, -1, -1, -1, 0, 1], dtype=np.int16)
 D8_DISTANCE = np.array([1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)])
 
 
-def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
+def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:  # noqa: F811
     """Fill depressions using the priority-flood algorithm (Wang & Liu 2006).
 
     Ensures every cell has a downhill path to the grid edge, eliminating
@@ -140,7 +141,7 @@ def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
     return flow_dir
 
 
-def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
+def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:  # noqa: F811
     """Compute flow accumulation from D8 directions.
 
     Each cell's value is the count of upstream cells (including itself).
@@ -377,7 +378,7 @@ def delineate_watershed(
     zoom: int = 10,
     radius_cells: int = 200,
     tile_cache_dir: Optional[str] = None,
-) -> Optional[dict]:
+) -> Optional[dict]:  # noqa: F811
     """Delineate watershed upstream from a pour point.
 
     Loads elevation tiles around the point, computes D8 flow directions,
@@ -441,7 +442,7 @@ def delineate_watershed(
 
     # Compute flow accumulation (use fast topological sort)
     from openzenith.hydrology import flow_accumulation_fast
-    accum = flow_accumulation_fast(flow_dir)
+    flow_accumulation_fast(flow_dir)
 
     # Trace upstream from pour point
     rows, cols = dem.shape
@@ -450,12 +451,12 @@ def delineate_watershed(
 
     # BFS upstream: find all cells that eventually flow to the pour point
     # We trace backwards: for each cell in watershed, find all cells that flow INTO it
-    queue = [(center_r, center_c)]
+    queue = deque([(center_r, center_c)])
     visited = {(center_r, center_c)}
 
     while queue:
-        r, c = queue.pop(0)
-        current_order = flow_dir[r, c]
+        r, c = queue.popleft()
+        flow_dir[r, c]
 
         for d in range(8):
             # Check if neighbor (nr, nc) flows in direction d towards (r, c)
@@ -526,7 +527,7 @@ def delineate_watershed(
 def twi(
     dem: np.ndarray,
     cell_size_deg: float = 0.001,
-    nodata: float = -32768.0,
+    nodata: float = -32768.0,  # noqa: F811
 ) -> np.ndarray:
     """Topographic Wetness Index (TWI).
 

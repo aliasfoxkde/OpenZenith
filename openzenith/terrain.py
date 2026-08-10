@@ -409,8 +409,10 @@ def _viewshed_numba(
                     c0 = int(ic)
                     r1 = min(r0 + 1, rows - 1)
                     c1 = min(c0 + 1, cols - 1)
-                    if r0 < 0: r0 = 0
-                    if c0 < 0: c0 = 0
+                    if r0 < 0:
+                        r0 = 0
+                    if c0 < 0:
+                        c0 = 0
                     fr = ir - r0
                     fc = ic - c0
 

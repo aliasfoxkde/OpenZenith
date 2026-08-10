@@ -339,7 +339,7 @@ class TestColorRelief:
         breaks = [(0, "#000000"), (1000, "#ffffff")]
         result = color_relief(dem, breaks=breaks)
         # 500 is midway → should be gray-ish
-        r, g, b = result[0, 0, 0], result[0, 0, 1], result[0, 0, 2]
+        r, _g, _b = result[0, 0, 0], result[0, 0, 1], result[0, 0, 2]
         assert 100 < r < 155  # approximately gray
 
     def test_deep_ocean_blue(self):

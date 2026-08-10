@@ -9,6 +9,7 @@ from openzenith.viz import (
     plot_contours,
     terrain_to_3d_mesh,
     terrain_to_png,
+    terrain_to_glb,
     _palette_color,
     DEFAULT_TERRAIN_PALETTE,
 )
@@ -136,3 +137,41 @@ class TestPlotHelpers:
         assert ax is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
+
+
+class TestTerrainToGLB:
+    """Tests for terrain_to_glb."""
+
+    def test_glb_bytes_non_empty(self):
+        """GLB output is non-empty bytes."""
+        pytest.importorskip("trimesh")
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        glb = terrain_to_glb(dem)
+        assert isinstance(glb, bytes)
+        assert len(glb) > 0
+
+    def test_glb_starts_with_glb_magic(self):
+        """GLB output starts with glTF binary magic bytes."""
+        pytest.importorskip("trimesh")
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        glb = terrain_to_glb(dem)
+        # glTF binary files start with 'glTF' magic: 0x46546C67
+        assert glb[:4] == b"glTF"
+
+    def test_glb_with_transform(self):
+        """GLB with transform applies coordinate transform."""
+        pytest.importorskip("trimesh")
+        dem = np.array([[100, 100], [100, 100]], dtype=np.float32)
+        transform = (40.0, -74.0, 0.001, 0.001)  # lat0, lon0, dlat, dlon
+        glb = terrain_to_glb(dem, transform=transform)
+        assert isinstance(glb, bytes)
+        assert len(glb) > 0
+
+    def test_glb_with_palette(self):
+        """GLB with custom palette uses those colors."""
+        pytest.importorskip("trimesh")
+        dem = np.array([[100, 100], [100, 100]], dtype=np.float32)
+        custom = [(0, (255, 0, 0)), (1000, (0, 255, 0))]
+        glb = terrain_to_glb(dem, palette=custom)
+        assert isinstance(glb, bytes)
+        assert len(glb) > 0

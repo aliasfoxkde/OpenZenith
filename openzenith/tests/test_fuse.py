@@ -79,6 +79,35 @@ class TestFusedDEMQueryPoint:
         assert elev is None
         assert surface == "unknown"
 
+    def test_query_point_returns_land_or_ocean(self):
+        """query_point returns (int, str) where str is land/ocean/unknown."""
+        fused = FusedDEM(srtm_dir=None, gebco_dir=None, use_http_fallback=False)
+        elev, surface = fused.query_point(40.0, -74.0)
+        assert surface in ("land", "ocean", "unknown")
+
+    def test_query_point_type(self):
+        """query_point returns elevation as int or None."""
+        fused = FusedDEM(srtm_dir=None, gebco_dir=None, use_http_fallback=False)
+        elev, surface = fused.query_point(40.0, -74.0)
+        assert elev is None or isinstance(elev, (int, float))
+
+
+class TestFusedDEMMaskValues:
+    """Tests that query returns correct mask values (0=ocean, 1=land)."""
+
+    def test_query_returns_mask_dtype(self):
+        """Mask should be uint8."""
+        fused = FusedDEM(srtm_dir=None, gebco_dir=None, use_http_fallback=False)
+        elevation, mask = fused.query(40.0, -74.0, 40.01, -73.99, resolution=0.001)
+        assert mask.dtype == np.uint8
+
+    def test_query_mask_values_are_0_or_1(self):
+        """Mask values should be only 0 or 1 when no sources configured."""
+        fused = FusedDEM(srtm_dir=None, gebco_dir=None, use_http_fallback=False)
+        elevation, mask = fused.query(0.0, 0.0, 0.01, 0.01, resolution=0.001)
+        unique = np.unique(mask)
+        assert set(unique.tolist()).issubset({0, 1})
+
 
 class TestLoadFusedElevationGrid:
     """Tests for load_fused_elevation_grid()."""

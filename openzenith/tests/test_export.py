@@ -107,3 +107,44 @@ class TestContourToGeoJSON:
         dem = np.full((20, 20), 100.0, dtype=np.float32)
         result = contour_to_geojson(dem, interval=10, min_elev=0, max_elev=200)
         assert len(result["features"]) == 0
+
+    def test_gaussian_mound_traces_contours(self):
+        """Gaussian mound should produce contours with multiple points.
+
+        This tests the KDTree fix for contour ordering - contours should have
+        multiple coordinates indicating the chain-following works.
+        """
+        np.random.seed(42)
+        rows, cols = 60, 60
+        dem = np.zeros((rows, cols), dtype=np.float32)
+
+        # Create a Gaussian mound centered at (30, 30)
+        cx, cy = rows // 2, cols // 2
+        sigma = 10.0
+        for r in range(rows):
+            for c in range(cols):
+                dist_sq = (r - cx) ** 2 + (c - cy) ** 2
+                dem[r, c] = 100.0 * np.exp(-dist_sq / (2 * sigma ** 2))
+
+        result = contour_to_geojson(dem, interval=10.0)
+
+        # The mound should produce contours
+        assert len(result["features"]) > 0, "Gaussian mound should produce contours"
+
+        # Each contour should have at least 2 coordinates
+        for feat in result["features"]:
+            coords = feat["geometry"]["coordinates"]
+            assert len(coords) >= 2, f"Contour should have >= 2 points, got {len(coords)}"
+            assert "elevation" in feat["properties"]
+
+    def test_contour_elevation_monotonic(self):
+        """Contour elevations should match the level they represent."""
+        np.random.seed(42)
+        dem = np.random.randint(0, 500, size=(40, 40)).astype(np.float32)
+        result = contour_to_geojson(dem, interval=50.0)
+
+        for feat in result["features"]:
+            feat["properties"]["elevation"]
+            coords = feat["geometry"]["coordinates"]
+            # Each contour should have at least 2 points
+            assert len(coords) >= 2

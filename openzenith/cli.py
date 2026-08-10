@@ -226,7 +226,7 @@ def cmd_info(args):
 def cmd_validate(args):
     """Run elevation validation."""
     # Re-export from validate script
-    from validate_elevation import main as validate_main
+    from scripts.validate_elevation import main as validate_main
     validate_main()
 
 
@@ -524,6 +524,258 @@ def cmd_geojson(args):
     print(f"✅ {len(result['features'])} points → {out_path} ({elapsed:.1f}s)")
 
 
+def cmd_fill_depressions(args):
+    """Fill depressions in DEM using priority-flood algorithm."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.hydrology import fill_depressions
+
+    print(f"🕳️  Filling depressions around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = fill_depressions(grid["grid"], nodata=grid.get("nodata", -32768.0))
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.1f}m  Median: {np.median(valid):.1f}m")
+    print(f"   Min:  {np.min(valid):.1f}m  Max: {np.max(valid):.1f}m")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_flow_accum(args):
+    """Compute D8 flow accumulation from elevation grid."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.hydrology import d8_flow_direction, flow_accumulation
+
+    print(f"💧 Computing flow accumulation around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    flow_dir = d8_flow_direction(grid["grid"], nodata=grid.get("nodata", -32768.0))
+    accum = flow_accumulation(flow_dir, nodata_dir=-1)
+    elapsed = time.time() - t0
+
+    valid = accum[accum > 0]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.0f}  Median: {np.median(valid):.0f}")
+    print(f"   Min:  {np.min(valid)}  Max: {np.max(valid):,}")
+
+    if args.output:
+        np.save(args.output, accum)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_streams(args):
+    """Extract stream network from flow accumulation."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.hydrology import d8_flow_direction, flow_accumulation, extract_streams
+
+    print(f"🏞️  Extracting streams around ({args.lat:.4f}, {args.lon:.4f})...")
+    print(f"   Threshold: {args.threshold} pixels")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    flow_dir = d8_flow_direction(grid["grid"], nodata=grid.get("nodata", -32768.0))
+    accum = flow_accumulation(flow_dir, nodata_dir=-1)
+    streams = extract_streams(accum, threshold=args.threshold)
+    elapsed = time.time() - t0
+
+    stream_cells = streams.sum()
+    total = streams.size
+    print(f"✅ {stream_cells:,}/{total:,} cells marked as streams ({100*stream_cells/total:.1f}%) ({elapsed:.1f}s)")
+
+    if args.output:
+        try:
+            from PIL import Image
+            img = np.zeros((*streams.shape, 3), dtype=np.uint8)
+            img[streams] = [0, 100, 255]
+            Image.fromarray(img).save(args.output)
+            print(f"💾 Saved image to {args.output}")
+        except ImportError:
+            np.save(args.output, streams)
+            print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
+
+
+def cmd_export_geotiff(args):
+    """Export elevation grid as GeoTIFF."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.geotiff import export_geotiff
+
+    print(f"🗺️  Exporting GeoTIFF around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+
+    out_path = args.output or f"elevation_{args.lat:.4f}_{args.lon:.4f}.tif"
+    export_geotiff(
+        grid["grid"],
+        out_path,
+        origin_lat=grid["center_lat"],
+        origin_lon=grid["center_lon"],
+        cell_size=grid["cell_size_deg"],
+    )
+    elapsed = time.time() - t0
+    print(f"✅ Exported → {out_path} ({elapsed:.1f}s)")
+
+
+def cmd_export_cog(args):
+    """Export elevation grid as Cloud-Optimized GeoTIFF (COG)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.geotiff import export_cog
+
+    print(f"🗺️  Exporting COG around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+
+    out_path = args.output or f"elevation_{args.lat:.4f}_{args.lon:.4f}_cog.tif"
+    export_cog(
+        grid["grid"],
+        out_path,
+        origin_lat=grid["center_lat"],
+        origin_lon=grid["center_lon"],
+        cell_size=grid["cell_size_deg"],
+    )
+    elapsed = time.time() - t0
+    print(f"✅ Exported → {out_path} ({elapsed:.1f}s)")
+
+
+def cmd_tri(args):
+    """Compute Terrain Ruggedness Index (TRI)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import tri
+
+    print(f"📍 Computing TRI at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = tri(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.1f}m  Median: {np.median(valid):.1f}m")
+    print(f"   Min:  {np.min(valid):.1f}m  Max: {np.max(valid):.1f}m")
+    print("   (higher = more rugged terrain)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_profile_curvature(args):
+    """Compute profile curvature (curvature along slope direction)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import profile_curvature
+
+    print(f"📍 Computing profile curvature at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = profile_curvature(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.6f}  Median: {np.median(valid):.6f}")
+    print(f"   Min:  {np.min(valid):.6f}  Max: {np.max(valid):.6f}")
+    print("   (positive=concave/decelerating, negative=convex/accelerating)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_planform_curvature(args):
+    """Compute planform curvature (curvature perpendicular to slope direction)."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import planform_curvature
+
+    print(f"📍 Computing planform curvature at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = planform_curvature(grid["grid"], grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.6f}  Median: {np.median(valid):.6f}")
+    print(f"   Min:  {np.min(valid):.6f}  Max: {np.max(valid):.6f}")
+    print("   (positive=convex/converging, negative=concave/diverging)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_drainage_density(args):
+    """Compute drainage density from flow accumulation."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.hydrology import d8_flow_direction, flow_accumulation, drainage_density
+
+    print(f"💧 Computing drainage density around ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    flow_dir = d8_flow_direction(grid["grid"], nodata=grid.get("nodata", -32768.0))
+    accum = flow_accumulation(flow_dir, nodata_dir=-1)
+    result = drainage_density(accum, cell_size_deg=grid["cell_size_deg"])
+    elapsed = time.time() - t0
+
+    valid = result[~np.isnan(result) & (result > 0)]
+    print(f"✅ {len(valid)} cells ({elapsed:.1f}s)")
+    print(f"   Mean: {np.mean(valid):.2f} km/km²  Median: {np.median(valid):.2f}")
+    print(f"   Min:  {np.min(valid):.2f}  Max: {np.max(valid):.2f}")
+    print("   (stream length per unit area — higher = more dissected terrain)")
+
+    if args.output:
+        np.save(args.output, result)
+        print(f"💾 Saved to {args.output}")
+
+
+def cmd_multi_hillshade(args):
+    """Compute multi-directional hillshade composite."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import multi_hillshade
+
+    print(f"🌤️  Computing multi-directional hillshade at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    result = multi_hillshade(grid["grid"], cell_size_deg=grid["cell_size_deg"], z_factor=args.z_factor)
+    elapsed = time.time() - t0
+
+    print(f"✅ {result.shape[0]}×{result.shape[1]} multi-hillshade ({elapsed:.1f}s)")
+    print(f"   Brightness: mean={np.mean(result):.0f}  min={np.min(result)}  max={np.max(result)}")
+
+    if args.output:
+        try:
+            from PIL import Image
+            Image.fromarray(result, mode="L").save(args.output)
+            print(f"💾 Saved image to {args.output}")
+        except ImportError:
+            np.save(args.output, result)
+            print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
+
+
+def cmd_color_relief(args):
+    """Generate color relief image from elevation grid."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.terrain import color_relief
+
+    print(f"🎨 Generating color relief at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    rgba = color_relief(grid["grid"], nodata=grid.get("nodata", -32768.0))
+    elapsed = time.time() - t0
+
+    print(f"✅ {rgba.shape[0]}×{rgba.shape[1]} color relief ({elapsed:.1f}s)")
+
+    if args.output:
+        try:
+            from PIL import Image
+            Image.fromarray(rgba, mode="RGBA").save(args.output)
+            print(f"💾 Saved image to {args.output}")
+        except ImportError:
+            np.save(args.output, rgba)
+            print(f"💾 Saved array to {args.output} (install Pillow for RGBA PNG)")
+
+
 # ─── Helper functions for encode/ingest ───────────────────────────────────────
 
 def _load_geotiff(path: str) -> np.ndarray:
@@ -546,8 +798,8 @@ def _load_merged(path: str) -> np.ndarray:
             chunk = mf.get_chunk(row, col)
             r0 = row * 256
             c0 = col * 256
-            r1 = min(r0 + 256, 3601)
-            c1 = min(c0 + 256, 3601)
+            min(r0 + 256, 3601)
+            min(c0 + 256, 3601)
             # Chunks may be edge-adjusted
             chunk_r = chunk.shape[0]
             chunk_c = chunk.shape[1]
@@ -762,7 +1014,6 @@ def cmd_ingest(args):
             tile_path.write_bytes(encoded)
 
             # Compute bbox from filename (SRTM naming convention)
-            lat_dir = f.parent.name
             bbox = _filename_to_bbox(f.name)
 
             tiles.append({
@@ -897,7 +1148,7 @@ def cmd_tiles(args):
     print(f"  load_tiles(zoom_levels={zoom_levels})")
     mid_lat, mid_lon = (lat_min + lat_max) / 2, (lon_min + lon_max) / 2
     print(f"  elev = get_elevation({mid_lat:.4f}, {mid_lon:.4f})")
-    print(f"  # => {{elev}}m")
+    print("  # => {elev}m")
 
 REGION_BBOXES = {
     "world": (-90, -180, 90, 180),
@@ -1102,6 +1353,91 @@ def main():
     tl.add_argument("--cache-dir", type=str, default=None, help="Local cache directory")
     tl.add_argument("--force", action="store_true", help="Proceed with large downloads")
 
+    # fill-depressions
+    fd = sub.add_parser("fill-depressions", help="Fill depressions using priority-flood algorithm")
+    fd.add_argument("--lat", type=float, required=True)
+    fd.add_argument("--lon", type=float, required=True)
+    fd.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    fd.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
+    fd.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # flow-accum
+    fa = sub.add_parser("flow-accum", help="Compute D8 flow accumulation")
+    fa.add_argument("--lat", type=float, required=True)
+    fa.add_argument("--lon", type=float, required=True)
+    fa.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    fa.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
+    fa.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # streams
+    st = sub.add_parser("streams", help="Extract stream network from flow accumulation")
+    st.add_argument("--lat", type=float, required=True)
+    st.add_argument("--lon", type=float, required=True)
+    st.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    st.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
+    st.add_argument("--threshold", type=int, default=100, help="Minimum upstream pixels for streams")
+    st.add_argument("--output", type=str, default=None, help="Output PNG or .npy file")
+
+    # export-geotiff
+    eg = sub.add_parser("export-geotiff", help="Export elevation grid as GeoTIFF")
+    eg.add_argument("--lat", type=float, required=True)
+    eg.add_argument("--lon", type=float, required=True)
+    eg.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    eg.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
+    eg.add_argument("--output", type=str, default=None, help="Output .tif file")
+
+    # export-cog
+    ec = sub.add_parser("export-cog", help="Export elevation grid as Cloud-Optimized GeoTIFF")
+    ec.add_argument("--lat", type=float, required=True)
+    ec.add_argument("--lon", type=float, required=True)
+    ec.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    ec.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
+    ec.add_argument("--output", type=str, default=None, help="Output _cog.tif file")
+
+    # tri
+    tr_i = sub.add_parser("tri", help="Compute Terrain Ruggedness Index (TRI)")
+    tr_i.add_argument("--lat", type=float, required=True)
+    tr_i.add_argument("--lon", type=float, required=True)
+    tr_i.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    tr_i.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # profile-curvature
+    pc = sub.add_parser("profile-curvature", help="Compute profile curvature (along slope direction)")
+    pc.add_argument("--lat", type=float, required=True)
+    pc.add_argument("--lon", type=float, required=True)
+    pc.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    pc.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # planform-curvature
+    plc = sub.add_parser("planform-curvature", help="Compute planform curvature (perpendicular to slope)")
+    plc.add_argument("--lat", type=float, required=True)
+    plc.add_argument("--lon", type=float, required=True)
+    plc.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    plc.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # drainage-density
+    dd = sub.add_parser("drainage-density", help="Compute drainage density from flow accumulation")
+    dd.add_argument("--lat", type=float, required=True)
+    dd.add_argument("--lon", type=float, required=True)
+    dd.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    dd.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
+    dd.add_argument("--output", type=str, default=None, help="Output .npy file")
+
+    # multi-hillshade
+    mh = sub.add_parser("multi-hillshade", help="Compute multi-directional hillshade composite")
+    mh.add_argument("--lat", type=float, required=True)
+    mh.add_argument("--lon", type=float, required=True)
+    mh.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    mh.add_argument("--z-factor", type=float, default=3.0, help="Vertical exaggeration")
+    mh.add_argument("--output", type=str, default=None, help="Output PNG or .npy file")
+
+    # color-relief
+    cr = sub.add_parser("color-relief", help="Generate color relief image from elevation")
+    cr.add_argument("--lat", type=float, required=True)
+    cr.add_argument("--lon", type=float, required=True)
+    cr.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    cr.add_argument("--output", type=str, default=None, help="Output RGBA PNG file")
+
     args = parser.parse_args()
 
     commands = {
@@ -1125,6 +1461,17 @@ def main():
         "encode": cmd_encode,
         "ingest": cmd_ingest,
         "tiles": cmd_tiles,
+        "fill-depressions": cmd_fill_depressions,
+        "flow-accum": cmd_flow_accum,
+        "streams": cmd_streams,
+        "export-geotiff": cmd_export_geotiff,
+        "export-cog": cmd_export_cog,
+        "tri": cmd_tri,
+        "profile-curvature": cmd_profile_curvature,
+        "planform-curvature": cmd_planform_curvature,
+        "drainage-density": cmd_drainage_density,
+        "multi-hillshade": cmd_multi_hillshade,
+        "color-relief": cmd_color_relief,
     }
 
     if args.command in commands:

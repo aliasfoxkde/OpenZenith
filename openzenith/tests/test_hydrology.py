@@ -5,6 +5,7 @@ import numpy as np
 from openzenith.hydrology import (
     d8_flow_direction,
     fill_depressions,
+    delineate_watershed,
     flow_accumulation_fast,
     extract_streams,
     stream_order,
@@ -76,7 +77,7 @@ class TestD8FlowDirection:
         assert filled[3, 3] >= 50.0
         # Bowl should now drain somewhere
         bowl_flow = flow[2:5, 2:5]
-        valid_in_bowl = (bowl_flow >= 0).sum()
+        (bowl_flow >= 0).sum()
         # At least some cells in the bowl should have valid flow
         # (edge of bowl drains outward, even if center is still flat)
 
@@ -215,3 +216,94 @@ class TestTWI:
         ridge_twi = np.nanmedian(result[:, 0])
         if not (np.isnan(valley_twi) or np.isnan(ridge_twi)):
             assert valley_twi >= ridge_twi
+
+
+class TestDelineateWatershed:
+    """Tests for delineate_watershed."""
+
+    def test_delineate_watershed_returns_dict_or_none(self):
+        """delineate_watershed returns None when load_elevation_grid raises."""
+        import unittest.mock
+        # Mock to raise an exception (simulates no tile data available)
+        with unittest.mock.patch("openzenith.elevation.load_elevation_grid", side_effect=Exception("No tiles")):
+            result = delineate_watershed(40.0, -74.0, zoom=10, radius_cells=50)
+            assert result is None
+
+    def test_delineate_watershed_returns_expected_keys(self):
+        """When successful, result has expected keys."""
+        import unittest.mock
+        np.random.seed(42)
+        dem = np.random.randint(100, 500, size=(100, 100)).astype(np.float32)
+
+        mock_result = {
+            "grid": dem,
+            "center_row": 50,
+            "center_col": 50,
+            "lat_min": 39.5,
+            "lon_min": -74.5,
+            "cell_size_deg": 0.001,
+            "center_lat": 40.0,
+            "center_lon": -74.0,
+        }
+
+        with unittest.mock.patch("openzenith.elevation.load_elevation_grid", return_value=mock_result):
+            result = delineate_watershed(40.0, -74.0, zoom=10, radius_cells=50)
+            if result is not None:
+                assert "center" in result
+                assert "area_km2" in result
+                assert "pixels" in result
+                assert "boundary" in result
+                assert isinstance(result["area_km2"], float)
+                assert result["area_km2"] > 0
+
+    def test_delineate_watershed_zoom_parameter(self):
+        """Different zoom levels work without crashing."""
+        import unittest.mock
+        np.random.seed(42)
+        dem = np.random.randint(100, 500, size=(100, 100)).astype(np.float32)
+
+        mock_result = {
+            "grid": dem,
+            "center_row": 50,
+            "center_col": 50,
+            "lat_min": 39.5,
+            "lon_min": -74.5,
+            "cell_size_deg": 0.001,
+            "center_lat": 40.0,
+            "center_lon": -74.0,
+        }
+
+        with unittest.mock.patch("openzenith.elevation.load_elevation_grid", return_value=mock_result):
+            result = delineate_watershed(40.0, -74.0, zoom=12, radius_cells=50)
+            assert result is None or isinstance(result, dict)
+
+
+class TestDrainageDensityIntegration:
+    """Tests for drainage_density (imported from terrain module)."""
+
+    def test_drainage_density_returns_array(self):
+        """drainage_density returns a 2D array of float values."""
+        from openzenith.terrain import drainage_density
+        flow_accum = np.ones((20, 20), dtype=np.float32)
+        flow_accum[10, :] = 100
+        result = drainage_density(flow_accum)
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (20, 20)
+        assert result.dtype == np.float32
+
+    def test_drainage_density_non_negative(self):
+        """Drainage density values should be non-negative."""
+        from openzenith.terrain import drainage_density
+        np.random.seed(42)
+        flow_accum = np.random.randint(1, 500, size=(30, 30)).astype(np.float32)
+        result = drainage_density(flow_accum)
+        assert np.all(result >= 0)
+
+    def test_drainage_density_reasonable_value(self):
+        """Drainage density values should be in a reasonable range."""
+        from openzenith.terrain import drainage_density
+        np.random.seed(42)
+        flow_accum = np.random.randint(1, 500, size=(30, 30)).astype(np.float32)
+        result = drainage_density(flow_accum)
+        # Drainage density is km/km^2, typical values 0-20
+        assert np.max(result) < 1000

@@ -30,6 +30,10 @@ import asyncio
 import logging
 import math
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import aiohttp
 
 import numpy as np
 
@@ -142,7 +146,7 @@ class FusedDEM:
         gebco_url: str = GEBCO_BASE_URL,
         srtm_tiles: dict | None = None,
         use_http_fallback: bool = True,
-    ):
+    ) -> None:
         self.srtm_dir = Path(srtm_dir) if srtm_dir else None
         self.gebco_dir = Path(gebco_dir) if gebco_dir else None
         self.gebco_url = gebco_url
@@ -182,7 +186,6 @@ class FusedDEM:
         lon_vals = np.linspace(lon_min, lon_max, cols)
 
         # Collect GEBCO quadrant files we need
-        gebco_quads: dict[str, tuple[int, int, int, int]] = {}  # quad_name → (r_start, r_end, c_start, c_end)
 
         for r in range(rows):
             for c in range(cols):
@@ -578,14 +581,16 @@ def load_fused_tile(
     Returns:
         (elevation_grid, mask) as for FusedDEM.query().
     """
-    from scripts.convert_to_ozt2 import xyz_tile_to_lat_lon_bounds, mercator_lat_to_tile_y
-
-    # Convert center lat/lon to tile coords
+    # Convert center lat/lon to tile coords (inline — no script dependency)
     n = 2 ** zoom
     x_tile = int((lon + 180) / 360 * n)
-    y_tile = mercator_lat_to_tile_y(lat, zoom)
+    lat_rad = math.radians(lat)
+    y_tile = int(((1 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2) * n)
 
-    lat_min, lat_max, lon_min, lon_max = xyz_tile_to_lat_lon_bounds(zoom, x_tile, y_tile)
+    lon_min = x_tile / n * 360.0 - 180.0
+    lon_max = (x_tile + 1) / n * 360.0 - 180.0
+    lat_max = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y_tile / n))))
+    lat_min = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (y_tile + 1) / n))))
 
     if resolution is None:
         resolution = (lat_max - lat_min) / 256

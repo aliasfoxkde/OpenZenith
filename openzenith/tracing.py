@@ -49,7 +49,7 @@ def trace_downstream(
         Dict with path, elevations, distances, or None if starting in ocean
     """
     try:
-        from openzenith.elevation import get_elevation, load_elevation_grid
+        from openzenith.elevation import get_elevation
     except ImportError:
         print("❌ Tracing requires elevation loading capability")
         return None
@@ -93,6 +93,19 @@ def trace_downstream(
 
     prev_dirs = []  # Track recent directions to detect loops
 
+    # Cache for elevation lookups to avoid redundant queries
+    # Key: (round(lat, 6), round(lon, 6)), Value: elevation
+    elevation_cache: dict[tuple[float, float], float] = {}
+
+    # Prefetch starting elevation
+    cached_elev = elevation_cache.get((round(current_lat, 6), round(current_lon, 6)))
+    if cached_elev is not None:
+        current_elev = cached_elev
+    else:
+        current_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+        if current_elev is not None:
+            elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = current_elev
+
     for step in range(max_steps):
         # Load grid if needed
         if grid_info is None:
@@ -111,6 +124,7 @@ def trace_downstream(
         dist_to_center = math.sqrt(
             (current_lat - grid_info["center_lat"]) ** 2 + (current_lon - grid_info["center_lon"]) ** 2
         )
+        grid_reloaded = False
         if dist_to_center > cell_size_deg * 20:
             grid_info = _load_grid_at(current_lat, current_lon, zoom, tile_cache_dir)
             if grid_info is None:
@@ -121,21 +135,49 @@ def trace_downstream(
             cell_size_deg = grid_info["cell_size_deg"]
             lat_min = grid_info["lat_min"]
             lon_min = grid_info["lon_min"]
+            grid_reloaded = True
+
+        # After grid reload, use cached elevation (which is the elevation at our current position)
+        # The new grid is centered at our current position, so the cached value is correct
+        if grid_reloaded:
+            current_elev = elevation_cache.get((round(current_lat, 6), round(current_lon, 6)))
+            if current_elev is None:
+                current_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+                if current_elev is not None:
+                    elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = current_elev
+
+        current_elev_val = dem[center_r, center_c]
+        if current_elev_val <= -30000:
+            break
+
+        # Batch prefetch all 8 neighbor elevations in parallel
+        from concurrent.futures import ThreadPoolExecutor
+
+        neighbor_coords = []
+        for d in range(8):
+            nr = center_r + D8_DR[d]
+            nc = center_c + D8_DC[d]
+            if 0 <= nr < dem.shape[0] and 0 <= nc < dem.shape[1]:
+                neighbor_coords.append((d, nr, nc))
+
+        def fetch_neighbor_elev(args):
+            d, nr, nc = args
+            key = (round(lat_min + nr * cell_size_deg, 6), round(lon_min + nc * cell_size_deg, 6))
+            cached = elevation_cache.get(key)
+            if cached is not None:
+                return (d, nr, nc, cached)
+            elev = dem[nr, nc]
+            if elev > -30000:
+                elevation_cache[key] = elev
+            return (d, nr, nc, elev)
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            neighbor_results = list(executor.map(fetch_neighbor_elev, neighbor_coords))
 
         # Find steepest descent neighbor
         best_drop = 0
         best_dir = -1
-        current_elev_val = dem[center_r, center_c]
-
-        if current_elev_val <= -30000:
-            break
-
-        for d in range(8):
-            nr = center_r + D8_DR[d]
-            nc = center_c + D8_DC[d]
-            if nr < 0 or nr >= dem.shape[0] or nc < 0 or nc >= dem.shape[1]:
-                continue
-            neighbor_elev = dem[nr, nc]
+        for d, nr, nc, neighbor_elev in neighbor_results:
             if neighbor_elev <= -30000:
                 continue
             drop = current_elev_val - neighbor_elev
@@ -167,8 +209,13 @@ def trace_downstream(
         current_lat += step_lat
         current_lon += step_lon
 
-        # Get elevation at new position
-        new_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+        # Get elevation at new position (use cache to avoid redundant lookups)
+        new_elev = elevation_cache.get((round(current_lat, 6), round(current_lon, 6)))
+        if new_elev is None:
+            new_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+            if new_elev is not None:
+                elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = new_elev
+
         if new_elev is None or new_elev < -30000:
             # Reached ocean/nodata
             if new_elev is not None and new_elev <= 0:

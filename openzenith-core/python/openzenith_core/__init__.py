@@ -247,27 +247,31 @@ def viewshed(
 
 
 def stream_order(
-    flow_accum: list[list[int]],
-    threshold: int = 100,
+    streams: list[list[int]],
+    flow_dir: list[list[int]],
+    nodata_dir: int = -1,
 ) -> list[list[int]]:
-    """Compute Strahler stream order from flow accumulation.
+    """Compute Strahler stream order from binary stream mask and D8 flow directions.
 
     Args:
-        flow_accum: 2D grid of upstream cell counts (from flow_accumulation)
-        threshold: minimum accumulation to be considered a stream
+        streams: 2D grid of 1 (stream cell) / 0 (non-stream), from extract_streams
+        flow_dir: 2D grid of D8 direction values (0-7, -1 for pits), from d8_flow_direction
+        nodata_dir: nodata direction value (default -1)
 
     Returns:
-        2D grid of stream order values (1 = first-order stream, etc.)
+        2D grid of stream order values (1 = first-order stream, etc., 0 = not a stream)
     """
-    rows = len(flow_accum)
-    cols = len(flow_accum[0]) if rows > 0 else 0
-    flat = [cell for row in flow_accum for cell in row]
+    rows = len(streams)
+    cols = len(streams[0]) if rows > 0 else 0
+    stream_flat = [cell for row in streams for cell in row]
+    flow_flat = [cell for row in flow_dir for cell in row]
 
     out = _run("stream-order", {
         "rows": rows,
         "cols": cols,
-        "threshold": threshold,
-        "data": flat,
+        "nodata_dir": nodata_dir,
+        "streams": stream_flat,
+        "flow_dir": flow_flat,
     })
 
     data = out["data"]

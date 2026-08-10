@@ -24,6 +24,7 @@ Usage:
 
 import logging
 import math
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -121,6 +122,7 @@ def get_elevation_batch(
     points: list[tuple[float, float]],
     tile_dir: str | Path | None = None,
     zoom_levels: list[int] | None = None,
+    max_workers: int = 8,
 ) -> list[float | None]:
     """Get elevation for multiple lat/lon points.
 
@@ -128,11 +130,27 @@ def get_elevation_batch(
         points: List of (lat, lon) tuples
         tile_dir: Path to tile directory
         zoom_levels: Zoom levels to try
+        max_workers: Maximum number of parallel workers (default: 8)
 
     Returns:
         List of elevation values (None if no data).
     """
-    return [get_elevation(lat, lon, tile_dir, zoom_levels) for lat, lon in points]
+    if not points:
+        return []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(get_elevation, lat, lon, tile_dir, zoom_levels): i
+            for i, (lat, lon) in enumerate(points)
+        }
+        results = [None] * len(points)
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                results[idx] = future.result()
+            except Exception:
+                results[idx] = None
+    return results
 
 
 def _interpolate_from_tile(
@@ -217,7 +235,7 @@ def load_tiles(
         )
 
     # Download specific zoom directories
-    patterns = [f"tiles/{z}/*" for z in zoom_levels]
+    [f"tiles/{z}/*" for z in zoom_levels]
     allow_patterns = []
     for z in zoom_levels:
         allow_patterns.append(f"tiles/{z}/**")
@@ -264,7 +282,7 @@ def load_elevation_grid(
 
     # Cell size in degrees at this zoom level
     n = 2**zoom
-    cell_size_deg = 180.0 / (n * 256)
+    180.0 / (n * 256)
 
     # Convert radius to tile coordinates
     cx, cy = latlon_to_tile(lat, lon, zoom)
@@ -291,48 +309,61 @@ def load_elevation_grid(
     tile_y_min = min_pixel_y // 256
     tile_y_max = max_pixel_y // 256
 
-    # Load and place tiles
+    # Collect tile paths first
+    tile_tasks = []
     for tx in range(tile_x_min, tile_x_max + 1):
         for ty in range(tile_y_min, tile_y_max + 1):
             tile_path = base / str(zoom) / str(tx) / f"{ty}.png"
-            if not tile_path.exists():
-                continue
-            try:
-                with open(tile_path, "rb") as f:
-                    png_bytes = f.read()
-                tile_data = decode_tile(png_bytes)
-            except OSError as err:
-                _log_tile_error(tile_path, "read", err)
-                continue
-            except Exception as err:
-                _log_tile_error(tile_path, "decode", err)
-                continue
+            if tile_path.exists():
+                tile_tasks.append((tx, ty, tile_path))
 
-            th, tw = tile_data.shape
+    # Load tiles in parallel
+    def load_tile(args):
+        tx, ty, tile_path = args
+        try:
+            with open(tile_path, "rb") as f:
+                png_bytes = f.read()
+            return (tx, ty, decode_tile(png_bytes))
+        except OSError as err:
+            _log_tile_error(tile_path, "read", err)
+            return (tx, ty, None)
+        except Exception as err:
+            _log_tile_error(tile_path, "decode", err)
+            return (tx, ty, None)
 
-            # Pixel range in global coordinates
-            global_x_start = tx * 256
-            global_y_start = ty * 256
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        loaded_tiles = list(executor.map(load_tile, tile_tasks))
 
-            # Compute local grid offsets (where this tile maps into the output grid)
-            local_x_start = global_x_start - min_pixel_x
-            local_y_start = global_y_start - min_pixel_y
+    # Place tiles into grid (sequential - must be ordered)
+    for tx, ty, tile_data in loaded_tiles:
+        if tile_data is None:
+            continue
 
-            # Determine overlap between tile pixels and output grid
-            src_x0 = max(0, -local_x_start)
-            src_y0 = max(0, -local_y_start)
-            src_x1 = min(tw, grid_cols - local_x_start)
-            src_y1 = min(th, grid_rows - local_y_start)
+        th, tw = tile_data.shape
 
-            if src_x1 > src_x0 and src_y1 > src_y0:
-                dst_x0 = local_x_start + src_x0
-                dst_y0 = local_y_start + src_y0
-                tile_slice = tile_data[src_y0:src_y1, src_x0:src_x1]
-                # Only write non-NaN values; NaN pixels in the source are ocean/NODATA
-                valid = ~np.isnan(tile_slice)
-                grid[dst_y0:dst_y0 + (src_y1 - src_y0), dst_x0:dst_x0 + (src_x1 - src_x0)][valid] = (
-                    tile_slice[valid]
-                )
+        # Pixel range in global coordinates
+        global_x_start = tx * 256
+        global_y_start = ty * 256
+
+        # Compute local grid offsets (where this tile maps into the output grid)
+        local_x_start = global_x_start - min_pixel_x
+        local_y_start = global_y_start - min_pixel_y
+
+        # Determine overlap between tile pixels and output grid
+        src_x0 = max(0, -local_x_start)
+        src_y0 = max(0, -local_y_start)
+        src_x1 = min(tw, grid_cols - local_x_start)
+        src_y1 = min(th, grid_rows - local_y_start)
+
+        if src_x1 > src_x0 and src_y1 > src_y0:
+            dst_x0 = local_x_start + src_x0
+            dst_y0 = local_y_start + src_y0
+            tile_slice = tile_data[src_y0:src_y1, src_x0:src_x1]
+            # Only write non-NaN values; NaN pixels in the source are ocean/NODATA
+            valid = ~np.isnan(tile_slice)
+            grid[dst_y0:dst_y0 + (src_y1 - src_y0), dst_x0:dst_x0 + (src_x1 - src_x0)][valid] = (
+                tile_slice[valid]
+            )
 
     # Compute geographic bounds
     center_row = radius_cells
@@ -356,7 +387,7 @@ def load_elevation_grid(
 
     # Cell size varies with latitude in Mercator; use average for reference
     cell_size_deg_lat = (lat_max - lat_min) / grid_rows
-    cell_size_deg_lon = (lon_max - lon_min) / grid_cols
+    (lon_max - lon_min) / grid_cols
 
     return {
         "grid": grid,

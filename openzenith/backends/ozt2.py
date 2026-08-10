@@ -373,6 +373,7 @@ class OZT2HFBackend:
         if self._cache_dir is None:
             return 0
 
+        import asyncio
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def _fetch_one(z: int, x: int, y: int) -> bool:

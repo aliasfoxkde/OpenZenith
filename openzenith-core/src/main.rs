@@ -13,13 +13,18 @@
 //!
 //! Output format (JSON):
 //!   { "rows": N, "cols": M, "data": [...] }
+//!
+//! Error format (JSON):
+//!   { "error": "message" }
 
 use std::io::{self, Read, Write};
 
 fn main() {
     // Read all stdin as UTF-8
     let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
+    if let Err(e) = io::stdin().read_to_string(&mut input) {
+        error_exit(format!("failed to read stdin: {e}"));
+    }
 
     let cmd = std::env::args().nth(1).unwrap_or_else(|| {
         eprintln!("Usage: openzenith_core_cli <command>  (d8|accum|reconstruct|viewshed|stream-order|gradient-predict)");
@@ -34,12 +39,23 @@ fn main() {
         "stream-order" => cmd_stream_order(&input),
         "gradient-predict" => cmd_gradient_predict(&input),
         _ => {
-            eprintln!("Unknown command: {cmd}");
-            std::process::exit(1);
+            error_exit(format!("unknown command: {cmd}"));
         }
     };
 
-    io::stdout().write_all(result.as_bytes()).unwrap();
+    match result {
+        Ok(json) => {
+            if let Err(e) = io::stdout().write_all(json.as_bytes()) {
+                error_exit(format!("failed to write stdout: {e}"));
+            }
+        }
+        Err(msg) => error_exit(msg),
+    }
+}
+
+fn error_exit(msg: String) -> ! {
+    let _ = io::stderr().write_all(format!("{{\"error\": {}}}\n", serde_json::to_string(&msg).unwrap()).as_bytes());
+    std::process::exit(1);
 }
 
 // ─── JSON helpers ──────────────────────────────────────────────────────────────
@@ -59,14 +75,16 @@ struct D8Output {
     data: Vec<i8>,
 }
 
-fn cmd_d8(input: &str) -> String {
-    let inp: D8Input = serde_json::from_str(input).unwrap();
-    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+fn cmd_d8(input: &str) -> Result<String, String> {
+    let inp: D8Input = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    if inp.data.len() != inp.rows * inp.cols {
+        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+    }
 
     use openzenith_core::d8_flow_direction;
     use ndarray::Array2;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
     let result = d8_flow_direction(&arr.view(), inp.nodata);
 
     let out = D8Output {
@@ -74,7 +92,7 @@ fn cmd_d8(input: &str) -> String {
         cols: inp.cols,
         data: result.into_raw_vec_and_offset().0,
     };
-    serde_json::to_string(&out).unwrap()
+    serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
 
 #[derive(serde::Deserialize)]
@@ -92,14 +110,16 @@ struct AccumOutput {
     data: Vec<i32>,
 }
 
-fn cmd_accum(input: &str) -> String {
-    let inp: AccumInput = serde_json::from_str(input).unwrap();
-    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+fn cmd_accum(input: &str) -> Result<String, String> {
+    let inp: AccumInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    if inp.data.len() != inp.rows * inp.cols {
+        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+    }
 
     use openzenith_core::flow_accumulation;
     use ndarray::Array2;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
     let result = flow_accumulation(&arr.view(), inp.nodata);
 
     let out = AccumOutput {
@@ -107,7 +127,7 @@ fn cmd_accum(input: &str) -> String {
         cols: inp.cols,
         data: result.into_raw_vec_and_offset().0,
     };
-    serde_json::to_string(&out).unwrap()
+    serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
 
 #[derive(serde::Deserialize)]
@@ -127,14 +147,16 @@ struct ReconstructOutput {
     data: Vec<f32>,
 }
 
-fn cmd_gradient_reconstruct(input: &str) -> String {
-    let inp: ReconstructInput = serde_json::from_str(input).unwrap();
-    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+fn cmd_gradient_reconstruct(input: &str) -> Result<String, String> {
+    let inp: ReconstructInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    if inp.data.len() != inp.rows * inp.cols {
+        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+    }
 
     use openzenith_core::gradient_reconstruct;
     use ndarray::Array2;
 
-    let residuals = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let residuals = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
     let result = gradient_reconstruct(&residuals.view(), inp.nodata, inp.dequant_min, inp.dequant_scale);
 
     let out = ReconstructOutput {
@@ -142,7 +164,7 @@ fn cmd_gradient_reconstruct(input: &str) -> String {
         cols: inp.cols,
         data: result.into_raw_vec_and_offset().0,
     };
-    serde_json::to_string(&out).unwrap()
+    serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
 
 #[derive(serde::Deserialize)]
@@ -166,14 +188,16 @@ struct ViewshedOutput {
     data: Vec<u8>, // 0/1 for bool
 }
 
-fn cmd_viewshed(input: &str) -> String {
-    let inp: ViewshedInput = serde_json::from_str(input).unwrap();
-    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+fn cmd_viewshed(input: &str) -> Result<String, String> {
+    let inp: ViewshedInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    if inp.data.len() != inp.rows * inp.cols {
+        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+    }
 
     use openzenith_core::viewshed;
     use ndarray::Array2;
 
-    let dem = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let dem = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
     let result = viewshed(
         &dem.view(),
         inp.observer_row,
@@ -189,7 +213,7 @@ fn cmd_viewshed(input: &str) -> String {
         cols: inp.cols,
         data: result.into_raw_vec_and_offset().0.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect(),
     };
-    serde_json::to_string(&out).unwrap()
+    serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
 
 // ─── Stream order ─────────────────────────────────────────────────────────────
@@ -198,8 +222,14 @@ fn cmd_viewshed(input: &str) -> String {
 struct StreamOrderInput {
     rows: usize,
     cols: usize,
-    threshold: i32,
-    data: Vec<i32>,
+    #[serde(default = "default_nodata_dir")]
+    nodata_dir: i8,
+    streams: Vec<i8>,
+    flow_dir: Vec<i8>,
+}
+
+fn default_nodata_dir() -> i8 {
+    -1
 }
 
 #[derive(serde::Serialize)]
@@ -209,22 +239,28 @@ struct StreamOrderOutput {
     data: Vec<u8>,
 }
 
-fn cmd_stream_order(input: &str) -> String {
-    let inp: StreamOrderInput = serde_json::from_str(input).unwrap();
-    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+fn cmd_stream_order(input: &str) -> Result<String, String> {
+    let inp: StreamOrderInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    if inp.streams.len() != inp.rows * inp.cols {
+        return Err(format!("streams length {} != rows*cols {}*{}", inp.streams.len(), inp.rows, inp.cols));
+    }
+    if inp.flow_dir.len() != inp.rows * inp.cols {
+        return Err(format!("flow_dir length {} != rows*cols {}*{}", inp.flow_dir.len(), inp.rows, inp.cols));
+    }
 
     use openzenith_core::stream_order;
     use ndarray::Array2;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
-    let result = stream_order(&arr.view(), inp.threshold);
+    let streams = Array2::from_shape_vec((inp.rows, inp.cols), inp.streams).map_err(|e| format!("invalid array shape: {e}"))?;
+    let flow_dir = Array2::from_shape_vec((inp.rows, inp.cols), inp.flow_dir).map_err(|e| format!("invalid array shape: {e}"))?;
+    let result = stream_order(&streams.view(), &flow_dir.view(), inp.nodata_dir);
 
     let out = StreamOrderOutput {
         rows: inp.rows,
         cols: inp.cols,
         data: result.into_raw_vec_and_offset().0,
     };
-    serde_json::to_string(&out).unwrap()
+    serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
 
 // ─── Gradient predict (encode) ─────────────────────────────────────────────────
@@ -244,14 +280,16 @@ struct GradientPredictOutput {
     data: Vec<i16>,
 }
 
-fn cmd_gradient_predict(input: &str) -> String {
-    let inp: GradientPredictInput = serde_json::from_str(input).unwrap();
-    assert_eq!(inp.data.len(), inp.rows * inp.cols);
+fn cmd_gradient_predict(input: &str) -> Result<String, String> {
+    let inp: GradientPredictInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    if inp.data.len() != inp.rows * inp.cols {
+        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+    }
 
     use openzenith_core::gradient_predict;
     use ndarray::Array2;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).unwrap();
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
     let result = gradient_predict(&arr.view(), inp.nodata);
 
     let out = GradientPredictOutput {
@@ -259,6 +297,5 @@ fn cmd_gradient_predict(input: &str) -> String {
         cols: inp.cols,
         data: result.into_raw_vec_and_offset().0,
     };
-    serde_json::to_string(&out).unwrap()
+    serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
-

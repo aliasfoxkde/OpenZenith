@@ -90,6 +90,25 @@ pub fn left_reconstruct_wasm(
     out
 }
 
+/// Gradient prediction (encode direction) — compute residuals from elevation grid (WASM).
+///
+/// Returns a Uint16Array of int16 residuals (as unsigned for WASM compatibility).
+#[wasm_bindgen]
+pub fn gradient_predict_wasm(
+    elevation_ptr: *const f32,
+    len: usize,
+    rows: usize,
+    cols: usize,
+    nodata: f32,
+) -> Vec<i16> {
+    let elev_slice = unsafe { std::slice::from_raw_parts(elevation_ptr, len) };
+    let arr = Array2::from_shape_vec((rows, cols), elev_slice.to_vec())
+        .unwrap_or_else(|_| Array2::zeros((rows, cols)));
+
+    let residuals = super::ozt2::gradient_predict(&arr.view(), nodata);
+    residuals.into_raw_vec_and_offset().0
+}
+
 /// D8 flow direction (WASM) — returns a Uint8Array of direction values (0-7 or 255 for nodata).
 #[wasm_bindgen]
 pub fn d8_flow_direction_wasm(
@@ -138,6 +157,7 @@ pub fn viewshed_wasm(
     observer_height: f32,
     cell_size: f32,
     nodata: f32,
+    max_distance_cells: Option<usize>,
 ) -> Vec<u8> {
     let dem_slice = unsafe { std::slice::from_raw_parts(dem_ptr, len) };
     let arr = Array2::from_shape_vec((rows, cols), dem_slice.to_vec())
@@ -150,7 +170,7 @@ pub fn viewshed_wasm(
         observer_height,
         cell_size,
         nodata,
-        None,
+        max_distance_cells,
     );
 
     vis.into_raw_vec_and_offset().0.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect()
@@ -244,29 +264,37 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
     let residuals_arr = Array2::from_shape_vec((height, width), residuals)
         .unwrap_or_else(|_| Array2::zeros((height, width)));
 
-    let reconstructed = if predictor == 0 {
-        super::ozt2::gradient_reconstruct(&residuals_arr.view(), -32768, 0.0, 1.0)
+    // Dequantization parameters for reconstruction: use the quantized scale
+    // so that reconstruction operates on properly-scaled residuals.
+    // For bits < 16, we rescale during reconstruction so values are in final units.
+    let (dequant_min, dequant_scale) = if bits < 16 && elev_range > 0.0 {
+        let vmin_f = vmin as f32;
+        let er_f = elev_range as f32;
+        let max_q = ((1i32 << bits) - 1) as f32;
+        // Scale so that 1 residual step = dequant_scale metres
+        let dequant_scale = er_f / max_q;
+        (vmin_f, dequant_scale)
     } else {
-        super::ozt2::left_reconstruct(&residuals_arr.view(), -32768, 0.0, 1.0)
+        (vmin as f32, 1.0_f32)
     };
 
-    // Dequantize
-    let bits = bits as i32;
-    let elev_range = elev_range as f32;
-    let vmin = vmin as f32;
+    // OZT2 residual nodata is the same as elevation nodata (-32768)
+    const RESIDUAL_NODATA: i16 = -32768;
 
+    let reconstructed = if predictor == 0 {
+        super::ozt2::gradient_reconstruct(&residuals_arr.view(), RESIDUAL_NODATA, dequant_min, dequant_scale)
+    } else {
+        super::ozt2::left_reconstruct(&residuals_arr.view(), RESIDUAL_NODATA, dequant_min, dequant_scale)
+    };
+
+    // Reconstructed values are already in metres (dequantized during reconstruction).
+    // Just clamp to valid elevation range.
     let elevations: Vec<u16> = reconstructed
         .into_raw_vec_and_offset()
         .0
         .iter()
         .map(|&v| {
-            let quantized = if bits < 16 && elev_range > 0.0 {
-                let vmax_quant = (1 << bits) - 1;
-                v * elev_range / vmax_quant as f32 + vmin
-            } else {
-                v + vmin
-            };
-            let meters = quantized.round() as i32;
+            let meters = v.round() as i32;
             meters.clamp(0, 65535) as u16
         })
         .collect();

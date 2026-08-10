@@ -111,7 +111,7 @@ def test_load_elevation_grid_mercator_coords():
     cell_size = 180.0 / (n * 256)
 
     # The correct lat_min should be close to lat - radius * cell_size
-    expected_lat_min_approx = lat - radius * cell_size
+    lat - radius * cell_size
 
     # We can't load without tiles, but we can verify the formula
     # lat_min = pixel_to_lat(min_pixel_y + grid_rows, zoom)
@@ -252,3 +252,79 @@ def test_get_elevation_batch_empty():
 
     results = get_elevation_batch([])
     assert results == []
+
+
+# ─── Tests for get_elevation_from_ozt2 ─────────────────────────────────────────
+
+
+def test_get_elevation_from_ozt2_returns_float_or_none(tmp_path):
+    """get_elevation_from_ozt2 returns float or None."""
+    import unittest.mock
+    from openzenith.elevation import get_elevation_from_ozt2
+
+    # Mock the internal _get_elevation_from_ozt2 to avoid network/disk calls
+    with unittest.mock.patch("openzenith.elevation._get_elevation_from_ozt2", return_value=None):
+        result = get_elevation_from_ozt2(40.0, -74.0, ozt2_dir=str(tmp_path))
+        # Should return None (no tile found in mock)
+        assert result is None or isinstance(result, (int, float))
+
+    with unittest.mock.patch("openzenith.elevation._get_elevation_from_ozt2", return_value=123.4):
+        result = get_elevation_from_ozt2(40.0, -74.0, ozt2_dir=str(tmp_path))
+        assert result == pytest.approx(123.4)
+
+
+def test_get_elevation_from_ozt2_requires_dir():
+    """get_elevation_from_ozt2 raises ValueError when no tile dir configured."""
+    import openzenith.elevation as e
+    saved = e.DEFAULT_OZT2_DIR
+    e.DEFAULT_OZT2_DIR = None
+    try:
+        from openzenith.elevation import get_elevation_from_ozt2
+        with pytest.raises(ValueError, match="ozt2_dir"):
+            get_elevation_from_ozt2(40.0, -74.0)
+    finally:
+        e.DEFAULT_OZT2_DIR = saved
+
+
+# ─── Tests for load_ozt2_tiles ────────────────────────────────────────────────
+
+
+def test_load_ozt2_tiles_sets_default_dir(tmp_path):
+    """load_ozt2_tiles sets the DEFAULT_OZT2_DIR and returns Path."""
+    import openzenith.elevation as e
+
+    # Use a temp directory
+    result = e.load_ozt2_tiles(str(tmp_path))
+    assert result == tmp_path
+    # Check the module-level variable after the call
+    assert e.DEFAULT_OZT2_DIR == tmp_path
+
+
+def test_load_ozt2_tiles_does_not_crash():
+    """load_ozt2_tiles should not crash on a real directory."""
+    from openzenith.elevation import load_ozt2_tiles
+
+    # Use the project directory (doesn't need to have tiles)
+    result = load_ozt2_tiles("/nas/Temp/repos/OpenZenith/openzenith")
+    assert result is not None
+
+
+# ─── Tests for get_tile_count ─────────────────────────────────────────────────
+
+
+def test_get_tile_count_returns_dict():
+    """get_tile_count returns a dict mapping zoom to count."""
+    from openzenith.elevation import get_tile_count
+
+    result = get_tile_count("/nas/Temp/repos/OpenZenith/openzenith")
+    assert isinstance(result, dict)
+    assert all(isinstance(k, int) for k in result.keys())
+    assert all(isinstance(v, int) for v in result.values())
+
+
+def test_get_tile_count_empty_dir(tmp_path):
+    """Empty directory returns empty dict."""
+    from openzenith.elevation import get_tile_count
+
+    result = get_tile_count(str(tmp_path))
+    assert result == {}

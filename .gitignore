@@ -11,6 +11,10 @@ node_modules/
 # Archived/broken files
 _archive/
 .pi/
+.vercel/
+
+# OZT2 data (downloaded at setup)
+ozt2/
 
 # Build
 *.tsbuildinfo

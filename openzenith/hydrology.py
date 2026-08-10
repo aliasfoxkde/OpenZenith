@@ -701,6 +701,8 @@ def depression_depth_stats(
     Uses the fill-depression difference to identify depressions and
     compute their depth, volume, and spill elevation.
 
+    Uses scipy.ndimage.label for fast connected-component labeling.
+
     Args:
         dem: 2D elevation grid (meters)
         nodata: NODATA value
@@ -709,69 +711,62 @@ def depression_depth_stats(
         List of dicts with keys: 'row', 'col', 'depth_m', 'volume_m3',
         'spill_elev_m', 'area_m2', 'cell_count'
     """
+    try:
+        from scipy import ndimage
+    except ImportError:
+        raise ImportError(
+            "depression_depth_stats requires scipy. "
+            "Install with: pip install scipy"
+        )
+
     filled = fill_depressions(dem, nodata)
-    diff = filled - dem.astype(np.float64)
+    diff = (filled - dem.astype(np.float64)).astype(np.float32)
 
     valid = (diff > 0.1) & (dem > nodata)
     if not valid.any():
         return []
 
-    rows, cols = dem.shape
     cell_size_deg = 0.001
     cell_m = cell_size_deg * 111320.0
     cell_area_m2 = cell_m * cell_m
 
-    # Find connected components (depressions)
-    from collections import deque
+    # Label connected components (depressions)
+    labeled, num_features = ndimage.label(valid)
+    if num_features == 0:
+        return []
 
-    visited = np.zeros_like(valid, dtype=bool)
     depressions = []
+    for label_id in range(1, num_features + 1):
+        mask = labeled == label_id
+        cells_r, cells_c = np.where(mask)
 
-    for r in range(rows):
-        for c in range(cols):
-            if not valid[r, c] or visited[r, c]:
-                continue
+        # Depression depth = max(filled) - min(filled) within the depression
+        fill_vals = filled[mask]
+        orig_vals = dem[mask]
+        max_orig = float(np.max(orig_vals))
+        min_filled = float(np.min(fill_vals))
+        depth = max_orig - min_filled
 
-            # BFS to find all cells in this depression
-            cells = []
-            queue = deque([(r, c)])
-            visited[r, c] = True
-            min_elev = float(filled[r, c])
-            original_elevs = []
+        # Spill elevation is the minimum filled value (spill point)
+        spill_elev = min_filled
+        cell_count = int(np.sum(mask))
+        area = cell_count * cell_area_m2
+        volume = depth * cell_count * cell_area_m2
 
-            while queue:
-                cr, cc = queue.popleft()
-                cells.append((cr, cc))
-                original_elevs.append(dem[cr, cc])
-                min_elev = min(min_elev, filled[cr, cc])
+        # Row/col of the spill point (first cell with min filled elevation)
+        spill_idx = int(np.argmin(fill_vals))
+        spill_row = int(cells_r[spill_idx])
+        spill_col = int(cells_c[spill_idx])
 
-                for d in range(8):
-                    nr = cr + int(D8_DR[d])
-                    nc = cc + int(D8_DC[d])
-                    if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc] and valid[nr, nc]:
-                        visited[nr, nc] = True
-                        queue.append((nr, nc))
-
-            if not cells:
-                continue
-
-            # Compute stats
-            orig_elevs = np.array(original_elevs, dtype=np.float64)
-            max_orig = orig_elevs.max()
-            depth = max_orig - min_elev
-            spill_elev = filled[cells[0][0], cells[0][1]] if cells else max_orig
-            volume = depth * len(cells) * cell_area_m2
-            area = len(cells) * cell_area_m2
-
-            depressions.append({
-                "row": r,
-                "col": c,
-                "depth_m": round(depth, 2),
-                "volume_m3": round(volume, 2),
-                "spill_elev_m": round(spill_elev, 2),
-                "area_m2": round(area, 2),
-                "cell_count": len(cells),
-            })
+        depressions.append({
+            "row": spill_row,
+            "col": spill_col,
+            "depth_m": round(depth, 2),
+            "volume_m3": round(volume, 2),
+            "spill_elev_m": round(spill_elev, 2),
+            "area_m2": round(area, 2),
+            "cell_count": cell_count,
+        })
 
     # Sort by depth (deepest first)
     depressions.sort(key=lambda x: x["depth_m"], reverse=True)

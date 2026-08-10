@@ -1296,7 +1296,7 @@ def landform_classification(
     8 = flat
     -1 = nodata
 
-    Uses threshold-based decision tree on TPI, slope, and curvature.
+    Fully vectorized — no Python loops.
 
     Args:
         dem: 2D elevation grid (meters)
@@ -1306,70 +1306,53 @@ def landform_classification(
     Returns:
         2D int8 array of landform classes
     """
-    from openzenith.terrain import curvature, slope
-
     rows, cols = dem.shape
     result = np.full((rows, cols), -1, dtype=np.int8)
     valid = dem > nodata
 
-    # Compute derivatives
+    # Compute derivatives (all vectorized)
     slp = slope(dem, cell_size_deg, nodata)
     curv = curvature(dem, cell_size_deg, nodata)
     p_curv = profile_curvature(dem, cell_size_deg, nodata)
     plan_curv = planform_curvature(dem, cell_size_deg, nodata)
     tpi_vals = tpi(dem, cell_size_deg, nodata)
 
-    for r in range(rows):
-        for c in range(cols):
-            if not valid[r, c]:
-                continue
+    # Fully vectorized threshold classification using np.where chains
+    # Start with "middle slope" as default, override with specific classes
+    s_nan = np.isnan(slp)
+    cu_nan = np.isnan(curv)
+    any_nan = s_nan | cu_nan
 
-            s = slp[r, c]
-            cu = curv[r, c]
-            pc = p_curv[r, c]
-            pl = plan_curv[r, c]
-            tpi_v = tpi_vals[r, c]
+    # Flat (slope < 2)
+    result[(slp < 2) & valid] = 8
 
-            if np.isnan(s) or np.isnan(cu):
-                continue
+    # Pit (TPI < -5 and concave)
+    result[(tpi_vals < -5) & (curv < -0.001) & valid] = 6
 
-            # Flat areas
-            if s < 2:
-                result[r, c] = 8  # flat
-                continue
+    # Peak (TPI > 5, slope > 10, concave profile)
+    result[(tpi_vals > 5) & (slp > 10) & (p_curv < -0.0005) & valid] = 0
 
-            # Depression (pit)
-            if tpi_v < -5 and cu < -0.001:
-                result[r, c] = 6  # pit
-                continue
+    # Ridge (concave profile, convex plan)
+    result[(p_curv < -0.0005) & (plan_curv > 0.0005) & valid] = 1
 
-            # Peak
-            if tpi_v > 5 and s > 10 and pc < -0.0005:
-                result[r, c] = 0  # peak
-                continue
+    # Valley (convex profile, concave plan)
+    result[(p_curv > 0.0005) & (plan_curv < -0.0005) & valid] = 5
 
-            # Ridge
-            if pc < -0.0005 and pl > 0.0005:
-                result[r, c] = 1  # ridge
-                continue
+    # Saddle (both curvatures near zero and TPI near zero)
+    result[
+        (np.abs(p_curv) < 0.0002) & (np.abs(plan_curv) < 0.0002) &
+        (np.abs(tpi_vals) < 2) & valid
+    ] = 7
 
-            # Valley (channel)
-            if pc > 0.0005 and pl < -0.0005:
-                result[r, c] = 5  # valley
-                continue
+    # Upper slope (TPI > 2, not classified yet)
+    result[(tpi_vals > 2) & (result == -1) & valid] = 2
 
-            # Saddle
-            if abs(pc) < 0.0002 and abs(pl) < 0.0002 and abs(tpi_v) < 2:
-                result[r, c] = 7  # saddle
-                continue
+    # Lower slope (TPI < -2, not classified yet)
+    result[(tpi_vals < -2) & (result == -1) & valid] = 4
 
-            # Slope position based on TPI
-            if tpi_v > 2:
-                result[r, c] = 2  # upper slope
-            elif tpi_v < -2:
-                result[r, c] = 4  # lower slope
-            else:
-                result[r, c] = 3  # middle slope
+    # Mark NaN cells
+    result[any_nan] = -1
+    result[~valid] = -1
 
     return result
 

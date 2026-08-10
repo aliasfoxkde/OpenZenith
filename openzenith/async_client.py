@@ -131,6 +131,8 @@ class ElevationClient:
         self._connector = aiohttp.TCPConnector(limit=connector_limit)
         self._owns_session = session is None
         self._session: aiohttp.ClientSession | None = None
+        # HTTP caching: URL -> (etag, cached_json_response)
+        self._etag_cache: dict[str, tuple[str, dict]] = {}
 
     async def _request(
         self,
@@ -138,23 +140,40 @@ class ElevationClient:
         path: str,
         **kwargs,
     ) -> dict:
-        """Make an HTTP request with retry logic."""
+        """Make an HTTP request with retry logic and ETag caching."""
         import aiohttp
 
+        url = f"{self._base_url}{path}"
         delay = self._retry_delay
         last_err: Exception | None = None
 
         for attempt in range(self._max_retries + 1):
             session = self._get_session()
+            headers = kwargs.pop("headers", {})
+            # Send If-None-Match if we have a cached ETag for this URL
+            if url in self._etag_cache and method == "GET":
+                etag, _ = self._etag_cache[url]
+                headers["If-None-Match"] = etag
+
             try:
                 async with session.request(
                     method,
-                    f"{self._base_url}{path}",
+                    url,
+                    headers=headers,
                     timeout=aiohttp.ClientTimeout(total=self._timeout),
                     **kwargs,
                 ) as resp:
                     if resp.status == 200:
-                        return await resp.json()
+                        # Cache ETag for future requests
+                        etag = resp.headers.get("ETag") or resp.headers.get("etag")
+                        data = await resp.json()
+                        if etag:
+                            self._etag_cache[url] = (etag, data)
+                        return data
+                    elif resp.status == 304:
+                        # Not Modified — return cached response
+                        _, cached = self._etag_cache[url]
+                        return cached
                     elif resp.status == 429 or resp.status >= 500:
                         # Rate-limited or server error: retry with backoff
                         last_err = RuntimeError(f"HTTP {resp.status}: {await resp.text()}")

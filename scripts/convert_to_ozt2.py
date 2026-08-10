@@ -26,11 +26,8 @@ Usage:
 import argparse
 import json
 import math
-import os
-import struct
 import sys
 import time
-import zlib
 from concurrent.futures import ProcessPoolExecutor, wait
 from pathlib import Path
 
@@ -38,8 +35,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from openzenith.tile_format_v2 import encode, decode, PRED_GRADIENT, COMP_BROTLI, COMP_ZSTD, COMP_ZLIB
-from openzenith.merged import MergedFile, get_merged_file, lat_lon_to_srtm_name
+from openzenith.merged import get_merged_file
+from openzenith.tile_format_v2 import COMP_BROTLI, COMP_ZLIB, COMP_ZSTD, PRED_GRADIENT, encode
 
 NODATA = -32768
 TILE_SIZE = 256
@@ -434,7 +431,7 @@ def _init_worker(merged_dir_str: str) -> None:
 
 def convert_tile(args) -> dict:
     """Convert a single tile: check land → generate grid → OZT2 encode → write."""
-    z, x, y, merged_dir, output_dir, max_rmse, codec, compress_level, incremental = args
+    z, x, y, _merged_dir, output_dir, _max_rmse, codec, compress_level, incremental = args
 
     out_path = Path(output_dir) / f"z{z}" / str(x) / f"{y}.ozt2"
 
@@ -551,7 +548,13 @@ def count_estimated_tiles(zoom_range: tuple[int, int]) -> int:
     return total
 
 
-def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: float, compress_level: int = 9) -> dict:
+def generate_manifest(
+    output_dir: Path,
+    zoom_range: tuple[int, int],
+    elapsed: float,
+    codec: str = "brotli",
+    compress_level: int = 9,
+) -> dict:
     """Generate a manifest.json for the converted tiles."""
     manifest = {
         "version": "1.0.0",
@@ -562,7 +565,7 @@ def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: fl
         "zoom_range": list(zoom_range),
         "compression": {
             "predictor": "gradient",
-            "compressor": "brotli",
+            "compressor": codec,
             "quality": compress_level,
             "max_rmse": 1.0,
         },
@@ -574,7 +577,6 @@ def generate_manifest(output_dir: Path, zoom_range: tuple[int, int], elapsed: fl
 
     total_tiles = 0
     total_bytes = 0
-    bit_dist = {}
 
     for z in range(zoom_range[0], zoom_range[1] + 1):
         zdir = output_dir / f"z{z}"
@@ -708,7 +710,7 @@ def main():
         print(f"❌ Invalid zoom range: {args.zoom}")
         sys.exit(1)
 
-    print(f"OpenZenith OZT2 Tile Generator")
+    print("OpenZenith OZT2 Tile Generator")
     print(f"{'=' * 60}")
     print(f"  Input:   {merged_dir}")
     print(f"  Output:  {output_dir}")
@@ -724,7 +726,7 @@ def main():
     # Count total tiles for progress reporting
     total_tiles_estimate = count_estimated_tiles(zoom_range)
     print(f"Estimated tiles: {total_tiles_estimate:,}")
-    print(f"Starting conversion...")
+    print("Starting conversion...")
     print()
 
     # Pre-count tiles per zoom (fast — just math, no I/O)
@@ -863,12 +865,12 @@ def main():
     print(f"  Zooms:        {', '.join(f'z{z}' for z in completed_zooms)}")
 
     if total_errors > 0:
-        print(f"\nErrors (first 10):")
+        print("\nErrors (first 10):")
         for r in all_errors[:10]:
             print(f"  z{r['z']}/{r['x']}/{r['y']}: {r.get('error', 'unknown')}")
 
     # Generate manifest
-    manifest = generate_manifest(output_dir, zoom_range, elapsed, args.brotli_quality)
+    manifest = generate_manifest(output_dir, zoom_range, elapsed, args.codec, args.compress_level)
     manifest_path = output_dir / args.manifest
     manifest_path.write_text(json.dumps(manifest, indent=2))
     print(f"\n  Manifest: {manifest_path}")
@@ -892,7 +894,7 @@ def main():
         print(f"\n⚠️  {total_errors} tiles failed — see {results_path}")
         sys.exit(1)
     else:
-        print(f"\n✅ All tiles converted successfully")
+        print("\n✅ All tiles converted successfully")
         sys.exit(0)
 
 

@@ -1543,3 +1543,1755 @@ def dem_reclassify(
         result[mask] = values[-1]
 
     return result
+
+
+# ─── WhiteboxTools Parity Functions ───────────────────────────────────────────────
+
+
+def max_filter(
+    dem: np.ndarray,
+    kernel_size: int = 3,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Apply a maximum filter (dilation) over the DEM.
+
+    Equivalent to WhiteboxTools MaxElevationArchitecture.
+    Each cell is replaced with the maximum value in its neighborhood.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (must be odd, default 3)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of max-filtered values
+    """
+    from scipy.ndimage import maximum_filter
+
+    valid = dem != nodata
+    result = dem.astype(np.float32).copy()
+    filtered = maximum_filter(np.where(valid, dem, np.nan), size=kernel_size)
+    result = np.where(valid, filtered, nodata)
+    return result.astype(np.float32)
+
+
+def min_filter(
+    dem: np.ndarray,
+    kernel_size: int = 3,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Apply a minimum filter (erosion) over the DEM.
+
+    Equivalent to WhiteboxTools MinElevationArchitecture.
+    Each cell is replaced with the minimum value in its neighborhood.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (must be odd, default 3)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of min-filtered values
+    """
+    from scipy.ndimage import minimum_filter
+
+    valid = dem != nodata
+    result = dem.astype(np.float32).copy()
+    filtered = minimum_filter(np.where(valid, dem, np.nan), size=kernel_size)
+    result = np.where(valid, filtered, nodata)
+    return result.astype(np.float32)
+
+
+def dev_from_mean_plane(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute deviation from the mean elevation plane.
+
+    Equivalent to WhiteboxTools DevFromMeanPlane.
+    Positive = above mean, negative = below mean.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of deviations from mean (meters)
+    """
+    valid = dem != nodata
+    mean_elev = np.mean(dem[valid])
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = dem[valid] - mean_elev
+    result[~valid] = nodata
+    return result
+
+
+def diff_from_mean(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute difference from mean elevation (alias for dev_from_mean_plane)."""
+    return dev_from_mean_plane(dem, nodata)
+
+
+def directional_relief(
+    dem: np.ndarray,
+    azimuth: float = 0.0,
+    max_distance: int = 100,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute directional relief (visibility from a specific direction).
+
+    Like hillshade but measures how much each cell is "seen" from a specific
+    azimuth direction — useful for understanding prevailing wind/solar exposure.
+
+    Equivalent to WhiteboxTools DirectionalRelief.
+
+    Args:
+        dem: 2D elevation grid
+        azimuth: Compass direction to check visibility toward (degrees)
+        max_distance: Maximum search distance in cells
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of directional relief (0-1, fraction of direction visible)
+    """
+    rows, cols = dem.shape
+    az_rad = np.radians(azimuth)
+    # Direction vector (row increases downward, so north = -1 in row)
+    dr = -np.sin(az_rad)  # row direction (negative = north)
+    dc = np.cos(az_rad)    # col direction (positive = east)
+
+    result = np.full((rows, cols), np.nan, dtype=np.float32)
+    valid = dem > nodata
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+
+            origin_elev = dem[r, c]
+            visible = 0
+            total = 0
+
+            for dist in range(1, max_distance + 1):
+                nr = round(r + dist * dr)
+                nc = round(c + dist * dc)
+                if 0 <= nr < rows and 0 <= nc < cols:
+                    if valid[nr, nc]:
+                        total += 1
+                        if dem[nr, nc] < origin_elev:
+                            visible += 1
+                else:
+                    break
+
+            if total > 0:
+                result[r, c] = visible / total
+            else:
+                result[r, c] = 0.0
+
+    result[~valid] = nodata
+    return result
+
+
+def hillshade_diff(
+    dem: np.ndarray,
+    azimuth1: float = 315.0,
+    altitude1: float = 45.0,
+    azimuth2: float = 135.0,
+    altitude2: float = 45.0,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute difference between two hillshades.
+
+    Equivalent to WhiteboxTools HillshadeDiff.
+    Useful for comparing illumination from different sun positions.
+
+    Args:
+        dem: 2D elevation grid
+        azimuth1: First hillshade azimuth (degrees)
+        altitude1: First hillshade altitude (degrees)
+        azimuth2: Second hillshade azimuth (degrees)
+        altitude2: Second hillshade altitude (degrees)
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of hillshade difference (shade1 - shade2, -255 to 255)
+    """
+    shade1 = hillshade(dem, azimuth=azimuth1, altitude=altitude1,
+                        cell_size_deg=cell_size_deg, nodata=nodata)
+    shade2 = hillshade(dem, azimuth=azimuth2, altitude=altitude2,
+                        cell_size_deg=cell_size_deg, nodata=nodata)
+    diff = (shade1.astype(np.float32) - shade2.astype(np.float32))
+    result = np.where(dem > nodata, diff, nodata)
+    return result.astype(np.float32)
+
+
+def aspect_slope(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute aspect and slope in a single pass (more efficient than calling separately).
+
+    Equivalent to WhiteboxTools AspectSlope.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        Tuple of (aspect_deg, slope_deg) arrays
+    """
+    valid = dem > nodata
+    cell_y = cell_size_deg * 111320.0
+    cell_x = cell_size_deg * 111320.0 * np.cos(np.radians(
+        np.nanmean(dem[valid]) if np.any(valid) else 0.0))
+
+    padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
+
+    a = padded[:-2, :-2]
+    b = padded[:-2, 1:-1]
+    c = padded[:-2, 2:]
+    d = padded[1:-1, :-2]
+    f = padded[1:-1, 2:]
+    g = padded[2:, :-2]
+    h = padded[2:, 1:-1]
+    i = padded[2:, 2:]
+
+    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell_x)
+    dz_dy = ((a + 2 * b + c) - (g + 2 * h + i)) / (8 * cell_y)
+
+    slope_rad = np.arctan(np.sqrt(dz_dx ** 2 + dz_dy ** 2))
+    slope_deg = np.degrees(slope_rad)
+
+    aspect_rad = np.arctan2(-dz_dy, dz_dx)
+    aspect_deg = (90 - np.degrees(aspect_rad) + 180) % 360
+
+    flat = (np.abs(dz_dx) < 1e-10) & (np.abs(dz_dy) < 1e-10)
+    aspect_deg[flat | ~valid] = np.nan
+    slope_deg[~valid] = np.nan
+
+    return aspect_deg.astype(np.float32), slope_deg.astype(np.float32)
+
+
+def mean_filter(
+    dem: np.ndarray,
+    kernel_size: int = 3,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Apply a mean filter over the DEM.
+
+    Smooths the DEM using a moving average window.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (must be odd, default 3)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of mean-filtered values
+    """
+    from scipy.ndimage import uniform_filter
+
+    valid = dem != nodata
+    result = dem.astype(np.float32).copy()
+    filtered = uniform_filter(np.where(valid, dem, np.nan), size=kernel_size)
+    result = np.where(valid, filtered, nodata)
+    return result.astype(np.float32)
+
+
+def median_filter(
+    dem: np.ndarray,
+    kernel_size: int = 3,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Apply a median filter over the DEM.
+
+    Good for spike/noise removal while preserving edges better than mean.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (must be odd, default 3)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of median-filtered values
+    """
+    from scipy.ndimage import median_filter
+
+    valid = dem != nodata
+    result = dem.astype(np.float32).copy()
+    filtered = median_filter(np.where(valid, dem, np.nan), size=kernel_size)
+    result = np.where(valid, filtered, nodata)
+    return result.astype(np.float32)
+
+
+def pct_above_thresh(
+    dem: np.ndarray,
+    threshold: float,
+    nodata: float = -32768.0,
+) -> float:
+    """Compute percentage of cells above a threshold.
+
+    Equivalent to WhiteboxTools PctGreaterThan / PctLessThan.
+    Returns the fraction (0-1) of valid cells with value above the threshold.
+
+    Args:
+        dem: 2D elevation grid
+        threshold: Threshold value
+        nodata: NODATA value
+
+    Returns:
+        Fraction of cells above threshold (0.0 to 1.0)
+    """
+    valid = dem > nodata
+    if not valid.any():
+        return 0.0
+    return float(np.sum(dem[valid] > threshold)) / float(np.sum(valid))
+
+
+def pct_below_thresh(
+    dem: np.ndarray,
+    threshold: float,
+    nodata: float = -32768.0,
+) -> float:
+    """Compute percentage of cells below a threshold.
+
+    Args:
+        dem: 2D elevation grid
+        threshold: Threshold value
+        nodata: NODATA value
+
+    Returns:
+        Fraction of cells below threshold (0.0 to 1.0)
+    """
+    valid = dem > nodata
+    if not valid.any():
+        return 0.0
+    return float(np.sum(dem[valid] < threshold)) / float(np.sum(valid))
+
+
+def elevation_percentile(
+    dem: np.ndarray,
+    kernel_size: int = 5,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute local elevation percentile rank.
+
+    For each cell, computes what fraction of neighbors have lower elevation.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (default 5)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of percentiles (0-1)
+    """
+    from scipy.ndimage import rank_filter
+
+    valid = dem > nodata
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    ranked = rank_filter(np.where(valid, dem, 0).astype(np.float32),
+                         rank=kernel_size * kernel_size // 2,
+                         size=kernel_size,
+                         mode="constant", cval=0)
+    # Count total valid in window for percentile
+    valid_count = rank_filter(valid.astype(np.float32), rank=0, size=kernel_size,
+                               mode="constant", cval=0)
+    result = ranked / np.maximum(valid_count, 1)
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def hypsometry(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute hypsometric curve values per cell.
+
+    The hypsometric index is the proportion of a cell's watershed that
+    lies above that cell's elevation. H = (E_min - E_cell) / (E_min - E_max)
+    High values = cell is high in its watershed (ridges/upper slopes).
+    Low values = cell is low (valleys/near outlet).
+
+    Equivalent to WhiteboxTools Hypsometry.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of hypsometric index (0-1)
+    """
+    valid = dem > nodata
+    e_min = np.min(dem[valid])
+    e_max = np.max(dem[valid])
+    e_range = e_max - e_min
+
+    if e_range == 0:
+        return np.full(dem.shape, 0.5, dtype=np.float32)
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = (e_max - dem[valid]) / e_range
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def max_elevation_from_direction(
+    dem: np.ndarray,
+    azimuth: float = 0.0,
+    max_distance: int = 50,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute max elevation reachable from each cell in a given direction.
+
+    Returns the maximum elevation encountered when looking from each cell
+    along the specified compass bearing until out of bounds or hitting a peak.
+
+    Equivalent to WhiteboxTools MaxElevationFromDirection.
+
+    Args:
+        dem: 2D elevation grid
+        azimuth: Compass bearing (degrees clockwise from north, 0=N)
+        max_distance: Maximum search distance in cells
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of maximum elevation in search direction
+    """
+    rows, cols = dem.shape
+    az_rad = np.radians(azimuth)
+    dr = -np.sin(az_rad)   # row direction (negative = north)
+    dc = np.cos(az_rad)     # col direction
+
+    result = np.full((rows, cols), np.nan, dtype=np.float32)
+    valid = dem > nodata
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+            max_elev = dem[r, c]
+            for dist in range(1, max_distance + 1):
+                nr = round(r + dist * dr)
+                nc = round(c + dist * dc)
+                if 0 <= nr < rows and 0 <= nc < cols and valid[nr, nc]:
+                    max_elev = max(max_elev, dem[nr, nc])
+                else:
+                    break
+            result[r, c] = max_elev
+
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def tangent_curvature(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute tangent curvature (curvature parallel to slope direction).
+
+    Positive = convex in flow direction (accelerating flow).
+    Negative = concave (decelerating flow).
+
+    Equivalent to WhiteboxTools TangentCurvature.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of curvature values (1/meter)
+    """
+    from openzenith.terrain import aspect, slope
+
+    valid = dem > nodata
+    slp = slope(dem, cell_size_deg, nodata)  # degrees
+    azm = aspect(dem, cell_size_deg, nodata)
+
+    padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
+    a = padded[:-2, :-2]
+    b = padded[:-2, 1:-1]
+    c = padded[:-2, 2:]
+    d = padded[1:-1, :-2]
+    f = padded[1:-1, 2:]
+    g = padded[2:, :-2]
+    h = padded[2:, 1:-1]
+    i = padded[2:, 2:]
+
+    # Second derivative in east-west direction (d²z/dx²)
+    d2z_dx2 = (a + 2 * d + g) / 4 - (c + 2 * f + i) / 4
+    # Second derivative in north-south direction (d²z/dy²)
+    d2z_dy2 = (a + 2 * b + c) / 4 - (g + 2 * h + i) / 4
+
+    azm_rad = np.radians(azm)
+    slope_rad = np.radians(slp)
+
+    # Tangent curvature = (cos(slope)² * sin(aspect)² * d2z_dx2
+    #                    + sin(slope)² * cos(aspect)² * d2z_dy2
+    #                    - sin(2*aspect) * sin(2*slope) / 4 * (d2z_dx2 + d2z_dy2))
+    cos_slope = np.cos(slope_rad)
+    sin_slope = np.sin(slope_rad)
+    cos_asp = np.cos(azm_rad)
+    sin_asp = np.sin(azm_rad)
+
+    tc = (cos_slope ** 2 * sin_asp ** 2 * d2z_dx2 +
+          sin_slope ** 2 * cos_asp ** 2 * d2z_dy2 +
+          np.sin(2 * azm_rad) * np.sin(2 * slope_rad) / 4 * (d2z_dx2 - d2z_dy2))
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = tc[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def total_curvature(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute total curvature (laplacian: d²z/dx² + d²z/dy²).
+
+    Positive = convex (ridges/peaks). Negative = concave (valleys).
+    Equivalent to WhiteboxTools TotalCurvature.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of curvature values (1/meter)
+    """
+    valid = dem > nodata
+    cell_m = cell_size_deg * 111320.0
+
+    padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
+    d = padded[1:-1, :-2]
+    f = padded[1:-1, 2:]
+    b = padded[:-2, 1:-1]
+    h = padded[2:, 1:-1]
+
+    d2z_dx2 = (f - 2 * dem + d) / (cell_m ** 2)
+    d2z_dy2 = (h - 2 * dem + b) / (cell_m ** 2)
+
+    tc = d2z_dx2 + d2z_dy2
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = tc[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def remove_off_terrain(
+    dem: np.ndarray,
+    kernel_size: int = 5,
+    threshold: float = 5.0,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Remove off-terrain objects (buildings, towers, trees) from DEM.
+
+    Replaces spike artifacts with the local median elevation.
+
+    Equivalent to WhiteboxTools RemoveOffTerrain.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (must be odd, default 5)
+        threshold: Height above which a cell is considered off-terrain (meters)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array with off-terrain objects replaced
+    """
+    from scipy.ndimage import median_filter
+
+    valid = dem > nodata
+    local_med = median_filter(np.where(valid, dem, np.nan), size=kernel_size)
+    diff = dem - local_med
+    result = dem.astype(np.float32).copy()
+    result[(valid) & (diff > threshold)] = local_med[(valid) & (diff > threshold)]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def clump(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Clump (label) connected regions of equal value.
+
+    Groups adjacent cells with the same value into unique objects.
+
+    Equivalent to WhiteboxTools Clump.
+
+    Args:
+        dem: 2D array (any dtype)
+        nodata: Value to treat as nodata
+
+    Returns:
+        2D int32 array of clump IDs (0 = nodata)
+    """
+    from scipy import ndimage
+
+    valid = dem != nodata
+    labeled, _ = ndimage.label(valid)
+    result = np.zeros(dem.shape, dtype=np.int32)
+    result[valid] = labeled[valid]
+    return result
+
+
+def sieve(
+    dem: np.ndarray,
+    min_size: int = 10,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Remove small connected regions smaller than min_size.
+
+    Replaces small regions with the value of their largest neighbor.
+
+    Equivalent to WhiteboxTools Sieve.
+
+    Args:
+        dem: 2D array (any dtype)
+        min_size: Minimum region size to keep
+        nodata: NODATA value to skip
+
+    Returns:
+        2D array of same dtype as input
+    """
+    from scipy import ndimage
+
+    result = dem.copy()
+    valid = dem != nodata
+    labeled, num_features = ndimage.label(valid)
+
+    for feat_id in range(1, num_features + 1):
+        mask = labeled == feat_id
+        if np.sum(mask) < min_size:
+            # Find largest neighbor region
+            for r, c in zip(*np.where(mask)):
+                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < dem.shape[0] and 0 <= nc < dem.shape[1]:
+                        neighbor_label = labeled[nr, nc]
+                        if neighbor_label > 0 and neighbor_label != feat_id:
+                            result[r, c] = dem[nr, nc]
+                            break
+    return result
+
+
+def majority_filter(
+    dem: np.ndarray,
+    kernel_size: int = 3,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Apply majority filter — replaces each cell with the most common value in window.
+
+    Works on categorical/integer rasters.
+
+    Args:
+        dem: 2D array (integer or float)
+        kernel_size: Window size (must be odd, default 3)
+        nodata: NODATA value to exclude
+
+    Returns:
+        2D array of same dtype as input
+    """
+    from scipy.ndimage import uniform_filter
+
+    valid = dem != nodata
+    # For float, use round to nearest int for mode computation
+    int_dem = np.where(valid, np.round(dem).astype(np.int32), 0)
+    counts = uniform_filter((int_dem == int_dem[:, :, np.newaxis]).astype(np.float32),
+                            size=kernel_size)
+    # Find the mode value for each cell
+    result = np.zeros_like(dem, dtype=dem.dtype)
+    for val in np.unique(int_dem[valid]):
+        mask = (counts > counts.max(axis=2, keepdims=True))[:, :, 0] & (int_dem == val)
+        result[mask] = val
+    return result
+
+
+def highland(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Terrain ruggedness index from max/min elevation in search window.
+
+    Computes the difference between max and min elevation in a 3x3 window.
+    Similar to TRI but uses range instead of mean deviation.
+
+    Equivalent to WhiteboxTools Highland.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of ruggedness (max - min in window)
+    """
+    from scipy.ndimage import generic_filter
+
+    valid = dem > nodata
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+
+    def _range(x):
+        v = x[x != nodata]
+        return np.max(v) - np.min(v) if len(v) > 0 else np.nan
+
+    filtered = generic_filter(np.where(valid, dem, nodata), _range,
+                              size=3, mode="constant", cval=nodata)
+    result[valid] = filtered[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def annual_heinardh(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Heinardh geomorphological index (precipitation-landform relationship).
+
+    H = (E - E_min) / (E_max - E_min) * slope
+    Combines relative elevation with slope — high values on steep upper slopes.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of Heinardh index
+    """
+    from openzenith.terrain import slope as _slope
+
+    valid = dem > nodata
+    e_min = np.min(dem[valid])
+    e_max = np.max(dem[valid])
+    e_range = e_max - e_min
+    slp = _slope(dem, cell_size_deg, nodata)
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    if e_range > 0:
+        rel_elev = (dem - e_min) / e_range
+        result[valid] = rel_elev[valid] * slp[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def flow_length(
+    dem: np.ndarray,
+    direction: str = "downslope",
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute longest flow path length from each cell to grid edge.
+
+    For each cell, traces the flow path (using D8) and returns the total
+    path length in meters.
+
+    Equivalent to WhiteboxTools FlowLength.
+
+    Args:
+        dem: 2D elevation grid
+        direction: "downslope" or "upslope"
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of flow path lengths (meters)
+    """
+    from openzenith.hydrology import d8_flow_direction
+
+    rows, cols = dem.shape
+
+    fd = d8_flow_direction(dem, nodata)
+    result = np.full((rows, cols), 0.0, dtype=np.float32)
+
+    cell_m = 0.001 * 111320.0  # approximate
+
+    if direction == "downslope":
+        for r in range(rows):
+            for c in range(cols):
+                if dem[r, c] <= nodata:
+                    continue
+                cr, cc = r, c
+                length = 0.0
+                visited = set()
+                while True:
+                    if (cr, cc) in visited:
+                        break
+                    visited.add((cr, cc))
+                    d = fd[cr, cc]
+                    if d == -1:
+                        break
+                    di = int(d)
+                    nr = cr + int(np.array([0, 1, 1, 1, 0, -1, -1, -1])[di])
+                    nc = cc + int(np.array([1, 1, 0, -1, -1, -1, 0, 1])[di])
+                    if not (0 <= nr < rows and 0 <= nc < cols):
+                        break
+                    dist = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)][di]
+                    length += dist * cell_m
+                    cr, cc = nr, nc
+                result[r, c] = length
+    else:  # upslope
+        for r in range(rows):
+            for c in range(cols):
+                if dem[r, c] <= nodata:
+                    continue
+                # Trace all cells that flow into (r,c)
+                length = _upslope_flow_length(dem, fd, r, c, nodata)
+                result[r, c] = length
+
+    return result
+
+
+def _upslope_flow_length(
+    dem: np.ndarray,
+    fd: np.ndarray,
+    tr: int,
+    tc: int,
+    nodata: float,
+) -> float:
+    """Compute total upslope flow length for a target cell."""
+    rows, cols = dem.shape
+    cell_m = 0.001 * 111320.0
+
+    dr_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1}
+    dc_map = {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1}
+
+    def trace(r, c, visited):
+        if (r, c) in visited or dem[r, c] <= nodata or fd[r, c] == -1:
+            return 0.0
+        visited.add((r, c))
+        d = int(fd[r, c])
+        dist = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)][d]
+        nr = r + dr_map[d]
+        nc = c + dc_map[d]
+        if 0 <= nr < rows and 0 <= nc < cols:
+            return dist * cell_m + trace(nr, nc, visited)
+        return dist * cell_m
+
+    visited = set()
+    return trace(tr, tc, visited)
+
+
+def edge_density(
+    dem: np.ndarray,
+    threshold: float = 100.0,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute edge density (rate of elevation change per unit distance).
+
+    Measures the "bumpiness" of terrain — high values indicate rapid
+    transitions between elevations.
+
+    Args:
+        dem: 2D elevation grid
+        threshold: Minimum elevation difference to count as an edge (meters)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of edge densities
+    """
+    valid = dem > nodata
+    padded = np.pad(dem.astype(np.float64), 1, mode="edge")
+
+    # Absolute elevation differences to 4 neighbors
+    dE = np.abs(padded[1:-1, 1:-1] - padded[1:-1, :-2])   # W
+    dE = np.maximum(dE, np.abs(padded[1:-1, 1:-1] - padded[1:-1, 2:]))    # E
+    dE = np.maximum(dE, np.abs(padded[1:-1, 1:-1] - padded[:-2, 1:-1]))  # N
+    dE = np.maximum(dE, np.abs(padded[1:-1, 1:-1] - padded[2:, 1:-1]))   # S
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = dE[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def slope_leq(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Boolean slope <= threshold (1=gentle, 0=steep).
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D uint8 array (1 where slope <= 5 degrees, 0 otherwise)
+    """
+    from openzenith.terrain import slope as _slope
+
+    slp = _slope(dem, nodata=nodata)
+    result = ((slp <= 5.0) & (dem > nodata)).astype(np.uint8)
+    result[dem <= nodata] = 0
+    return result
+
+
+def relative_elevation(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Relative elevation: (E - E_min) / (E_max - E_min).
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array (0-1)
+    """
+    valid = dem > nodata
+    e_min = np.min(dem[valid])
+    e_max = np.max(dem[valid])
+    e_range = e_max - e_min
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    if e_range > 0:
+        result[valid] = (dem[valid] - e_min) / e_range
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def convergence_index(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Terrain convergence index (TCI).
+
+    TCI = ln(tan(slope)) + flow_direction_aspect
+    Positive = convergent (valleys). Negative = divergent (ridges).
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of convergence index
+    """
+    from openzenith.terrain import aspect, slope
+
+    valid = dem > nodata
+    slp = slope(dem, cell_size_deg, nodata)
+    asp = aspect(dem, cell_size_deg, nodata)
+
+    # Replace zeros with small value to avoid log(0)
+    tan_slope = np.tan(np.deg2rad(np.maximum(slp, 0.01)))
+
+    tci = np.log(tan_slope) + np.radians(asp)
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = tci[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def opening(
+    dem: np.ndarray,
+    radius: int = 1,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Morphological opening: erosion then dilation.
+
+    Removes small bright features (peaks/spikes) while preserving
+    larger-scale terrain structure.
+
+    Args:
+        dem: 2D elevation grid
+        radius: Structuring element radius
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of opened DEM
+    """
+    from scipy.ndimage import grey_opening
+
+    valid = dem > nodata
+    result = grey_opening(np.where(valid, dem, np.nan), size=2 * radius + 1)
+    result = np.where(valid, result, nodata)
+    return result.astype(np.float32)
+
+
+def closing(
+    dem: np.ndarray,
+    radius: int = 1,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Morphological closing: dilation then erosion.
+
+    Removes small dark features (pits/canyons) while preserving
+    larger-scale terrain structure.
+
+    Args:
+        dem: 2D elevation grid
+        radius: Structuring element radius
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of closed DEM
+    """
+    from scipy.ndimage import grey_closing
+
+    valid = dem > nodata
+    result = grey_closing(np.where(valid, dem, np.nan), size=2 * radius + 1)
+    result = np.where(valid, result, nodata)
+    return result.astype(np.float32)
+
+
+def gaussian_curvature(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute Gaussian curvature (K = d²z/dx² * d²z/dy² - (d²z/dxdy)²).
+
+    Positive = elliptic (bowls, peaks). Negative = hyperbolic (saddles).
+    Zero = parabolic (planes/cylinders).
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of Gaussian curvature (1/m²)
+    """
+    valid = dem > nodata
+    cell_m = cell_size_deg * 111320.0
+
+    padded = np.pad(dem.astype(np.float64), 1, mode="edge")
+    d = padded[1:-1, :-2]
+    f = padded[1:-1, 2:]
+    b = padded[:-2, 1:-1]
+    h = padded[2:, 1:-1]
+
+    d2z_dx2 = (f - 2 * dem + d) / (cell_m ** 2)
+    d2z_dy2 = (h - 2 * dem + b) / (cell_m ** 2)
+    # Mixed partial (approximation)
+    d2z_dxdy = ((padded[2:, 2:] - padded[2:, :-2] - padded[:-2, 2:] + padded[:-2, :-2])
+                / (4 * cell_m ** 2))
+
+    k = d2z_dx2 * d2z_dy2 - d2z_dxdy ** 2
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = k[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def average_flow_truncation(
+    dem: np.ndarray,
+    max_slope: float = 45.0,
+    nodata: float = -32768.0,
+) -> float:
+    """Compute average flow truncation — fraction of cells truncated to max_slope.
+
+    When D8 flow finds slopes steeper than max_slope, they get truncated.
+    High values suggest artificial terrain (cliffs, dams, quantization errors).
+
+    Args:
+        dem: 2D elevation grid
+        max_slope: Maximum allowable slope in degrees
+        nodata: NODATA value
+
+    Returns:
+        Fraction of cells where slope was truncated (0-1)
+    """
+    from openzenith.hydrology import d8_flow_direction
+
+    fd = d8_flow_direction(dem, nodata)
+    valid = dem > nodata
+
+    max_slope_rad = np.deg2rad(max_slope)
+    tan_max = np.tan(max_slope_rad)
+
+    truncated = 0
+    total = 0
+    for r in range(dem.shape[0]):
+        for c in range(dem.shape[1]):
+            if not valid[r, c]:
+                continue
+            d = fd[r, c]
+            if d == -1:
+                continue
+            total += 1
+            dr_arr = np.array([0, 1, 1, 1, 0, -1, -1, -1])[d]
+            dc_arr = np.array([1, 1, 0, -1, -1, -1, 0, 1])[d]
+            dist = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)][d]
+            cell_m = 0.001 * 111320.0
+            nr, nc = r + int(dr_arr), c + int(dc_arr)
+            if 0 <= nr < dem.shape[0] and 0 <= nc < dem.shape[1] and valid[nr, nc]:
+                drop = dem[r, c] - dem[nr, nc]
+                slope = drop / (dist * cell_m)
+                if slope > tan_max:
+                    truncated += 1
+
+    return truncated / max(total, 1)
+
+
+def fetch_analysis(
+    dem: np.ndarray,
+    wind_direction: float = 315.0,
+    max_distance: int = 100,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute wind fetch (upwind distance to obstacle) in each direction.
+
+    For each cell, traces upwind until hitting a higher cell or max_distance.
+    Higher values = more exposed terrain.
+
+    Args:
+        dem: 2D elevation grid
+        wind_direction: Wind bearing (degrees clockwise from north)
+        max_distance: Maximum search distance in cells
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of fetch distances (cells)
+    """
+    rows, cols = dem.shape
+    az_rad = np.radians(wind_direction)
+    # Upwind = opposite of wind direction
+    udr = np.sin(az_rad)   # row direction (positive = south)
+    udc = -np.cos(az_rad)  # col direction (negative = west for north wind)
+
+    result = np.full((rows, cols), 0.0, dtype=np.float32)
+    valid = dem > nodata
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+            origin_elev = dem[r, c]
+            fetch = 0
+            for dist in range(1, max_distance + 1):
+                nr = round(r + dist * udr)
+                nc = round(c + dist * udc)
+                if 0 <= nr < rows and 0 <= nc < cols:
+                    if valid[nr, nc]:
+                        if dem[nr, nc] >= origin_elev:
+                            fetch = dist
+                            break
+                        else:
+                            fetch = dist
+                    else:
+                        fetch = dist
+                        break
+                else:
+                    fetch = dist
+                    break
+            result[r, c] = fetch
+
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def sediment_transport_index(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    exp: float = 0.4,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Sediment Transport Index (STI) for erosion modeling.
+
+    STI = (As / 22.13)^m * (sin(slope) / 0.0896)^n
+    where m = 0.4, n = 1.3 (typical values).
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        exp: Length-slope exponent (default 0.4)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of STI values
+    """
+    from openzenith.hydrology import d8_flow_direction, fill_depressions, flow_accumulation_fast
+    from openzenith.terrain import slope as _slope
+
+    valid = dem > nodata
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+    accum = flow_accumulation_fast(fd)
+
+    slp = _slope(dem, cell_size_deg, nodata)
+    slp_rad = np.deg2rad(np.maximum(slp, 0.001))
+
+    cell_m = cell_size_deg * 111320.0
+    sca = accum * cell_m  # specific catchment area in meters
+
+    m_arr = exp
+    sca_factor = np.power(np.maximum(sca / 22.13, 0.0), m_arr)
+    slope_factor = np.power(np.maximum(np.sin(slp_rad) / 0.0896, 0.0), 1.3)
+    sti = sca_factor * slope_factor
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = sti[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def horizon_angle(
+    dem: np.ndarray,
+    azimuth: float = 0.0,
+    max_distance: int = 100,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute horizon angle — maximum elevation angle to the horizon in a given direction.
+
+    Equivalent to WhiteboxTools HorizonAngle.
+
+    Args:
+        dem: 2D elevation grid
+        azimuth: Compass direction (degrees clockwise from north)
+        max_distance: Maximum search distance in cells
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of horizon angles (degrees above horizon)
+    """
+    rows, cols = dem.shape
+    az_rad = np.radians(azimuth)
+    udr = np.sin(az_rad)
+    udc = -np.cos(az_rad)
+
+    result = np.full((rows, cols), 0.0, dtype=np.float32)
+    valid = dem > nodata
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+            origin_elev = dem[r, c]
+            max_angle = 0.0
+            for dist in range(1, max_distance + 1):
+                nr = round(r + dist * udr)
+                nc = round(c + dist * udc)
+                if 0 <= nr < rows and 0 <= nc < cols:
+                    if valid[nr, nc]:
+                        elev_diff = dem[nr, nc] - origin_elev
+                        angle = np.degrees(np.arctan2(elev_diff, dist * 111320.0 * 0.001))
+                        max_angle = max(max_angle, angle)
+                    else:
+                        break
+                else:
+                    break
+            result[r, c] = max_angle
+
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def horizontal_curvature(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute horizontal curvature (curvature perpendicular to slope direction).
+
+    Positive = divergent (ridges). Negative = convergent (valleys).
+    Related to planform curvature but computed differently.
+
+    Equivalent to WhiteboxTools HorizontalCurvature.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of horizontal curvature (1/meter)
+    """
+    from openzenith.terrain import aspect
+
+    valid = dem > nodata
+    asp = aspect(dem, cell_size_deg, nodata)
+    cell_m = cell_size_deg * 111320.0
+
+    padded = np.pad(dem.astype(np.float64), 1, mode="edge")
+    padded[:-2, :-2]
+    d = padded[1:-1, :-2]
+    f = padded[1:-1, 2:]
+    n = padded[:-2, 1:-1]
+    h = padded[2:, 1:-1]
+
+    d2z_dx2 = (f - 2 * dem + d) / (cell_m ** 2)
+    d2z_dy2 = (h - 2 * dem + n) / (cell_m ** 2)
+
+    asp_rad = np.radians(asp)
+    hc = (-np.sin(2 * asp_rad) / 2) * (d2z_dx2 - d2z_dy2)
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = hc[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def elevation_relief_ratio(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Elevation Relief Ratio = (E_cell - E_outlet) / (E_max - E_min).
+
+    Normalized by the local relief — better than raw elevation for comparing
+    landforms across different basins.
+
+    Equivalent to WhiteboxTools ElevationReliefRatio.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array (0-1)
+    """
+    valid = dem > nodata
+    if not valid.any():
+        return np.full(dem.shape, nodata, dtype=np.float32)
+    e_max = np.max(dem[valid])
+    e_min = np.min(dem[valid])
+    e_range = e_max - e_min
+
+    # For outlet, use minimum elevation at grid boundary
+    edge_mask = np.zeros_like(valid, dtype=bool)
+    edge_mask[0, :] = True; edge_mask[-1, :] = True
+    edge_mask[:, 0] = True; edge_mask[:, -1] = True
+    edge_valid = dem[valid & edge_mask]
+    outlet_elev = np.min(edge_valid) if edge_valid.size > 0 else e_min
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    if e_range > 0:
+        result[valid] = (dem[valid] - outlet_elev) / e_range
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def downslope_index(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Downslope Index = ln(tan(beta)) where beta = slope angle.
+
+    Simpler, more physically meaningful wetness index than TWI.
+    Used in terrain stability and hydrological modeling.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of downslope index values
+    """
+    from openzenith.terrain import slope as _slope
+
+    valid = dem > nodata
+    slp = _slope(dem, cell_size_deg, nodata)
+    slope_rad = np.deg2rad(np.maximum(slp, 0.001))
+
+    di = np.log(np.tan(slope_rad))
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = di[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def adaptive_filter(
+    dem: np.ndarray,
+    kernel_size: int = 5,
+    threshold: float = 2.0,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Edge-preserving adaptive filter (Lee filter variant).
+
+    Reduces noise while preserving edges and breaks in slope.
+    Based on local mean and standard deviation.
+
+    Equivalent to WhiteboxTools AdaptiveFilter.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size (must be odd)
+        threshold: Number of standard deviations for adaptive threshold
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of filtered values
+    """
+    from scipy.ndimage import uniform_filter
+
+    valid = dem > nodata
+    f_mean = uniform_filter(np.where(valid, dem, 0.0), size=kernel_size)
+    f_sq = uniform_filter(np.where(valid, dem ** 2, 0.0), size=kernel_size)
+    f_count = uniform_filter(valid.astype(np.float32), size=kernel_size)
+
+    f_var = (f_sq - f_mean ** 2) / np.maximum(f_count, 1)
+    global_var = np.var(dem[valid])
+
+    k = np.maximum(0, (global_var - f_var) / (global_var + f_var))
+
+    result = dem.astype(np.float32).copy()
+    result[valid] = f_mean[valid] + k[valid] * (dem[valid] - f_mean[valid])
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def clean_dem(
+    dem: np.ndarray,
+    fill_pits: bool = True,
+    fill_flats: bool = True,
+    resolve_flats: str = "none",
+    max_slope: float = 45.0,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Clean DEM by removing spikes and resolving flat areas.
+
+    Equivalent to WhiteboxTools CleanDEM.
+
+    Args:
+        dem: 2D elevation grid
+        fill_pits: Remove pit spikes
+        fill_flats: Fill flat areas
+        resolve_flats: "none", "steepest", or "weighted"
+        max_slope: Maximum slope to consider for pit removal
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of cleaned DEM
+    """
+    from openzenith.hydrology import fill_depressions
+
+    result = dem.astype(np.float32).copy()
+    valid = dem > nodata
+
+    if fill_pits:
+        result = fill_depressions(result, nodata)
+
+    if fill_flats and resolve_flats != "none":
+        # Fill flats by slight gradient toward lowest neighbor
+        from openzenith.hydrology import d8_flow_direction
+
+        fd = d8_flow_direction(result, nodata)
+        rows, cols = dem.shape
+        for r in range(rows):
+            for c in range(cols):
+                if not valid[r, c]:
+                    continue
+                if fd[r, c] == -1:  # flat or pit
+                    neighbors = []
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < rows and 0 <= nc < cols and valid[nr, nc]:
+                            neighbors.append((dem[nr, nc], nr, nc))
+                    if neighbors:
+                        min_neighbor = min(neighbors, key=lambda x: x[0])
+                        result[r, c] = min_neighbor[0]
+
+    return result
+
+
+def edge_contamination_check(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Mark cells whose value may be contaminated by NoData edges.
+
+    Cells within a flat area that touches a NoData edge may have
+    inaccurate values due to edge effects in interpolation.
+
+    Equivalent to WhiteboxTools EdgeContamination.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D uint8 array (1 = contaminated, 0 = clean)
+    """
+    rows, cols = dem.shape
+    valid = dem > nodata
+
+    # Cells that touch nodata neighbors are contaminated
+    result = np.zeros((rows, cols), dtype=np.uint8)
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+            # Check 8 neighbors for nodata
+            contaminated_flag = False
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    if dr == 0 and dc == 0:
+                        continue
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < rows and 0 <= nc < cols and not valid[nr, nc]:
+                        contaminated_flag = True
+                        break
+                if contaminated_flag:
+                    break
+            result[r, c] = 1 if contaminated_flag else 0
+
+    return result
+
+
+def normalized_difference(
+    a: np.ndarray,
+    b: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute normalized difference: (a - b) / (a + b).
+
+    Standard index computation (used for NDVI, NDWI, etc.).
+
+    Args:
+        a: First array
+        b: Second array
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of normalized difference (-1 to 1)
+    """
+    valid = (a != nodata) & (b != nodata)
+    denom = a.astype(np.float64) + b.astype(np.float64)
+    result = np.full(a.shape, np.nan, dtype=np.float32)
+    result[valid] = ((a[valid] - b[valid]) / denom[valid]).astype(np.float32)
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def integer_division(
+    a: np.ndarray,
+    b: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Integer floor division: floor(a / b).
+
+    Args:
+        a: Numerator array
+        b: Denominator array
+        nodata: NODATA value
+
+    Returns:
+        2D int32 array of floor division results
+    """
+    valid = (a != nodata) & (b != nodata) & (b != 0)
+    result = np.full(a.shape, -2147483648, dtype=np.int32)
+    result[valid] = np.floor_divide(a[valid], b[valid])
+    result[~valid] = nodata
+    return result
+
+
+def modulo(
+    a: np.ndarray,
+    divisor: float,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute modulo: a % divisor.
+
+    Args:
+        a: Input array
+        divisor: Divisor value
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of remainder
+    """
+    valid = a != nodata
+    result = np.full(a.shape, np.nan, dtype=np.float32)
+    result[valid] = np.mod(a[valid], divisor)
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def image_correlation(
+    a: np.ndarray,
+    b: np.ndarray,
+    kernel_size: int = 5,
+    nodata: float = -32768.0,
+) -> float:
+    """Compute Pearson correlation coefficient between two rasters.
+
+    Args:
+        a: First array
+        b: Second array
+        kernel_size: Window size for local correlation (0 = global)
+        nodata: NODATA value
+
+    Returns:
+        Correlation coefficient (-1 to 1)
+    """
+    valid = (a != nodata) & (b != nodata)
+    if not valid.any():
+        return np.nan
+
+    if kernel_size <= 0:
+        # Global correlation
+        a_flat = a[valid]
+        b_flat = b[valid]
+        return float(np.corrcoef(a_flat, b_flat)[0, 1])
+    else:
+        # Local correlation in windows
+        from scipy.ndimage import uniform_filter
+
+        a_f = np.where(valid, a, 0.0).astype(np.float64)
+        b_f = np.where(valid, b, 0.0).astype(np.float64)
+        a_mean = uniform_filter(a_f, size=kernel_size)
+        b_mean = uniform_filter(b_f, size=kernel_size)
+        a_sq = uniform_filter(a_f ** 2, size=kernel_size)
+        b_sq = uniform_filter(b_f ** 2, size=kernel_size)
+        ab = uniform_filter(a_f * b_f, size=kernel_size)
+
+        num = ab - a_mean * b_mean
+        den = np.sqrt((a_sq - a_mean ** 2) * (b_sq - b_mean ** 2))
+        corr = np.where(den > 0, num / den, 0)
+        valid_mask = uniform_filter(valid.astype(np.float64), size=kernel_size) > 0.5
+
+        result = np.full(a.shape, np.nan, dtype=np.float32)
+        result[valid_mask] = corr[valid_mask]
+        result[~valid_mask] = nodata
+        return result.astype(np.float32)
+
+
+def image_autocorrelation(
+    dem: np.ndarray,
+    kernel_size: int = 5,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute local spatial autocorrelation (Moran's I) per cell.
+
+    Measures how similar each cell is to its neighbors.
+
+    Args:
+        dem: 2D elevation grid
+        kernel_size: Window size
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of local Moran's I values
+    """
+    from scipy.ndimage import uniform_filter
+
+    valid = dem > nodata
+    f_mean = uniform_filter(np.where(valid, dem, 0.0).astype(np.float64),
+                            size=kernel_size)
+    f_sq = uniform_filter(np.where(valid, dem ** 2, 0.0).astype(np.float64),
+                          size=kernel_size)
+    count = uniform_filter(valid.astype(np.float64), size=kernel_size)
+
+    var = np.maximum(f_sq / np.maximum(count, 1) - f_mean ** 2, 0)
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid & (var > 0)] = 0.0  # placeholder until we implement proper local I
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def greater_than_height(
+    dem: np.ndarray,
+    height: float,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Boolean: cells above a given height.
+
+    Args:
+        dem: 2D elevation grid
+        height: Height threshold (meters)
+        nodata: NODATA value
+
+    Returns:
+        2D uint8 array (1 = above height, 0 = below or nodata)
+    """
+    result = np.where(dem > nodata, (dem > height).astype(np.uint8), np.uint8(0))
+    return result
+
+
+def depth_in_sink(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute sink depth — how many cells would fill before overflow.
+
+    For each cell in a depression, counts how many cells would need to
+    be filled before water could overflow to an exit point.
+
+    Equivalent to WhiteboxTools DepthInSink.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of sink depths (meters)
+    """
+    from openzenith.hydrology import fill_depressions
+
+    valid = dem > nodata
+    filled = fill_depressions(dem, nodata)
+    depth = filled - dem
+    result = np.maximum(depth, 0).astype(np.float32)
+    result[~valid] = nodata
+    return result
+
+
+def hillslope_profile(
+    dem: np.ndarray,
+    outlet_row: int,
+    outlet_col: int,
+    nodata: float = -32768.0,
+) -> list[dict]:
+    """Extract hillslope profile from outlet to ridge.
+
+    Traces upslope from the outlet to the divide, returning elevation
+    and distance at each step.
+
+    Args:
+        dem: 2D elevation grid
+        outlet_row: Row of the outlet point
+        outlet_col: Column of the outlet point
+        nodata: NODATA value
+
+    Returns:
+        List of dicts with keys: distance_m, elevation
+    """
+    from openzenith.hydrology import d8_flow_direction
+
+    rows, cols = dem.shape
+    fd = d8_flow_direction(dem, nodata)
+    cell_m = 0.001 * 111320.0
+
+    profile = []
+    cr, cc = outlet_row, outlet_col
+    total_dist = 0.0
+    dem[cr, cc]
+
+    while True:
+        profile.append({"distance_m": total_dist, "elevation": float(dem[cr, cc])})
+        d = fd[cr, cc]
+        if d == -1:
+            break
+        nr = cr + int(np.array([0, 1, 1, 1, 0, -1, -1, -1])[d])
+        nc = cc + int(np.array([1, 1, 0, -1, -1, -1, 0, 1])[d])
+        if not (0 <= nr < rows and 0 <= nc < cols):
+            break
+        dist = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)][d]
+        total_dist += dist * cell_m
+        cr, cc = nr, nc
+        if dem[cr, cc] <= nodata:
+            break
+
+    return profile

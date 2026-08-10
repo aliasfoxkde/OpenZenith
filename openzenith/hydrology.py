@@ -1336,3 +1336,1080 @@ def twi(
     result = np.clip(result, 0, 25)
 
     return result.astype(np.float32)
+
+
+def breach_least_cost_path(
+    dem: np.ndarray,
+    outlets: list[tuple[int, int]],
+    max_cost: float = 1e9,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Breach depressions using the least-cost path method.
+
+    For each outlet, finds the lowest-cost path from each pit to the outlet.
+    Cost is based on elevation drop and path length — prefer deep breaches
+    over long trenches.
+
+    Equivalent to WhiteboxTools BreachLeastCostPath.
+
+    Args:
+        dem: 2D elevation grid
+        outlets: List of (row, col) outlet positions
+        max_cost: Maximum total cost before giving up
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array — cells on breach paths are lowered to the outlet elevation
+    """
+    from scipy.ndimage import distance_transform_edt
+
+    rows, cols = dem.shape
+    valid = dem > nodata
+    result = dem.astype(np.float32).copy()
+
+    # Build a cost surface: higher cost = harder to dig
+    # Cost = distance from outlet + depth below outlet
+    outlet_mask = np.zeros_like(valid, dtype=bool)
+    for r, c in outlets:
+        if 0 <= r < rows and 0 <= c < cols:
+            outlet_mask[r, c] = True
+
+    if not outlet_mask.any():
+        return result
+
+    # Distance from nearest outlet
+    dist_outlet = distance_transform_edt(~outlet_mask)
+    dist_outlet[~valid] = np.nan
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+            if outlet_mask[r, c]:
+                continue
+
+            # Cost to reach this cell from its nearest outlet
+            dist = dist_outlet[r, c]
+            if np.isnan(dist):
+                continue
+
+            # Depth below the outlet (how much we need to dig)
+            elev = dem[r, c]
+            min_outlet_elev = np.nanmin(dem[outlet_mask])
+            depth_below = elev - min_outlet_elev
+            if depth_below <= 0:
+                continue
+
+            # Cost = distance + depth (prefer shallow/short over deep/long)
+            cost = dist + depth_below * 10.0  # weighted
+            if cost > max_cost:
+                continue
+
+            # Lower the cell to match outlet
+            result[r, c] = min_outlet_elev
+
+    return result
+
+
+def ls_factor(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    exp: float = 0.4,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute LS-factor (length-slope factor) for USLE erosion modeling.
+
+    Combines slope length and steepness into a single factor.
+    LS = (m / 22.13)^m * (n / 22.13)^(m+1)
+    where m = slope length exponent (function of slope),
+          n = local slope (%)
+    Uses the Moore et al. formulation.
+
+    Equivalent to WhiteboxTools LSFactor.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        exp: M exponent (default 0.4, typical for SRTM-scale data)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of LS-factor values
+    """
+    from openzenith.terrain import slope as calc_slope
+
+    valid = dem > nodata
+    _rows, _cols = dem.shape
+
+    slp = calc_slope(dem, cell_size_deg, nodata)  # slope in degrees
+    slope_pct = np.tan(np.deg2rad(slp)) * 100.0   # slope in percent
+
+    # Flow direction and accumulation
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+    accum = flow_accumulation_fast(fd)
+
+    cell_m = cell_size_deg * 111320.0
+    sca = accum * cell_m  # specific catchment area in meters
+
+    # M exponent: increases with slope (Moore & Nieber 1989)
+    m_arr = np.where(valid, exp * (slope_pct / (slope_pct + 1)), 0.0)
+
+    # LS = (sca / 22.13)^m * (slope_pct / 22.13)^(m+1)
+    sca_factor = np.power(np.maximum(sca / 22.13, 0.0), m_arr)
+    slope_factor = np.power(np.maximum(slope_pct / 22.13, 0.0), m_arr + 1)
+    ls = sca_factor * slope_factor
+
+    ls[~valid] = np.nan
+    return ls.astype(np.float32)
+
+
+def stream_basins(
+    flow_dir: np.ndarray,
+    streams: np.ndarray,
+    nodata_dir: int = -1,
+) -> np.ndarray:
+    """Delineate individual stream basins from stream raster and flow direction.
+
+    Each basin is assigned a unique integer ID.
+
+    Equivalent to WhiteboxTools StreamBasins.
+
+    Args:
+        flow_dir: D8 flow direction grid (integers 1-8, or 0=flat)
+        streams: Boolean or thresholded stream raster (True=stream)
+        nodata_dir: NODATA direction value
+
+    Returns:
+        2D int32 array of basin IDs (0 = no basin)
+    """
+    from scipy import ndimage
+
+    rows, cols = flow_dir.shape
+    (flow_dir != nodata_dir) & streams
+
+    # Direction offsets: 1=E, 2=NE, 3=N, 4=NW, 5=W, 6=SW, 7=S, 8=SE
+    # D8: 1=East, 2=NE, 3=N, 4=NW, 5=W, 6=SW, 7=S, 8=SE
+    dr_map = {1: 0, 2: -1, 3: -1, 4: -1, 5: 0, 6: 1, 7: 1, 8: 1}
+    dc_map = {1: 1, 2: 1, 3: 0, 4: -1, 5: -1, 6: -1, 7: 0, 8: 1}
+
+    # Label connected stream cells
+    labeled_streams, n_streams = ndimage.label(streams)
+    result = np.zeros_like(flow_dir, dtype=np.int32)
+
+    for basin_id in range(1, n_streams + 1):
+        stream_mask = labeled_streams == basin_id
+        # Find outlet (stream cell with no upstream neighbor)
+        for r in range(rows):
+            for c in range(cols):
+                if not stream_mask[r, c]:
+                    continue
+                d = flow_dir[r, c]
+                if d == nodata_dir:
+                    continue
+                # Check if any neighbor flows into (r,c)
+                has_upstream = False
+                for prev_d in [1, 2, 3, 4, 5, 6, 7, 8]:
+                    pr = r + dr_map[prev_d]
+                    pc = c + dc_map[prev_d]
+                    if 0 <= pr < rows and 0 <= pc < cols and flow_dir[pr, pc] == prev_d and stream_mask[pr, pc]:
+                        has_upstream = True
+                        break
+                if not has_upstream:
+                    # This is the outlet — trace all cells flowing here
+                    _trace_basin(result, flow_dir, stream_mask, r, c, basin_id, dr_map, dc_map, nodata_dir)
+
+    return result
+
+
+def _trace_basin(
+    result: np.ndarray,
+    flow_dir: np.ndarray,
+    stream_mask: np.ndarray,
+    r: int,
+    c: int,
+    basin_id: int,
+    dr_map: dict,
+    dc_map: dict,
+    nodata_dir: int,
+) -> None:
+    """Recursively trace all cells draining to (r,c) within the stream mask."""
+    rows, cols = result.shape
+    if not (0 <= r < rows and 0 <= c < cols):
+        return
+    if result[r, c] == basin_id:
+        return
+    if not stream_mask[r, c]:
+        return
+    if flow_dir[r, c] == nodata_dir:
+        return
+
+    result[r, c] = basin_id
+    # Trace cells that flow into this one
+    d = flow_dir[r, c]
+    pr = r - dr_map[d]
+    pc = c - dc_map[d]
+    if 0 <= pr < rows and 0 <= pc < cols:
+        _trace_basin(result, flow_dir, stream_mask, pr, pc, basin_id, dr_map, dc_map, nodata_dir)
+
+
+def snap_pour_point(
+    pour_points: list[tuple[float, float]],
+    dem: np.ndarray,
+    flow_dir: np.ndarray,
+    search_distance: int = 50,
+    nodata: float = -32768.0,
+) -> list[tuple[int, int]]:
+    """Snap pour points to the nearest stream cell.
+
+    Searches within search_distance cells for the nearest stream cell
+    (where flow accumulation is highest along the downslope path).
+
+    Equivalent to WhiteboxTools SnapPourPoints.
+
+    Args:
+        pour_points: List of (lat, lon) coordinates
+        dem: 2D elevation grid
+        flow_dir: D8 flow direction grid
+        search_distance: Maximum search distance in cells
+        nodata: NODATA value
+
+    Returns:
+        List of (row, col) snapped pour point coordinates
+    """
+
+    rows, cols = dem.shape
+    valid = dem > nodata
+
+    # Build upstream area for weighting
+    accum = flow_accumulation_fast(flow_dir)
+    accum_norm = accum / (np.max(accum[valid]) + 1e-10)
+
+    snapped = []
+    for lat, lon in pour_points:
+        # Convert lat/lon to row/col (approximate)
+        r = round((90.0 - lat) / (180.0 / rows))
+        c = round((lon + 180.0) / (360.0 / cols))
+        r = max(0, min(rows - 1, r))
+        c = max(0, min(cols - 1, c))
+
+        # Search within search_distance
+        best_r, best_c = r, c
+        best_weight = -1
+
+        for dr in range(-search_distance, search_distance + 1):
+            for dc in range(-search_distance, search_distance + 1):
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and valid[nr, nc]:
+                    dist = abs(dr) + abs(dc)  # Manhattan distance
+                    # Weight: prefer close + high accumulation
+                    weight = accum_norm[nr, nc] / (dist + 1)
+                    if weight > best_weight:
+                        best_weight = weight
+                        best_r, best_c = nr, nc
+
+        snapped.append((best_r, best_c))
+
+    return snapped
+
+
+def sub_basins(
+    flow_dir: np.ndarray,
+    streams: np.ndarray,
+    nodata_dir: int = -1,
+) -> np.ndarray:
+    """Partition the domain into sub-basins using stream network.
+
+    Each stream link defines one sub-basin. Cells are assigned to the
+    sub-basin of the first stream link encountered when tracing downstream.
+
+    Equivalent to WhiteboxTools Subbasins.
+
+    Args:
+        flow_dir: D8 flow direction grid
+        streams: Stream raster (True where streams exist)
+        nodata_dir: NODATA direction value
+
+    Returns:
+        2D int32 array of sub-basin IDs (0 = no basin)
+    """
+    rows, cols = flow_dir.shape
+    valid = (flow_dir != nodata_dir) & streams
+
+    labeled_streams, _n_links = _label_streams(streams, flow_dir, nodata_dir)
+    result = np.zeros(flow_dir.shape, dtype=np.int32)
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+            # Trace to first stream link
+            cr, cc = r, c
+            visited = set()
+            while True:
+                if (cr, cc) in visited:
+                    break
+                visited.add((cr, cc))
+                if streams[cr, cc]:
+                    link_id = labeled_streams[cr, cc]
+                    result[r, c] = link_id
+                    break
+                d = flow_dir[cr, cc]
+                if d == nodata_dir:
+                    break
+                nr = cr + int(D8_DR[d])
+                nc = cc + int(D8_DC[d])
+                if not (0 <= nr < rows and 0 <= nc < cols):
+                    break
+                cr, cc = nr, nc
+
+    return result
+
+
+def _label_streams(
+    streams: np.ndarray,
+    flow_dir: np.ndarray,
+    nodata_dir: int,
+) -> tuple[np.ndarray, int]:
+    """Label connected stream segments as unique links."""
+    from scipy import ndimage
+
+    labeled, n = ndimage.label(streams)
+    return labeled, n
+
+
+def fill_burn(
+    dem: np.ndarray,
+    streams: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Burn streams into DEM then fill the resulting depressions.
+
+    Carves channels along the stream network before filling — useful
+    when you have a known stream network (e.g., from hydrography data)
+    that should be preserved in the DEM.
+
+    Equivalent to WhiteboxTools FillBurn.
+
+    Args:
+        dem: 2D elevation grid
+        streams: Boolean stream raster (True where streams exist)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array with streams burned in and depressions filled
+    """
+    result = dem.astype(np.float32).copy()
+
+    # Lower stream cells to match the minimum elevation along each stream
+    from scipy import ndimage
+
+    labeled_streams, n_streams = ndimage.label(streams)
+    for link_id in range(1, n_streams + 1):
+        mask = labeled_streams == link_id
+        stream_elevs = dem[mask]
+        if len(stream_elevs) == 0:
+            continue
+        min_elev = np.min(stream_elevs)
+        # Set all cells in this stream link to the minimum elevation
+        result[mask] = min_elev
+
+    # Now fill depressions
+    return fill_depressions(result, nodata)
+
+
+def gage_watershed(
+    flow_dir: np.ndarray,
+    pour_points: list[tuple[int, int]],
+    nodata_dir: int = -1,
+) -> np.ndarray:
+    """Delineate individual watersheds for a list of pour points.
+
+    Each pour point gets a unique watershed ID.
+
+    Equivalent to WhiteboxTools GageWatershed.
+
+    Args:
+        flow_dir: D8 flow direction grid
+        pour_points: List of (row, col) pour point coordinates
+        nodata_dir: NODATA direction value
+
+    Returns:
+        2D int32 array of watershed IDs (0 = no watershed)
+    """
+    rows, cols = flow_dir.shape
+    result = np.zeros(flow_dir.shape, dtype=np.int32)
+
+    for basin_id, (pr, pc) in enumerate(pour_points, start=1):
+        if not (0 <= pr < rows and 0 <= pc < cols):
+            continue
+        if flow_dir[pr, pc] == nodata_dir:
+            continue
+
+        # Trace all cells that flow into this pour point
+        _trace_watershed(result, flow_dir, pr, pc, basin_id, nodata_dir)
+
+    return result
+
+
+def _trace_watershed(
+    result: np.ndarray,
+    flow_dir: np.ndarray,
+    pr: int,
+    pc: int,
+    basin_id: int,
+    nodata_dir: int,
+) -> None:
+    """Recursively trace all cells upstream of a pour point."""
+    rows, cols = result.shape
+
+    def trace_recursive(r: int, c: int) -> None:
+        if not (0 <= r < rows and 0 <= c < cols):
+            return
+        if result[r, c] == basin_id:
+            return
+        if flow_dir[r, c] == nodata_dir:
+            return
+        d = flow_dir[r, c]
+        nr = r + int(D8_DR[d])
+        nc = c + int(D8_DC[d])
+        result[r, c] = basin_id
+        if 0 <= nr < rows and 0 <= nc < cols:
+            trace_recursive(nr, nc)
+
+    result[pr, pc] = basin_id
+    trace_recursive(pr, pc)
+
+
+def breach_bridges(
+    dem: np.ndarray,
+    streams: np.ndarray,
+    max_width: int = 10,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Remove bridge/culvert artifacts from DEM.
+
+    Identifies stream crossings that are narrower than max_width and
+    carves a channel through them to the stream bed elevation.
+
+    Equivalent to WhiteboxTools BreachBridges.
+
+    Args:
+        dem: 2D elevation grid
+        streams: Boolean stream raster
+        max_width: Maximum bridge/culvert width in cells
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array with bridges removed
+    """
+    from scipy import ndimage
+
+    result = dem.astype(np.float32).copy()
+    labeled_streams, n_streams = ndimage.label(streams)
+
+    for link_id in range(1, n_streams + 1):
+        mask = labeled_streams == link_id
+        stream_elevs = dem[mask]
+        if len(stream_elevs) == 0:
+            continue
+
+        # Find cells where the stream crosses a ridge (bridge)
+        min_elev = np.min(stream_elevs)
+        for r, c in zip(*np.where(mask)):
+            # Check if this stream cell is elevated above the min
+            if dem[r, c] > min_elev + 1.0:
+                # Check cross-section width
+                width = 0
+                for dc in range(-max_width, max_width + 1):
+                    nc = c + dc
+                    if 0 <= nc < dem.shape[1] and streams[r, nc]:
+                        width += 1
+                if width <= max_width:
+                    # Carve down to stream bed
+                    result[r, c] = min_elev
+
+    return result
+
+
+def flow_accumulation_max(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute flow accumulation using D8 and return the maximum value encountered.
+
+    For each cell, traces the full downstream path and returns the
+    maximum flow accumulation value seen anywhere along that path.
+
+    Equivalent to WhiteboxTools MaxFlowpathVal.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of max accumulation values along each flow path
+    """
+
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+    accum = flow_accumulation_fast(fd)
+    valid = accum > 0
+
+    # For each cell, propagate the max accumulation downstream
+    result = accum.copy().astype(np.float32)
+    rows, cols = dem.shape
+
+    # Sort cells by accumulation descending — process high-accum cells first
+    sorted_cells = np.argsort(accum[valid])[::-1]
+    valid_coords = np.argwhere(valid)
+
+    for idx in sorted_cells:
+        r, c = valid_coords[idx]
+        d = fd[r, c]
+        if d == -1:
+            continue
+        nr = r + int(D8_DR[d])
+        nc = c + int(D8_DC[d])
+        if 0 <= nr < rows and 0 <= nc < cols and valid[nr, nc]:
+            result[nr, nc] = max(result[nr, nc], result[r, c])
+
+    result[~valid] = 0
+    return result.astype(np.float32)
+
+
+def watershed(
+    pour_points: list[tuple[int, int]],
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Delineate watersheds from pour points using D8 flow tracing.
+
+    This is an alias/enhancement of delineate_watershed that accepts
+    multiple pour points simultaneously.
+
+    Equivalent to WhiteboxTools Watershed.
+
+    Args:
+        pour_points: List of (row, col) pour point coordinates
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D int32 array of watershed IDs (0 = no watershed)
+    """
+    rows, cols = dem.shape
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+
+    result = np.zeros((rows, cols), dtype=np.int32)
+    for wid, (pr, pc) in enumerate(pour_points, start=1):
+        if 0 <= pr < rows and 0 <= pc < cols and dem[pr, pc] > nodata:
+            _trace_watershed(result, fd, pr, pc, wid, -1)
+
+    return result
+
+
+def max_upslope_flow_length(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """For each cell, compute the longest upslope flow path length.
+
+    Equivalent to WhiteboxTools MaxUpslopeFlowLen.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of longest upslope path length (meters)
+    """
+    from openzenith.terrain import flow_length
+
+    return flow_length(dem, direction="upslope", nodata=nodata)
+
+
+def slope_area_ratio(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    exp_slope: float = 1.0,
+    exp_area: float = 1.0,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Slope-Area Ratio = (slope^exp_slope) / (area^exp_area).
+
+    Higher values = ridges (steep, small catchments).
+    Lower values = valleys (gentle, large catchments).
+
+    Equivalent to WhiteboxTools SlopeAreaRatio.
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        exp_slope: Slope exponent (default 1.0)
+        exp_area: Area exponent (default 1.0)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of slope/area ratio
+    """
+    from openzenith.terrain import slope as _slope
+
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+    accum = flow_accumulation_fast(fd)
+    slp = _slope(dem, cell_size_deg, nodata)
+
+    valid = dem > nodata
+    cell_m = cell_size_deg * 111320.0
+
+    area_factor = np.power(np.maximum(accum * cell_m, 1.0), exp_area)
+    slope_factor = np.power(np.maximum(slp, 0.001), exp_slope)
+
+    ratio = slope_factor / area_factor
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    result[valid] = ratio[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def downslope_distance_to_outlet(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute downslope distance from each cell to the watershed outlet.
+
+    Equivalent to WhiteboxTools DownslopeDistToOutlet.
+
+    Args:
+        dem: 2D elevation grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of distances (meters)
+    """
+    from openzenith.terrain import flow_length
+
+    return flow_length(dem, direction="downslope", nodata=nodata)
+
+
+def cross_section_area(
+    dem: np.ndarray,
+    profile: list[tuple[float, float]],
+    nodata: float = -32768.0,
+) -> list[float]:
+    """Compute cross-sectional areas along an elevation profile.
+
+    For each point in the profile, computes the area above the minimum
+    elevation between consecutive profile points.
+
+    Args:
+        dem: 2D elevation grid
+        profile: List of (distance, elevation) tuples
+        nodata: NODATA value
+
+    Returns:
+        List of cross-sectional areas (m²) at each profile point
+    """
+    if len(profile) < 2:
+        return []
+
+    areas = []
+    for i in range(len(profile)):
+        if i == 0:
+            areas.append(0.0)
+            continue
+        e_min = min(profile[i - 1][1], profile[i][1])
+        e_max = max(profile[i - 1][1], profile[i][1])
+        dx = abs(profile[i][0] - profile[i - 1][0])
+        # Approximate trapezoidal area
+        area = (e_max - e_min) * dx
+        areas.append(area)
+    return areas
+
+
+def elevation_above_stream(
+    dem: np.ndarray,
+    streams: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute elevation above the nearest stream cell.
+
+    Positive = cell is above the nearest stream.
+    Negative = cell is below the nearest stream (unlikely, indicates DEM issue).
+
+    Args:
+        dem: 2D elevation grid
+        streams: Boolean stream raster
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of elevation differences (meters)
+    """
+    from scipy.ndimage import distance_transform_edt
+
+    valid = dem > nodata
+    # Minimum stream elevation at each distance from stream
+    dist = distance_transform_edt(streams.astype(np.uint8))
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+
+    # For each unique distance, find min stream elevation among those cells
+    max_dist = int(np.max(dist[valid])) + 1
+    stream_min_elev = np.full(max_dist + 1, np.inf, dtype=np.float32)
+    for d in range(1, max_dist + 1):
+        mask = (dist == d) & streams
+        if mask.any():
+            stream_min_elev[d] = np.min(dem[mask])
+
+    # Fill forward: at distance d, use minimum stream elev seen at <= d
+    for d in range(2, max_dist + 1):
+        stream_min_elev[d] = min(stream_min_elev[d], stream_min_elev[d - 1])
+
+    for r in range(dem.shape[0]):
+        for c in range(dem.shape[1]):
+            if not valid[r, c]:
+                continue
+            d = int(dist[r, c])
+            if d < len(stream_min_elev) and stream_min_elev[d] < np.inf:
+                result[r, c] = dem[r, c] - stream_min_elev[d]
+            else:
+                result[r, c] = 0.0
+
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def stream_gradients(
+    dem: np.ndarray,
+    streams: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute gradient (slope) along stream cells.
+
+    For each stream cell, computes slope between adjacent stream cells.
+
+    Args:
+        dem: 2D elevation grid
+        streams: Boolean stream raster
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of stream gradients (m/m)
+    """
+    from scipy import ndimage
+
+    labeled, n = ndimage.label(streams)
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    cell_m = 0.001 * 111320.0
+
+    for link_id in range(1, n + 1):
+        mask = labeled == link_id
+        coords = np.argwhere(mask)
+        if len(coords) < 2:
+            continue
+        # Sort by position along the link (by row+col as proxy)
+        sorted_idx = np.argsort(coords[:, 0] + coords[:, 1])
+        sorted_coords = coords[sorted_idx]
+
+        for i in range(len(sorted_coords) - 1):
+            r1, c1 = sorted_coords[i]
+            r2, c2 = sorted_coords[i + 1]
+            dist = np.sqrt((r2 - r1) ** 2 + (c2 - c1) ** 2) * cell_m
+            if dist > 0:
+                result[r1, c1] = abs(dem[r1, c1] - dem[r2, c2]) / dist
+
+    return result.astype(np.float32)
+
+
+def cost_distance(
+    dem: np.ndarray,
+    outlets: list[tuple[int, int]],
+    cost_function: str = "slope",
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute least-cost distance from each cell to the nearest outlet.
+
+    Cost is based on a cost function (default: slope × distance).
+
+    Args:
+        dem: 2D elevation grid
+        outlets: List of (row, col) outlet coordinates
+        cost_function: "slope" or "distance"
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of least-cost distances
+    """
+    import heapq
+
+    rows, cols = dem.shape
+    cell_m = 0.001 * 111320.0
+
+    # Initialize cost grid
+    cost = np.full((rows, cols), np.inf, dtype=np.float64)
+    for r, c in outlets:
+        if 0 <= r < rows and 0 <= c < cols and dem[r, c] > nodata:
+            cost[r, c] = 0.0
+
+    # Priority queue: (cost, row, col)
+    heap = [(0.0, r, c) for r, c in outlets
+            if 0 <= r < rows and 0 <= c < cols and dem[r, c] > nodata]
+    heapq.heapify(heap)
+    visited = np.zeros((rows, cols), dtype=bool)
+
+    dr = [0, 1, 1, 1, 0, -1, -1, -1]
+    dc = [1, 1, 0, -1, -1, -1, 0, 1]
+    dists = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)]
+
+    while heap:
+        cur_cost, r, c = heapq.heappop(heap)
+        if visited[r, c]:
+            continue
+        visited[r, c] = True
+
+        for d in range(8):
+            nr, nc = r + dr[d], c + dc[d]
+            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
+                if dem[nr, nc] <= nodata:
+                    continue
+
+                # Compute move cost
+                elev_diff = abs(dem[nr, nc] - dem[r, c])
+                move_dist = dists[d] * cell_m
+
+                if cost_function == "slope":
+                    move_cost = elev_diff * move_dist
+                else:
+                    move_cost = move_dist
+
+                new_cost = cur_cost + move_cost
+                if new_cost < cost[nr, nc]:
+                    cost[nr, nc] = new_cost
+                    heapq.heappush(heap, (new_cost, nr, nc))
+
+    result = np.full((rows, cols), np.nan, dtype=np.float32)
+    valid = (cost < np.inf) & (dem > nodata)
+    result[valid] = cost[valid]
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def basin_id(
+    flow_dir: np.ndarray,
+    streams: np.ndarray,
+    nodata_dir: int = -1,
+) -> np.ndarray:
+    """Assign a unique ID to each cell based on which basin it drains to.
+
+    The basin is identified by the unique stream link at the outlet.
+
+    Equivalent to WhiteboxTools BasinID.
+
+    Args:
+        flow_dir: D8 flow direction grid
+        streams: Stream raster (True = stream cells)
+        nodata_dir: NODATA direction value
+
+    Returns:
+        2D int32 array of basin IDs
+    """
+    from scipy import ndimage
+
+    rows, cols = flow_dir.shape
+    labeled_streams, n_links = ndimage.label(streams)
+
+    result = np.zeros((rows, cols), dtype=np.int32)
+
+    for link_id in range(1, n_links + 1):
+        stream_mask = labeled_streams == link_id
+        # Find the outlet of this stream link
+        for r in range(rows):
+            for c in range(cols):
+                if not stream_mask[r, c]:
+                    continue
+                d = flow_dir[r, c]
+                if d == nodata_dir:
+                    continue
+                # Check if any neighbor flows into (r,c) but is not in the same link
+                dr_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1}
+                dc_map = {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1}
+                has_upstream = False
+                for prev_d in range(8):
+                    pr, pc = r + dr_map[prev_d], c + dc_map[prev_d]
+                    if 0 <= pr < rows and 0 <= pc < cols and flow_dir[pr, pc] == prev_d and stream_mask[pr, pc]:
+                        has_upstream = True
+                        break
+                if not has_upstream:
+                    # This is the outlet of link_id — trace all upstream cells
+                    _trace_basin(result, flow_dir, labeled_streams == link_id,
+                                r, c, link_id,
+                                {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1},
+                                {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1},
+                                nodata_dir)
+                    break
+
+    return result
+
+
+def average_distributary_slope(
+    dem: np.ndarray,
+    streams: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute average slope along each distributary channel.
+
+    For each stream cell, computes the slope between upstream and downstream
+    endpoints of the stream link.
+
+    Args:
+        dem: 2D elevation grid
+        streams: Boolean stream raster
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of average slopes per stream cell (m/m)
+    """
+    from scipy import ndimage
+
+    labeled, n = ndimage.label(streams)
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    cell_m = 0.001 * 111320.0
+
+    for link_id in range(1, n + 1):
+        mask = labeled == link_id
+        coords = np.argwhere(mask)
+        if len(coords) < 2:
+            continue
+        # Find upstream and downstream endpoints
+        sorted_idx = np.argsort(coords[:, 0] + coords[:, 1])
+        sorted_coords = coords[sorted_idx]
+
+        # Headwater = first coord, outlet = last
+        r_head, c_head = sorted_coords[0]
+        r_out, c_out = sorted_coords[-1]
+        elev_diff = dem[r_head, c_head] - dem[r_out, c_out]
+        # Approximate stream length
+        n_cells = len(coords)
+        length = n_cells * cell_m
+        if length > 0:
+            avg_slope = elev_diff / length
+            for r, c in zip(*np.where(mask)):
+                result[r, c] = avg_slope
+
+    result[~streams] = nodata
+    return result.astype(np.float32)
+
+
+def depth_to_water(
+    dem: np.ndarray,
+    streams: np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute depth to water table from terrain surface.
+
+    Estimates water table depth from elevation using known stream elevations
+    as reference points.
+
+    Args:
+        dem: 2D elevation grid
+        streams: Boolean stream raster
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of water table depth (meters below surface)
+    """
+    from scipy.ndimage import distance_transform_edt
+
+    valid = dem > nodata
+    dist = distance_transform_edt(streams.astype(np.uint8))
+
+    # Find stream elevations at each distance
+    max_d = int(np.max(dist[valid])) + 1
+    stream_elev_at_dist = np.full(max_d + 1, np.nan, dtype=np.float32)
+    for d in range(max_d + 1):
+        mask = (dist == d) & streams
+        if mask.any():
+            stream_elev_at_dist[d] = np.min(dem[mask])
+
+    # Interpolate water table elevation at each distance
+    for d in range(1, max_d + 1):
+        if np.isnan(stream_elev_at_dist[d]):
+            stream_elev_at_dist[d] = stream_elev_at_dist[d - 1]
+
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    for r in range(dem.shape[0]):
+        for c in range(dem.shape[1]):
+            if not valid[r, c]:
+                continue
+            d = int(dist[r, c])
+            if 0 <= d <= max_d and not np.isnan(stream_elev_at_dist[d]):
+                result[r, c] = dem[r, c] - stream_elev_at_dist[d]
+            else:
+                result[r, c] = 0.0
+
+    result[~valid] = nodata
+    return result.astype(np.float32)
+
+
+def stream_link_class(
+    streams: np.ndarray,
+    flow_dir: np.ndarray,
+    nodata_dir: int = -1,
+) -> np.ndarray:
+    """Classify stream links by stream order (Strahler).
+
+    Assigns each stream cell its stream order (1 = headwater,
+    2 = where two 1st-order streams meet, etc.).
+
+    Args:
+        streams: Boolean stream raster
+        flow_dir: D8 flow direction grid
+        nodata_dir: NODATA direction value
+
+    Returns:
+        2D int32 array of stream orders
+    """
+    from scipy import ndimage
+
+    labeled, n_links = ndimage.label(streams)
+    result = np.zeros(streams.shape, dtype=np.int32)
+
+    # Assign order 1 to all links initially
+    for link_id in range(1, n_links + 1):
+        result[labeled == link_id] = 1
+
+    # Compute stream order (Strahler)
+    order = np.ones(n_links + 1, dtype=np.int32)
+    changed = True
+    while changed:
+        changed = False
+        for r in range(streams.shape[0]):
+            for c in range(streams.shape[1]):
+                if not streams[r, c]:
+                    continue
+                link_id = labeled[r, c]
+                d = flow_dir[r, c]
+                if d == nodata_dir:
+                    continue
+                # Check if any upstream neighbor has higher order
+                dr_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1}
+                dc_map = {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1}
+                upstream_orders = []
+                for prev_d in range(8):
+                    pr, pc = r + dr_map[prev_d], c + dc_map[prev_d]
+                    if 0 <= pr < streams.shape[0] and 0 <= pc < streams.shape[1] and flow_dir[pr, pc] == prev_d and streams[pr, pc]:
+                        upstream_orders.append(order[labeled[pr, pc]])
+                if len(upstream_orders) >= 2:
+                    max_up = max(upstream_orders)
+                    if upstream_orders.count(max_up) >= 2:
+                        new_order = max_up + 1
+                        if new_order > order[link_id]:
+                            order[link_id] = new_order
+                            changed = True
+
+    for link_id in range(1, n_links + 1):
+        result[labeled == link_id] = order[link_id]
+
+    return result

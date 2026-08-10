@@ -322,6 +322,213 @@ def __getattr__(name):
     if name == "rasterize_lines":
         from openzenith.overlay import rasterize_lines
         return rasterize_lines
+    # Terrain new (filters + WBT parity)
+    if name == "max_filter":
+        from openzenith.terrain import max_filter
+        return max_filter
+    if name == "min_filter":
+        from openzenith.terrain import min_filter
+        return min_filter
+    if name == "mean_filter":
+        from openzenith.terrain import mean_filter
+        return mean_filter
+    if name == "median_filter":
+        from openzenith.terrain import median_filter
+        return median_filter
+    if name == "dev_from_mean_plane":
+        from openzenith.terrain import dev_from_mean_plane
+        return dev_from_mean_plane
+    if name == "diff_from_mean":
+        from openzenith.terrain import diff_from_mean
+        return diff_from_mean
+    if name == "directional_relief":
+        from openzenith.terrain import directional_relief
+        return directional_relief
+    if name == "hillshade_diff":
+        from openzenith.terrain import hillshade_diff
+        return hillshade_diff
+    if name == "aspect_slope":
+        from openzenith.terrain import aspect_slope
+        return aspect_slope
+    if name == "pct_above_thresh":
+        from openzenith.terrain import pct_above_thresh
+        return pct_above_thresh
+    if name == "pct_below_thresh":
+        from openzenith.terrain import pct_below_thresh
+        return pct_below_thresh
+    if name == "elevation_percentile":
+        from openzenith.terrain import elevation_percentile
+        return elevation_percentile
+    # Terrain more
+    if name == "hypsometry":
+        from openzenith.terrain import hypsometry
+        return hypsometry
+    if name == "max_elevation_from_direction":
+        from openzenith.terrain import max_elevation_from_direction
+        return max_elevation_from_direction
+    if name == "tangent_curvature":
+        from openzenith.terrain import tangent_curvature
+        return tangent_curvature
+    if name == "total_curvature":
+        from openzenith.terrain import total_curvature
+        return total_curvature
+    if name == "remove_off_terrain":
+        from openzenith.terrain import remove_off_terrain
+        return remove_off_terrain
+    if name == "clump":
+        from openzenith.terrain import clump
+        return clump
+    if name == "sieve":
+        from openzenith.terrain import sieve
+        return sieve
+    if name == "majority_filter":
+        from openzenith.terrain import majority_filter
+        return majority_filter
+    if name == "highland":
+        from openzenith.terrain import highland
+        return highland
+    if name == "annual_heinardh":
+        from openzenith.terrain import annual_heinardh
+        return annual_heinardh
+    if name == "flow_length":
+        from openzenith.terrain import flow_length
+        return flow_length
+    if name == "edge_density":
+        from openzenith.terrain import edge_density
+        return edge_density
+    if name == "slope_leq":
+        from openzenith.terrain import slope_leq
+        return slope_leq
+    if name == "relative_elevation":
+        from openzenith.terrain import relative_elevation
+        return relative_elevation
+    if name == "convergence_index":
+        from openzenith.terrain import convergence_index
+        return convergence_index
+    if name == "opening":
+        from openzenith.terrain import opening
+        return opening
+    if name == "closing":
+        from openzenith.terrain import closing
+        return closing
+    if name == "gaussian_curvature":
+        from openzenith.terrain import gaussian_curvature
+        return gaussian_curvature
+    if name == "average_flow_truncation":
+        from openzenith.terrain import average_flow_truncation
+        return average_flow_truncation
+    if name == "fetch_analysis":
+        from openzenith.terrain import fetch_analysis
+        return fetch_analysis
+    if name == "sediment_transport_index":
+        from openzenith.terrain import sediment_transport_index
+        return sediment_transport_index
+    if name == "horizon_angle":
+        from openzenith.terrain import horizon_angle
+        return horizon_angle
+    if name == "horizontal_curvature":
+        from openzenith.terrain import horizontal_curvature
+        return horizontal_curvature
+    if name == "elevation_relief_ratio":
+        from openzenith.terrain import elevation_relief_ratio
+        return elevation_relief_ratio
+    if name == "downslope_index":
+        from openzenith.terrain import downslope_index
+        return downslope_index
+    if name == "adaptive_filter":
+        from openzenith.terrain import adaptive_filter
+        return adaptive_filter
+    if name == "clean_dem":
+        from openzenith.terrain import clean_dem
+        return clean_dem
+    if name == "edge_contamination_check":
+        from openzenith.terrain import edge_contamination_check
+        return edge_contamination_check
+    if name == "normalized_difference":
+        from openzenith.terrain import normalized_difference
+        return normalized_difference
+    if name == "integer_division":
+        from openzenith.terrain import integer_division
+        return integer_division
+    if name == "modulo":
+        from openzenith.terrain import modulo
+        return modulo
+    if name == "image_correlation":
+        from openzenith.terrain import image_correlation
+        return image_correlation
+    if name == "image_autocorrelation":
+        from openzenith.terrain import image_autocorrelation
+        return image_autocorrelation
+    if name == "greater_than_height":
+        from openzenith.terrain import greater_than_height
+        return greater_than_height
+    if name == "depth_in_sink":
+        from openzenith.terrain import depth_in_sink
+        return depth_in_sink
+    if name == "hillslope_profile":
+        from openzenith.terrain import hillslope_profile
+        return hillslope_profile
+    # Hydrology new
+    if name == "breach_least_cost_path":
+        from openzenith.hydrology import breach_least_cost_path
+        return breach_least_cost_path
+    if name == "ls_factor":
+        from openzenith.hydrology import ls_factor
+        return ls_factor
+    if name == "stream_basins":
+        from openzenith.hydrology import stream_basins
+        return stream_basins
+    if name == "snap_pour_point":
+        from openzenith.hydrology import snap_pour_point
+        return snap_pour_point
+    if name == "sub_basins":
+        from openzenith.hydrology import sub_basins
+        return sub_basins
+    if name == "fill_burn":
+        from openzenith.hydrology import fill_burn
+        return fill_burn
+    if name == "gage_watershed":
+        from openzenith.hydrology import gage_watershed
+        return gage_watershed
+    if name == "breach_bridges":
+        from openzenith.hydrology import breach_bridges
+        return breach_bridges
+    if name == "flow_accumulation_max":
+        from openzenith.hydrology import flow_accumulation_max
+        return flow_accumulation_max
+    if name == "watershed":
+        from openzenith.hydrology import watershed
+        return watershed
+    if name == "max_upslope_flow_length":
+        from openzenith.hydrology import max_upslope_flow_length
+        return max_upslope_flow_length
+    if name == "downslope_distance_to_outlet":
+        from openzenith.hydrology import downslope_distance_to_outlet
+        return downslope_distance_to_outlet
+    if name == "cross_section_area":
+        from openzenith.hydrology import cross_section_area
+        return cross_section_area
+    if name == "elevation_above_stream":
+        from openzenith.hydrology import elevation_above_stream
+        return elevation_above_stream
+    if name == "stream_gradients":
+        from openzenith.hydrology import stream_gradients
+        return stream_gradients
+    if name == "cost_distance":
+        from openzenith.hydrology import cost_distance
+        return cost_distance
+    if name == "basin_id":
+        from openzenith.hydrology import basin_id
+        return basin_id
+    if name == "average_distributary_slope":
+        from openzenith.hydrology import average_distributary_slope
+        return average_distributary_slope
+    if name == "depth_to_water":
+        from openzenith.hydrology import depth_to_water
+        return depth_to_water
+    if name == "stream_link_class":
+        from openzenith.hydrology import stream_link_class
+        return stream_link_class
     # Vector
     if name == "shapefile_to_geojson":
         from openzenith.vector import shapefile_to_geojson
@@ -364,8 +571,11 @@ __all__ = [
     "TileErrorV2",
     "TileNotFoundError",
     "aspect",
+    "aspect_slope",
     "auto_encode",
+    "breach_bridges",
     "breach_depressions",
+    "breach_least_cost_path",
     "color_relief",
     "contour_to_geojson",
     "contour_to_kml",

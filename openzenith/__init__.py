@@ -225,11 +225,51 @@ def __getattr__(name):
     if name == "grid_to_gtiff_metadata":
         from openzenith.geotiff import grid_to_gtiff_metadata
         return grid_to_gtiff_metadata
+    # Hydrology new
+    if name == "breach_depressions":
+        from openzenith.hydrology import breach_depressions
+        return breach_depressions
+    if name == "cross_section":
+        from openzenith.hydrology import cross_section
+        return cross_section
+    if name == "stream_link_identifier":
+        from openzenith.hydrology import stream_link_identifier
+        return stream_link_identifier
+    if name == "stream_reach_identifier":
+        from openzenith.hydrology import stream_reach_identifier
+        return stream_reach_identifier
+    if name == "downslope_flowpath_length":
+        from openzenith.hydrology import downslope_flowpath_length
+        return downslope_flowpath_length
+    if name == "upslope_flowpath_length":
+        from openzenith.hydrology import upslope_flowpath_length
+        return upslope_flowpath_length
+    if name == "stream_power_index":
+        from openzenith.hydrology import stream_power_index
+        return stream_power_index
+    # Terrain new
+    if name == "feature_preserving_smooth":
+        from openzenith.terrain import feature_preserving_smooth
+        return feature_preserving_smooth
+    if name == "mstp":
+        from openzenith.terrain import mstp
+        return mstp
+    if name == "slope_area_ratio":
+        from openzenith.terrain import slope_area_ratio
+        return slope_area_ratio
+    if name == "curvature_classification":
+        from openzenith.terrain import curvature_classification
+        return curvature_classification
+    if name == "specific_catchment_area":
+        from openzenith.terrain import specific_catchment_area
+        return specific_catchment_area
+    if name == "hack_integral":
+        from openzenith.terrain import hack_integral
+        return hack_integral
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "COMP_BROTLI",
-    # OZT1
     "COMP_NONE",
     "COMP_ZLIB",
     "COMP_ZSTD",
@@ -238,22 +278,17 @@ __all__ = [
     "COMP_ZSTD_V2",
     "PRED_GRADIENT",
     "PRED_LEFT",
-    # OZT2
     "PRED_NONE",
     "DataError",
     "ElevationBatchProcessor",
-    # Async client
     "ElevationClient",
     "ElevationPoint",
     "ElevationResult",
-    # Multi-DEM fusion
     "FusedDEM",
     "NetworkError",
-    # Backends
     "OZT2Backend",
     "OZT2HFBackend",
     "OZT2R2Backend",
-    # Exceptions
     "OpenZenithError",
     "TileDecodeError",
     "TileError",
@@ -261,63 +296,66 @@ __all__ = [
     "TileNotFoundError",
     "aspect",
     "auto_encode",
+    "breach_depressions",
     "color_relief",
     "contour_to_geojson",
+    "cross_section",
     "curvature",
-    # Hydrology (lazy)
+    "curvature_classification",
     "d8_flow_direction",
     "decode",
-    # Terrarium
     "decode_tile",
     "decode_v2",
     "delineate_watershed",
     "download_tiles",
+    "downslope_flowpath_length",
     "drainage_density",
     "encode",
     "encode_tile",
     "encode_v2",
     "export_cog",
-    # GeoTIFF / COG
     "export_geotiff",
     "extract_streams",
-    # Hydrology extra (lazy)
+    "feature_preserving_smooth",
     "fill_depressions",
     "flow_accumulation",
-    # Elevation
     "get_elevation",
     "get_elevation_batch",
     "get_elevation_from_ozt2",
     "get_tile_count",
-    # Export
     "grid_to_geojson",
     "grid_to_gtiff_metadata",
+    "hack_integral",
     "hillshade",
     "load_fused_elevation_grid",
     "load_fused_tile",
     "load_ozt2_tiles",
     "load_ozt2_tiles_from_hf",
     "load_tiles",
+    "mstp",
     "multi_hillshade",
     "planform_curvature",
     "plot_contours",
     "plot_hillshade",
-    # Visualization
     "plot_terrain",
-    # Terrain extra (lazy)
     "profile_curvature",
     "roughness",
-    # Terrain (lazy)
     "slope",
+    "slope_area_ratio",
     "slope_fast",
+    "specific_catchment_area",
+    "stream_link_identifier",
     "stream_order",
+    "stream_power_index",
+    "stream_reach_identifier",
     "terrain_to_3d_mesh",
     "terrain_to_glb",
     "terrain_to_png",
     "tpi",
-    # Tracing (lazy)
     "trace_downstream",
     "tri",
     "twi",
+    "upslope_flowpath_length",
     "validate_roundtrip",
     "validate_roundtrip_v2",
     "viewshed",

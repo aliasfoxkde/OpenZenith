@@ -1436,3 +1436,110 @@ def flow_width(dem: np.ndarray, flow_dir: np.ndarray | None = None, nodata: floa
     width[flow_dir < 0] = np.nan
 
     return width
+
+
+# ─── Raster Algebra ─────────────────────────────────────────────────────────────
+
+
+def dem_where(
+    condition: np.ndarray,
+    true_value: np.ndarray | float,
+    false_value: np.ndarray | float,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Raster algebra — return values from true/false arrays based on a condition.
+
+    Equivalent to NumPy's np.where() for DEM-style raster operations.
+    This is the core of all conditional terrain operations.
+
+    Args:
+        condition: Boolean 2D array (True = use true_value)
+        true_value: Array or scalar returned where condition is True
+        false_value: Array or scalar returned where condition is False
+        nodata: NODATA value for the output
+
+    Returns:
+        2D float32 array with values selected from true/false
+    """
+    result = np.where(condition, true_value, false_value)
+    return result.astype(np.float32)
+
+
+def dem_clip(
+    dem: np.ndarray,
+    min_val: float | np.ndarray,
+    max_val: float | np.ndarray,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Clip DEM values to a range (min/max clamping).
+
+    Args:
+        dem: 2D elevation grid
+        min_val: Minimum value (scalar or array)
+        max_val: Maximum value (scalar or array)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array with values clamped to [min_val, max_val]
+    """
+    result = np.clip(dem, min_val, max_val)
+    result = np.where(dem != nodata, result, nodata)
+    return result.astype(np.float32)
+
+
+def dem_mask(
+    dem: np.ndarray,
+    condition: np.ndarray,
+    mask_value: float = np.nan,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Mask DEM cells where condition is True (set to mask_value).
+
+    Args:
+        dem: 2D elevation grid
+        condition: Boolean mask (True = mask this cell)
+        mask_value: Value to set for masked cells (default NaN)
+        nodata: NODATA value to preserve
+
+    Returns:
+        2D float32 array with masked cells set to mask_value
+    """
+    result = dem.astype(np.float32).copy()
+    result[condition] = mask_value
+    return result
+
+
+def dem_reclassify(
+    dem: np.ndarray,
+    thresholds: list[float],
+    values: list[float],
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Reclassify DEM values based on thresholds.
+
+    Assigns output values based on which range the input falls into.
+    Example: dem_reclassify(dem, [0, 100, 500, 1000], [0, 1, 2, 3])
+             returns 0 where dem<100, 1 where 100<=dem<500, etc.
+
+    Args:
+        dem: 2D elevation grid
+        thresholds: Sorted list of upper bounds
+        values: Output values for each class
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array with reclassified values
+    """
+    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    valid = dem != nodata
+
+    for i, (low, high) in enumerate(zip([float("-inf")] + thresholds[:-1], thresholds)):
+        mask = valid & (dem >= low) & (dem < high)
+        result[mask] = values[i]
+
+    # Anything above the last threshold
+    if len(thresholds) > 0:
+        mask = valid & (dem >= thresholds[-1])
+        result[mask] = values[-1]
+
+    return result

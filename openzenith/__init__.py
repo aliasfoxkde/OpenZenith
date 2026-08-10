@@ -300,6 +300,19 @@ def __getattr__(name):
     if name == "extract_at_points":
         from openzenith.overlay import extract_at_points
         return extract_at_points
+    # Raster algebra
+    if name == "dem_where":
+        from openzenith.terrain import dem_where
+        return dem_where
+    if name == "dem_clip":
+        from openzenith.terrain import dem_clip
+        return dem_clip
+    if name == "dem_mask":
+        from openzenith.terrain import dem_mask
+        return dem_mask
+    if name == "dem_reclassify":
+        from openzenith.terrain import dem_reclassify
+        return dem_reclassify
     if name == "zonal_stats":
         from openzenith.overlay import zonal_stats
         return zonal_stats
@@ -361,6 +374,10 @@ __all__ = [
     "decode_tile",
     "decode_v2",
     "delineate_watershed",
+    "dem_clip",
+    "dem_mask",
+    "dem_reclassify",
+    "dem_where",
     "depression_depth_stats",
     "download_tiles",
     "downslope_flowpath_length",

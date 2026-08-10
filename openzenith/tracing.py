@@ -15,7 +15,6 @@ Usage:
 
 import logging
 import math
-from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -31,8 +30,8 @@ def trace_downstream(
     zoom: int = 10,
     max_steps: int = 10000,
     step_size_m: float = 90.0,  # ~3 arcsec at equator for zoom 10
-    tile_cache_dir: Optional[str] = None,
-) -> Optional[dict]:
+    tile_cache_dir: str | None = None,
+) -> dict | None:
     """Trace downstream path from a point to the ocean or flat area.
 
     Loads elevation tiles on-demand as the path progresses across tile boundaries.
@@ -160,7 +159,7 @@ def trace_downstream(
             if 0 <= nr < dem.shape[0] and 0 <= nc < dem.shape[1]:
                 neighbor_coords.append((d, nr, nc))
 
-        def fetch_neighbor_elev(args):
+        def fetch_neighbor_elev(args, lat_min=lat_min, lon_min=lon_min, cell_size_deg=cell_size_deg, dem=dem):
             d, nr, nc = args
             key = (round(lat_min + nr * cell_size_deg, 6), round(lon_min + nc * cell_size_deg, 6))
             cached = elevation_cache.get(key)
@@ -261,8 +260,8 @@ def trace_downstream(
 
 
 def _load_grid_at(
-    lat: float, lon: float, zoom: int, cache_dir: Optional[str] = None, radius: int = 100
-) -> Optional[dict]:
+    lat: float, lon: float, zoom: int, cache_dir: str | None = None, radius: int = 100
+) -> dict | None:
     """Load elevation grid centered on a point."""
     try:
         from openzenith.elevation import load_elevation_grid
@@ -288,7 +287,7 @@ def _load_grid_at(
             if best_dist == float('inf'):
                 return None
         return result
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _logger.debug("trace_downstream failed (lat=%.4f, lon=%.4f): %s: %s", lat, lon, type(err).__name__, err)
         return None
 

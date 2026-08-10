@@ -117,7 +117,7 @@ def convert_directory(
         max_tiles: Maximum number of tiles to convert
         pattern: Optional glob pattern to filter files
     """
-    files = sorted([f for f in os.listdir(src_dir) if f.endswith(".tif") or f.endswith(".tiff")])
+    files = sorted([f for f in os.listdir(src_dir) if f.endswith((".tif", ".tiff"))])
 
     if pattern:
         import fnmatch
@@ -159,7 +159,7 @@ def convert_directory(
             )
 
             results.append(result)
-        except Exception as e:
+        except OSError as e:
             print(f"  [{i + 1:4d}/{len(files)}] FAIL {fname}: {e}")
             results.append({"source": fname, "error": str(e)})
 

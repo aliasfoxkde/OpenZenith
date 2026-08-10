@@ -5,14 +5,14 @@ to GeoJSON FeatureCollections for visualization in GIS applications,
 MapLibre, QGIS, or any GeoJSON-compatible viewer.
 """
 
+
 import numpy as np
-from typing import Optional
 from scipy.spatial import KDTree
 
 
 def grid_to_geojson(
     data: np.ndarray,
-    transform: Optional[tuple[float, float, float, float]] = None,
+    transform: tuple[float, float, float, float] | None = None,
     name: str = "terrain",
     decimals: int = 2,
     max_points: int = 50000,
@@ -33,7 +33,7 @@ def grid_to_geojson(
     Returns:
         GeoJSON FeatureCollection dict
     """
-    rows, cols = data.shape
+    _rows, _cols = data.shape
     valid = (~np.isnan(data) if np.issubdtype(data.dtype, np.floating)
              else np.ones_like(data, dtype=bool))
 
@@ -77,9 +77,9 @@ def grid_to_geojson(
 def contour_to_geojson(
     dem: np.ndarray,
     interval: float = 10.0,
-    transform: Optional[tuple[float, float, float, float]] = None,
-    min_elev: Optional[float] = None,
-    max_elev: Optional[float] = None,
+    transform: tuple[float, float, float, float] | None = None,
+    min_elev: float | None = None,
+    max_elev: float | None = None,
     decimals: int = 1,
 ) -> dict:
     """Extract contour lines from a DEM as GeoJSON LineString features.
@@ -116,7 +116,7 @@ def contour_to_geojson(
     levels = np.arange(start, max_elev + interval, interval)
 
     features = []
-    rows, cols = dem.shape
+    _rows, _cols = dem.shape
 
     for level in levels:
         # Binary classification: above/below contour level

@@ -1,12 +1,13 @@
 """Tests for geo_utils module."""
 
-import pytest
 import numpy as np
+import pytest
+
 from openzenith.geo_utils import (
-    srtm_filename_to_bounds,
+    classify_terrain,
     elevation_to_latlon,
     latlon_to_elevation_index,
-    classify_terrain,
+    srtm_filename_to_bounds,
 )
 
 

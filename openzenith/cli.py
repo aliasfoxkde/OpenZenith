@@ -15,10 +15,10 @@ Usage:
 """
 
 import argparse
-import sys
 import json
-import time
 import math
+import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +27,8 @@ import numpy as np
 def cmd_download(args):
     """Download elevation tiles from HuggingFace to local cache."""
     try:
-        from openzenith.elevation import load_tiles, get_tile_count as _get_tile_count
+        from openzenith.elevation import get_tile_count as _get_tile_count
+        from openzenith.elevation import load_tiles
     except ImportError:
         print("❌ Download requires huggingface_hub. Install: pip install openzenith[download]")
         sys.exit(1)
@@ -51,7 +52,7 @@ def cmd_download(args):
         if args.zoom_levels:
             zoom_levels = _parse_zoom_levels(args.zoom_levels)
         else:
-            zoom_levels = list(range(0, 11))
+            zoom_levels = list(range(11))
 
         # Count tiles needed for bbox
         total_tiles = 0
@@ -69,7 +70,7 @@ def cmd_download(args):
 
     t0 = time.time()
     tile_dir = load_tiles(
-        zoom_levels=zoom_levels if args.zoom_levels else list(range(0, 9)),
+        zoom_levels=zoom_levels if args.zoom_levels else list(range(9)),
         cache_dir=cache_dir,
     )
     elapsed = time.time() - t0
@@ -191,7 +192,7 @@ def cmd_info(args):
                 print(f"Zoom levels: {', '.join(str(z) for z in sorted(counts.keys()))}")
             else:
                 print("Local cache: empty (run 'openzenith download' to populate)")
-        except Exception:
+        except OSError:
             print("Local cache: present but could not count tiles")
     else:
         print("Local cache: not found (run 'openzenith download' to populate)")
@@ -206,7 +207,7 @@ def cmd_info(args):
             print(f"API server:  ✅ online ({lat_ms:.0f}ms)")
         else:
             print(f"API server:  ⚠️  status {r.status_code}")
-    except Exception:
+    except OSError:
         print("API server:  ❌ offline")
 
     print()
@@ -435,8 +436,8 @@ def _latlon_to_grid_coords(lat: float, lon: float, grid: dict) -> tuple[int, int
     """Convert lat/lon to grid (row, col) within an elevation grid."""
     dlat = grid["center_lat"] - lat
     dlon = lon - grid["center_lon"]
-    row = int(round(grid["center_row"] - dlat / grid["cell_size_deg"]))
-    col = int(round(grid["center_col"] + dlon / grid["cell_size_deg"]))
+    row = round(grid["center_row"] - dlat / grid["cell_size_deg"])
+    col = round(grid["center_col"] + dlon / grid["cell_size_deg"])
     row = max(0, min(row, grid["grid"].shape[0] - 1))
     col = max(0, min(col, grid["grid"].shape[1] - 1))
     return row, col
@@ -478,8 +479,7 @@ def cmd_profile(args):
         if args.output.endswith(".csv"):
             with open(args.output, "w") as f:
                 f.write("distance_m,elevation\n")
-                for p in result:
-                    f.write(f"{p['distance_m']:.1f},{p['elevation']}\n")
+                f.writelines(f"{p['distance_m']:.1f},{p['elevation']}\n" for p in result)
         else:
             with open(args.output, "w") as f:
                 json.dump(result, f)
@@ -489,6 +489,7 @@ def cmd_profile(args):
 def cmd_contour(args):
     """Export DEM contours as GeoJSON."""
     import json as _json
+
     from openzenith.elevation import load_elevation_grid
     from openzenith.export import contour_to_geojson
 
@@ -507,6 +508,7 @@ def cmd_contour(args):
 def cmd_geojson(args):
     """Export terrain grid as GeoJSON."""
     import json as _json
+
     from openzenith.elevation import load_elevation_grid
     from openzenith.export import grid_to_geojson
 
@@ -570,7 +572,7 @@ def cmd_flow_accum(args):
 def cmd_streams(args):
     """Extract stream network from flow accumulation."""
     from openzenith.elevation import load_elevation_grid
-    from openzenith.hydrology import d8_flow_direction, flow_accumulation, extract_streams
+    from openzenith.hydrology import d8_flow_direction, extract_streams, flow_accumulation
 
     print(f"🏞️  Extracting streams around ({args.lat:.4f}, {args.lon:.4f})...")
     print(f"   Threshold: {args.threshold} pixels")
@@ -708,7 +710,7 @@ def cmd_planform_curvature(args):
 def cmd_drainage_density(args):
     """Compute drainage density from flow accumulation."""
     from openzenith.elevation import load_elevation_grid
-    from openzenith.hydrology import d8_flow_direction, flow_accumulation, drainage_density
+    from openzenith.hydrology import d8_flow_direction, drainage_density, flow_accumulation
 
     print(f"💧 Computing drainage density around ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
@@ -847,7 +849,7 @@ def _filename_to_bbox(filename: str) -> dict | None:
 
 def cmd_encode(args):
     """Encode a DEM file or directory of DEM files to OZT2 format."""
-    from openzenith.tile_format_v2 import auto_encode, encode, validate_roundtrip, PRED_GRADIENT
+    from openzenith.tile_format_v2 import PRED_GRADIENT, auto_encode, encode, validate_roundtrip
 
     predictor_map = {"none": 0, "left": 1, "gradient": 2}
     predictor = predictor_map.get(args.predictor, PRED_GRADIENT)
@@ -889,7 +891,7 @@ def cmd_encode(args):
 
             # Validate
             if args.validate:
-                is_lossless, rmse, vmeta = validate_roundtrip(
+                is_lossless, rmse, _vmeta = validate_roundtrip(
                     elev, bits_per_pixel=meta_r.get("auto_selected_bits", meta_r.get("bits_per_pixel", 16))
                 )
             else:
@@ -914,7 +916,7 @@ def cmd_encode(args):
                 "lossless": is_lossless,
             }
 
-        except Exception as e:
+        except OSError as e:
             print(f"  💥 {src_path.name}: {e}")
             return None
 
@@ -961,6 +963,7 @@ def cmd_encode(args):
 def cmd_ingest(args):
     """Prepare a contributed dataset for submission to OpenZenith."""
     import json as _json
+
     from openzenith.tile_format_v2 import auto_encode
 
     dataset_path = Path(args.dataset)
@@ -1026,7 +1029,7 @@ def cmd_ingest(args):
             })
             print(f"  ✅ {f.name} → {tile_name} ({len(encoded):,}B)")
 
-        except Exception as e:
+        except OSError as e:
             errors.append({"file": str(f), "error": str(e)})
             print(f"  💥 {f.name}: {e}")
 
@@ -1073,7 +1076,8 @@ def cmd_tiles(args):
         openzenith tiles --region europe --zoom 0-8
         openzenith tiles --lat 40.7 --lon -74.0 --radius 0.5 --zoom 10-12
     """
-    from openzenith.elevation import load_tiles, get_tile_count as _get_tile_count, latlon_to_tile
+    from openzenith.elevation import get_tile_count as _get_tile_count
+    from openzenith.elevation import latlon_to_tile, load_tiles
 
     # Resolve bbox from args
     if args.bbox:
@@ -1098,7 +1102,7 @@ def cmd_tiles(args):
         sys.exit(1)
 
     # Parse zoom levels
-    zoom_levels = _parse_zoom_levels(args.zoom) if args.zoom else list(range(0, 9))
+    zoom_levels = _parse_zoom_levels(args.zoom) if args.zoom else list(range(9))
 
     # Count tiles needed
     total_tiles = 0

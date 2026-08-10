@@ -1,9 +1,10 @@
 """Tests for OpenZenith Python SDK — export module."""
 
 import json
+
 import numpy as np
 
-from openzenith.export import grid_to_geojson, contour_to_geojson
+from openzenith.export import contour_to_geojson, grid_to_geojson
 
 
 class TestGridToGeoJSON:

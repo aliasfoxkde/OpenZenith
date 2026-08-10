@@ -39,17 +39,20 @@ Installation:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, AsyncIterator, cast
+from typing import TYPE_CHECKING, cast
+
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     import aiohttp
 
 __all__ = [
-    "ElevationClient",
     "ElevationBatchProcessor",
-    "ElevationResult",
+    "ElevationClient",
     "ElevationPoint",
+    "ElevationResult",
 ]
 
 
@@ -110,7 +113,7 @@ class ElevationClient:
         max_retries: int = 3,
         retry_delay: float = 1.0,
         connector_limit: int = 32,
-        session: "aiohttp.ClientSession | None" = None,
+        session: aiohttp.ClientSession | None = None,
     ):
         try:
             import aiohttp
@@ -127,7 +130,7 @@ class ElevationClient:
         self._external_session = session
         self._connector = aiohttp.TCPConnector(limit=connector_limit)
         self._owns_session = session is None
-        self._session: "aiohttp.ClientSession | None" = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def _request(
         self,
@@ -167,7 +170,7 @@ class ElevationClient:
 
         raise RuntimeError(f"Request failed after {self._max_retries + 1} attempts: {last_err}")
 
-    def _get_session(self) -> "aiohttp.ClientSession":
+    def _get_session(self) -> aiohttp.ClientSession:
         if self._external_session is not None:
             return self._external_session
         if not hasattr(self, "_session") or self._session is None or self._session.closed:
@@ -305,7 +308,7 @@ class ElevationClient:
             assert self._session is not None
             await self._session.close()
 
-    async def __aenter__(self) -> "ElevationClient":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args) -> None:

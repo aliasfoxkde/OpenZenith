@@ -26,11 +26,11 @@ import logging
 import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 
 from .terrarium import decode_tile
-from typing import cast
 from .tile_format_v2 import decode as decode_ozt2
 
 _logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ def get_elevation(
         except OSError as err:
             _log_tile_error(tile_path, "read", err)
             continue
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _log_tile_error(tile_path, "decode", err)
             continue
 
@@ -148,7 +148,7 @@ def get_elevation_batch(
             idx = futures[future]
             try:
                 results[idx] = future.result()
-            except Exception:
+            except Exception:  # noqa: BLE001
                 results[idx] = None
     return results
 
@@ -327,7 +327,7 @@ def load_elevation_grid(
         except OSError as err:
             _log_tile_error(tile_path, "read", err)
             return (tx, ty, None)
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _log_tile_error(tile_path, "decode", err)
             return (tx, ty, None)
 
@@ -430,7 +430,7 @@ def _get_elevation_from_ozt2(
 
         try:
             data = tile_path.read_bytes()
-            elevation, meta = decode_ozt2(data)
+            elevation, _meta = decode_ozt2(data)
             h, w = elevation.shape
 
             # Bilinear interpolation within tile
@@ -469,7 +469,7 @@ def _get_elevation_from_ozt2(
                 v11 * fx_frac * fy_frac
             )
             return round(float(elev), 1)
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _logger.debug("ozt2 interpolation failed: %s: %s", type(err).__name__, err)
             continue
 
@@ -676,7 +676,7 @@ def download_tiles(
         raise ValueError("Provide bbox, region, or lat/lon parameters.")
 
     if zoom_levels is None:
-        zoom_levels = list(range(0, 9))
+        zoom_levels = list(range(9))
 
     # Count tiles
     zoom_breakdown = {}

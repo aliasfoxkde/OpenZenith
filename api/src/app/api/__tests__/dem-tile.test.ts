@@ -11,7 +11,7 @@ describe("DEM Tile Metadata API", () => {
     expect(data.tiles).toContain("/api/dem-tile/{z}/{x}/{y}");
     expect(data.encoding).toBe("terrarium");
     expect(data.minzoom).toBe(0);
-    expect(data.maxzoom).toBe(10);
+    expect(data.maxzoom).toBe(12);
   });
 
   it("returns healthy when HuggingFace is reachable", async () => {

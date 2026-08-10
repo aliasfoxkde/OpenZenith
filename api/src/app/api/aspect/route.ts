@@ -75,7 +75,7 @@ function computeAspect(
       // Negate dzDy because grid y-axis is flipped (row 0 = north)
       const aspectRad = Math.atan2(-dzDy, dzDx);
       // Convert to compass: (90 - math_deg + 180) % 360
-      let aspectDeg = (90 - aspectRad * (180 / Math.PI) + 180) % 360;
+      const aspectDeg = (90 - aspectRad * (180 / Math.PI) + 180) % 360;
       result[idx] = Math.round(aspectDeg * 10) / 10;
     }
   }

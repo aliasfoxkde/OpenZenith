@@ -1,12 +1,13 @@
 """Tests for OpenZenith Python SDK — elevation module."""
 
 import math
+
 import numpy as np
 import pytest
 from PIL import Image
 
+from openzenith.elevation import get_elevation, latlon_to_tile
 from openzenith.terrarium import decode_tile
-from openzenith.elevation import latlon_to_tile, get_elevation
 
 
 def test_latlon_to_tile():
@@ -102,7 +103,7 @@ def test_load_elevation_grid_mercator_coords():
 
     lat, lon, z = 39.0, -106.4, 8
     n = 2**z
-    x, y = latlon_to_tile(lat, lon, z)
+    _x, y = latlon_to_tile(lat, lon, z)
 
     # Expected lat_min for a small grid centered on this point
     # Should be approximately lat - (radius_cells * cell_size)
@@ -143,8 +144,9 @@ def test_load_elevation_grid_mercator_coords():
 
 def _make_terrarium_png(height: int) -> bytes:
     """Create a 2×2 Terrarium PNG where all pixels decode to the given height (meters)."""
-    from PIL import Image
     import io
+
+    from PIL import Image
 
     def enc(h):
         v = int(h) + 32768
@@ -260,6 +262,7 @@ def test_get_elevation_batch_empty():
 def test_get_elevation_from_ozt2_returns_float_or_none(tmp_path):
     """get_elevation_from_ozt2 returns float or None."""
     import unittest.mock
+
     from openzenith.elevation import get_elevation_from_ozt2
 
     # Mock the internal _get_elevation_from_ozt2 to avoid network/disk calls
@@ -318,7 +321,7 @@ def test_get_tile_count_returns_dict():
 
     result = get_tile_count("/nas/Temp/repos/OpenZenith/openzenith")
     assert isinstance(result, dict)
-    assert all(isinstance(k, int) for k in result.keys())
+    assert all(isinstance(k, int) for k in result)
     assert all(isinstance(v, int) for v in result.values())
 
 

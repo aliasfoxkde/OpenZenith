@@ -7,7 +7,7 @@ import zlib
 import numpy as np
 import pytest
 
-from openzenith.merged import MergedFile, MAGIC, INDEX_ENTRY_SIZE
+from openzenith.merged import INDEX_ENTRY_SIZE, MAGIC, MergedFile
 
 
 def make_merged_v1(chunks: list[np.ndarray]) -> tuple[bytes, list[int]]:
@@ -61,9 +61,8 @@ def make_chunk(val: int = 1000) -> np.ndarray:
 def write_merged(chunks: list[np.ndarray]) -> str:
     """Write synthetic .merged to a temp file, return path."""
     data, _ = make_merged_v1(chunks)
-    f = tempfile.NamedTemporaryFile(suffix=".merged", delete=False)
-    f.write(data)
-    f.flush()
+    with tempfile.NamedTemporaryFile(suffix=".merged", delete=False) as f:
+        f.write(data)
     return f.name
 
 

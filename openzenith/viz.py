@@ -21,16 +21,17 @@ Usage:
 """
 
 from __future__ import annotations
+
 from matplotlib.figure import Figure
 
 __all__ = [
-    "plot_terrain",
-    "plot_hillshade",
+    "DEFAULT_TERRAIN_PALETTE",
     "plot_contours",
+    "plot_hillshade",
+    "plot_terrain",
     "terrain_to_3d_mesh",
     "terrain_to_glb",
     "terrain_to_png",
-    "DEFAULT_TERRAIN_PALETTE",
 ]
 
 import math
@@ -97,7 +98,7 @@ def plot_terrain(
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
-        extent: "tuple[float,float,float,float] | None" = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
+        extent: tuple[float,float,float,float] | None = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
     else:
         extent = None
 
@@ -185,7 +186,7 @@ def plot_hillshade(
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
-        extent: "tuple[float,float,float,float] | None" = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
+        extent: tuple[float,float,float,float] | None = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
     else:
         extent = None
 
@@ -235,7 +236,7 @@ def plot_contours(
 
     vmn = min_elev if min_elev is not None else float(np.nanpercentile(masked, 10))
     vmx = max_elev if max_elev is not None else float(np.nanpercentile(masked, 90))
-    start = int(math.floor(vmn / interval)) * interval
+    start = math.floor(vmn / interval) * interval
     levels = np.arange(start, vmx + interval, interval)
 
     fig, ax_ = (plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax))
@@ -244,7 +245,7 @@ def plot_contours(
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
-        extent: "tuple[float,float,float,float] | None" = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
+        extent: tuple[float,float,float,float] | None = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
     else:
         extent = None
 
@@ -297,7 +298,7 @@ def terrain_to_3d_mesh(
     # Decimate if needed
     step = 1
     if rows * cols > max_vertices:
-        step = int(math.ceil(math.sqrt((rows * cols) / max_vertices)))
+        step = math.ceil(math.sqrt((rows * cols) / max_vertices))
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
@@ -413,7 +414,7 @@ def terrain_to_glb(
 
     step = 1
     if rows * cols > max_vertices:
-        step = int(math.ceil(math.sqrt((rows * cols) / max_vertices)))
+        step = math.ceil(math.sqrt((rows * cols) / max_vertices))
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform

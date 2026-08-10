@@ -4,10 +4,10 @@ import numpy as np
 
 from openzenith.hydrology import (
     d8_flow_direction,
-    fill_depressions,
     delineate_watershed,
-    flow_accumulation_fast,
     extract_streams,
+    fill_depressions,
+    flow_accumulation_fast,
     stream_order,
     twi,
 )

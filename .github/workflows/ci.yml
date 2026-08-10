@@ -21,7 +21,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -e ./openzenith[dev]
+        run: pip install -e .[dev]
 
       - name: Ruff check
         run: ruff check openzenith/
@@ -36,7 +36,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -e ./openzenith[dev]
+        run: pip install -e .[dev]
 
       - name: Pytest
         run: python3 -m pytest openzenith/tests/ -q --timeout=60

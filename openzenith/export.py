@@ -189,3 +189,137 @@ def contour_to_geojson(
             })
 
     return {"type": "FeatureCollection", "features": features}
+
+
+def contour_to_kml(
+    dem: np.ndarray,
+    interval: float = 10.0,
+    transform: tuple[float, float, float, float] | None = None,
+    min_elev: float | None = None,
+    max_elev: float | None = None,
+    name: str = "Contours",
+    altitude_mode: str = "clampToGround",
+) -> str:
+    """Extract contour lines from a DEM as KML for Google Earth.
+
+    Args:
+        dem: 2D elevation grid
+        interval: Contour interval in meters
+        transform: (origin_lat, origin_lon, cell_size_lat, cell_size_lon)
+        min_elev: Minimum elevation for contours
+        max_elev: Maximum elevation for contours
+        name: Name for the KML folder
+        altitude_mode: KML altitude mode (clampToGround, relativeToGround, absolute)
+
+    Returns:
+        KML string
+    """
+    geojson = contour_to_geojson(dem, interval, transform, min_elev, max_elev)
+    return _geojson_to_kml(geojson, name, altitude_mode)
+
+
+def grid_to_kml(
+    data: np.ndarray,
+    transform: tuple[float, float, float, float] | None = None,
+    name: str = "Points",
+    altitude_mode: str = "clampToGround",
+    value_name: str = "value",
+) -> str:
+    """Convert a 2D grid to KML Point features.
+
+    Args:
+        data: 2D numpy array
+        transform: (origin_lat, origin_lon, cell_size_lat, cell_size_lon)
+        name: Name for the KML folder
+        altitude_mode: KML altitude mode
+        value_name: Property name for the cell value
+
+    Returns:
+        KML string
+    """
+    geojson = grid_to_geojson(data, transform, value_name)
+    return _geojson_to_kml(geojson, name, altitude_mode)
+
+
+def _geojson_to_kml(
+    geojson: dict,
+    name: str = "OpenZenith",
+    altitude_mode: str = "clampToGround",
+) -> str:
+    """Convert a GeoJSON FeatureCollection to KML string.
+
+    Args:
+        geojson: GeoJSON FeatureCollection
+        name: KML document name
+        altitude_mode: KML altitude mode
+
+    Returns:
+        KML string
+    """
+    kml_parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        "<kml xmlns=\"http://www.opengis.net/kml/2.2\">",
+        "<Document>",
+        f"<name>{name}</name>",
+        "<Folder>",
+    ]
+
+    for feature in geojson.get("features", []):
+        geom = feature.get("geometry", {})
+        geom_type = geom.get("type", "").lower()
+        coords = geom.get("coordinates", [])
+        props = feature.get("properties", {})
+
+        if geom_type == "point":
+            if isinstance(coords[0], list):
+                lon, lat = coords[0][0], coords[0][1]
+                alt = coords[0][2] if len(coords[0]) > 2 else 0
+            else:
+                lon, lat = coords[0], coords[1]
+                alt = coords[2] if len(coords) > 2 else 0
+
+            kml_parts.append("<Placemark>")
+            if props:
+                kml_parts.append(f"<name>{props.get('elevation', props.get('value', ''))}</name>")
+            kml_parts.append(f"<Point><coordinates>{lon},{lat},{alt}</coordinates></Point>")
+            kml_parts.append("</Placemark>")
+
+        elif geom_type == "linestring":
+            coord_strs = []
+            for coord in coords:
+                lon = coord[0]
+                lat = coord[1]
+                alt = coord[2] if len(coord) > 2 else 0
+                coord_strs.append(f"{lon},{lat},{alt}")
+            kml_parts.append("<Placemark>")
+            if props:
+                kml_parts.append(f"<name>{props.get('elevation', '')}</name>")
+            kml_parts.append(
+                f"<LineString><altitudeMode>{altitude_mode}</altitudeMode>"
+                f"<coordinates>{' '.join(coord_strs)}</coordinates></LineString>"
+            )
+            kml_parts.append("</Placemark>")
+
+        elif geom_type == "polygon":
+            rings = coords
+            if rings:
+                outer = rings[0]
+                coord_strs = []
+                for coord in outer:
+                    lon = coord[0]
+                    lat = coord[1]
+                    alt = coord[2] if len(coord) > 2 else 0
+                    coord_strs.append(f"{lon},{lat},{alt}")
+                kml_parts.append("<Placemark>")
+                if props:
+                    kml_parts.append(f"<name>{props.get('name', '')}</name>")
+                kml_parts.append(
+                    f"<Polygon><altitudeMode>{altitude_mode}</altitudeMode>"
+                    f"<outerBoundaryIs><LinearRing><coordinates>"
+                    f"{' '.join(coord_strs)}"
+                    f"</coordinates></LinearRing></outerBoundaryIs></Polygon>"
+                )
+                kml_parts.append("</Placemark>")
+
+    kml_parts.extend(["</Folder>", "</Document>", "</kml>"])
+    return "\n".join(kml_parts)

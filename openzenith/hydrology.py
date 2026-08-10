@@ -630,6 +630,154 @@ def stream_reach_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_di
     return reaches
 
 
+def flood_inundation(
+    dem: np.ndarray,
+    water_level: float,
+    fill_depressions_first: bool = True,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute flood inundation extent at a given water level.
+
+    Returns a boolean mask of cells that would be submerged at the
+    specified water surface elevation. Optionally fills depressions
+    first to model realistic water pooling.
+
+    Args:
+        dem: 2D elevation grid (meters)
+        water_level: Water surface elevation in meters
+        fill_depressions_first: If True, fill depressions before computing
+                               inundation (realistic pooling). If False,
+                               only cells below water_level are inundation.
+        nodata: NODATA value
+
+    Returns:
+        2D bool array where True = inundated
+    """
+    if fill_depressions_first:
+        filled = fill_depressions(dem, nodata)
+    else:
+        filled = dem
+
+    return (filled < water_level) & (filled > nodata)
+
+
+def inundation_depth(
+    dem: np.ndarray,
+    water_level: float,
+    fill_depressions_first: bool = True,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute flood inundation depth at a given water level.
+
+    Returns the depth of water above each cell (negative = above water).
+
+    Args:
+        dem: 2D elevation grid (meters)
+        water_level: Water surface elevation in meters
+        fill_depressions_first: If True, fill depressions first
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of water depth in meters (negative above water)
+    """
+    if fill_depressions_first:
+        filled = fill_depressions(dem, nodata)
+    else:
+        filled = dem.astype(np.float32)
+
+    depth = np.full(filled.shape, np.nan, dtype=np.float32)
+    valid = filled > nodata
+    depth[valid] = water_level - filled[valid]
+    depth[depth <= 0] = 0
+    return depth
+
+
+def depression_depth_stats(
+    dem: np.ndarray,
+    nodata: float = -32768.0,
+) -> list[dict]:
+    """Compute statistics for each depression in the DEM.
+
+    Uses the fill-depression difference to identify depressions and
+    compute their depth, volume, and spill elevation.
+
+    Args:
+        dem: 2D elevation grid (meters)
+        nodata: NODATA value
+
+    Returns:
+        List of dicts with keys: 'row', 'col', 'depth_m', 'volume_m3',
+        'spill_elev_m', 'area_m2', 'cell_count'
+    """
+    filled = fill_depressions(dem, nodata)
+    diff = filled - dem.astype(np.float64)
+
+    valid = (diff > 0.1) & (dem > nodata)
+    if not valid.any():
+        return []
+
+    rows, cols = dem.shape
+    cell_size_deg = 0.001
+    cell_m = cell_size_deg * 111320.0
+    cell_area_m2 = cell_m * cell_m
+
+    # Find connected components (depressions)
+    from collections import deque
+
+    visited = np.zeros_like(valid, dtype=bool)
+    depressions = []
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c] or visited[r, c]:
+                continue
+
+            # BFS to find all cells in this depression
+            cells = []
+            queue = deque([(r, c)])
+            visited[r, c] = True
+            min_elev = float(filled[r, c])
+            original_elevs = []
+
+            while queue:
+                cr, cc = queue.popleft()
+                cells.append((cr, cc))
+                original_elevs.append(dem[cr, cc])
+                min_elev = min(min_elev, filled[cr, cc])
+
+                for d in range(8):
+                    nr = cr + int(D8_DR[d])
+                    nc = cc + int(D8_DC[d])
+                    if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc] and valid[nr, nc]:
+                        visited[nr, nc] = True
+                        queue.append((nr, nc))
+
+            if not cells:
+                continue
+
+            # Compute stats
+            orig_elevs = np.array(original_elevs, dtype=np.float64)
+            max_orig = orig_elevs.max()
+            depth = max_orig - min_elev
+            spill_elev = filled[cells[0][0], cells[0][1]] if cells else max_orig
+            volume = depth * len(cells) * cell_area_m2
+            area = len(cells) * cell_area_m2
+
+            depressions.append({
+                "row": r,
+                "col": c,
+                "depth_m": round(depth, 2),
+                "volume_m3": round(volume, 2),
+                "spill_elev_m": round(spill_elev, 2),
+                "area_m2": round(area, 2),
+                "cell_count": len(cells),
+            })
+
+    # Sort by depth (deepest first)
+    depressions.sort(key=lambda x: x["depth_m"], reverse=True)
+    return depressions
+
+
 def cross_section(
     dem: np.ndarray,
     stream_row: int,

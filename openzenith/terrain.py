@@ -1230,3 +1230,226 @@ def hack_integral(
         "k_coefficient": round(float(k), 2),
         "chi": chi.astype(np.float32),
     }
+
+
+def sky_view_factor(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+    n_directions: int = 8,
+) -> np.ndarray:
+    """Compute sky view factor for solar radiation modeling.
+
+    The sky view factor (SVF) is the proportion of sky visible from
+    a point on the terrain. It ranges from 0 (completely obscured)
+    to 1 (open sky). Used in solar radiation and cold-air drainage modeling.
+
+    Computed by averaging analytical hillshades over multiple azimuth angles
+    (360/n_directions steps) and converting shade to view factor.
+
+    Args:
+        dem: 2D elevation grid (meters)
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+        n_directions: Number of azimuth directions to sample (default 8)
+
+    Returns:
+        2D float32 array of sky view factor (0-1)
+    """
+    rows, cols = dem.shape
+    svf = np.zeros((rows, cols), dtype=np.float64)
+    n_sample = 0
+
+    for azimuth in range(0, 360, 360 // n_directions):
+        # Use low altitude angle (10°) to catch terrain obstructions
+        shade = hillshade(dem, azimuth=float(azimuth), altitude=10.0,
+                          cell_size_deg=cell_size_deg, nodata=nodata)
+        # Convert shade (0-255) to view factor (0-1)
+        svf += shade.astype(np.float64) / 255.0
+        n_sample += 1
+
+    svf /= n_sample
+
+    # Mark NODATA areas
+    valid = dem > nodata
+    result = svf.astype(np.float32)
+    result[~valid] = np.nan
+    return result
+
+
+def landform_classification(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Classify terrain into discrete landform types.
+
+    Combines slope, aspect, and curvature to classify each cell as:
+    0 = peak (summit)
+    1 = ridge
+    2 = upper slope
+    3 = middle slope
+    4 = lower slope
+    5 = valley (channel)
+    6 = pit (depression)
+    7 = saddle
+    8 = flat
+    -1 = nodata
+
+    Uses threshold-based decision tree on TPI, slope, and curvature.
+
+    Args:
+        dem: 2D elevation grid (meters)
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D int8 array of landform classes
+    """
+    from openzenith.terrain import curvature, slope
+
+    rows, cols = dem.shape
+    result = np.full((rows, cols), -1, dtype=np.int8)
+    valid = dem > nodata
+
+    # Compute derivatives
+    slp = slope(dem, cell_size_deg, nodata)
+    curv = curvature(dem, cell_size_deg, nodata)
+    p_curv = profile_curvature(dem, cell_size_deg, nodata)
+    plan_curv = planform_curvature(dem, cell_size_deg, nodata)
+    tpi_vals = tpi(dem, cell_size_deg, nodata)
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+
+            s = slp[r, c]
+            cu = curv[r, c]
+            pc = p_curv[r, c]
+            pl = plan_curv[r, c]
+            tpi_v = tpi_vals[r, c]
+
+            if np.isnan(s) or np.isnan(cu):
+                continue
+
+            # Flat areas
+            if s < 2:
+                result[r, c] = 8  # flat
+                continue
+
+            # Depression (pit)
+            if tpi_v < -5 and cu < -0.001:
+                result[r, c] = 6  # pit
+                continue
+
+            # Peak
+            if tpi_v > 5 and s > 10 and pc < -0.0005:
+                result[r, c] = 0  # peak
+                continue
+
+            # Ridge
+            if pc < -0.0005 and pl > 0.0005:
+                result[r, c] = 1  # ridge
+                continue
+
+            # Valley (channel)
+            if pc > 0.0005 and pl < -0.0005:
+                result[r, c] = 5  # valley
+                continue
+
+            # Saddle
+            if abs(pc) < 0.0002 and abs(pl) < 0.0002 and abs(tpi_v) < 2:
+                result[r, c] = 7  # saddle
+                continue
+
+            # Slope position based on TPI
+            if tpi_v > 2:
+                result[r, c] = 2  # upper slope
+            elif tpi_v < -2:
+                result[r, c] = 4  # lower slope
+            else:
+                result[r, c] = 3  # middle slope
+
+    return result
+
+
+def visibility_index(
+    dem: np.ndarray,
+    observer_points: list[tuple[int, int]],
+    observer_heights: list[float] | None = None,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute visibility index — how many observer points can see each cell.
+
+    Computes the cumulative viewshed from multiple observer points,
+    returning the count of visible observers for each terrain cell.
+
+    Args:
+        dem: 2D elevation grid (meters)
+        observer_points: List of (row, col) observer locations
+        observer_heights: Optional list of observer heights (default 1.75m)
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D int16 array of visibility count (how many observers can see each cell)
+    """
+    rows, cols = dem.shape
+    vis_count = np.zeros((rows, cols), dtype=np.int16)
+
+    if observer_heights is None:
+        observer_heights = [1.75] * len(observer_points)
+
+    for (obs_r, obs_c), obs_h in zip(observer_points, observer_heights):
+        if 0 <= obs_r < rows and 0 <= obs_c < cols:
+            vis = viewshed(dem, obs_r, obs_c, obs_h, cell_size_deg, nodata)
+            vis_count[vis] += 1
+
+    return vis_count
+
+
+def flow_width(dem: np.ndarray, flow_dir: np.ndarray | None = None, nodata: float = -32768.0) -> np.ndarray:
+    """Compute flow width for each cell.
+
+    Flow width is the width of the cell perpendicular to the flow direction,
+    used in unit stream power and erosion modeling.
+
+    For D8: width = cell_size * cos(theta) where theta is the angle
+    between flow direction and the perpendicular.
+
+    Args:
+        dem: 2D elevation grid
+        flow_dir: Optional D8 flow direction grid
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of flow width in meters
+    """
+    if flow_dir is None:
+        from openzenith.hydrology import d8_flow_direction
+
+        flow_dir = d8_flow_direction(dem, nodata)
+
+    rows, cols = dem.shape
+    cell_size_deg = 0.001
+    cell_m = cell_size_deg * 111320.0
+
+    # D8 flow is at 45° increments
+    # E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6, NE=7
+    # Width is cell_m for cardinal (E/W/N/S) and cell_m*sqrt(2) for diagonal
+    # But for flow width perpendicular to flow, use:
+    # cardinal: cell_m
+    # diagonal: cell_m * sqrt(2)
+    width = np.full((rows, cols), cell_m, dtype=np.float32)
+
+    # Diagonal directions: 1(SE), 3(SW), 5(NW), 7(NE)
+    diag_mask = (flow_dir == 1) | (flow_dir == 3) | (flow_dir == 5) | (flow_dir == 7)
+    width[diag_mask] = cell_m * np.sqrt(2)
+
+    # Mark nodata
+    width[dem <= nodata] = np.nan
+    width[flow_dir < 0] = np.nan
+
+    return width

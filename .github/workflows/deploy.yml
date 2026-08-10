@@ -1,54 +1,18 @@
-name: CI/CD
+name: Deploy
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
+# Wiki is auto-updated via wiki CI workflow
+
 jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          # cache: npm  # Disabled due to CI caching issue
-          # cache-dependency-path: api/package-lock.json
-
-      - name: Install dependencies
-        working-directory: api
-        run: npm install  # Using install since package-lock.json is gitignored
-
-      - name: Lint
-        working-directory: api
-        run: npm run lint || true  # Allow warnings, failures are pre-existing
-
-      - name: Format check
-        working-directory: api
-        run: npm run format:check || true  # Allow formatting differences
-
-      - name: Type check
-        working-directory: api
-        run: npx tsc --noEmit
-
-      - name: Test
-        working-directory: api
-        run: npm run test
-
-      - name: Build Next.js
-        working-directory: api
-        run: npm run build
-
-      - name: Build for Cloudflare Pages
-        working-directory: api
-        run: npm run pages:build
+  ci:
+    uses: ./.github/workflows/ci.yml
 
   deploy:
-    needs: lint-and-test
+    needs: ci
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -56,13 +20,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          # cache: npm  # Disabled due to CI caching issue
-          # cache-dependency-path: api/package-lock.json
+          node-version: '20'
 
       - name: Install dependencies
         working-directory: api
-        run: npm install  # Using install since package-lock.json is gitignored
+        run: npm install
 
       - name: Build for Cloudflare Pages
         working-directory: api
@@ -74,4 +36,12 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy .vercel/output/static --project-name=openzenith
+          workingDirectory: api
+
+      - name: Deploy to openzenith.pages.dev
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy .vercel/output/static --project-name=openzenith-pages-dev
           workingDirectory: api

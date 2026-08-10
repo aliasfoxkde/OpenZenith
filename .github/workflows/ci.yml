@@ -48,7 +48,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        working-directory: openzenith-core
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings

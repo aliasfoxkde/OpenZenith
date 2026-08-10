@@ -28,9 +28,9 @@ Usage:
     streams = extract_streams(accum, threshold=100)
 """
 
-import numpy as np
 from collections import deque
-from typing import Optional
+
+import numpy as np
 
 # D8 direction encoding: 0=E, 1=SE, 2=S, 3=SW, 4=W, 5=NW, 6=N, 7=NE
 # Row/col offsets for each direction
@@ -39,7 +39,7 @@ D8_DC = np.array([1, 1, 0, -1, -1, -1, 0, 1], dtype=np.int16)
 D8_DISTANCE = np.array([1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)])
 
 
-def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:  # noqa: F811
+def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
     """Fill depressions using the priority-flood algorithm (Wang & Liu 2006).
 
     Ensures every cell has a downhill path to the grid edge, eliminating
@@ -89,8 +89,7 @@ def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:  
                     processed[nr, nc] = True
                     continue
                 # Raise cell if it's lower than the current water level
-                if filled[nr, nc] < elev:
-                    filled[nr, nc] = elev
+                filled[nr, nc] = max(filled[nr, nc], elev)
                 heapq.heappush(heap, (float(filled[nr, nc]), nr, nc))
                 processed[nr, nc] = True
 
@@ -141,7 +140,7 @@ def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
     return flow_dir
 
 
-def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:  # noqa: F811
+def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
     """Compute flow accumulation from D8 directions.
 
     Each cell's value is the count of upstream cells (including itself).
@@ -216,7 +215,7 @@ def flow_accumulation_fast(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.nda
     """
     try:
         return _flow_accumulation_toposort(flow_dir, nodata_dir)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return flow_accumulation(flow_dir, nodata_dir)
 
 
@@ -358,8 +357,7 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
                     count = 0
                     for dd in range(8):
                         irr, icc = r - int(D8_DR[dd]), c - int(D8_DC[dd])
-                        if 0 <= irr < rows and 0 <= icc < cols:
-                            if flow_dir[irr, icc] == dd and streams[irr, icc] and order[irr, icc] >= o:
+                        if 0 <= irr < rows and 0 <= icc < cols and flow_dir[irr, icc] == dd and streams[irr, icc] and order[irr, icc] >= o:
                                 count += 1
                     if count >= 2:
                         new_order = o + 1
@@ -377,8 +375,8 @@ def delineate_watershed(
     lon: float,
     zoom: int = 10,
     radius_cells: int = 200,
-    tile_cache_dir: Optional[str] = None,
-) -> Optional[dict]:  # noqa: F811
+    tile_cache_dir: str | None = None,
+) -> dict | None:
     """Delineate watershed upstream from a pour point.
 
     Loads elevation tiles around the point, computes D8 flow directions,
@@ -407,7 +405,7 @@ def delineate_watershed(
             radius_cells=radius_cells,
             cache_dir=tile_cache_dir,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"❌ Could not load elevation data: {e}")
         return None
 
@@ -527,7 +525,7 @@ def delineate_watershed(
 def twi(
     dem: np.ndarray,
     cell_size_deg: float = 0.001,
-    nodata: float = -32768.0,  # noqa: F811
+    nodata: float = -32768.0,
 ) -> np.ndarray:
     """Topographic Wetness Index (TWI).
 

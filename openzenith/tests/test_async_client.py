@@ -3,8 +3,8 @@
 import pytest
 
 from openzenith.async_client import (
-    ElevationClient,
     ElevationBatchProcessor,
+    ElevationClient,
     ElevationResult,
 )
 

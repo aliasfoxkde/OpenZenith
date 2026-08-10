@@ -58,7 +58,7 @@ class TestEncodeDecode:
         """Flat tile should roundtrip and compress well."""
         arr = _make_flat_tile()
         encoded = encode(arr, compression=compression)
-        decoded, meta = decode(encoded)
+        decoded, _meta = decode(encoded)
         assert_array_equal(arr, decoded)
 
     @pytest.mark.parametrize("compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT])
@@ -66,7 +66,7 @@ class TestEncodeDecode:
         """Slope tile tests prediction effectiveness."""
         arr = _make_slope_tile()
         encoded = encode(arr, compression=compression)
-        decoded, meta = decode(encoded)
+        decoded, _meta = decode(encoded)
         assert_array_equal(arr, decoded)
 
     def test_small_tile(self):
@@ -183,14 +183,14 @@ class TestValidateRoundtrip:
     def test_lossless_validation(self):
         """Lossless roundtrip should return True."""
         arr = _make_test_tile()
-        valid, rmse, meta = validate_roundtrip(arr, compression=COMP_ZSTD_PREDICT)
+        valid, rmse, _meta = validate_roundtrip(arr, compression=COMP_ZSTD_PREDICT)
         assert valid is True
         assert rmse == 0.0
 
     def test_lossy_validation(self):
         """Lossy roundtrip should return False with RMSE > 0."""
         arr = _make_test_tile(min_e=0, max_e=3000)
-        valid, rmse, meta = validate_roundtrip(arr, quantize_bits=12)
+        valid, rmse, _meta = validate_roundtrip(arr, quantize_bits=12)
         assert valid is False
         assert rmse > 0
 

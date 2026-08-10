@@ -1,7 +1,8 @@
 """Tests for downstream tracing module."""
 
 import pytest
-from openzenith.tracing import trace_downstream, _haversine_distance
+
+from openzenith.tracing import _haversine_distance, trace_downstream
 
 
 class TestHaversineDistance:
@@ -35,7 +36,7 @@ class TestTraceDownstream:
 
     def test_invalid_coordinates_raise(self):
         """Out-of-range coordinates should raise an error."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             trace_downstream(999.0, 999.0, max_steps=10)
 
     def test_ocean_point(self):
@@ -45,6 +46,6 @@ class TestTraceDownstream:
             result = trace_downstream(30.0, -40.0, max_steps=100)
             # Ocean points might fail to find a flow path
             assert isinstance(result, list)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             # Network/tile errors are acceptable
             pass

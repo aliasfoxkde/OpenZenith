@@ -41,8 +41,8 @@ Decode speed:
     - Total: ~2ms per 256x256 tile
 """
 
-import struct
 import math
+import struct
 
 import numpy as np
 
@@ -195,7 +195,7 @@ def _auto_select_bits(elevation_range: int) -> int:
     """
     if elevation_range <= 0:
         return 8
-    bits = int(math.ceil(math.log2(elevation_range + 1)))
+    bits = math.ceil(math.log2(elevation_range + 1))
     return max(8, min(16, bits))
 
 
@@ -250,7 +250,7 @@ def encode(
     if elevation.ndim != 2:
         raise TileError(f"Expected 2D array, got {elevation.ndim}D")
 
-    height, width = elevation.shape
+    _height, _width = elevation.shape
     arr = elevation.astype(np.int16)
 
     # Determine valid data range
@@ -333,7 +333,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
     total_pixels = len(data) // 2
 
     # Assume square tiles (common case) or try common sizes
-    side = int(math.isqrt(total_pixels))
+    side = math.isqrt(total_pixels)
     if side * side == total_pixels:
         height = width = side
     else:

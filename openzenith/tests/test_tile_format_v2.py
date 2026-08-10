@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from openzenith.tile_format_v2 import (
     COMP_BROTLI,
     COMP_ZLIB,
@@ -24,14 +25,14 @@ class TestEncodeDecode:
     def test_basic_roundtrip(self):
         data = np.array([[100, 200, 300], [150, 250, 350], [200, 300, 400]], dtype=np.int16)
         encoded = encode(data, compressor=COMP_ZLIB)
-        decoded, meta = decode(encoded)
+        decoded, _meta = decode(encoded)
         assert decoded.shape == data.shape
         np.testing.assert_allclose(data, decoded, atol=ATOL)
 
     def test_brotli_roundtrip(self):
         data = np.random.randint(0, 2000, size=(50, 50)).astype(np.int16)
         encoded = encode(data, compressor=COMP_BROTLI)
-        decoded, meta = decode(encoded)
+        decoded, _meta = decode(encoded)
         np.testing.assert_allclose(data, decoded, atol=ATOL)
 
     def test_preserves_shape(self):
@@ -102,7 +103,7 @@ class TestAutoEncode:
 
     def test_roundtrip(self):
         data = np.random.randint(0, 2000, size=(30, 30)).astype(np.int16)
-        encoded, meta = auto_encode(data)
+        encoded, _meta = auto_encode(data)
         decoded, _ = decode(encoded)
         np.testing.assert_allclose(data, decoded, atol=ATOL)
 
@@ -112,7 +113,7 @@ class TestValidateRoundtrip:
 
     def test_valid_roundtrip(self):
         data = np.random.randint(0, 2000, size=(30, 30)).astype(np.int16)
-        is_lossless, rmse, meta = validate_roundtrip(data)
+        _is_lossless, rmse, meta = validate_roundtrip(data)
         # Quantized tile won't be lossless but RMSE should be < 1m
         assert rmse < 1.0
         assert meta["bits_per_pixel"] > 0
@@ -128,5 +129,5 @@ class TestEdgeCases:
         np.testing.assert_allclose(data, decoded, atol=ATOL)
 
     def test_invalid_bytes_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             decode(b"not valid tile data")

@@ -4,14 +4,14 @@ import numpy as np
 import pytest
 
 from openzenith.viz import (
-    plot_terrain,
-    plot_hillshade,
-    plot_contours,
-    terrain_to_3d_mesh,
-    terrain_to_png,
-    terrain_to_glb,
-    _palette_color,
     DEFAULT_TERRAIN_PALETTE,
+    _palette_color,
+    plot_contours,
+    plot_hillshade,
+    plot_terrain,
+    terrain_to_3d_mesh,
+    terrain_to_glb,
+    terrain_to_png,
 )
 
 

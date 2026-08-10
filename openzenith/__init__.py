@@ -296,6 +296,29 @@ def __getattr__(name):
     if name == "get_elevation_along_path":
         from openzenith.elevation import get_elevation_along_path
         return get_elevation_along_path
+    # Overlay
+    if name == "extract_at_points":
+        from openzenith.overlay import extract_at_points
+        return extract_at_points
+    if name == "zonal_stats":
+        from openzenith.overlay import zonal_stats
+        return zonal_stats
+    if name == "rasterize_lines":
+        from openzenith.overlay import rasterize_lines
+        return rasterize_lines
+    # Vector
+    if name == "shapefile_to_geojson":
+        from openzenith.vector import shapefile_to_geojson
+        return shapefile_to_geojson
+    if name == "gdb_to_geojson":
+        from openzenith.vector import gdb_to_geojson
+        return gdb_to_geojson
+    if name == "list_gdb_layers":
+        from openzenith.vector import list_gdb_layers
+        return list_gdb_layers
+    if name == "export_to_gdb":
+        from openzenith.vector import export_to_gdb
+        return export_to_gdb
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -347,8 +370,9 @@ __all__ = [
     "encode_v2",
     "export_cog",
     "export_geotiff",
+    "export_to_gdb",
+    "extract_at_points",
     "extract_streams",
-    "feature_preserving_smooth",
     "fill_depressions",
     "flood_inundation",
     "flow_accumulation",
@@ -377,6 +401,7 @@ __all__ = [
     "plot_hillshade",
     "plot_terrain",
     "profile_curvature",
+    "rasterize_lines",
     "roughness",
     "sky_view_factor",
     "slope",
@@ -399,4 +424,5 @@ __all__ = [
     "validate_roundtrip_v2",
     "viewshed",
     "visibility_index",
+    "zonal_stats",
 ]

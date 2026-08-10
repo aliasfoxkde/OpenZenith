@@ -59,7 +59,7 @@ openzenith trace --lat 36.0 --lon -118.0
 │   │   └── wasm-demo/            # Browser WASM demo (D8, viewshed, OZT2 decode)
 │   ├── src/components/          # Shared React components
 │   ├── src/lib/                 # Shared libraries (tile, elevation, cache, etc.)
-│   ├── public/pkg/              # WASM package (openzenith-core, web target)
+│   ├── public/pkg/              # WASM package (core, web target)
 │   └── vitest.config.ts         # Vitest configuration
 │
 ├── openzenith/                   # Python SDK (pip install openzenith)
@@ -77,7 +77,7 @@ openzenith trace --lat 36.0 --lon -118.0
 │   ├── backends/ozt2.py         # OZT2HFBackend for HuggingFace access
 │   └── tests/                   # pytest tests
 │
-├── openzenith-core/              # Rust crate (WASM + CLI binary)
+├── core/                        # Rust crate (WASM + CLI binary)
 │   ├── src/
 │   │   ├── d8.rs               # D8 flow direction (WASM + CLI)
 │   │   ├── viewshed.rs         # Viewshed computation (WASM + CLI)
@@ -113,7 +113,7 @@ openzenith trace --lat 36.0 --lon -118.0
 - **backends/ozt2.py**: `OZT2HFBackend` — direct access to HuggingFace OZT2 tile dataset
 - **cli.py**: Click-based CLI with subcommands (download, query, trace, watershed, slope, hillshade, viewshed, profile)
 
-### Rust Core (openzenith-core)
+### Rust Core (core)
 
 Rust crate for CPU-intensive terrain analysis primitives:
 

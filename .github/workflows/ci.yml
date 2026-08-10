@@ -53,11 +53,11 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
-        working-directory: openzenith-core
+        working-directory: core
 
       - name: Test
         run: cargo test --lib
-        working-directory: openzenith-core
+        working-directory: core
 
   api-lint:
     runs-on: ubuntu-latest

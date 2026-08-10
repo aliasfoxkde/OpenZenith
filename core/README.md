@@ -1,4 +1,4 @@
-# openzenith-core
+# core
 
 High-performance Rust primitives for OpenZenith terrain analysis.
 
@@ -30,7 +30,7 @@ cat input.json | openzenith_core_cli viewshed
 
 ```bash
 export OPENZENITH_CORE_CLI=/path/to/openzenith_core_cli
-pip install /path/to/openzenith-core/python
+pip install /path/to/core/python
 ```
 
 ```python

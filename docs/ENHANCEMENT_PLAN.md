@@ -81,7 +81,7 @@ Or simpler: compute the target slice ranges and use direct slice assignment if t
 
 ## HIGH: Rust Viewshed Bilinear Nodata Bug
 
-**File:** `openzenith-core/src/viewshed.rs` lines 98-116
+**File:** `core/src/viewshed.rs` lines 98-116
 
 Current code averages valid corners when nodata is present. True bilinear interpolation weights each corner by its fractional distance from the sample point. The current approach systematically overestimates elevation at land/nodata boundaries.
 
@@ -91,7 +91,7 @@ Current code averages valid corners when nodata is present. True bilinear interp
 
 ## HIGH: `stream_order` and `gradient_predict` CLI/Python Binding
 
-**File:** `openzenith-core/src/lib.rs`
+**File:** `core/src/lib.rs`
 
 Missing from Python `__init__.py` and CLI:
 - `stream_order` — Strahler stream order from flow accumulation
@@ -164,7 +164,7 @@ Missing from Python `__init__.py` and CLI:
 pytest openzenith/tests/ -q --timeout=60
 
 # Rust tests
-cd openzenith-core && cargo test
+cd core && cargo test
 
 # Clippy
 cargo clippy --workspace --all-targets -- -D warnings

@@ -12,8 +12,8 @@ Usage:
     shade = hillshade(grid, azimuth=315, altitude=45)
 """
 
+
 import numpy as np
-from typing import Optional
 
 
 def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
@@ -195,7 +195,7 @@ def viewshed(
     observer_height: float = 1.75,
     cell_size_deg: float = 0.001,
     nodata: float = -32768.0,
-    max_distance_cells: Optional[int] = None,
+    max_distance_cells: int | None = None,
 ) -> np.ndarray:
     """Compute viewshed — which cells are visible from the observer point.
 
@@ -237,7 +237,7 @@ def _viewshed_numpy(
     observer_height: float,
     cell_size_deg: float,
     nodata: float,
-    max_distance_cells: Optional[int],
+    max_distance_cells: int | None,
 ) -> np.ndarray:
     """Viewshed using angular ray casting with vectorized sampling.
 
@@ -333,7 +333,7 @@ def _viewshed_numpy(
     cell_angles = np.arctan2(valid_dr, valid_dc) % (2 * np.pi)
 
     # Find nearest ray index for each cell
-    ray_idx = ((cell_angles / (2 * np.pi) * n_angles)).astype(int) % n_angles
+    ray_idx = (cell_angles / (2 * np.pi) * n_angles).astype(int) % n_angles
 
     # Find sample index for each cell's distance
     sample_idx = np.clip((valid_dist * 2).astype(int) - 1, 0, n_samples - 1)
@@ -359,7 +359,7 @@ def _viewshed_numba(
     observer_height: float,
     cell_size_deg: float,
     nodata: float,
-    max_distance_cells: Optional[int],
+    max_distance_cells: int | None,
 ) -> np.ndarray:
     """Numba JIT-accelerated viewshed.
 
@@ -409,10 +409,8 @@ def _viewshed_numba(
                     c0 = int(ic)
                     r1 = min(r0 + 1, rows - 1)
                     c1 = min(c0 + 1, cols - 1)
-                    if r0 < 0:
-                        r0 = 0
-                    if c0 < 0:
-                        c0 = 0
+                    r0 = max(r0, 0)
+                    c0 = max(c0, 0)
                     fr = ir - r0
                     fc = ic - c0
 
@@ -426,8 +424,7 @@ def _viewshed_numba(
                     if h_dist < 1e-6:
                         continue
                     s = (elev - obs_elev) / h_dist
-                    if s > max_slope:
-                        max_slope = s
+                    max_slope = max(max_slope, s)
 
                 t_dist = dist * cell_m
                 t_slope = (dem[r, c] - obs_elev) / t_dist
@@ -573,7 +570,7 @@ def curvature(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32
     Returns:
         2D float32 array of curvature values (1/m)
     """
-    rows, cols = dem.shape
+    _rows, _cols = dem.shape
     cell_m = cell_size_deg * 111320.0
     padded = np.pad(dem, 1, mode='constant', constant_values=np.nan)
 
@@ -790,7 +787,7 @@ def multi_hillshade(
 
 def color_relief(
     dem: np.ndarray,
-    breaks: Optional[list[tuple[float, str]]] = None,
+    breaks: list[tuple[float, str]] | None = None,
     nodata: float = -32768.0,
 ) -> np.ndarray:
     """Color relief — classify elevation into colored RGBA bands.

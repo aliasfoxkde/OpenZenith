@@ -7,12 +7,16 @@ __pycache__/
 # Node
 node_modules/
 .next/
-.vercel/
+
+# Archived/broken files
+_archive/
+.pi/
 
 # Build
 *.tsbuildinfo
 .env
 .env.local
+.env.*.local
 *.egg-info/
 dist/
 build/
@@ -34,11 +38,6 @@ data/
 .DS_Store
 Thumbs.db
 
-# Environment
-.env
-.env.local
-.env.*.local
-
 # Claude Code
 .claude
 # Note: CLAUDE.md IS tracked — do not add it here
@@ -52,7 +51,7 @@ upload_progress.json
 # Test artifacts
 test-results/
 
-# Rust build output (regenerate with wasm-pack)
+# Rust build output (regenerate with wasm-pack / cargo build)
 openzenith-core/target/
 
 # HuggingFace cache (download at runtime)

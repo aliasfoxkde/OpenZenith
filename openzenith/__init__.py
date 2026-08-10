@@ -296,6 +296,9 @@ def __getattr__(name):
     if name == "get_elevation_along_path":
         from openzenith.elevation import get_elevation_along_path
         return get_elevation_along_path
+    if name == "get_elevation_along_path_async":
+        from openzenith.elevation import get_elevation_along_path_async
+        return get_elevation_along_path_async
     # Overlay
     if name == "extract_at_points":
         from openzenith.overlay import extract_at_points
@@ -396,6 +399,7 @@ __all__ = [
     "flow_width",
     "get_elevation",
     "get_elevation_along_path",
+    "get_elevation_along_path_async",
     "get_elevation_batch",
     "get_elevation_from_ozt2",
     "get_tile_count",

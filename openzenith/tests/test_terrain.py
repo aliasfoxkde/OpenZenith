@@ -1,9 +1,26 @@
 """Tests for OpenZenith Python SDK — terrain module."""
 
 import math
+
 import numpy as np
 
-from openzenith.terrain import slope, slope_fast, aspect, hillshade, viewshed, profile, tpi, roughness, curvature, tri, multi_hillshade, color_relief, profile_curvature, planform_curvature, drainage_density
+from openzenith.terrain import (
+    aspect,
+    color_relief,
+    curvature,
+    drainage_density,
+    hillshade,
+    multi_hillshade,
+    planform_curvature,
+    profile,
+    profile_curvature,
+    roughness,
+    slope,
+    slope_fast,
+    tpi,
+    tri,
+    viewshed,
+)
 
 
 def make_slope_dem(rows=10, cols=10):

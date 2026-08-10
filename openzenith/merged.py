@@ -40,7 +40,6 @@ from typing import cast
 import numpy as np
 from cachetools import LRUCache
 
-
 MAGIC = b"OZCHNK01"
 HEADER_SIZE = 12
 INDEX_ENTRY_SIZE = 8
@@ -66,7 +65,7 @@ def get_merged_file(path: str | Path) -> "MergedFile":
 class MergedFile:
     """Reader for a single .merged file. Immutable after construction."""
 
-    __slots__ = ("path", "data", "version", "rows", "cols", "index")
+    __slots__ = ("cols", "data", "index", "path", "rows", "version")
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -165,7 +164,7 @@ def read_elevation_from_merged(
         Elevation in meters, or None if no data (ocean/nodata).
     """
     tile_name = lat_lon_to_srtm_name(lat, lon)
-    lat_dir, base = srtm_name_to_dir(tile_name)
+    lat_dir, _base = srtm_name_to_dir(tile_name)
     merged_path = Path(merged_dir) / lat_dir / f"{tile_name}.merged"
 
     if not merged_path.exists():
@@ -173,7 +172,7 @@ def read_elevation_from_merged(
 
     try:
         mf = MergedFile(merged_path)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
     # Find which chunk contains this point
@@ -237,7 +236,7 @@ def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
                 result[(int(parts[0]), int(parts[1]))] = v
             _INDEX_CACHE[cache_key] = result
             return result
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     # Scan .merged files
@@ -264,7 +263,7 @@ def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
                         "rows": mf.rows,
                         "cols": mf.cols,
                     }
-                except Exception:
+                except Exception:  # noqa: BLE001, S112
                     continue
 
     # Persist for next time
@@ -272,7 +271,7 @@ def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
         import json as _json
         raw = {f"{k[0]},{k[1]}": v for k, v in result.items()}
         index_path.write_text(_json.dumps(raw))
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
     _INDEX_CACHE[cache_key] = result

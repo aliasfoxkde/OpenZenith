@@ -1,12 +1,13 @@
 """Tests for openzenith.geotiff."""
 
 import tempfile
+
 import numpy as np
 import pytest
 
 from openzenith.geotiff import (
-    export_geotiff,
     export_cog,
+    export_geotiff,
     grid_to_gtiff_metadata,
 )
 
@@ -114,8 +115,8 @@ class TestExportCog:
     def test_cog_zstd_compression(self):
         """COG with zstd compression produces smaller output than uncompressed."""
         dem = np.full((256, 256), 1000, dtype=np.int16)
-        import tempfile
         import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path_zstd = export_cog(dem, f.name, compress="zstd")
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:

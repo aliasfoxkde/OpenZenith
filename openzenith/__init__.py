@@ -24,47 +24,42 @@ __version__ = "0.7.0"
 class OpenZenithError(Exception):
     """Base exception for OpenZenith SDK errors."""
 
-    pass
 
 
 class TileNotFoundError(OpenZenithError):
     """Raised when a tile file or resource is not found."""
 
-    pass
 
 
 class TileDecodeError(OpenZenithError):
     """Raised when tile data cannot be decoded."""
 
-    pass
 
 
 class NetworkError(OpenZenithError):
     """Raised when a network request fails."""
 
-    pass
 
 
 class DataError(OpenZenithError):
     """Raised when data validation fails."""
 
-    pass
 
+from openzenith.async_client import (
+    ElevationBatchProcessor,
+    ElevationClient,
+    ElevationPoint,
+    ElevationResult,
+)
 from openzenith.elevation import (
+    download_tiles,
     get_elevation,
     get_elevation_batch,
     get_elevation_from_ozt2,
     get_tile_count,
-    load_tiles,
     load_ozt2_tiles,
     load_ozt2_tiles_from_hf,
-    download_tiles,
-)
-from openzenith.async_client import (
-    ElevationClient,
-    ElevationBatchProcessor,
-    ElevationResult,
-    ElevationPoint,
+    load_tiles,
 )
 from openzenith.terrarium import decode_tile, encode_tile
 from openzenith.tile_format import (
@@ -78,18 +73,29 @@ from openzenith.tile_format import (
     validate_roundtrip,
 )
 from openzenith.tile_format_v2 import (
-    PRED_NONE,
-    PRED_LEFT,
-    PRED_GRADIENT,
     COMP_BROTLI,
-    COMP_ZSTD as COMP_ZSTD_V2,
     COMP_ZLIB,
-    TileError as TileErrorV2,
-    encode as encode_v2,
-    decode as decode_v2,
+    PRED_GRADIENT,
+    PRED_LEFT,
+    PRED_NONE,
     auto_encode,
+)
+from openzenith.tile_format_v2 import (
+    COMP_ZSTD as COMP_ZSTD_V2,
+)
+from openzenith.tile_format_v2 import (
+    TileError as TileErrorV2,
+)
+from openzenith.tile_format_v2 import (
+    decode as decode_v2,
+)
+from openzenith.tile_format_v2 import (
+    encode as encode_v2,
+)
+from openzenith.tile_format_v2 import (
     validate_roundtrip as validate_roundtrip_v2,
 )
+
 
 # Lazy imports for optional heavy dependencies
 def __getattr__(name):
@@ -222,97 +228,97 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
-    # Exceptions
-    "OpenZenithError",
-    "TileNotFoundError",
-    "TileDecodeError",
-    "NetworkError",
-    "DataError",
+    "COMP_BROTLI",
     # OZT1
     "COMP_NONE",
+    "COMP_ZLIB",
     "COMP_ZSTD",
     "COMP_ZSTD_DELTA",
     "COMP_ZSTD_PREDICT",
-    "TileError",
-    "decode",
-    "encode",
-    "validate_roundtrip",
+    "COMP_ZSTD_V2",
+    "PRED_GRADIENT",
+    "PRED_LEFT",
     # OZT2
     "PRED_NONE",
-    "PRED_LEFT",
-    "PRED_GRADIENT",
-    "COMP_BROTLI",
-    "COMP_ZSTD_V2",
-    "COMP_ZLIB",
-    "TileErrorV2",
-    "encode_v2",
-    "decode_v2",
-    "auto_encode",
-    "validate_roundtrip_v2",
+    "DataError",
+    "ElevationBatchProcessor",
+    # Async client
+    "ElevationClient",
+    "ElevationPoint",
+    "ElevationResult",
+    # Multi-DEM fusion
+    "FusedDEM",
+    "NetworkError",
     # Backends
     "OZT2Backend",
-    "OZT2R2Backend",
     "OZT2HFBackend",
+    "OZT2R2Backend",
+    # Exceptions
+    "OpenZenithError",
+    "TileDecodeError",
+    "TileError",
+    "TileErrorV2",
+    "TileNotFoundError",
+    "aspect",
+    "auto_encode",
+    "color_relief",
+    "contour_to_geojson",
+    "curvature",
+    # Hydrology (lazy)
+    "d8_flow_direction",
+    "decode",
     # Terrarium
     "decode_tile",
+    "decode_v2",
+    "delineate_watershed",
+    "download_tiles",
+    "drainage_density",
+    "encode",
     "encode_tile",
+    "encode_v2",
+    "export_cog",
+    # GeoTIFF / COG
+    "export_geotiff",
+    "extract_streams",
+    # Hydrology extra (lazy)
+    "fill_depressions",
+    "flow_accumulation",
     # Elevation
     "get_elevation",
     "get_elevation_batch",
     "get_elevation_from_ozt2",
     "get_tile_count",
-    "load_tiles",
+    # Export
+    "grid_to_geojson",
+    "grid_to_gtiff_metadata",
+    "hillshade",
+    "load_fused_elevation_grid",
+    "load_fused_tile",
     "load_ozt2_tiles",
     "load_ozt2_tiles_from_hf",
-    "download_tiles",
-    # Hydrology (lazy)
-    "d8_flow_direction",
-    "flow_accumulation",
-    "extract_streams",
-    "stream_order",
-    "delineate_watershed",
-    # Tracing (lazy)
-    "trace_downstream",
+    "load_tiles",
+    "multi_hillshade",
+    "planform_curvature",
+    "plot_contours",
+    "plot_hillshade",
+    # Visualization
+    "plot_terrain",
+    # Terrain extra (lazy)
+    "profile_curvature",
+    "roughness",
     # Terrain (lazy)
     "slope",
     "slope_fast",
-    "aspect",
-    "hillshade",
-    "viewshed",
-    "tpi",
-    "roughness",
-    "curvature",
-    "tri",
-    "multi_hillshade",
-    "color_relief",
-    # Export
-    "grid_to_geojson",
-    "contour_to_geojson",
-    # Async client
-    "ElevationClient",
-    "ElevationBatchProcessor",
-    "ElevationResult",
-    "ElevationPoint",
-    # Hydrology extra (lazy)
-    "fill_depressions",
-    "twi",
-    # Terrain extra (lazy)
-    "profile_curvature",
-    "planform_curvature",
-    "drainage_density",
-    # Visualization
-    "plot_terrain",
-    "plot_hillshade",
-    "plot_contours",
+    "stream_order",
     "terrain_to_3d_mesh",
     "terrain_to_glb",
     "terrain_to_png",
-    # GeoTIFF / COG
-    "export_geotiff",
-    "export_cog",
-    "grid_to_gtiff_metadata",
-    # Multi-DEM fusion
-    "FusedDEM",
-    "load_fused_tile",
-    "load_fused_elevation_grid",
+    "tpi",
+    # Tracing (lazy)
+    "trace_downstream",
+    "tri",
+    "twi",
+    "validate_roundtrip",
+    "validate_roundtrip_v2",
+    "viewshed",
 ]

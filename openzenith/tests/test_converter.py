@@ -114,15 +114,14 @@ class TestConvertDirectory:
         except ImportError:
             pytest.skip("converter module not available")
 
-        with tempfile.TemporaryDirectory() as src_dir:
-            with tempfile.TemporaryDirectory() as dst_dir:
-                # Create 3 synthetic tiles
-                for i, name in enumerate(["N00E000.tif", "N01E000.tif", "N02E000.tif"]):
-                    path = os.path.join(src_dir, name)
-                    try:
-                        self._write_synthetic_geotiff(path, seed=i * 10)
-                    except Exception:
-                        pytest.skip("rasterio not available")
+        with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as dst_dir:
+            # Create 3 synthetic tiles
+            for i, name in enumerate(["N00E000.tif", "N01E000.tif", "N02E000.tif"]):
+                path = os.path.join(src_dir, name)
+                try:
+                    self._write_synthetic_geotiff(path, seed=i * 10)
+                except Exception:  # noqa: BLE001
+                    pytest.skip("rasterio not available")
 
                 results = convert_directory(src_dir, dst_dir, max_tiles=3, zstd_level=3)
 
@@ -139,22 +138,21 @@ class TestConvertDirectory:
         except ImportError:
             pytest.skip("converter module not available")
 
-        with tempfile.TemporaryDirectory() as src_dir:
-            with tempfile.TemporaryDirectory() as dst_dir:
-                path = os.path.join(src_dir, "N00E000.tif")
-                try:
-                    self._write_synthetic_geotiff(path)
-                except Exception:
-                    pytest.skip("rasterio not available")
+        with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as dst_dir:
+            path = os.path.join(src_dir, "N00E000.tif")
+            try:
+                self._write_synthetic_geotiff(path)
+            except Exception:  # noqa: BLE001
+                pytest.skip("rasterio not available")
 
-                convert_directory(src_dir, dst_dir, zstd_level=3)
+            convert_directory(src_dir, dst_dir, zstd_level=3)
 
-                manifest_path = os.path.join(dst_dir, "manifest.json")
-                assert os.path.exists(manifest_path)
-                with open(manifest_path) as f:
-                    manifest = json.load(f)
-                assert manifest["tiles_converted"] == 1
-                assert "total_reduction_pct" in manifest
+            manifest_path = os.path.join(dst_dir, "manifest.json")
+            assert os.path.exists(manifest_path)
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+            assert manifest["tiles_converted"] == 1
+            assert "total_reduction_pct" in manifest
 
 
 class TestConverterEdgeCases:

@@ -1,24 +1,178 @@
 # OpenZenith
 
-Global geospatial intelligence platform — interactive 3D globe, 2D map, real-time data layers, and Python SDK.
+Global elevation data platform — query, analyze, and visualize terrain anywhere on Earth.
 
-**Live:** [openzenith.cyopsys.com](https://openzenith.cyopsys.com) · [Map](https://openzenith.cyopsys.com/map) · [Globe](https://openzenith.cyopsys.com/globe) · [Explore](https://openzenith.cyopsys.com/explore)
-
----
-
-## 🌍 What is OpenZenith?
-
-OpenZenith is a single-platform geospatial dashboard that combines:
-
-- **3D Globe** (CesiumJS) with terrain elevation and orbital mechanics
-- **2D Map** (MapLibre) with 33 data layers across 9 basemaps
-- **37 real-time data layers** — earthquakes, flights, vessels, satellites, weather, and more
-- **Python SDK** — offline elevation queries, terrain analysis, hydrology, flow tracing
-- **REST API** — 47 endpoints for elevation, tiles, geospatial data
+**Live:** [openzenith.cyopsys.com](https://openzenith.cyopsys.com) · [Map](https://openzenith.cyopsys.com/map) · [Globe](https://openzenith.cyopsys.com/globe) · [Explore](https://openzenith.cyopsys.com/explore) · [WASM Demo](https://openzenith.cyopsys.com/wasm-demo)
 
 ---
 
-## 📡 Data Layers (37 total, 33 on 2D map)
+## What is OpenZenith?
+
+OpenZenith is a geospatial SDK + REST API for working with global elevation data. It provides a unified Python interface for querying point elevations, loading terrain grids, and running terrain analysis (slope, aspect, hillshade, viewshed, hydrology) — with full offline support once local data is cached.
+
+The key differentiator is **low-latency local processing**: no API calls needed for elevation queries when using local .merged tiles, and no complex DEM data setup required. Scientists, GIS engineers, and app developers get elevation data without managing SRTM/GEBCO tile downloads, coordinate conversions, or hydrology preprocessing.
+
+Works entirely offline after installing the Python SDK and optional local data. Rust/WASM compute kernels handle CPU-intensive terrain analysis (D8 flow, viewshed, OZT2 decode) — running in-browser via WASM or as a local subprocess.
+
+---
+
+## Key Benefits
+
+- **Zero-config**: pip install and query elevation in 2 lines of Python
+- **Offline-first**: Local SRTM .merged tiles — no network required for elevation queries
+- **Low-latency**: Rust/WASM compute kernels for D8 flow, viewshed, OZT2 decode — runs in-browser or subprocess
+- **Complete terrain analysis**: slope, aspect, hillshade, viewshed, TPI, roughness, curvature, watersheds, stream extraction, downstream tracing
+- **Production-ready**: Type hints, 255 unit tests, clippy-clean Rust, typed TypeScript API
+
+---
+
+## Quick Start
+
+### 1. Install (30 seconds)
+
+```bash
+pip install openzenith              # Core SDK
+pip install openzenith[all]         # All extras: async, rasterio, numba
+```
+
+### 2. Query Elevation (works offline if tiles cached)
+
+```python
+import openzenith as oz
+
+# Single point — uses HuggingFace tiles if no local cache
+elev = oz.get_elevation(40.7128, -74.0060)  # NYC → 10m
+print(f"Elevation: {elev}m")
+
+# Batch — parallel fetch with ThreadPoolExecutor
+results = oz.get_elevation_batch([(40.7, -74.0), (48.8, 2.3), (35.7, 139.7)])
+```
+
+### 3. Terrain Analysis
+
+```python
+from openzenith import load_elevation_grid, slope, aspect, hillshade
+from openzenith.terrain import viewshed
+
+# Load a 10km × 10km region around a point
+grid = load_elevation_grid(lat=36.0, lon=-118.0, zoom=12, radius=200)
+dem = grid['grid']
+
+slope_map = slope(dem)            # Degrees slope (Horn's method)
+aspect_map = aspect(dem)          # Compass degrees (0-360)
+hillshade_map = hillshade(dem)     # 0-255 analytical hillshade
+
+# Viewshed from an observer point
+visible = viewshed(dem, observer_row=100, observer_col=100, radius=50)
+```
+
+### 4. Hydrology (D8 flow, watersheds, streams)
+
+```python
+from openzenith.hydrology import (
+    d8_flow_direction, flow_accumulation, extract_streams,
+    delineate_watershed, trace_downstream
+)
+
+flow_dir = d8_flow_direction(dem)
+accum = flow_accumulation(flow_dir)
+streams = extract_streams(accum, threshold=100)
+
+# Trace downstream from a point
+trace = trace_downstream(36.0, -118.0)
+print(f"Distance to ocean: {trace['total_distance']:.1f} km")
+
+# Delineate entire watershed
+ws = delineate_watershed(36.0, -118.0)
+print(f"Watershed area: {ws['area_km2']:.1f} km²")
+```
+
+### 5. Local Data (optional — for offline use)
+
+```bash
+# Download SRTM tiles to ~/.cache/openzenith-dem/
+openzenith download --region north-america --zoom-levels 0-10
+
+# Or use HuggingFace directly (no local storage)
+export HF_TOKEN=your_token_here
+```
+
+---
+
+## Python SDK Reference
+
+| Module | Functions | Notes |
+|--------|-----------|-------|
+| elevation | get_elevation, get_elevation_batch, load_elevation_grid | Parallel tile fetching |
+| terrain | slope, aspect, hillshade, viewshed, tpi, roughness, curvature, tri | Vectorized NumPy |
+| hydrology | d8_flow_direction, flow_accumulation, extract_streams, delineate_watershed, trace_downstream, twi, fill_depressions | D8 algorithm |
+| tracing | trace_downstream | Adaptive tile loading |
+| fuse | FusedDEM | SRTM + GEBCO seamless |
+| viz | plot_*, terrain_to_3d_mesh, terrain_to_glb, terrain_to_png | Matplotlib + 3D export |
+| geotiff | export_geotiff, export_cog | GeoTIFF/COG export |
+| backends | OZT2Backend, OZT2R2Backend, OZT2HFBackend | Chunk-based tile access |
+
+---
+
+## CLI Commands
+
+```
+openzenith query --lat 40.7 --lon -74.0
+openzenith trace --lat 36.0 --lon -118.0
+openzenith watershed --lat 36.0 --lon -118.0
+openzenith slope --lat 36.0 --lon -118.0 --radius 5km
+openzenith hillshade --lat 36.0 --lon -118.0 --radius 5km
+openzenith viewshed --lat 36.0 --lon -118.0 --height 10
+openzenith fill-depressions --lat 36.0 --lon -118.0 --radius 10km
+openzenith flow-accum --lat 36.0 --lon -118.0 --radius 10km
+openzenith streams --lat 36.0 --lon -118.0 --threshold 100
+openzenith info
+openzenith validate
+```
+
+---
+
+## REST API
+
+Base URL: https://openzenith.cyopsys.com/api/
+
+```
+GET /elevation?lat=40.7&lon=-74.0
+POST /elevation/batch  (up to 2000 points)
+GET /slope?lat=40.7&lon=-74.0&radius=50
+POST /watershed  {"lat": 36.0, "lon": -118.0}
+POST /trace  {"lat": 36.0, "lon": -118.0}
+GET /tile/{z}/{x}/{y}  (terrain tiles)
+```
+
+Full API docs: https://openzenith.cyopsys.com/api/openapi.json
+
+---
+
+## Architecture
+
+```
+Python SDK (local compute) ←→ REST API (cloud, 80+ edge routes)
+                                     ↓
+                              Cloudflare Pages
+                                     ↓
+                              R2 / HuggingFace
+```
+
+---
+
+## Tech Stack
+
+| | |
+|-|-|
+| SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
+| API | Next.js 15, TypeScript, Cloudflare Edge |
+| Data | SRTM 30m (HuggingFace), GEBCO 2025 |
+| Tests | 255 pytest (Python), 17 cargo test (Rust), vitest (TypeScript) |
+
+---
+
+## Data Layers (37 total, 33 on 2D map)
 
 ### Weather & Climate
 | Layer | Source | Details |
@@ -69,7 +223,7 @@ OpenZenith is a single-platform geospatial dashboard that combines:
 
 ---
 
-## 🗺️ Map Features
+## Map Features
 
 - **9 basemaps** — Dark, Dark No-Labels, Voyager, Light, Positron, OSM, Satellite, Topo, Terrain
 - **Opacity sliders** on all raster layers
@@ -83,164 +237,6 @@ OpenZenith is a single-platform geospatial dashboard that combines:
 - **Keyboard shortcuts** — `L` layers, `?` help, `Esc` close
 - **Offline support** — service worker with cache-first navigation
 - **Accessibility** — ARIA roles, keyboard navigation, live regions
-
----
-
-## 🐍 Python SDK
-
-```bash
-pip install openzenith
-```
-
-### CLI Commands
-```bash
-openzenith download --region europe --zoom-levels 0-8   # Download DEM tiles
-openzenith query --lat 40.7128 --lon -74.0060          # Query elevation
-openzenith query --batch "40.7,-74.0 48.8,2.3"         # Batch query
-openzenith trace --lat 36.0 --lon -118.0                # Downstream flow trace
-openzenith watershed --lat 36.0 --lon -118.0            # Watershed delineation
-openzenith info                                        # System info + cache stats
-openzenith slope input.tif output.tif                   # Slope analysis
-openzenith hillshade input.tif output.tif               # Hillshade generation
-openzenith viewshed input.tif output.tif --lat 36 --lon -118 --radius 50km
-openzenith profile input.tif --start 36,-118 --end 37,-117
-```
-
-### Python API
-```python
-import openzenith
-
-# Elevation queries
-elev = openzenith.get_elevation(28.0, 86.9)      # → 8848.0 (Everest)
-results = openzenith.get_elevation_batch([(40.7, -74.0), (48.8, 2.3)])
-
-# Terrain analysis
-import numpy as np
-from openzenith import terrain
-slope = terrain.slope(dem_array)
-aspect = terrain.aspect(dem_array)
-hs = terrain.hillshade(dem_array, azimuth=315, altitude=45)
-visible = terrain.viewshed(dem_array, observer_row, observer_col, radius=50)
-profile = terrain.profile(dem_array, start=(0, 0), end=(100, 100))
-
-# Hydrology
-from openzenith import hydrology
-flow_dir = hydrology.d8_flow_direction(dem_array)
-accum = hydrology.flow_accumulation(flow_dir)
-streams = hydrology.extract_streams(accum, threshold=100)
-trace = hydrology.trace_downstream(flow_dir, start_row, start_col)
-```
-
-### Compression
-- **OZT1** — Custom binary with zstd (67% smaller than Terrarium PNG, lossless)
-- **OZT2** — Adaptive quantization + gradient prediction + Brotli (93% compression)
-
----
-
-## 🔌 API Endpoints (47 routes)
-
-| Category | Endpoints |
-|----------|-----------|
-| Elevation | `/api/elevation`, `/api/elevation/batch`, `/api/dem-tile/{z}/{x}/{y}`, `/api/elevation-color/{z}/{x}/{y}`, `/api/elevation-accuracy/{z}/{x}/{y}`, `/api/contours/{z}/{x}/{y}` |
-| Real-time | `/api/earthquakes`, `/api/flights`, `/api/vessels`, `/api/satellites`, `/api/military` |
-| Weather | `/api/hurricanes`, `/api/weather/warnings`, `/api/weather/radar` |
-| Environment | `/api/wildfires`, `/api/airquality`, `/api/bathymetry` |
-| Infrastructure | `/api/nlnog`, `/api/waterways` |
-| Overlay tiles | `/api/landcover/{z}/{x}/{y}`, `/api/population/{z}/{x}/{y}`, `/api/sentinel2/{z}/{x}/{y}` |
-| Search | `/api/geocode` |
-| Proxy | `/api/proxy/{...path}` (CORS proxy for 30+ external domains) |
-
----
-
-## 🚀 Quick Start
-
-### API Query
-```bash
-curl "https://openzenith.cyopsys.com/api/elevation?lat=28.0&lon=86.9"
-# {"elevation":8848,"unit":"meters","source":"huggingface","tile":"N28E086","resolution":30}
-```
-
-### JavaScript
-```js
-const res = await fetch('/api/elevation?lat=48.8566&lon=2.3522');
-const { elevation } = await res.json(); // 35m (Paris)
-```
-
----
-
-## 🏗️ Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Frontend | Next.js 15 App Router, React 19 |
-| 2D Map | MapLibre GL JS |
-| 3D Globe | CesiumJS 1.119 + satellite.js |
-| Runtime | Cloudflare Pages (Edge Workers) |
-| Storage | Cloudflare R2 (terrain tiles, ~1.7GB) |
-| Elevation Data | [HuggingFace Datasets](https://huggingface.co/datasets/aliasfox/srtm30m-merged) (SRTM 30m global terrain) |
-| Python | NumPy, Pillow, requests, Zstd/Brotli |
-| Tests | 178 TypeScript (Vitest) + 42 Python (pytest) |
-
----
-
-## 📁 Project Structure
-
-```
-api/                          # Next.js 15 application
-  src/app/                    # Pages and API routes (47 routes)
-  src/app/map/                # 2D MapLibre map (33 layers)
-  src/app/globe/              # 3D CesiumJS globe (37 layers)
-  src/lib/                    # Shared libraries
-  src/components/             # React components
-openzenith/                   # Python SDK (pip install openzenith)
-  cli.py                      # CLI commands
-  elevation.py                # Elevation queries
-  terrain.py                  # Slope, aspect, hillshade, viewshed, profile
-  hydrology.py                # D8 flow, accumulation, streams, tracing
-  tile_format_v2.py           # OZT2 compression
-docs/                         # Documentation
-examples/                     # Tutorials
-scripts/                      # Utility scripts
-```
-
----
-
-## 📊 Data Sources
-
-| Source | Resolution | Coverage | Accuracy |
-|--------|-----------|----------|----------|
-| SRTM 30m | 30m | ±60° latitude | ±16m |
-| GEBCO 2025 | 450m | Global ocean | ±100-500m |
-| Copernicus GLO-30 | 30m | ±60° | ±16m |
-| ArcticDEM | 2m | >60°N | ±1m |
-| EEA DTM | 10m | Europe | ±5m |
-
-Elevation tiles sourced from [aliasfox/srtm30m-merged](https://huggingface.co/datasets/aliasfox/srtm30m-merged) on HuggingFace Datasets.
-
-**Benchmark:** 30 validation points, Everest 8,729m, Kilimanjaro 5,832m, Death Valley -83m, Denali 6,141m.
-
----
-
-## 📖 Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) | Remaining improvements plan |
-| [GLOBE_PERFORMANCE_PLAN.md](docs/GLOBE_PERFORMANCE_PLAN.md) | CesiumJS performance tuning |
-| [VESSEL_AIRCRAFT_DATA_OPTIONS.md](docs/VESSEL_AIRCRAFT_DATA_OPTIONS.md) | AIS/ADS-B data source options |
-| [LOCAL_VS_API.md](docs/LOCAL_VS_API.md) | SDK vs API decision guide |
-| [VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md) | Elevation accuracy validation |
-| [REMAINING_TASKS.md](docs/REMAINING_TASKS.md) | Task tracking (35/37 complete) |
-
----
-
-## 📋 Pending (requires external resources)
-
-- **ADSB Exchange** ($30/yr subscription) — military aircraft data
-- **Vessel tracking** — AISstream free tier non-functional; needs AISHub feeder (~$100 RTL-SDR + integration) or paid API
-- **COMET-LiCS** — InSAR subsidence monitoring (needs dataset identification)
-
-See [VESSEL_AIRCRAFT_DATA_OPTIONS.md](docs/VESSEL_AIRCRAFT_DATA_OPTIONS.md) for hardware/software setup details.
 
 ---
 

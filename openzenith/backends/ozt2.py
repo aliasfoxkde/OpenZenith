@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..tile_format_v2 import decode
+from ..tile_format_v2 import TileError, decode
 
 _logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class OZT2Backend:
             data = tile_path.read_bytes()
             elevation, _meta = decode(data)
             return elevation
-        except Exception as err:
+        except (OSError, TileError) as err:
             _logger.debug("local tile decode failed: %s: %s", tile_path, err)
             return None
 
@@ -194,6 +194,8 @@ class OZT2R2Backend:
 
         Uses boto3 to fetch the raw bytes, then decodes with OZT2.
         """
+        from botocore.exceptions import ClientError, EndpointConnectionError, ReadTimeoutError
+
         key = self._tile_key(z, x, y)
         try:
             client = self._get_client()
@@ -201,18 +203,20 @@ class OZT2R2Backend:
             data = response["Body"].read()
             elevation, _ = decode(data)
             return elevation
-        except Exception as err:
+        except (ClientError, EndpointConnectionError, ReadTimeoutError, TileError) as err:
             _logger.debug("R2 tile fetch failed (key=%s): %s: %s", key, type(err).__name__, err)
             return None
 
     def tile_exists(self, z: int, x: int, y: int) -> bool:
         """Check if a tile exists in R2."""
+        from botocore.exceptions import ClientError, EndpointConnectionError, ReadTimeoutError
+
         key = self._tile_key(z, x, y)
         try:
             client = self._get_client()
             client.head_object(Bucket=self.bucket_name, Key=key)
             return True
-        except Exception as err:
+        except (ClientError, EndpointConnectionError, ReadTimeoutError) as err:
             _logger.debug("R2 tile exists check failed (key=%s): %s: %s", key, type(err).__name__, err)
             return False
 
@@ -276,7 +280,7 @@ class OZT2HFBackend:
                 elevation, _ = decode(data)
                 _logger.debug("HF tile fetch hit cache: z=%d x=%d y=%d", z, x, y)
                 return elevation
-            except Exception as err:
+            except (OSError, TileError) as err:
                 _logger.debug("HF cache tile decode failed: %s: %s", cached, err)
 
         # Download from HuggingFace via aiohttp
@@ -288,13 +292,13 @@ class OZT2HFBackend:
 
         try:
             import aiohttp
+            from aiohttp import ClientError
         except ImportError:
             raise ImportError("aiohttp required for async fetch. Install: pip install aiohttp")
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                    data = await resp.read()
+            async with aiohttp.ClientSession() as session, session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                data = await resp.read()
             elevation, _ = decode(data)
 
             # Cache locally if cache_dir is set
@@ -304,7 +308,7 @@ class OZT2HFBackend:
 
             _logger.debug("HF tile fetch success: z=%d x=%d y=%d", z, x, y)
             return elevation
-        except Exception as err:
+        except (ClientError, TileError) as err:
             _logger.debug("HF tile fetch/decode failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 
@@ -329,6 +333,7 @@ class OZT2HFBackend:
             headers["Authorization"] = f"Bearer {token}"
 
         try:
+            import urllib.error
             import urllib.request
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=30) as resp:
@@ -337,7 +342,7 @@ class OZT2HFBackend:
                 cached.parent.mkdir(parents=True, exist_ok=True)
                 cached.write_bytes(data)
             return data
-        except Exception as err:
+        except (urllib.error.URLError, OSError, TileError) as err:
             _logger.debug("HF tile bytes fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 
@@ -350,11 +355,12 @@ class OZT2HFBackend:
             headers["Authorization"] = f"Bearer {token}"
 
         try:
+            import urllib.error
             import urllib.request
             req = urllib.request.Request(url, method="HEAD", headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status == 200
-        except Exception as err:
+        except (urllib.error.URLError, OSError) as err:
             _logger.debug("HF tile exists check failed (url=%s): %s: %s", url, type(err).__name__, err)
             return False
 
@@ -388,16 +394,15 @@ class OZT2HFBackend:
                     headers["Authorization"] = f"Bearer {token}"
 
                 import aiohttp
-                async with semaphore:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                            data = await resp.read()
+                from aiohttp import ClientError
+                async with semaphore, aiohttp.ClientSession() as session, session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                    data = await resp.read()
                 if cached:
                     cached.parent.mkdir(parents=True, exist_ok=True)
                     cached.write_bytes(data)
                 _logger.debug("HF prefetch success: z=%d x=%d y=%d", z, x, y)
                 return True
-            except Exception as err:
+            except (ClientError, TileError) as err:
                 _logger.debug("HF prefetch failed (z=%d,x=%d,y=%d): %s: %s", z, x, y, type(err).__name__, err)
                 return False
 

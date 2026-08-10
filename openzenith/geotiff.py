@@ -24,8 +24,8 @@ Usage:
 from __future__ import annotations
 
 __all__ = [
-    "export_geotiff",
     "export_cog",
+    "export_geotiff",
     "grid_to_gtiff_metadata",
 ]
 

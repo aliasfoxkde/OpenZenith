@@ -22,8 +22,8 @@ from __future__ import annotations
 
 __all__ = [
     "FusedDEM",
-    "load_fused_tile",
     "load_fused_elevation_grid",
+    "load_fused_tile",
 ]
 
 import asyncio
@@ -176,8 +176,8 @@ class FusedDEM:
             (elevation, mask) where elevation is int16 (meters, NODATA=-32768)
             and mask is uint8 (0=ocean, 1=land, 2=SRTM nodata).
         """
-        rows = max(1, int(math.ceil((lat_max - lat_min) / resolution)))
-        cols = max(1, int(math.ceil((lon_max - lon_min) / resolution)))
+        rows = max(1, math.ceil((lat_max - lat_min) / resolution))
+        cols = max(1, math.ceil((lon_max - lon_min) / resolution))
 
         elevation = np.full((rows, cols), GEBCO_NODATA, dtype=np.int16)
         mask = np.zeros((rows, cols), dtype=np.uint8)  # 0=ocean, 1=land
@@ -244,8 +244,8 @@ class FusedDEM:
             (elevation, mask) where elevation is int16 (meters, NODATA=-32768)
             and mask is uint8 (0=ocean, 1=land, 2=SRTM nodata).
         """
-        rows = max(1, int(math.ceil((lat_max - lat_min) / resolution)))
-        cols = max(1, int(math.ceil((lon_max - lon_min) / resolution)))
+        rows = max(1, math.ceil((lat_max - lat_min) / resolution))
+        cols = max(1, math.ceil((lon_max - lon_min) / resolution))
 
         elevation = np.full((rows, cols), GEBCO_NODATA, dtype=np.int16)
         mask = np.zeros((rows, cols), dtype=np.uint8)
@@ -354,7 +354,7 @@ class FusedDEM:
         bounds = _quad_bounds(lat, lon)
         url = f"{self.gebco_url}/{quad}"
 
-        row = int(round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG))
+        row = round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG)
         row = max(0, min(21600 - 1, row))
 
         STRIP_BYTES = 21600 * 2
@@ -372,17 +372,17 @@ class FusedDEM:
                     return None
                 data = await resp.read()
                 arr = np.frombuffer(data, dtype=np.int16)  # 21600 values
-                col = int(round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG))
+                col = round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG)
                 col = max(0, min(21600 - 1, col))
                 elev = int(arr[col])
                 if elev < -11000 or elev > 9000:
                     return None
                 return elev
-        except Exception as err:
+        except (aiohttp.ClientError, OSError) as err:
             _logger.debug("GEBCO async HTTP fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 
-    async def _get_gebco_session(self) -> "aiohttp.ClientSession":
+    async def _get_gebco_session(self) -> aiohttp.ClientSession:
         """Get or create a shared aiohttp session for GEBCO HTTP requests."""
         if not hasattr(self, "_gebco_session") or self._gebco_session is None or self._gebco_session.closed:
             import aiohttp
@@ -456,7 +456,7 @@ class FusedDEM:
                 return None
             is_land = True
             return elev, is_land
-        except Exception as err:
+        except (OSError, ValueError) as err:
             _logger.debug("SRTM merged read failed (path=%s): %s: %s", merged_path, type(err).__name__, err)
             return None
 
@@ -488,8 +488,8 @@ class FusedDEM:
             return None
 
         bounds = _quad_bounds(lat, lon)
-        row = int(round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG))
-        col = int(round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG))
+        row = round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG)
+        col = round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG)
         row = max(0, min(21600 - 1, row))
         col = max(0, min(21600 - 1, col))
         elev = quad_data[row, col]
@@ -523,7 +523,7 @@ class FusedDEM:
         url = f"{self.gebco_url}/{quad}"
 
         # Compute which row we need
-        row = int(round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG))
+        row = round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG)
         row = max(0, min(21600 - 1, row))
 
         # GEBCO strip: each row is STRIP_BYTES = 21600 * 2 = 43200 bytes
@@ -538,13 +538,13 @@ class FusedDEM:
             if resp.status_code not in (200, 206):
                 return None
             data = np.frombuffer(resp.content, dtype=np.int16)  # 21600 values
-            col = int(round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG))
+            col = round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG)
             col = max(0, min(21600 - 1, col))
             elev = int(data[col])
             if elev < -11000 or elev > 9000:
                 return None
             return elev
-        except Exception as err:
+        except (requests.RequestException, OSError) as err:
             _logger.debug("GEBCO HTTP fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
             return None
 

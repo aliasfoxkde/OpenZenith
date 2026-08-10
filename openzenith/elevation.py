@@ -387,7 +387,7 @@ def load_elevation_grid(
 
     # Cell size varies with latitude in Mercator; use average for reference
     cell_size_deg_lat = (lat_max - lat_min) / grid_rows
-    (lon_max - lon_min) / grid_cols
+    _cell_size_deg_lon = (lon_max - lon_min) / grid_cols  # unused but kept for clarity
 
     return {
         "grid": grid,
@@ -698,3 +698,95 @@ def download_tiles(
         "zoom_breakdown": zoom_breakdown,
         "bbox": (lat_min, lon_min, lat_max, lon_max),
     }
+
+
+def get_elevation_along_path(
+    points: list[tuple[float, float]],
+    zoom_levels: list[int] | None = None,
+    cache_dir: str | Path | None = None,
+) -> list[dict]:
+    """Get elevation profile along a geographic path.
+
+    Queries elevation at multiple points along a path (great-circle or rhumb-line
+    interpolation between the provided waypoints). Returns elevation, slope,
+    and distance at each point.
+
+    Args:
+        points: List of (lat, lon) waypoints defining the path
+        zoom_levels: Zoom levels for elevation query (default: [10, 11, 12])
+        cache_dir: Optional local tile cache directory
+
+    Returns:
+        List of dicts with 'lat', 'lon', 'elevation', 'distance_m', 'slope_deg'
+        for each interpolated point along the path.
+    """
+    if len(points) < 2:
+        return []
+
+    if zoom_levels is None:
+        zoom_levels = [10, 11, 12]
+
+    # Interpolate points at ~90m intervals (zoom 10 cell size)
+    interpolated = []
+    for i in range(len(points) - 1):
+        lat1, lon1 = points[i]
+        lat2, lon2 = points[i + 1]
+
+        # Great-circle distance
+        R = 6371000  # Earth radius in meters
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (math.sin(dlat / 2) ** 2 +
+             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+             math.sin(dlon / 2) ** 2)
+        seg_dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        # Number of points to interpolate (every ~90m)
+        n_points = max(2, int(seg_dist / 90))
+
+        for j in range(n_points):
+            t = j / n_points if n_points > 1 else 1.0
+            lat = lat1 + t * (lat2 - lat1)
+            lon = lon1 + t * (lon2 - lon1)
+            interpolated.append((lat, lon))
+
+    # Always include the last point
+    interpolated.append(points[-1])
+
+    # Query elevation for all points
+    elevations = get_elevation_batch(interpolated, zoom_levels=zoom_levels, cache_dir=cache_dir)
+
+    # Compute cumulative distance and slope
+    result = []
+    cumulative_dist = 0.0
+    prev_elev = None
+
+    for i, (lat, lon) in enumerate(interpolated):
+        elev_data = elevations[i] if i < len(elevations) else {}
+        elev = elev_data.get("elevation")
+
+        if i > 0 and elev is not None and prev_elev is not None:
+            dlat = lat - interpolated[i - 1][0]
+            dlon = lon - interpolated[i - 1][1]
+            a = (math.sin(math.radians(dlat) / 2) ** 2 +
+                 math.cos(math.radians(interpolated[i - 1][0])) *
+                 math.cos(math.radians(lat)) * math.sin(math.radians(dlon) / 2) ** 2)
+            seg_dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            cumulative_dist += seg_dist
+
+        slope_deg = None
+        if prev_elev is not None and elev is not None and cumulative_dist > 0:
+            elev_diff = elev - prev_elev
+            slope_deg = math.degrees(math.atan2(elev_diff, 90.0))
+
+        result.append({
+            "lat": round(lat, 6),
+            "lon": round(lon, 6),
+            "elevation": elev,
+            "distance_m": round(cumulative_dist, 1),
+            "slope_deg": round(slope_deg, 2) if slope_deg is not None else None,
+        })
+
+        prev_elev = elev
+
+    return result

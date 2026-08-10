@@ -266,6 +266,36 @@ def __getattr__(name):
     if name == "hack_integral":
         from openzenith.terrain import hack_integral
         return hack_integral
+    if name == "sky_view_factor":
+        from openzenith.terrain import sky_view_factor
+        return sky_view_factor
+    if name == "landform_classification":
+        from openzenith.terrain import landform_classification
+        return landform_classification
+    if name == "visibility_index":
+        from openzenith.terrain import visibility_index
+        return visibility_index
+    if name == "flow_width":
+        from openzenith.terrain import flow_width
+        return flow_width
+    if name == "flood_inundation":
+        from openzenith.hydrology import flood_inundation
+        return flood_inundation
+    if name == "inundation_depth":
+        from openzenith.hydrology import inundation_depth
+        return inundation_depth
+    if name == "depression_depth_stats":
+        from openzenith.hydrology import depression_depth_stats
+        return depression_depth_stats
+    if name == "contour_to_kml":
+        from openzenith.export import contour_to_kml
+        return contour_to_kml
+    if name == "grid_to_kml":
+        from openzenith.export import grid_to_kml
+        return grid_to_kml
+    if name == "get_elevation_along_path":
+        from openzenith.elevation import get_elevation_along_path
+        return get_elevation_along_path
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -299,6 +329,7 @@ __all__ = [
     "breach_depressions",
     "color_relief",
     "contour_to_geojson",
+    "contour_to_kml",
     "cross_section",
     "curvature",
     "curvature_classification",
@@ -307,6 +338,7 @@ __all__ = [
     "decode_tile",
     "decode_v2",
     "delineate_watershed",
+    "depression_depth_stats",
     "download_tiles",
     "downslope_flowpath_length",
     "drainage_density",
@@ -318,15 +350,21 @@ __all__ = [
     "extract_streams",
     "feature_preserving_smooth",
     "fill_depressions",
+    "flood_inundation",
     "flow_accumulation",
+    "flow_width",
     "get_elevation",
+    "get_elevation_along_path",
     "get_elevation_batch",
     "get_elevation_from_ozt2",
     "get_tile_count",
     "grid_to_geojson",
     "grid_to_gtiff_metadata",
+    "grid_to_kml",
     "hack_integral",
     "hillshade",
+    "inundation_depth",
+    "landform_classification",
     "load_fused_elevation_grid",
     "load_fused_tile",
     "load_ozt2_tiles",
@@ -340,6 +378,7 @@ __all__ = [
     "plot_terrain",
     "profile_curvature",
     "roughness",
+    "sky_view_factor",
     "slope",
     "slope_area_ratio",
     "slope_fast",
@@ -359,4 +398,5 @@ __all__ = [
     "validate_roundtrip",
     "validate_roundtrip_v2",
     "viewshed",
+    "visibility_index",
 ]

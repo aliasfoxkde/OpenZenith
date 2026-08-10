@@ -14,7 +14,7 @@ export async function GET() {
   return NextResponse.json(
     {
       status: "healthy",
-      version: "0.6.4",
+      version: "0.7.0",
       storage: {
         backend,
         type: "chunks",

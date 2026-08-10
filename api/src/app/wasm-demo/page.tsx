@@ -105,12 +105,13 @@ function makePitDEM(): Float32Array {
 
 // ─── WASM helpers ────────────────────────────────────────────────────────────
 
-/** Instantiate the WASM module — init() loads openzenith_core_bg.wasm from the same directory. */
+/** Instantiate the WASM module — fetch binary and init with explicit URL path. */
 async function loadWasm(): Promise<WasmExports> {
-  // wasm-pack JS glue (served from /pkg/ via Next.js static files)
-  const wasmModule = await import("/pkg/openzenith_core.js");
-  await wasmModule.default();
-  return wasmModule as unknown as WasmExports;
+  const initModule = await import("@/lib/wasm/openzenith_core.js");
+  const init = initModule.default as (module_or_path?: Request | URL | string | ArrayBuffer) => Promise<WasmExports>;
+  // ~ prefix resolves via webpack — use fetchable URL so init loads from same dir
+  const wasmUrl = new URL("/pkg/openzenith_core_bg.wasm", window.location.origin);
+  return await init(wasmUrl) as WasmExports;
 }
 
 /** Copy a Float32Array into WASM linear memory, return pointer + length. */
@@ -521,11 +522,9 @@ export default function WasmDemo() {
 
       <h2>Exported Functions</h2>
       <pre style={{ background: "#f5f5f5", padding: "1rem", overflowX: "auto", fontSize: "0.8em" }}>
-{`// Load
-import init, { d8_flow_direction_wasm, flow_accumulation_wasm,
-                gradient_reconstruct_wasm, viewshed_wasm,
-                decode_ozt2 } from './pkg/openzenith_core.js';
-await init();
+{`// Load WASM from CDN
+import init from '@/lib/wasm/openzenith_core.js';
+const wasm = await init('/pkg/openzenith_core_bg.wasm');
 
 // D8 flow direction — returns Uint8Array of 0-7 direction codes
 const fdPtr = d8_flow_direction_wasm(demPtr, len, rows, cols, nodata);

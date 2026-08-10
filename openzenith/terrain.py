@@ -859,3 +859,374 @@ def color_relief(
     result[:, :, 3] = np.where(valid, 255, 0).astype(np.uint8)
 
     return result
+
+
+def feature_preserving_smooth(
+    dem: np.ndarray,
+    filter_size: int = 9,
+    max_diff: float = 2.0,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Feature-preserving smoothing using a Kuwahara-like filter.
+
+    Smooths the DEM while preserving sharp features like ridges, roads,
+    and building edges. Uses a range-weighted mean within a window —
+    cells are smoothed with neighbors of similar elevation range,
+    avoiding smoothing across sharp breaks.
+
+    Args:
+        dem: 2D elevation grid
+        filter_size: Window size (must be odd, default 9)
+        max_diff: Maximum elevation difference to consider neighbors similar (m)
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of smoothed elevations
+    """
+    rows, cols = dem.shape
+    smoothed = dem.astype(np.float64).copy()
+    half = filter_size // 2
+
+    # Pad the DEM
+    padded = np.pad(dem.astype(np.float64), half, mode="edge")
+
+    for r in range(rows):
+        for c in range(cols):
+            if dem[r, c] <= nodata:
+                continue
+
+            # Collect window and compute range-weighted mean
+            window_vals = []
+            window_ranges = []
+
+            for wr in range(filter_size):
+                for wc in range(filter_size):
+                    pr = r + wr
+                    pc = c + wc
+                    val = padded[pr, pc]
+                    if val <= nodata:
+                        continue
+                    window_vals.append(val)
+
+                    # Compute local range in 3x3 around this point
+                    local_vals = []
+                    for lr in range(3):
+                        for lc in range(3):
+                            lpr = pr + lr - 1
+                            lpc = pc + lc - 1
+                            lv = padded[lpr, lpc]
+                            if lv > nodata:
+                                local_vals.append(lv)
+                    if len(local_vals) >= 2:
+                        window_ranges.append(max(local_vals) - min(local_vals))
+                    else:
+                        window_ranges.append(np.inf)
+
+            if not window_vals:
+                continue
+
+            # Weight by inverse of range — smaller range = more weight
+            weights = []
+            for wrange in window_ranges:
+                if wrange < max_diff:
+                    weights.append(1.0 / (wrange + 0.1))
+                else:
+                    weights.append(0.0)
+
+            total_weight = sum(weights)
+            if total_weight > 0:
+                smoothed[r, c] = sum(w * v for w, v in zip(weights, window_vals)) / total_weight
+
+    return smoothed.astype(np.float32)
+
+
+def mstp(
+    dem: np.ndarray,
+    radii: list[int] | None = None,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Multi-Scale Terrain Position classification.
+
+    Classifies terrain into discrete position types across multiple scales:
+    peaks/ridges, upper slopes, middle slopes, lower slopes, valleys.
+    Combines TPI computed at multiple radii to get scale-independent classification.
+
+    Args:
+        dem: 2D elevation grid
+        radii: List of radii for multi-scale analysis. Default [2, 5, 10].
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D int8 array of terrain position classes:
+        0 = peak/ridge, 1 = upper slope, 2 = middle slope,
+        3 = lower slope, 4 = valley, -1 = nodata
+    """
+    from openzenith.terrain import tpi
+
+    if radii is None:
+        radii = [2, 5, 10]
+
+    rows, cols = dem.shape
+    result = np.full((rows, cols), -1, dtype=np.int8)
+    valid = dem > nodata
+
+    # Compute TPI at each scale
+    tpi_scales = {}
+    for radius in radii:
+        tpi_scales[radius] = tpi(dem, cell_size_deg, nodata)
+
+    # Classification based on multi-scale TPI combination
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+
+            large_tpi = tpi_scales[radii[-1]][r, c]
+            if np.isnan(large_tpi):
+                continue
+
+            mid_tpi = tpi_scales[radii[len(radii) // 2]][r, c]
+            small_tpi = tpi_scales[radii[0]][r, c]
+
+            if large_tpi > 0.5 and small_tpi > 0.3:
+                cls = 0
+            elif large_tpi > 0.2 and mid_tpi > 0.2:
+                cls = 1
+            elif abs(large_tpi) < 0.3:
+                cls = 2
+            elif large_tpi < -0.2 and mid_tpi < -0.1:
+                cls = 3
+            elif large_tpi < -0.5 and small_tpi < -0.3:
+                cls = 4
+            elif large_tpi > 0:
+                cls = 0
+            else:
+                cls = 4
+
+            result[r, c] = cls
+
+    return result
+
+
+def slope_area_ratio(
+    dem: np.ndarray,
+    flow_accum: np.ndarray | None = None,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute slope-area ratio.
+
+    SAR = tan(slope) / sqrt(accum * cell_area)
+    Used for distinguishing hillslope processes from channel processes.
+
+    Args:
+        dem: 2D elevation grid
+        flow_accum: Optional flow accumulation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of slope-area ratio values
+    """
+    from openzenith.hydrology import d8_flow_direction, fill_depressions, flow_accumulation_fast
+
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+
+    if flow_accum is None:
+        flow_accum = flow_accumulation_fast(fd)
+
+    slp = slope(dem, cell_size_deg, nodata)
+    slope_rad = np.deg2rad(slp)
+
+    cell_m = cell_size_deg * 111320.0
+    accum_area = (flow_accum + 1) * cell_m * cell_m
+
+    sar = np.tan(slope_rad) / np.sqrt(accum_area / cell_m / cell_m)
+
+    valid = (dem != nodata) & (flow_accum > 0)
+    return np.where(valid, sar, np.nan).astype(np.float32)
+
+
+def curvature_classification(
+    dem: np.ndarray,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Classify terrain curvature into discrete types.
+
+    Classifies each cell as:
+    0 = planar (flat)
+    1 = convergent (valley/channel)
+    2 = divergent (ridge/spur)
+    3 = ridge (peak)
+    4 = valley (channel bottom)
+
+    Args:
+        dem: 2D elevation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D int8 array of curvature classes
+    """
+    from openzenith.terrain import planform_curvature, profile_curvature
+
+    p_curv = profile_curvature(dem, cell_size_deg, nodata)
+    plan_curv = planform_curvature(dem, cell_size_deg, nodata)
+
+    rows, cols = dem.shape
+    result = np.full((rows, cols), -1, dtype=np.int8)
+    valid = dem > nodata
+
+    planar_thresh = 0.0001
+    ridge_thresh = 0.0005
+
+    for r in range(rows):
+        for c in range(cols):
+            if not valid[r, c]:
+                continue
+
+            pc = p_curv[r, c]
+            pl = plan_curv[r, c]
+            if np.isnan(pc) or np.isnan(pl):
+                continue
+
+            if abs(pc) < planar_thresh and abs(pl) < planar_thresh:
+                result[r, c] = 0
+            elif pc < -ridge_thresh and pl > ridge_thresh:
+                result[r, c] = 3
+            elif pc > ridge_thresh and pl < -ridge_thresh:
+                result[r, c] = 4
+            elif pc < -planar_thresh and pl < -planar_thresh:
+                result[r, c] = 1
+            elif pc > planar_thresh and pl > planar_thresh or pl < -planar_thresh:
+                result[r, c] = 2
+            elif pl > planar_thresh:
+                result[r, c] = 1
+            else:
+                result[r, c] = 0
+
+    return result
+
+
+def specific_catchment_area(
+    dem: np.ndarray,
+    flow_accum: np.ndarray | None = None,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> np.ndarray:
+    """Compute Specific Catchment Area (SCA).
+
+    SCA = upslope contributing area / unit contour width.
+    Unlike flow accumulation (count of cells), SCA is in units of area
+    per unit width, making it scale-independent.
+
+    Args:
+        dem: 2D elevation grid
+        flow_accum: Optional flow accumulation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        2D float32 array of SCA in m²/m
+    """
+    from openzenith.hydrology import d8_flow_direction, fill_depressions, flow_accumulation_fast
+
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+
+    if flow_accum is None:
+        flow_accum = flow_accumulation_fast(fd)
+
+    cell_m = cell_size_deg * 111320.0
+
+    sca = flow_accum.astype(np.float64) * cell_m * cell_m / cell_m
+
+    valid = (dem != nodata) & (flow_accum > 0)
+    return np.where(valid, sca, np.nan).astype(np.float32)
+
+
+def hack_integral(
+    dem: np.ndarray,
+    flow_accum: np.ndarray | None = None,
+    cell_size_deg: float = 0.001,
+    nodata: float = -32768.0,
+) -> dict:
+    """Compute Hack integral for stream profile analysis.
+
+    The Hack integral characterizes the scaling relationship between
+    stream length and drainage area along a stream profile:
+    L = k * A^F
+
+    Args:
+        dem: 2D elevation grid
+        flow_accum: Optional flow accumulation grid
+        cell_size_deg: Cell size in degrees
+        nodata: NODATA value
+
+    Returns:
+        Dict with 'hack_exponent' F, 'k' coefficient, 'chi' grid
+    """
+    from openzenith.hydrology import (
+        d8_flow_direction,
+        downslope_flowpath_length,
+        fill_depressions,
+        flow_accumulation_fast,
+    )
+
+    filled = fill_depressions(dem, nodata)
+    fd = d8_flow_direction(filled, nodata)
+
+    if flow_accum is None:
+        flow_accum = flow_accumulation_fast(fd)
+
+    rows, cols = dem.shape
+    cell_m = cell_size_deg * 111320.0
+
+    dist = downslope_flowpath_length(dem, fd, nodata)
+
+    chi = np.zeros((rows, cols), dtype=np.float64)
+    for r in range(rows):
+        for c in range(cols):
+            if dem[r, c] <= nodata or flow_accum[r, c] < 1:
+                continue
+            accum = float(flow_accum[r, c])
+            if accum > 0:
+                chi[r, c] = np.sqrt(accum) * cell_m
+
+    stream_mask = flow_accum > 100
+    if not stream_mask.any():
+        return {"hack_exponent": np.nan, "k_coefficient": np.nan, "chi": chi.astype(np.float32)}
+
+    accum_vals = flow_accum[stream_mask].astype(np.float64)
+    dist_vals = dist[stream_mask]
+
+    valid = np.isfinite(dist_vals) & (accum_vals > 0)
+    if valid.sum() < 10:
+        return {"hack_exponent": np.nan, "k_coefficient": np.nan, "chi": chi.astype(np.float32)}
+
+    accum_log = np.log(accum_vals[valid])
+    dist_log = np.log(dist_vals[valid] + 1)
+
+    n = len(accum_log)
+    sum_x = accum_log.sum()
+    sum_y = dist_log.sum()
+    sum_xy = (accum_log * dist_log).sum()
+    sum_x2 = (accum_log * accum_log).sum()
+
+    denom = n * sum_x2 - sum_x * sum_x
+    if abs(denom) < 1e-10:
+        return {"hack_exponent": np.nan, "k_coefficient": np.nan, "chi": chi.astype(np.float32)}
+
+    F = (n * sum_xy - sum_x * sum_y) / denom
+    log_k = (sum_y - F * sum_x) / n
+    k = np.exp(log_k)
+
+    return {
+        "hack_exponent": round(float(F), 4),
+        "k_coefficient": round(float(k), 2),
+        "chi": chi.astype(np.float32),
+    }

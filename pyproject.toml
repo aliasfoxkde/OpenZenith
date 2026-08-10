@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openzenith"
-dynamic = ["version"]
+version = "0.7.0"
 description = "Global elevation data tools — query, download, analyze, simulate"
 readme = "README.md"
 license = "MIT"

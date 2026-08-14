@@ -61,10 +61,7 @@ export async function GET(request: NextRequest) {
         errorMsg = "ADSB Exchange rate limit exceeded — try again later";
       }
 
-      return NextResponse.json(
-        { error: errorMsg, ac: [], count: 0 },
-        { status: 200, headers: CORS_HEADERS },
-      );
+      return NextResponse.json({ error: errorMsg, ac: [], count: 0 }, { status: 200, headers: CORS_HEADERS });
     }
 
     const data = await resp.json();
@@ -83,9 +80,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
-    return NextResponse.json(
-      { error: message, ac: [], count: 0 },
-      { status: 200, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: message, ac: [], count: 0 }, { status: 200, headers: CORS_HEADERS });
   }
 }

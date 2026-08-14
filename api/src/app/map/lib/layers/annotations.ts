@@ -40,9 +40,13 @@ export function saveAnnotations(annotations: Annotation[]): void {
 export function renderAnnotations(map: maplibregl.Map, annotations: Annotation[]): void {
   // Remove existing layers/sources
   ["annotations-fill", "annotations-line", "annotations-point", "annotations-circle"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("annotations"); } catch {}
+  try {
+    map.removeSource("annotations");
+  } catch {}
 
   if (annotations.length === 0) return;
 
@@ -139,9 +143,13 @@ export function renderAnnotations(map: maplibregl.Map, annotations: Annotation[]
 
 export function removeAnnotations(map: maplibregl.Map): void {
   ["annotations-point", "annotations-circle", "annotations-line", "annotations-fill"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("annotations"); } catch {}
+  try {
+    map.removeSource("annotations");
+  } catch {}
 }
 
 export { randomColor, uid };

@@ -31,6 +31,10 @@ export function addDisturbanceAlerts(map: maplibregl.Map, handle: LayerHandle): 
 }
 
 export function removeDisturbanceAlerts(map: maplibregl.Map): void {
-  try { map.removeLayer("disturbance-alerts-raster"); } catch {}
-  try { map.removeSource("disturbance-alerts"); } catch {}
+  try {
+    map.removeLayer("disturbance-alerts-raster");
+  } catch {}
+  try {
+    map.removeSource("disturbance-alerts");
+  } catch {}
 }

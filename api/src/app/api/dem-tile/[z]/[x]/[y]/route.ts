@@ -67,9 +67,7 @@ const DEM_CACHE_NAMESPACE = "dem-tiles-v1";
  * Get cached tile from Cloudflare Cache API.
  * Returns null on miss or if Cache API unavailable.
  */
-async function getCfCacheTile(
-  z: number, x: number, y: number, format: Format,
-): Promise<ArrayBuffer | null> {
+async function getCfCacheTile(z: number, x: number, y: number, format: Format): Promise<ArrayBuffer | null> {
   if (typeof caches === "undefined") return null;
 
   try {
@@ -98,9 +96,7 @@ async function getCfCacheTile(
 /**
  * Store tile in Cloudflare Cache API for fast edge retrieval.
  */
-async function putCfCacheTile(
-  z: number, x: number, y: number, data: ArrayBuffer, format: Format,
-): Promise<void> {
+async function putCfCacheTile(z: number, x: number, y: number, data: ArrayBuffer, format: Format): Promise<void> {
   if (typeof caches === "undefined") return;
 
   try {
@@ -133,10 +129,7 @@ export async function OPTIONS() {
   return corsPreflightResponse();
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ z: string; x: string; y: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
   // Strip .png extension from y parameter (Next.js includes it in the catch-all)

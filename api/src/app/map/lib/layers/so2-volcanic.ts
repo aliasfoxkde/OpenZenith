@@ -31,6 +31,10 @@ export function addSo2Volcanic(map: maplibregl.Map, handle: LayerHandle): void {
 }
 
 export function removeSo2Volcanic(map: maplibregl.Map): void {
-  try { map.removeLayer("so2-volcanic-raster"); } catch {}
-  try { map.removeSource("so2-volcanic"); } catch {}
+  try {
+    map.removeLayer("so2-volcanic-raster");
+  } catch {}
+  try {
+    map.removeSource("so2-volcanic");
+  } catch {}
 }

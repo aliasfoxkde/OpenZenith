@@ -21,6 +21,10 @@ export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
 }
 
 export function removeHillshade(map: maplibregl.Map): void {
-  try { map.removeLayer("hillshade-base"); } catch {}
-  try { map.removeLayer("hillshade-detail"); } catch {}
+  try {
+    map.removeLayer("hillshade-base");
+  } catch {}
+  try {
+    map.removeLayer("hillshade-detail");
+  } catch {}
 }

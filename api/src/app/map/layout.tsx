@@ -7,7 +7,8 @@ export const metadata: Metadata = {
     "Interactive 2D map with 37 data layers: terrain elevation, earthquakes, flights, satellites, hurricanes, wildfires, weather radar, and more. Powered by MapLibre GL.",
   openGraph: {
     title: "OpenZenith 2D Map — 37 Real-Time Data Layers",
-    description: "Explore the world with terrain elevation, earthquakes, flights, satellites, and 33 more live data layers on an interactive map.",
+    description:
+      "Explore the world with terrain elevation, earthquakes, flights, satellites, and 33 more live data layers on an interactive map.",
   },
 };
 

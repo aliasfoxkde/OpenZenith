@@ -25,7 +25,8 @@ const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium
 
 export interface PointElevationResult {
   elevation: number;
-  surfaceType: "land" | "ocean";
+  surfaceType: "land" | "inland_water" | "unknown";
+  source: "srtm" | "aws";
   tile: string;
 }
 
@@ -100,7 +101,8 @@ export async function getPointElevation(
 
   return {
     elevation,
-    surfaceType: elevation < 0 ? "ocean" : "land",
+    surfaceType: "land" as const, // SRTM is land elevation — valid negative values (e.g. Dead Sea) are still land
+    source: "srtm" as const,
     tile: srtmName.replace(".tif", ""),
   };
 }
@@ -109,7 +111,7 @@ export async function getPointElevation(
  * Fallback point elevation from AWS Terrain Tiles.
  * Decodes a z13 Terrarium PNG tile and samples the pixel at the given lat/lon.
  */
-async function getPointElevationFromAWS(lat: number, lon: number): Promise<PointElevationResult | null> {
+async function getPointElevationFromAWS(lat: number, lon: number): Promise<Omit<PointElevationResult, "source"> & { source: "aws" } | null> {
   try {
     // Use z13 for ~10m resolution
     const n = Math.pow(2, 13);
@@ -253,7 +255,8 @@ async function getPointElevationFromAWS(lat: number, lon: number): Promise<Point
 
     return {
       elevation,
-      surfaceType: elevation < 0 ? "ocean" : "land",
+      surfaceType: "land" as const, // AWS Terrain Tiles are land elevation
+      source: "aws" as const,
       tile: `AWS-z13-${tileX}-${tileY}`,
     };
   } catch {

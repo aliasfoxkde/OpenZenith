@@ -42,10 +42,7 @@ export interface GIBSLayerConfig {
 export function createGIBSHandler(config: GIBSLayerConfig) {
   const { layer, cachePrefix, minZoom, maxZoom, cacheTtl } = config;
 
-  return async function GET(
-    _request: Request,
-    { params }: { params: Promise<{ z: string; x: string; y: string }> },
-  ) {
+  return async function GET(_request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
     const { z, x, y } = await params;
     const zoom = parseInt(z, 10);
     const tileX = parseInt(x, 10);

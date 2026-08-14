@@ -19,20 +19,8 @@ import { useEffect, useRef, useState } from "react";
 // ─── Types (mirroring wasm.rs) ────────────────────────────────────────────────
 
 interface WasmExports {
-  d8_flow_direction_wasm: (
-    demPtr: number,
-    len: number,
-    rows: number,
-    cols: number,
-    nodata: number
-  ) => number;
-  flow_accumulation_wasm: (
-    fdPtr: number,
-    len: number,
-    rows: number,
-    cols: number,
-    nodataDir: number
-  ) => number;
+  d8_flow_direction_wasm: (demPtr: number, len: number, rows: number, cols: number, nodata: number) => number;
+  flow_accumulation_wasm: (fdPtr: number, len: number, rows: number, cols: number, nodataDir: number) => number;
   gradient_reconstruct_wasm: (
     residualsPtr: number,
     len: number,
@@ -40,7 +28,7 @@ interface WasmExports {
     width: number,
     nodata: number,
     dequantMin: number,
-    dequantScale: number
+    dequantScale: number,
   ) => number;
   viewshed_wasm: (
     demPtr: number,
@@ -51,9 +39,12 @@ interface WasmExports {
     observerCol: number,
     observerHeight: number,
     cellSize: number,
-    nodata: number
+    nodata: number,
   ) => number;
-  decode_ozt2: (tileBytes: Uint8Array, decompressFn: (bytes: Uint8Array, codec: string) => Uint8Array) => {
+  decode_ozt2: (
+    tileBytes: Uint8Array,
+    decompressFn: (bytes: Uint8Array, codec: string) => Uint8Array,
+  ) => {
     elevations: Uint16Array;
     metadata: Record<string, unknown>;
   };
@@ -111,7 +102,7 @@ async function loadWasm(): Promise<WasmExports> {
   const init = initModule.default as (module_or_path?: Request | URL | string | ArrayBuffer) => Promise<WasmExports>;
   // ~ prefix resolves via webpack — use fetchable URL so init loads from same dir
   const wasmUrl = new URL("/pkg/openzenith_core_bg.wasm", window.location.origin);
-  return await init(wasmUrl) as WasmExports;
+  return (await init(wasmUrl)) as WasmExports;
 }
 
 /** Copy a Float32Array into WASM linear memory, return pointer + length. */
@@ -153,11 +144,11 @@ const FLOW_PALETTE: [number, number, number][] = [
   [255, 255, 255], // 0  E
   [200, 200, 255], // 1  E
   [100, 200, 255], // 2  SE
-  [50, 150, 255],  // 3  S
-  [50, 255, 200],  // 4  SW
+  [50, 150, 255], // 3  S
+  [50, 255, 200], // 4  SW
   [100, 255, 100], // 5  W
-  [255, 255, 50],   // 6  NW
-  [255, 150, 50],   // 7  N
+  [255, 255, 50], // 6  NW
+  [255, 150, 50], // 7  N
 ];
 
 function flowDirColour(d: number): [number, number, number] {
@@ -225,7 +216,7 @@ function renderDEM(
   cols: number,
   minE: number,
   maxE: number,
-  highlightCell?: [number, number]
+  highlightCell?: [number, number],
 ) {
   const ctx = canvas.getContext("2d")!;
   canvas.width = cols;
@@ -438,7 +429,7 @@ export default function WasmDemo() {
       const decodedElevs = result.elevations as unknown as Uint16Array;
       setOzeTileInfo(
         `Decoded ${W}×${H} tile in ${ms.toFixed(1)}ms — ` +
-          `range: [${decodedElevs[0]}, ${Math.max(...decodedElevs)}]m`
+          `range: [${decodedElevs[0]}, ${Math.max(...decodedElevs)}]m`,
       );
       results.push({ label: `OZT2 decode ${W}×${H}`, ms });
     }
@@ -491,7 +482,8 @@ export default function WasmDemo() {
 
       <h2>D8 Flow Direction (3×3 pit DEM)</h2>
       <p style={{ fontSize: "0.8em", color: "#666" }}>
-        Direction colours: White=E, LightBlue=SE, Cyan=S, Green=SW, Lime=W, Yellow=NW, Orange=N, Red=NE. Pit cell (top-left) = black.
+        Direction colours: White=E, LightBlue=SE, Cyan=S, Green=SW, Lime=W, Yellow=NW, Orange=N, Red=NE. Pit cell
+        (top-left) = black.
       </p>
       <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
         <canvas ref={canvasD8} style={{ imageRendering: "pixelated" }} />
@@ -522,7 +514,7 @@ export default function WasmDemo() {
 
       <h2>Exported Functions</h2>
       <pre style={{ background: "#f5f5f5", padding: "1rem", overflowX: "auto", fontSize: "0.8em" }}>
-{`// Load WASM from CDN
+        {`// Load WASM from CDN
 import init from '@/lib/wasm/openzenith_core.js';
 const wasm = await init('/pkg/openzenith_core_bg.wasm');
 

@@ -33,25 +33,22 @@ export function HeroParticles({ dark, width, height }: Props) {
   const particlesRef = useRef<Particle[]>([]);
   const color = dark ? "0, 229, 255" : "0, 100, 180"; // cyan in dark, deep blue in light
 
-  const initParticles = useCallback(
-    (w: number, h: number) => {
-      const particles: Particle[] = [];
-      for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const baseAlpha = 0.15 + Math.random() * 0.35;
-        particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vx: (Math.random() - 0.5) * 0.6,
-          vy: (Math.random() - 0.5) * 0.6,
-          radius: 1 + Math.random() * 2,
-          alpha: baseAlpha,
-          baseAlpha,
-        });
-      }
-      particlesRef.current = particles;
-    },
-    [],
-  );
+  const initParticles = useCallback((w: number, h: number) => {
+    const particles: Particle[] = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const baseAlpha = 0.15 + Math.random() * 0.35;
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.6,
+        vy: (Math.random() - 0.5) * 0.6,
+        radius: 1 + Math.random() * 2,
+        alpha: baseAlpha,
+        baseAlpha,
+      });
+    }
+    particlesRef.current = particles;
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;

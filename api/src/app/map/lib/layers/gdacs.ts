@@ -28,7 +28,11 @@ export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeGdacs(map: maplibregl.Map): void {
   ["gdacs-glow", "gdacs-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("gdacs"); } catch {}
+  try {
+    map.removeSource("gdacs");
+  } catch {}
 }

@@ -6,7 +6,8 @@ export const metadata: Metadata = {
     "Geospatial studio with drawing tools, geocoding, OSM Overpass queries, NWS weather alerts, and elevation analysis on an interactive map.",
   openGraph: {
     title: "OpenZenith Geospatial Studio",
-    description: "Draw polygons, query OSM data, analyze elevation profiles, and explore weather alerts on an interactive map.",
+    description:
+      "Draw polygons, query OSM data, analyze elevation profiles, and explore weather alerts on an interactive map.",
   },
 };
 

@@ -53,6 +53,10 @@ export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): v
 }
 
 export function removeSatelliteImagery(map: maplibregl.Map): void {
-  try { map.removeLayer("satellite-imagery"); } catch {}
-  try { map.removeSource("satellite-imagery"); } catch {}
+  try {
+    map.removeLayer("satellite-imagery");
+  } catch {}
+  try {
+    map.removeSource("satellite-imagery");
+  } catch {}
 }

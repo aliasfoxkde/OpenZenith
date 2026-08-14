@@ -20,6 +20,16 @@ const eslintConfig = [
       "no-empty": ["error", { allowEmptyCatch: true }],
       // Disable strict render rules for page components (refactoring needed separately)
       "react-hooks/exhaustive-deps": "off",
+      // React Hooks 7 enables React Compiler migration rules in its recommended
+      // preset. These rules currently flag established imperative MapLibre,
+      // Cesium, and WASM integrations that are intentionally ref-backed. Keep
+      // the conventional Hooks correctness rules enabled, while tracking the
+      // compiler migration separately instead of making CI unusable.
+      "react-hooks/immutability": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/set-state-in-effect": "off",
     },
   },
   {

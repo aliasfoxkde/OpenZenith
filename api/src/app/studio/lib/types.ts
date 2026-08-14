@@ -1,4 +1,5 @@
-export type ToolTab = "elevation" | "geocode" | "overpass" | "weather" | "data" | "layers" | "draw" | "tiles" | "flowpath";
+export type ToolTab =
+  "elevation" | "geocode" | "overpass" | "weather" | "data" | "layers" | "draw" | "tiles" | "flowpath";
 
 export interface StudioState {
   activeTab: ToolTab;

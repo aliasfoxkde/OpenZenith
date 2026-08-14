@@ -31,7 +31,18 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
 
   if (fullTrack) {
     // Return full track polylines (MultiLineString per storm)
-    const stormTracks = new Map<string, { coords: number[][]; times: string[]; winds: number[]; name: string; season: string; basin: string; nature: string }>();
+    const stormTracks = new Map<
+      string,
+      {
+        coords: number[][];
+        times: string[];
+        winds: number[];
+        name: string;
+        season: string;
+        basin: string;
+        nature: string;
+      }
+    >();
 
     for (let i = 2; i < lines.length; i++) {
       const cols = lines[i].split(",");
@@ -48,7 +59,9 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
 
       if (!stormTracks.has(sid)) {
         stormTracks.set(sid, {
-          coords: [], times: [], winds: [],
+          coords: [],
+          times: [],
+          winds: [],
           name: cols[nameIdx]?.trim() || "UNNAMED",
           season: cols[seasonIdx]?.trim() || "",
           basin: cols[basinIdx]?.trim() || "",
@@ -91,9 +104,19 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
           pressure: null,
           category,
           categoryLabel:
-            category >= 5 ? "Cat 5" : category >= 4 ? "Cat 4" : category >= 3 ? "Cat 3"
-            : category >= 2 ? "Cat 2" : category >= 1 ? "Cat 1"
-            : category === -1 ? "Tropical Storm" : "Tropical Depression",
+            category >= 5
+              ? "Cat 5"
+              : category >= 4
+                ? "Cat 4"
+                : category >= 3
+                  ? "Cat 3"
+                  : category >= 2
+                    ? "Cat 2"
+                    : category >= 1
+                      ? "Cat 1"
+                      : category === -1
+                        ? "Tropical Storm"
+                        : "Tropical Depression",
           isoTime: track.times[track.times.length - 1],
           trackPoints: track.coords.length,
           times: track.times,
@@ -195,7 +218,10 @@ export async function GET(request: NextRequest) {
 
   try {
     // Try R2 cache first
-    const cacheKey = apiCacheKey("hurricanes", { active: activeOnly ? "true" : "false", track: fullTrack ? "full" : "latest" });
+    const cacheKey = apiCacheKey("hurricanes", {
+      active: activeOnly ? "true" : "false",
+      track: fullTrack ? "full" : "latest",
+    });
     const cached = await r2GetJson(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {

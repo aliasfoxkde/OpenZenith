@@ -31,14 +31,19 @@ function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: 
     for (let c = 0; c < cols; c++) {
       const idx = r * cols + c;
       if (dem[idx] <= nodata) continue;
-      let maxSlope = 0, bestDir = -1;
+      let maxSlope = 0,
+        bestDir = -1;
       for (let d = 0; d < 8; d++) {
-        const nr = r + D8_DR[d], nc = c + D8_DC[d];
+        const nr = r + D8_DR[d],
+          nc = c + D8_DC[d];
         if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
         const nIdx = nr * cols + nc;
         if (dem[nIdx] <= nodata) continue;
         const slope = (dem[idx] - dem[nIdx]) / DIST[d];
-        if (slope > maxSlope) { maxSlope = slope; bestDir = d; }
+        if (slope > maxSlope) {
+          maxSlope = slope;
+          bestDir = d;
+        }
       }
       flowDir[idx] = bestDir;
     }
@@ -48,7 +53,8 @@ function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: 
 
 function flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint32Array {
   const accum = new Uint32Array(rows * cols).fill(1);
-  let changed = true, iter = 0;
+  let changed = true,
+    iter = 0;
   while (changed && iter++ < rows * cols) {
     changed = false;
     for (let r = 0; r < rows; r++) {
@@ -56,11 +62,15 @@ function flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint3
         const idx = r * cols + c;
         const d = flowDir[idx];
         if (d === -1) continue;
-        const nr = r + D8_DR[d], nc = c + D8_DC[d];
+        const nr = r + D8_DR[d],
+          nc = c + D8_DC[d];
         if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
         const nIdx = nr * cols + nc;
         const newVal = accum[idx] + (accum[nIdx] > 0 ? 1 : 0);
-        if (newVal > accum[nIdx]) { accum[nIdx] = newVal; changed = true; }
+        if (newVal > accum[nIdx]) {
+          accum[nIdx] = newVal;
+          changed = true;
+        }
       }
     }
   }
@@ -72,16 +82,34 @@ function computeSlope(dem: Float32Array, rows: number, cols: number, cellSizeM: 
   for (let r = 1; r < rows - 1; r++) {
     for (let c = 1; c < cols - 1; c++) {
       const idx = r * cols + c;
-      if (dem[idx] <= nodata) { result[idx] = NaN; continue; }
-      const a = dem[(r-1)*cols+(c-1)], b = dem[(r-1)*cols+c], c_ = dem[(r-1)*cols+(c+1)];
-      const d = dem[r*cols+(c-1)], f = dem[r*cols+(c+1)];
-      const g = dem[(r+1)*cols+(c-1)], h = dem[(r+1)*cols+c], i = dem[(r+1)*cols+(c+1)];
-      if (a<=nodata||b<=nodata||c_<=nodata||d<=nodata||f<=nodata||g<=nodata||h<=nodata||i<=nodata) {
-        result[idx] = NaN; continue;
+      if (dem[idx] <= nodata) {
+        result[idx] = NaN;
+        continue;
       }
-      const dzDx = ((c_+2*f+i)-(a+2*d+g))/(8*cellSizeM);
-      const dzDy = ((a+2*b+c_)-(g+2*h+i))/(8*cellSizeM);
-      result[idx] = Math.atan(Math.sqrt(dzDx*dzDx+dzDy*dzDy))*180/Math.PI;
+      const a = dem[(r - 1) * cols + (c - 1)],
+        b = dem[(r - 1) * cols + c],
+        c_ = dem[(r - 1) * cols + (c + 1)];
+      const d = dem[r * cols + (c - 1)],
+        f = dem[r * cols + (c + 1)];
+      const g = dem[(r + 1) * cols + (c - 1)],
+        h = dem[(r + 1) * cols + c],
+        i = dem[(r + 1) * cols + (c + 1)];
+      if (
+        a <= nodata ||
+        b <= nodata ||
+        c_ <= nodata ||
+        d <= nodata ||
+        f <= nodata ||
+        g <= nodata ||
+        h <= nodata ||
+        i <= nodata
+      ) {
+        result[idx] = NaN;
+        continue;
+      }
+      const dzDx = (c_ + 2 * f + i - (a + 2 * d + g)) / (8 * cellSizeM);
+      const dzDy = (a + 2 * b + c_ - (g + 2 * h + i)) / (8 * cellSizeM);
+      result[idx] = (Math.atan(Math.sqrt(dzDx * dzDx + dzDy * dzDy)) * 180) / Math.PI;
     }
   }
   return result;
@@ -139,7 +167,9 @@ export async function POST(request: NextRequest) {
         try {
           const tile = await getTileData(zoom, tx, ty, HF_BACKEND);
           tileDataMap.set(key, tile.data);
-        } catch { /* unavailable */ }
+        } catch {
+          /* unavailable */
+        }
       }
     }
 
@@ -152,18 +182,28 @@ export async function POST(request: NextRequest) {
         const tileY = Math.floor(globalY / 256);
         const key = `${tileX}/${tileY}`;
         const tile = tileDataMap.get(key);
-        if (!tile) { dem[r * gridCols + c] = NODATA; continue; }
+        if (!tile) {
+          dem[r * gridCols + c] = NODATA;
+          continue;
+        }
         const px = globalX - tileX * 256;
         const py = globalY - tileY * 256;
         const x0 = Math.max(0, Math.min(255, px));
         const y0 = Math.max(0, Math.min(255, py));
         const x1 = Math.min(255, x0 + 1);
         const y1 = Math.min(255, y0 + 1);
-        const fx = px - x0, fy = py - y0;
+        const fx = px - x0,
+          fy = py - y0;
         const w = 256;
-        const h00 = tile[y0*w+x0], h10 = tile[y0*w+x1], h01 = tile[y1*w+x0], h11 = tile[y1*w+x1];
-        if (h00===NODATA&&h10===NODATA&&h01===NODATA&&h11===NODATA) { dem[r*gridCols+c]=NODATA; continue; }
-        dem[r*gridCols+c] = h00*(1-fx)*(1-fy)+h10*fx*(1-fy)+h01*(1-fx)*fy+h11*fx*fy;
+        const h00 = tile[y0 * w + x0],
+          h10 = tile[y0 * w + x1],
+          h01 = tile[y1 * w + x0],
+          h11 = tile[y1 * w + x1];
+        if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) {
+          dem[r * gridCols + c] = NODATA;
+          continue;
+        }
+        dem[r * gridCols + c] = h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
       }
     }
 
@@ -180,16 +220,20 @@ export async function POST(request: NextRequest) {
         continue;
       }
       const sca = accum[i] * cellArea;
-      const slopeRad = slope[i] * Math.PI / 180;
+      const slopeRad = (slope[i] * Math.PI) / 180;
       twiGrid[i] = Math.log(sca / Math.tan(slopeRad));
     }
 
-    let sum = 0, count = 0, min = Infinity, max = -Infinity;
+    let sum = 0,
+      count = 0,
+      min = Infinity,
+      max = -Infinity;
     const vals: number[] = [];
     for (let i = 0; i < twiGrid.length; i++) {
       const v = twiGrid[i];
       if (!isNaN(v) && isFinite(v)) {
-        sum += v; count++;
+        sum += v;
+        count++;
         if (v < min) min = v;
         if (v > max) max = v;
         vals.push(v);
@@ -197,9 +241,8 @@ export async function POST(request: NextRequest) {
     }
     const mean = count > 0 ? sum / count : 0;
     const sorted = vals.sort((a, b) => a - b);
-    const median = count > 0
-      ? count % 2 ? sorted[Math.floor(count/2)] : (sorted[count/2-1] + sorted[count/2]) / 2
-      : 0;
+    const median =
+      count > 0 ? (count % 2 ? sorted[Math.floor(count / 2)] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2) : 0;
 
     const ds = radius > 100 ? 4 : radius > 50 ? 2 : 1;
     const sampledGrid: (number | null)[][] = [];
@@ -212,23 +255,29 @@ export async function POST(request: NextRequest) {
       sampledGrid.push(row);
     }
 
-    return NextResponse.json({
-      center: { lat, lon },
-      radius_cells: radius,
-      zoom,
-      cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
-      stats: count > 0 ? {
-        mean: Math.round(mean * 100) / 100,
-        median: Math.round(median * 100) / 100,
-        min: Math.round(min * 100) / 100,
-        max: Math.round(max * 100) / 100,
-        count,
-      } : null,
-      grid: sampledGrid,
-      units: "ln(m)",
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+    return NextResponse.json(
+      {
+        center: { lat, lon },
+        radius_cells: radius,
+        zoom,
+        cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
+        stats:
+          count > 0
+            ? {
+                mean: Math.round(mean * 100) / 100,
+                median: Math.round(median * 100) / 100,
+                min: Math.round(min * 100) / 100,
+                max: Math.round(max * 100) / 100,
+                count,
+              }
+            : null,
+        grid: sampledGrid,
+        units: "ln(m)",
+      },
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

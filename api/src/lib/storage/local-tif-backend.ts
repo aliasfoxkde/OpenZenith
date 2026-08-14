@@ -24,9 +24,7 @@
  * 256×256 Int16 chunk compatible with what client-elevation.ts expects.
  */
 export class LocalTifBackend {
-  constructor(
-    private dataDir: string = "/nas/Temp/repos/OpenZenith/data/srtm30m",
-  ) {}
+  constructor(private dataDir: string = "/nas/Temp/repos/OpenZenith/data/srtm30m") {}
 
   /**
    * Fetch one 256×256 sub-tile chunk from a local SRTM .tif file.
@@ -62,7 +60,7 @@ export class LocalTifBackend {
       for (let i = 0; i < numEntries; i++) {
         const b = IFD_START + i * 12;
         const tag = isLE ? buf[b] | (buf[b + 1] << 8) : (buf[b] << 8) | buf[b + 1];
-        const type = isLE ? buf[b + 2] | (buf[b + 3] << 8) : (buf[b + 2] << 8) | buf[b + 3];
+        const _type = isLE ? buf[b + 2] | (buf[b + 3] << 8) : (buf[b + 2] << 8) | buf[b + 3];
         const count = readU32(b + 4);
         const val = readU32(b + 8);
         if (tag === 256) width = count === 1 ? val : 0;
@@ -92,8 +90,7 @@ export class LocalTifBackend {
       if (tileIndex < 0 || tileIndex >= tileOffsets.length) return new ArrayBuffer(0);
 
       const tileOffset = tileOffsets[tileIndex];
-      const nextTileOffset =
-        tileIndex + 1 < tileOffsets.length ? tileOffsets[tileIndex + 1] : buf.length;
+      const nextTileOffset = tileIndex + 1 < tileOffsets.length ? tileOffsets[tileIndex + 1] : buf.length;
 
       // Deflate-decompress this tile (self-terminating stream)
       const compressed = buf.subarray(tileOffset, nextTileOffset);

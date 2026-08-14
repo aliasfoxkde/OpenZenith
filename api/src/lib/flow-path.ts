@@ -35,9 +35,7 @@ export function calculateSphereDirections(
     const sinRadius = Math.sin(radiusDeg);
     const cosRadius = Math.cos(radiusDeg);
 
-    const lat = Math.asin(
-      sinCenterLat * cosRadius + cosCenterLat * sinRadius * Math.cos(angleRad),
-    );
+    const lat = Math.asin(sinCenterLat * cosRadius + cosCenterLat * sinRadius * Math.cos(angleRad));
 
     const lonOffset = Math.atan2(
       Math.sin(angleRad) * sinRadius * cosCenterLat,
@@ -404,10 +402,7 @@ export interface FlowPathGeoJSON {
 /**
  * Convert a FlowPathResult to a GeoJSON Feature with properties.
  */
-export function flowPathToGeoJSON(
-  result: FlowPathResult,
-  mode: "downstream" | "upstream",
-): FlowPathGeoJSON {
+export function flowPathToGeoJSON(result: FlowPathResult, mode: "downstream" | "upstream"): FlowPathGeoJSON {
   const totalDist = computeTotalDistance(result);
   const minElev = result.elevations.length > 0 ? Math.min(...result.elevations) : 0;
   const maxElev = result.elevations.length > 0 ? Math.max(...result.elevations) : 0;

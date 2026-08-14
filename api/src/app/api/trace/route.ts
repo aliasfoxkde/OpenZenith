@@ -76,7 +76,9 @@ export async function POST(request: NextRequest) {
         try {
           const tile = await getTileData(z, tx, ty, HF_BACKEND);
           tileDataMap.set(key, tile.data);
-        } catch { /* unavailable */ }
+        } catch {
+          /* unavailable */
+        }
       }
     }
 
@@ -95,7 +97,8 @@ export async function POST(request: NextRequest) {
       const y0 = Math.max(0, Math.min(255, Math.floor(py)));
       const x1 = Math.min(255, x0 + 1);
       const y1 = Math.min(255, y0 + 1);
-      const fx = px - x0, fy = py - y0;
+      const fx = px - x0,
+        fy = py - y0;
 
       const h00 = tile[y0 * 256 + x0];
       const h10 = tile[y0 * 256 + x1];
@@ -121,7 +124,8 @@ export async function POST(request: NextRequest) {
       const y0 = Math.max(0, Math.min(255, Math.floor(py)));
       const x1 = Math.min(255, x0 + 1);
       const y1 = Math.min(255, y0 + 1);
-      const fx = px - x0, fy = py - y0;
+      const fx = px - x0,
+        fy = py - y0;
 
       const h00 = tile[y0 * 256 + x0];
       const h10 = tile[y0 * 256 + x1];
@@ -131,29 +135,43 @@ export async function POST(request: NextRequest) {
       if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return null;
       const centerElev = h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
 
-      let bestDir = -1, bestDrop = 0;
+      let bestDir = -1,
+        bestDrop = 0;
       for (let d = 0; d < 8; d++) {
         const stepLat = cellSizeDeg * D8_DR[d];
-        const stepLon = cellSizeDeg * D8_DC[d] / Math.cos(latPt * Math.PI / 180);
+        const stepLon = (cellSizeDeg * D8_DC[d]) / Math.cos((latPt * Math.PI) / 180);
         const neighborLat = latPt + stepLat;
         const neighborLon = lonPt + stepLon;
 
-        const nKey = `${Math.floor(((neighborLon + 180) / 360) * n2)}/${Math.floor(((1 - Math.log(Math.tan(neighborLat * Math.PI / 180) + 1 / Math.cos(neighborLat * Math.PI / 180)) / Math.PI) / 2) * n2)}`;
+        const nKey = `${Math.floor(((neighborLon + 180) / 360) * n2)}/${Math.floor(((1 - Math.log(Math.tan((neighborLat * Math.PI) / 180) + 1 / Math.cos((neighborLat * Math.PI) / 180)) / Math.PI) / 2) * n2)}`;
         const nTile = tileDataMap.get(nKey);
         if (!nTile) continue;
 
         const npx = ((neighborLon + 180) / 360) * n2 * 256 - parseInt(nKey.split("/")[0]) * 256;
-        const npy = ((1 - Math.log(Math.tan(neighborLat * Math.PI / 180) + 1 / Math.cos(neighborLat * Math.PI / 180)) / Math.PI) / 2) * n2 * 256 - parseInt(nKey.split("/")[1]) * 256;
+        const npy =
+          ((1 -
+            Math.log(Math.tan((neighborLat * Math.PI) / 180) + 1 / Math.cos((neighborLat * Math.PI) / 180)) / Math.PI) /
+            2) *
+            n2 *
+            256 -
+          parseInt(nKey.split("/")[1]) * 256;
         const nx0 = Math.max(0, Math.min(255, Math.floor(npx)));
         const ny0 = Math.max(0, Math.min(255, Math.floor(npy)));
-        const nx1 = Math.min(255, nx0 + 1), ny1 = Math.min(255, ny0 + 1);
-        const nfx = npx - nx0, nfy = npy - ny0;
-        const nh00 = nTile[ny0 * 256 + nx0], nh10 = nTile[ny0 * 256 + nx1];
-        const nh01 = nTile[ny1 * 256 + nx0], nh11 = nTile[ny1 * 256 + nx1];
+        const nx1 = Math.min(255, nx0 + 1),
+          ny1 = Math.min(255, ny0 + 1);
+        const nfx = npx - nx0,
+          nfy = npy - ny0;
+        const nh00 = nTile[ny0 * 256 + nx0],
+          nh10 = nTile[ny0 * 256 + nx1];
+        const nh01 = nTile[ny1 * 256 + nx0],
+          nh11 = nTile[ny1 * 256 + nx1];
         if (nh00 === NODATA && nh10 === NODATA && nh01 === NODATA && nh11 === NODATA) continue;
         const nElev = nh00 * (1 - nfx) * (1 - nfy) + nh10 * nfx * (1 - nfy) + nh01 * (1 - nfx) * nfy + nh11 * nfx * nfy;
         const drop = centerElev - nElev;
-        if (drop > bestDrop) { bestDrop = drop; bestDir = d; }
+        if (drop > bestDrop) {
+          bestDrop = drop;
+          bestDir = d;
+        }
       }
       if (bestDir === -1) return null;
       return { dir: bestDir, elev: centerElev, lat: latPt, lon: lonPt };
@@ -161,17 +179,20 @@ export async function POST(request: NextRequest) {
 
     function haversineDistance(latA: number, lonA: number, latB: number, lonB: number): number {
       const R = 6371000;
-      const dLat = (latB - latA) * Math.PI / 180;
-      const dLon = (lonB - lonA) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(latA * Math.PI / 180) * Math.cos(latB * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
+      const dLat = ((latB - latA) * Math.PI) / 180;
+      const dLon = ((lonB - lonA) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((latA * Math.PI) / 180) * Math.cos((latB * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     const startElev = sampleElevation(lat, lon);
     if (startElev <= NODATA) {
-      return NextResponse.json({ error: "No elevation data at starting point" }, { status: 400, headers: CORS_HEADERS });
+      return NextResponse.json(
+        { error: "No elevation data at starting point" },
+        { status: 400, headers: CORS_HEADERS },
+      );
     }
 
     const path: [number, number][] = [[Math.round(lat * 1e6) / 1e6, Math.round(lon * 1e6) / 1e6]];
@@ -188,7 +209,7 @@ export async function POST(request: NextRequest) {
 
       const stepDeg = cellSizeDeg * D8_DIST[result.dir];
       const stepLat = stepDeg * D8_DR[result.dir];
-      const stepLon = stepDeg * D8_DC[result.dir] / Math.cos(currentLat * Math.PI / 180);
+      const stepLon = (stepDeg * D8_DC[result.dir]) / Math.cos((currentLat * Math.PI) / 180);
 
       currentLat += stepLat;
       currentLon += stepLon;
@@ -204,31 +225,34 @@ export async function POST(request: NextRequest) {
       if (newElev <= 0) break; // reached ocean
     }
 
-    return NextResponse.json({
-      start: [lat, lon],
-      end: [currentLat, currentLon],
-      start_elev: elevations[0],
-      end_elev: elevations[elevations.length - 1],
-      total_distance: Math.round(totalDist),
-      steps: path.length - 1,
-      path,
-      elevations,
-      distances,
-      geojson: {
-        type: "Feature",
-        geometry: { type: "LineString", coordinates: path },
-        properties: {
-          start: [lat, lon],
-          end: [currentLat, currentLon],
-          start_elev: elevations[0],
-          end_elev: elevations[elevations.length - 1],
-          total_distance: Math.round(totalDist),
-          steps: path.length - 1,
+    return NextResponse.json(
+      {
+        start: [lat, lon],
+        end: [currentLat, currentLon],
+        start_elev: elevations[0],
+        end_elev: elevations[elevations.length - 1],
+        total_distance: Math.round(totalDist),
+        steps: path.length - 1,
+        path,
+        elevations,
+        distances,
+        geojson: {
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: path },
+          properties: {
+            start: [lat, lon],
+            end: [currentLat, currentLon],
+            start_elev: elevations[0],
+            end_elev: elevations[elevations.length - 1],
+            total_distance: Math.round(totalDist),
+            steps: path.length - 1,
+          },
         },
       },
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

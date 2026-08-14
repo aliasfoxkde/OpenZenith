@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-
 describe("Flights API", () => {
   it("returns flight data from OpenSky", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

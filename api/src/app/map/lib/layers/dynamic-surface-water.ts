@@ -31,6 +31,10 @@ export function addDynamicSurfaceWater(map: maplibregl.Map, handle: LayerHandle)
 }
 
 export function removeDynamicSurfaceWater(map: maplibregl.Map): void {
-  try { map.removeLayer("dynamic-surface-water-raster"); } catch {}
-  try { map.removeSource("dynamic-surface-water"); } catch {}
+  try {
+    map.removeLayer("dynamic-surface-water-raster");
+  } catch {}
+  try {
+    map.removeSource("dynamic-surface-water");
+  } catch {}
 }

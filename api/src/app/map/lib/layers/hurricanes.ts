@@ -178,9 +178,13 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
 
 export function removeHurricaneTracks(map: maplibregl.Map): void {
   ["hurricanes-labels", "hurricanes-glow", "hurricanes-points", "hurricane-tracks"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("hurricanes"); } catch {}
+  try {
+    map.removeSource("hurricanes");
+  } catch {}
 }
 
 /* ─── Hurricane Animation ─── */
@@ -265,7 +269,9 @@ export function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle)
       .then((r) => r.json())
       .then((data) => {
         if (data?.features) {
-          try { (map.getSource("hurricanes") as any).setData(data); } catch {}
+          try {
+            (map.getSource("hurricanes") as any).setData(data);
+          } catch {}
         }
       })
       .catch(() => {});

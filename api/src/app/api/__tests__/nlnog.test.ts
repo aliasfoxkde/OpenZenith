@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-
 const mockNlnogNodes = [
   { id: 1, hostname: "ams01", asn: 123, ipv4: "1.2.3.4", city: "Amsterdam", countrycode: "NL", geo: "52.37,4.9" },
   { id: 2, hostname: "lon01", asn: 456, ipv4: "5.6.7.8", city: "London", countrycode: "GB", geo: "51.51,-0.13" },

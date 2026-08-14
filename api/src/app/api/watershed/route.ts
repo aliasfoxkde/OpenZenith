@@ -196,7 +196,10 @@ export async function POST(request: NextRequest) {
         const key = `${tileX}/${tileY}`;
         const tile = tileDataMap.get(key);
 
-        if (!tile) { dem[r * gridCols + c] = NODATA; continue; }
+        if (!tile) {
+          dem[r * gridCols + c] = NODATA;
+          continue;
+        }
 
         const px = globalX - tileX * 256;
         const py = globalY - tileY * 256;
@@ -226,14 +229,19 @@ export async function POST(request: NextRequest) {
     const centerCol = radius;
 
     // If center is nodata, find nearest valid cell
-    let cr = centerRow, cc = centerCol;
+    let cr = centerRow,
+      cc = centerCol;
     if (dem[cr * gridCols + cc] <= NODATA) {
       let bestDist = Infinity;
       for (let r = 0; r < gridRows; r++) {
         for (let c = 0; c < gridCols; c++) {
           if (dem[r * gridCols + c] > NODATA) {
             const d = Math.abs(r - centerRow) + Math.abs(c - centerCol);
-            if (d < bestDist) { bestDist = d; cr = r; cc = c; }
+            if (d < bestDist) {
+              bestDist = d;
+              cr = r;
+              cc = c;
+            }
           }
         }
       }
@@ -243,71 +251,79 @@ export async function POST(request: NextRequest) {
     const watershed = delineateWatershed(dem, flowDir, cr, cc, gridRows, gridCols);
 
     // Compute stats
-    const wsPixels = watershed.filter(v => v === 1).length;
-    const areaKm2 = wsPixels * (cellSizeM ** 2) / 1e6;
+    const wsPixels = watershed.filter((v) => v === 1).length;
+    const areaKm2 = (wsPixels * cellSizeM ** 2) / 1e6;
 
     const elevations: number[] = [];
     for (let i = 0; i < watershed.length; i++) {
       if (watershed[i] === 1 && dem[i] > NODATA) elevations.push(dem[i]);
     }
 
-    const validElevs = elevations.filter(e => e > NODATA);
+    const validElevs = elevations.filter((e) => e > NODATA);
     const minElev = validElevs.length > 0 ? Math.min(...validElevs) : null;
     const maxElev = validElevs.length > 0 ? Math.max(...validElevs) : null;
     const meanElev = validElevs.length > 0 ? validElevs.reduce((a, b) => a + b, 0) / validElevs.length : null;
 
-    const lonMin = (tileXMin * 256) / n * 360 - 180;
-    const lonMax = ((tileXMax + 1) * 256) / n * 360 - 180;
+    const lonMin = ((tileXMin * 256) / n) * 360 - 180;
+    const lonMax = (((tileXMax + 1) * 256) / n) * 360 - 180;
 
     // Build boundary GeoJSON
     const boundaryCoords: [number, number][] = [];
     for (let r = 0; r < gridRows; r++) {
       for (let c = 0; c < gridCols; c++) {
         if (watershed[r * gridCols + c] !== 1) continue;
-        const isEdge = [0, 1, 2, 3, 4, 5, 6, 7].some(d => {
+        const isEdge = [0, 1, 2, 3, 4, 5, 6, 7].some((d) => {
           const nr = r + D8_DR[d];
           const nc = c + D8_DC[d];
           return nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols || watershed[nr * gridCols + nc] !== 1;
         });
         if (isEdge) {
-          const latVal = (tileToLatLon(zoom, 0, tileYMin).north) - (r / gridRows) * (tileToLatLon(zoom, 0, tileYMin).north - tileToLatLon(zoom, 0, tileYMax + 1).south);
+          const latVal =
+            tileToLatLon(zoom, 0, tileYMin).north -
+            (r / gridRows) * (tileToLatLon(zoom, 0, tileYMin).north - tileToLatLon(zoom, 0, tileYMax + 1).south);
           const lonVal = lonMin + (c / gridCols) * (lonMax - lonMin);
           boundaryCoords.push([lonVal, latVal]);
         }
       }
     }
 
-    return NextResponse.json({
-      center: [lat, lon],
-      area_km2: Math.round(areaKm2 * 100) / 100,
-      pixels: wsPixels,
-      min_elev: minElev !== null ? Math.round(minElev) : null,
-      max_elev: maxElev !== null ? Math.round(maxElev) : null,
-      mean_elev: meanElev !== null ? Math.round(meanElev) : null,
-      zoom,
-      cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
-      boundary: boundaryCoords.slice(0, 2000),
-      geojson: {
-        type: "FeatureCollection",
-        features: [{
-          type: "Feature",
-          properties: {
-            area_km2: Math.round(areaKm2 * 100) / 100,
-            pixels: wsPixels,
-            min_elev: minElev !== null ? Math.round(minElev) : null,
-            max_elev: maxElev !== null ? Math.round(maxElev) : null,
-          },
-          geometry: {
-            type: boundaryCoords.length > 2 ? "Polygon" : "Point",
-            coordinates: boundaryCoords.length > 2
-              ? [[...boundaryCoords, boundaryCoords[0]]]
-              : boundaryCoords[0] ?? [lon, lat],
-          },
-        }],
+    return NextResponse.json(
+      {
+        center: [lat, lon],
+        area_km2: Math.round(areaKm2 * 100) / 100,
+        pixels: wsPixels,
+        min_elev: minElev !== null ? Math.round(minElev) : null,
+        max_elev: maxElev !== null ? Math.round(maxElev) : null,
+        mean_elev: meanElev !== null ? Math.round(meanElev) : null,
+        zoom,
+        cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
+        boundary: boundaryCoords.slice(0, 2000),
+        geojson: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: {
+                area_km2: Math.round(areaKm2 * 100) / 100,
+                pixels: wsPixels,
+                min_elev: minElev !== null ? Math.round(minElev) : null,
+                max_elev: maxElev !== null ? Math.round(maxElev) : null,
+              },
+              geometry: {
+                type: boundaryCoords.length > 2 ? "Polygon" : "Point",
+                coordinates:
+                  boundaryCoords.length > 2
+                    ? [[...boundaryCoords, boundaryCoords[0]]]
+                    : (boundaryCoords[0] ?? [lon, lat]),
+              },
+            },
+          ],
+        },
       },
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

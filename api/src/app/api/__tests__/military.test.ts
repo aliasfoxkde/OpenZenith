@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-
 describe("Military API", () => {
   it("returns aircraft data from ADSB Exchange", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

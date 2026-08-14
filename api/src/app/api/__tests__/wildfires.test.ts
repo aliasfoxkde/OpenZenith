@@ -25,9 +25,12 @@ describe("Wildfires API", () => {
   it("accepts custom bbox and days parameters", async () => {
     process.env = { ...originalEnv, FIRMS_MAP_KEY: "test-key" };
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight", {
-        status: 200,
-      }),
+      new Response(
+        "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight",
+        {
+          status: 200,
+        },
+      ),
     );
 
     const { GET } = await import("@/app/api/wildfires/route");

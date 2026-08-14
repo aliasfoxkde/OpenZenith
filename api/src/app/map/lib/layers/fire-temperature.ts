@@ -33,6 +33,10 @@ export function addFireTemperature(map: maplibregl.Map, handle: LayerHandle): vo
 }
 
 export function removeFireTemperature(map: maplibregl.Map): void {
-  try { map.removeLayer("fire-temperature-raster"); } catch {}
-  try { map.removeSource("fire-temperature"); } catch {}
+  try {
+    map.removeLayer("fire-temperature-raster");
+  } catch {}
+  try {
+    map.removeSource("fire-temperature");
+  } catch {}
 }

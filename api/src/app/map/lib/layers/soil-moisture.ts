@@ -31,6 +31,10 @@ export function addSoilMoisture(map: maplibregl.Map, handle: LayerHandle): void 
 }
 
 export function removeSoilMoisture(map: maplibregl.Map): void {
-  try { map.removeLayer("soil-moisture-raster"); } catch {}
-  try { map.removeSource("soil-moisture"); } catch {}
+  try {
+    map.removeLayer("soil-moisture-raster");
+  } catch {}
+  try {
+    map.removeSource("soil-moisture");
+  } catch {}
 }

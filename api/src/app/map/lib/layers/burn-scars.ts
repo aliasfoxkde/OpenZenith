@@ -48,8 +48,17 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["get", "frp"], 0, 2, 50, 5, 200, 8],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "confidence"],
-                0, "#fbbf24", 30, "#f97316", 60, "#ef4444", 80, "#dc2626",
+                "interpolate",
+                ["linear"],
+                ["get", "confidence"],
+                0,
+                "#fbbf24",
+                30,
+                "#f97316",
+                60,
+                "#ef4444",
+                80,
+                "#dc2626",
               ],
               "circle-opacity": 0.8,
               "circle-stroke-width": 1,
@@ -71,7 +80,11 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeBurnScars(map: maplibregl.Map): void {
   ["burnScars-points", "burnScars-glow"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("burnScars"); } catch {}
+  try {
+    map.removeSource("burnScars");
+  } catch {}
 }

@@ -19,7 +19,6 @@ export function addElevationColor(map: maplibregl.Map, _handle: LayerHandle): vo
     source: "elevation-color",
     paint: {
       "raster-opacity": 0.75,
-      "raster-blend": "multiply",
     },
   });
 }

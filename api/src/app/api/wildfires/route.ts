@@ -76,7 +76,15 @@ export async function GET(request: NextRequest) {
 
     if (lines.length < 2) {
       return NextResponse.json(
-        { type: "FeatureCollection", features: [], count: 0, days, bbox, satellite, date: new Date().toISOString().slice(0, 10) },
+        {
+          type: "FeatureCollection",
+          features: [],
+          count: 0,
+          days,
+          bbox,
+          satellite,
+          date: new Date().toISOString().slice(0, 10),
+        },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
       );
     }
@@ -105,15 +113,15 @@ export async function GET(request: NextRequest) {
     }
 
     const result = {
-        type: "FeatureCollection" as const,
-        features,
-        count: features.length,
-        days,
-        bbox,
-        satellite,
-        date: new Date().toISOString().slice(0, 10),
-        apiKeyStatus: "configured" as const,
-      };
+      type: "FeatureCollection" as const,
+      features,
+      count: features.length,
+      days,
+      bbox,
+      satellite,
+      date: new Date().toISOString().slice(0, 10),
+      apiKeyStatus: "configured" as const,
+    };
 
     // Store in R2 (best-effort)
     r2PutJson(cacheKey, result, 3600).catch(() => {});

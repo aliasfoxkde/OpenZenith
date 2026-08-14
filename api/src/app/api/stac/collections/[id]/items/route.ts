@@ -37,18 +37,12 @@ export async function OPTIONS() {
   return corsPreflightResponse();
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const source = STAC_COLLECTION_SOURCES[id];
 
   if (!source) {
-    return NextResponse.json(
-      { error: `Collection '${id}' not found` },
-      { status: 404, headers: CORS_HEADERS },
-    );
+    return NextResponse.json({ error: `Collection '${id}' not found` }, { status: 404, headers: CORS_HEADERS });
   }
 
   const { searchParams } = new URL(request.url);
@@ -62,13 +56,10 @@ export async function GET(
     });
 
     if (!resp.ok) {
-      return NextResponse.json(
-        { error: `Upstream returned ${resp.status}` },
-        { status: 200, headers: CORS_HEADERS },
-      );
+      return NextResponse.json({ error: `Upstream returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
     }
 
-    const data = await resp.json() as {
+    const data = (await resp.json()) as {
       type?: string;
       features?: GeoJSON.Feature[];
       geometries?: unknown[];

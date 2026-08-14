@@ -9,12 +9,48 @@ interface Props {
 }
 
 const DATASETS = [
-  { id: "dem", label: "Elevation (Terrarium PNG)", endpoint: "/api/dem-tile", desc: "256x256 Terrarium-encoded elevation tiles", format: "png" },
-  { id: "hillshade", label: "Hillshade", endpoint: "/api/elevation-color", desc: "Color-coded elevation gradient tiles", format: "png" },
-  { id: "contours", label: "Contours", endpoint: "/api/contours", desc: "Topographic contour line tiles", format: "png" },
-  { id: "accuracy", label: "Elevation Accuracy", endpoint: "/api/elevation-accuracy", desc: "Data resolution heatmap tiles", format: "png" },
-  { id: "population", label: "Population Density", endpoint: "/api/population", desc: "VIIRS Black Marble population tiles", format: "png" },
-  { id: "landcover", label: "Land Cover", endpoint: "/api/landcover", desc: "MODIS IGBP land cover classification", format: "png" },
+  {
+    id: "dem",
+    label: "Elevation (Terrarium PNG)",
+    endpoint: "/api/dem-tile",
+    desc: "256x256 Terrarium-encoded elevation tiles",
+    format: "png",
+  },
+  {
+    id: "hillshade",
+    label: "Hillshade",
+    endpoint: "/api/elevation-color",
+    desc: "Color-coded elevation gradient tiles",
+    format: "png",
+  },
+  {
+    id: "contours",
+    label: "Contours",
+    endpoint: "/api/contours",
+    desc: "Topographic contour line tiles",
+    format: "png",
+  },
+  {
+    id: "accuracy",
+    label: "Elevation Accuracy",
+    endpoint: "/api/elevation-accuracy",
+    desc: "Data resolution heatmap tiles",
+    format: "png",
+  },
+  {
+    id: "population",
+    label: "Population Density",
+    endpoint: "/api/population",
+    desc: "VIIRS Black Marble population tiles",
+    format: "png",
+  },
+  {
+    id: "landcover",
+    label: "Land Cover",
+    endpoint: "/api/landcover",
+    desc: "MODIS IGBP land cover classification",
+    format: "png",
+  },
 ];
 
 const CODE_EXAMPLES: Record<string, { label: string; code: string }> = {
@@ -129,7 +165,7 @@ function latLonToTile(lat: number, lon: number, zoom: number): [number, number] 
 }
 
 function generateBashScript(
-  ds: typeof DATASETS[0],
+  ds: (typeof DATASETS)[0],
   dataset: string,
   bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number },
   zMin: number,
@@ -141,7 +177,15 @@ function generateBashScript(
     "#!/bin/bash",
     "# OpenZenith Tile Downloader",
     "# Dataset: " + ds.label,
-    "# Region: [" + bbox.latMin.toFixed(4) + ", " + bbox.lonMin.toFixed(4) + "] to [" + bbox.latMax.toFixed(4) + ", " + bbox.lonMax.toFixed(4) + "]",
+    "# Region: [" +
+      bbox.latMin.toFixed(4) +
+      ", " +
+      bbox.lonMin.toFixed(4) +
+      "] to [" +
+      bbox.latMax.toFixed(4) +
+      ", " +
+      bbox.lonMax.toFixed(4) +
+      "]",
     "# Zoom: " + zMin + "-" + zMax + " | Tiles: " + tiles.length,
     "",
     'OUTDIR="tiles/' + dataset + '"',
@@ -158,9 +202,9 @@ function generateBashScript(
     '  mkdir -p "$DIR"',
     '  FILE="$DIR/$Y.' + ds.format + '"',
     '  if [ ! -f "$FILE" ]; then',
-    '    curl -sS -o "$FILE" "' + BASE_URL + ds.endpoint + '/$Z/$X/$Y.' + ds.format + '"',
+    '    curl -sS -o "$FILE" "' + BASE_URL + ds.endpoint + "/$Z/$X/$Y." + ds.format + '"',
     "    COUNT=$((COUNT + 1))",
-    '    if [ $((COUNT % 50)) -eq 0 ]; then',
+    "    if [ $((COUNT % 50)) -eq 0 ]; then",
     '      echo "Progress: $COUNT / $TOTAL"',
     "    fi",
     "  fi",
@@ -172,7 +216,7 @@ function generateBashScript(
 }
 
 function generatePythonScript(
-  ds: typeof DATASETS[0],
+  ds: (typeof DATASETS)[0],
   dataset: string,
   bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number },
   zMin: number,
@@ -185,7 +229,15 @@ function generatePythonScript(
     '"""OpenZenith Tile Downloader',
     "",
     "Dataset: " + ds.label,
-    "Region: [" + bbox.latMin.toFixed(4) + ", " + bbox.lonMin.toFixed(4) + "] to [" + bbox.latMax.toFixed(4) + ", " + bbox.lonMax.toFixed(4) + "]",
+    "Region: [" +
+      bbox.latMin.toFixed(4) +
+      ", " +
+      bbox.lonMin.toFixed(4) +
+      "] to [" +
+      bbox.latMax.toFixed(4) +
+      ", " +
+      bbox.lonMax.toFixed(4) +
+      "]",
     "Zoom: " + zMin + "-" + zMax + " | Tiles: " + tiles.length,
     '"""',
     "",
@@ -277,7 +329,9 @@ export function TileDownloadTool({ dark, map }: Props) {
           map.removeLayer(boxLayerRef.current!);
           map.removeSource(boxSourceRef.current);
         }
-      } catch { /* map may be gone */ }
+      } catch {
+        /* map may be gone */
+      }
     };
   }, [map]);
 
@@ -287,15 +341,31 @@ export function TileDownloadTool({ dark, map }: Props) {
       if (!map) return;
       const sourceId = "tile-download-box";
       const layerId = "tile-download-box-line";
-      try { map.removeLayer(layerId); } catch { /* ok */ }
-      try { map.removeSource(sourceId); } catch { /* ok */ }
+      try {
+        map.removeLayer(layerId);
+      } catch {
+        /* ok */
+      }
+      try {
+        map.removeSource(sourceId);
+      } catch {
+        /* ok */
+      }
       map.addSource(sourceId, {
         type: "geojson",
         data: {
           type: "Feature",
           geometry: {
             type: "Polygon",
-            coordinates: [[[b.lonMin, b.latMax], [b.lonMax, b.latMax], [b.lonMax, b.latMin], [b.lonMin, b.latMin], [b.lonMin, b.latMax]]],
+            coordinates: [
+              [
+                [b.lonMin, b.latMax],
+                [b.lonMax, b.latMax],
+                [b.lonMax, b.latMin],
+                [b.lonMin, b.latMin],
+                [b.lonMin, b.latMax],
+              ],
+            ],
           },
           properties: {},
         },
@@ -315,7 +385,12 @@ export function TileDownloadTool({ dark, map }: Props) {
   const useCurrentView = useCallback(() => {
     if (!map) return;
     const bounds = map.getBounds();
-    const b = { latMin: bounds.getSouth(), lonMin: bounds.getWest(), latMax: bounds.getNorth(), lonMax: bounds.getEast() };
+    const b = {
+      latMin: bounds.getSouth(),
+      lonMin: bounds.getWest(),
+      latMax: bounds.getNorth(),
+      lonMax: bounds.getEast(),
+    };
     setBbox(b);
     updateBoxLayer(b);
   }, [map, updateBoxLayer]);
@@ -360,15 +435,26 @@ export function TileDownloadTool({ dark, map }: Props) {
     const onMove = (e: any) => handleMouseMove(e);
     map.on("click", onClick);
     map.on("mousemove", onMove);
-    return () => { map.off("click", onClick); map.off("mousemove", onMove); };
+    return () => {
+      map.off("click", onClick);
+      map.off("mousemove", onMove);
+    };
   }, [map, handleMapClick, handleMouseMove]);
 
   const clearBbox = useCallback(() => {
     setBbox(null);
     setDrawStart(null);
     if (map) {
-      try { map.removeLayer(boxLayerRef.current!); } catch { /* ok */ }
-      try { map.removeSource(boxSourceRef.current!); } catch { /* ok */ }
+      try {
+        map.removeLayer(boxLayerRef.current!);
+      } catch {
+        /* ok */
+      }
+      try {
+        map.removeSource(boxSourceRef.current!);
+      } catch {
+        /* ok */
+      }
     }
   }, [map]);
 
@@ -391,9 +477,10 @@ export function TileDownloadTool({ dark, map }: Props) {
     (type: "bash" | "python") => {
       if (!bbox) return;
       const tiles = getTiles();
-      const script = type === "bash"
-        ? generateBashScript(ds, dataset, bbox, zMin, zMax, tiles)
-        : generatePythonScript(ds, dataset, bbox, zMin, zMax, tiles);
+      const script =
+        type === "bash"
+          ? generateBashScript(ds, dataset, bbox, zMin, zMax, tiles)
+          : generatePythonScript(ds, dataset, bbox, zMin, zMax, tiles);
       const blob = new Blob([script], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -409,7 +496,7 @@ export function TileDownloadTool({ dark, map }: Props) {
     navigator.clipboard.writeText(code);
   }, []);
 
-  const sizeEstimate = tileCount > 0 ? "~" + (tileCount * 15 / 1024).toFixed(1) + " MB" : "\u2014";
+  const sizeEstimate = tileCount > 0 ? "~" + ((tileCount * 15) / 1024).toFixed(1) + " MB" : "\u2014";
 
   return (
     <div style={{ padding: 16, fontSize: 13, color: text }}>
@@ -423,8 +510,24 @@ export function TileDownloadTool({ dark, map }: Props) {
       {/* Dataset */}
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Dataset</label>
-        <select value={dataset} onChange={(e) => setDataset(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid " + border, background: cardBg, color: text, fontSize: 12 }}>
-          {DATASETS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+        <select
+          value={dataset}
+          onChange={(e) => setDataset(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "6px 8px",
+            borderRadius: 4,
+            border: "1px solid " + border,
+            background: cardBg,
+            color: text,
+            fontSize: 12,
+          }}
+        >
+          {DATASETS.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.label}
+            </option>
+          ))}
         </select>
         <div style={{ fontSize: 10, color: textSec, marginTop: 2 }}>{ds.desc}</div>
       </div>
@@ -433,11 +536,41 @@ export function TileDownloadTool({ dark, map }: Props) {
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Min Zoom</label>
-          <input type="number" min={0} max={12} value={zMin} onChange={(e) => setZMin(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)))} style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid " + border, background: cardBg, color: text, fontSize: 12 }} />
+          <input
+            type="number"
+            min={0}
+            max={12}
+            value={zMin}
+            onChange={(e) => setZMin(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)))}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              borderRadius: 4,
+              border: "1px solid " + border,
+              background: cardBg,
+              color: text,
+              fontSize: 12,
+            }}
+          />
         </div>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Max Zoom</label>
-          <input type="number" min={0} max={12} value={zMax} onChange={(e) => setZMax(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)))} style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid " + border, background: cardBg, color: text, fontSize: 12 }} />
+          <input
+            type="number"
+            min={0}
+            max={12}
+            value={zMax}
+            onChange={(e) => setZMax(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)))}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              borderRadius: 4,
+              border: "1px solid " + border,
+              background: cardBg,
+              color: text,
+              fontSize: 12,
+            }}
+          />
         </div>
       </div>
 
@@ -445,27 +578,92 @@ export function TileDownloadTool({ dark, map }: Props) {
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Region</label>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button onClick={useCurrentView} style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid " + border, background: cardBg, color: text, fontSize: 11, cursor: "pointer" }}>Use Current View</button>
-          <button onClick={() => { setDrawing(!drawing); setDrawStart(null); }} style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid " + (drawing ? accent : border), background: drawing ? accent + "22" : cardBg, color: drawing ? accent : text, fontSize: 11, cursor: "pointer" }}>
+          <button
+            onClick={useCurrentView}
+            style={{
+              padding: "5px 10px",
+              borderRadius: 4,
+              border: "1px solid " + border,
+              background: cardBg,
+              color: text,
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            Use Current View
+          </button>
+          <button
+            onClick={() => {
+              setDrawing(!drawing);
+              setDrawStart(null);
+            }}
+            style={{
+              padding: "5px 10px",
+              borderRadius: 4,
+              border: "1px solid " + (drawing ? accent : border),
+              background: drawing ? accent + "22" : cardBg,
+              color: drawing ? accent : text,
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
             {drawing ? "Cancel Draw" : "Draw on Map"}
           </button>
-          {bbox && <button onClick={clearBbox} style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef444422", color: "#ef4444", fontSize: 11, cursor: "pointer" }}>Clear</button>}
+          {bbox && (
+            <button
+              onClick={clearBbox}
+              style={{
+                padding: "5px 10px",
+                borderRadius: 4,
+                border: "1px solid #ef4444",
+                background: "#ef444422",
+                color: "#ef4444",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          )}
         </div>
-        {drawing && <div style={{ fontSize: 10, color: accent, marginTop: 4 }}>Click two points on the map to define a bounding box.</div>}
+        {drawing && (
+          <div style={{ fontSize: 10, color: accent, marginTop: 4 }}>
+            Click two points on the map to define a bounding box.
+          </div>
+        )}
       </div>
 
       {/* BBox info */}
       {bbox && (
-        <div style={{ padding: 10, borderRadius: 6, background: cardBg, border: "1px solid " + border, marginBottom: 12, fontSize: 11 }}>
+        <div
+          style={{
+            padding: 10,
+            borderRadius: 6,
+            background: cardBg,
+            border: "1px solid " + border,
+            marginBottom: 12,
+            fontSize: 11,
+          }}
+        >
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Selected Region</div>
           <div style={{ fontFamily: "monospace", fontSize: 10, lineHeight: 1.6 }}>
-            <div>Lat: {bbox.latMin.toFixed(4)} to {bbox.latMax.toFixed(4)}</div>
-            <div>Lon: {bbox.lonMin.toFixed(4)} to {bbox.lonMax.toFixed(4)}</div>
+            <div>
+              Lat: {bbox.latMin.toFixed(4)} to {bbox.latMax.toFixed(4)}
+            </div>
+            <div>
+              Lon: {bbox.lonMin.toFixed(4)} to {bbox.lonMax.toFixed(4)}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 16, marginTop: 6, color: textSec }}>
-            <span><strong style={{ color: accent }}>{tileCount.toLocaleString()}</strong> tiles</span>
-            <span><strong style={{ color: accent }}>{sizeEstimate}</strong> est.</span>
-            <span>z{zMin}&ndash;z{zMax}</span>
+            <span>
+              <strong style={{ color: accent }}>{tileCount.toLocaleString()}</strong> tiles
+            </span>
+            <span>
+              <strong style={{ color: accent }}>{sizeEstimate}</strong> est.
+            </span>
+            <span>
+              z{zMin}&ndash;z{zMax}
+            </span>
           </div>
         </div>
       )}
@@ -475,14 +673,42 @@ export function TileDownloadTool({ dark, map }: Props) {
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 6 }}>Download Script</label>
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => downloadScript("bash")} style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "none", background: accent, color: "#000", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+            <button
+              onClick={() => downloadScript("bash")}
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                borderRadius: 6,
+                border: "none",
+                background: accent,
+                color: "#000",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
               Shell Script
             </button>
-            <button onClick={() => downloadScript("python")} style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "none", background: "#3b82f6", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+            <button
+              onClick={() => downloadScript("python")}
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                borderRadius: 6,
+                border: "none",
+                background: "#3b82f6",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
               Python Script
             </button>
           </div>
-          <div style={{ fontSize: 10, color: textSec, marginTop: 4 }}>Runs locally &mdash; downloads tiles via curl/urllib to a <code>tiles/</code> directory.</div>
+          <div style={{ fontSize: 10, color: textSec, marginTop: 4 }}>
+            Runs locally &mdash; downloads tiles via curl/urllib to a <code>tiles/</code> directory.
+          </div>
         </div>
       )}
 
@@ -494,16 +720,57 @@ export function TileDownloadTool({ dark, map }: Props) {
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Code Examples</div>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
           {Object.entries(CODE_EXAMPLES).map(([key, ex]) => (
-            <button key={key} onClick={() => setActiveExample(key)} style={{ padding: "4px 8px", borderRadius: 4, border: "1px solid " + (activeExample === key ? accent : border), background: activeExample === key ? accent + "22" : cardBg, color: activeExample === key ? accent : textSec, fontSize: 10, cursor: "pointer" }}>
+            <button
+              key={key}
+              onClick={() => setActiveExample(key)}
+              style={{
+                padding: "4px 8px",
+                borderRadius: 4,
+                border: "1px solid " + (activeExample === key ? accent : border),
+                background: activeExample === key ? accent + "22" : cardBg,
+                color: activeExample === key ? accent : textSec,
+                fontSize: 10,
+                cursor: "pointer",
+              }}
+            >
               {ex.label}
             </button>
           ))}
         </div>
         <div style={{ position: "relative" }}>
-          <button onClick={() => copyCode(CODE_EXAMPLES[activeExample].code)} style={{ position: "absolute", top: 6, right: 6, padding: "3px 8px", borderRadius: 3, border: "1px solid " + border, background: cardBg, color: textSec, fontSize: 10, cursor: "pointer", zIndex: 1 }}>
+          <button
+            onClick={() => copyCode(CODE_EXAMPLES[activeExample].code)}
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 6,
+              padding: "3px 8px",
+              borderRadius: 3,
+              border: "1px solid " + border,
+              background: cardBg,
+              color: textSec,
+              fontSize: 10,
+              cursor: "pointer",
+              zIndex: 1,
+            }}
+          >
             Copy
           </button>
-          <pre style={{ padding: 12, borderRadius: 6, background: codeBg, border: "1px solid " + border, fontSize: 10, lineHeight: 1.5, overflow: "auto", maxHeight: 300, color: dark ? "#c9d1d9" : "#24292f", fontFamily: "monospace", whiteSpace: "pre" }}>
+          <pre
+            style={{
+              padding: 12,
+              borderRadius: 6,
+              background: codeBg,
+              border: "1px solid " + border,
+              fontSize: 10,
+              lineHeight: 1.5,
+              overflow: "auto",
+              maxHeight: 300,
+              color: dark ? "#c9d1d9" : "#24292f",
+              fontFamily: "monospace",
+              whiteSpace: "pre",
+            }}
+          >
             {CODE_EXAMPLES[activeExample].code}
           </pre>
         </div>
@@ -523,7 +790,10 @@ export function TileDownloadTool({ dark, map }: Props) {
             { url: "/api/openapi.json", desc: "OpenAPI 3.0.3 spec" },
           ].map((ep) => (
             <div key={ep.url} style={{ marginBottom: 2 }}>
-              <code style={{ color: accent, fontSize: 10 }}>{BASE_URL}{ep.url}</code>
+              <code style={{ color: accent, fontSize: 10 }}>
+                {BASE_URL}
+                {ep.url}
+              </code>
               <span style={{ color: textSec, marginLeft: 6 }}>&mdash; {ep.desc}</span>
             </div>
           ))}

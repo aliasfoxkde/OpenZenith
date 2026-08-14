@@ -86,7 +86,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   const cached = await r2GetTile("sentinel2", zoom, tileX, tileY);
   if (cached) {
     return new Response(cached, {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "X-Cache": "HIT", ...CORS_HEADERS },
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+        "X-Cache": "HIT",
+        ...CORS_HEADERS,
+      },
     });
   }
 
@@ -94,18 +99,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   let assetUrl = cachedAssetUrl;
   if (!assetUrl || Date.now() - cachedAt > CACHE_TTL) {
     assetUrl = await findRecentSentinel2Tile(searchBbox);
-    if (assetUrl) { cachedAssetUrl = assetUrl; cachedAt = Date.now(); }
+    if (assetUrl) {
+      cachedAssetUrl = assetUrl;
+      cachedAt = Date.now();
+    }
   }
 
   if (assetUrl) {
     const titlerUrl = `https://titiler.planetarycomputer.microsoft.gov/cog/tiles/${z}/${x}/${y}?url=${encodeURIComponent(assetUrl)}&rescale=0,3000&color_map=viridis&bidx=1,2,3`;
     try {
-      const tileRes = await fetch(titlerUrl, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "OpenZenith/1.0" } });
+      const tileRes = await fetch(titlerUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { "User-Agent": "OpenZenith/1.0" },
+      });
       if (tileRes.ok) {
         const buffer = await tileRes.arrayBuffer();
         r2PutTile("sentinel2", zoom, tileX, tileY, buffer, "image/png").catch(() => {});
         return new Response(buffer, {
-          headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "X-Cache": "MISS", ...CORS_HEADERS },
+          headers: {
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=86400",
+            "X-Cache": "MISS",
+            ...CORS_HEADERS,
+          },
         });
       }
     } catch {
@@ -118,7 +134,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   if (gibsBuffer) {
     r2PutTile("sentinel2", zoom, tileX, tileY, gibsBuffer, "image/png").catch(() => {});
     return new Response(gibsBuffer, {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "X-Cache": "MISS-GIBS", ...CORS_HEADERS },
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+        "X-Cache": "MISS-GIBS",
+        ...CORS_HEADERS,
+      },
     });
   }
 

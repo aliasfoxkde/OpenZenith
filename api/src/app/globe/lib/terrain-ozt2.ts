@@ -30,6 +30,9 @@ const HEIGHTMAP_STRUCTURE = {
   isBigEndian: false,
 };
 
+// OZT2 uses -32768 as the NODATA sentinel (standard Int16 nodata)
+const OZT2_NODATA = -32768;
+
 /**
  * Create an OZT2-first Cesium terrain provider.
  *
@@ -119,16 +122,17 @@ async function tryOZTTile(Cesium: CesiumType, level: number, x: number, y: numbe
   const { elevation } = await decodeOZT2(arrayBuffer);
 
   // Convert Int16Array → Float32Array for CesiumJS HeightmapTerrainData
+  // Preserve NODATA (-32768) — noDataValue tells Cesium which values are invalid
   const heights = new Float32Array(elevation.length);
   for (let i = 0; i < elevation.length; i++) {
-    heights[i] = elevation[i] === -32768 ? 0 : elevation[i];
+    heights[i] = elevation[i];
   }
 
   return new TDT({
     buffer: heights,
     width: 256,
     height: 256,
-    structure: HEIGHTMAP_STRUCTURE,
+    structure: { ...HEIGHTMAP_STRUCTURE, noDataValue: OZT2_NODATA },
     childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
   });
 }
@@ -167,7 +171,7 @@ async function tryPNGTile(Cesium: CesiumType, level: number, x: number, y: numbe
       buffer: heights,
       width: w,
       height: h,
-      structure: HEIGHTMAP_STRUCTURE,
+      structure: { ...HEIGHTMAP_STRUCTURE, noDataValue: -32768 },
       childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
     });
   } catch {

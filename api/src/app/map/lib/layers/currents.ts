@@ -3,30 +3,231 @@ import type { LayerHandle } from "./types";
 /* ─── Ocean Currents — Windy.com-style Flow Particle Renderer ─── */
 
 const OCEAN_CURRENTS = [
-  { name: "Gulf Stream", path: [[-80,25],[-78,30],[-75,35],[-70,38],[-65,40],[-55,42],[-45,45],[-35,50],[-20,55]] },
-  { name: "N. Atlantic Drift", path: [[-20,55],[-15,58],[-10,60],[-5,62],[0,63],[5,64],[10,65]] },
-  { name: "Canary Current", path: [[-15,45],[-18,40],[-20,35],[-20,28],[-18,22],[-16,15]] },
-  { name: "N. Equatorial (Atl)", path: [[-20,15],[-30,14],[-40,13],[-50,12],[-60,11],[-70,10]] },
-  { name: "Caribbean Current", path: [[-80,10],[-78,12],[-75,14],[-72,16],[-68,18]] },
-  { name: "S. Equatorial (Atl)", path: [[-5,0],[-10,-3],[-18,-5],[-25,-7],[-32,-8]] },
-  { name: "Brazil Current", path: [[-35,-5],[-38,-10],[-42,-15],[-47,-20],[-50,-25],[-53,-30],[-55,-35]] },
-  { name: "Kuroshio", path: [[125,20],[128,24],[132,28],[136,32],[140,35],[145,38],[150,40],[155,42],[160,45]] },
-  { name: "N. Pacific Drift", path: [[160,45],[170,45],[180,43],[-170,42],[-160,40],[-150,38]] },
-  { name: "California Current", path: [[-125,45],[-124,40],[-123,35],[-122,30],[-120,25],[-118,20]] },
-  { name: "N. Equatorial (Pac)", path: [[-150,12],[-140,12],[-130,11],[-120,10],[-110,9]] },
-  { name: "S. Equatorial (Pac)", path: [[-80,-5],[-100,-5],[-120,-6],[-140,-7],[-160,-8],[-170,-9]] },
-  { name: "E. Australian", path: [[155,-15],[154,-20],[153,-25],[152,-30],[150,-35],[148,-38]] },
-  { name: "Agulhas", path: [[38,-15],[37,-20],[35,-25],[32,-30],[28,-34],[22,-37]] },
-  { name: "Antarctic Circumpolar", path: [[0,-55],[30,-56],[60,-57],[90,-56],[120,-55],[150,-56],[180,-57],[-150,-56],[-120,-55],[-90,-56],[-60,-57],[-30,-56]] },
-  { name: "Benguela", path: [[15,-32],[14,-28],[12,-24],[10,-20],[8,-15],[5,-10]] },
-  { name: "Somali Current", path: [[48,-2],[47,2],[46,6],[50,10],[54,12]] },
-  { name: "S. Equatorial (Ind)", path: [[90,-10],[80,-10],[70,-10],[60,-8],[50,-6]] },
-  { name: "W. Australian", path: [[110,-12],[112,-18],[113,-24],[113,-30],[112,-35]] },
+  {
+    name: "Gulf Stream",
+    path: [
+      [-80, 25],
+      [-78, 30],
+      [-75, 35],
+      [-70, 38],
+      [-65, 40],
+      [-55, 42],
+      [-45, 45],
+      [-35, 50],
+      [-20, 55],
+    ],
+  },
+  {
+    name: "N. Atlantic Drift",
+    path: [
+      [-20, 55],
+      [-15, 58],
+      [-10, 60],
+      [-5, 62],
+      [0, 63],
+      [5, 64],
+      [10, 65],
+    ],
+  },
+  {
+    name: "Canary Current",
+    path: [
+      [-15, 45],
+      [-18, 40],
+      [-20, 35],
+      [-20, 28],
+      [-18, 22],
+      [-16, 15],
+    ],
+  },
+  {
+    name: "N. Equatorial (Atl)",
+    path: [
+      [-20, 15],
+      [-30, 14],
+      [-40, 13],
+      [-50, 12],
+      [-60, 11],
+      [-70, 10],
+    ],
+  },
+  {
+    name: "Caribbean Current",
+    path: [
+      [-80, 10],
+      [-78, 12],
+      [-75, 14],
+      [-72, 16],
+      [-68, 18],
+    ],
+  },
+  {
+    name: "S. Equatorial (Atl)",
+    path: [
+      [-5, 0],
+      [-10, -3],
+      [-18, -5],
+      [-25, -7],
+      [-32, -8],
+    ],
+  },
+  {
+    name: "Brazil Current",
+    path: [
+      [-35, -5],
+      [-38, -10],
+      [-42, -15],
+      [-47, -20],
+      [-50, -25],
+      [-53, -30],
+      [-55, -35],
+    ],
+  },
+  {
+    name: "Kuroshio",
+    path: [
+      [125, 20],
+      [128, 24],
+      [132, 28],
+      [136, 32],
+      [140, 35],
+      [145, 38],
+      [150, 40],
+      [155, 42],
+      [160, 45],
+    ],
+  },
+  {
+    name: "N. Pacific Drift",
+    path: [
+      [160, 45],
+      [170, 45],
+      [180, 43],
+      [-170, 42],
+      [-160, 40],
+      [-150, 38],
+    ],
+  },
+  {
+    name: "California Current",
+    path: [
+      [-125, 45],
+      [-124, 40],
+      [-123, 35],
+      [-122, 30],
+      [-120, 25],
+      [-118, 20],
+    ],
+  },
+  {
+    name: "N. Equatorial (Pac)",
+    path: [
+      [-150, 12],
+      [-140, 12],
+      [-130, 11],
+      [-120, 10],
+      [-110, 9],
+    ],
+  },
+  {
+    name: "S. Equatorial (Pac)",
+    path: [
+      [-80, -5],
+      [-100, -5],
+      [-120, -6],
+      [-140, -7],
+      [-160, -8],
+      [-170, -9],
+    ],
+  },
+  {
+    name: "E. Australian",
+    path: [
+      [155, -15],
+      [154, -20],
+      [153, -25],
+      [152, -30],
+      [150, -35],
+      [148, -38],
+    ],
+  },
+  {
+    name: "Agulhas",
+    path: [
+      [38, -15],
+      [37, -20],
+      [35, -25],
+      [32, -30],
+      [28, -34],
+      [22, -37],
+    ],
+  },
+  {
+    name: "Antarctic Circumpolar",
+    path: [
+      [0, -55],
+      [30, -56],
+      [60, -57],
+      [90, -56],
+      [120, -55],
+      [150, -56],
+      [180, -57],
+      [-150, -56],
+      [-120, -55],
+      [-90, -56],
+      [-60, -57],
+      [-30, -56],
+    ],
+  },
+  {
+    name: "Benguela",
+    path: [
+      [15, -32],
+      [14, -28],
+      [12, -24],
+      [10, -20],
+      [8, -15],
+      [5, -10],
+    ],
+  },
+  {
+    name: "Somali Current",
+    path: [
+      [48, -2],
+      [47, 2],
+      [46, 6],
+      [50, 10],
+      [54, 12],
+    ],
+  },
+  {
+    name: "S. Equatorial (Ind)",
+    path: [
+      [90, -10],
+      [80, -10],
+      [70, -10],
+      [60, -8],
+      [50, -6],
+    ],
+  },
+  {
+    name: "W. Australian",
+    path: [
+      [110, -12],
+      [112, -18],
+      [113, -24],
+      [113, -30],
+      [112, -35],
+    ],
+  },
 ];
 
 // ─── Vector field ───
 
-interface Vec2 { dx: number; dy: number }
+interface Vec2 {
+  dx: number;
+  dy: number;
+}
 
 const GRID_W = 360;
 const GRID_H = 180;
@@ -106,11 +307,11 @@ interface FlowParticle {
   y: number;
   age: number;
   maxAge: number;
-  prevX: number;  // previous screen x (for line drawing)
-  prevY: number;  // previous screen y
-  trail: Float32Array;  // ring buffer of screen coords
-  trailHead: number;    // write position in ring buffer
-  trailCount: number;   // how many valid entries
+  prevX: number; // previous screen x (for line drawing)
+  prevY: number; // previous screen y
+  trail: Float32Array; // ring buffer of screen coords
+  trailHead: number; // write position in ring buffer
+  trailCount: number; // how many valid entries
   speed: number;
   maxTrail: number;
 }
@@ -126,11 +327,17 @@ let isMoving = false;
 
 function createParticle(): FlowParticle {
   return {
-    x: 0, y: 0, age: 0, maxAge: 0,
-    prevX: 0, prevY: 0,
+    x: 0,
+    y: 0,
+    age: 0,
+    maxAge: 0,
+    prevX: 0,
+    prevY: 0,
     trail: new Float32Array(MAX_TRAIL * 2),
-    trailHead: 0, trailCount: 0,
-    speed: 0, maxTrail: 0,
+    trailHead: 0,
+    trailCount: 0,
+    speed: 0,
+    maxTrail: 0,
   };
 }
 
@@ -204,7 +411,9 @@ function renderFrame() {
   ctx.clearRect(0, 0, width, height);
 
   // Windy.com color: consistent blue
-  const R = 60, G = 140, B = 255;
+  const R = 60,
+    G = 140,
+    B = 255;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -373,9 +582,7 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
       pointer-events: none;
       opacity: 0.65;
     `;
-    const marker = new MlglMarker({ element: el, anchor: "center" })
-      .setLngLat([midLon, midLat])
-      .addTo(map);
+    const marker = new MlglMarker({ element: el, anchor: "center" }).setLngLat([midLon, midLat]).addTo(map);
     markers.push(marker);
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -385,10 +592,15 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
   animFrame = requestAnimationFrame(renderFrame);
 
   // Clear trails on camera move
-  const onMoveStart = () => { isMoving = true; };
+  const onMoveStart = () => {
+    isMoving = true;
+  };
   const onMoveEnd = () => {
     isMoving = false;
-    for (const p of particles) { p.trailCount = 0; p.trailHead = 0; }
+    for (const p of particles) {
+      p.trailCount = 0;
+      p.trailHead = 0;
+    }
   };
   map.on("movestart", onMoveStart);
   map.on("moveend", onMoveEnd);
@@ -414,19 +626,32 @@ export function removeOceanCurrents(map: maplibregl.Map): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markers = (addOceanCurrents as any)._markers as any[] | undefined;
   if (markers) {
-    for (const m of markers) { m.remove(); }
+    for (const m of markers) {
+      m.remove();
+    }
     (addOceanCurrents as any)._markers = [];
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onMoveStart = (addOceanCurrents as any)._onMoveStart;
   const onMoveEnd = (addOceanCurrents as any)._onMoveEnd;
-  if (onMoveStart) try { map.off("movestart", onMoveStart); } catch {}
+  if (onMoveStart)
+    try {
+      map.off("movestart", onMoveStart);
+    } catch {}
   if (onMoveEnd) {
-    try { map.off("moveend", onMoveEnd); } catch {}
-    try { map.off("zoomend", onMoveEnd); } catch {}
+    try {
+      map.off("moveend", onMoveEnd);
+    } catch {}
+    try {
+      map.off("zoomend", onMoveEnd);
+    } catch {}
   }
 
-  try { map.removeLayer("ocean-currents-lines"); } catch {}
-  try { map.removeSource("ocean-currents-paths"); } catch {}
+  try {
+    map.removeLayer("ocean-currents-lines");
+  } catch {}
+  try {
+    map.removeSource("ocean-currents-paths");
+  } catch {}
 }

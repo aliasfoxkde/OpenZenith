@@ -117,7 +117,8 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
               name,
               id: sat.id || sat.norad_cat_id || sat.NORAD_CAT_ID || "",
               altitude: sat.altitude_km || sat.altitude || 0,
-              notable: notableNames.has(name.toUpperCase()) ||
+              notable:
+                notableNames.has(name.toUpperCase()) ||
                 name.toUpperCase().startsWith("ISS") ||
                 name.toUpperCase().includes("STARLINK"),
             },
@@ -128,9 +129,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
       // If no positions from API, try fetching from proxy with Celestrak positions endpoint
       if (features.length === 0) {
         try {
-          const posRes = await fetch(
-            "/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
-          );
+          const posRes = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json");
           if (posRes.ok) {
             const satData = await posRes.json();
             // Celestrak JSON returns TLE elements, not positions
@@ -170,7 +169,11 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeSatellites(map: maplibregl.Map): void {
   ["satellites-labels", "satellites-glow", "satellites-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("satellites"); } catch {}
+  try {
+    map.removeSource("satellites");
+  } catch {}
 }

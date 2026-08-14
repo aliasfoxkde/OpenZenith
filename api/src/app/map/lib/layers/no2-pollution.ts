@@ -31,6 +31,10 @@ export function addNo2Pollution(map: maplibregl.Map, handle: LayerHandle): void 
 }
 
 export function removeNo2Pollution(map: maplibregl.Map): void {
-  try { map.removeLayer("no2-pollution-raster"); } catch {}
-  try { map.removeSource("no2-pollution"); } catch {}
+  try {
+    map.removeLayer("no2-pollution-raster");
+  } catch {}
+  try {
+    map.removeSource("no2-pollution");
+  } catch {}
 }

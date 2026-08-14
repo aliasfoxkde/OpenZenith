@@ -45,9 +45,9 @@
   --oz-text-secondary: #737373;
   --oz-hero-overlay: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.80) 0%,
-    rgba(255, 255, 255, 0.40) 40%,
-    rgba(255, 255, 255, 0.80) 100%
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(255, 255, 255, 0.4) 40%,
+    rgba(255, 255, 255, 0.8) 100%
   );
   --oz-result-bg: #dcfce7;
   --oz-result-border: #bbf7d0;

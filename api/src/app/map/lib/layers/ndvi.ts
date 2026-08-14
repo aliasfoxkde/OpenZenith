@@ -31,6 +31,10 @@ export function addNdvi(map: maplibregl.Map, handle: LayerHandle): void {
 }
 
 export function removeNdvi(map: maplibregl.Map): void {
-  try { map.removeLayer("ndvi-raster"); } catch {}
-  try { map.removeSource("ndvi"); } catch {}
+  try {
+    map.removeLayer("ndvi-raster");
+  } catch {}
+  try {
+    map.removeSource("ndvi");
+  } catch {}
 }

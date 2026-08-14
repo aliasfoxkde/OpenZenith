@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import {
-  traceDownstream,
-  traceUpstream,
-  computeElevationProfile,
-  type FlowPathResult,
-} from "@/lib/flow-path";
+import { traceDownstream, traceUpstream, computeElevationProfile, type FlowPathResult } from "@/lib/flow-path";
 
 interface FlowPathFeature {
   id: string;
@@ -45,12 +40,24 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   const pathsRef = useRef(paths);
 
   // Keep refs in sync with state
-  useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { mapRef2.current = map; }, [map]);
-  useEffect(() => { precisionRef.current = precision; }, [precision]);
-  useEffect(() => { directionsRef.current = directions; }, [directions]);
-  useEffect(() => { maxPointsRef.current = maxPoints; }, [maxPoints]);
-  useEffect(() => { pathsRef.current = paths; }, [paths]);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  useEffect(() => {
+    mapRef2.current = map;
+  }, [map]);
+  useEffect(() => {
+    precisionRef.current = precision;
+  }, [precision]);
+  useEffect(() => {
+    directionsRef.current = directions;
+  }, [directions]);
+  useEffect(() => {
+    maxPointsRef.current = maxPoints;
+  }, [maxPoints]);
+  useEffect(() => {
+    pathsRef.current = paths;
+  }, [paths]);
 
   const bg = dark ? "#141414" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
@@ -59,18 +66,17 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
 
   /** Add or remove flow path GeoJSON layer on the map */
-  const syncLayer = useCallback(
-    (features: FlowPathFeature[]) => {
-      if (!mapRef2.current || !mapRef2.current.getSource(FLOW_SOURCE)) return;
+  const syncLayer = useCallback((features: FlowPathFeature[]) => {
+    if (!mapRef2.current || !mapRef2.current.getSource(FLOW_SOURCE)) return;
 
-      const fc: GeoJSON.FeatureCollection = {
-        type: "FeatureCollection",
-        features: features.map((p) => p.geojson as GeoJSON.Feature),
-      };
-      ((mapRef2.current.getSource(FLOW_SOURCE) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void }).setData(fc));
-    },
-    [],
-  );
+    const fc: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features: features.map((p) => p.geojson as GeoJSON.Feature),
+    };
+    (mapRef2.current.getSource(FLOW_SOURCE) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void }).setData(
+      fc,
+    );
+  }, []);
 
   /** Remove flow path layer from map */
   const removeLayer = useCallback(() => {
@@ -114,11 +120,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
         source: FLOW_SOURCE,
         filter: ["==", ["get", "marker"], true],
         layout: {
-          "text-field": [
-            "format",
-            ["get", "label"],
-            { "font-scale": 0.8 },
-          ],
+          "text-field": ["format", ["get", "label"], { "font-scale": 0.8 }],
           "text-size": 11,
           "text-anchor": "top",
         },
@@ -163,8 +165,16 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
       try {
         const result =
           modeRef.current === "downstream"
-            ? await traceDownstream(lat, lon, undefined, { precision: precisionRef.current, directions: directionsRef.current, maxPoints: maxPointsRef.current })
-            : await traceUpstream(lat, lon, undefined, { precision: precisionRef.current, directions: directionsRef.current, maxPoints: maxPointsRef.current });
+            ? await traceDownstream(lat, lon, undefined, {
+                precision: precisionRef.current,
+                directions: directionsRef.current,
+                maxPoints: maxPointsRef.current,
+              })
+            : await traceUpstream(lat, lon, undefined, {
+                precision: precisionRef.current,
+                directions: directionsRef.current,
+                maxPoints: maxPointsRef.current,
+              });
 
         if (result.coordinates.length < 2) {
           setLoading(false);
@@ -229,7 +239,8 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           type: "FeatureCollection",
           features: [...segments, startFeature],
         };
-        const src = currentMap.getSource(FLOW_SOURCE) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void } | undefined;
+        const src = currentMap.getSource(FLOW_SOURCE) as unknown as
+          { setData: (d: GeoJSON.FeatureCollection) => void } | undefined;
         if (src) {
           src.setData(fc);
         }
@@ -376,9 +387,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               onChange={(e) => setDirections(parseInt(e.target.value))}
               style={{ flex: 1 }}
             />
-            <span style={{ color: text, fontFamily: "monospace", minWidth: 30, textAlign: "right" }}>
-              {directions}
-            </span>
+            <span style={{ color: text, fontFamily: "monospace", minWidth: 30, textAlign: "right" }}>{directions}</span>
           </div>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ color: textSec, minWidth: 70 }}>Max Points</span>
@@ -405,17 +414,15 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
         </div>
       )}
 
-      {loading && (
-        <div style={{ color: "#3b82f6", fontSize: 11 }}>
-          Tracing path... (batching elevation queries)
-        </div>
-      )}
+      {loading && <div style={{ color: "#3b82f6", fontSize: 11 }}>Tracing path... (batching elevation queries)</div>}
 
       {/* Results list */}
       {paths.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: textSec, fontSize: 11 }}>{paths.length} path{paths.length > 1 ? "s" : ""}</span>
+            <span style={{ color: textSec, fontSize: 11 }}>
+              {paths.length} path{paths.length > 1 ? "s" : ""}
+            </span>
             <div style={{ display: "flex", gap: 4 }}>
               <button
                 onClick={handleExport}
@@ -452,19 +459,54 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
                 <tr style={{ position: "sticky", top: 0, background: bg }}>
-                  <th style={{ padding: "4px 6px", textAlign: "left", color: textSec, borderBottom: `1px solid ${border}` }}>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "left",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
                     Mode
                   </th>
-                  <th style={{ padding: "4px 6px", textAlign: "right", color: textSec, borderBottom: `1px solid ${border}` }}>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
                     Distance
                   </th>
-                  <th style={{ padding: "4px 6px", textAlign: "right", color: textSec, borderBottom: `1px solid ${border}` }}>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
                     Min
                   </th>
-                  <th style={{ padding: "4px 6px", textAlign: "right", color: textSec, borderBottom: `1px solid ${border}` }}>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
                     Max
                   </th>
-                  <th style={{ padding: "4px 6px", textAlign: "right", color: textSec, borderBottom: `1px solid ${border}` }}>
+                  <th
+                    style={{
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      color: textSec,
+                      borderBottom: `1px solid ${border}`,
+                    }}
+                  >
                     Pts
                   </th>
                   <th style={{ padding: "4px 6px", color: "transparent" }}></th>
@@ -594,16 +636,7 @@ function ElevationMiniChart({
             .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(p.distanceM).toFixed(1)} ${toY(p.elevationM).toFixed(1)}`)
             .join(" ");
           const color = paths[pi].mode === "downstream" ? "#3b82f6" : "#f59e0b";
-          return (
-            <path
-              key={pi}
-              d={path}
-              fill="none"
-              stroke={color}
-              strokeWidth={1.5}
-              opacity={0.85}
-            />
-          );
+          return <path key={pi} d={path} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />;
         })}
 
         {/* X axis label */}
@@ -623,7 +656,9 @@ function computeTotalDist(result: FlowPathResult): number {
     const R = 6371000;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
     total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
   return total;

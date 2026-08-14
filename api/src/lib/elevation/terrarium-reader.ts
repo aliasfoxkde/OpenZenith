@@ -13,7 +13,7 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 interface ElevationResult {
   elevation: number | null;
-  surface_type: "land" | "ocean" | "unknown";
+  surface_type: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
   unit: string;
   location: { lat: number; lon: number };
   source: string;

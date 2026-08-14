@@ -46,6 +46,10 @@ Thumbs.db
 .claude
 # Note: CLAUDE.md IS tracked — do not add it here
 
+# Local agent/browser investigation artifacts
+.codebase-memory/
+.playwright-cli/
+
 # Scripts output
 upload_progress.json
 
@@ -54,6 +58,8 @@ upload_progress.json
 
 # Test artifacts
 test-results/
+.build-tmp/
+.tmp-test/
 
 # Rust build output (regenerate with wasm-pack / cargo build)
 core/target/

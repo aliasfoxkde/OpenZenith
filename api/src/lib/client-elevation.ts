@@ -30,6 +30,16 @@ interface DecodedChunk {
   height: number;
 }
 
+export type ElevationLookupStatus = "ok" | "no_data" | "unavailable";
+
+export interface ClientElevationResult {
+  elevation: number | null;
+  surfaceType: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
+  tile: string;
+  status: ElevationLookupStatus;
+  source?: string;
+}
+
 // --- GEBCO 2025 client-side constants ---
 
 const GEBCO_CEDA_BASE = "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff";
@@ -231,21 +241,14 @@ async function clientGebcoElevation(
  * @param lon - Longitude in degrees (-180 to 180)
  * @returns Elevation result with height in meters, surface type, and tile ID; null on failure
  */
-export async function getClientElevation(
-  lat: number,
-  lon: number,
-): Promise<{
-  elevation: number | null;
-  surfaceType: "land" | "ocean" | "unknown";
-  tile: string;
-} | null> {
+export async function getClientElevation(lat: number, lon: number): Promise<ClientElevationResult> {
   // Normalize longitude to -180..180 (handles map wrap-around coordinates like 540)
-  lon = ((lon % 360) + 540) % 360 - 180;
+  lon = (((lon % 360) + 540) % 360) - 180;
 
   // Try client-side first
   try {
     const result = await clientElevationDirect(lat, lon);
-    if (result) return result;
+    if (result) return { ...result, status: "ok", source: result.surfaceType === "ocean" ? "gebco2025" : "srtm" };
   } catch {
     // Fall through to server
   }
@@ -260,6 +263,17 @@ export async function getClientElevation(
           elevation: d.elevation,
           surfaceType: d.surface_type || "unknown",
           tile: d.tile || "",
+          status: "ok",
+          source: d.source,
+        };
+      }
+      if (d.ok === false || d.source === "none") {
+        return {
+          elevation: null,
+          surfaceType: d.surface_type || "unknown",
+          tile: d.tile || "",
+          status: "no_data",
+          source: d.source,
         };
       }
     }
@@ -267,7 +281,7 @@ export async function getClientElevation(
     // Server unreachable
   }
 
-  return null;
+  return { elevation: null, surfaceType: "unknown", tile: "", status: "unavailable", source: "none" };
 }
 
 async function clientElevationDirect(
@@ -325,7 +339,7 @@ export async function getClientElevationBatch(
   // Normalize longitudes to -180..180 (handles map wrap-around)
   const normalizedPoints = points.map((p) => ({
     ...p,
-    lon: ((p.lon % 360) + 540) % 360 - 180,
+    lon: (((p.lon % 360) + 540) % 360) - 180,
   }));
 
   // Try client-side batch first

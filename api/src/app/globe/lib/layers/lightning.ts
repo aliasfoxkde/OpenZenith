@@ -76,7 +76,9 @@ export function loadLightning(
     setTimeout(() => {
       try {
         if (entity?.billboard) entity.billboard.show = false;
-      } catch { /* */ }
+      } catch {
+        /* */
+      }
     }, 5000);
 
     // Auto-remove after 30s

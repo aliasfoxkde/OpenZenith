@@ -43,7 +43,7 @@ export async function getGebcoElevation(
   lon: number,
 ): Promise<{
   elevation: number | null;
-  surface_type: "land" | "ocean" | "unknown";
+  surface_type: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
   unit: string;
   location: { lat: number; lon: number };
   source: string;
@@ -97,7 +97,8 @@ export async function getGebcoElevation(
   }
 
   const elevation = signedValue;
-  const surfaceType = signedValue < 0 ? "ocean" : "land";
+  // GEBCO is ocean bathymetry + global elevation: negative = seafloor/bathymetry, non-negative = land/ice surface
+  const surfaceType = signedValue < 0 ? "seafloor" : "land";
 
   return {
     elevation,

@@ -73,7 +73,8 @@ export function loadSpaceWeather(
           const lon = Math.round(c[0]);
           const lat = c[1];
           const intensity = c[2];
-          if (intensity > 2) { // threshold: skip low-intensity
+          if (intensity > 2) {
+            // threshold: skip low-intensity
             if (!byLon.has(lon)) byLon.set(lon, []);
             byLon.get(lon)!.push({ lat, intensity });
           }
@@ -85,11 +86,12 @@ export function loadSpaceWeather(
           for (const pt of points) {
             if (entityCount > 2000) break; // limit entities
             const prob = Math.min(pt.intensity * 10, 100);
-            const color = prob > 70
-              ? Cesium.Color.fromCssColorString("#00ff88")
-              : prob > 40
-                ? Cesium.Color.fromCssColorString("#00cc66")
-                : Cesium.Color.fromCssColorString("#008844");
+            const color =
+              prob > 70
+                ? Cesium.Color.fromCssColorString("#00ff88")
+                : prob > 40
+                  ? Cesium.Color.fromCssColorString("#00cc66")
+                  : Cesium.Color.fromCssColorString("#008844");
 
             viewer.entities.add({
               id: `aurora-${entityCount++}`,

@@ -1,0 +1,2 @@
+# Generated Rust/WASM glue is not hand-maintained.
+src/lib/wasm/openzenith_core.js

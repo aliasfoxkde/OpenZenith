@@ -39,18 +39,16 @@ async function dedupFetch(url: string, timeoutMs = DEFAULT_TIMEOUT): Promise<Res
   }
 }
 
-export async function fetchEarthquakes(signal?: AbortSignal): Promise<any> {
+export async function fetchEarthquakes(_signal?: AbortSignal): Promise<any> {
   try {
-    const r = await dedupFetch(
-      "/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
-    );
+    const r = await dedupFetch("/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
     return await r.json();
   } catch {
     return { type: "FeatureCollection", features: [] };
   }
 }
 
-export async function fetchRainViewer(signal?: AbortSignal): Promise<any> {
+export async function fetchRainViewer(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/proxy/https://api.rainviewer.com/public/weather-maps.json");
     return await r.json();
@@ -59,11 +57,9 @@ export async function fetchRainViewer(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchEONET(signal?: AbortSignal): Promise<any> {
+export async function fetchEONET(_signal?: AbortSignal): Promise<any> {
   try {
-    const r = await dedupFetch(
-      "/api/proxy/https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200",
-    );
+    const r = await dedupFetch("/api/proxy/https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
     return await r.json();
   } catch {
     return { type: "FeatureCollection", features: [] };
@@ -72,7 +68,7 @@ export async function fetchEONET(signal?: AbortSignal): Promise<any> {
 
 export async function fetchFlights(
   bbox?: { lamin: number; lamax: number; lomin: number; lomax: number },
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ): Promise<any> {
   try {
     const params = bbox ? `?lamin=${bbox.lamin}&lamax=${bbox.lamax}&lomin=${bbox.lomin}&lomax=${bbox.lomax}` : "";
@@ -83,7 +79,7 @@ export async function fetchFlights(
   }
 }
 
-export async function fetchFlightsAnonymous(signal?: AbortSignal): Promise<any> {
+export async function fetchFlightsAnonymous(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/flights");
     return await r.json();
@@ -92,12 +88,7 @@ export async function fetchFlightsAnonymous(signal?: AbortSignal): Promise<any> 
   }
 }
 
-export async function fetchMilitaryFlights(
-  lat = 30,
-  lon = -90,
-  dist = 500,
-  signal?: AbortSignal,
-): Promise<any> {
+export async function fetchMilitaryFlights(lat = 30, lon = -90, dist = 500, _signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch(`/api/military?lat=${lat}&lon=${lon}&dist=${dist}`);
     return await r.json();
@@ -106,7 +97,7 @@ export async function fetchMilitaryFlights(
   }
 }
 
-export async function fetchVessels(signal?: AbortSignal): Promise<any> {
+export async function fetchVessels(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/vessels");
     return await r.json();
@@ -115,7 +106,7 @@ export async function fetchVessels(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchWarnings(signal?: AbortSignal): Promise<any> {
+export async function fetchWarnings(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/weather/warnings");
     return await r.json();
@@ -124,18 +115,16 @@ export async function fetchWarnings(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchCelestrak(signal?: AbortSignal): Promise<any> {
+export async function fetchCelestrak(_signal?: AbortSignal): Promise<any> {
   try {
-    const r = await dedupFetch(
-      "/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
-    );
+    const r = await dedupFetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json");
     return await r.json();
   } catch {
     return [];
   }
 }
 
-export async function fetchHurricaneTracks(signal?: AbortSignal): Promise<any> {
+export async function fetchHurricaneTracks(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch(
       "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv",
@@ -146,29 +135,25 @@ export async function fetchHurricaneTracks(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchSWPCaurora(signal?: AbortSignal): Promise<any> {
+export async function fetchSWPCaurora(_signal?: AbortSignal): Promise<any> {
   try {
-    const r = await dedupFetch(
-      "/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_latest.json",
-    );
+    const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
     return await r.json();
   } catch {
     return { error: "Aurora data unavailable" };
   }
 }
 
-export async function fetchSWPCkpForecast(signal?: AbortSignal): Promise<any> {
+export async function fetchSWPCkpForecast(_signal?: AbortSignal): Promise<any> {
   try {
-    const r = await dedupFetch(
-      "/api/proxy/https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json",
-    );
+    const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json");
     return await r.json();
   } catch {
     return [];
   }
 }
 
-export async function fetchAirQuality(signal?: AbortSignal): Promise<any> {
+export async function fetchAirQuality(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch(
       "/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=0&longitude=0&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,carbon_monoxide",
@@ -179,7 +164,7 @@ export async function fetchAirQuality(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchSigmets(signal?: AbortSignal): Promise<any> {
+export async function fetchSigmets(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/proxy/https://aviationweather.gov/api/data/sigmet?format=json");
     return await r.json();
@@ -188,7 +173,7 @@ export async function fetchSigmets(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchAirmets(signal?: AbortSignal): Promise<any> {
+export async function fetchAirmets(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/proxy/https://aviationweather.gov/api/data/airmet?format=json");
     return await r.json();
@@ -236,12 +221,12 @@ export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchGDACS(signal?: AbortSignal): Promise<any> {
+export async function fetchGDACS(_signal?: AbortSignal): Promise<any> {
   // GDACS public API discontinued — return empty
   return { type: "FeatureCollection", features: [] };
 }
 
-export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {
+export async function fetchMarineWeather(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch(
       "/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=0&longitude=0&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature",
@@ -252,7 +237,7 @@ export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchFIRMS(signal?: AbortSignal): Promise<any> {
+export async function fetchFIRMS(_signal?: AbortSignal): Promise<any> {
   try {
     const r = await dedupFetch("/api/wildfires");
     const data = await r.json();

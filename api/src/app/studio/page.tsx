@@ -335,7 +335,7 @@ export default function StudioPage() {
     return () => {
       cancelled = true;
       // Clear intervals
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
       const handle = layerHandleRef.current;
       for (const interval of handle.intervals) clearInterval(interval);
       handle.intervals = [];
@@ -348,7 +348,7 @@ export default function StudioPage() {
         mapRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   /* ─── Layer toggling ─── */

@@ -11,26 +11,48 @@ import { setStatus } from "./types";
 // This provides a sparse but useful visualization of marine conditions
 const OCEAN_SAMPLE_POINTS: Array<{ lat: number; lon: number }> = [
   // North Atlantic
-  { lat: 45, lon: -30 }, { lat: 40, lon: -40 }, { lat: 50, lon: -20 },
-  { lat: 35, lon: -50 }, { lat: 55, lon: -15 }, { lat: 30, lon: -60 },
+  { lat: 45, lon: -30 },
+  { lat: 40, lon: -40 },
+  { lat: 50, lon: -20 },
+  { lat: 35, lon: -50 },
+  { lat: 55, lon: -15 },
+  { lat: 30, lon: -60 },
   // South Atlantic
-  { lat: -20, lon: -15 }, { lat: -30, lon: -10 }, { lat: -15, lon: -20 },
-  { lat: -35, lon: -5 }, { lat: -25, lon: -25 },
+  { lat: -20, lon: -15 },
+  { lat: -30, lon: -10 },
+  { lat: -15, lon: -20 },
+  { lat: -35, lon: -5 },
+  { lat: -25, lon: -25 },
   // North Pacific
-  { lat: 40, lon: 160 }, { lat: 35, lon: 150 }, { lat: 45, lon: 170 },
-  { lat: 30, lon: 170 }, { lat: 50, lon: 180 },
+  { lat: 40, lon: 160 },
+  { lat: 35, lon: 150 },
+  { lat: 45, lon: 170 },
+  { lat: 30, lon: 170 },
+  { lat: 50, lon: 180 },
   // South Pacific
-  { lat: -20, lon: -130 }, { lat: -30, lon: -120 }, { lat: -15, lon: -140 },
-  { lat: -25, lon: -110 }, { lat: -35, lon: -100 },
+  { lat: -20, lon: -130 },
+  { lat: -30, lon: -120 },
+  { lat: -15, lon: -140 },
+  { lat: -25, lon: -110 },
+  { lat: -35, lon: -100 },
   // Indian Ocean
-  { lat: -10, lon: 70 }, { lat: -20, lon: 80 }, { lat: 0, lon: 60 },
-  { lat: -15, lon: 90 }, { lat: -5, lon: 50 },
+  { lat: -10, lon: 70 },
+  { lat: -20, lon: 80 },
+  { lat: 0, lon: 60 },
+  { lat: -15, lon: 90 },
+  { lat: -5, lon: 50 },
   // Mediterranean
-  { lat: 36, lon: 15 }, { lat: 38, lon: 20 }, { lat: 35, lon: 25 },
+  { lat: 36, lon: 15 },
+  { lat: 38, lon: 20 },
+  { lat: 35, lon: 25 },
   // Arctic
-  { lat: 70, lon: 10 }, { lat: 65, lon: -20 }, { lat: 75, lon: 0 },
+  { lat: 70, lon: 10 },
+  { lat: 65, lon: -20 },
+  { lat: 75, lon: 0 },
   // Caribbean
-  { lat: 15, lon: -60 }, { lat: 20, lon: -70 }, { lat: 10, lon: -65 },
+  { lat: 15, lon: -60 },
+  { lat: 20, lon: -70 },
+  { lat: 10, lon: -65 },
 ];
 
 export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void {
@@ -51,12 +73,19 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["get", "waveHeight"], 0, 3, 6, 8, 12, 12],
           "circle-color": [
-            "interpolate", ["linear"], ["get", "waveHeight"],
-            0, "#22d3ee",    // calm — cyan
-            2, "#3b82f6",    // moderate — blue
-            4, "#f59e0b",    // rough — amber
-            6, "#f97316",    // very rough — orange
-            9, "#ef4444",    // high — red
+            "interpolate",
+            ["linear"],
+            ["get", "waveHeight"],
+            0,
+            "#22d3ee", // calm — cyan
+            2,
+            "#3b82f6", // moderate — blue
+            4,
+            "#f59e0b", // rough — amber
+            6,
+            "#f97316", // very rough — orange
+            9,
+            "#ef4444", // high — red
           ],
           "circle-opacity": 0.8,
           "circle-stroke-width": 1,
@@ -114,10 +143,18 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
       if (data.current) {
         // Batch response format
         const times = Array.isArray(data.current?.time) ? data.current.time : [data.current?.time];
-        const waveHeights = Array.isArray(data.current?.wave_height) ? data.current.wave_height : [data.current?.wave_height];
-        const windWaves = Array.isArray(data.current?.wind_wave_height) ? data.current.wind_wave_height : [data.current?.wind_wave_height];
-        const swellWaves = Array.isArray(data.current?.swell_wave_height) ? data.current.swell_wave_height : [data.current.swell_wave_height];
-        const sst = Array.isArray(data.current?.sea_surface_temperature) ? data.current.sea_surface_temperature : [data.current?.sea_surface_temperature];
+        const waveHeights = Array.isArray(data.current?.wave_height)
+          ? data.current.wave_height
+          : [data.current?.wave_height];
+        const windWaves = Array.isArray(data.current?.wind_wave_height)
+          ? data.current.wind_wave_height
+          : [data.current?.wind_wave_height];
+        const swellWaves = Array.isArray(data.current?.swell_wave_height)
+          ? data.current.swell_wave_height
+          : [data.current.swell_wave_height];
+        const sst = Array.isArray(data.current?.sea_surface_temperature)
+          ? data.current.sea_surface_temperature
+          : [data.current?.sea_surface_temperature];
 
         for (let i = 0; i < OCEAN_SAMPLE_POINTS.length; i++) {
           const wh = waveHeights[i];
@@ -165,7 +202,11 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
 
 export function removeMarineWeather(map: maplibregl.Map): void {
   ["marineWeather-labels", "marineWeather-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("marineWeather"); } catch {}
+  try {
+    map.removeSource("marineWeather");
+  } catch {}
 }

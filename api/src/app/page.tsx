@@ -42,6 +42,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: number; lon: number }>>([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heroMapRef = useRef<HTMLDivElement>(null);
@@ -174,9 +175,7 @@ export default function Home() {
                 attribution: "&copy; CartoDB",
               },
             },
-            layers: [
-              { id: "osm", type: "raster", source: "osm" },
-            ],
+            layers: [{ id: "osm", type: "raster", source: "osm" }],
             glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
           },
           center: [0, 25],
@@ -323,6 +322,7 @@ export default function Home() {
     if (!query.trim()) {
       setSearchResults([]);
       setSearchOpen(false);
+      setSearchError("");
       return;
     }
 
@@ -343,6 +343,7 @@ export default function Home() {
         setLon(parsedLon.toString());
         setSearchResults([]);
         setSearchOpen(false);
+        setSearchError("");
         return;
       }
     }
@@ -350,12 +351,26 @@ export default function Home() {
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=5`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          setSearchResults([]);
+          setSearchError("Address search is temporarily unavailable. Try again shortly.");
+          setSearchOpen(true);
+          return;
+        }
         const data = await res.json();
+        if (data?.ok === false || data?.error) {
+          setSearchResults([]);
+          setSearchError(data.error?.message || data.error || "Address search is temporarily unavailable.");
+          setSearchOpen(true);
+          return;
+        }
+        setSearchError("");
         setSearchResults(data.results || []);
         setSearchOpen(true);
       } catch {
-        // ignore
+        setSearchResults([]);
+        setSearchError("Address search is temporarily unavailable. Check your connection and retry.");
+        setSearchOpen(true);
       }
     }, 300);
   }
@@ -451,7 +466,16 @@ export default function Home() {
               }}
             >
               {dark ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <circle cx="12" cy="12" r="5" />
                   <line x1="12" y1="1" x2="12" y2="3" />
                   <line x1="12" y1="21" x2="12" y2="23" />
@@ -463,7 +487,16 @@ export default function Home() {
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
@@ -478,7 +511,16 @@ export default function Home() {
           style={{ position: "relative", height: 660, overflow: "hidden", marginBottom: "2rem" }}
         >
           {/* Map background */}
-          <div id="hero-map" ref={heroMapRef} className="oz-hero-map" style={{ position: "absolute", inset: 0, filter: dark ? "brightness(1.4) contrast(0.9) saturate(0.6)" : undefined }} />
+          <div
+            id="hero-map"
+            ref={heroMapRef}
+            className="oz-hero-map"
+            style={{
+              position: "absolute",
+              inset: 0,
+              filter: dark ? "brightness(1.4) contrast(0.9) saturate(0.6)" : undefined,
+            }}
+          />
           {/* Subtle overlay — lets map texture show through */}
           <div
             className="oz-hero-overlay"
@@ -611,6 +653,7 @@ export default function Home() {
                       setSearchQuery("");
                       setSearchResults([]);
                       setSearchOpen(false);
+                      setSearchError("");
                     }}
                     style={{
                       position: "absolute",
@@ -630,7 +673,7 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              {searchOpen && searchResults.length > 0 && (
+              {searchOpen && (searchResults.length > 0 || searchError || searchQuery.trim()) && (
                 <div
                   style={{
                     position: "absolute",
@@ -647,35 +690,45 @@ export default function Home() {
                     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                   }}
                 >
-                  {searchResults.map((r, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setLat(r.lat.toString());
-                        setLon(r.lon.toString());
-                        setSearchQuery(r.display_name.split(",")[0]);
-                        setSearchOpen(false);
-                        lookup();
-                      }}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "0.5rem 0.75rem",
-                        border: "none",
-                        background: "none",
-                        color: text,
-                        fontSize: "0.82rem",
-                        cursor: "pointer",
-                        borderBottom: i < searchResults.length - 1 ? `1px solid ${border}` : "none",
-                      }}
-                    >
-                      <div style={{ fontWeight: 500 }}>{r.display_name.split(",")[0]}</div>
-                      <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.1rem" }}>
-                        {r.display_name.split(",").slice(1).join(",").trim()}
-                      </div>
-                    </button>
-                  ))}
+                  {searchError ? (
+                    <div role="alert" style={{ padding: "0.65rem 0.75rem", color: textSecondary, fontSize: "0.82rem" }}>
+                      {searchError}
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((r, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setLat(r.lat.toString());
+                          setLon(r.lon.toString());
+                          setSearchQuery(r.display_name.split(",")[0]);
+                          setSearchOpen(false);
+                          lookup();
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          textAlign: "left",
+                          padding: "0.5rem 0.75rem",
+                          border: "none",
+                          background: "none",
+                          color: text,
+                          fontSize: "0.82rem",
+                          cursor: "pointer",
+                          borderBottom: i < searchResults.length - 1 ? `1px solid ${border}` : "none",
+                        }}
+                      >
+                        <div style={{ fontWeight: 500 }}>{r.display_name.split(",")[0]}</div>
+                        <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.1rem" }}>
+                          {r.display_name.split(",").slice(1).join(",").trim()}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div style={{ padding: "0.65rem 0.75rem", color: textSecondary, fontSize: "0.82rem" }}>
+                      No matching places found.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1400,7 +1453,9 @@ export default function Home() {
           <p className="oz-disclaimer">This Application was Developed with TaskWizer AI technologies.</p>
         </section>
         <section style={{ maxWidth: W, margin: "0 auto", padding: "2.5rem 1.5rem 2.5rem" }}>
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.5rem", textAlign: "center" }}>Globe Data Layers</h2>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.5rem", textAlign: "center" }}>
+            Globe Data Layers
+          </h2>
           <p style={{ fontSize: "0.85rem", color: textSecondary, margin: "0 0 1.5rem", textAlign: "center" }}>
             Real-time geospatial intelligence overlays
           </p>
@@ -1948,10 +2003,10 @@ export default function Home() {
                 lineHeight: 1.65,
               }}
             >
-              OpenZenith runs on Cloudflare's free tier &mdash; no servers to maintain, minimal monthly costs.
-              Elevation tiles live in Cloudflare R2 (~1.7GB), API responses are cached at the edge, and everything
-              else executes in your browser. That keeps it free for everyone, but it also means we're limited
-              by what edge functions and client-side compute can do.
+              OpenZenith runs on Cloudflare's free tier &mdash; no servers to maintain, minimal monthly costs. Elevation
+              tiles live in Cloudflare R2 (~1.7GB), API responses are cached at the edge, and everything else executes
+              in your browser. That keeps it free for everyone, but it also means we're limited by what edge functions
+              and client-side compute can do.
             </p>
             <div
               style={{

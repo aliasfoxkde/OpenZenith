@@ -169,9 +169,13 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
 
 export function removeAviationWeather(map: maplibregl.Map): void {
   ["aviationWeather-labels", "airmet-outline", "airmet-fill", "sigmet-outline", "sigmet-fill"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("aviationWeather"); } catch {}
+  try {
+    map.removeSource("aviationWeather");
+  } catch {}
 }
 
 /* ─── Helpers ─── */

@@ -18,11 +18,23 @@ export { addElevationAccuracy, removeElevationAccuracy } from "./elevation-accur
 export { addContours, removeContours } from "./contours";
 
 // Weather
-export { addEarthquakes, removeEarthquakes, setEarthquakeFeed, setEarthquakeTimeFilter, getEarthquakeTimeRange, refreshEarthquakeFilter } from "./earthquakes";
+export {
+  addEarthquakes,
+  removeEarthquakes,
+  setEarthquakeFeed,
+  setEarthquakeTimeFilter,
+  getEarthquakeTimeRange,
+  refreshEarthquakeFilter,
+} from "./earthquakes";
 export { addWarnings, removeWarnings } from "./warnings";
 export { addNaturalEvents, removeNaturalEvents } from "./events";
 export { addRadar, removeRadar } from "./radar";
-export { addHurricaneTracks, removeHurricaneTracks, startHurricaneAnimation, stopHurricaneAnimation } from "./hurricanes";
+export {
+  addHurricaneTracks,
+  removeHurricaneTracks,
+  startHurricaneAnimation,
+  stopHurricaneAnimation,
+} from "./hurricanes";
 export { addWildfires, removeWildfires } from "./wildfires";
 
 // Infrastructure

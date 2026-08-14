@@ -22,7 +22,6 @@
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const HEADER_SIZE = 6;
-const DEFAULT_TILE_SIZE = 256;
 
 const PRED_NONE = 0;
 const PRED_LEFT = 1;
@@ -58,10 +57,7 @@ export interface OZT2DecodeResult {
  * Decompress data using the browser's native DecompressionStream API.
  * Supports Brotli ("br") and Deflate ("deflate") natively.
  */
-async function decompress(
-  data: ArrayBuffer,
-  compressor: number,
-): Promise<Uint8Array> {
+async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8Array> {
   if (compressor === COMP_BROTLI) {
     // "br" is supported in browsers but not in TypeScript's DOM lib types
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,9 +70,7 @@ async function decompress(
   } else if (compressor === COMP_ZLIB || compressor === COMP_ZSTD) {
     // Zstd not natively supported — fall back to fflate or inflateSync
     // For now, throw — zstd decoder requires fflate-zstd WASM
-    throw new Error(
-      "Zstd decompression requires fflate-zstd. Use Brotli-compressed tiles for browser decoding.",
-    );
+    throw new Error("Zstd decompression requires fflate-zstd. Use Brotli-compressed tiles for browser decoding.");
   } else {
     throw new Error(`Unknown compressor: ${compressor}`);
   }
@@ -89,11 +83,7 @@ async function decompress(
  * Predictor: p[i,j] = left + above - upper_left
  * So: actual = residual + left + above - upper_left
  */
-function gradientReconstruct(
-  residuals: Int16Array,
-  height: number,
-  width: number,
-): Int16Array {
+function gradientReconstruct(residuals: Int16Array, height: number, width: number): Int16Array {
   const out = new Int16Array(height * width);
   out[0] = residuals[0];
 
@@ -113,11 +103,7 @@ function gradientReconstruct(
     // Interior: gradient predictor
     for (let j = 1; j < width; j++) {
       const idx = row + j;
-      out[idx] =
-        residuals[idx] +
-        out[idx - 1] +
-        out[prevRow + j] -
-        out[prevRow + j - 1];
+      out[idx] = residuals[idx] + out[idx - 1] + out[prevRow + j] - out[prevRow + j - 1];
     }
   }
 
@@ -129,11 +115,7 @@ function gradientReconstruct(
  * Predictor: p[i,j] = left
  * So: actual = residual + left
  */
-function leftReconstruct(
-  residuals: Int16Array,
-  height: number,
-  width: number,
-): Int16Array {
+function leftReconstruct(residuals: Int16Array, height: number, width: number): Int16Array {
   const out = new Int16Array(height * width);
   out[0] = residuals[0];
 
@@ -195,13 +177,9 @@ function dequantize(
  * @param tileBytes - The complete OZT2 binary tile data
  * @returns Object containing the elevation Int16Array and metadata
  */
-export async function decodeOZT2(
-  tileBytes: ArrayBuffer,
-): Promise<OZT2DecodeResult> {
+export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResult> {
   if (tileBytes.byteLength < HEADER_SIZE) {
-    throw new Error(
-      `Tile too small: ${tileBytes.byteLength} bytes (min ${HEADER_SIZE})`,
-    );
+    throw new Error(`Tile too small: ${tileBytes.byteLength} bytes (min ${HEADER_SIZE})`);
   }
 
   const view = new DataView(tileBytes);
@@ -228,16 +206,11 @@ export async function decodeOZT2(
 
   // Decompress
   const compressedData = tileBytes.slice(HEADER_SIZE);
-  const decompressed = await decompress(
-    compressedData,
-    compressor as number,
-  );
+  const decompressed = await decompress(compressedData, compressor as number);
 
   // Parse int16 residuals
   if (decompressed.byteLength % 2 !== 0) {
-    throw new Error(
-      `Decompressed data not aligned to 2 bytes: ${decompressed.byteLength}`,
-    );
+    throw new Error(`Decompressed data not aligned to 2 bytes: ${decompressed.byteLength}`);
   }
 
   const residuals = new Int16Array(decompressed.buffer, decompressed.byteOffset, decompressed.byteLength / 2);
@@ -261,9 +234,7 @@ export async function decodeOZT2(
       }
     }
     if (!found) {
-      throw new Error(
-        `Cannot infer tile dimensions from ${nPixels} pixels`,
-      );
+      throw new Error(`Cannot infer tile dimensions from ${nPixels} pixels`);
     }
   }
 
@@ -317,14 +288,9 @@ export async function decodeOZT2(
  *
  * Requires: import { inflateSync } from "fflate";
  */
-export function decodeOZT2Sync(
-  tileBytes: ArrayBuffer,
-  inflateFn?: (data: Uint8Array) => Uint8Array,
-): OZT2DecodeResult {
+export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8Array) => Uint8Array): OZT2DecodeResult {
   if (tileBytes.byteLength < HEADER_SIZE) {
-    throw new Error(
-      `Tile too small: ${tileBytes.byteLength} bytes (min ${HEADER_SIZE})`,
-    );
+    throw new Error(`Tile too small: ${tileBytes.byteLength} bytes (min ${HEADER_SIZE})`);
   }
 
   const bytes = new Uint8Array(tileBytes);
@@ -374,7 +340,12 @@ export function decodeOZT2Sync(
   } else {
     let found = false;
     for (const w of [256, 3601, 512, 1024, 128, 64]) {
-      if (nPixels % w === 0) { height = nPixels / w; width = w; found = true; break; }
+      if (nPixels % w === 0) {
+        height = nPixels / w;
+        width = w;
+        found = true;
+        break;
+      }
     }
     if (!found) throw new Error(`Cannot infer dimensions from ${nPixels} pixels`);
   }
@@ -468,8 +439,7 @@ export function interpolateElevation(
 
   if (validCount === 0) return nodata;
   if (validCount === 4) {
-    return (1 - fx) * (1 - fy) * v00 + fx * (1 - fy) * v10 +
-           (1 - fx) * fy * v01 + fx * fy * v11;
+    return (1 - fx) * (1 - fy) * v00 + fx * (1 - fy) * v10 + (1 - fx) * fy * v01 + fx * fy * v11;
   }
 
   // Fall back to nearest valid neighbor

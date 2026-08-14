@@ -38,7 +38,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   const cached = await r2GetTile("population", zoom, tileX, tileY);
   if (cached) {
     return new Response(cached, {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "X-Cache": "HIT", ...CORS_HEADERS },
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+        "X-Cache": "HIT",
+        ...CORS_HEADERS,
+      },
     });
   }
 
@@ -46,7 +51,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   const wmsUrl = `${GIBS_WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${LAYER}&FORMAT=image/png&WIDTH=256&HEIGHT=256&CRS=EPSG:3857&BBOX=${bbox}`;
 
   try {
-    const res = await fetch(wmsUrl, { signal: AbortSignal.timeout(30000), headers: { "User-Agent": "OpenZenith/1.0" } });
+    const res = await fetch(wmsUrl, {
+      signal: AbortSignal.timeout(30000),
+      headers: { "User-Agent": "OpenZenith/1.0" },
+    });
     if (!res.ok) {
       return new Response("Tile not available", { status: res.status, headers: CORS_HEADERS });
     }
@@ -54,7 +62,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     const buffer = await res.arrayBuffer();
     r2PutTile("population", zoom, tileX, tileY, buffer, contentType).catch(() => {});
     return new Response(buffer, {
-      headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=86400", "X-Cache": "MISS", ...CORS_HEADERS },
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400",
+        "X-Cache": "MISS",
+        ...CORS_HEADERS,
+      },
     });
   } catch {
     return new Response("Failed to fetch tile", { status: 200, headers: CORS_HEADERS });

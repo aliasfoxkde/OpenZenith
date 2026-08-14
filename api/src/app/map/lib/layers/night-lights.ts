@@ -38,6 +38,10 @@ export function addNightLights(map: maplibregl.Map, _handle: LayerHandle): void 
 }
 
 export function removeNightLights(map: maplibregl.Map): void {
-  try { map.removeLayer("nightLights-raster"); } catch {}
-  try { map.removeSource("nightLights"); } catch {}
+  try {
+    map.removeLayer("nightLights-raster");
+  } catch {}
+  try {
+    map.removeSource("nightLights");
+  } catch {}
 }

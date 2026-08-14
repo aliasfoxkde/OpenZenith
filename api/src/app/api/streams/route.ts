@@ -38,7 +38,10 @@ function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: 
         const nIdx = nr * cols + nc;
         if (dem[nIdx] <= nodata) continue;
         const slope = (dem[idx] - dem[nIdx]) / DIST[d];
-        if (slope > maxSlope) { maxSlope = slope; bestDir = d; }
+        if (slope > maxSlope) {
+          maxSlope = slope;
+          bestDir = d;
+        }
       }
       flowDir[idx] = bestDir;
     }
@@ -66,7 +69,10 @@ function flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint3
         if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
         const nIdx = nr * cols + nc;
         const newVal = accum[idx] + (accum[nIdx] > 0 ? 1 : 0);
-        if (newVal > accum[nIdx]) { accum[nIdx] = newVal; changed = true; }
+        if (newVal > accum[nIdx]) {
+          accum[nIdx] = newVal;
+          changed = true;
+        }
       }
     }
   }
@@ -146,7 +152,10 @@ export async function POST(request: NextRequest) {
         const key = `${tileX}/${tileY}`;
         const tile = tileDataMap.get(key);
 
-        if (!tile) { dem[r * gridCols + c] = NODATA; continue; }
+        if (!tile) {
+          dem[r * gridCols + c] = NODATA;
+          continue;
+        }
 
         const px = globalX - tileX * 256;
         const py = globalY - tileY * 256;
@@ -185,7 +194,8 @@ export async function POST(request: NextRequest) {
 
         // Start of a stream segment — trace downhill
         const coords: [number, number][] = [];
-        let cr = r, cc = c;
+        let cr = r,
+          cc = c;
 
         while (cr >= 0 && cr < gridRows && cc >= 0 && cc < gridCols) {
           const cidx = cr * gridCols + cc;
@@ -195,8 +205,8 @@ export async function POST(request: NextRequest) {
           // Convert grid position to lat/lon
           const tileNorth = tileToLatLon(zoom, 0, tileYMin).north;
           const tileSouth = tileToLatLon(zoom, 0, tileYMax + 1).south;
-          const tileWest = (tileXMin * 256) / n * 360 - 180;
-          const tileEast = ((tileXMax + 1) * 256) / n * 360 - 180;
+          const tileWest = ((tileXMin * 256) / n) * 360 - 180;
+          const tileEast = (((tileXMax + 1) * 256) / n) * 360 - 180;
           const cellLat = tileNorth - (cr / gridRows) * (tileNorth - tileSouth);
           const cellLon = tileWest + (cc / gridCols) * (tileEast - tileWest);
           coords.push([Math.round(cellLon * 1e6) / 1e6, Math.round(cellLat * 1e6) / 1e6]);
@@ -217,17 +227,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      type: "FeatureCollection",
-      features,
-      stats: {
-        stream_count: features.length,
-        threshold,
-        total_cells: gridRows * gridCols,
+    return NextResponse.json(
+      {
+        type: "FeatureCollection",
+        features,
+        stats: {
+          stream_count: features.length,
+          threshold,
+          total_cells: gridRows * gridCols,
+        },
       },
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

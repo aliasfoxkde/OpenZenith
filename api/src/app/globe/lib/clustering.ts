@@ -1,9 +1,9 @@
 /**
  * Supercluster Integration for OpenZenith Globe
- * 
+ *
  * Provides point aggregation using Supercluster algorithm.
  * Used for clustering conflict events, protests, earthquakes, and other point data.
- * 
+ *
  * Based on patterns from gods-eye.app which uses Supercluster for:
  * - military-flight-clusters
  * - military-vessel-clusters  
@@ -35,15 +35,15 @@ export interface ClusterFeature {
 }
 
 export interface ClusterOptions {
-  radius?: number;        // Cluster radius in pixels (default: 60)
-  maxZoom?: number;        // Max zoom for clustering (default: 14)
-  minZoom?: number;        // Min zoom for clustering (default: 0)
-  minPoints?: number;      // Min points to form cluster (default: 2)
-  minRadius?: number;      // Minimum cluster radius in pixels
-  maxRadius?: number;      // Maximum cluster radius in pixels
-  extent?: number;         // Tile extent (default: 512)
-  nodeSize?: number;       // Node size for index (default: 64)
-  log?: boolean;           // Enable logging
+  radius?: number; // Cluster radius in pixels (default: 60)
+  maxZoom?: number; // Max zoom for clustering (default: 14)
+  minZoom?: number; // Min zoom for clustering (default: 0)
+  minPoints?: number; // Min points to form cluster (default: 2)
+  minRadius?: number; // Minimum cluster radius in pixels
+  maxRadius?: number; // Maximum cluster radius in pixels
+  extent?: number; // Tile extent (default: 512)
+  nodeSize?: number; // Node size for index (default: 64)
+  log?: boolean; // Enable logging
 }
 
 /** Default clustering options */
@@ -99,37 +99,37 @@ export class SimpleClusterIndex {
 
     // Calculate grid size based on zoom
     const gridSize = this.calculateGridSize(zoom, radius);
-    
+
     // Group points into grid cells
     const grid = new Map<string, ClusterFeature[]>();
-    
+
     for (const point of inBounds) {
       const [lon, lat] = point.geometry.coordinates;
       const gridX = Math.floor((lon - west) / gridSize.x);
       const gridY = Math.floor((lat - south) / gridSize.y);
       const key = `${gridX}:${gridY}`;
-      
+
       if (!grid.has(key)) grid.set(key, []);
       grid.get(key)!.push(point);
     }
 
     // Create clusters from grid cells
     const result: ClusterFeature[] = [];
-    
+
     for (const [, cellPoints] of grid) {
       if (cellPoints.length >= minPoints) {
         // Calculate cluster center
         const sumLat = cellPoints.reduce((s, p) => s + p.geometry.coordinates[1], 0);
         const sumLon = cellPoints.reduce((s, p) => s + p.geometry.coordinates[0], 0);
         const count = cellPoints.length;
-        
+
         // Aggregate properties
         const severities = cellPoints.map((p) => {
           const val = p.properties["severity"] ?? p.properties["magnitude"] ?? 1;
           return typeof val === "number" ? val : 1;
         });
         const maxSeverity = Math.max(...severities);
-        
+
         result.push({
           type: "Feature",
           geometry: {
@@ -142,7 +142,7 @@ export class SimpleClusterIndex {
             point_count_abbreviated: count > 999 ? `${Math.round(count / 1000)}k` : String(count),
             maxSeverity,
             totalCount: count,
-            category: (cellPoints[0].properties as Record<string, unknown>)?.category as string || "unknown",
+            category: ((cellPoints[0].properties as Record<string, unknown>)?.category as string) || "unknown",
           },
         });
       } else {
@@ -168,7 +168,7 @@ export class SimpleClusterIndex {
    * Get cluster expansion zoom level.
    */
   getClusterExpansionZoom(clusterId: number): number {
-    return Math.min(clusterId % 12 + 2, this.options.maxZoom);
+    return Math.min((clusterId % 12) + 2, this.options.maxZoom);
   }
 
   /**
@@ -178,7 +178,7 @@ export class SimpleClusterIndex {
     const clusterPoints = this.points.filter((p) => {
       return p.properties.cluster_id === clusterId;
     });
-    
+
     return clusterPoints.slice(offset, offset + limit);
   }
 }
@@ -186,10 +186,7 @@ export class SimpleClusterIndex {
 /**
  * Create a cluster index for a given data source.
  */
-export function createClusterIndex(
-  features: ClusterFeature[],
-  options?: ClusterOptions
-): SimpleClusterIndex {
+export function createClusterIndex(features: ClusterFeature[], options?: ClusterOptions): SimpleClusterIndex {
   return new SimpleClusterIndex(features, options);
 }
 
@@ -200,7 +197,10 @@ export function entitiesToGeoFeatures(entities: unknown[], Cesium: AnyCesium): C
   return entities
     .map((entity: unknown) => {
       try {
-        const ent = entity as { position?: { getValue?: (date: unknown) => unknown } | unknown; properties?: Record<string, unknown> };
+        const ent = entity as {
+          position?: { getValue?: (date: unknown) => unknown } | unknown;
+          properties?: Record<string, unknown>;
+        };
         let pos = ent.position;
         if (typeof pos === "object" && pos !== null && "getValue" in pos) {
           pos = (pos as { getValue: (d: unknown) => unknown }).getValue(new Date());
@@ -208,10 +208,10 @@ export function entitiesToGeoFeatures(entities: unknown[], Cesium: AnyCesium): C
         if (!pos || typeof pos !== "object") return null;
         const p = pos as { longitude: number; latitude: number };
         if (typeof p.longitude !== "number") return null;
-        
+
         const lon = Cesium.Math.toDegrees(p.longitude);
         const lat = Cesium.Math.toDegrees(p.latitude);
-        
+
         return {
           type: "Feature" as const,
           geometry: {
@@ -241,24 +241,24 @@ export function renderClustersOnGlobe(
     clusterColor?: unknown;
     pointColor?: unknown;
     clusterRadius?: number;
-  } = {}
+  } = {},
 ): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const v = viewer as any;
   const { clusterColor, pointColor, clusterRadius = 30 } = clusterOptions;
-  
+
   const defaultClusterColor = Cesium.Color.ORANGE;
   const defaultPointColor = Cesium.Color.RED;
 
   for (const feature of clusters) {
     const [lon, lat] = feature.geometry.coordinates;
     const props = feature.properties;
-    
+
     if (props.cluster) {
       // Render cluster
       const count = props.point_count || 1;
       const size = Math.min(Math.log2(count) * 8 + 15, 60);
-      
+
       v.entities.add({
         id: `cluster-${props.cluster_id}`,
         position: Cesium.Cartesian3.fromDegrees(lon, lat, 1000),

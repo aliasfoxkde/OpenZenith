@@ -180,7 +180,9 @@ export default function Globe() {
     // Trigger a render since requestRenderMode is true — entity changes
     // won't be visible until we explicitly request a frame
     if (viewerRef.current) {
-      try { viewerRef.current.scene.requestRender(); } catch {}
+      try {
+        viewerRef.current.scene.requestRender();
+      } catch {}
     }
   }, []);
 
@@ -261,246 +263,246 @@ export default function Globe() {
         const { Cesium, addCloudOverlay } = result;
 
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-      handler.setInputAction((movement: any) => {
-        const cart = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
-        if (cart) {
-          const cg = Cesium.Cartographic.fromCartesian(cart);
-          setCursorPos([
-            +Cesium.Math.toDegrees(cg.longitude).toFixed(4),
-            +Cesium.Math.toDegrees(cg.latitude).toFixed(4),
-          ]);
-        }
-        // Entity hover detection
-        const picked = viewer.scene.pick(movement.endPosition);
-        if (picked && picked.id) {
-          const ent = picked.id;
-          const entType = ent.properties?.type?.getValue?.() || "";
-          const entName = ent.name || "";
-          const entId = ent.id || "";
-          let html = "";
-          if (entId.startsWith("eq-")) {
-            const mag = ent.properties?.mag?.getValue?.() || "";
-            const place = ent.properties?.place?.getValue?.() || "";
-            html = `<div style="font-weight:700;color:var(--err)">M${mag}</div><div>${place}</div>`;
-          } else if (entId.startsWith("flight-") || entId.startsWith("mil-")) {
-            const callsign = entName || "";
-            const alt = ent.properties?.altitude?.getValue?.();
-            const speed = ent.properties?.velocity?.getValue?.();
-            html = `<div style="font-weight:700;color:var(--warn)">${callsign}</div>${alt != null ? `<div>Alt: ${Math.round(alt * 3.281)}ft</div>` : ""}${speed != null ? `<div>Spd: ${Math.round(speed * 1.944)}kts</div>` : ""}`;
-          } else if (entId.startsWith("vessel-")) {
-            const name = entName || "";
-            const mmsi = entId.replace("vessel-", "");
-            html = `<div style="font-weight:700;color:#4488ff">${name}</div><div>MMSI: ${mmsi}</div>`;
-          } else if (entId.startsWith("sat-") || entType === "orbitalTrack") {
-            const name = entName || "";
-            const alt = ent.properties?.altitude?.getValue?.();
-            html = `<div style="font-weight:700;color:#aa44ff">${name}</div>${alt != null ? `<div>Alt: ${(alt / 1000).toFixed(0)}km</div>` : ""}`;
-          } else if (entId.startsWith("storm-")) {
-            html = `<div style="font-weight:700;color:#ff00ff">${entName || "Storm"}</div>`;
-          } else if (entId.startsWith("event-")) {
-            const cat = ent.properties?.category?.getValue?.() || "";
-            const title = ent.properties?.title?.getValue?.() || entName || "Event";
-            html = `<div style="font-weight:700">${title}</div><div style="color:var(--text-muted)">${cat}</div>`;
-          } else if (entName) {
-            html = `<div>${entName}</div>`;
+        handler.setInputAction((movement: any) => {
+          const cart = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
+          if (cart) {
+            const cg = Cesium.Cartographic.fromCartesian(cart);
+            setCursorPos([
+              +Cesium.Math.toDegrees(cg.longitude).toFixed(4),
+              +Cesium.Math.toDegrees(cg.latitude).toFixed(4),
+            ]);
           }
-          if (html) {
-            setHoverTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, html });
-            viewer.scene.canvas.style.cursor = "pointer";
+          // Entity hover detection
+          const picked = viewer.scene.pick(movement.endPosition);
+          if (picked && picked.id) {
+            const ent = picked.id;
+            const entType = ent.properties?.type?.getValue?.() || "";
+            const entName = ent.name || "";
+            const entId = ent.id || "";
+            let html = "";
+            if (entId.startsWith("eq-")) {
+              const mag = ent.properties?.mag?.getValue?.() || "";
+              const place = ent.properties?.place?.getValue?.() || "";
+              html = `<div style="font-weight:700;color:var(--err)">M${mag}</div><div>${place}</div>`;
+            } else if (entId.startsWith("flight-") || entId.startsWith("mil-")) {
+              const callsign = entName || "";
+              const alt = ent.properties?.altitude?.getValue?.();
+              const speed = ent.properties?.velocity?.getValue?.();
+              html = `<div style="font-weight:700;color:var(--warn)">${callsign}</div>${alt != null ? `<div>Alt: ${Math.round(alt * 3.281)}ft</div>` : ""}${speed != null ? `<div>Spd: ${Math.round(speed * 1.944)}kts</div>` : ""}`;
+            } else if (entId.startsWith("vessel-")) {
+              const name = entName || "";
+              const mmsi = entId.replace("vessel-", "");
+              html = `<div style="font-weight:700;color:#4488ff">${name}</div><div>MMSI: ${mmsi}</div>`;
+            } else if (entId.startsWith("sat-") || entType === "orbitalTrack") {
+              const name = entName || "";
+              const alt = ent.properties?.altitude?.getValue?.();
+              html = `<div style="font-weight:700;color:#aa44ff">${name}</div>${alt != null ? `<div>Alt: ${(alt / 1000).toFixed(0)}km</div>` : ""}`;
+            } else if (entId.startsWith("storm-")) {
+              html = `<div style="font-weight:700;color:#ff00ff">${entName || "Storm"}</div>`;
+            } else if (entId.startsWith("event-")) {
+              const cat = ent.properties?.category?.getValue?.() || "";
+              const title = ent.properties?.title?.getValue?.() || entName || "Event";
+              html = `<div style="font-weight:700">${title}</div><div style="color:var(--text-muted)">${cat}</div>`;
+            } else if (entName) {
+              html = `<div>${entName}</div>`;
+            }
+            if (html) {
+              setHoverTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, html });
+              viewer.scene.canvas.style.cursor = "pointer";
+            } else {
+              setHoverTooltip(null);
+              viewer.scene.canvas.style.cursor = "";
+            }
           } else {
             setHoverTooltip(null);
             viewer.scene.canvas.style.cursor = "";
           }
-        } else {
-          setHoverTooltip(null);
-          viewer.scene.canvas.style.cursor = "";
-        }
-      }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-      handler.setInputAction((click: any) => {
-        const picked = viewer.scene.pick(click.position);
-        if (picked && picked.id) {
-          const entity = picked.id;
-          const props = entity.properties;
-          if (props && props.type?.getValue() === "orbitalTrack") {
-            const name = entity.name || props.group?.getValue() || "Satellite";
-            const pos = entity.position?.getValue(Cesium.JulianDate.now());
-            if (pos) {
-              const cg = Cesium.Cartographic.fromCartesian(pos);
-              const lat = +Cesium.Math.toDegrees(cg.latitude);
-              const lon = +Cesium.Math.toDegrees(cg.longitude);
-              const altKm = +(cg.height / 1000).toFixed(1);
-              let orbitType = "Unknown";
-              if (altKm < 2000) orbitType = "LEO";
-              else if (altKm > 30000) orbitType = "GEO";
-              else orbitType = "MEO";
-              const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
-              setSelectedSat({
-                name,
-                alt: altKm,
-                vel: velKms,
-                lat: +lat.toFixed(2),
-                lon: +lon.toFixed(2),
-                orbit: orbitType,
-              });
-              setFollowSat(false);
+        handler.setInputAction((click: any) => {
+          const picked = viewer.scene.pick(click.position);
+          if (picked && picked.id) {
+            const entity = picked.id;
+            const props = entity.properties;
+            if (props && props.type?.getValue() === "orbitalTrack") {
+              const name = entity.name || props.group?.getValue() || "Satellite";
+              const pos = entity.position?.getValue(Cesium.JulianDate.now());
+              if (pos) {
+                const cg = Cesium.Cartographic.fromCartesian(pos);
+                const lat = +Cesium.Math.toDegrees(cg.latitude);
+                const lon = +Cesium.Math.toDegrees(cg.longitude);
+                const altKm = +(cg.height / 1000).toFixed(1);
+                let orbitType = "Unknown";
+                if (altKm < 2000) orbitType = "LEO";
+                else if (altKm > 30000) orbitType = "GEO";
+                else orbitType = "MEO";
+                const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
+                setSelectedSat({
+                  name,
+                  alt: altKm,
+                  vel: velKms,
+                  lat: +lat.toFixed(2),
+                  lon: +lon.toFixed(2),
+                  orbit: orbitType,
+                });
+                setFollowSat(false);
+              }
+              return;
             }
-            return;
           }
-        }
-        const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
-        if (cart) {
-          const cg = Cesium.Cartographic.fromCartesian(cart);
-          const lng = +Cesium.Math.toDegrees(cg.longitude);
-          const lat = +Cesium.Math.toDegrees(cg.latitude);
+          const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+          if (cart) {
+            const cg = Cesium.Cartographic.fromCartesian(cart);
+            const lng = +Cesium.Math.toDegrees(cg.longitude);
+            const lat = +Cesium.Math.toDegrees(cg.latitude);
 
-          // Handle measurement tool clicks
-          if (toolManagerRef.current && toolManagerRef.current.state.mode !== "none") {
-            toolManagerRef.current.handleClick(lng, lat);
-            return;
+            // Handle measurement tool clicks
+            if (toolManagerRef.current && toolManagerRef.current.state.mode !== "none") {
+              toolManagerRef.current.handleClick(lng, lat);
+              return;
+            }
+
+            // Handle elevation profile clicks
+            if (activeTool === "elevation-profile" && elevationProfileRef.current) {
+              elevationProfileRef.current.addPoint(lng, lat).then(() => {
+                setProfileData([...elevationProfileRef.current.state.profile]);
+              });
+              return;
+            }
+
+            getClientElevation(lat, lng)
+              .then((d) =>
+                setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }),
+              )
+              .catch(() => {});
           }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-          // Handle elevation profile clicks
-          if (activeTool === "elevation-profile" && elevationProfileRef.current) {
-            elevationProfileRef.current.addPoint(lng, lat).then(() => {
-              setProfileData([...elevationProfileRef.current.state.profile]);
+        // Right-click context menu (entity-aware)
+        handler.setInputAction((click: any) => {
+          const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+          // Check for entity under cursor
+          const picked = viewer.scene.pick(click.position);
+          const entity = picked?.id;
+          if (cart) {
+            const cg = Cesium.Cartographic.fromCartesian(cart);
+            const lng = +Cesium.Math.toDegrees(cg.longitude);
+            const lat = +Cesium.Math.toDegrees(cg.latitude);
+            const entityProps = entity?.properties;
+            const entityType = entityProps?.type?.getValue?.() || entityProps?.type;
+            setCtxMenu({
+              x: click.position.x,
+              y: click.position.y,
+              lng,
+              lat,
+              entity: entity
+                ? { id: entity.id, name: entity.name, type: entityType, properties: entityProps }
+                : undefined,
             });
-            return;
+          }
+        }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+
+        handler.setInputAction((e: any) => {
+          setCtxMenu(null);
+          // Check for annotation double-click
+          const picked = viewer.scene.pick(e.position);
+          if (picked?.id?.id?.startsWith("ann-text-")) {
+            const annId = picked.id.id;
+            setEditingAnnotation({ id: annId, x: e.position.x, y: e.position.y });
+          }
+        }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+        handleDocumentContextmenu = (e: Event) => {
+          if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) {
+            e.preventDefault();
+          }
+        };
+        handleDocumentClick = (e: Event) => {
+          if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) setCtxMenu(null);
+        };
+        document.addEventListener("contextmenu", handleDocumentContextmenu);
+        document.addEventListener("click", handleDocumentClick);
+
+        viewer.camera.changed.addEventListener(() => {
+          const cg = viewer.camera.positionCartographic;
+          if (cg) {
+            const lng = +Cesium.Math.toDegrees(cg.longitude);
+            const lat = +Cesium.Math.toDegrees(cg.latitude);
+            const heightM = cg.height;
+            const zoomEst = Math.max(1, Math.log2(40075016 / heightM));
+            setState((prev) => ({ ...prev, center: [lng, lat], zoom: zoomEst }));
+          }
+        });
+
+        viewerRef.current = viewer;
+        cesiumRef.current = Cesium;
+        addCloudOverlayRef.current = addCloudOverlay;
+        toolManagerRef.current = createToolManager(viewer, Cesium);
+        elevationProfileRef.current = createElevationProfile(viewer, Cesium);
+        spaceSceneRef.current = createSpaceSceneManager(viewer, Cesium);
+        setLoading(false);
+
+        // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
+        let followEntity: any = null;
+        let currentLodZone: any = null;
+        let lastUIUpdate = 0;
+        let prevAlt = 0;
+        const preRenderListener = () => {
+          // Follow-entity needs per-frame update for smooth tracking
+          if (followEntity) {
+            const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
+            if (pos) {
+              const camH = viewer.camera.positionCartographic?.height || 2000000;
+              viewer.camera.lookAt(
+                pos,
+                new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-45), camH > 500000 ? camH * 0.5 : 2000000),
+              );
+            }
           }
 
-          getClientElevation(lat, lng)
-            .then((d) =>
-              setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }),
-            )
-            .catch(() => {});
-        }
-      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+          // Throttle all other work to ~4Hz
+          const now = performance.now();
+          if (now - lastUIUpdate < 250) return;
 
-      // Right-click context menu (entity-aware)
-      handler.setInputAction((click: any) => {
-        const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
-        // Check for entity under cursor
-        const picked = viewer.scene.pick(click.position);
-        const entity = picked?.id;
-        if (cart) {
-          const cg = Cesium.Cartographic.fromCartesian(cart);
-          const lng = +Cesium.Math.toDegrees(cg.longitude);
-          const lat = +Cesium.Math.toDegrees(cg.latitude);
-          const entityProps = entity?.properties;
-          const entityType = entityProps?.type?.getValue?.() || entityProps?.type;
-          setCtxMenu({
-            x: click.position.x,
-            y: click.position.y,
-            lng,
-            lat,
-            entity: entity
-              ? { id: entity.id, name: entity.name, type: entityType, properties: entityProps }
-              : undefined,
-          });
-        }
-      }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
-
-      handler.setInputAction((e: any) => {
-        setCtxMenu(null);
-        // Check for annotation double-click
-        const picked = viewer.scene.pick(e.position);
-        if (picked?.id?.id?.startsWith("ann-text-")) {
-          const annId = picked.id.id;
-          setEditingAnnotation({ id: annId, x: e.position.x, y: e.position.y });
-        }
-      }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-      handleDocumentContextmenu = (e: Event) => {
-        if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) {
-          e.preventDefault();
-        }
-      };
-      handleDocumentClick = (e: Event) => {
-        if (!(e.target as HTMLElement).closest(".wv-ctx-menu")) setCtxMenu(null);
-      };
-      document.addEventListener("contextmenu", handleDocumentContextmenu);
-      document.addEventListener("click", handleDocumentClick);
-
-      viewer.camera.changed.addEventListener(() => {
-        const cg = viewer.camera.positionCartographic;
-        if (cg) {
-          const lng = +Cesium.Math.toDegrees(cg.longitude);
-          const lat = +Cesium.Math.toDegrees(cg.latitude);
+          const cg = viewer.camera.positionCartographic;
+          if (!cg) return;
           const heightM = cg.height;
-          const zoomEst = Math.max(1, Math.log2(40075016 / heightM));
-          setState((prev) => ({ ...prev, center: [lng, lat], zoom: zoomEst }));
-        }
-      });
 
-      viewerRef.current = viewer;
-      cesiumRef.current = Cesium;
-      addCloudOverlayRef.current = addCloudOverlay;
-      toolManagerRef.current = createToolManager(viewer, Cesium);
-      elevationProfileRef.current = createElevationProfile(viewer, Cesium);
-      spaceSceneRef.current = createSpaceSceneManager(viewer, Cesium);
-      setLoading(false);
+          // Early return if altitude unchanged — skips LOD, atmosphere, React state
+          if (heightM === prevAlt) return;
+          lastUIUpdate = now;
+          prevAlt = heightM;
 
-      // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
-      let followEntity: any = null;
-      let currentLodZone: any = null;
-      let lastUIUpdate = 0;
-      let prevAlt = 0;
-      const preRenderListener = () => {
-        // Follow-entity needs per-frame update for smooth tracking
-        if (followEntity) {
-          const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
-          if (pos) {
-            const camH = viewer.camera.positionCartographic?.height || 2000000;
-            viewer.camera.lookAt(
-              pos,
-              new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-45), camH > 500000 ? camH * 0.5 : 2000000),
-            );
+          // LOD (only on altitude change)
+          const newZone = applyLOD(viewer, Cesium, heightM, currentLodZone);
+          if (newZone.name !== currentLodZone?.name) {
+            currentLodZone = newZone;
+            setLodZone(newZone.label);
           }
-        }
 
-        // Throttle all other work to ~4Hz
-        const now = performance.now();
-        if (now - lastUIUpdate < 250) return;
+          // Atmosphere brightness (only on altitude change, compare before assigning)
+          const sa = viewer.scene.skyAtmosphere;
+          let newBrightness: number;
+          if (heightM < 10000) newBrightness = 0.1;
+          else if (heightM < 300000) newBrightness = 0.1 - 0.4 * ((heightM - 10000) / 290000);
+          else newBrightness = -0.3;
+          if (sa.brightnessShift !== newBrightness) sa.brightnessShift = newBrightness;
 
-        const cg = viewer.camera.positionCartographic;
-        if (!cg) return;
-        const heightM = cg.height;
+          const showGround = heightM < 500000;
+          if (viewer.scene.globe.showGroundAtmosphere !== showGround)
+            viewer.scene.globe.showGroundAtmosphere = showGround;
 
-        // Early return if altitude unchanged — skips LOD, atmosphere, React state
-        if (heightM === prevAlt) return;
-        lastUIUpdate = now;
-        prevAlt = heightM;
+          // React state (batched by React 18)
+          const heading = Cesium.Math.toDegrees(viewer.camera.heading);
+          setCameraAlt(heightM);
+          setIsSpaceMode(heightM > 100000);
+          setCompassHeading(-heading);
+        };
 
-        // LOD (only on altitude change)
-        const newZone = applyLOD(viewer, Cesium, heightM, currentLodZone);
-        if (newZone.name !== currentLodZone?.name) {
-          currentLodZone = newZone;
-          setLodZone(newZone.label);
-        }
-
-        // Atmosphere brightness (only on altitude change, compare before assigning)
-        const sa = viewer.scene.skyAtmosphere;
-        let newBrightness: number;
-        if (heightM < 10000) newBrightness = 0.1;
-        else if (heightM < 300000) newBrightness = 0.1 - 0.4 * ((heightM - 10000) / 290000);
-        else newBrightness = -0.3;
-        if (sa.brightnessShift !== newBrightness) sa.brightnessShift = newBrightness;
-
-        const showGround = heightM < 500000;
-        if (viewer.scene.globe.showGroundAtmosphere !== showGround)
-          viewer.scene.globe.showGroundAtmosphere = showGround;
-
-        // React state (batched by React 18)
-        const heading = Cesium.Math.toDegrees(viewer.camera.heading);
-        setCameraAlt(heightM);
-        setIsSpaceMode(heightM > 100000);
-        setCompassHeading(-heading);
-      };
-
-      (window as any).__ozSetFollowEntity = (entity: any | null) => {
-        followEntity = entity;
-      };
-      viewer.scene.preRender.addEventListener(preRenderListener);
-      } catch(err: any) {
+        (window as any).__ozSetFollowEntity = (entity: any | null) => {
+          followEntity = entity;
+        };
+        viewer.scene.preRender.addEventListener(preRenderListener);
+      } catch (err: any) {
         // Only update state if component is still mounted
         if (!destroyed) {
           console.error("[Globe] Cesium initialization failed:", err);
@@ -525,7 +527,7 @@ export default function Globe() {
         viewerRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // ─── Basemap switch ──
@@ -850,12 +852,20 @@ export default function Globe() {
           mod.loadGpsJamming(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
           break;
         case "dayNight":
-          mod.loadDayNightTerminator(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
+          mod.loadDayNightTerminator(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            entitiesRef,
+            state.layers,
+          );
           break;
       }
       dataLoadedRef.current[key] = true;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [state.layers],
   );
   loadLayerDynamicRef.current = loadLayerDynamic;
@@ -874,19 +884,31 @@ export default function Globe() {
           case "earthquakes":
             if (on && !dataLoadedRef.current.earthquakes)
               loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-            if (!on) { removeEntities("eq-"); dataLoadedRef.current.earthquakes = false; }
+            if (!on) {
+              removeEntities("eq-");
+              dataLoadedRef.current.earthquakes = false;
+            }
             break;
           case "radar":
             if (on) loadLayerDynamic("radar");
-            if (!on) { removeEntities("radar-"); dataLoadedRef.current.radar = false; }
+            if (!on) {
+              removeEntities("radar-");
+              dataLoadedRef.current.radar = false;
+            }
             break;
           case "flights":
             if (on) loadLayerDynamic("flights");
-            if (!on) { removeEntities("flight-"); dataLoadedRef.current.flights = false; }
+            if (!on) {
+              removeEntities("flight-");
+              dataLoadedRef.current.flights = false;
+            }
             break;
           case "militaryFlights":
             if (on) loadLayerDynamic("militaryFlights");
-            if (!on) { removeEntities("mil-"); dataLoadedRef.current.militaryFlights = false; }
+            if (!on) {
+              removeEntities("mil-");
+              dataLoadedRef.current.militaryFlights = false;
+            }
             break;
           case "vessels":
             if (on) loadLayerDynamic("vessels");
@@ -899,20 +921,32 @@ export default function Globe() {
             break;
           case "warnings":
             if (on) loadLayerDynamic("warnings");
-            if (!on) { removeEntities("warn-"); dataLoadedRef.current.warnings = false; }
+            if (!on) {
+              removeEntities("warn-");
+              dataLoadedRef.current.warnings = false;
+            }
             break;
           case "events":
             if (on && !dataLoadedRef.current.events)
               loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-            if (!on) { removeEntities("event-"); dataLoadedRef.current.events = false; }
+            if (!on) {
+              removeEntities("event-");
+              dataLoadedRef.current.events = false;
+            }
             break;
           case "satellites":
             if (on) loadLayerDynamic("satellites");
-            if (!on) { removeEntities("sat-"); dataLoadedRef.current.satellites = false; }
+            if (!on) {
+              removeEntities("sat-");
+              dataLoadedRef.current.satellites = false;
+            }
             break;
           case "hurricaneTracks":
             if (on) loadLayerDynamic("hurricaneTracks");
-            if (!on) { removeEntities("storm-"); dataLoadedRef.current.hurricaneTracks = false; }
+            if (!on) {
+              removeEntities("storm-");
+              dataLoadedRef.current.hurricaneTracks = false;
+            }
             break;
           case "satellite":
             if (on)
@@ -945,11 +979,17 @@ export default function Globe() {
             break;
           case "nlnogNodes":
             if (on) loadLayerDynamic("nlnogNodes");
-            if (!on) { removeEntities("nlnog-"); dataLoadedRef.current.nlnogNodes = false; }
+            if (!on) {
+              removeEntities("nlnog-");
+              dataLoadedRef.current.nlnogNodes = false;
+            }
             break;
           case "flightArcs":
             if (on) loadLayerDynamic("flightArcs");
-            if (!on) { removeEntities("arc-"); dataLoadedRef.current.flightArcs = false; }
+            if (!on) {
+              removeEntities("arc-");
+              dataLoadedRef.current.flightArcs = false;
+            }
             break;
           case "hillshade":
             break;
@@ -965,23 +1005,38 @@ export default function Globe() {
             break;
           case "orbitalTracks":
             if (on) loadLayerDynamic("orbitalTracks");
-            if (!on) { removeEntities("orbit-"); dataLoadedRef.current.orbitalTracks = false; }
+            if (!on) {
+              removeEntities("orbit-");
+              dataLoadedRef.current.orbitalTracks = false;
+            }
             break;
           case "groundTracks":
             if (on) loadLayerDynamic("groundTracks");
-            if (!on) { removeEntities("gtrack-"); dataLoadedRef.current.groundTracks = false; }
+            if (!on) {
+              removeEntities("gtrack-");
+              dataLoadedRef.current.groundTracks = false;
+            }
             break;
           case "currents":
             if (on) loadLayerDynamic("currents");
-            if (!on) { removeEntities("current-"); dataLoadedRef.current.currents = false; }
+            if (!on) {
+              removeEntities("current-");
+              dataLoadedRef.current.currents = false;
+            }
             break;
           case "gpsJamming":
             if (on) loadLayerDynamic("gpsJamming");
-            if (!on) { removeEntities("gps-jam-"); dataLoadedRef.current.gpsJamming = false; }
+            if (!on) {
+              removeEntities("gps-jam-");
+              dataLoadedRef.current.gpsJamming = false;
+            }
             break;
           case "dayNight":
             if (on) loadLayerDynamic("dayNight");
-            if (!on) { removeEntities("day-night"); dataLoadedRef.current.dayNight = false; }
+            if (!on) {
+              removeEntities("day-night");
+              dataLoadedRef.current.dayNight = false;
+            }
             break;
           case "coverage":
             if (on) {
@@ -996,7 +1051,7 @@ export default function Globe() {
         return next;
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [loadLayerDynamic],
   );
 
@@ -1108,7 +1163,7 @@ export default function Globe() {
       if (state.layers.events)
         loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
 
   // ─── Render ───

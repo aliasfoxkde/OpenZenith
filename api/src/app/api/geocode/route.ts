@@ -8,11 +8,16 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
-  const query = request.nextUrl.searchParams.get("query");
-  const limit = Math.min(Number(request.nextUrl.searchParams.get("limit")) || 5, 10);
+  const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
+  const query = request.nextUrl.searchParams.get("query")?.trim();
+  const requestedLimit = Number(request.nextUrl.searchParams.get("limit"));
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.floor(requestedLimit), 10)) : 5;
 
   if (!query || query.length > 200) {
-    return NextResponse.json({ error: "Missing or invalid parameter: query" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json(
+      { ok: false, error: { code: "INVALID_PARAM", message: "Missing or invalid parameter: query" }, requestId, results: [], count: 0 },
+      { status: 400, headers: CORS_HEADERS },
+    );
   }
 
   try {
@@ -22,9 +27,29 @@ export async function GET(request: NextRequest) {
       headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
     });
 
+    if (res.status === 429) {
+      const retryAfter = res.headers.get("retry-after") ?? "5";
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "GEOCODE_RATE_LIMITED", message: "Rate limit exceeded. Slow down requests.", retryable: true, retryAfter: Number(retryAfter) },
+          requestId,
+          results: [],
+          count: 0,
+        },
+        { status: 200, headers: { ...CORS_HEADERS, "Retry-After": retryAfter } },
+      );
+    }
+
     if (!res.ok) {
       return NextResponse.json(
-        { error: "Upstream geocoding service unavailable" },
+        {
+          ok: false,
+          error: { code: "GEOCODE_UPSTREAM", message: "Upstream geocoding service unavailable", retryable: true },
+          requestId,
+          results: [],
+          count: 0,
+        },
         { status: 200, headers: CORS_HEADERS },
       );
     }
@@ -33,6 +58,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
+        requestId,
         results: data.map((r) => ({
           display_name: r.display_name,
           lat: Number(r.lat),
@@ -46,6 +72,15 @@ export async function GET(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
     );
   } catch {
-    return NextResponse.json({ error: "Geocoding request failed" }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "GEOCODE_UNAVAILABLE", message: "Geocoding request failed", retryable: true },
+        requestId,
+        results: [],
+        count: 0,
+      },
+      { status: 200, headers: CORS_HEADERS },
+    );
   }
 }

@@ -15,16 +15,16 @@ function notifyAll() {
 
 function subscribeGlobal(callback: () => void) {
   listeners.add(callback);
-  return () => { listeners.delete(callback); };
+  return () => {
+    listeners.delete(callback);
+  };
 }
 
 /** Resolve the current effective dark/light state. */
 function resolveDark(mode: ThemeMode): boolean {
   if (mode === "dark") return true;
   if (mode === "light") return false;
-  return typeof window !== "undefined"
-    ? window.matchMedia("(prefers-color-scheme: dark)").matches
-    : false;
+  return typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
 }
 
 /** React hook — returns `true` if dark theme is active. */

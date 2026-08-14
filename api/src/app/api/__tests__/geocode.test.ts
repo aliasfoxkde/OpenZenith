@@ -23,7 +23,8 @@ describe("Geocode endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(400);
     const data = await resp.json();
-    expect(data.error).toContain("query");
+    expect(data.ok).toBe(false);
+    expect(data.error.message).toContain("query");
   });
 
   it("returns results for a valid query", async () => {
@@ -37,6 +38,7 @@ describe("Geocode endpoint", () => {
     expect(resp.status).toBe(200);
 
     const data = await resp.json();
+    expect(data.requestId).toBeDefined();
     expect(data.results).toHaveLength(1);
     expect(data.count).toBe(1);
     expect(data.results[0].display_name).toContain("London");
@@ -55,6 +57,24 @@ describe("Geocode endpoint", () => {
     const data = await resp.json();
     expect(data.results).toHaveLength(0);
     expect(data.count).toBe(0);
+    expect(data.requestId).toBeDefined();
+  });
+
+  it("returns a structured retryable error for 429 rate limit", async () => {
+    const headers = new Headers();
+    headers.set("retry-after", "5");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("rate limited", { status: 429, headers }));
+
+    const { GET } = await import("@/app/api/geocode/route");
+    const resp = await GET(mockRequest("/api/geocode?query=London"));
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.ok).toBe(false);
+    expect(data.error.code).toBe("GEOCODE_RATE_LIMITED");
+    expect(data.error.retryable).toBe(true);
+    expect(data.error.retryAfter).toBe(5);
+    expect(resp.headers.get("retry-after")).toBe("5");
   });
 
   it("includes CORS headers", async () => {
@@ -66,5 +86,20 @@ describe("Geocode endpoint", () => {
     const req = mockRequest("/api/geocode?query=Paris");
     const resp = await GET(req);
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
+  });
+
+  it("returns a structured retryable error when Nominatim is unavailable", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("upstream failed", { status: 503 }));
+
+    const { GET } = await import("@/app/api/geocode/route");
+    const resp = await GET(mockRequest("/api/geocode?query=London"));
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.ok).toBe(false);
+    expect(data.error.code).toBe("GEOCODE_UPSTREAM");
+    expect(data.error.retryable).toBe(true);
+    expect(data.results).toEqual([]);
+    expect(data.requestId).toBeDefined();
   });
 });

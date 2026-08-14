@@ -41,6 +41,10 @@ export function addSeaIce(map: maplibregl.Map, _handle: LayerHandle): void {
 }
 
 export function removeSeaIce(map: maplibregl.Map): void {
-  try { map.removeLayer("seaIce-raster"); } catch {}
-  try { map.removeSource("seaIce"); } catch {}
+  try {
+    map.removeLayer("seaIce-raster");
+  } catch {}
+  try {
+    map.removeSource("seaIce");
+  } catch {}
 }

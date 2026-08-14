@@ -25,9 +25,7 @@ export function setEarthquakeTimeFilter(timeMs: number | null) {
 
 export function getEarthquakeTimeRange(): { min: number; max: number } {
   if (allFeatures.length === 0) return { min: Date.now() - 86400000, max: Date.now() };
-  const times = allFeatures
-    .map((f) => new Date(f.properties?.time || 0).getTime())
-    .filter((t) => t > 0);
+  const times = allFeatures.map((f) => new Date(f.properties?.time || 0).getTime()).filter((t) => t > 0);
   return { min: Math.min(...times), max: Math.max(...times) };
 }
 
@@ -75,8 +73,17 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 0, 3, 3, 6, 5, 10, 7, 16],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "mag"],
-                0, "#22c55e", 3, "#eab308", 5, "#f97316", 7, "#ef4444",
+                "interpolate",
+                ["linear"],
+                ["get", "mag"],
+                0,
+                "#22c55e",
+                3,
+                "#eab308",
+                5,
+                "#f97316",
+                7,
+                "#ef4444",
               ],
               "circle-opacity": 0.7,
               "circle-stroke-width": 1,
@@ -94,8 +101,17 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 0, 6, 3, 12, 5, 20, 7, 32],
               "circle-color": [
-                "interpolate", ["linear"], ["get", "mag"],
-                0, "rgba(34,197,94,0.15)", 3, "rgba(234,179,8,0.15)", 5, "rgba(249,115,22,0.15)", 7, "rgba(239,68,68,0.2)",
+                "interpolate",
+                ["linear"],
+                ["get", "mag"],
+                0,
+                "rgba(34,197,94,0.15)",
+                3,
+                "rgba(234,179,8,0.15)",
+                5,
+                "rgba(249,115,22,0.15)",
+                7,
+                "rgba(239,68,68,0.2)",
               ],
               "circle-blur": 1,
             },
@@ -124,7 +140,11 @@ export function refreshEarthquakeFilter(map: maplibregl.Map): void {
 
 export function removeEarthquakes(map: maplibregl.Map): void {
   ["earthquakes-glow", "earthquakes-circles"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("earthquakes"); } catch {}
+  try {
+    map.removeSource("earthquakes");
+  } catch {}
 }

@@ -33,6 +33,10 @@ export function addSarBackscatter(map: maplibregl.Map, handle: LayerHandle): voi
 }
 
 export function removeSarBackscatter(map: maplibregl.Map): void {
-  try { map.removeLayer("sar-backscatter-raster"); } catch {}
-  try { map.removeSource("sar-backscatter"); } catch {}
+  try {
+    map.removeLayer("sar-backscatter-raster");
+  } catch {}
+  try {
+    map.removeSource("sar-backscatter");
+  } catch {}
 }

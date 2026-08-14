@@ -1,9 +1,9 @@
 /**
  * GPS Jamming Hex Grid Layer
- * 
+ *
  * Displays hexagonal H3 cells indicating GPS jamming activity.
  * Data sources:自主 (OpenZenith), jam data from various sensors.
- * 
+ *
  * Based on patterns from gods-eye.app which confirms this layer type
  * with hex-grid visualization for electronic warfare detection.
  */
@@ -32,12 +32,12 @@ interface HexCell {
 
 /** H3 Resolution → approximate edge length in meters */
 const H3_RESOLUTION_EDGES: Record<number, number> = {
-  4: 266_725,   // ~266km
-  5: 73_907,    // ~74km  
-  6: 17_316,    // ~17km
-  7: 4_052,     // ~4km
-  8: 949,       // ~950m
-  9: 222,       // ~222m
+  4: 266_725, // ~266km
+  5: 73_907, // ~74km
+  6: 17_316, // ~17km
+  7: 4_052, // ~4km
+  8: 949, // ~950m
+  9: 222, // ~222m
 };
 
 /** Color gradient for intensity (red = severe, orange = moderate, yellow = low) */
@@ -67,7 +67,7 @@ function hexagonVertices(centerLon: number, centerLat: number, edgeLenMeters: nu
   const angularDist = edgeLenMeters / 6371000; // Convert meters to radians
   const degPerRad = 180 / Math.PI;
   const latRad = centerLat / degPerRad;
-  
+
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 3) * i - Math.PI / 6; // Start at top
     const latOffset = angularDist * Math.cos(angle) * degPerRad;
@@ -103,20 +103,76 @@ async function fetchGpsJammingData(): Promise<GpsJammingHex[]> {
 function generateKnownJammingZones(): GpsJammingHex[] {
   const zones: GpsJammingHex[] = [
     // Ukraine conflict zone - well documented GPS interference
-    { lat: 50.45, lon: 30.52, resolution: 6, intensity: 0.9, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    { lat: 48.5, lon: 35.0, resolution: 6, intensity: 0.85, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    { lat: 49.8, lon: 33.5, resolution: 6, intensity: 0.7, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    
+    {
+      lat: 50.45,
+      lon: 30.52,
+      resolution: 6,
+      intensity: 0.9,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+    {
+      lat: 48.5,
+      lon: 35.0,
+      resolution: 6,
+      intensity: 0.85,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+    {
+      lat: 49.8,
+      lon: 33.5,
+      resolution: 6,
+      intensity: 0.7,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+
     // Middle East - documented interference areas
-    { lat: 31.5, lon: 34.8, resolution: 6, intensity: 0.6, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    { lat: 29.5, lon: 45.0, resolution: 6, intensity: 0.5, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    
+    {
+      lat: 31.5,
+      lon: 34.8,
+      resolution: 6,
+      intensity: 0.6,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+    {
+      lat: 29.5,
+      lon: 45.0,
+      resolution: 6,
+      intensity: 0.5,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+
     // Taiwan Strait - documented interference
-    { lat: 24.5, lon: 119.5, resolution: 6, intensity: 0.65, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    
+    {
+      lat: 24.5,
+      lon: 119.5,
+      resolution: 6,
+      intensity: 0.65,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+
     // Russian border areas
-    { lat: 60.0, lon: 30.0, resolution: 6, intensity: 0.4, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
-    { lat: 55.7, lon: 37.6, resolution: 6, intensity: 0.55, source: "ADS-B Analysis", timestamp: new Date().toISOString() },
+    {
+      lat: 60.0,
+      lon: 30.0,
+      resolution: 6,
+      intensity: 0.4,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
+    {
+      lat: 55.7,
+      lon: 37.6,
+      resolution: 6,
+      intensity: 0.55,
+      source: "ADS-B Analysis",
+      timestamp: new Date().toISOString(),
+    },
   ];
 
   return zones;
@@ -156,9 +212,7 @@ export function loadGpsJamming(
       viewer.entities.add({
         id: entityId,
         polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(
-            vertices.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat))
-          ),
+          hierarchy: new Cesium.PolygonHierarchy(vertices.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat))),
           material: color.withAlpha(0.3 * hex.intensity + 0.1),
           outline: true,
           outlineColor: color.withAlpha(0.6),
@@ -199,16 +253,16 @@ export function loadGpsJamming(
     try {
       const hexes = await fetchGpsJammingData();
       renderHexGrid(hexes);
-      updateStatus("gpsJamming", { 
-        lastUpdate: Date.now(), 
+      updateStatus("gpsJamming", {
+        lastUpdate: Date.now(),
         count: hexes.length,
-        error: null 
+        error: null,
       });
       retry.recordSuccess();
     } catch {
       retry.recordFailure();
-      updateStatus("gpsJamming", { 
-        error: retry.shouldRetry ? `Retrying...` : "GPS Jamming data unavailable" 
+      updateStatus("gpsJamming", {
+        error: retry.shouldRetry ? `Retrying...` : "GPS Jamming data unavailable",
       });
     }
   };

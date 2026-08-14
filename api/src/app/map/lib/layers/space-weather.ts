@@ -45,11 +45,17 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
             paint: {
               "circle-radius": 6,
               "circle-color": [
-                "interpolate", ["linear"], ["get", "intensity"],
-                0, "rgba(0,255,136,0.1)",
-                2, "rgba(0,255,136,0.3)",
-                4, "rgba(0,255,136,0.6)",
-                8, "rgba(0,255,136,0.9)",
+                "interpolate",
+                ["linear"],
+                ["get", "intensity"],
+                0,
+                "rgba(0,255,136,0.1)",
+                2,
+                "rgba(0,255,136,0.3)",
+                4,
+                "rgba(0,255,136,0.6)",
+                8,
+                "rgba(0,255,136,0.9)",
               ],
               "circle-blur": 1,
             },
@@ -69,7 +75,11 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
 
 export function removeSpaceWeather(map: maplibregl.Map): void {
   ["spaceWeather-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("spaceWeather"); } catch {}
+  try {
+    map.removeSource("spaceWeather");
+  } catch {}
 }

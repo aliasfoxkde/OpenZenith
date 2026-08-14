@@ -26,13 +26,7 @@ const NODATA = -32768;
  * Compute slope using Horn's method (3x3 window) — fully vectorized.
  * Returns slope in degrees (0-90).
  */
-function computeSlope(
-  dem: Float32Array,
-  rows: number,
-  cols: number,
-  cellSizeM: number,
-  nodata: number,
-): Float32Array {
+function computeSlope(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
   const result = new Float32Array(rows * cols);
 
   for (let r = 1; r < rows - 1; r++) {
@@ -56,16 +50,23 @@ function computeSlope(
       const i = dem[(r + 1) * cols + (c + 1)];
 
       // Any nodata neighbor → NaN
-      if (a <= nodata || b <= nodata || c_ <= nodata ||
-          d <= nodata || f <= nodata ||
-          g <= nodata || h <= nodata || i <= nodata) {
+      if (
+        a <= nodata ||
+        b <= nodata ||
+        c_ <= nodata ||
+        d <= nodata ||
+        f <= nodata ||
+        g <= nodata ||
+        h <= nodata ||
+        i <= nodata
+      ) {
         result[idx] = NaN;
         continue;
       }
 
       // Horn's method
-      const dzDx = ((c_ + 2 * f + i) - (a + 2 * d + g)) / (8 * cellSizeM);
-      const dzDy = ((a + 2 * b + c_) - (g + 2 * h + i)) / (8 * cellSizeM);
+      const dzDx = (c_ + 2 * f + i - (a + 2 * d + g)) / (8 * cellSizeM);
+      const dzDy = (a + 2 * b + c_ - (g + 2 * h + i)) / (8 * cellSizeM);
 
       result[idx] = Math.atan(Math.sqrt(dzDx * dzDx + dzDy * dzDy)) * (180 / Math.PI);
     }
@@ -193,7 +194,10 @@ export async function GET(request: NextRequest) {
     const slopeGrid = computeSlope(dem, gridRows, gridCols, cellSizeM, NODATA);
 
     // Stats from valid cells
-    let sum = 0, count = 0, min = Infinity, max = -Infinity;
+    let sum = 0,
+      count = 0,
+      min = Infinity,
+      max = -Infinity;
     const vals: number[] = [];
     for (let i = 0; i < slopeGrid.length; i++) {
       const v = slopeGrid[i];
@@ -208,28 +212,28 @@ export async function GET(request: NextRequest) {
 
     const mean = count > 0 ? sum / count : 0;
     const sorted = vals.sort((a, b) => a - b);
-    const median = count > 0
-      ? count % 2 ? sorted[Math.floor(count / 2)] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2
-      : 0;
+    const median =
+      count > 0 ? (count % 2 ? sorted[Math.floor(count / 2)] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2) : 0;
     const variance = count > 0 ? vals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / count : 0;
     const std = Math.sqrt(variance);
 
-    const stats = count > 0
-      ? {
-          mean: Math.round(mean * 100) / 100,
-          median: Math.round(median * 100) / 100,
-          min: Math.round(min * 100) / 100,
-          max: Math.round(max * 100) / 100,
-          std: Math.round(std * 100) / 100,
-          count,
-        }
-      : null;
+    const stats =
+      count > 0
+        ? {
+            mean: Math.round(mean * 100) / 100,
+            median: Math.round(median * 100) / 100,
+            min: Math.round(min * 100) / 100,
+            max: Math.round(max * 100) / 100,
+            std: Math.round(std * 100) / 100,
+            count,
+          }
+        : null;
 
     // Geographic bounds of the grid
     const { north: latMax } = tileToLatLon(zoom, 0, tileYMin);
     const { south: latMin } = tileToLatLon(zoom, 0, tileYMax + 1);
-    const lonMin = (tileXMin * 256) / n * 360 - 180;
-    const lonMax = ((tileXMax + 1) * 256) / n * 360 - 180;
+    const lonMin = ((tileXMin * 256) / n) * 360 - 180;
+    const lonMax = (((tileXMax + 1) * 256) / n) * 360 - 180;
 
     // Downsample for response size
     const ds = radius > 100 ? 4 : radius > 50 ? 2 : 1;
@@ -243,18 +247,21 @@ export async function GET(request: NextRequest) {
       sampledGrid.push(row);
     }
 
-    return NextResponse.json({
-      center: { lat, lon },
-      bounds: { latMin, latMax, lonMin, lonMax },
-      radius_cells: radius,
-      zoom,
-      cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
-      stats,
-      grid: sampledGrid,
-      units: "degrees",
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+    return NextResponse.json(
+      {
+        center: { lat, lon },
+        bounds: { latMin, latMax, lonMin, lonMax },
+        radius_cells: radius,
+        zoom,
+        cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
+        stats,
+        grid: sampledGrid,
+        units: "degrees",
+      },
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

@@ -38,7 +38,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   const cached = await r2GetTile("landcover", zoom, tileX, tileY);
   if (cached) {
     return new Response(cached, {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800", "X-Cache": "HIT", ...CORS_HEADERS },
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=604800",
+        "X-Cache": "HIT",
+        ...CORS_HEADERS,
+      },
     });
   }
 
@@ -61,7 +66,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     r2PutTile("landcover", zoom, tileX, tileY, buffer, contentType).catch(() => {});
 
     return new Response(buffer, {
-      headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=604800", "X-Cache": "MISS", ...CORS_HEADERS },
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=604800",
+        "X-Cache": "MISS",
+        ...CORS_HEADERS,
+      },
     });
   } catch {
     return new Response("Failed to fetch tile", { status: 200, headers: CORS_HEADERS });

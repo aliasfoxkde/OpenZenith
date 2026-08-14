@@ -67,7 +67,11 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeMilitary(map: maplibregl.Map): void {
   ["military-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("military"); } catch {}
+  try {
+    map.removeSource("military");
+  } catch {}
 }

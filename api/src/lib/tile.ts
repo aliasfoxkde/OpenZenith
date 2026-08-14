@@ -45,9 +45,12 @@ export interface TileResult {
 export async function getTileData(z: number, x: number, y: number, storage: ChunkBackend): Promise<TileResult> {
   const bounds = tileToLatLon(z, x, y);
 
-  // At low zoom (z0-z6), HuggingFace chunk assembly is unreliable
-  // (too many 1° SRTM tiles needed → timeout). Use AWS directly.
-  if (z <= 6) {
+  // At overview and mid zoom (z0-z10), assembling many 1° HuggingFace
+  // chunks produces visible seams/striping and is slower than the already
+  // tiled AWS Terrain source. Use the complete AWS tile directly here.
+  // HuggingFace remains the high-zoom fallback where its chunk resolution is
+  // useful and the request touches fewer source tiles.
+  if (z <= 10) {
     const awsData = await fetchAWSTerrainTile(z, x, y);
     if (awsData) {
       return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
@@ -262,22 +265,13 @@ async function fillTileFromSrtm(
 async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int16Array | null> {
   try {
     const url = AWS_TERRAIN_URL.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
-    console.log(`[tile] Fetching AWS: ${url}`);
-
     const resp = await fetch(url);
-    console.log(
-      `[tile] AWS response: ${resp.status} ${resp.headers.get("content-type")} ${resp.headers.get("content-length")}`,
-    );
     if (!resp.ok) return null;
 
     const buf = await resp.arrayBuffer();
-    console.log(`[tile] AWS body received: ${buf.byteLength} bytes`);
-
     const decoded = await decodeTerrariumPNG(new Uint8Array(buf));
-    console.log(`[tile] AWS decode result: ${decoded ? "OK (" + decoded.length + " pixels)" : "null"}`);
     return decoded;
-  } catch (err) {
-    console.log(`[tile] AWS fetch error: ${err}`);
+  } catch {
     return null;
   }
 }
@@ -327,7 +321,10 @@ async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
       off += chunk.length;
     }
 
-    const raw = await inflateDecompress(compressed);
+    // PNG IDAT data is a zlib stream (not a raw deflate stream). Using the
+    // native stream here produced corrupted rows on some edge runtimes;
+    // unzlibSync handles the PNG wrapper deterministically.
+    const raw = unzlibSync(compressed);
 
     // Bytes per pixel (RGB=3, RGBA=4, Grayscale=1)
     const bpp = colorType === 2 ? 3 : colorType === 6 ? 4 : colorType === 0 ? 1 : 3;
@@ -397,44 +394,6 @@ async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
   } catch {
     return null;
   }
-}
-
-/**
- * Inflate zlib-compressed data using DecompressionStream.
- * fflate's inflateSync fails on some zlib streams ("invalid block type"),
- * but the browser's native DecompressionStream handles them correctly.
- */
-async function inflateDecompress(data: Uint8Array): Promise<Uint8Array> {
-  // Try DecompressionStream first (handles all zlib formats)
-  if (typeof DecompressionStream !== "undefined") {
-    try {
-      const ds = new DecompressionStream("deflate");
-      const writer = ds.writable.getWriter();
-      writer.write(data as unknown as BufferSource);
-      writer.close();
-      const reader = ds.readable.getReader();
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-      const result = new Uint8Array(totalLen);
-      let off = 0;
-      for (const c of chunks) {
-        result.set(c, off);
-        off += c.length;
-      }
-      return result;
-    } catch {
-      // Fall through to fflate
-    }
-  }
-
-  // Fallback: fflate inflateSync (may fail on some zlib streams)
-  const { inflateSync } = await import("fflate");
-  return inflateSync(data);
 }
 
 /**

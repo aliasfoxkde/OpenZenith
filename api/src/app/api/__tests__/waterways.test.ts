@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest } from "./helpers";
 
-
 const mockOverpassResponse = {
   elements: [
     {

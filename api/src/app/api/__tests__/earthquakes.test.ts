@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-
 describe("Earthquakes API", () => {
   it("returns GeoJSON from USGS", async () => {
     const mockGeoJSON = {

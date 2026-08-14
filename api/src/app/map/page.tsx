@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback, memo } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
@@ -10,11 +10,26 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MapLoading } from "@/components/MapLoading";
 import { waitForMapLibre } from "@/app/landing/maplibre-loader";
 import {
-  addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS, createLayerHandle, type LayerHandle,
-  setEarthquakeFeed, setEarthquakeTimeFilter, getEarthquakeTimeRange, refreshEarthquakeFilter,
-  startHurricaneAnimation, stopHurricaneAnimation,
+  addDataLayer,
+  removeDataLayer,
+  MAP_2D_LAYER_IDS,
+  createLayerHandle,
+  type LayerHandle,
+  setEarthquakeFeed,
+  setEarthquakeTimeFilter,
+  getEarthquakeTimeRange,
+  refreshEarthquakeFilter,
+  startHurricaneAnimation,
+  stopHurricaneAnimation,
 } from "./lib/layers";
-import { renderAnnotations, removeAnnotations, loadAnnotations, saveAnnotations, randomColor, uid } from "./lib/layers/annotations";
+import {
+  renderAnnotations,
+  removeAnnotations,
+  loadAnnotations,
+  saveAnnotations,
+  randomColor,
+  uid,
+} from "./lib/layers/annotations";
 import {
   createMeasureController,
   type MeasureMode,
@@ -32,6 +47,8 @@ interface ElevationPin {
   lat: number;
   lon: number;
   elevation: number | null;
+  status: "ok" | "no_data" | "unavailable";
+  surfaceType: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
 }
 
 interface MapViewState {
@@ -100,7 +117,18 @@ const BASEMAPS: Record<string, { label: string; url: string; attribution: string
   },
 };
 
-const BASEMAP_ORDER = ["dark", "dark_contrast", "dark_nolabel", "voyager", "light", "positron", "osm", "satellite", "topo", "terrain"];
+const BASEMAP_ORDER = [
+  "dark",
+  "dark_contrast",
+  "dark_nolabel",
+  "voyager",
+  "light",
+  "positron",
+  "osm",
+  "satellite",
+  "topo",
+  "terrain",
+];
 
 const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
@@ -258,10 +286,22 @@ function buildHash(state: MapViewState): string {
 /* ─── Component ─── */
 
 const RASTER_LAYERS = new Set([
-  "hillshade", "elevationColor", "elevationAccuracy", "contours",
-  "bathymetry", "radar", "sentinel2", "nightLights", "marineWeather",
-  "populationDensity", "landCover", "seaIce", "satellite",
-  "floods", "fireTemperature", "sarBackscatter",
+  "hillshade",
+  "elevationColor",
+  "elevationAccuracy",
+  "contours",
+  "bathymetry",
+  "radar",
+  "sentinel2",
+  "nightLights",
+  "marineWeather",
+  "populationDensity",
+  "landCover",
+  "seaIce",
+  "satellite",
+  "floods",
+  "fireTemperature",
+  "sarBackscatter",
 ]);
 
 export default function MapPage() {
@@ -279,12 +319,16 @@ export default function MapPage() {
     try {
       const saved = localStorage.getItem("openzenith-map-opacity");
       return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
+    } catch {
+      return {};
+    }
   });
   const setOpacity = useCallback((layerId: string, value: number) => {
     setLayerOpacity((prev) => {
       const next = { ...prev, [layerId]: value };
-      try { localStorage.setItem("openzenith-map-opacity", JSON.stringify(next)); } catch {}
+      try {
+        localStorage.setItem("openzenith-map-opacity", JSON.stringify(next));
+      } catch {}
       return next;
     });
     const map = mapRef.current;
@@ -329,6 +373,15 @@ export default function MapPage() {
   const pinsRef = useRef<maplibregl.Marker[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [layerStatus, setLayerStatus] = useState<Record<string, { status: string; count?: number }>>({});
+
+  // Derived map health status from load error and layer statuses
+  const mapHealth = useMemo(() => {
+    if (loadError) return "error";
+    if (loading) return "loading";
+    const hasError = Object.values(layerStatus).some((s) => s.status === "error");
+    if (hasError) return "degraded";
+    return "ok";
+  }, [loadError, loading, layerStatus]);
   const layerHandleRef = useRef<LayerHandle>(
     createLayerHandle((layerId, status, count) => {
       setLayerStatus((prev) => ({ ...prev, [layerId]: { status, count } }));
@@ -348,7 +401,10 @@ export default function MapPage() {
   // Earthquake time filter
   const [eqFeed, setEqFeed] = useState("7d");
   const [eqTimeSlider, setEqTimeSlider] = useState<number | null>(null); // null = all
-  const [eqRange, setEqRange] = useState<{ min: number; max: number }>({ min: Date.now() - 604800000, max: Date.now() });
+  const [eqRange, setEqRange] = useState<{ min: number; max: number }>({
+    min: Date.now() - 604800000,
+    max: Date.now(),
+  });
   const [eqPlaying, setEqPlaying] = useState(false);
   const eqPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -418,19 +474,22 @@ export default function MapPage() {
     }
   }, [mapState.layers.hurricaneTracks, hurricaneAnimating]);
 
-  const formatCoord = useCallback((lat: number, lon: number) => {
-    if (coordFormat === "dms") {
-      const toDms = (v: number, pos: string, neg: string) => {
-        const a = Math.abs(v);
-        const d = Math.floor(a);
-        const m = Math.floor((a - d) * 60);
-        const s = ((a - d - m / 60) * 3600).toFixed(1);
-        return `${d}°${m}'${s}"${v >= 0 ? pos : neg}`;
-      };
-      return `${toDms(lat, "N", "S")} ${toDms(lon, "E", "W")}`;
-    }
-    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-  }, [coordFormat]);
+  const formatCoord = useCallback(
+    (lat: number, lon: number) => {
+      if (coordFormat === "dms") {
+        const toDms = (v: number, pos: string, neg: string) => {
+          const a = Math.abs(v);
+          const d = Math.floor(a);
+          const m = Math.floor((a - d) * 60);
+          const s = ((a - d - m / 60) * 3600).toFixed(1);
+          return `${d}°${m}'${s}"${v >= 0 ? pos : neg}`;
+        };
+        return `${toDms(lat, "N", "S")} ${toDms(lon, "E", "W")}`;
+      }
+      return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    },
+    [coordFormat],
+  );
 
   // Elevation profile state
   const [profileData, setProfileData] = useState<{ distance: number; elevation: number }[] | null>(null);
@@ -467,11 +526,32 @@ export default function MapPage() {
 
     let ann: import("./lib/layers/annotations").Annotation;
     if (mode === "point" && pts.length >= 1) {
-      ann = { id: uid(), type: "point", coordinates: [pts[0]], color: randomColor(), name: annotationName || `Pin ${annotations.length + 1}`, timestamp: Date.now() };
+      ann = {
+        id: uid(),
+        type: "point",
+        coordinates: [pts[0]],
+        color: randomColor(),
+        name: annotationName || `Pin ${annotations.length + 1}`,
+        timestamp: Date.now(),
+      };
     } else if (mode === "line" && pts.length >= 2) {
-      ann = { id: uid(), type: "line", coordinates: pts, color: randomColor(), name: annotationName || `Line ${annotations.length + 1}`, timestamp: Date.now() };
+      ann = {
+        id: uid(),
+        type: "line",
+        coordinates: pts,
+        color: randomColor(),
+        name: annotationName || `Line ${annotations.length + 1}`,
+        timestamp: Date.now(),
+      };
     } else if (mode === "polygon" && pts.length >= 3) {
-      ann = { id: uid(), type: "polygon", coordinates: pts, color: randomColor(), name: annotationName || `Area ${annotations.length + 1}`, timestamp: Date.now() };
+      ann = {
+        id: uid(),
+        type: "polygon",
+        coordinates: pts,
+        color: randomColor(),
+        name: annotationName || `Area ${annotations.length + 1}`,
+        timestamp: Date.now(),
+      };
     } else {
       return; // Not enough points
     }
@@ -491,9 +571,15 @@ export default function MapPage() {
     // Remove draw source
     const map = mapRef.current;
     if (map) {
-      try { map.removeLayer("draw-preview-line"); } catch {}
-      try { map.removeLayer("draw-preview-fill"); } catch {}
-      try { map.removeSource("draw-preview"); } catch {}
+      try {
+        map.removeLayer("draw-preview-line");
+      } catch {}
+      try {
+        map.removeLayer("draw-preview-fill");
+      } catch {}
+      try {
+        map.removeSource("draw-preview");
+      } catch {}
     }
   }, [drawMode, annotations, annotationName]);
 
@@ -506,17 +592,26 @@ export default function MapPage() {
     setAnnotationName("");
     const map = mapRef.current;
     if (map) {
-      try { map.removeLayer("draw-preview-line"); } catch {}
-      try { map.removeLayer("draw-preview-fill"); } catch {}
-      try { map.removeSource("draw-preview"); } catch {}
+      try {
+        map.removeLayer("draw-preview-line");
+      } catch {}
+      try {
+        map.removeLayer("draw-preview-fill");
+      } catch {}
+      try {
+        map.removeSource("draw-preview");
+      } catch {}
     }
   }, []);
 
-  const deleteAnnotation = useCallback((id: string) => {
-    const next = annotations.filter((a) => a.id !== id);
-    setAnnotations(next);
-    saveAnnotations(next);
-  }, [annotations]);
+  const deleteAnnotation = useCallback(
+    (id: string) => {
+      const next = annotations.filter((a) => a.id !== id);
+      setAnnotations(next);
+      saveAnnotations(next);
+    },
+    [annotations],
+  );
 
   const clearAnnotations = useCallback(() => {
     setAnnotations([]);
@@ -524,13 +619,17 @@ export default function MapPage() {
   }, []);
 
   const fetchElevationProfile = useCallback(async (points: [number, number][]) => {
-    if (points.length < 2) { setProfileData(null); return; }
+    if (points.length < 2) {
+      setProfileData(null);
+      return;
+    }
     setProfileLoading(true);
     try {
       const [start, end] = points;
-      const steps = Math.min(50, Math.max(10, Math.round(
-        Math.sqrt((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) * 111 / 5
-      )));
+      const steps = Math.min(
+        50,
+        Math.max(10, Math.round((Math.sqrt((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) * 111) / 5)),
+      );
       const lats: number[] = [];
       const lons: number[] = [];
       for (let i = 0; i <= steps; i++) {
@@ -561,12 +660,20 @@ export default function MapPage() {
   }, []);
 
   // Bookmarks system
-  type Bookmark = { name: string; center: [number, number]; zoom: number; layers: Record<string, boolean>; timestamp: number };
+  type Bookmark = {
+    name: string;
+    center: [number, number];
+    zoom: number;
+    layers: Record<string, boolean>;
+    timestamp: number;
+  };
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
     try {
       const saved = localStorage.getItem(BOOKMARKS_KEY);
       return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
   const [bookmarkName, setBookmarkName] = useState("");
   const [showBookmarks, setShowBookmarks] = useState(false);
@@ -578,7 +685,13 @@ export default function MapPage() {
     const center = map.getCenter();
     const zoom = map.getZoom();
     const currentLayers = mapState.layers;
-    const bm: Bookmark = { name, center: [center.lng, center.lat], zoom, layers: { ...currentLayers }, timestamp: Date.now() };
+    const bm: Bookmark = {
+      name,
+      center: [center.lng, center.lat],
+      zoom,
+      layers: { ...currentLayers },
+      timestamp: Date.now(),
+    };
     const next = [...bookmarks, bm];
     setBookmarks(next);
     localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next));
@@ -593,11 +706,14 @@ export default function MapPage() {
     localStorage.setItem(LAYER_STATE_KEY, JSON.stringify(bm.layers));
   }, []);
 
-  const deleteBookmark = useCallback((idx: number) => {
-    const next = bookmarks.filter((_, i) => i !== idx);
-    setBookmarks(next);
-    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next));
-  }, [bookmarks]);
+  const deleteBookmark = useCallback(
+    (idx: number) => {
+      const next = bookmarks.filter((_, i) => i !== idx);
+      setBookmarks(next);
+      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next));
+    },
+    [bookmarks],
+  );
 
   // Keep mapStateRef current for localStorage persistence
   useEffect(() => {
@@ -664,7 +780,9 @@ export default function MapPage() {
   useEffect(() => {
     if (!sidebarOpen || !isMobile) return;
     let startX = 0;
-    const onTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX; };
+    const onTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+    };
     const onTouchEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - startX;
       if (dx > 60) setSidebarOpen(false); // swipe right to close
@@ -818,7 +936,8 @@ export default function MapPage() {
 
         const basemap = BASEMAPS[mapState.basemap] || BASEMAPS.dark;
 
-        const isDark = mapState.basemap === "dark" || mapState.basemap === "dark_nolabel" || mapState.basemap === "dark_contrast";
+        const isDark =
+          mapState.basemap === "dark" || mapState.basemap === "dark_nolabel" || mapState.basemap === "dark_contrast";
 
         const map = new mlgl.Map({
           container: containerRef.current,
@@ -851,9 +970,7 @@ export default function MapPage() {
                   ]
                 : []),
             ],
-            ...(isDark
-              ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" }
-              : {}),
+            ...(isDark ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" } : {}),
           },
           center: mapState.center,
           zoom: mapState.zoom,
@@ -876,7 +993,12 @@ export default function MapPage() {
             }
             // Phase 2: Data layers (non-terrain, non-hillshade) on top of terrain
             for (const layer of LAYERS) {
-              if (layer.category !== "terrain" && layer.category !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+              if (
+                layer.category !== "terrain" &&
+                layer.category !== "hillshade" &&
+                MAP_2D_LAYER_IDS.has(layer.id) &&
+                mapState.layers[layer.id]
+              ) {
                 addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
@@ -911,7 +1033,8 @@ export default function MapPage() {
 
             // Add vertex marker
             const el = document.createElement("div");
-            el.style.cssText = "width:10px;height:10px;background:#00ff88;border:2px solid white;border-radius:50%;cursor:pointer;";
+            el.style.cssText =
+              "width:10px;height:10px;background:#00ff88;border:2px solid white;border-radius:50%;cursor:pointer;";
             const marker = new mlgl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
             drawVertexRef.current.push(marker);
 
@@ -921,15 +1044,31 @@ export default function MapPage() {
             if (src && pts.length >= 2) {
               const coords = [...pts, pts[0]] as [number, number][]; // close polygon preview
               if (drawModeRef.current === "polygon" && pts.length >= 3) {
-                src.setData({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: {} }] });
+                src.setData({
+                  type: "FeatureCollection",
+                  features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: {} }],
+                });
               } else {
-                src.setData({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: pts }, properties: {} }] });
+                src.setData({
+                  type: "FeatureCollection",
+                  features: [{ type: "Feature", geometry: { type: "LineString", coordinates: pts }, properties: {} }],
+                });
               }
             } else if (!src) {
               try {
                 map.addSource("draw-preview", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-                map.addLayer({ id: "draw-preview-line", type: "line", source: "draw-preview", paint: { "line-color": "#00ff88", "line-width": 2, "line-dasharray": [4, 2] } });
-                map.addLayer({ id: "draw-preview-fill", type: "fill", source: "draw-preview", paint: { "fill-color": "#00ff88", "fill-opacity": 0.1 } });
+                map.addLayer({
+                  id: "draw-preview-line",
+                  type: "line",
+                  source: "draw-preview",
+                  paint: { "line-color": "#00ff88", "line-width": 2, "line-dasharray": [4, 2] },
+                });
+                map.addLayer({
+                  id: "draw-preview-fill",
+                  type: "fill",
+                  source: "draw-preview",
+                  paint: { "fill-color": "#00ff88", "fill-opacity": 0.1 },
+                });
               } catch {}
             }
 
@@ -944,12 +1083,18 @@ export default function MapPage() {
 
           try {
             const data = await getClientElevation(lat, lng);
-            const pin: ElevationPin = { lat, lon: lng, elevation: data?.elevation ?? null };
+            const pin: ElevationPin = {
+              lat,
+              lon: lng,
+              elevation: data.elevation,
+              status: data.status,
+              surfaceType: data.surfaceType,
+            };
             setPins((prev) => [...prev.slice(-49), pin]);
             setActivePin(pin);
             addPinMarker(map, mlgl, pin, pinsRef);
           } catch {
-            const pin: ElevationPin = { lat, lon: lng, elevation: null };
+            const pin: ElevationPin = { lat, lon: lng, elevation: null, status: "unavailable", surfaceType: "unknown" };
             setPins((prev) => [...prev.slice(-49), pin]);
             setActivePin(pin);
             addPinMarker(map, mlgl, pin, pinsRef);
@@ -1009,7 +1154,7 @@ export default function MapPage() {
     return () => {
       cancelled = true;
       // Clear data layer refresh intervals
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
       const handle = layerHandleRef.current;
       handle.intervals.forEach(clearInterval);
       handle.intervals = [];
@@ -1018,7 +1163,7 @@ export default function MapPage() {
         mapRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // Switch basemap
@@ -1073,7 +1218,12 @@ export default function MapPage() {
           }
         }
         for (const layer of LAYERS) {
-          if (layer.category !== "terrain" && layer.category !== "hillshade" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
+          if (
+            layer.category !== "terrain" &&
+            layer.category !== "hillshade" &&
+            MAP_2D_LAYER_IDS.has(layer.id) &&
+            mapState.layers[layer.id]
+          ) {
             addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
@@ -1153,19 +1303,24 @@ export default function MapPage() {
   }, []);
 
   // Search via geocode API
-  const handleSearch = useCallback(async (query: string) => {
-    try {
-      const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=1`);
-      const data = await res.json();
-      if (data.results?.length > 0) {
-        const r = data.results[0];
-        const map = mapRef.current;
-        if (map) map.flyTo({ center: [Number(r.lon), Number(r.lat)], zoom: 12, duration: 1500 });
+  const handleSearch = useCallback(
+    async (query: string) => {
+      try {
+        const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=1`);
+        if (!res.ok) throw new Error("search unavailable");
+        const data = await res.json();
+        if (data?.ok === false || data?.error) throw new Error(data.error?.message || "search unavailable");
+        if (data.results?.length > 0) {
+          const r = data.results[0];
+          const map = mapRef.current;
+          if (map) map.flyTo({ center: [Number(r.lon), Number(r.lat)], zoom: 12, duration: 1500 });
+        }
+      } catch {
+        showToast("Address search is temporarily unavailable.", "error");
       }
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    },
+    [showToast],
+  );
 
   // Jump to coordinates
   const handleJumpTo = useCallback((lat: number, lon: number) => {
@@ -1245,7 +1400,15 @@ export default function MapPage() {
                     </span>
                   </span>
                 ) : (
-                  <span style={{ color: T.textMuted }}>No data</span>
+                  <span style={{ color: activePin.status === "unavailable" ? T.red : T.textMuted }}>
+                    {activePin.status === "unavailable"
+                      ? "Elevation service unavailable"
+                      : activePin.surfaceType === "seafloor" || activePin.surfaceType === "ocean"
+                        ? "No bathymetry data"
+                        : activePin.surfaceType === "inland_water"
+                          ? "No inland water data"
+                          : "No elevation data"}
+                  </span>
                 )}
               </div>
             )}
@@ -1370,7 +1533,15 @@ export default function MapPage() {
         {/* Draw tools */}
         <div style={{ position: "absolute", top: 82, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
           <button
-            onClick={() => { if (drawMode === "point") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("point"); drawModeRef.current = "point"; } }}
+            onClick={() => {
+              if (drawMode === "point") {
+                cancelDrawing();
+              } else {
+                cancelDrawing();
+                setDrawMode("point");
+                drawModeRef.current = "point";
+              }
+            }}
             title="Draw point annotation"
             aria-label="Draw point annotation"
             aria-pressed={drawMode === "point"}
@@ -1379,14 +1550,25 @@ export default function MapPage() {
               border: `1px solid ${drawMode === "point" ? "#00ff88" : T.border}`,
               borderRadius: 4,
               color: drawMode === "point" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px", cursor: "pointer", fontSize: "0.72rem",
-              fontFamily: T.fontMono, backdropFilter: "blur(8px)",
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              fontFamily: T.fontMono,
+              backdropFilter: "blur(8px)",
             }}
           >
             ◎
           </button>
           <button
-            onClick={() => { if (drawMode === "line") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("line"); drawModeRef.current = "line"; } }}
+            onClick={() => {
+              if (drawMode === "line") {
+                cancelDrawing();
+              } else {
+                cancelDrawing();
+                setDrawMode("line");
+                drawModeRef.current = "line";
+              }
+            }}
             title="Draw line annotation (click points, Enter to finish)"
             aria-label="Draw line annotation"
             aria-pressed={drawMode === "line"}
@@ -1395,14 +1577,25 @@ export default function MapPage() {
               border: `1px solid ${drawMode === "line" ? "#00ff88" : T.border}`,
               borderRadius: 4,
               color: drawMode === "line" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px", cursor: "pointer", fontSize: "0.72rem",
-              fontFamily: T.fontMono, backdropFilter: "blur(8px)",
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              fontFamily: T.fontMono,
+              backdropFilter: "blur(8px)",
             }}
           >
             ━
           </button>
           <button
-            onClick={() => { if (drawMode === "polygon") { cancelDrawing(); } else { cancelDrawing(); setDrawMode("polygon"); drawModeRef.current = "polygon"; } }}
+            onClick={() => {
+              if (drawMode === "polygon") {
+                cancelDrawing();
+              } else {
+                cancelDrawing();
+                setDrawMode("polygon");
+                drawModeRef.current = "polygon";
+              }
+            }}
             title="Draw polygon annotation (click points, Enter to finish)"
             aria-label="Draw polygon annotation"
             aria-pressed={drawMode === "polygon"}
@@ -1411,8 +1604,11 @@ export default function MapPage() {
               border: `1px solid ${drawMode === "polygon" ? "#00ff88" : T.border}`,
               borderRadius: 4,
               color: drawMode === "polygon" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px", cursor: "pointer", fontSize: "0.72rem",
-              fontFamily: T.fontMono, backdropFilter: "blur(8px)",
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              fontFamily: T.fontMono,
+              backdropFilter: "blur(8px)",
             }}
           >
             △
@@ -1424,13 +1620,23 @@ export default function MapPage() {
                 onChange={(e) => setAnnotationName(e.target.value)}
                 placeholder="Name..."
                 style={{
-                  background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3,
-                  color: T.text, padding: "3px 6px", fontSize: "0.68rem", fontFamily: T.fontMono,
-                  width: 100, outline: "none",
+                  background: T.panel,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 3,
+                  color: T.text,
+                  padding: "3px 6px",
+                  fontSize: "0.68rem",
+                  fontFamily: T.fontMono,
+                  width: 100,
+                  outline: "none",
                 }}
               />
-              <button onClick={finishDrawing} title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>✓</button>
-              <button onClick={cancelDrawing} title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>✕</button>
+              <button onClick={finishDrawing} title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>
+                ✓
+              </button>
+              <button onClick={cancelDrawing} title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>
+                ✕
+              </button>
             </>
           )}
         </div>
@@ -1485,7 +1691,18 @@ export default function MapPage() {
             )}
           </SurveillancePanel>
           {sidebarOpen && !isMobile && (
-            <div style={{ position: "absolute", top: 4, right: 4, fontSize: "0.6rem", color: T.textMuted, fontFamily: T.fontMono, opacity: 0.6, pointerEvents: "none" }}>
+            <div
+              style={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                fontSize: "0.6rem",
+                color: T.textMuted,
+                fontFamily: T.fontMono,
+                opacity: 0.6,
+                pointerEvents: "none",
+              }}
+            >
               H hillshade · R radar · G quakes · 3 sat · P measure · B boundaries
             </div>
           )}
@@ -1495,9 +1712,9 @@ export default function MapPage() {
         <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
           <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
             <StatusIndicator
-              color={loading ? T.amber : T.green}
-              label={loading ? "LOADING" : "READY"}
-              pulse={loading}
+              color={mapHealth === "error" ? T.red : mapHealth === "degraded" ? T.amber : mapHealth === "loading" ? T.amber : T.green}
+              label={mapHealth === "error" ? "ERROR" : mapHealth === "degraded" ? "DEGRADED" : mapHealth === "loading" ? "LOADING" : "READY"}
+              pulse={mapHealth === "loading"}
             />
             {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}
             {annotations.length > 0 && <StatusIndicator color="#00ff88" label={`${annotations.length} ANNOT`} />}
@@ -1675,7 +1892,7 @@ export default function MapPage() {
                 try {
                   const d = await getClientElevation(ctxMenu.lat, ctxMenu.lng);
                   navigator.clipboard.writeText(
-                    `${d?.elevation !== null && d?.elevation !== undefined ? d.elevation + "m" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`,
+                    `${d.elevation !== null ? d.elevation + "m" : d.status === "unavailable" ? "Elevation service unavailable" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`,
                   );
                 } catch {
                   /* ignore */
@@ -1801,30 +2018,38 @@ export default function MapPage() {
                   const bm = BASEMAPS[key];
                   if (!bm) return null;
                   return (
-                  <button
-                    key={key}
-                    onClick={() => switchBasemap(key)}
-                    style={{
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: 3,
-                      border: mapState.basemap === key ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-                      background: mapState.basemap === key ? `${T.accent}22` : "transparent",
-                      color: mapState.basemap === key ? T.accent : T.textMuted,
-                      cursor: "pointer",
-                      fontSize: "0.72rem",
-                      fontFamily: T.fontMono,
-                      boxShadow: mapState.basemap === key ? `0 0 6px ${T.accent}33` : "none",
-                    }}
-                  >
-                    {bm.label}
-                  </button>
+                    <button
+                      key={key}
+                      onClick={() => switchBasemap(key)}
+                      style={{
+                        padding: "0.25rem 0.5rem",
+                        borderRadius: 3,
+                        border: mapState.basemap === key ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+                        background: mapState.basemap === key ? `${T.accent}22` : "transparent",
+                        color: mapState.basemap === key ? T.accent : T.textMuted,
+                        cursor: "pointer",
+                        fontSize: "0.72rem",
+                        fontFamily: T.fontMono,
+                        boxShadow: mapState.basemap === key ? `0 0 6px ${T.accent}33` : "none",
+                      }}
+                    >
+                      {bm.label}
+                    </button>
                   );
                 })}
               </div>
             </SurveillancePanel>
 
             {/* System theme toggle — switches basemap between dark/voyager */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", padding: "0.35rem 0" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "0.75rem",
+                padding: "0.35rem 0",
+              }}
+            >
               <span style={{ fontSize: "0.72rem", color: T.textMuted, fontFamily: T.fontMono }}>AUTO THEME</span>
               <button
                 onClick={() => {
@@ -1860,7 +2085,9 @@ export default function MapPage() {
                   onChange={(checked) => toggleLayer(layer.id, checked)}
                   color={layer.accent}
                 />
-                <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>{layer.description}</div>
+                <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
+                  {layer.description}
+                </div>
               </div>
             ))}
             {/* Layer toggles — accordion groups */}
@@ -1898,7 +2125,9 @@ export default function MapPage() {
                     <span>{CATEGORY_LABELS[cat] || cat}</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       {enabledCount > 0 && (
-                        <span style={{ fontSize: "0.58rem", color: T.green, fontFamily: T.fontMono }}>{enabledCount}/{layers.length}</span>
+                        <span style={{ fontSize: "0.58rem", color: T.green, fontFamily: T.fontMono }}>
+                          {enabledCount}/{layers.length}
+                        </span>
                       )}
                       <span style={{ fontSize: "0.6rem", color: T.textMuted }}>{isOpen ? "▾" : "▸"}</span>
                     </span>
@@ -1961,7 +2190,14 @@ export default function MapPage() {
                                   onChange={(e) => setOpacity(layer.id, Number(e.target.value))}
                                   style={{ width: 70, height: 3, accentColor: layer.accent, cursor: "pointer" }}
                                 />
-                                <span style={{ fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted, minWidth: 22 }}>
+                                <span
+                                  style={{
+                                    fontSize: "0.55rem",
+                                    fontFamily: T.fontMono,
+                                    color: T.textMuted,
+                                    minWidth: 22,
+                                  }}
+                                >
                                   {layerOpacity[layer.id] ?? 100}%
                                 </span>
                               </div>
@@ -1984,7 +2220,9 @@ export default function MapPage() {
                       key={f}
                       onClick={() => handleEqFeedChange(f)}
                       style={{
-                        ...btnStyle, flex: 1, fontSize: "0.6rem",
+                        ...btnStyle,
+                        flex: 1,
+                        fontSize: "0.6rem",
                         background: eqFeed === f ? T.accent : T.panel,
                         color: eqFeed === f ? "#0a0f1a" : T.textMuted,
                       }}
@@ -1992,7 +2230,10 @@ export default function MapPage() {
                       {f === "1d" ? "24H" : f === "7d" ? "7D" : "30D"}
                     </button>
                   ))}
-                  <button onClick={handleEqPlay} style={{ ...btnStyle, fontSize: "0.7rem", color: eqPlaying ? T.red : T.green }}>
+                  <button
+                    onClick={handleEqPlay}
+                    style={{ ...btnStyle, fontSize: "0.7rem", color: eqPlaying ? T.red : T.green }}
+                  >
                     {eqPlaying ? "⏸" : "▶"}
                   </button>
                 </div>
@@ -2010,7 +2251,14 @@ export default function MapPage() {
                   />
                 </div>
                 {eqTimeSlider && (
-                  <button onClick={() => { setEqTimeSlider(null); setEarthquakeTimeFilter(null); refreshEarthquakeFilter(mapRef.current!); }} style={{ ...btnStyle, fontSize: "0.58rem", marginTop: 4 }}>
+                  <button
+                    onClick={() => {
+                      setEqTimeSlider(null);
+                      setEarthquakeTimeFilter(null);
+                      refreshEarthquakeFilter(mapRef.current!);
+                    }}
+                    style={{ ...btnStyle, fontSize: "0.58rem", marginTop: 4 }}
+                  >
                     Show All
                   </button>
                 )}
@@ -2023,7 +2271,12 @@ export default function MapPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <button
                     onClick={toggleHurricaneAnimation}
-                    style={{ ...btnStyle, fontSize: "0.65rem", color: hurricaneAnimating ? T.red : T.green, minWidth: 28 }}
+                    style={{
+                      ...btnStyle,
+                      fontSize: "0.65rem",
+                      color: hurricaneAnimating ? T.red : T.green,
+                      minWidth: 28,
+                    }}
                     aria-label={hurricaneAnimating ? "Pause hurricane animation" : "Play hurricane animation"}
                   >
                     {hurricaneAnimating ? "⏸" : "▶"}
@@ -2084,9 +2337,14 @@ export default function MapPage() {
                       placeholder="Bookmark name..."
                       onKeyDown={(e) => e.key === "Enter" && saveBookmark()}
                       style={{
-                        flex: 1, padding: "3px 6px", fontSize: "0.68rem",
-                        background: T.panel, border: `1px solid ${T.border}`,
-                        color: T.text, borderRadius: 3, fontFamily: T.fontMono,
+                        flex: 1,
+                        padding: "3px 6px",
+                        fontSize: "0.68rem",
+                        background: T.panel,
+                        border: `1px solid ${T.border}`,
+                        color: T.text,
+                        borderRadius: 3,
+                        fontFamily: T.fontMono,
                       }}
                     />
                     <button onClick={saveBookmark} style={{ ...btnStyle }}>
@@ -2102,19 +2360,38 @@ export default function MapPage() {
                     <div
                       key={i}
                       style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "2px 0", fontSize: "0.65rem", fontFamily: T.fontMono,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "2px 0",
+                        fontSize: "0.65rem",
+                        fontFamily: T.fontMono,
                       }}
                     >
                       <button
                         onClick={() => loadBookmark(bm)}
-                        style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: "0.65rem", padding: 0 }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: T.accent,
+                          cursor: "pointer",
+                          fontSize: "0.65rem",
+                          padding: 0,
+                        }}
                       >
                         ◎ {bm.name}
                       </button>
                       <button
                         onClick={() => deleteBookmark(i)}
-                        style={{ background: "none", border: "none", color: T.red, cursor: "pointer", fontSize: "0.7rem", padding: 0, opacity: 0.6 }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: T.red,
+                          cursor: "pointer",
+                          fontSize: "0.7rem",
+                          padding: 0,
+                          opacity: 0.6,
+                        }}
                       >
                         ✕
                       </button>
@@ -2151,33 +2428,88 @@ export default function MapPage() {
             {/* Elevation profile */}
             {profileData && profileData.length > 1 && (
               <SurveillancePanel title="Elevation Profile" style={{ marginBottom: "0.75rem" }}>
-                {profileLoading && <div style={{ fontSize: "0.65rem", color: T.amber, fontFamily: T.fontMono }}>⟳ Loading...</div>}
-                <div style={{ position: "relative", height: 60, background: "rgba(0,0,0,0.2)", borderRadius: 3, overflow: "hidden", marginTop: 4 }}>
-                  <svg viewBox={`0 0 ${profileData.length * 4} 60`} preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+                {profileLoading && (
+                  <div style={{ fontSize: "0.65rem", color: T.amber, fontFamily: T.fontMono }}>⟳ Loading...</div>
+                )}
+                <div
+                  style={{
+                    position: "relative",
+                    height: 60,
+                    background: "rgba(0,0,0,0.2)",
+                    borderRadius: 3,
+                    overflow: "hidden",
+                    marginTop: 4,
+                  }}
+                >
+                  <svg
+                    viewBox={`0 0 ${profileData.length * 4} 60`}
+                    preserveAspectRatio="none"
+                    style={{ width: "100%", height: "100%" }}
+                  >
                     {(() => {
                       const elevs = profileData.map((p) => p.elevation);
                       const minE = Math.min(...elevs);
                       const maxE = Math.max(...elevs);
                       const range = maxE - minE || 1;
                       const w = profileData.length * 4;
-                      const points = profileData.map((p, i) => `${i * 4},${60 - ((p.elevation - minE) / range) * 55 - 2}`).join(" ");
+                      const points = profileData
+                        .map((p, i) => `${i * 4},${60 - ((p.elevation - minE) / range) * 55 - 2}`)
+                        .join(" ");
                       return <polyline points={points} fill="none" stroke={T.green} strokeWidth="1.5" />;
                     })()}
                   </svg>
-                  <div style={{ position: "absolute", top: 2, left: 4, fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: 4,
+                      fontSize: "0.55rem",
+                      fontFamily: T.fontMono,
+                      color: T.textMuted,
+                    }}
+                  >
                     {Math.max(...profileData.map((p) => p.elevation))}m
                   </div>
-                  <div style={{ position: "absolute", bottom: 2, left: 4, fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 2,
+                      left: 4,
+                      fontSize: "0.55rem",
+                      fontFamily: T.fontMono,
+                      color: T.textMuted,
+                    }}
+                  >
                     {Math.min(...profileData.map((p) => p.elevation))}m
                   </div>
-                  <div style={{ position: "absolute", bottom: 2, right: 4, fontSize: "0.55rem", fontFamily: T.fontMono, color: T.textMuted }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 2,
+                      right: 4,
+                      fontSize: "0.55rem",
+                      fontFamily: T.fontMono,
+                      color: T.textMuted,
+                    }}
+                  >
                     {(profileData[profileData.length - 1].distance / 1000).toFixed(1)}km
                   </div>
                 </div>
-                <div style={{ fontSize: "0.58rem", fontFamily: T.fontMono, color: T.textMuted, marginTop: 2, display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{
+                    fontSize: "0.58rem",
+                    fontFamily: T.fontMono,
+                    color: T.textMuted,
+                    marginTop: 2,
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
                   <span>Start: {profileData[0].elevation}m</span>
                   <span>End: {profileData[profileData.length - 1].elevation}m</span>
-                  <span>Δ{(Math.abs(profileData[0].elevation - profileData[profileData.length - 1].elevation)).toFixed(0)}m</span>
+                  <span>
+                    Δ{Math.abs(profileData[0].elevation - profileData[profileData.length - 1].elevation).toFixed(0)}m
+                  </span>
                 </div>
               </SurveillancePanel>
             )}
@@ -2225,9 +2557,13 @@ export default function MapPage() {
                     <div
                       key={a.id}
                       style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "2px 0", borderBottom: `1px solid ${T.border}`,
-                        fontSize: "0.65rem", fontFamily: T.fontMono,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "2px 0",
+                        borderBottom: `1px solid ${T.border}`,
+                        fontSize: "0.65rem",
+                        fontFamily: T.fontMono,
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -2242,7 +2578,15 @@ export default function MapPage() {
                         </span>
                         <button
                           onClick={() => deleteAnnotation(a.id)}
-                          style={{ background: "none", border: "none", color: T.red, cursor: "pointer", fontSize: "0.7rem", padding: 0, opacity: 0.6 }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: T.red,
+                            cursor: "pointer",
+                            fontSize: "0.7rem",
+                            padding: 0,
+                            opacity: 0.6,
+                          }}
                         >
                           ✕
                         </button>
@@ -2250,7 +2594,10 @@ export default function MapPage() {
                     </div>
                   ))}
                 </div>
-                <button onClick={clearAnnotations} style={{ ...btnStyle, marginTop: 4, fontSize: "0.6rem", width: "100%" }}>
+                <button
+                  onClick={clearAnnotations}
+                  style={{ ...btnStyle, marginTop: 4, fontSize: "0.6rem", width: "100%" }}
+                >
                   Clear All Annotations
                 </button>
               </SurveillancePanel>
@@ -2293,17 +2640,63 @@ export default function MapPage() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
           }}
         >
-          <div style={{ fontSize: "0.75rem", color: T.accent, marginBottom: 10, fontWeight: 700, letterSpacing: "0.06em" }}>LEGEND</div>
+          <div
+            style={{ fontSize: "0.75rem", color: T.accent, marginBottom: 10, fontWeight: 700, letterSpacing: "0.06em" }}
+          >
+            LEGEND
+          </div>
 
           {/* Toggleable layer entries — always visible, click to toggle on/off */}
-          {([
-            { id: "bathymetry", name: "Bathymetry", colors: ["#08306b","#08519c","#2171b5","#4292c6","#6baed6","#9ecae1","#c6dbef"], labels: ["Deep","Shallow"], multi: false },
-            { id: "elevationColor", name: "Elevation", colors: ["#00044a","#08306b","#2171b5","#238b45","#41ab5d","#addd8e","#fee08b","#fdae61","#a50026"], labels: ["Sea Level","Peaks"], multi: false },
-            { id: "elevationAccuracy", name: "Data Accuracy", colors: ["#00bcd4","#4caf50","#1b5e20","#9acd32","#1565c0"], labels: ["2m","","","","450m"], multi: true },
-            { id: "oceanCurrents", name: "Ocean Currents", colors: ["#2878ff","#328cff","#00b4ff"], labels: ["Flow","","Circum."], multi: false },
-            { id: "equator", name: "Equator", colors: ["#ffffff"], labels: [""], multi: false },
-            { id: "hillshade", name: "Hillshade", colors: ["#1a1a1a","#555555","#888888","#b0b0b0","#d0d0d0"], labels: ["Shadow","Highlight"], multi: false },
-          ] as const).map((layer) => {
+          {(
+            [
+              {
+                id: "bathymetry",
+                name: "Bathymetry",
+                colors: ["#08306b", "#08519c", "#2171b5", "#4292c6", "#6baed6", "#9ecae1", "#c6dbef"],
+                labels: ["Deep", "Shallow"],
+                multi: false,
+              },
+              {
+                id: "elevationColor",
+                name: "Elevation",
+                colors: [
+                  "#00044a",
+                  "#08306b",
+                  "#2171b5",
+                  "#238b45",
+                  "#41ab5d",
+                  "#addd8e",
+                  "#fee08b",
+                  "#fdae61",
+                  "#a50026",
+                ],
+                labels: ["Sea Level", "Peaks"],
+                multi: false,
+              },
+              {
+                id: "elevationAccuracy",
+                name: "Data Accuracy",
+                colors: ["#00bcd4", "#4caf50", "#1b5e20", "#9acd32", "#1565c0"],
+                labels: ["2m", "", "", "", "450m"],
+                multi: true,
+              },
+              {
+                id: "oceanCurrents",
+                name: "Ocean Currents",
+                colors: ["#2878ff", "#328cff", "#00b4ff"],
+                labels: ["Flow", "", "Circum."],
+                multi: false,
+              },
+              { id: "equator", name: "Equator", colors: ["#ffffff"], labels: [""], multi: false },
+              {
+                id: "hillshade",
+                name: "Hillshade",
+                colors: ["#1a1a1a", "#555555", "#888888", "#b0b0b0", "#d0d0d0"],
+                labels: ["Shadow", "Highlight"],
+                multi: false,
+              },
+            ] as const
+          ).map((layer) => {
             const on = !!mapState.layers[layer.id];
             return (
               <div
@@ -2312,7 +2705,17 @@ export default function MapPage() {
                 onClick={() => toggleLayer(layer.id, !on)}
                 title={`Click to ${on ? "disable" : "enable"} ${layer.name}`}
               >
-                <div style={{ fontSize: "0.62rem", color: T.text, marginBottom: 2, fontWeight: on ? 600 : 400, display: "flex", alignItems: "center", gap: 4 }}>
+                <div
+                  style={{
+                    fontSize: "0.62rem",
+                    color: T.text,
+                    marginBottom: 2,
+                    fontWeight: on ? 600 : 400,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
                   <span style={{ color: on ? T.accent : T.textMuted, fontSize: "0.55rem" }}>{on ? "●" : "○"}</span>
                   {layer.name}
                 </div>
@@ -2324,14 +2727,33 @@ export default function MapPage() {
                       ))}
                     </div>
                     {!layer.multi && layer.labels.length === 2 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.5rem", color: T.text, padding: "1px 3px", background: "rgba(0,0,0,0.3)" }}>
-                        <span>{layer.labels[0]}</span><span>{layer.labels[1]}</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "0.5rem",
+                          color: T.text,
+                          padding: "1px 3px",
+                          background: "rgba(0,0,0,0.3)",
+                        }}
+                      >
+                        <span>{layer.labels[0]}</span>
+                        <span>{layer.labels[1]}</span>
                       </div>
                     )}
                     {layer.multi && (
-                      <div style={{ display: "flex", fontSize: "0.5rem", color: T.text, background: "rgba(0,0,0,0.3)" }}>
+                      <div
+                        style={{ display: "flex", fontSize: "0.5rem", color: T.text, background: "rgba(0,0,0,0.3)" }}
+                      >
                         {layer.labels.map((t, i) => (
-                          <div key={i} style={{ flex: 1, textAlign: i === 0 ? "left" : i === layer.labels.length - 1 ? "right" : "center", padding: "1px 0" }}>
+                          <div
+                            key={i}
+                            style={{
+                              flex: 1,
+                              textAlign: i === 0 ? "left" : i === layer.labels.length - 1 ? "right" : "center",
+                              padding: "1px 0",
+                            }}
+                          >
                             <span>{t}</span>
                           </div>
                         ))}
@@ -2344,7 +2766,16 @@ export default function MapPage() {
           })}
 
           {/* Basemap indicator at bottom */}
-          <div style={{ marginTop: 6, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 6 }}>
+          <div
+            style={{
+              marginTop: 6,
+              paddingTop: 8,
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
             <div style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, flexShrink: 0 }} />
             <span style={{ fontSize: "0.58rem", color: T.textMuted }}>
               {BASEMAPS[mapState.basemap]?.label || mapState.basemap}
@@ -2404,7 +2835,8 @@ export default function MapPage() {
               animation: "fadeIn 0.2s ease-in",
             }}
           >
-            {t.type === "error" ? "✕ " : "ℹ "}{t.msg}
+            {t.type === "error" ? "✕ " : "ℹ "}
+            {t.msg}
           </div>
         ))}
       </div>
@@ -2454,7 +2886,11 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
 
   for (const id of Z_ORDER) {
     if (map.getLayer(id)) {
-      try { (map as any).moveLayer(id); } catch { /* skip */ }
+      try {
+        (map as any).moveLayer(id);
+      } catch {
+        /* skip */
+      }
     }
   }
 
@@ -2462,11 +2898,19 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
   // Must happen after the Z_ORDER loop so it sits above everything moved there,
   // then labels are moved back to the absolute top.
   if (map.getLayer("hillshade-base")) {
-    try { (map as any).moveLayer("hillshade-base"); } catch { /* skip */ }
+    try {
+      (map as any).moveLayer("hillshade-base");
+    } catch {
+      /* skip */
+    }
   }
   // Labels — always on absolute top (above hillshade)
   if (map.getLayer("labels-raster")) {
-    try { (map as any).moveLayer("labels-raster"); } catch { /* skip */ }
+    try {
+      (map as any).moveLayer("labels-raster");
+    } catch {
+      /* skip */
+    }
   }
 }
 
@@ -2477,9 +2921,10 @@ function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
   const needsLabels = ["satellite", "dark_nolabel", "positron"].includes(basemapKey);
   if (!needsLabels) return;
   try {
-    const labelUrl = basemapKey === "positron"
-      ? "https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png"
-      : "https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png";
+    const labelUrl =
+      basemapKey === "positron"
+        ? "https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png"
+        : "https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png";
     if (!map.getSource("labels")) {
       map.addSource("labels", { type: "raster", tiles: [labelUrl], tileSize: 256 });
     }
@@ -2489,7 +2934,9 @@ function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
       source: "labels",
       paint: { "raster-opacity": 0.9 },
     });
-  } catch { /* layer may already exist */ }
+  } catch {
+    /* layer may already exist */
+  }
 }
 
 function addBoundaryLayers(map: maplibregl.Map) {
@@ -2572,7 +3019,7 @@ function addPinMarker(
       border: 1px solid ${T.border}; box-shadow: 0 0 8px rgba(34,197,94,0.3);
       letter-spacing: 0.03em;
       text-shadow: 0 0 8px rgba(34,197,94,0.4);
-    ">${pin.elevation !== null ? pin.elevation.toLocaleString() + "m" : "No data"}</div>
+    ">${pin.elevation !== null ? pin.elevation.toLocaleString() + "m" : pin.status === "unavailable" ? "Service unavailable" : "No data"}</div>
     <div style="
       color: #94a3b8; font-size: 9px; font-family: ${T.fontMono}; white-space: nowrap;
       letter-spacing: 0.02em; margin-top: -1px;

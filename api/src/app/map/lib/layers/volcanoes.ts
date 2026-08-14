@@ -95,7 +95,11 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeVolcanoes(map: maplibregl.Map): void {
   ["volcanoes-glow", "volcanoes-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("volcanoes"); } catch {}
+  try {
+    map.removeSource("volcanoes");
+  } catch {}
 }

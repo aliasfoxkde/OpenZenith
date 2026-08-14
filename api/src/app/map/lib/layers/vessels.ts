@@ -69,7 +69,12 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
         ws?.send(
           JSON.stringify({
             APIKey: config.apiKey,
-            BoundingBoxes: [[[-180, -90], [180, 90]]],
+            BoundingBoxes: [
+              [
+                [-180, -90],
+                [180, 90],
+              ],
+            ],
             FilterMessageTypes: ["PositionReport"],
           }),
         );
@@ -174,9 +179,13 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeVessels(map: maplibregl.Map): void {
   ["vessels-points", "vessels-glow"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("vessels"); } catch {}
+  try {
+    map.removeSource("vessels");
+  } catch {}
   if (ws) {
     ws.close();
     ws = null;

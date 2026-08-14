@@ -17,19 +17,17 @@ function addElevationLayer(map: any, _mlgl: any) {
   });
 
   // Hillshade — added last so it renders on top of everything
-  map.addLayer(
-    {
-      id: "hillshade",
-      type: "hillshade",
-      source: "elevation",
-      paint: {
-        "hillshade-shadow-color": "#000000",
-        "hillshade-highlight-color": "#ffffff",
-        "hillshade-accent-color": "#333333",
-        "hillshade-exaggeration": 0.3,
-      },
+  map.addLayer({
+    id: "hillshade",
+    type: "hillshade",
+    source: "elevation",
+    paint: {
+      "hillshade-shadow-color": "#000000",
+      "hillshade-highlight-color": "#ffffff",
+      "hillshade-accent-color": "#333333",
+      "hillshade-exaggeration": 0.3,
     },
-  );
+  });
 }
 
 export default function Demo() {

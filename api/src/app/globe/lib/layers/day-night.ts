@@ -1,9 +1,9 @@
 /**
  * Day/Night Terminator Layer
- * 
+ *
  * Displays the terminator line between day and night sides of Earth.
  * Uses solar position calculation to determine lit/unlit portions.
- * 
+ *
  * Based on patterns from gods-eye.app which includes:
  * - day-night-layer toggle
  * - terminator overlay visualization
@@ -14,7 +14,7 @@ import type { DataStatus } from "../types";
 
 /** Sun position data */
 interface SunPosition {
-  declination: number;  // Solar declination in radians
+  declination: number; // Solar declination in radians
   rightAscension: number;
   hourAngle: number;
 }
@@ -25,7 +25,7 @@ interface SunPosition {
  */
 function solarDeclination(dayOfYear: number): number {
   // Simplified calculation (no equation of time correction)
-  return -23.45 * Math.cos((360 / 365) * (dayOfYear + 10) * Math.PI / 180);
+  return -23.45 * Math.cos(((360 / 365) * (dayOfYear + 10) * Math.PI) / 180);
 }
 
 /**
@@ -34,18 +34,18 @@ function solarDeclination(dayOfYear: number): number {
  */
 function calculateTerminatorPoints(declination: number, numPoints = 360): number[][] {
   const points: number[][] = [];
-  const decRad = declination * Math.PI / 180;
-  
+  const decRad = (declination * Math.PI) / 180;
+
   for (let i = 0; i <= numPoints; i++) {
     const longitude = (i / numPoints) * 360 - 180;
-    const lonRad = longitude * Math.PI / 180;
-    
+    const lonRad = (longitude * Math.PI) / 180;
+
     // Latitude where terminator crosses this longitude
     // tan(lat) = -cos(H) / tan(dec) where H is hour angle
     // At current time, hour angle = longitude of subsolar point
     const subsolarLon = 0; // Would be calculated from current time
-    const hourAngle = (longitude - subsolarLon) * Math.PI / 180;
-    
+    const hourAngle = ((longitude - subsolarLon) * Math.PI) / 180;
+
     let lat: number;
     if (Math.abs(declination) >= 89.5) {
       // Near equinox, terminator is almost straight
@@ -53,12 +53,12 @@ function calculateTerminatorPoints(declination: number, numPoints = 360): number
     } else {
       // General case: latitude of illumination boundary
       const tanLat = -Math.cos(hourAngle) / Math.tan(decRad);
-      lat = Math.atan(tanLat) * 180 / Math.PI;
+      lat = (Math.atan(tanLat) * 180) / Math.PI;
     }
-    
+
     points.push([longitude, lat]);
   }
-  
+
   return points;
 }
 
@@ -68,30 +68,30 @@ function calculateTerminatorPoints(declination: number, numPoints = 360): number
  */
 function calculateNightShadowPolygon(declination: number): number[][] {
   const points: number[][] = [];
-  const decRad = declination * Math.PI / 180;
-  
+  const decRad = (declination * Math.PI) / 180;
+
   // Solar longitude (subsolar point longitude)
   const now = new Date();
   const hourAngle = (now.getUTCHours() + now.getUTCMinutes() / 60) * 15 - 180;
-  
+
   // Calculate points along the night boundary
   const numPoints = 180;
   for (let i = 0; i <= numPoints; i++) {
     const lon = (i / numPoints) * 360 - 180;
-    const lonRad = lon * Math.PI / 180;
-    const hourAngleRad = (lon - hourAngle) * Math.PI / 180;
-    
+    const lonRad = (lon * Math.PI) / 180;
+    const hourAngleRad = ((lon - hourAngle) * Math.PI) / 180;
+
     let lat: number;
     if (Math.abs(declination) >= 89.5) {
       lat = declination > 0 ? -90 : 90;
     } else {
       const tanLat = -Math.cos(hourAngleRad) / Math.tan(decRad);
-      lat = Math.atan(tanLat) * 180 / Math.PI;
+      lat = (Math.atan(tanLat) * 180) / Math.PI;
     }
-    
+
     points.push([lon, lat]);
   }
-  
+
   // Close the polygon
   points.push(points[0]);
   return points;
@@ -110,15 +110,13 @@ export function loadDayNightTerminator(
   stateLayers: { dayNight: boolean },
 ) {
   updateStatus("dayNight", { error: null });
-  
+
   if (!stateLayers.dayNight) {
     removeEntities("day-night");
     return;
   }
 
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-  );
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
   const declination = solarDeclination(dayOfYear);
 
   // Create night shadow polygon
@@ -129,7 +127,7 @@ export function loadDayNightTerminator(
     id: "day-night-shadow",
     polygon: {
       hierarchy: new Cesium.PolygonHierarchy(
-        nightPolygonPoints.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat))
+        nightPolygonPoints.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat)),
       ),
       material: Cesium.Color.BLACK.withAlpha(0.35),
       outline: false,
@@ -140,13 +138,11 @@ export function loadDayNightTerminator(
 
   // Add terminator line
   const terminatorPoints = calculateTerminatorPoints(declination);
-  
+
   viewer.entities.add({
     id: "day-night-terminator",
     polyline: {
-      positions: Cesium.Cartesian3.fromDegreesArray(
-        terminatorPoints.flatMap(([lon, lat]) => [lon, lat])
-      ),
+      positions: Cesium.Cartesian3.fromDegreesArray(terminatorPoints.flatMap(([lon, lat]) => [lon, lat])),
       width: 2,
       material: new Cesium.PolylineDashMaterialProperty({
         dashPattern: 0xffff00,
@@ -216,6 +212,6 @@ export function toggleDayNightTerminator(
     removeEntities,
     { current: [] },
     { current: {} },
-    { dayNight: true }
+    { dayNight: true },
   );
 }

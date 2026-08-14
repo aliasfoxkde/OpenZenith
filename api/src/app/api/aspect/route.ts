@@ -27,13 +27,7 @@ const NODATA = -32768;
  * Compute aspect — compass direction of steepest descent in degrees.
  * 0=N, 90=E, 180=S, 270=W. Flat areas = -1.
  */
-function computeAspect(
-  dem: Float32Array,
-  rows: number,
-  cols: number,
-  cellSizeM: number,
-  nodata: number,
-): Float32Array {
+function computeAspect(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
   const result = new Float32Array(rows * cols);
 
   for (let r = 1; r < rows - 1; r++) {
@@ -55,9 +49,16 @@ function computeAspect(
       const h = dem[(r + 1) * cols + c];
       const i = dem[(r + 1) * cols + (c + 1)];
 
-      if (a <= nodata || b <= nodata || c_ <= nodata ||
-          d <= nodata || f <= nodata ||
-          g <= nodata || h <= nodata || i <= nodata) {
+      if (
+        a <= nodata ||
+        b <= nodata ||
+        c_ <= nodata ||
+        d <= nodata ||
+        f <= nodata ||
+        g <= nodata ||
+        h <= nodata ||
+        i <= nodata
+      ) {
         result[idx] = NaN;
         continue;
       }
@@ -197,7 +198,10 @@ export async function GET(request: NextRequest) {
       const v = aspectGrid[i];
       if (isNaN(v)) continue;
       count++;
-      if (v === -1) { dirBins.flat++; continue; }
+      if (v === -1) {
+        dirBins.flat++;
+        continue;
+      }
       if (v >= 337.5 || v < 22.5) dirBins.N++;
       else if (v >= 22.5 && v < 67.5) dirBins.NE++;
       else if (v >= 67.5 && v < 112.5) dirBins.E++;
@@ -221,34 +225,38 @@ export async function GET(request: NextRequest) {
 
     const { north: latMax } = tileToLatLon(zoom, 0, tileYMin);
     const { south: latMin } = tileToLatLon(zoom, 0, tileYMax + 1);
-    const lonMin = (tileXMin * 256) / n * 360 - 180;
-    const lonMax = ((tileXMax + 1) * 256) / n * 360 - 180;
+    const lonMin = ((tileXMin * 256) / n) * 360 - 180;
+    const lonMax = (((tileXMax + 1) * 256) / n) * 360 - 180;
 
-    return NextResponse.json({
-      center: { lat, lon },
-      bounds: { latMin, latMax, lonMin, lonMax },
-      radius_cells: radius,
-      zoom,
-      cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
-      direction_bins: count > 0
-        ? {
-            N: Math.round(dirBins.N / count * 1000) / 10,
-            NE: Math.round(dirBins.NE / count * 1000) / 10,
-            E: Math.round(dirBins.E / count * 1000) / 10,
-            SE: Math.round(dirBins.SE / count * 1000) / 10,
-            S: Math.round(dirBins.S / count * 1000) / 10,
-            SW: Math.round(dirBins.SW / count * 1000) / 10,
-            W: Math.round(dirBins.W / count * 1000) / 10,
-            NW: Math.round(dirBins.NW / count * 1000) / 10,
-            flat: Math.round(dirBins.flat / count * 1000) / 10,
-          }
-        : null,
-      valid_cells: count,
-      grid: sampledGrid,
-      units: "degrees compass (0=N, 90=E, 180=S, 270=W)",
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+    return NextResponse.json(
+      {
+        center: { lat, lon },
+        bounds: { latMin, latMax, lonMin, lonMax },
+        radius_cells: radius,
+        zoom,
+        cell_size_deg: Math.round(cellSizeDeg * 1e6) / 1e6,
+        direction_bins:
+          count > 0
+            ? {
+                N: Math.round((dirBins.N / count) * 1000) / 10,
+                NE: Math.round((dirBins.NE / count) * 1000) / 10,
+                E: Math.round((dirBins.E / count) * 1000) / 10,
+                SE: Math.round((dirBins.SE / count) * 1000) / 10,
+                S: Math.round((dirBins.S / count) * 1000) / 10,
+                SW: Math.round((dirBins.SW / count) * 1000) / 10,
+                W: Math.round((dirBins.W / count) * 1000) / 10,
+                NW: Math.round((dirBins.NW / count) * 1000) / 10,
+                flat: Math.round((dirBins.flat / count) * 1000) / 10,
+              }
+            : null,
+        valid_cells: count,
+        grid: sampledGrid,
+        units: "degrees compass (0=N, 90=E, 180=S, 270=W)",
+      },
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

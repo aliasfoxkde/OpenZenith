@@ -33,6 +33,10 @@ export function addFloods(map: maplibregl.Map, handle: LayerHandle): void {
 }
 
 export function removeFloods(map: maplibregl.Map): void {
-  try { map.removeLayer("floods-raster"); } catch {}
-  try { map.removeSource("floods"); } catch {}
+  try {
+    map.removeLayer("floods-raster");
+  } catch {}
+  try {
+    map.removeSource("floods");
+  } catch {}
 }

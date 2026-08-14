@@ -31,6 +31,10 @@ export function addPrecipitation(map: maplibregl.Map, handle: LayerHandle): void
 }
 
 export function removePrecipitation(map: maplibregl.Map): void {
-  try { map.removeLayer("precipitation-raster"); } catch {}
-  try { map.removeSource("precipitation"); } catch {}
+  try {
+    map.removeLayer("precipitation-raster");
+  } catch {}
+  try {
+    map.removeSource("precipitation");
+  } catch {}
 }

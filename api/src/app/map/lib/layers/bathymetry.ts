@@ -35,6 +35,10 @@ export function addBathymetry(map: maplibregl.Map, handle: LayerHandle): void {
 }
 
 export function removeBathymetry(map: maplibregl.Map): void {
-  try { map.removeLayer("bathymetry"); } catch {}
-  try { map.removeSource("bathymetry"); } catch {}
+  try {
+    map.removeLayer("bathymetry");
+  } catch {}
+  try {
+    map.removeSource("bathymetry");
+  } catch {}
 }

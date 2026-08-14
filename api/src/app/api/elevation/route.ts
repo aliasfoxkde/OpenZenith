@@ -62,13 +62,14 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const { searchParams } = new URL(request.url);
   const latStr = searchParams.get("lat");
   const lonStr = searchParams.get("lon");
 
   if (!latStr || !lonStr) {
     return NextResponse.json(
-      { error: "Missing required parameters: lat, lon" },
+      { ok: false, error: { code: "INVALID_PARAM", message: "Missing required parameters: lat, lon" }, requestId },
       { status: 400, headers: CORS_HEADERS },
     );
   }
@@ -78,15 +79,29 @@ export async function GET(request: NextRequest) {
 
   if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
     return NextResponse.json(
-      { error: "Invalid coordinates. lat must be -90..90, lon must be -180..180" },
+      { ok: false, error: { code: "INVALID_COORDS", message: "Invalid coordinates. lat must be -90..90, lon must be -180..180" }, requestId },
       { status: 400, headers: CORS_HEADERS },
     );
   }
 
   try {
     const result = await getElevation(lat, lon);
+    const payload = {
+      requestId,
+      ...result,
+      ...(result.elevation === null
+        ? {
+            ok: false as const,
+            error: {
+              code: "ELEVATION_NO_DATA",
+              message: "No elevation source returned a valid sample",
+              retryable: true,
+            },
+          }
+        : { ok: true as const }),
+    };
 
-    return NextResponse.json(result, {
+    return NextResponse.json(payload, {
       headers: {
         ...CORS_HEADERS,
         "Cache-Control": "public, max-age=3600",
@@ -94,6 +109,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json(
+      { ok: false, error: { code: "ELEVATION_UNAVAILABLE", message, retryable: true }, requestId },
+      { status: 200, headers: CORS_HEADERS },
+    );
   }
 }

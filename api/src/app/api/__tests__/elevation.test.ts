@@ -27,7 +27,9 @@ describe("Elevation endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(400);
     const data = await resp.json();
-    expect(data.error).toContain("lat");
+    expect(data.ok).toBe(false);
+    expect(data.error.message).toContain("lat");
+    expect(data.requestId).toBeDefined();
   });
 
   it("returns 400 when lon is missing", async () => {
@@ -36,7 +38,9 @@ describe("Elevation endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(400);
     const data = await resp.json();
-    expect(data.error).toContain("lon");
+    expect(data.ok).toBe(false);
+    expect(data.error.message).toContain("lon");
+    expect(data.requestId).toBeDefined();
   });
 
   it("returns 400 when lat is not a number", async () => {
@@ -59,6 +63,7 @@ describe("Elevation endpoint", () => {
     expect(resp.status).toBe(200);
 
     const data = await resp.json();
+    expect(data.requestId).toBeDefined();
     expect(data.elevation).toBe(8849);
     expect(data.unit).toBe("meters");
     expect(data.source).toBe("huggingface");
@@ -81,6 +86,7 @@ describe("Elevation endpoint", () => {
     expect(resp.status).toBe(200);
 
     const data = await resp.json();
+    expect(data.requestId).toBeDefined();
     expect(data.elevation).toBe(-3380);
     expect(data.surface_type).toBe("ocean");
     expect(data.source).toBe("gebco2025");
@@ -98,5 +104,20 @@ describe("Elevation endpoint", () => {
     const resp = await GET(req);
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
     expect(resp.headers.get("cache-control")).toContain("public");
+  });
+
+  it("marks an all-source miss as no data instead of pretending it succeeded", async () => {
+    mockGetPointElevation.mockResolvedValueOnce(null);
+    mockGetGebcoElevation.mockResolvedValueOnce({ elevation: null, surface_type: "unknown", tile: "" });
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=10&lon=10"));
+    expect(resp.status).toBe(200);
+
+    const data = await resp.json();
+    expect(data.requestId).toBeDefined();
+    expect(data.ok).toBe(false);
+    expect(data.error.code).toBe("ELEVATION_NO_DATA");
+    expect(data.elevation).toBeNull();
   });
 });

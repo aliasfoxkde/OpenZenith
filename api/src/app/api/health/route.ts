@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -7,14 +7,16 @@ export async function OPTIONS() {
   return corsPreflightResponse();
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const backend = process.env.STORAGE_BACKEND || "huggingface";
   const repo = process.env.HF_REPO || "aliasfox/srtm30m-chunks";
 
   return NextResponse.json(
     {
+      requestId,
       status: "healthy",
-      version: "0.7.0",
+      version: "0.8.0",
       storage: {
         backend,
         type: "chunks",

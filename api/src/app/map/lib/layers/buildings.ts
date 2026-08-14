@@ -67,7 +67,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
       setStatus(handle, "buildings", "loading");
 
       const query = encodeURIComponent(
-        `[out:json][timeout:10];way["building"](${sw.lat},${sw.lng},${ne.lat},${ne.lng});out geom;`
+        `[out:json][timeout:10];way["building"](${sw.lat},${sw.lng},${ne.lat},${ne.lng});out geom;`,
       );
 
       const res = await fetch(`/api/overpass?query=${query}`, { signal: AbortSignal.timeout(12000) });
@@ -132,8 +132,12 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
 
 export function removeBuildings(map: maplibregl.Map): void {
   ["buildings-outline", "buildings-fill"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("buildings"); } catch {}
+  try {
+    map.removeSource("buildings");
+  } catch {}
   currentBounds = null;
 }

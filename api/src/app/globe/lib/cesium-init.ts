@@ -35,8 +35,14 @@ async function loadCesiumWithFallback(baseUrl: string, timeoutMs = 15000): Promi
           js.remove();
           reject(new Error("Timeout"));
         }, timeoutMs);
-        js.onload = () => { clearTimeout(t); resolve(); };
-        js.onerror = () => { clearTimeout(t); reject(new Error(`CDN failed: ${cdn}`)); };
+        js.onload = () => {
+          clearTimeout(t);
+          resolve();
+        };
+        js.onerror = () => {
+          clearTimeout(t);
+          reject(new Error(`CDN failed: ${cdn}`));
+        };
         document.head.appendChild(js);
       });
       w.CESIUM_BASE_URL = cdn;
@@ -59,15 +65,24 @@ async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {
   const cesiumPromise = loadCesiumWithFallback(CESIUM_CDNS[0]);
 
   const satJsPromise = new Promise<void>((resolve) => {
-    if (w.satellite) { resolve(); return; }
+    if (w.satellite) {
+      resolve();
+      return;
+    }
     const sj = document.createElement("script");
     sj.src = "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
     const t = setTimeout(() => {
       // Satellite.js is optional — continue without it if it fails
       resolve();
     }, 10000);
-    sj.onload = () => { clearTimeout(t); resolve(); };
-    sj.onerror = () => { clearTimeout(t); resolve(); }; // Don't fail the whole init
+    sj.onload = () => {
+      clearTimeout(t);
+      resolve();
+    };
+    sj.onerror = () => {
+      clearTimeout(t);
+      resolve();
+    }; // Don't fail the whole init
     document.head.appendChild(sj);
   });
 

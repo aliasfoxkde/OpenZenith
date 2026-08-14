@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
 
     if (type === "kp" || type === "all") {
       // Fetch Kp index forecast
-      const kpResp = await fetch(
-        `https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json`,
-        { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "OpenZenith/1.0" } },
-      );
+      const kpResp = await fetch(`https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json`, {
+        signal: AbortSignal.timeout(15000),
+        headers: { "User-Agent": "OpenZenith/1.0" },
+      });
 
       if (!kpResp.ok) {
         return NextResponse.json(
@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
 
     if (type === "aurora" || type === "all") {
       // Fetch aurora forecast
-      const auroraResp = await fetch(
-        `https://services.swpc.noaa.gov/json/ovation_aurora_latest.json`,
-        { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "OpenZenith/1.0" } },
-      );
+      const auroraResp = await fetch(`https://services.swpc.noaa.gov/json/ovation_aurora_latest.json`, {
+        signal: AbortSignal.timeout(15000),
+        headers: { "User-Agent": "OpenZenith/1.0" },
+      });
 
       if (!auroraResp.ok) {
         return NextResponse.json(
@@ -87,10 +87,7 @@ export async function GET(request: NextRequest) {
     const auroraOk = auroraResp.ok;
 
     if (!kpOk && !auroraOk) {
-      return NextResponse.json(
-        { error: "Both SWPC APIs unavailable" },
-        { status: 200, headers: CORS_HEADERS },
-      );
+      return NextResponse.json({ error: "Both SWPC APIs unavailable" }, { status: 200, headers: CORS_HEADERS });
     }
 
     const kpData = kpOk ? await kpResp.json() : [];

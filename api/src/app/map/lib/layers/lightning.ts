@@ -89,16 +89,26 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
 
   connect();
   handle.cleanup = () => {
-    if (ws) { ws.close(); ws = null; }
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
     strikes.length = 0;
   };
 }
 
 export function removeLightning(map: maplibregl.Map): void {
   ["lightning-glow", "lightning-points"].forEach((id) => {
-    try { map.removeLayer(id); } catch {}
+    try {
+      map.removeLayer(id);
+    } catch {}
   });
-  try { map.removeSource("lightning"); } catch {}
-  if (ws) { ws.close(); ws = null; }
+  try {
+    map.removeSource("lightning");
+  } catch {}
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
   strikes.length = 0;
 }

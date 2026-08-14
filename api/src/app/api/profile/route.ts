@@ -24,9 +24,12 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   let body: {
-    lat1?: number; lon1?: number;
-    lat2?: number; lon2?: number;
-    num_points?: number; zoom?: number;
+    lat1?: number;
+    lon1?: number;
+    lat2?: number;
+    lon2?: number;
+    num_points?: number;
+    zoom?: number;
   };
   try {
     body = await request.json();
@@ -36,18 +39,13 @@ export async function POST(request: NextRequest) {
 
   const { lat1, lon1, lat2, lon2, num_points = 100, zoom = 10 } = body;
 
-  if (
-    typeof lat1 !== "number" || typeof lon1 !== "number" ||
-    typeof lat2 !== "number" || typeof lon2 !== "number"
-  ) {
-    return NextResponse.json(
-      { error: "lat1, lon1, lat2, lon2 are required" },
-      { status: 400, headers: CORS_HEADERS },
-    );
+  if (typeof lat1 !== "number" || typeof lon1 !== "number" || typeof lat2 !== "number" || typeof lon2 !== "number") {
+    return NextResponse.json({ error: "lat1, lon1, lat2, lon2 are required" }, { status: 400, headers: CORS_HEADERS });
   }
 
   const coords = [
-    [lat1, lon1], [lat2, lon2],
+    [lat1, lon1],
+    [lat2, lon2],
   ] as [number, number][];
   for (const [la, lo] of coords) {
     if (isNaN(la) || isNaN(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) {
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Load tiles around the line — estimate coverage from endpoints
     const maxDist = Math.sqrt((lat2 - lat1) ** 2 + (lon2 - lon1) ** 2);
-    const radius = Math.max(10, Math.min(200, Math.ceil(maxDist / cellSizeDeg * 2)));
+    const radius = Math.max(10, Math.min(200, Math.ceil((maxDist / cellSizeDeg) * 2)));
 
     const gridRows = 2 * radius + 1;
     const gridCols = 2 * radius + 1;
@@ -95,7 +93,9 @@ export async function POST(request: NextRequest) {
         try {
           const tile = await getTileData(z, tx, ty, HF_BACKEND);
           tileDataMap.set(key, tile.data);
-        } catch { /* unavailable */ }
+        } catch {
+          /* unavailable */
+        }
       }
     }
 
@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
       const y0 = Math.max(0, Math.min(255, Math.floor(py)));
       const x1 = Math.min(255, x0 + 1);
       const y1 = Math.min(255, y0 + 1);
-      const fx = px - x0, fy = py - y0;
+      const fx = px - x0,
+        fy = py - y0;
 
       const h00 = tile[y0 * 256 + x0];
       const h10 = tile[y0 * 256 + x1];
@@ -128,11 +129,11 @@ export async function POST(request: NextRequest) {
     // Haversine distance helper
     function haversineDistance(latA: number, lonA: number, latB: number, lonB: number): number {
       const R = 6371000;
-      const dLat = (latB - latA) * Math.PI / 180;
-      const dLon = (lonB - lonA) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(latA * Math.PI / 180) * Math.cos(latB * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
+      const dLat = ((latB - latA) * Math.PI) / 180;
+      const dLon = ((lonB - lonA) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((latA * Math.PI) / 180) * Math.cos((latB * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
@@ -147,9 +148,7 @@ export async function POST(request: NextRequest) {
       const elev = sampleElevation(ptLat, ptLon);
 
       if (i > 0) {
-        totalDist += haversineDistance(
-          profile[i - 1].lat, profile[i - 1].lon, ptLat, ptLon
-        );
+        totalDist += haversineDistance(profile[i - 1].lat, profile[i - 1].lon, ptLat, ptLon);
       }
 
       profile.push({
@@ -160,26 +159,42 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const validElevs = profile.filter(p => p.elevation > NODATA).map(p => p.elevation);
-    const stats = validElevs.length > 0
-      ? {
-          min: Math.round(Math.min(...validElevs)),
-          max: Math.round(Math.max(...validElevs)),
-          total_gain: Math.round((profile.filter((_, i) => i > 0 && profile[i].elevation > NODATA && profile[i].elevation > profile[i - 1].elevation).reduce((s, p, _, arr) => s + (p.elevation - (arr[Math.max(0, profile.indexOf(p) - 1)]?.elevation ?? p.elevation)), 0) * 10) / 10),
-          total_dist: Math.round(totalDist),
-        }
-      : null;
+    const validElevs = profile.filter((p) => p.elevation > NODATA).map((p) => p.elevation);
+    const stats =
+      validElevs.length > 0
+        ? {
+            min: Math.round(Math.min(...validElevs)),
+            max: Math.round(Math.max(...validElevs)),
+            total_gain: Math.round(
+              (profile
+                .filter(
+                  (_, i) => i > 0 && profile[i].elevation > NODATA && profile[i].elevation > profile[i - 1].elevation,
+                )
+                .reduce(
+                  (s, p, _, arr) =>
+                    s + (p.elevation - (arr[Math.max(0, profile.indexOf(p) - 1)]?.elevation ?? p.elevation)),
+                  0,
+                ) *
+                10) /
+                10,
+            ),
+            total_dist: Math.round(totalDist),
+          }
+        : null;
 
-    return NextResponse.json({
-      start: { lat: lat1, lon: lon1 },
-      end: { lat: lat2, lon: lon2 },
-      num_points: n,
-      zoom: z,
-      stats,
-      profile,
-    }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
-    });
+    return NextResponse.json(
+      {
+        start: { lat: lat1, lon: lon1 },
+        end: { lat: lat2, lon: lon2 },
+        num_points: n,
+        zoom: z,
+        stats,
+        profile,
+      },
+      {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" },
+      },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

@@ -87,12 +87,12 @@ const EC_CACHE_NAMESPACE = "elevation-color-v1";
  */
 async function getEcCfCache(z: number, x: number, y: number): Promise<ArrayBuffer | null> {
   if (typeof caches === "undefined") return null;
-  
+
   try {
     const cache = await caches.open(EC_CACHE_NAMESPACE);
     const key = `/api/elevation-color/${z}/${x}/${y}`;
     const cached = await cache.match(key);
-    
+
     if (cached) {
       const cachedTime = cached.headers.get("x-cached-at");
       if (cachedTime) {
@@ -115,7 +115,7 @@ async function getEcCfCache(z: number, x: number, y: number): Promise<ArrayBuffe
  */
 async function putEcCfCache(z: number, x: number, y: number, data: ArrayBuffer): Promise<void> {
   if (typeof caches === "undefined") return;
-  
+
   try {
     const cache = await caches.open(EC_CACHE_NAMESPACE);
     const key = `/api/elevation-color/${z}/${x}/${y}`;
@@ -170,7 +170,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     if (cached) {
       // Also store in CF Cache
       putEcCfCache(zoom, tileX, tileY, cached).catch(() => {});
-      
+
       return new Response(cached, {
         headers: {
           ...CACHE_HEADERS,

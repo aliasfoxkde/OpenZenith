@@ -1,15 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest } from "./helpers";
 
+const mockOZT2GetElevation = vi.fn();
 const mockGetPointElevation = vi.fn();
 const mockGetGebcoElevation = vi.fn();
 
-vi.mock("@/lib/point-elevation", () => ({
-  getPointElevation: (...args: unknown[]) => mockGetPointElevation(...args),
-}));
-
+// Must be at top level so vi.mock can reference them
 vi.mock("@/lib/storage/backend", () => ({
   HuggingFaceChunkBackend: vi.fn().mockImplementation(() => ({})),
+  OZT2HuggingFaceBackend: vi.fn().mockImplementation(() => ({
+    getElevation: (...args: unknown[]) => mockOZT2GetElevation(...args),
+  })),
+}));
+
+vi.mock("@/lib/point-elevation", () => ({
+  getPointElevation: (...args: unknown[]) => mockGetPointElevation(...args),
 }));
 
 vi.mock("@/lib/gebco/cog-reader", () => ({
@@ -19,6 +24,7 @@ vi.mock("@/lib/gebco/cog-reader", () => ({
 describe("Elevation endpoint", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockOZT2GetElevation.mockResolvedValue(null);
   });
 
   it("returns 400 when lat is missing", async () => {

@@ -10,7 +10,6 @@ export async function OPTIONS() {
 export async function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const backend = process.env.STORAGE_BACKEND || "huggingface";
-  const repo = process.env.HF_REPO || "aliasfox/srtm30m-chunks";
 
   return NextResponse.json(
     {
@@ -19,8 +18,9 @@ export async function GET(request: NextRequest) {
       version: "0.8.0",
       storage: {
         backend,
-        type: "chunks",
-        repo: backend === "huggingface" ? repo : "configured",
+        primary: "ozt2",
+        ozt2_repo: "aliasfox/srtm30m-ozt2-v2",
+        fallback_repo: "aliasfox/srtm30m-merged",
         chunkSize: "256x256",
       },
       coverage: {

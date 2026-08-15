@@ -12,12 +12,21 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
-import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
+import { getPointElevation } from "@/lib/point-elevation";
+import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";
+import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
+// OZT2 backend (primary) — z10 tiles from HuggingFace, falls back to merged chunks
+const OZT2_BACKEND = new OZT2HuggingFaceBackend({
+  repoId: "aliasfox/srtm30m-ozt2-v2",
+  fallbackRepoId: "aliasfox/srtm30m-merged",
+  zoom: 10,
+});
+
+// Merged chunk backend (fallback / direct SRTM chunk access)
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 const NODATA = -32768;
 
@@ -137,6 +146,32 @@ export async function POST(request: NextRequest) {
   }
 
   const radius = Math.min(200, Math.max(10, radius_cells));
+
+  // Validate starting point elevation via OZT2 (primary) then merged chunks (fallback)
+  try {
+    let startElevVal: number | null = null;
+    try {
+      startElevVal = await OZT2_BACKEND.getElevation(lat, lon);
+    } catch {
+      // Fall through to merged chunks
+    }
+    if (startElevVal === null) {
+      try {
+        const fallback = await getPointElevation(lat, lon, HF_BACKEND);
+        if (fallback) startElevVal = fallback.elevation;
+      } catch {
+        // Fall through
+      }
+    }
+    if (startElevVal === null || startElevVal <= NODATA) {
+      return NextResponse.json(
+        { error: "No elevation data at starting point" },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
+  } catch {
+    // Proceed — tile loading will catch missing data
+  }
 
   try {
     const gridRows = 2 * radius + 1;

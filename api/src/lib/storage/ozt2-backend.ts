@@ -50,10 +50,7 @@ export class OZT2HuggingFaceBackend {
     this.repoId = options.repoId ?? "aliasfox/srtm30m-ozt2-v2";
     this.zoom = options.zoom ?? 10; // z10 ≈ 19m/pixel (Nyquist-optimal from SRTM 30m)
     this.timeoutMs = (options.timeoutSecs ?? 8) * 1000;
-    this.fallback = new HuggingFaceChunkBackend(
-      options.fallbackRepoId ?? "aliasfox/srtm30m-merged",
-      true,
-    );
+    this.fallback = new HuggingFaceChunkBackend(options.fallbackRepoId ?? "aliasfox/srtm30m-merged", true);
   }
 
   /**
@@ -217,7 +214,11 @@ export class OZT2HuggingFaceBackend {
    */
   private sampleTile(tile: Int16Array, lat: number, lon: number): number | null {
     // Get tile's geographic bounds at the backend's zoom level
-    const { north, south, east, west } = tileToLatLon(this.zoom, latLonToTile(lat, lon, this.zoom).x, latLonToTile(lat, lon, this.zoom).y);
+    const { north, south, east, west } = tileToLatLon(
+      this.zoom,
+      latLonToTile(lat, lon, this.zoom).x,
+      latLonToTile(lat, lon, this.zoom).y,
+    );
 
     // Normalize lat/lon into tile pixel space [0, 256)
     const xFrac = Math.max(0, Math.min(255.999, ((lon - west) / (east - west)) * 256));
@@ -239,7 +240,7 @@ export class OZT2HuggingFaceBackend {
     const v11 = get(x1, y1);
 
     const nodata = -32768;
-    const allNodata = [v00, v10, v01, v11].every(v => v === nodata);
+    const allNodata = [v00, v10, v01, v11].every((v) => v === nodata);
     if (allNodata) return null;
 
     // Bilinear interpolation (treat nodata as 0 but only when blending)
@@ -255,7 +256,7 @@ export class OZT2HuggingFaceBackend {
       { v: v01, w: w01 },
       { v: v11, w: w11 },
     ];
-    const valid = corners.filter(c => c.v !== nodata);
+    const valid = corners.filter((c) => c.v !== nodata);
     if (valid.length === 0) return null;
     if (valid.length === 4) {
       return Math.round(valid.reduce((s, c) => s + c.v * c.w, 0));

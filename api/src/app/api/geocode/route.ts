@@ -15,7 +15,13 @@ export async function GET(request: NextRequest) {
 
   if (!query || query.length > 200) {
     return NextResponse.json(
-      { ok: false, error: { code: "INVALID_PARAM", message: "Missing or invalid parameter: query" }, requestId, results: [], count: 0 },
+      {
+        ok: false,
+        error: { code: "INVALID_PARAM", message: "Missing or invalid parameter: query" },
+        requestId,
+        results: [],
+        count: 0,
+      },
       { status: 400, headers: CORS_HEADERS },
     );
   }
@@ -32,7 +38,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: { code: "GEOCODE_RATE_LIMITED", message: "Rate limit exceeded. Slow down requests.", retryable: true, retryAfter: Number(retryAfter) },
+          error: {
+            code: "GEOCODE_RATE_LIMITED",
+            message: "Rate limit exceeded. Slow down requests.",
+            retryable: true,
+            retryAfter: Number(retryAfter),
+          },
           requestId,
           results: [],
           count: 0,

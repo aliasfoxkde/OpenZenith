@@ -335,7 +335,7 @@ export default function StudioPage() {
     return () => {
       cancelled = true;
       // Clear intervals
-       
+
       const handle = layerHandleRef.current;
       for (const interval of handle.intervals) clearInterval(interval);
       handle.intervals = [];
@@ -348,7 +348,6 @@ export default function StudioPage() {
         mapRef.current = null;
       }
     };
-     
   }, []);
 
   /* ─── Layer toggling ─── */

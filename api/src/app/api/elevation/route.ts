@@ -104,7 +104,11 @@ export async function GET(request: NextRequest) {
 
   if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
     return NextResponse.json(
-      { ok: false, error: { code: "INVALID_COORDS", message: "Invalid coordinates. lat must be -90..90, lon must be -180..180" }, requestId },
+      {
+        ok: false,
+        error: { code: "INVALID_COORDS", message: "Invalid coordinates. lat must be -90..90, lon must be -180..180" },
+        requestId,
+      },
       { status: 400, headers: CORS_HEADERS },
     );
   }

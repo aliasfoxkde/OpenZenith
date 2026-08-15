@@ -111,7 +111,10 @@ export async function getPointElevation(
  * Fallback point elevation from AWS Terrain Tiles.
  * Decodes a z13 Terrarium PNG tile and samples the pixel at the given lat/lon.
  */
-async function getPointElevationFromAWS(lat: number, lon: number): Promise<Omit<PointElevationResult, "source"> & { source: "aws" } | null> {
+async function getPointElevationFromAWS(
+  lat: number,
+  lon: number,
+): Promise<(Omit<PointElevationResult, "source"> & { source: "aws" }) | null> {
   try {
     // Use z13 for ~10m resolution
     const n = Math.pow(2, 13);

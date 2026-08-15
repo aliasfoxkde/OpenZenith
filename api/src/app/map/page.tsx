@@ -1154,7 +1154,7 @@ export default function MapPage() {
     return () => {
       cancelled = true;
       // Clear data layer refresh intervals
-       
+
       const handle = layerHandleRef.current;
       handle.intervals.forEach(clearInterval);
       handle.intervals = [];
@@ -1163,7 +1163,6 @@ export default function MapPage() {
         mapRef.current = null;
       }
     };
-     
   }, []);
 
   // Switch basemap
@@ -1712,8 +1711,24 @@ export default function MapPage() {
         <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
           <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
             <StatusIndicator
-              color={mapHealth === "error" ? T.red : mapHealth === "degraded" ? T.amber : mapHealth === "loading" ? T.amber : T.green}
-              label={mapHealth === "error" ? "ERROR" : mapHealth === "degraded" ? "DEGRADED" : mapHealth === "loading" ? "LOADING" : "READY"}
+              color={
+                mapHealth === "error"
+                  ? T.red
+                  : mapHealth === "degraded"
+                    ? T.amber
+                    : mapHealth === "loading"
+                      ? T.amber
+                      : T.green
+              }
+              label={
+                mapHealth === "error"
+                  ? "ERROR"
+                  : mapHealth === "degraded"
+                    ? "DEGRADED"
+                    : mapHealth === "loading"
+                      ? "LOADING"
+                      : "READY"
+              }
               pulse={mapHealth === "loading"}
             />
             {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}

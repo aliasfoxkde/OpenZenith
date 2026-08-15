@@ -527,7 +527,6 @@ export default function Globe() {
         viewerRef.current = null;
       }
     };
-     
   }, []);
 
   // ─── Basemap switch ──
@@ -865,7 +864,7 @@ export default function Globe() {
       }
       dataLoadedRef.current[key] = true;
     },
-     
+
     [state.layers],
   );
   loadLayerDynamicRef.current = loadLayerDynamic;
@@ -1051,7 +1050,7 @@ export default function Globe() {
         return next;
       });
     },
-     
+
     [loadLayerDynamic],
   );
 
@@ -1163,7 +1162,6 @@ export default function Globe() {
       if (state.layers.events)
         loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
     }
-     
   }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
 
   // ─── Render ───

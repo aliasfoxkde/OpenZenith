@@ -182,9 +182,13 @@ def main():
                 break
 
         # Process as futures complete, refill the queue
-        completed = 0
+        # Key fix: refill AFTER processing all done futures (not inside the for loop),
+        # to avoid exhausting tile_iter mid-iteration and deadlocking the coordinator.
+        last_print = 0
         while futures:
+            # Wait for at least one future to complete
             done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
+            # Process ALL completed futures before refilling
             for future in done:
                 r = future.result()
                 results.append(r)
@@ -193,23 +197,24 @@ def main():
                 elif r["status"] == "skip":
                     skipped += 1
                 del futures[future]
-                completed += 1
 
-                # Refill
+            # Refill AFTER the full done set is processed
+            while len(futures) < BATCH:
                 try:
                     t = next(tile_iter)
                     futures[executor.submit(reencode_tile, t, args.workers)] = t
-                    submitted += 1
                 except StopIteration:
-                    pass
+                    break
 
-                if completed % 500 == 0:
-                    elapsed = time.time() - t0
-                    rate = completed / elapsed
-                    ok = sum(1 for x in results if x["status"] == "ok")
-                    print(
-                        f"  [{completed:>7,}/{len(tiles):>7,}] ✅ {ok}  ⏭ {skipped}  💥 {len(errors)}  {rate:,.0f} tiles/s"
-                    )
+            completed = len(results)
+            if completed - last_print >= 500:
+                last_print = completed
+                elapsed = time.time() - t0
+                rate = completed / elapsed
+                ok = sum(1 for x in results if x["status"] == "ok")
+                print(
+                    f"  [{completed:>7,}/{len(tiles):>7,}] ✅ {ok}  ⏭ {skipped}  💥 {len(errors)}  {rate:,.0f} tiles/s"
+                )
 
         elapsed = time.time() - t0
         ok_count = sum(1 for r in results if r["status"] == "ok")

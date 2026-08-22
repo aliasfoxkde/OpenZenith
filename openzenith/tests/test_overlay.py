@@ -10,6 +10,11 @@ class TestExtractAtPoints:
     def test_extract_single_point(self):
         """Extract elevation at a single known point."""
         dem = np.array([[100, 200], [300, 400]], dtype=np.float32)
+        # coordinates are [lon, lat] = [0.5, 0.5]
+        # transform = (lat0, lon0, dy, dx) = (0, 0, 1, 1)
+        # r = round((lat - lat0)/dy) = round(0.5/1) = 0
+        # c = round((lon - lon0)/dx) = round(0.5/1) = 0
+        # so dem[0, 0] = 100
         geojson = {
             "type": "FeatureCollection",
             "features": [{
@@ -21,7 +26,7 @@ class TestExtractAtPoints:
         results = extract_at_points(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0))
         assert len(results) == 1
         assert results[0]["id"] == 1
-        assert results[0]["elevation"] == 400.0  # row=0, col=1
+        assert results[0]["elevation"] == 100.0
         assert "slope_deg" in results[0]
         assert "aspect_deg" in results[0]
         assert "tpi" in results[0]
@@ -117,7 +122,7 @@ class TestZonalStats:
         assert results[0]["dem_value_mean"] == 50.0
         assert results[0]["dem_value_max"] == 50.0
         assert results[0]["dem_value_min"] == 50.0
-        assert results[0]["dem_value_count"] == 1
+        assert results[0]["dem_value_sum"] == 50.0
 
     def test_polygon_outside_grid(self):
         """Polygon completely outside grid returns None stats."""
@@ -150,7 +155,7 @@ class TestZonalStats:
                 "properties": {},
             }],
         }
-        results = zonal_stats(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0))
+        results = zonal_stats(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0), stats=["mean", "count"])
         assert results[0]["dem_value_mean"] == 150.0  # (100+200)/2
         assert results[0]["dem_value_count"] == 2
 
@@ -192,7 +197,7 @@ class TestRasterizeLines:
         raster = rasterize_lines(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0))
         assert raster.shape == (5, 5)
         # Row 2 (lat 2.5) should be burned
-        assert raster[2, :] == 1.0
+        assert (raster[2, :] == 1.0).all()
         assert raster.sum() == 5.0
 
     def test_rasterize_diagonal_line(self):

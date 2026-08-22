@@ -97,6 +97,7 @@ def reencode_tile(path: Path, workers: int = 1) -> dict:
             predictor=pred,
             bits_per_pixel=bits,
             compressor=COMP_BROTLI,
+            compress_level=4,
             nodata_value=NODATA,
         )
 

@@ -143,9 +143,7 @@ def main():
 
     if cache_age < 86400:
         lines = cache_file.read_text().splitlines()
-        # Filter by zoom range if cached globally
         tiles = [Path(line) for line in lines if line.strip()]
-        # Apply zoom filter on paths
         tiles = [t for t in tiles if zoom_min <= int(t.parent.parent.name[1:]) <= zoom_max]
         print(f"Loaded {len(tiles):,} tiles from cache ({cache_file.name}, age={cache_age/3600:.1f}h)")
     else:
@@ -158,7 +156,6 @@ def main():
             print(f"find failed: {proc.stderr}")
             sys.exit(1)
         tiles = [Path(line.strip()) for line in proc.stdout.splitlines() if line.strip()]
-        # Cache all tiles (not filtered) for future runs
         all_cache = Path(tempfile.gettempdir()) / f"ozt2_tiles_all_{dir_hash}.txt"
         all_cache.write_text("\n".join(str(t) for t in tiles))
         cache_file.write_text("\n".join(str(t) for t in tiles))
@@ -166,8 +163,6 @@ def main():
 
     print(f"Found {len(tiles):,} tiles")
     if args.dry_run:
-        # Count by compressor — sequential, no parallelism
-        import sys
         comp_counts = {0: 0, 1: 0, 2: 0}
         for i, t in enumerate(tiles):
             info = get_tile_info(t)
@@ -187,54 +182,30 @@ def main():
     results = []
     errors = []
     skipped = 0
-    submitted = 0
-    BATCH = args.workers * 4  # keep BATCH pending futures
+    BATCH = args.workers * 4  # pending futures to keep workers saturated
 
     with ProcessPoolExecutor(max_workers=args.workers) as executor:
-        # Submit in batches to avoid memory explosion
         tile_iter = iter(tiles)
         futures = {}
 
-        # Initial batch
-        while submitted < BATCH:
-            try:
-                t = next(tile_iter)
-                futures[executor.submit(reencode_tile, t, args.workers)] = t
-                submitted += 1
-            except StopIteration:
-                break
-
-        # Process as futures complete, refill the queue
-        # Pattern: as_completed over a shared mutable dict of futures.
-        # as_completed iterates over the live futures dict, so newly submitted
-        # futures are automatically picked up. One future is processed at a time,
-        # refill happens after each processing to keep the queue topped up.
-        from concurrent.futures import as_completed
-        next_print = 500
-
-        # Initial batch
-        futures = {}
+        # Submit initial batch
         for _ in range(BATCH):
             try:
                 t = next(tile_iter)
-                futures[executor.submit(reencode_tile, t, args.workers)] = t
+                futures[executor.submit(reencode_tile, t)] = t
             except StopIteration:
                 break
 
-        # Main loop: as_completed yields completed futures; dict changes mid-iteration
-        # Main loop: as_completed takes a snapshot — use next() with timeout on
-        # the live dict.keys() view so newly submitted futures are picked up.
-        # Each iteration: wait for one future, process it, immediately submit replacement.
+        # Process: as_completed takes a snapshot of the current futures dict.
+        # When the dict is modified (del + new submit), the next iteration's
+        # as_completed call sees the updated dict. This is the correct pattern.
+        from concurrent.futures import as_completed
         next_print = 500
-        pending_iter = None  # current as_completed iterator
         while futures:
-            if pending_iter is None:
-                pending_iter = as_completed(list(futures.keys()))
-            try:
-                future = next(pending_iter)
-            except StopIteration:
-                pending_iter = None
-                continue  # No more futures done — refill and retry
+            # as_completed returns iterator over a COPY of the futures sequence
+            # at call time — safe to modify futures dict during iteration
+            done_iter = as_completed(futures)
+            future = next(done_iter)  # blocks until one future completes
 
             r = future.result()
             results.append(r)
@@ -244,10 +215,10 @@ def main():
                 skipped += 1
             del futures[future]
 
-            # Refill slot immediately after processing
+            # Submit replacement tile
             try:
                 t = next(tile_iter)
-                futures[executor.submit(reencode_tile, t, args.workers)] = t
+                futures[executor.submit(reencode_tile, t)] = t
             except StopIteration:
                 pass  # No more tiles — let queue drain
 

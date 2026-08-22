@@ -127,19 +127,41 @@ def main():
     parser.add_argument("--output-log", "-o", type=Path, help="Write results to JSON")
     args = parser.parse_args()
 
-    # Find tiles
+    # Find tiles — use find(1) for fast btrfs enumeration, then cache paths.
+    # rglob() blocks on btrfs opendir for large directory trees.
+    import hashlib, subprocess, time as _time
+    dir_hash = hashlib.md5(str(args.dir).encode()).hexdigest()[:8]
+    cache_file = Path(tempfile.gettempdir()) / f"ozt2_tiles_{dir_hash}.txt"
+    cache_age = _time.time() - cache_file.stat().st_mtime if cache_file.exists() else 99999
+
     zoom_min, zoom_max = 0, 99
     if args.zoom:
         parts = args.zoom.split("-")
         zoom_min = int(parts[0])
         zoom_max = int(parts[-1])
 
-    tiles = []
-    for z in range(zoom_min, zoom_max + 1):
-        zdir = args.dir / f"z{z}"
-        if not zdir.is_dir():
-            continue
-        tiles.extend(zdir.rglob("*.ozt2"))
+    if cache_age < 86400:
+        lines = cache_file.read_text().splitlines()
+        # Filter by zoom range if cached globally
+        tiles = [Path(line) for line in lines if line.strip()]
+        # Apply zoom filter on paths
+        tiles = [t for t in tiles if zoom_min <= int(t.parent.parent.name[1:]) <= zoom_max]
+        print(f"Loaded {len(tiles):,} tiles from cache ({cache_file.name}, age={cache_age/3600:.1f}h)")
+    else:
+        print("Enumerating tiles (find(1) fast path, caching result)...")
+        proc = subprocess.run(
+            ["find", str(args.dir), "-type", "f", "-name", "*.ozt2"],
+            capture_output=True, text=True, timeout=300,
+        )
+        if proc.returncode != 0:
+            print(f"find failed: {proc.stderr}")
+            sys.exit(1)
+        tiles = [Path(line.strip()) for line in proc.stdout.splitlines() if line.strip()]
+        # Cache all tiles (not filtered) for future runs
+        all_cache = Path(tempfile.gettempdir()) / f"ozt2_tiles_all_{dir_hash}.txt"
+        all_cache.write_text("\n".join(str(t) for t in tiles))
+        cache_file.write_text("\n".join(str(t) for t in tiles))
+        print(f"Cached {len(tiles):,} tiles to {cache_file.name}")
 
     print(f"Found {len(tiles):,} tiles")
     if args.dry_run:

@@ -69,38 +69,13 @@ def get_zoom_subdirs(tile_dir: Path, zoom_range: tuple[int, int] | None = None) 
 
 
 def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, x_tile_count, z):
-    """Upload one x-dir with retry: try large_folder first, then fall back to batched files."""
+    """Upload one x-dir using individual file uploads with batched commits."""
     import time as _time
 
-    # Try upload_large_folder first (fastest path for small-to-medium x-dirs)
-    for attempt in range(4):
-        try:
-            api.upload_large_folder(
-                repo_id=repo_id,
-                folder_path=str(xd),
-                repo_type="dataset",
-            )
-            if attempt > 0:
-                print(f"  [retry {attempt}] z{z}/{xd.name}: OK ({x_tile_count} tiles)")
-            return True
-        except Exception as e:
-            err_str = str(e)
-            # Already uploaded — not an error
-            if "no files have been modified" in err_str.lower() or "skipping" in err_str.lower():
-                return True
-            # Timeout: fall back to individual files
-            if "timed out" in err_str.lower() or "read operation timed out" in err_str.lower():
-                break
-            if attempt == 3:
-                print(f"  ERROR z{z}/{xd.name} (after {attempt+1} attempts): {e}")
-                return False
-            _time.sleep(2 ** attempt)
-
-    # Fallback: upload individual files in batches of 50
     tiles = sorted(xd.glob("*.ozt2"))
-    BATCH = 50
-    print(f"  z{z}/{xd.name}: timeout on large_folder, falling back to {len(tiles)} individual files...")
-    for i in range(0, len(tiles), BATCH):
+    BATCH = 10  # small batches to avoid timeouts
+    total = len(tiles)
+    for i in range(0, total, BATCH):
         batch = tiles[i:i+BATCH]
         for attempt in range(4):
             try:
@@ -111,16 +86,19 @@ def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, x_tile_count, z)
                         file_path=str(t),
                         path_in_repo=f"{xd_path_in_repo}/{t.name}",
                     )
-                print(f"  z{z}/{xd.name} [{i+BATCH}/{len(tiles)}]: OK")
-                break
+                break  # batch succeeded
             except Exception as e:
                 err_str = str(e)
                 if "no files have been modified" in err_str.lower() or "already exists" in err_str.lower():
-                    break
+                    break  # already uploaded, skip
                 if attempt == 3:
-                    print(f"  ERROR z{z}/{xd.name} [{i+BATCH}/{len(tiles)}]: {e}")
+                    print(f"  ERROR z{z}/{xd.name} [{i+BATCH}/{total}]: {e}")
                     return False
                 _time.sleep(2 ** attempt)
+        # Print progress every batch
+        done = min(i + BATCH, total)
+        if done % 500 == 0 or done == total:
+            print(f"  z{z}/{xd.name}: {done}/{total} tiles")
     return True
 
 

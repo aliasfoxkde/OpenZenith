@@ -23,7 +23,7 @@ import argparse
 import struct
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait, FIRST_COMPLETED
 from pathlib import Path
 
 import numpy as np
@@ -164,27 +164,55 @@ def main():
     results = []
     errors = []
     skipped = 0
+    submitted = 0
+    BATCH = args.workers * 4  # keep BATCH pending futures
 
     with ProcessPoolExecutor(max_workers=args.workers) as executor:
-        futures = {executor.submit(reencode_tile, t, args.workers): t for t in tiles}
-        for i, future in enumerate(as_completed(futures)):
-            r = future.result()
-            results.append(r)
-            if r["status"] == "error":
-                errors.append(r)
-            elif r["status"] == "skip":
-                skipped += 1
+        # Submit in batches to avoid memory explosion
+        tile_iter = iter(tiles)
+        futures = {}
 
-            if (i + 1) % 500 == 0 or (i + 1) == len(tiles):
-                elapsed = time.time() - t0
-                rate = (i + 1) / elapsed
-                ok = sum(1 for x in results if x["status"] == "ok")
-                print(
-                    f"  [{i+1:>7,}/{len(tiles):>7,}] ✅ {ok}  ⏭ {skipped}  💥 {len(errors)}  {rate:,.0f} tiles/s"
-                )
+        # Initial batch
+        while submitted < BATCH:
+            try:
+                t = next(tile_iter)
+                futures[executor.submit(reencode_tile, t, args.workers)] = t
+                submitted += 1
+            except StopIteration:
+                break
 
-    elapsed = time.time() - t0
-    ok_count = sum(1 for r in results if r["status"] == "ok")
+        # Process as futures complete, refill the queue
+        completed = 0
+        while futures:
+            done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
+            for future in done:
+                r = future.result()
+                results.append(r)
+                if r["status"] == "error":
+                    errors.append(r)
+                elif r["status"] == "skip":
+                    skipped += 1
+                del futures[future]
+                completed += 1
+
+                # Refill
+                try:
+                    t = next(tile_iter)
+                    futures[executor.submit(reencode_tile, t, args.workers)] = t
+                    submitted += 1
+                except StopIteration:
+                    pass
+
+                if completed % 500 == 0:
+                    elapsed = time.time() - t0
+                    rate = completed / elapsed
+                    ok = sum(1 for x in results if x["status"] == "ok")
+                    print(
+                        f"  [{completed:>7,}/{len(tiles):>7,}] ✅ {ok}  ⏭ {skipped}  💥 {len(errors)}  {rate:,.0f} tiles/s"
+                    )
+
+        elapsed = time.time() - t0
+        ok_count = sum(1 for r in results if r["status"] == "ok")
 
     print(f"\n{'='*60}")
     print(f"REENCODE COMPLETE — {elapsed:.1f}s")

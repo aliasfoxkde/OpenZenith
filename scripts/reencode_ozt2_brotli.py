@@ -222,7 +222,20 @@ def main():
                 break
 
         # Main loop: as_completed yields completed futures; dict changes mid-iteration
-        for future in as_completed(futures):
+        # Main loop: as_completed takes a snapshot — use next() with timeout on
+        # the live dict.keys() view so newly submitted futures are picked up.
+        # Each iteration: wait for one future, process it, immediately submit replacement.
+        next_print = 500
+        pending_iter = None  # current as_completed iterator
+        while futures:
+            if pending_iter is None:
+                pending_iter = as_completed(list(futures.keys()))
+            try:
+                future = next(pending_iter)
+            except StopIteration:
+                pending_iter = None
+                continue  # No more futures done — refill and retry
+
             r = future.result()
             results.append(r)
             if r["status"] == "error":

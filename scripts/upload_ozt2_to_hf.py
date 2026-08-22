@@ -83,7 +83,7 @@ def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, x_tile_count, z)
                     api.upload_file(
                         repo_id=repo_id,
                         repo_type="dataset",
-                        file_path=str(t),
+                        path_or_fileobj=str(t),
                         path_in_repo=f"{xd_path_in_repo}/{t.name}",
                     )
                 break  # batch succeeded

@@ -1,6 +1,6 @@
 """Tests for openzenith.async_client."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openzenith.async_client import (

@@ -209,7 +209,9 @@ async function serveOZT2Tile(z: number, x: number, y: number): Promise<Response>
 
   // Layer 3: OZT2 tile not in R2 — fall back to PNG generation.
   // The client will receive a PNG but should gracefully handle this.
-  console.log(`[dem-tile] OZT2 tile not found in R2 for ${z}/${x}/${y}, falling back to PNG`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[dem-tile] OZT2 tile not found in R2 for ${z}/${x}/${y}, falling back to PNG`);
+  }
   const pngResponse = await servePNGTile(z, x, y);
   // Add header indicating we fell back from OZT2 to PNG
   pngResponse.headers.set("X-Dem-Tile-Format-Fallback", "ozt2-to-png");

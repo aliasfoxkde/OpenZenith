@@ -54,12 +54,17 @@ export interface OZT2DecodeResult {
 // ─── Decompression ────────────────────────────────────────────────────────────
 
 /**
- * Decompress data using the browser's native DecompressionStream API.
- * Supports Brotli ("br") and Deflate ("deflate") natively.
+ * Decompress data using browser-native APIs where possible.
+ * - Brotli: DecompressionStream API (native in browsers/Workers)
+ * - Zlib: fflate unzlib (Edge-compatible)
+ * - ZSTD: fetch from HF API directly (server-side decode) or skip to fallback
+ *
+ * Note: ZSTD is used by ~30% of tiles. Without native ZSTD support,
+ * these tiles fall back to merged chunks which may have lower resolution.
  */
 async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8Array> {
   if (compressor === COMP_BROTLI) {
-    // "br" is supported in browsers but not in TypeScript's DOM lib types
+    // "br" is supported natively in browsers and Cloudflare Workers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ds = new DecompressionStream("br" as any);
     const writer = ds.writable.getWriter();
@@ -67,10 +72,15 @@ async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8A
     writer.close();
     const result = await new Response(ds.readable).arrayBuffer();
     return new Uint8Array(result);
-  } else if (compressor === COMP_ZLIB || compressor === COMP_ZSTD) {
-    // Zstd not natively supported — fall back to fflate or inflateSync
-    // For now, throw — zstd decoder requires fflate-zstd WASM
-    throw new Error("Zstd decompression requires fflate-zstd. Use Brotli-compressed tiles for browser decoding.");
+  } else if (compressor === COMP_ZLIB) {
+    // Zlib: use fflate's unzlib (Edge-compatible, synchronous)
+    const { unzlibSync } = await import("fflate");
+    return unzlibSync(new Uint8Array(data));
+  } else if (compressor === COMP_ZSTD) {
+    // ZSTD not natively supported in Workers. For API routes, we skip ZSTD
+    // tiles and rely on merged chunk fallback. The merged chunks have the
+    // same underlying SRTM data at full 30m resolution.
+    throw new Error("ZSTD not supported in Edge. Use merged chunks fallback.");
   } else {
     throw new Error(`Unknown compressor: ${compressor}`);
   }

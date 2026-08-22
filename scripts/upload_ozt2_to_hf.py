@@ -208,7 +208,9 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
 
         if skip_existing:
             # Use upload_large_folder per-x-dir with skip_existing for incremental.
-            # This is slow (many commits) but respects existing files.
+            # upload_large_folder works reliably for single x-dirs (<~30 tiles).
+            # Retry with backoff for commit timeouts.
+            import time as _time
             x_dirs = [xd for xd in sorted(zdir.iterdir()) if xd.is_dir()]
             print(f"\nUploading z{z}/ incrementally ({tile_count:,} tiles across {len(x_dirs)} x-dirs, skip_existing)...")
             z_ok = 0
@@ -217,16 +219,29 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
                 x_tile_count = sum(1 for _ in xd.glob("*.ozt2"))
                 if x_tile_count == 0:
                     continue
-                try:
-                    api.upload_large_folder(
-                        repo_id=repo_id,
-                        folder_path=str(xd),
-                        repo_type="dataset",
-                    )
-                    z_ok += x_tile_count
-                except Exception as e:
-                    z_errors += 1
-                    print(f"  ERROR z{z}/{xd.name}: {e}")
+                # Retry loop for commit timeouts (upload succeeds, commit fails)
+                for attempt in range(4):
+                    try:
+                        api.upload_large_folder(
+                            repo_id=repo_id,
+                            folder_path=str(xd),
+                            repo_type="dataset",
+                        )
+                        z_ok += x_tile_count
+                        if attempt > 0:
+                            print(f"  [retry {attempt}] z{z}/{xd.name}: OK ({x_tile_count} tiles)")
+                        break
+                    except Exception as e:
+                        err_str = str(e)
+                        if "no files have been modified" in err_str.lower() or "skipping" in err_str.lower():
+                            # Already uploaded — not an error
+                            z_ok += x_tile_count
+                            break
+                        if attempt == 3:
+                            z_errors += 1
+                            print(f"  ERROR z{z}/{xd.name} (after {attempt+1} attempts): {e}")
+                        else:
+                            _time.sleep(2 ** attempt)  # exponential backoff
             if z_errors == 0:
                 uploaded_z.append(z)
                 print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(x_dirs)} x-dirs)")

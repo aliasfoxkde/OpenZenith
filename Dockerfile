@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 RUN pip install --break-system-packages -e .[all,dev]
 
-# Node deps (frontend)
+# Node deps (frontend) — use npm ci for reproducible builds
 COPY api/package.json api/package-lock.json* ./api/
-RUN cd api && npm install
+RUN cd api && npm ci
 
 # Copy source
 COPY . .

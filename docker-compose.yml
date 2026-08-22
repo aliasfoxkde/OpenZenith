@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  # Frontend: Next.js development server
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - STORAGE_BACKEND=r2
+      - ALLOWED_ORIGINS=*
+    working_dir: /app/api
+    command: npm run dev
+    volumes:
+      - ./api:/app/api
+      - ./openzenith:/app/openzenith
+      - ./core:/app/core
+    profiles:
+      - frontend
+
+  # Python SDK: run tests
+  pytest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - STORAGE_BACKEND=local
+      - DEM_TILES=/app/data/srtm30m-merged
+    working_dir: /app
+    command: python3 -m pytest openzenith/tests/ -v
+    volumes:
+      - ./openzenith:/app/openzenith
+      - ./core:/app/core
+    profiles:
+      - pytest
+
+  # Python SDK: run linter
+  lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: ruff check openzenith/
+    volumes:
+      - ./openzenith:/app/openzenith
+    profiles:
+      - lint
+
+  # Frontend linter
+  frontend-lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/api
+    command: npm run lint
+    volumes:
+      - ./api:/app/api
+    profiles:
+      - lint

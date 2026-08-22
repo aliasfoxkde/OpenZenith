@@ -68,6 +68,62 @@ def get_zoom_subdirs(tile_dir: Path, zoom_range: tuple[int, int] | None = None) 
     return subdirs
 
 
+def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, x_tile_count, z):
+    """Upload one x-dir with retry: try large_folder first, then fall back to batched files."""
+    import time as _time
+
+    # Try upload_large_folder first (fastest path for small-to-medium x-dirs)
+    for attempt in range(4):
+        try:
+            api.upload_large_folder(
+                repo_id=repo_id,
+                folder_path=str(xd),
+                repo_type="dataset",
+            )
+            if attempt > 0:
+                print(f"  [retry {attempt}] z{z}/{xd.name}: OK ({x_tile_count} tiles)")
+            return True
+        except Exception as e:
+            err_str = str(e)
+            # Already uploaded — not an error
+            if "no files have been modified" in err_str.lower() or "skipping" in err_str.lower():
+                return True
+            # Timeout: fall back to individual files
+            if "timed out" in err_str.lower() or "read operation timed out" in err_str.lower():
+                break
+            if attempt == 3:
+                print(f"  ERROR z{z}/{xd.name} (after {attempt+1} attempts): {e}")
+                return False
+            _time.sleep(2 ** attempt)
+
+    # Fallback: upload individual files in batches of 50
+    tiles = sorted(xd.glob("*.ozt2"))
+    BATCH = 50
+    print(f"  z{z}/{xd.name}: timeout on large_folder, falling back to {len(tiles)} individual files...")
+    for i in range(0, len(tiles), BATCH):
+        batch = tiles[i:i+BATCH]
+        for attempt in range(4):
+            try:
+                for t in batch:
+                    api.upload_file(
+                        repo_id=repo_id,
+                        repo_type="dataset",
+                        file_path=str(t),
+                        path_in_repo=f"{xd_path_in_repo}/{t.name}",
+                    )
+                print(f"  z{z}/{xd.name} [{i+BATCH}/{len(tiles)}]: OK")
+                break
+            except Exception as e:
+                err_str = str(e)
+                if "no files have been modified" in err_str.lower() or "already exists" in err_str.lower():
+                    break
+                if attempt == 3:
+                    print(f"  ERROR z{z}/{xd.name} [{i+BATCH}/{len(tiles)}]: {e}")
+                    return False
+                _time.sleep(2 ** attempt)
+    return True
+
+
 def upload_tiles(
     tile_dir: Path,
     repo_id: str,
@@ -207,9 +263,6 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
         z_path_in_repo = f"{path_in_repo}/{zdir.name}"
 
         if skip_existing:
-            # Use upload_large_folder per-x-dir with skip_existing for incremental.
-            # upload_large_folder works reliably for single x-dirs (<~30 tiles).
-            # Retry with backoff for commit timeouts.
             import time as _time
             x_dirs = [xd for xd in sorted(zdir.iterdir()) if xd.is_dir()]
             print(f"\nUploading z{z}/ incrementally ({tile_count:,} tiles across {len(x_dirs)} x-dirs, skip_existing)...")
@@ -219,29 +272,14 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
                 x_tile_count = sum(1 for _ in xd.glob("*.ozt2"))
                 if x_tile_count == 0:
                     continue
-                # Retry loop for commit timeouts (upload succeeds, commit fails)
-                for attempt in range(4):
-                    try:
-                        api.upload_large_folder(
-                            repo_id=repo_id,
-                            folder_path=str(xd),
-                            repo_type="dataset",
-                        )
-                        z_ok += x_tile_count
-                        if attempt > 0:
-                            print(f"  [retry {attempt}] z{z}/{xd.name}: OK ({x_tile_count} tiles)")
-                        break
-                    except Exception as e:
-                        err_str = str(e)
-                        if "no files have been modified" in err_str.lower() or "skipping" in err_str.lower():
-                            # Already uploaded — not an error
-                            z_ok += x_tile_count
-                            break
-                        if attempt == 3:
-                            z_errors += 1
-                            print(f"  ERROR z{z}/{xd.name} (after {attempt+1} attempts): {e}")
-                        else:
-                            _time.sleep(2 ** attempt)  # exponential backoff
+                xd_path_in_repo = f"{path_in_repo}/z{z}/{xd.name}"
+                ok = _upload_x_dir_with_retry(
+                    api, repo_id, xd, xd_path_in_repo, x_tile_count, z
+                )
+                if ok:
+                    z_ok += x_tile_count
+                else:
+                    z_errors += 1
             if z_errors == 0:
                 uploaded_z.append(z)
                 print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(x_dirs)} x-dirs)")

@@ -182,33 +182,42 @@ def main():
                 break
 
         # Process as futures complete, refill the queue
-        # Key fix: refill AFTER processing all done futures (not inside the for loop),
-        # to avoid exhausting tile_iter mid-iteration and deadlocking the coordinator.
-        last_print = 0
-        while futures:
-            # Wait for at least one future to complete
-            done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
-            # Process ALL completed futures before refilling
-            for future in done:
-                r = future.result()
-                results.append(r)
-                if r["status"] == "error":
-                    errors.append(r)
-                elif r["status"] == "skip":
-                    skipped += 1
-                del futures[future]
+        # Pattern: as_completed over a shared mutable dict of futures.
+        # as_completed iterates over the live futures dict, so newly submitted
+        # futures are automatically picked up. One future is processed at a time,
+        # refill happens after each processing to keep the queue topped up.
+        from concurrent.futures import as_completed
+        next_print = 500
 
-            # Refill AFTER the full done set is processed
-            while len(futures) < BATCH:
-                try:
-                    t = next(tile_iter)
-                    futures[executor.submit(reencode_tile, t, args.workers)] = t
-                except StopIteration:
-                    break
+        # Initial batch
+        futures = {}
+        for _ in range(BATCH):
+            try:
+                t = next(tile_iter)
+                futures[executor.submit(reencode_tile, t, args.workers)] = t
+            except StopIteration:
+                break
+
+        # Main loop: as_completed yields completed futures; dict changes mid-iteration
+        for future in as_completed(futures):
+            r = future.result()
+            results.append(r)
+            if r["status"] == "error":
+                errors.append(r)
+            elif r["status"] == "skip":
+                skipped += 1
+            del futures[future]
+
+            # Refill slot immediately after processing
+            try:
+                t = next(tile_iter)
+                futures[executor.submit(reencode_tile, t, args.workers)] = t
+            except StopIteration:
+                pass  # No more tiles — let queue drain
 
             completed = len(results)
-            if completed - last_print >= 500:
-                last_print = completed
+            if completed >= next_print:
+                next_print += 500
                 elapsed = time.time() - t0
                 rate = completed / elapsed
                 ok = sum(1 for x in results if x["status"] == "ok")

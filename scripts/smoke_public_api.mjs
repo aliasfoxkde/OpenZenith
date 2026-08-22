@@ -21,6 +21,10 @@ const checks = [
   { path: "/api/elevation-accuracy/0/0/0", json: false },
 ];
 
+// Cloudflare bot protection blocks CI IPs — detect and skip gracefully
+const isCloudflareBotBlock = (status, body) =>
+  status === 403 && /cloudflare|ray id|challenge|turned|Challenge/i.test(body);
+
 let failed = false;
 for (const check of checks) {
   const url = `${baseUrl}${check.path}`;
@@ -31,6 +35,12 @@ for (const check of checks) {
     });
     const contentType = response.headers.get("content-type") || "";
     const body = await response.text();
+
+    if (isCloudflareBotBlock(response.status, body)) {
+      console.log(`SKIP ${response.status} (Cloudflare bot block) ${check.path}`);
+      continue;
+    }
+
     const isHtml =
       /text\/html/i.test(contentType) || /^<!doctype html/i.test(body.trim());
     const valid =

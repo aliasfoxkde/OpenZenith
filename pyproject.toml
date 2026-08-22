@@ -52,7 +52,7 @@ dev = [
     "hatchling",
 ]
 all = [
-    "openzenith[compression,download,analysis,gdb,dev]",
+    "openzenith[compression,download,analysis,dev]",
 ]
 
 [project.scripts]

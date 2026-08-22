@@ -27,6 +27,10 @@ jobs:
         working-directory: api
         run: npm run lint
 
+      - name: Audit
+        working-directory: api
+        run: npm audit --audit-level=high || true
+
       - name: Format check
         working-directory: api
         run: npm run format:check

@@ -20,8 +20,20 @@ jobs:
       - name: Install build tools
         run: pip install build
 
+      - name: Install SDK with all extras
+        run: pip install -e .[all,dev]
+
+      - name: Lint
+        run: ruff check openzenith/
+
+      - name: Test
+        run: python3 -m pytest openzenith/tests/ -q
+
+      - name: Pip audit
+        run: pip audit || true
+
       - name: Build package
-        run: cd openzenith && python -m build
+        run: python -m build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

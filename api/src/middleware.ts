@@ -45,9 +45,13 @@ export function middleware(request: NextRequest) {
   // Skip health check (never rate limited)
   if (pathname === "/api/health") return NextResponse.next();
 
-  // CORS headers
+  // CORS headers — restrict to known origins in production
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || ["*"];
+  const origin = request.headers.get("origin");
   const response = NextResponse.next();
-  response.headers.set("Access-Control-Allow-Origin", "*");
+  if (allowedOrigins.includes("*") || (origin && allowedOrigins.includes(origin))) {
+    response.headers.set("Access-Control-Allow-Origin", origin || "*");
+  }
   response.headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   response.headers.set("Access-Control-Allow-Headers", "Content-Type, Range");
   response.headers.set("Access-Control-Max-Age", "86400");

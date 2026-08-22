@@ -7,11 +7,9 @@ const nextConfig: NextConfig = {
   },
   compress: true,
   poweredByHeader: false,
-  // Disable ESLint during builds to bypass pre-existing lint errors in studio components
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
+    // ESLint errors should fail the build in production
+    ignoreDuringBuilds: false,
   },
   turbopack: {
     root: path.resolve(__dirname),

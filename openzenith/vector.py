@@ -48,18 +48,28 @@ def shapefile_to_geojson(
         shapefile.MULTIPOINT: "MultiPoint",
         shapefile.MULTIPOINTZ: "MultiPoint",
         shapefile.POLYLINE: "LineString",
-        shapefile.POLYLINZ: "MultiLineString",
         shapefile.POLYGON: "Polygon",
-        shapefile.POLYGONZ: "MultiPolygon",
     }
+    # Handle Z-suffix types in older pyshp versions
+    for _attr in ("POLYLINZ", "POLYGONZ"):
+        _val = getattr(shapefile, _attr, None)
+        if _val:
+            shape_type_map[_val] = "MultiLineString" if "LINE" in _attr else "MultiPolygon"
     geom_type = shape_type_map.get(sf.shapeType, "GeometryCollection")
 
     fields = [f[0] for f in sf.fields[1:]]  # skip DeletionFlag
 
     features = []
     for shapeRec in sf:
-        shape_bbox = shapeRec.shape.bbox
-        if bbox and not _bbox_intersects(bbox, shape_bbox):
+        shape_bbox = getattr(shapeRec.shape, "bbox", None)
+        # pyshp 3.x Point shapes have no .bbox — compute from coordinates
+        if shape_bbox is None:
+            pts = getattr(shapeRec.shape, "points", None)
+            if pts and len(pts) > 0:
+                xs = [p[0] for p in pts]
+                ys = [p[1] for p in pts]
+                shape_bbox = (min(xs), min(ys), max(xs), max(ys))
+        if bbox and shape_bbox is not None and not _bbox_intersects(bbox, shape_bbox):
             continue
 
         coords = _shape_points_to_coords(shapeRec.shape, geom_type)

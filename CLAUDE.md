@@ -165,20 +165,37 @@ The SDK calls the REST API (`/api/elevation`) for point queries. For batch opera
 - **OZT2**: Gradient prediction + adaptive quantization + Zstd (93% smaller than Terrarium PNG, 30× faster encode than Brotli). Resolution: z7–z11 available (z11 ≈ 19m/pixel from SRTM 30m source — Nyquist-optimal; z13+ would be pure interpolation).
 
 ### OZT2 Tile Backend (HuggingFace)
-OZT2 tiles (z7–z11) can be fetched directly from HuggingFace datasets:
+OZT2 tiles (z7–z11) can be fetched directly from HuggingFace datasets via `OZT2HFBackend`:
 
 ```python
-from openzenith import OZT2HFBackend, decode_v2
+from openzenith.backends.ozt2 import OZT2HFBackend
+from openzenith.tile_format_v2 import decode
 
-# Direct HF access (lazy, cached)
-backend = OZT2HFBackend("aliasfox/srtm30m-ozt2-v2", cache_dir="/tmp/ozt2")
+# Direct HF access — fetch and decode a single tile
+backend = OZT2HFBackend("aliasfox/srtm30m-ozt2-v2")
 grid = backend.fetch_tile(z=10, x=163, y=395)
+print(grid.shape)  # (256, 256), dtype=int16, NoData=-32768
 
-# Or use the high-level API
+# Get elevation at a specific lat/lon within a tile
+elev = backend.get_elevation_at(z=10, x=163, y=395, lat=40.7128, lon=-74.006)
+print(elev)  # ~10.5 (meters)
+
+# Async batch prefetch
+import asyncio
+tiles = [(10, 163, 395), (10, 164, 395)]
+count = await backend.prefetch_tiles_async(tiles)
+print(f"Cached {count} tiles")
+
+# High-level API (requires local tiles or configured DEFAULT_OZT2_DIR)
 from openzenith import load_ozt2_tiles_from_hf, get_elevation_from_ozt2
 tile_dir = load_ozt2_tiles_from_hf(repo_id="aliasfox/srtm30m-ozt2-v2", zoom_levels=[10])
-elev = get_elevation_from_ozt2(40.7128, -74.0060)
+elev = get_elevation_from_ozt2(40.7128, -74.0060)  # Uses DEFAULT_OZT2_DIR
 ```
+
+**API classes:**
+- `OZT2HFBackend` (`openzenith.backends.ozt2`) — HuggingFace dataset access with local cache
+- `OZT2Backend` — Local file system access (`fetch_tile(z, x, y)` → `Int16Array`)
+- `OZT2R2Backend` — Cloudflare R2 / S3-compatible storage
 
 **HuggingFace dataset**: https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2 — contains ~747K tiles across z7–z11.
 

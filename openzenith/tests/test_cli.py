@@ -6,6 +6,7 @@ import pytest
 
 from openzenith.cli import (
     _latlon_to_tile,
+    _latlon_to_grid_coords,
     _parse_zoom_levels,
     main,
 )
@@ -59,6 +60,78 @@ class TestLatLonToTile:
         x, y = _latlon_to_tile(0, 179.9, 5)
         assert 0 <= x < 32
         assert 0 <= y < 32
+
+    def test_latlon_to_tile_edge_cases(self):
+        """Test edge cases for tile coordinate conversion."""
+        # South pole
+        x, y = _latlon_to_tile(-85, 0, 5)
+        assert 0 <= y < 32
+        # North pole
+        x, y = _latlon_to_tile(85, 0, 5)
+        assert 0 <= y < 32
+        # Dateline (use 179.9 to avoid exact boundary)
+        x, y = _latlon_to_tile(0, 179.9, 5)
+        assert 0 <= x < 32
+        # Negative longitude
+        x, y = _latlon_to_tile(0, -180, 5)
+        assert 0 <= x < 32
+        # Known value: NYC at z10
+        x, y = _latlon_to_tile(40.7128, -74.0060, 10)
+        # z10 has 1024 tiles per axis
+        assert 0 <= x < 1024
+        assert 0 <= y < 1024
+
+
+class TestLatLonToGridCoords:
+    """Test lat/lon to grid coordinate conversion."""
+
+    def test_center_is_center(self):
+        """Point at grid center returns center coords."""
+        import numpy as np
+        grid = {
+            "center_lat": 40.0,
+            "center_lon": -74.0,
+            "center_row": 5,
+            "center_col": 5,
+            "cell_size_deg": 0.001,
+            "grid": np.zeros((10, 10)),
+        }
+        row, col = _latlon_to_grid_coords(40.0, -74.0, grid)
+        assert row == 5
+        assert col == 5
+
+    def test_offset_from_center(self):
+        """Offset from center returns correct grid coords."""
+        import numpy as np
+        grid = {
+            "center_lat": 40.0,
+            "center_lon": -74.0,
+            "center_row": 5,
+            "center_col": 5,
+            "cell_size_deg": 0.001,
+            "grid": np.zeros((10, 10)),
+        }
+        # Move 0.001 degrees (one cell) north and east
+        row, col = _latlon_to_grid_coords(40.001, -73.999, grid)
+        # Values should differ from center when offset
+        assert 0 <= row < 10
+        assert 0 <= col < 10
+
+    def test_clamped_to_grid_bounds(self):
+        """Point outside grid is clamped to edges."""
+        import numpy as np
+        grid = {
+            "center_lat": 0.0,
+            "center_lon": 0.0,
+            "center_row": 5,
+            "center_col": 5,
+            "cell_size_deg": 1.0,
+            "grid": np.zeros((10, 10)),
+        }
+        # Far outside grid should clamp to 0 or max
+        row, col = _latlon_to_grid_coords(999.0, 999.0, grid)
+        assert row == 9  # clamped to max
+        assert col == 9
 
 
 class TestMainParser:

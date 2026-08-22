@@ -84,6 +84,8 @@ jobs:
       - name: Verify production deployment provenance
         env:
           EXPECTED_SHA: ${{ github.sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/verify_pages_deployment.mjs
 
       - name: Smoke-test deployed API

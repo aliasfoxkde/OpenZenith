@@ -27,7 +27,7 @@ build/
 
 # Lock files
 *.lock
-package-lock.json
+
 
 # Data (downloaded at setup)
 data/

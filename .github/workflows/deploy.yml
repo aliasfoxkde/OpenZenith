@@ -16,12 +16,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          # cache: npm  # Disabled due to CI caching issue
-          # cache-dependency-path: api/package-lock.json
+          cache: npm
+          cache-dependency-path: api/package-lock.json
 
       - name: Install dependencies
         working-directory: api
-        run: npm install  # Using install since package-lock.json is gitignored
+        run: npm ci
 
       - name: Lint
         working-directory: api
@@ -64,12 +64,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          # cache: npm  # Disabled due to CI caching issue
-          # cache-dependency-path: api/package-lock.json
+          cache: npm
+          cache-dependency-path: api/package-lock.json
 
       - name: Install dependencies
         working-directory: api
-        run: npm install  # Using install since package-lock.json is gitignored
+        run: npm ci
 
       - name: Build for Cloudflare Pages
         working-directory: api

@@ -1370,6 +1370,7 @@ export default function Globe() {
             <span className="wv-profile-title">Elevation Profile</span>
             <button
               className="wv-profile-close"
+              aria-label="Close elevation profile"
               onClick={() => {
                 setActiveTool("none");
                 elevationProfileRef.current?.clear();
@@ -1389,7 +1390,7 @@ export default function Globe() {
       {/* Coordinate formats panel */}
       {coordFormats && showCoordPanel && (
         <div className="wv-coord-panel">
-          <button className="wv-coord-close" onClick={() => setShowCoordPanel(false)} title="Close (C)">
+          <button className="wv-coord-close" aria-label="Close coordinate panel" onClick={() => setShowCoordPanel(false)} title="Close (C)">
             &times;
           </button>
           {Object.entries(coordFormats).map(([fmt, val]) => (

@@ -1630,10 +1630,10 @@ export default function MapPage() {
                   outline: "none",
                 }}
               />
-              <button onClick={finishDrawing} title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>
+              <button onClick={finishDrawing} aria-label="Finish drawing" title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>
                 ✓
               </button>
-              <button onClick={cancelDrawing} title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>
+              <button onClick={cancelDrawing} aria-label="Cancel drawing" title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>
                 ✕
               </button>
             </>
@@ -2013,6 +2013,7 @@ export default function MapPage() {
                 )}
               </span>
               <button
+                aria-label="Close sidebar"
                 onClick={() => setSidebarOpen(false)}
                 style={{
                   background: "none",

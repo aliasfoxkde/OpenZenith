@@ -130,7 +130,7 @@ export default function Home() {
   const cardBg = dark ? "#161616" : "#ffffff";
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSecondary = dark ? "#888" : "#737373";
+  const textSecondary = dark ? "#9CA3AF" : "#6B7280";
   const accent = "#22c55e";
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const inputBg = dark ? "#111" : "#fff";

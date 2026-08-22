@@ -32,6 +32,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div
+          role="alert"
+          aria-live="assertive"
           style={{
             display: "flex",
             flexDirection: "column",
@@ -43,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
             color: "#999",
           }}
         >
-          <div style={{ fontSize: 32, marginBottom: 12 }}>&#x26A0;</div>
+          <div style={{ fontSize: 32, marginBottom: 12 }} aria-hidden="true">&#x26A0;</div>
           <div style={{ fontSize: 14, marginBottom: 8, color: "#e5e5e5" }}>Something went wrong</div>
           <div style={{ fontSize: 12, marginBottom: 16, maxWidth: 400 }}>
             {this.state.error?.message || "An unexpected error occurred."}

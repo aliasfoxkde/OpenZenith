@@ -30,7 +30,7 @@ export function GetInTouch({
   const cardBg = dark ? "#161616" : "#ffffff";
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSecondary = dark ? "#888" : "#737373";
+  const textSecondary = dark ? "#9CA3AF" : "#6B7280";
   const accent = "#22c55e";
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const inputBg = dark ? "#111" : "#fff";
@@ -136,6 +136,7 @@ export function GetInTouch({
             >
               <div>
                 <label
+                  htmlFor="contact-name"
                   style={{
                     display: "block",
                     fontSize: "0.75rem",
@@ -147,11 +148,13 @@ export function GetInTouch({
                   Name *
                 </label>
                 <input
+                  id="contact-name"
                   type="text"
                   required
                   value={contactForm.name}
                   onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                   placeholder="Your name"
+                  aria-required="true"
                   style={{
                     width: "100%",
                     padding: "0.5rem 0.75rem",
@@ -168,6 +171,7 @@ export function GetInTouch({
               </div>
               <div>
                 <label
+                  htmlFor="contact-email"
                   style={{
                     display: "block",
                     fontSize: "0.75rem",
@@ -179,11 +183,13 @@ export function GetInTouch({
                   Email *
                 </label>
                 <input
+                  id="contact-email"
                   type="email"
                   required
                   value={contactForm.email}
                   onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                   placeholder="you@example.com"
+                  aria-required="true"
                   style={{
                     width: "100%",
                     padding: "0.5rem 0.75rem",
@@ -200,6 +206,7 @@ export function GetInTouch({
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label
+                  htmlFor="contact-subject"
                   style={{
                     display: "block",
                     fontSize: "0.75rem",
@@ -211,6 +218,7 @@ export function GetInTouch({
                   Subject
                 </label>
                 <input
+                  id="contact-subject"
                   type="text"
                   value={contactForm.subject}
                   onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
@@ -231,6 +239,7 @@ export function GetInTouch({
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label
+                  htmlFor="contact-message"
                   style={{
                     display: "block",
                     fontSize: "0.75rem",
@@ -242,11 +251,13 @@ export function GetInTouch({
                   Message *
                 </label>
                 <textarea
+                  id="contact-message"
                   required
                   rows={4}
                   value={contactForm.message}
                   onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                   placeholder="Your message..."
+                  aria-required="true"
                   style={{
                     width: "100%",
                     padding: "0.5rem 0.75rem",

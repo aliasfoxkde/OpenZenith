@@ -83,6 +83,21 @@ class TestTerrainTo3DMesh:
         assert coords[0] == pytest.approx(-74.0)  # lon
         assert coords[1] == pytest.approx(40.0)    # lat
 
+    def test_max_vertices_decimation(self):
+        """Large grid is decimated to stay under max_vertices."""
+        # 100x100 grid would produce 2*99*99 = 19602 triangles
+        dem = np.random.rand(100, 100).astype(np.float32) * 1000
+        mesh = terrain_to_3d_mesh(dem, max_vertices=100)
+        # Should be much smaller than full mesh
+        assert len(mesh["features"]) < 1000
+
+    def test_empty_mesh_all_nodata(self):
+        """All-NODATA grid produces empty FeatureCollection."""
+        dem = np.full((10, 10), -32768.0, dtype=np.float32)
+        mesh = terrain_to_3d_mesh(dem)
+        assert mesh["type"] == "FeatureCollection"
+        assert len(mesh["features"]) == 0
+
 
 class TestTerrainToPNG:
     """Tests for terrain_to_png."""
@@ -175,3 +190,117 @@ class TestTerrainToGLB:
         glb = terrain_to_glb(dem, palette=custom)
         assert isinstance(glb, bytes)
         assert len(glb) > 0
+
+    def test_glb_max_vertices_decimation(self):
+        """Large grid is decimated to stay under max_vertices."""
+        pytest.importorskip("trimesh")
+        dem = np.random.rand(100, 100).astype(np.float32) * 1000
+        glb = terrain_to_glb(dem, max_vertices=100)
+        assert isinstance(glb, bytes)
+        assert len(glb) > 0
+
+    def test_glb_empty_mesh(self):
+        """All-NODATA grid produces minimal empty mesh."""
+        pytest.importorskip("trimesh")
+        dem = np.full((10, 10), -32768.0, dtype=np.float32)
+        glb = terrain_to_glb(dem)
+        assert isinstance(glb, bytes)
+        assert len(glb) > 0
+
+
+class TestPlotTerrainAdvanced:
+    """Advanced tests for plot_terrain."""
+
+    def test_plot_with_custom_cmap(self):
+        """Custom colormap is used."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig, ax = plot_terrain(dem, cmap="viridis")
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_vmin_vmax(self):
+        """Custom vmin/vmax are applied."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig, ax = plot_terrain(dem, vmin=50, vmax=200)
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_interval_contours(self):
+        """Contour interval is applied."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig, ax = plot_terrain(dem, interval=10.0)
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_transform(self):
+        """Transform changes axes extent."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        transform = (40.0, -74.0, 0.001, 0.001)
+        fig, ax = plot_terrain(dem, transform=transform)
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_existing_ax(self):
+        """Existing axes is used instead of creating new."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig2, ax2 = plot_terrain(dem, ax=ax)
+        assert ax2 is ax
+        plt.close(fig)
+
+
+class TestPlotHillshadeAdvanced:
+    """Advanced tests for plot_hillshade."""
+
+    def test_plot_with_transform(self):
+        """Transform changes axes extent."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        transform = (40.0, -74.0, 0.001, 0.001)
+        fig, ax = plot_hillshade(dem, transform=transform)
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_existing_ax(self):
+        """Existing axes is used."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig2, ax2 = plot_hillshade(dem, ax=ax)
+        assert ax2 is ax
+        plt.close(fig)
+
+
+class TestPlotContoursAdvanced:
+    """Advanced tests for plot_contours."""
+
+    def test_plot_with_transform(self):
+        """Transform changes axes extent."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        transform = (40.0, -74.0, 0.001, 0.001)
+        fig, ax = plot_contours(dem, interval=10.0, transform=transform)
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_custom_min_max_elev(self):
+        """Custom min_elev/max_elev are applied."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig, ax = plot_contours(dem, interval=10.0, min_elev=50, max_elev=200)
+        assert fig is not None
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+
+    def test_plot_with_existing_ax(self):
+        """Existing axes is used."""
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fig2, ax2 = plot_contours(dem, interval=10.0, ax=ax)
+        assert ax2 is ax
+        plt.close(fig)

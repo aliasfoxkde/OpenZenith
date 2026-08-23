@@ -4,7 +4,13 @@ import json
 
 import numpy as np
 
-from openzenith.export import contour_to_geojson, grid_to_geojson
+from openzenith.export import (
+    _geojson_to_kml,
+    contour_to_geojson,
+    contour_to_kml,
+    grid_to_geojson,
+    grid_to_kml,
+)
 
 
 class TestGridToGeoJSON:
@@ -149,3 +155,123 @@ class TestContourToGeoJSON:
             coords = feat["geometry"]["coordinates"]
             # Each contour should have at least 2 points
             assert len(coords) >= 2
+
+
+class TestContourToKML:
+    """Tests for contour_to_kml."""
+
+    def test_returns_kml_string(self):
+        """Returns a KML string."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        result = contour_to_kml(dem, interval=50)
+        assert isinstance(result, str)
+        assert result.startswith('<?xml')
+
+    def test_contains_kml_tags(self):
+        """Output contains KML structure tags."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        result = contour_to_kml(dem, interval=50)
+        assert "<kml" in result
+        assert "<Document>" in result
+        assert "</kml>" in result
+
+    def test_custom_name(self):
+        """Custom name is used in KML."""
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        result = contour_to_kml(dem, name="MyContours")
+        assert "MyContours" in result
+
+
+class TestGridToKML:
+    """Tests for grid_to_kml."""
+
+    def test_returns_kml_string(self):
+        """Returns a KML string."""
+        data = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        result = grid_to_kml(data)
+        assert isinstance(result, str)
+        assert result.startswith('<?xml')
+
+    def test_contains_kml_tags(self):
+        """Output contains KML structure tags."""
+        data = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        result = grid_to_kml(data)
+        assert "<kml" in result
+        assert "<Document>" in result
+        assert "</kml>" in result
+
+
+class TestGeoJSONToKML:
+    """Tests for _geojson_to_kml helper."""
+
+    def test_point_feature(self):
+        """Point features are converted to KML Placemarks."""
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [-74.0, 40.7, 100]},
+                "properties": {"elevation": 100}
+            }]
+        }
+        result = _geojson_to_kml(geojson, name="Test")
+        assert "<Point>" in result
+        assert "<Placemark>" in result
+        assert "-74.0,40.7,100" in result
+
+    def test_linestring_feature(self):
+        """LineString features are converted to KML LineString."""
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [[-74.0, 40.7], [-74.1, 40.8]]
+                },
+                "properties": {"elevation": 500}
+            }]
+        }
+        result = _geojson_to_kml(geojson, name="Contour")
+        assert "<LineString>" in result
+        assert "<Placemark>" in result
+
+    def test_polygon_feature(self):
+        """Polygon features are converted to KML Polygon."""
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[-74.0, 40.7], [-74.1, 40.7], [-74.1, 40.8], [-74.0, 40.7]]]
+                },
+                "properties": {"name": "TestPolygon"}
+            }]
+        }
+        result = _geojson_to_kml(geojson, name="Poly")
+        assert "<Polygon>" in result
+        assert "<Placemark>" in result
+
+    def test_empty_features(self):
+        """Empty FeatureCollection produces valid KML."""
+        geojson = {"type": "FeatureCollection", "features": []}
+        result = _geojson_to_kml(geojson, name="Empty")
+        assert "<Document>" in result
+        assert "Empty" in result
+
+    def test_custom_altitude_mode(self):
+        """Custom altitude mode is used in LineString."""
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [[-74.0, 40.7], [-74.1, 40.8]]
+                },
+                "properties": {"elevation": 500}
+            }]
+        }
+        result = _geojson_to_kml(geojson, name="Contour", altitude_mode="absolute")
+        assert "absolute" in result

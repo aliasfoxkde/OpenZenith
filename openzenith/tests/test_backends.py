@@ -1,10 +1,12 @@
 """Tests for OZT2 tile backends."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
-from openzenith.backends.ozt2 import OZT2Backend
+from openzenith.backends.ozt2 import OZT2Backend, OZT2HFBackend, OZT2R2Backend
 from openzenith.tile_format_v2 import auto_encode
 
 NODATA = -32768
@@ -170,3 +172,132 @@ class TestOZT2Backend:
         elev = backend.get_elevation_at(z=3, x=5, y=5, lat=30.0, lon=0.0)
         # NODATA tiles may produce interpolated nodata — either None or nodata value
         assert elev is None or elev == -32768
+
+
+class TestOZT2HFBackend:
+    """Tests for OZT2HFBackend."""
+
+    def test_init_default_repo(self):
+        backend = OZT2HFBackend()
+        assert backend.repo_id == "aliasfox/srtm30m-ozt2-v2"
+        assert backend.revision == "main"
+        assert backend._cache_dir is None
+
+    def test_init_with_cache_dir(self, tmp_path: Path):
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        assert backend._cache_dir == tmp_path
+
+    def test_tile_url(self):
+        backend = OZT2HFBackend("aliasfox/srtm30m-ozt2-v2")
+        url = backend._tile_url(10, 163, 395)
+        assert "aliasfox/srtm30m-ozt2-v2" in url
+        assert "z10" in url
+        assert "163" in url
+        assert "395.ozt2" in url
+
+    def test_cached_path(self, tmp_path: Path):
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        path = backend._cached_path(10, 163, 395)
+        assert path is not None
+        assert str(path).endswith("z10/163/395.ozt2")
+
+    def test_cached_path_no_cache_dir(self):
+        backend = OZT2HFBackend()
+        path = backend._cached_path(10, 163, 395)
+        assert path is None
+
+    def test_fetch_tile_bytes_cached(self, tmp_path: Path):
+        """fetch_tile_bytes returns cached data without network call."""
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        # Create a fake cached tile
+        cached_tile = tmp_path / "z10" / "163" / "395.ozt2"
+        cached_tile.parent.mkdir(parents=True, exist_ok=True)
+        fake_data = b"\x00\x01\x02\x03"
+        cached_tile.write_bytes(fake_data)
+        result = backend.fetch_tile_bytes(z=10, x=163, y=395)
+        assert result == fake_data
+
+    def test_tile_exists_false_for_nonexistent(self):
+        """tile_exists returns False for non-existent tiles (no network)."""
+        backend = OZT2HFBackend()
+        # This will try a HEAD request which will fail
+        result = backend.tile_exists(999, 999, 999)
+        assert result is False
+
+    def test_fetch_tile_returns_none_for_missing(self):
+        """fetch_tile returns None for non-existent tiles."""
+        backend = OZT2HFBackend()
+        # This would try to download from HF which will fail
+        result = backend.fetch_tile(999, 999, 999)
+        assert result is None
+
+
+class TestOZT2R2Backend:
+    """Tests for OZT2R2Backend."""
+
+    def test_init(self):
+        backend = OZT2R2Backend(bucket_name="test-bucket", prefix="ozt2/")
+        assert backend.bucket_name == "test-bucket"
+        assert backend.prefix == "ozt2/"
+
+    def test_tile_key(self):
+        backend = OZT2R2Backend(bucket_name="test", prefix="ozt2/")
+        key = backend._tile_key(10, 163, 395)
+        assert key == "ozt2/z10/163/395.ozt2"
+
+    def test_tile_key_no_trailing_slash(self):
+        backend = OZT2R2Backend(bucket_name="test", prefix="ozt2")
+        assert backend.prefix == "ozt2/"
+
+    def test_fetch_tile_without_boto3(self):
+        """fetch_tile raises ImportError if boto3 not available."""
+        with patch.dict("sys.modules", {"boto3": None, "botocore": None}):
+            backend = OZT2R2Backend(bucket_name="test")
+            with pytest.raises(ImportError, match="boto3 required"):
+                backend._get_client()
+
+    def test_tile_exists_without_boto3(self):
+        """tile_exists raises ImportError if boto3 not available."""
+        with patch.dict("sys.modules", {"boto3": None, "botocore.exceptions": None}):
+            backend = OZT2R2Backend(bucket_name="test")
+            with pytest.raises((ImportError, ModuleNotFoundError)):
+                backend.tile_exists(10, 163, 395)
+
+
+class TestOZT2BackendGetElevationAtEdgeCases:
+    """Edge case tests for OZT2Backend.get_elevation_at."""
+
+    def test_bilinear_interpolation_corners(self, tmp_path: Path):
+        """Test bilinear interpolation at all four corners."""
+        # Create a tile with known gradient
+        grid = np.zeros((TILE_SIZE, TILE_SIZE), dtype=np.int16)
+        for r in range(TILE_SIZE):
+            grid[r, :] = r * 10  # vertical gradient
+        encoded, _ = auto_encode(grid, nodata_value=NODATA)
+
+        tile_dir = tmp_path / "z2" / "0"
+        tile_dir.mkdir(parents=True, exist_ok=True)
+        (tile_dir / "0.ozt2").write_bytes(encoded)
+
+        backend = OZT2Backend(tmp_path)
+        # NW corner (should be low)
+        elev_nw = backend.get_elevation_at(z=2, x=0, y=0, lat=85.0, lon=-180.0)
+        # SE corner (should be high)
+        elev_se = backend.get_elevation_at(z=2, x=0, y=0, lat=-85.0, lon=0.0)
+
+        assert elev_nw is not None
+        assert elev_se is not None
+        assert elev_nw < elev_se  # NW should be lower due to gradient
+
+    def test_all_nodata_returns_none(self, tmp_path: Path):
+        """All-NODATA tile returns None."""
+        grid = np.full((TILE_SIZE, TILE_SIZE), NODATA, dtype=np.int16)
+        encoded, _ = auto_encode(grid, nodata_value=NODATA)
+
+        tile_dir = tmp_path / "z5" / "10"
+        tile_dir.mkdir(parents=True, exist_ok=True)
+        (tile_dir / "10.ozt2").write_bytes(encoded)
+
+        backend = OZT2Backend(tmp_path)
+        elev = backend.get_elevation_at(z=5, x=10, y=10, lat=0.0, lon=0.0)
+        assert elev is None

@@ -68,37 +68,42 @@ def get_zoom_subdirs(tile_dir: Path, zoom_range: tuple[int, int] | None = None) 
     return subdirs
 
 
-def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, x_tile_count, z):
-    """Upload one x-dir using individual file uploads with batched commits."""
+def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, z):
+    """Upload one x-dir using HfApi.create_commit with CommitOperationAdd."""
     import time as _time
 
     tiles = sorted(xd.glob("*.ozt2"))
-    BATCH = 10  # small batches to avoid timeouts
+    if not tiles:
+        return True
+
     total = len(tiles)
-    for i in range(0, total, BATCH):
-        batch = tiles[i:i+BATCH]
-        for attempt in range(4):
-            try:
-                for t in batch:
-                    api.upload_file(
-                        repo_id=repo_id,
-                        repo_type="dataset",
-                        path_or_fileobj=str(t),
-                        path_in_repo=f"{xd_path_in_repo}/{t.name}",
-                    )
-                break  # batch succeeded
-            except Exception as e:
-                err_str = str(e)
-                if "no files have been modified" in err_str.lower() or "already exists" in err_str.lower():
-                    break  # already uploaded, skip
-                if attempt == 3:
-                    print(f"  ERROR z{z}/{xd.name} [{i+BATCH}/{total}]: {e}")
-                    return False
+    # Build commit operations
+    from huggingface_hub import CommitOperationAdd
+    operations = [
+        CommitOperationAdd(path_in_repo=f"{xd_path_in_repo}/{t.name}", path_or_fileobj=str(t))
+        for t in tiles
+    ]
+
+    for attempt in range(4):
+        try:
+            api.create_commit(
+                repo_id=repo_id,
+                repo_type="dataset",
+                operations=operations,
+                commit_message=f"Upload z{z}/{xd.name} ({total} tiles)",
+            )
+            print(f"  z{z}/{xd.name}: {total} tiles")
+            return True
+        except Exception as e:
+            err_str = str(e)
+            if "no files have been modified" in err_str.lower() or "already up to date" in err_str.lower():
+                print(f"  z{z}/{xd.name}: already up to date ({total} tiles)")
+                return True
+            if attempt < 3:
                 _time.sleep(2 ** attempt)
-        # Print progress every batch
-        done = min(i + BATCH, total)
-        if done % 500 == 0 or done == total:
-            print(f"  z{z}/{xd.name}: {done}/{total} tiles")
+            else:
+                print(f"  ERROR z{z}/{xd.name}: {e}")
+                return False
     return True
 
 
@@ -252,7 +257,7 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
                     continue
                 xd_path_in_repo = f"{path_in_repo}/z{z}/{xd.name}"
                 ok = _upload_x_dir_with_retry(
-                    api, repo_id, xd, xd_path_in_repo, x_tile_count, z
+                    api, repo_id, xd, xd_path_in_repo, z
                 )
                 if ok:
                     z_ok += x_tile_count

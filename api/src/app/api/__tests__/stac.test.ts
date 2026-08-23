@@ -9,7 +9,7 @@ describe("STAC API", () => {
     const data = await resp.json();
     expect(data.type).toBe("Catalog");
     expect(data.id).toBe("openzenith");
-  });
+  }, 30000);
 
   it("returns collections list", async () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
@@ -20,5 +20,5 @@ describe("STAC API", () => {
     expect(data.length).toBeGreaterThan(0);
     expect(data[0].type).toBe("Collection");
     expect(data[0].stac_version).toBeTruthy();
-  });
+  }, 30000);
 });

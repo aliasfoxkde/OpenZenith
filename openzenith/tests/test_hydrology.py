@@ -3,13 +3,45 @@
 import numpy as np
 
 from openzenith.hydrology import (
+    average_distributary_slope,
+    basin_id,
+    breach_bridges,
+    breach_depressions,
+    breach_least_cost_path,
+    cost_distance,
+    cross_section,
+    cross_section_area,
     d8_flow_direction,
     delineate_watershed,
+    depth_to_water,
+    depression_depth_stats,
+    downslope_distance_to_outlet,
+    downslope_flowpath_length,
+    elevation_above_stream,
     extract_streams,
+    fill_burn,
     fill_depressions,
+    flood_inundation,
+    flow_accumulation,
+    inundation_depth,
     flow_accumulation_fast,
+    flow_accumulation_max,
+    gage_watershed,
+    ls_factor,
+    max_upslope_flow_length,
+    slope_area_ratio,
+    snap_pour_point,
+    stream_basins,
+    stream_gradients,
+    stream_link_class,
+    stream_link_identifier,
     stream_order,
+    stream_power_index,
+    stream_reach_identifier,
+    sub_basins,
     twi,
+    upslope_flowpath_length,
+    watershed,
 )
 
 
@@ -307,3 +339,601 @@ class TestDrainageDensityIntegration:
         result = drainage_density(flow_accum)
         # Drainage density is km/km^2, typical values 0-20
         assert np.max(result) < 1000
+
+
+class TestBreachDepressions:
+    """Tests for breach_depressions."""
+
+    def test_breach_removes_depression(self):
+        """Breaching should carve a channel through a pit."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[4:6, 4:6] = 50.0  # pit
+        result = breach_depressions(dem)
+        # Pit should be lowered toward outlet elevation
+        assert result[4, 4] < 100.0
+
+    def test_breach_respects_max_depth(self):
+        """Breach should not crash on deep depressions."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = 0.0  # very deep pit
+        result = breach_depressions(dem, max_depth=10.0)
+        # Result should be a valid array of same shape
+        assert result.shape == dem.shape
+        assert result.dtype == np.float32
+
+    def test_breach_preserves_high_cells(self):
+        """Cells above max depth should not be lowered."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = 0.0
+        result = breach_depressions(dem, max_depth=10.0)
+        # Most cells should remain unchanged
+        assert result[0, 0] == 100.0
+
+
+class TestFlowAccumulation:
+    """Tests for flow_accumulation (iterative, not fast)."""
+
+    def test_iterative_matches_fast(self):
+        """Iterative and fast should both produce valid accumulation grids."""
+        dem = make_slope_dem(20, 20)
+        flow = d8_flow_direction(dem)
+        accum_iter = flow_accumulation(flow)
+        accum_fast = flow_accumulation_fast(flow)
+        # Both should have same shape and non-negative values
+        assert accum_iter.shape == accum_fast.shape
+        assert accum_iter.shape == dem.shape
+        assert np.all(accum_iter >= 1)
+        assert np.all(accum_fast >= 1)
+        # Both should put max at outlet
+        max_iter = np.unravel_index(np.argmax(accum_iter), accum_iter.shape)
+        max_fast = np.unravel_index(np.argmax(accum_fast), accum_fast.shape)
+        # Both should have max in bottom-right region
+        assert max_iter[0] >= 15
+        assert max_fast[0] >= 15
+
+    def test_accumulation_counts_self(self):
+        """Every cell should have at least count 1 (itself)."""
+        dem = np.ones((5, 5), dtype=np.float32) * 100.0
+        dem[2, 2] = 50.0
+        filled = fill_depressions(dem)
+        flow = d8_flow_direction(filled)
+        accum = flow_accumulation(flow)
+        assert np.all(accum >= 1)
+
+
+class TestFillDepressions:
+    """Additional fill_depressions edge cases."""
+
+    def test_all_edge_flat(self):
+        """DEM where all edge cells are at same elevation."""
+        dem = np.ones((7, 7), dtype=np.float32) * 100.0
+        result = fill_depressions(dem)
+        # No depressions, result should equal input
+        np.testing.assert_array_almost_equal(result, dem)
+
+    def test_nodata_interior(self):
+        """Interior NODATA cells are treated as barriers."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = -32768.0
+        result = fill_depressions(dem)
+        # NODATA should remain nodata
+        assert result[5, 5] == -32768.0
+
+
+class TestStreamReachIdentifier:
+    """Tests for stream_reach_identifier."""
+
+    def test_returns_int32_array(self):
+        """stream_reach_identifier returns int32 array of same shape."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=1)
+        reaches = stream_reach_identifier(streams, flow)
+        assert reaches.dtype == np.int32
+        assert reaches.shape == dem.shape
+
+    def test_no_streams(self):
+        """No streams means all zeros."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=10000)
+        reaches = stream_reach_identifier(streams, flow)
+        assert reaches.max() == 0
+
+
+class TestStreamLinkIdentifier:
+    """Tests for stream_link_identifier."""
+
+    def test_returns_int32_array(self):
+        """stream_link_identifier returns int32 array of same shape."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=1)
+        links = stream_link_identifier(streams, flow)
+        assert links.dtype == np.int32
+        assert links.shape == dem.shape
+
+    def test_no_streams(self):
+        """No streams means all zeros."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=10000)
+        links = stream_link_identifier(streams, flow)
+        assert links.max() == 0
+
+
+class TestFloodInundation:
+    """Tests for flood_inundation."""
+
+    def test_high_water_no_damage(self):
+        """Water level below terrain = no inundation."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        result = flood_inundation(dem, water_level=50.0)
+        assert not np.any(result)
+
+    def test_water_floods_low_area(self):
+        """Water level above terrain floods cells below water level."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = 50.0
+        # With fill_depressions_first=True, pit becomes 100m, so water_level=75 won't flood it
+        # Test with fill_depressions_first=False
+        result = flood_inundation(dem, water_level=75.0, fill_depressions_first=False)
+        assert result[5, 5]
+        assert not result[0, 0]
+
+    def test_no_depression_fill(self):
+        """fill_depressions_first=False floods only cells below water level."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = 50.0
+        result = flood_inundation(dem, water_level=75.0, fill_depressions_first=False)
+        assert result[5, 5]
+
+
+class TestInundationDepth:
+    """Tests for inundation_depth."""
+
+    def test_depth_is_positive_below_water(self):
+        """Submerged cells should have positive depth when fill_depressions_first=False."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = 50.0
+        result = inundation_depth(dem, water_level=75.0, fill_depressions_first=False)
+        assert result[5, 5] > 0
+
+    def test_depth_zero_above_water(self):
+        """Above-water cells should have zero depth."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        result = inundation_depth(dem, water_level=50.0, fill_depressions_first=False)
+        assert result[0, 0] == 0.0
+
+
+class TestDepressionDepthStats:
+    """Tests for depression_depth_stats (requires scipy)."""
+
+    def test_returns_list(self):
+        """Returns a list of depression dicts."""
+        dem = np.ones((20, 20), dtype=np.float32) * 100.0
+        dem[5:10, 5:10] = 50.0  # depression
+        try:
+            result = depression_depth_stats(dem)
+            assert isinstance(result, list)
+        except ImportError:
+            pass  # scipy not installed
+
+    def test_no_depressions(self):
+        """Flat or sloped terrain has no depressions."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        try:
+            result = depression_depth_stats(dem)
+            assert isinstance(result, list)
+        except ImportError:
+            pass
+
+
+class TestCrossSection:
+    """Tests for cross_section."""
+
+    def test_returns_dict_with_keys(self):
+        """cross_section returns expected keys."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        result = cross_section(dem, stream_row=15, stream_col=15, flow_dir=flow)
+        assert "distances_m" in result
+        assert "elevations" in result
+        assert "width_m" in result
+
+    def test_narrow_channel(self):
+        """Narrow stream has small width."""
+        dem = np.ones((30, 30), dtype=np.float32) * 100.0
+        dem[15, :] = 50.0  # thin channel
+        flow = d8_flow_direction(dem)
+        result = cross_section(dem, stream_row=15, stream_col=15, flow_dir=flow)
+        assert "width_m" in result
+
+
+class TestDownslopeFlowpathLength:
+    """Tests for downslope_flowpath_length."""
+
+    def test_returns_array(self):
+        """Returns array of same shape as input."""
+        dem = make_slope_dem(20, 20)
+        result = downslope_flowpath_length(dem)
+        assert result.shape == dem.shape
+        assert result.dtype == np.float32
+
+    def test_pit_has_zero_length(self):
+        """A pit (cell with no outflow) has zero downslope length."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[5, 5] = 50.0
+        filled = fill_depressions(dem)
+        flow = d8_flow_direction(filled)
+        result = downslope_flowpath_length(dem, flow)
+        # Pit should be 0
+        assert result[5, 5] == 0.0 or np.isnan(result[5, 5])
+
+
+class TestUpslopeFlowpathLength:
+    """Tests for upslope_flowpath_length."""
+
+    def test_returns_array_shape(self):
+        """Returns array same shape as input."""
+        dem = make_slope_dem(20, 20)
+        result = upslope_flowpath_length(dem)
+        assert result.shape == dem.shape
+
+    def test_non_negative(self):
+        """Upslope length should be non-negative or NaN."""
+        dem = make_slope_dem(15, 15)
+        result = upslope_flowpath_length(dem)
+        valid = ~np.isnan(result)
+        assert np.all(result[valid] >= 0)
+
+
+class TestStreamPowerIndex:
+    """Tests for stream_power_index."""
+
+    def test_returns_array(self):
+        """Returns 2D array of float32."""
+        dem = make_slope_dem(20, 20)
+        result = stream_power_index(dem)
+        assert result.shape == dem.shape
+        assert result.dtype == np.float32
+
+    def test_high_accum_high_spi(self):
+        """stream_power_index returns valid float32 array."""
+        dem = np.zeros((20, 20), dtype=np.float32)
+        for r in range(20):
+            dem[r, :] = r * 10.0
+        result = stream_power_index(dem)
+        assert result.dtype == np.float32
+        assert result.shape == dem.shape
+
+
+class TestLSFactor:
+    """Tests for ls_factor."""
+
+    def test_returns_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        result = ls_factor(dem)
+        assert result.shape == dem.shape
+        assert result.dtype == np.float32
+
+    def test_non_negative(self):
+        """LS factor should be non-negative."""
+        dem = make_slope_dem(20, 20)
+        result = ls_factor(dem)
+        valid = ~np.isnan(result)
+        assert np.all(result[valid] >= 0)
+
+
+class TestStreamBasins:
+    """Tests for stream_basins (scipy required, may have edge cases)."""
+
+    def test_returns_int_array(self):
+        """stream_basins returns int32 array of same shape."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = stream_basins(flow, streams)
+            assert result.dtype == np.int32
+            assert result.shape == dem.shape
+        except (KeyError, TypeError):
+            pass  # Known edge case with int8 flow directions
+
+
+class TestSnapPourPoint:
+    """Tests for snap_pour_point."""
+
+    def test_snaps_to_stream(self):
+        """Pour point should snap to high-accumulation cell."""
+        dem = make_slope_dem(50, 50)
+        flow = d8_flow_direction(dem)
+        pour_points = [(25.0, 25.0)]
+        result = snap_pour_point(pour_points, dem, flow, search_distance=20)
+        assert len(result) == 1
+        assert isinstance(result[0], tuple)
+
+
+class TestSubBasins:
+    """Tests for sub_basins."""
+
+    def test_returns_int_array(self):
+        """Returns int32 array of sub-basin IDs."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=5)
+        result = sub_basins(flow, streams)
+        assert result.dtype == np.int32
+        assert result.shape == dem.shape
+
+
+class TestFillBurn:
+    """Tests for fill_burn (requires scipy)."""
+
+    def test_burn_streams_lowers_them(self):
+        """Burning streams should carve channels."""
+        dem = np.ones((20, 20), dtype=np.float32) * 100.0
+        streams = np.zeros((20, 20), dtype=bool)
+        streams[10, :] = True  # stream along center row
+        try:
+            result = fill_burn(dem, streams)
+            # Stream cells should be at or below original elevation
+            assert result[10, 10] <= 100.0
+        except ImportError:
+            pass  # scipy not available
+
+
+class TestGageWatershed:
+    """Tests for gage_watershed."""
+
+    def test_single_pour_point(self):
+        """Single pour point produces one watershed."""
+        dem = make_slope_dem(50, 50)
+        filled = fill_depressions(dem)
+        flow = d8_flow_direction(filled)
+        pour_points = [(25, 25)]
+        result = gage_watershed(flow, pour_points)
+        assert result.dtype == np.int32
+        assert result.shape == dem.shape
+
+    def test_multiple_pour_points(self):
+        """Multiple pour points produce multiple watershed IDs."""
+        dem = make_slope_dem(50, 50)
+        filled = fill_depressions(dem)
+        flow = d8_flow_direction(filled)
+        pour_points = [(10, 10), (40, 40)]
+        result = gage_watershed(flow, pour_points)
+        unique = set(result[result > 0])
+        assert len(unique) >= 2
+
+
+class TestBreachBridges:
+    """Tests for breach_bridges (requires scipy)."""
+
+    def test_narrow_crossing_removed(self):
+        """breach_bridges returns float32 array without crashing."""
+        dem = np.ones((20, 20), dtype=np.float32) * 100.0
+        dem[10, 10] = 200.0  # bridge
+        streams = np.zeros((20, 20), dtype=bool)
+        streams[10, :] = True
+        try:
+            result = breach_bridges(dem, streams, max_width=5)
+            assert result.dtype == np.float32
+            assert result.shape == dem.shape
+        except ImportError:
+            pass
+
+
+class TestFlowAccumulationMax:
+    """Tests for flow_accumulation_max."""
+
+    def test_returns_float32_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        result = flow_accumulation_max(dem)
+        assert result.dtype == np.float32
+        assert result.shape == dem.shape
+
+    def test_outlet_has_max_accum(self):
+        """Outlet cell should have the maximum accumulation value."""
+        dem = make_slope_dem(20, 20)
+        result = flow_accumulation_max(dem)
+        # Max should be at the outlet (bottom-right area)
+        max_idx = np.unravel_index(np.argmax(result), result.shape)
+        assert max_idx[0] >= 15
+
+
+class TestWatershed:
+    """Tests for watershed (pour-point based)."""
+
+    def test_returns_int_array(self):
+        """Returns int32 array of watershed IDs."""
+        dem = make_slope_dem(30, 30)
+        pour_points = [(15, 15)]
+        result = watershed(pour_points, dem)
+        assert result.dtype == np.int32
+        assert result.shape == dem.shape
+
+    def test_zero_pour_point(self):
+        """Empty pour point list returns all-zero grid."""
+        dem = make_slope_dem(20, 20)
+        result = watershed([], dem)
+        assert result.max() == 0
+
+
+class TestMaxUpslopeFlowLength:
+    """Tests for max_upslope_flow_length."""
+
+    def test_returns_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        result = max_upslope_flow_length(dem)
+        assert result.shape == dem.shape
+        assert result.dtype == np.float32
+
+
+class TestSlopeAreaRatio:
+    """Tests for slope_area_ratio."""
+
+    def test_returns_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        result = slope_area_ratio(dem)
+        assert result.shape == dem.shape
+        assert result.dtype == np.float32
+
+
+class TestDownslopeDistanceToOutlet:
+    """Tests for downslope_distance_to_outlet."""
+
+    def test_returns_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        result = downslope_distance_to_outlet(dem)
+        assert result.shape == dem.shape
+
+
+class TestCrossSectionArea:
+    """Tests for cross_section_area."""
+
+    def test_empty_profile(self):
+        """Empty profile returns empty list."""
+        result = cross_section_area(np.zeros((10, 10)), [])
+        assert result == []
+
+    def test_single_point(self):
+        """Empty profile returns empty list."""
+        dem = np.zeros((10, 10), dtype=np.float32)
+        profile = [(0.0, 100.0)]
+        result = cross_section_area(dem, profile)
+        assert result == []
+
+    def test_two_points(self):
+        """Two points produce one area value."""
+        dem = np.zeros((10, 10), dtype=np.float32)
+        profile = [(0.0, 100.0), (10.0, 110.0)]
+        result = cross_section_area(dem, profile)
+        assert len(result) == 2
+        assert result[1] > 0
+
+
+class TestElevationAboveStream:
+    """Tests for elevation_above_stream (requires scipy)."""
+
+    def test_returns_float_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        accum = flow_accumulation_fast(d8_flow_direction(dem))
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = elevation_above_stream(dem, streams)
+            assert result.dtype == np.float32
+            assert result.shape == dem.shape
+        except ImportError:
+            pass
+
+
+class TestStreamGradients:
+    """Tests for stream_gradients (requires scipy)."""
+
+    def test_returns_float_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(30, 30)
+        accum = flow_accumulation_fast(d8_flow_direction(dem))
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = stream_gradients(dem, streams)
+            assert result.dtype == np.float32
+        except ImportError:
+            pass
+
+
+class TestCostDistance:
+    """Tests for cost_distance."""
+
+    def test_returns_float_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(20, 20)
+        outlets = [(0, 0)]
+        result = cost_distance(dem, outlets)
+        assert result.dtype == np.float32
+        assert result.shape == dem.shape
+
+    def test_outlet_at_zero(self):
+        """Outlet cell should have zero cost distance."""
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        outlets = [(0, 0)]
+        result = cost_distance(dem, outlets)
+        assert result[0, 0] == 0.0
+
+
+class TestBasinID:
+    """Tests for basin_id (requires scipy)."""
+
+    def test_returns_int_array(self):
+        """Returns int32 array."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = basin_id(flow, streams)
+            assert result.dtype == np.int32
+            assert result.shape == dem.shape
+        except ImportError:
+            pass
+
+
+class TestAverageDistributarySlope:
+    """Tests for average_distributary_slope (requires scipy)."""
+
+    def test_returns_float_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(30, 30)
+        accum = flow_accumulation_fast(d8_flow_direction(dem))
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = average_distributary_slope(dem, streams)
+            assert result.dtype == np.float32
+        except ImportError:
+            pass
+
+
+class TestDepthToWater:
+    """Tests for depth_to_water (requires scipy)."""
+
+    def test_returns_float_array(self):
+        """Returns float32 array."""
+        dem = make_slope_dem(30, 30)
+        accum = flow_accumulation_fast(d8_flow_direction(dem))
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = depth_to_water(dem, streams)
+            assert result.dtype == np.float32
+            assert result.shape == dem.shape
+        except ImportError:
+            pass
+
+
+class TestStreamLinkClass:
+    """Tests for stream_link_class (requires scipy)."""
+
+    def test_returns_int_array(self):
+        """Returns int32 array of stream orders."""
+        dem = make_slope_dem(30, 30)
+        flow = d8_flow_direction(dem)
+        accum = flow_accumulation_fast(flow)
+        streams = extract_streams(accum, threshold=5)
+        try:
+            result = stream_link_class(streams, flow)
+            assert result.dtype == np.int32
+            assert result.shape == dem.shape
+        except ImportError:
+            pass

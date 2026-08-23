@@ -119,6 +119,33 @@ class TestValidateRoundtrip:
         assert meta["bits_per_pixel"] > 0
 
 
+class TestAutoSelectBits:
+    """Test _auto_select_bits edge cases via encode."""
+
+    def test_explicit_bits_per_pixel_16(self):
+        """Explicit 16-bit should use lossless mode."""
+        data = np.array([[100, 200], [300, 400]], dtype=np.int16)
+        encoded = encode(data, bits_per_pixel=16)
+        decoded, meta = decode(encoded)
+        assert meta["bits_per_pixel"] == 16
+        # Lossless should have zero error
+        np.testing.assert_allclose(data, decoded, atol=0)
+
+    def test_explicit_bits_per_pixel_8(self):
+        """Explicit 8-bit should quantize even small ranges."""
+        data = np.array([[100, 200], [300, 400]], dtype=np.int16)
+        encoded = encode(data, bits_per_pixel=8)
+        decoded, meta = decode(encoded)
+        assert meta["bits_per_pixel"] == 8
+
+    def test_all_nodata_tile(self):
+        """All-NODATA tile should not crash."""
+        data = np.full((8, 8), -32768, dtype=np.int16)
+        encoded = encode(data)
+        decoded, meta = decode(encoded)
+        assert decoded.shape == data.shape
+
+
 class TestEdgeCases:
     """Edge case tests."""
 
@@ -131,3 +158,33 @@ class TestEdgeCases:
     def test_invalid_bytes_raises(self):
         with pytest.raises(Exception):  # noqa: B017
             decode(b"not valid tile data")
+
+    def test_zstd_compressor(self):
+        """Test zstd compressor roundtrip."""
+        data = np.random.randint(0, 3000, size=(30, 30)).astype(np.int16)
+        encoded = encode(data, compressor=COMP_ZSTD)
+        decoded, _ = decode(encoded)
+        np.testing.assert_allclose(data, decoded, atol=ATOL)
+
+    def test_zlib_compressor(self):
+        """Test zlib compressor roundtrip."""
+        data = np.random.randint(-200, 3000, size=(25, 25)).astype(np.int16)
+        encoded = encode(data, compressor=COMP_ZLIB)
+        decoded, _ = decode(encoded)
+        np.testing.assert_allclose(data, decoded, atol=ATOL)
+
+    def test_mixed_nodata_and_valid(self):
+        """Tile with some nodata cells should handle correctly."""
+        data = np.full((10, 10), -32768, dtype=np.int16)
+        data[3:7, 3:7] = 500  # valid patch in center
+        encoded = encode(data)
+        decoded, _ = decode(encoded)
+        # Center values should be preserved
+        assert decoded[5, 5] == 500
+
+    def test_large_range_16bit(self):
+        """Large elevation range uses 16-bit."""
+        data = np.array([[-5000, 8000], [0, 0]], dtype=np.int16)
+        encoded = encode(data, bits_per_pixel=16)
+        decoded, meta = decode(encoded)
+        assert meta["bits_per_pixel"] == 16

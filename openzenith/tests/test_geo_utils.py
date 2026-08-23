@@ -97,6 +97,24 @@ class TestClassifyTerrain:
         data = np.full((2, 2), -32768, dtype=np.int16)
         assert classify_terrain(data) == "nodata"
 
+    def test_lowland(self):
+        """elev_range < 200 and std < 50 → lowland."""
+        data = np.array([[100, 150, 120], [130, 140, 110], [120, 135, 145]], dtype=np.int16)
+        result = classify_terrain(data)
+        assert result == "lowland"
+
+    def test_hills(self):
+        """elev_range < 1000 but not lowland → hills."""
+        data = np.array([[100, 500, 200], [300, 400, 250], [200, 350, 300]], dtype=np.int16)
+        result = classify_terrain(data)
+        assert result == "hills"
+
+    def test_high_mountain(self):
+        """elev_range >= 3000 → high_mountain."""
+        data = np.array([[100, 4000], [200, 3500]], dtype=np.int16)
+        result = classify_terrain(data)
+        assert result == "high_mountain"
+
 
 class TestComputeSlope:
     """Tests for compute_slope function."""

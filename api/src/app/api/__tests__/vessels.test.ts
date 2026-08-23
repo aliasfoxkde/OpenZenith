@@ -10,4 +10,10 @@ describe("Vessels API", () => {
     expect(data.error).toContain("not configured");
     expect(data.wsUrl).toBeNull();
   });
+
+  it("handles OPTIONS preflight", async () => {
+    const { OPTIONS } = await import("@/app/api/vessels/route");
+    const resp = await OPTIONS();
+    expect(resp.status).toBe(204);
+  });
 });

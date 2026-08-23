@@ -1,5 +1,7 @@
 """Tests for OpenZenith Python SDK — hydrology module."""
 
+import warnings
+
 import numpy as np
 
 from openzenith.hydrology import (
@@ -203,6 +205,7 @@ class TestTWI:
 
     def test_flat_dem_high_twi(self):
         """Flat terrain should have high TWI (saturated areas)."""
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
         dem = np.full((20, 20), 100.0, dtype=np.float32)
         result = twi(dem)
         # Flat terrain → zero slope → very high TWI (or NaN)
@@ -210,6 +213,7 @@ class TestTWI:
 
     def test_steep_dem_lower_twi(self):
         """Steep terrain should have lower TWI than flat."""
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
         # Flat
         flat = np.full((20, 20), 100.0, dtype=np.float32)
         flat_twi = twi(flat)
@@ -227,6 +231,7 @@ class TestTWI:
 
     def test_output_range(self):
         """TWI should be non-negative."""
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
         np.random.seed(42)
         dem = np.random.randint(100, 500, size=(30, 30)).astype(np.float32)
         result = twi(dem)
@@ -236,6 +241,7 @@ class TestTWI:
 
     def test_valley_higher_twi_than_ridge(self):
         """Valley center should have higher TWI than ridge."""
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
         # V-shaped valley
         dem = np.zeros((20, 20), dtype=np.float32)
         for i in range(20):

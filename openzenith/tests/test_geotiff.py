@@ -1,6 +1,7 @@
 """Tests for openzenith.geotiff."""
 
 import tempfile
+import warnings
 
 import numpy as np
 import pytest
@@ -81,6 +82,7 @@ class TestExportGeotiff:
 
     def test_nodata_pixel_conversion(self):
         """NaN values are converted to nodata on export."""
+        warnings.filterwarnings("ignore", message="invalid value encountered in cast")
         dem = np.array([[100.0, np.nan], [200.0, 300.0]], dtype=np.float32)
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path = export_geotiff(dem, f.name)

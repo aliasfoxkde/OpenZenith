@@ -3,7 +3,7 @@
 
 import { safeCopy } from "../helpers";
 import { getClientElevation } from "@/lib/client-elevation";
-import type { ToolMode } from "../tools/tools";
+import type { ToolMode as _ToolMode } from "../tools/tools";
 
 /* ─── Sub-components ───────────────────────────────────── */
 
@@ -159,8 +159,8 @@ interface ContextMenuProps {
   cesiumRef: React.RefObject<any>;
   toolManagerRef: React.RefObject<any>;
   elevationProfileRef: React.RefObject<any>;
-  activeTool: ToolMode;
-  setActiveTool: React.Dispatch<React.SetStateAction<ToolMode>>;
+  _activeTool: ToolMode;
+  setActiveTool: React.Dispatch<React.SetStateAction<_ToolMode>>;
   setSelectedSat: (s: any) => void;
   setFollowSat: (f: boolean) => void;
   flyToISS: () => void;
@@ -175,7 +175,7 @@ export function ContextMenu({
   cesiumRef,
   toolManagerRef,
   elevationProfileRef,
-  activeTool,
+  _activeTool: _ToolMode,
   setActiveTool,
   setSelectedSat,
   setFollowSat,

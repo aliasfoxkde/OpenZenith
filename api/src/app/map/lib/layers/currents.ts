@@ -323,6 +323,7 @@ let canvasEl: HTMLCanvasElement | null = null;
 let animFrame = 0;
 let particles: FlowParticle[] = [];
 let mapRef: maplibregl.Map | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- module state mutated by onMoveStart/onMoveEnd closures
 let isMoving = false;
 
 function createParticle(): FlowParticle {

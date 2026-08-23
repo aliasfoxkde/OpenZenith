@@ -6,7 +6,8 @@ import { setStatus } from "./types";
 // Simple satellite position from TLE using SGP4 approximation
 // For display purposes, we fetch pre-computed positions from Celestrak JSON API
 
-interface SatPosition {
+// Satellite position data (Celestrak GP API format)
+interface _SatPosition {
   name: string;
   id: string;
   latitude: number;

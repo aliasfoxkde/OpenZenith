@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     const gridCols = 2 * radius + 1;
 
     const n = 2 ** zoom;
-    const cellSizeDeg = 180 / (n * 256);
+    const _cellSizeDeg = 180 / (n * 256);
 
     const { x: cx, y: cy } = latLonToTile(lat, lon, zoom);
     const xFrac = ((lon + 180) / 360) * n - cx;

@@ -31,7 +31,7 @@ const NODATA = -32768;
 const D8_DR = [0, 1, 1, 1, 0, -1, -1, -1];
 const D8_DC = [1, 1, 0, -1, -1, -1, 0, 1];
 
-function fillDepressions(dem: Float32Array, rows: number, cols: number, nodata: number): Float32Array {
+function _fillDepressions(dem: Float32Array, _rows: number, _cols: number, _nodata: number): Float32Array {
   // Simple flat fill: for now just return dem as-is
   // Full priority-flood would require a heap; keeping it fast for edge
   return dem;
@@ -67,7 +67,7 @@ function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: 
   return flowDir;
 }
 
-function flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint32Array {
+function _flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint32Array {
   const accum = new Uint32Array(rows * cols).fill(1);
 
   // Process in topological order (cells with flow dirs before their targets)

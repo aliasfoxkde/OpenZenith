@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
+import { latLonToTile, _tileToLatLon } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const cellSizeDeg = 180 / (2 ** z * 256);
-    const cellSizeM = cellSizeDeg * 111320;
+    const _cellSizeM = cellSizeDeg * 111320;
 
     // Midpoint for tile loading
     const midLat = (lat1 + lat2) / 2;

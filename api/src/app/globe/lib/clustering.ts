@@ -245,7 +245,7 @@ export function renderClustersOnGlobe(
 ): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const v = viewer as any;
-  const { clusterColor, pointColor, clusterRadius = 30 } = clusterOptions;
+  const { clusterColor, pointColor, _clusterRadius = 30 } = clusterOptions;
 
   const defaultClusterColor = Cesium.Color.ORANGE;
   const defaultPointColor = Cesium.Color.RED;

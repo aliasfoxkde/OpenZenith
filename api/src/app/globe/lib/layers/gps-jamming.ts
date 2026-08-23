@@ -22,7 +22,7 @@ export interface GpsJammingHex {
 }
 
 /** Hex cell for Cesium rendering */
-interface HexCell {
+interface _HexCell {
   lat: number;
   lon: number;
   edgeLen: number;
@@ -52,7 +52,7 @@ function intensityColor(intensity: number, Cesium: any): any {
  * Convert lat/lon + resolution to H3 cell ID (simplified).
  * Uses a pseudo-H3 approximation for visualization.
  */
-function latLonToCellId(lat: number, lon: number, resolution: number): string {
+function _latLonToCellId(lat: number, lon: number, resolution: number): string {
   const latBucket = Math.round(lat * Math.pow(2, resolution));
   const lonBucket = Math.round(lon * Math.pow(2, resolution));
   return `gps-jam-${resolution}-${latBucket}-${lonBucket}`;

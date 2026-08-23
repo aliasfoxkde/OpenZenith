@@ -60,7 +60,7 @@ export class LocalTifBackend {
       for (let i = 0; i < numEntries; i++) {
         const b = IFD_START + i * 12;
         const tag = isLE ? buf[b] | (buf[b + 1] << 8) : (buf[b] << 8) | buf[b + 1];
-        const _type = isLE ? buf[b + 2] | (buf[b + 3] << 8) : (buf[b + 2] << 8) | buf[b + 3];
+        const __type = isLE ? buf[b + 2] | (buf[b + 3] << 8) : (buf[b + 2] << 8) | buf[b + 3];
         const count = readU32(b + 4);
         const val = readU32(b + 8);
         if (tag === 256) width = count === 1 ? val : 0;

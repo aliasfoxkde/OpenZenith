@@ -28,13 +28,13 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
       }
 
       // Parse track data (polylines)
-      let trackCount = 0;
+      let _trackCount = 0;
       if (trackRes.status === "fulfilled" && trackRes.value.ok) {
         const trackData = await trackRes.value.json();
         if (trackData?.features) {
           for (const f of trackData.features) {
             if (f.geometry?.type === "MultiLineString") {
-              trackCount++;
+              _trackCount++;
               features.push(f);
             }
           }
@@ -233,7 +233,7 @@ export function startHurricaneAnimation(
     try {
       for (const f of trackFeatures) {
         const times = (f.properties as Record<string, unknown>).times as string[];
-        const winds = (f.properties as Record<string, unknown>).winds as number[];
+        const _winds = (f.properties as Record<string, unknown>).winds as number[];
         const coords = (f.geometry as GeoJSON.MultiLineString).coordinates[0];
 
         // Find how many track points are before currentTime

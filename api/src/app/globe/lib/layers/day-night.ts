@@ -13,7 +13,7 @@
 import type { DataStatus } from "../types";
 
 /** Sun position data */
-interface SunPosition {
+interface _SunPosition {
   declination: number; // Solar declination in radians
   rightAscension: number;
   hourAngle: number;
@@ -38,7 +38,7 @@ function calculateTerminatorPoints(declination: number, numPoints = 360): number
 
   for (let i = 0; i <= numPoints; i++) {
     const longitude = (i / numPoints) * 360 - 180;
-    const lonRad = (longitude * Math.PI) / 180;
+    const _lonRad = (longitude * Math.PI) / 180;
 
     // Latitude where terminator crosses this longitude
     // tan(lat) = -cos(H) / tan(dec) where H is hour angle
@@ -78,7 +78,7 @@ function calculateNightShadowPolygon(declination: number): number[][] {
   const numPoints = 180;
   for (let i = 0; i <= numPoints; i++) {
     const lon = (i / numPoints) * 360 - 180;
-    const lonRad = (lon * Math.PI) / 180;
+    const _lonRad = (lon * Math.PI) / 180;
     const hourAngleRad = ((lon - hourAngle) * Math.PI) / 180;
 
     let lat: number;

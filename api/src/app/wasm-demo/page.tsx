@@ -209,7 +209,7 @@ function renderFlowAcc(canvas: HTMLCanvasElement, acc: Uint32Array, rows: number
   ctx.putImageData(img, 0, 0);
 }
 
-function renderDEM(
+function _renderDEM(
   canvas: HTMLCanvasElement,
   dem: Float32Array,
   rows: number,
@@ -266,7 +266,7 @@ function renderViewshed(canvas: HTMLCanvasElement, vis: Uint8Array, rows: number
 // ─── OZT2 synthetic encoder (for demo — creates a real tile to decode) ───────
 
 /** Encode a 16-bit elevation grid into OZT2 binary format for demo purposes. */
-function encodeOZT2Demo(elevations: Uint16Array, width: number, height: number): Uint8Array {
+function encodeOZT2Demo(elevations: Uint16Array, _width: number, _height: number): Uint8Array {
   // Use a simplified encoding: store raw 16-bit values with zlib compression
   // This matches the OZT2 header format expected by decode_ozt2
   const HEADER = 6;
@@ -318,7 +318,7 @@ export default function WasmDemo() {
   const canvasViewshed = useRef<HTMLCanvasElement>(null);
 
   const [status, setStatus] = useState("Loading WASM...");
-  const [wasm, setWasm] = useState<WasmExports | null>(null);
+  const [_wasm, setWasm] = useState<WasmExports | null>(null);
   const [benchmarks, setBenchmarks] = useState<BenchmarkResult[]>([]);
   const [ozeTileInfo, setOzeTileInfo] = useState<string>("");
 

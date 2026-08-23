@@ -63,7 +63,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
   const textSec = dark ? "#888" : "#737373";
-  const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
+  const _inputBg = dark ? "#1a1a1a" : "#f5f5f5";
 
   /** Add or remove flow path GeoJSON layer on the map */
   const syncLayer = useCallback((features: FlowPathFeature[]) => {
@@ -585,7 +585,7 @@ function ElevationMiniChart({
   imperial?: boolean;
 }) {
   const textSec = dark ? "#888" : "#737373";
-  const text = dark ? "#e5e5e5" : "#171717";
+  const _text = dark ? "#e5e5e5" : "#171717";
   const gridColor = dark ? "#2a2a2a" : "#e5e5e5";
 
   if (paths.length === 0) return null;

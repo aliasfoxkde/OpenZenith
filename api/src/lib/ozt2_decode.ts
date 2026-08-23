@@ -23,7 +23,6 @@
 
 const HEADER_SIZE = 6;
 
-const PRED_NONE = 0;
 const PRED_LEFT = 1;
 const PRED_GRADIENT = 2;
 

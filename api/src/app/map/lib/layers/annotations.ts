@@ -1,4 +1,4 @@
-import type { LayerHandle } from "./types";
+import type { _LayerHandle } from "./types";
 
 /* ─── Annotation layer — user-drawn points, lines, polygons ─── */
 

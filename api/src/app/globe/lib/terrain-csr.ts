@@ -38,7 +38,7 @@ const HEIGHTMAP_STRUCTURE = {
 export function createCSRTerrainProvider(Cesium: CesiumType) {
   // Access Cesium's internal terrain provider infrastructure
   const TDT = Cesium.HeightmapTerrainData;
-  const Resource = Cesium.Resource;
+  const _Resource = Cesium.Resource;
 
   // Build a plain object that CesiumJS treats as a TerrainProvider
   // by assigning the constructor prototype

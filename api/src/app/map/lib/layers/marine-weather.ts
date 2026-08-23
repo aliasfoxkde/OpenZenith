@@ -142,7 +142,7 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
 
       if (data.current) {
         // Batch response format
-        const times = Array.isArray(data.current?.time) ? data.current.time : [data.current?.time];
+        const _times = Array.isArray(data.current?.time) ? data.current.time : [data.current?.time];
         const waveHeights = Array.isArray(data.current?.wave_height)
           ? data.current.wave_height
           : [data.current?.wave_height];

@@ -103,7 +103,7 @@ const ENTITY_PREFIXES: Record<string, string[]> = {
 const ALL_MANAGED_PREFIXES = Object.values(ENTITY_PREFIXES).flat();
 
 /** Set of all managed prefixes — O(1) lookup instead of O(n) array scan */
-const MANAGED_PREFIX_SET = new Set(ALL_MANAGED_PREFIXES);
+const _MANAGED_PREFIX_SET = new Set(ALL_MANAGED_PREFIXES);
 
 /** Pre-built prefix sets per zone for O(1) visibility checks */
 const ZONE_PREFIX_SETS: Record<string, Set<string>> = {};

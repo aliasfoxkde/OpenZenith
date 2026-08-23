@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, _beforeEach } from "vitest";
 
 const mockNlnogNodes = [
   { id: 1, hostname: "ams01", asn: 123, ipv4: "1.2.3.4", city: "Amsterdam", countrycode: "NL", geo: "52.37,4.9" },

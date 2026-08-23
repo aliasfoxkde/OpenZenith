@@ -215,7 +215,7 @@ export async function traceDownstream(
   droneAltM?: number,
   options: FlowPathOptions = {},
 ): Promise<FlowPathResult> {
-  const { precision = 0.001, directions = 16, maxPoints = 2000, stopAtSeaLevel = true } = options;
+  const _opts = options;
   return traceFlowPath(lat, lon, droneAltM, "downstream", options);
 }
 
@@ -236,7 +236,7 @@ export async function traceUpstream(
   droneAltM?: number,
   options: FlowPathOptions = {},
 ): Promise<FlowPathResult> {
-  const { precision = 0.001, directions = 16, maxPoints = 2000 } = options;
+  const _opts = options;
   return traceFlowPath(lat, lon, droneAltM, "upstream", options);
 }
 

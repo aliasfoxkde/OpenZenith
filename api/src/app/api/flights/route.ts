@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cachedFetch, staleWhileRevalidate, CACHE_TTL } from "@/lib/cache";
+import { _cachedFetch, staleWhileRevalidate, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";

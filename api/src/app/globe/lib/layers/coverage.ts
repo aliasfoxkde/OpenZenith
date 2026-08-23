@@ -15,7 +15,7 @@
  * Tile endpoint: /api/elevation-accuracy/{z}/{x}/{y}
  */
 
-const LAYER_ID = "elevation-coverage";
+const _LAYER_ID = "elevation-coverage";
 const TILE_URL = "/api/elevation-accuracy/{z}/{x}/{y}";
 
 let coverageProvider: any = null;

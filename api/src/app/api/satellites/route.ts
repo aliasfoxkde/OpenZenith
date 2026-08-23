@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cachedFetch, staleWhileRevalidate } from "@/lib/cache";
+import { _cachedFetch, staleWhileRevalidate } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 

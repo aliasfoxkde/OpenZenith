@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const cellSizeDeg = 180 / (2 ** z * 256);
-    const cellSizeM = cellSizeDeg * 111320;
+    const _cellSizeM = cellSizeDeg * 111320;
 
     // Load initial grid centered on starting point
     const { x: cx, y: cy } = latLonToTile(lat, lon, z);

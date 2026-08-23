@@ -676,6 +676,9 @@ export default function Home() {
               </div>
               {searchOpen && (searchResults.length > 0 || searchError || searchQuery.trim()) && (
                 <div
+                  role="region"
+                  aria-live="polite"
+                  aria-label="Address search results"
                   style={{
                     position: "absolute",
                     top: "100%",
@@ -832,7 +835,13 @@ export default function Home() {
             )}
 
             {/* Combined Result + Code Snippets panel */}
-            <div id="snippets-panel" className="oz-snippets">
+            <div
+              id="snippets-panel"
+              className="oz-snippets"
+              aria-live="polite"
+              aria-label="Elevation result"
+              aria-busy={loading}
+            >
               <div className="oz-snippet-bar">
                 <div className="oz-snippet-tabs">
                   {result && (

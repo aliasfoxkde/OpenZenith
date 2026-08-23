@@ -138,19 +138,33 @@ export const LayerToggle = memo(function LayerToggle({ label, checked, onChange,
         gap: 8,
         cursor: "pointer",
         padding: "0.2rem 0",
+        position: "relative",
       }}
     >
-      <span
-        role="checkbox"
-        aria-checked={checked}
+      {/*
+        Native checkbox is visually hidden but accessible to screen readers.
+        Uses the CSS clip technique (not display:none) so assistive tech can reach it.
+      */}
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
         aria-label={`${label} layer`}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === " " || e.key === "Enter") {
-            e.preventDefault();
-            onChange(!checked);
-          }
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0,0,0,0)",
+          whiteSpace: "nowrap",
+          border: 0,
         }}
+      />
+      {/* Visual indicator — styled span synced with native checkbox state */}
+      <span
+        aria-hidden="true"
         style={{
           width: 10,
           height: 10,
@@ -159,6 +173,7 @@ export const LayerToggle = memo(function LayerToggle({ label, checked, onChange,
           border: `1px solid ${checked ? color : T.textMuted}`,
           boxShadow: checked ? `0 0 6px ${color}` : "none",
           flexShrink: 0,
+          pointerEvents: "none",
         }}
       />
       <span
@@ -171,13 +186,6 @@ export const LayerToggle = memo(function LayerToggle({ label, checked, onChange,
       >
         {label}
       </span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ display: "none" }}
-        aria-hidden="true"
-      />
     </label>
   );
 });

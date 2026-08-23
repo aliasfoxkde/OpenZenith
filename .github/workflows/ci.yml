@@ -19,12 +19,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: pip install -e .[all,dev]
 
       - name: Pip audit
-        run: pip audit || true
+        run: pip audit || false
 
       - name: Ruff check
         run: ruff check openzenith/
@@ -37,20 +39,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: pip install -e .[all,dev]
 
       - name: Pytest with coverage
-        run: python3 -m pytest openzenith/tests/ --cov=openzenith --cov-report=term-missing
+        run: python3 -m pytest openzenith/tests/ --cov=openzenith --cov-fail-under=70 --cov-report=term-missing
 
   rust-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Rust target
+        uses: actions/cache@v4
+        with:
+          path: core/target
+          key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}
+          restore-keys: rust-${{ runner.os }}-
+
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.80
         with:
           components: [clippy]
 
@@ -83,7 +94,7 @@ jobs:
 
       - name: Audit
         working-directory: api
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high || false
 
   api-typecheck:
     runs-on: ubuntu-latest

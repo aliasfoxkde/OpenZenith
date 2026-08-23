@@ -5,6 +5,8 @@ import pytest
 
 from openzenith.geo_utils import (
     classify_terrain,
+    compute_rmse,
+    compute_slope,
     elevation_to_latlon,
     latlon_to_elevation_index,
     srtm_filename_to_bounds,
@@ -94,3 +96,57 @@ class TestClassifyTerrain:
     def test_nodata(self):
         data = np.full((2, 2), -32768, dtype=np.int16)
         assert classify_terrain(data) == "nodata"
+
+
+class TestComputeSlope:
+    """Tests for compute_slope function."""
+
+    def test_flat_terrain(self):
+        """Flat terrain should have zero slope."""
+        grid = np.zeros((10, 10), dtype=np.float64)
+        slope = compute_slope(grid, pixel_size_m=30.0)
+        assert np.all(slope >= 0)
+        assert np.all(slope <= 90)
+
+    def test_sloped_terrain(self):
+        """Known slope gradient produces non-zero slope."""
+        # Create a 10x10 grid with constant 1m/m gradient in row direction
+        grid = np.zeros((10, 10), dtype=np.float64)
+        for r in range(10):
+            grid[r, :] = r * 1.0  # 1m rise over 1 cell
+        slope = compute_slope(grid, pixel_size_m=30.0)
+        assert np.mean(slope) > 0
+
+    def test_nodata_mask(self):
+        """Nodata values are excluded from slope computation."""
+        grid = np.full((10, 10), -32768.0, dtype=np.float64)
+        # Set a valid patch
+        grid[2:8, 2:8] = 100.0
+        slope = compute_slope(grid, pixel_size_m=30.0)
+        assert np.all(slope >= 0)
+
+
+class TestComputeRMSE:
+    """Tests for compute_rmse function."""
+
+    def test_identical_grids(self):
+        """Identical grids have zero RMSE."""
+        grid = np.array([[100, 200], [300, 400]], dtype=np.float64)
+        rmse = compute_rmse(grid, grid)
+        assert rmse["rmse"] == 0.0
+
+    def test_small_error(self):
+        """Small difference produces small RMSE."""
+        original = np.array([[100.0, 200.0], [300.0, 400.0]])
+        reconstructed = np.array([[101.0, 202.0], [299.0, 401.0]])
+        rmse = compute_rmse(original, reconstructed)
+        assert rmse["rmse"] > 0
+        assert rmse["rmse"] < 5.0
+
+    def test_nodata_excluded(self):
+        """Nodata values are excluded from RMSE computation."""
+        original = np.array([[100.0, -32768.0], [-32768.0, 400.0]])
+        reconstructed = np.array([[100.0, 200.0], [300.0, 400.0]])
+        rmse = compute_rmse(original, reconstructed)
+        # Only the matching 100.0 pixel counts
+        assert rmse["rmse"] == 0.0

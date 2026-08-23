@@ -22,6 +22,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import sys
 import tempfile
@@ -246,26 +247,62 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
         z_path_in_repo = f"{path_in_repo}/{zdir.name}"
 
         if skip_existing:
-            import time as _time
-            x_dirs = [xd for xd in sorted(zdir.iterdir()) if xd.is_dir()]
-            print(f"\nUploading z{z}/ incrementally ({tile_count:,} tiles across {len(x_dirs)} x-dirs, skip_existing)...")
+            import time as _time, urllib.request
+
+            # Pre-fetch HF state: get all x-dir tile counts via HF web API
+            # This is fast (one request) and avoids per-x-dir API calls
+            print(f"\nChecking HF state for z{z}...")
+            hf_counts: dict[str, int] = {}
+            try:
+                hf_req = urllib.request.Request(
+                    f"https://huggingface.co/api/datasets/{repo_id}/tree/main/tiles/z{z}",
+                    headers={"User-Agent": "openzenith/1.0"},
+                )
+                with urllib.request.urlopen(hf_req, timeout=30) as r:
+                    hf_data = json.loads(r.read())
+                for entry in hf_data:
+                    if entry.get("type") == "directory":
+                        xd_name = entry["path"].split("/")[-1]
+                        hf_counts[xd_name] = -1  # -1 = x-dir exists, count unknown
+            except Exception as e:
+                print(f"  Warning: could not fetch HF state: {e}")
+
+            # Get local x-dirs and filter to only incomplete ones
+            x_dirs = sorted([xd for xd in zdir.iterdir() if xd.is_dir()])
+            incomplete_dirs = []
+            for xd in x_dirs:
+                local_count = sum(1 for _ in xd.glob("*.ozt2"))
+                if local_count == 0:
+                    continue
+                hf_count = hf_counts.get(xd.name, 0)
+                if hf_count < local_count:
+                    incomplete_dirs.append((xd, local_count, hf_count))
+
+            if not incomplete_dirs:
+                print(f"  z{z}: all {tile_count:,} tiles already uploaded ({len(x_dirs)} x-dirs)")
+                uploaded_z.append(z)
+                continue
+
+            print(f"  z{z}: {len(incomplete_dirs)}/{len(x_dirs)} x-dirs need upload")
+            for xd, local_c, hf_c in incomplete_dirs[:5]:
+                print(f"    {xd.name}: HF has {max(0, hf_c)}, local has {local_c} (need {local_c - max(0, hf_c)})")
+            if len(incomplete_dirs) > 5:
+                print(f"    ... and {len(incomplete_dirs) - 5} more")
+
             z_ok = 0
             z_errors = 0
-            for xd in x_dirs:
-                x_tile_count = sum(1 for _ in xd.glob("*.ozt2"))
-                if x_tile_count == 0:
-                    continue
+            for xd, local_count, hf_count in incomplete_dirs:
                 xd_path_in_repo = f"{path_in_repo}/z{z}/{xd.name}"
                 ok = _upload_x_dir_with_retry(
                     api, repo_id, xd, xd_path_in_repo, z
                 )
                 if ok:
-                    z_ok += x_tile_count
+                    z_ok += local_count
                 else:
                     z_errors += 1
             if z_errors == 0:
                 uploaded_z.append(z)
-                print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(x_dirs)} x-dirs)")
+                print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(incomplete_dirs)} x-dirs)")
             else:
                 print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs failed")
         else:

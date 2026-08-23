@@ -3,22 +3,20 @@
 Upload OZT2 tiles to HuggingFace.
 
 Uploads local .ozt2 tiles to a HuggingFace dataset repository using
-the HfApi.upload_folder method. Supports incremental/resumable uploads.
+HfApi.create_commit with CommitOperationAdd for delta (missing-file-only)
+uploads. Supports incremental/resumable uploads.
 
 Usage:
-    # Upload all tiles from local directory (creates aliasfox/srtm30m-ozt2-v2 dataset)
+    # Upload all tiles from local directory
     python scripts/upload_ozt2_to_hf.py \
-        --input /home/mkinney/temp/ozt2_tiles \
+        --input /path/to/ozt2_tiles \
         --repo_id aliasfox/srtm30m-ozt2-v2
 
     # Dry run (show what would be uploaded)
     python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --dry_run
 
     # Specific zoom levels only
-    python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --zoom 7-10
-
-    # Resume after previous upload (skip existing)
-    python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --skip_existing
+    python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --zoom 10
 """
 
 import argparse
@@ -26,13 +24,11 @@ import json
 import os
 import sys
 import tempfile
+import time as _time
+import urllib.request
 from pathlib import Path
 
-import numpy as np
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from openzenith.tile_format_v2 import decode
 
 
 def count_local_tiles(tile_dir: Path, zoom_range: tuple[int, int] | None = None) -> dict[int, int]:
@@ -69,43 +65,110 @@ def get_zoom_subdirs(tile_dir: Path, zoom_range: tuple[int, int] | None = None) 
     return subdirs
 
 
-def _upload_x_dir_with_retry(api, repo_id, xd, xd_path_in_repo, z):
-    """Upload one x-dir using HfApi.create_commit with CommitOperationAdd."""
-    import time as _time
+def hf_list_x_dirs(repo_id: str, z: int) -> dict[str, int]:
+    """List x-dirs on HF for a zoom level via non-recursive tree listing.
 
-    tiles = sorted(xd.glob("*.ozt2"))
-    if not tiles:
+    HF's API returns a maximum of 1000 entries regardless of pagination
+    parameters. Stop as soon as we get a full page (1000 entries) since
+    that means we've hit the cap — continuing would only return duplicates.
+    """
+    xd_counts: dict[str, int] = {}
+    offset = 0
+    limit = 500
+    HF_MAX = 1000
+
+    while True:
+        url = (
+            f"https://huggingface.co/api/datasets/{repo_id}/tree/main/tiles/z{z}"
+            f"?paginationOffset={offset}&paginationLimit={limit}"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "openzenith/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read())
+        except Exception as e:
+            print(f"    Warning: HF API error listing z{z} at offset {offset}: {e}")
+            break
+
+        if not isinstance(data, list):
+            break
+
+        for entry in data:
+            if isinstance(entry, dict) and entry.get("type") == "directory":
+                path = entry.get("path", "")
+                parts = path.split("/")
+                if len(parts) >= 3:
+                    xd_name = parts[2]
+                    xd_counts[xd_name] = -1
+
+        if len(data) < limit or offset + len(data) >= HF_MAX:
+            break
+        offset += limit
+
+    return xd_counts
+
+
+def hf_get_x_dir_files(repo_id: str, z: int, xd_name: str) -> set[str]:
+    """Get set of y-index filenames present in an x-dir on HF."""
+    url = f"https://huggingface.co/api/datasets/{repo_id}/tree/main/tiles/z{z}/{xd_name}?recursive=true"
+    req = urllib.request.Request(url, headers={"User-Agent": "openzenith/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.loads(r.read())
+    except Exception:
+        return set()
+
+    files = set()
+    if isinstance(data, list):
+        for entry in data:
+            if isinstance(entry, dict) and entry.get("type") == "file":
+                fname = entry.get("path", "").split("/")[-1]
+                if fname.endswith(".ozt2"):
+                    files.add(fname)
+    return files
+
+
+def _upload_delta(api, repo_id: str, xd_path_in_repo: str, z: int, xd_name: str,
+                  missing_tiles: list[Path]) -> bool:
+    """Upload only missing tiles using create_commit in small batches."""
+    if not missing_tiles:
         return True
 
-    total = len(tiles)
-    # Build commit operations
     from huggingface_hub import CommitOperationAdd
-    operations = [
-        CommitOperationAdd(path_in_repo=f"{xd_path_in_repo}/{t.name}", path_or_fileobj=str(t))
-        for t in tiles
-    ]
 
-    for attempt in range(4):
-        try:
-            api.create_commit(
-                repo_id=repo_id,
-                repo_type="dataset",
-                operations=operations,
-                commit_message=f"Upload z{z}/{xd.name} ({total} tiles)",
-            )
-            print(f"  z{z}/{xd.name}: {total} tiles")
-            return True
-        except Exception as e:
-            err_str = str(e)
-            if "no files have been modified" in err_str.lower() or "already up to date" in err_str.lower():
-                print(f"  z{z}/{xd.name}: already up to date ({total} tiles)")
-                return True
-            if attempt < 3:
-                _time.sleep(2 ** attempt)
-            else:
-                print(f"  ERROR z{z}/{xd.name}: {e}")
-                return False
+    BATCH = 20
+    for i in range(0, len(missing_tiles), BATCH):
+        batch = missing_tiles[i:i + BATCH]
+        operations = [
+            CommitOperationAdd(path_in_repo=f"{xd_path_in_repo}/{t.name}", path_or_fileobj=str(t))
+            for t in batch
+        ]
+        for attempt in range(4):
+            try:
+                api.create_commit(
+                    repo_id=repo_id,
+                    repo_type="dataset",
+                    operations=operations,
+                    commit_message=f"Upload z{z}/{xd_name} delta {i+1}-{i+len(batch)}",
+                )
+                print(f"  z{z}/{xd_name}: uploaded {len(batch)} tiles ({i+1}-{i+len(batch)})")
+                break
+            except Exception as e:
+                err = str(e).lower()
+                if "no files have been modified" in err or "already up to date" in err:
+                    print(f"  z{z}/{xd_name}: HF already has these files")
+                    return True
+                if attempt < 3:
+                    _time.sleep(2 ** attempt)
+                else:
+                    print(f"  ERROR z{z}/{xd_name} batch {i//BATCH+1}: {e}")
+                    return False
     return True
+
+
+def _valid_tile_name(name: str) -> bool:
+    """Check if a filename is a valid numeric y-index tile name."""
+    return name.endswith(".ozt2") and name.split(".")[0].lstrip("-").isdigit()
 
 
 def upload_tiles(
@@ -118,7 +181,7 @@ def upload_tiles(
     skip_existing: bool = True,
     commit_message: str | None = None,
 ):
-    """Upload OZT2 tiles to HuggingFace dataset via upload_folder."""
+    """Upload OZT2 tiles to HuggingFace with delta detection."""
     try:
         from huggingface_hub import HfApi
     except ImportError:
@@ -126,7 +189,6 @@ def upload_tiles(
 
     api = HfApi(token=token)
 
-    # Count local tiles
     local_counts = count_local_tiles(tile_dir, zoom_range)
     total_local = sum(local_counts.values())
     print(f"Repository: https://huggingface.co/datasets/{repo_id}")
@@ -136,7 +198,6 @@ def upload_tiles(
         print("No tiles found to upload.")
         return
 
-    # Get total size
     total_size = sum(
         f.stat().st_size
         for zdir in get_zoom_subdirs(tile_dir, zoom_range)
@@ -156,87 +217,30 @@ def upload_tiles(
     print(f"\nUploading tiles to https://huggingface.co/datasets/{repo_id}")
     print("-" * 60)
 
-    # Create repo if it doesn't exist
+    # Use web API to check repo existence (HfApi.repo_info hangs with some token configs)
     try:
-        api.repo_info(repo_id, repo_type="dataset")
-        print(f"Repository already exists")
+        ctx = __import__("ssl").create_default_context()
+        req = urllib.request.Request(
+            f"https://huggingface.co/api/datasets/{repo_id}",
+            headers={"User-Agent": "openzenith/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
+            _ = r.read()
+        print("Repository already exists")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            print(f"Creating repository: {repo_id}")
+            api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
+        else:
+            raise
     except Exception:
-        print(f"Creating repository: {repo_id}")
-        api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
+        print(f"Creating repository (web check failed): {repo_id}")
+        try:
+            api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
+        except Exception as e2:
+            if "already exists" not in str(e2).lower():
+                raise
 
-    # Create and upload metadata files
-    metadata_dir = Path(tempfile.gettempdir()) / "ozt2_hf_metadata"
-    metadata_dir.mkdir(parents=True, exist_ok=True)
-
-    readme = metadata_dir / "README.md"
-    readme.write_text(f"""---
-annotations_creators:
-- no-annotation
-language:
-- en
-license: []
-multilinguality:
-- monolingual
-pretty_name: SRTM30M OZT2 Elevation Tiles
-size_categories:
-- n<1K
-source_datasets: []
-task_categories:
-- image-generation
-task_ids: []
----
-
-# SRTM 30m OZT2 Elevation Tiles
-
-This dataset contains SRTM 30-meter resolution elevation data encoded in the OZT2 tile format.
-
-## Format
-
-**OZT2** is a high-performance elevation tile format:
-- **Compression**: ~93% smaller than Terrarium PNG
-- **Prediction**: Gradient-based prediction (left neighbor + vertical gradient)
-- **Quantization**: Adaptive bit-depth (8/10/12/16-bit per channel)
-- **Codec**: Zstd q3 (30× faster encode than Brotli, same decode speed)
-
-Each tile is 256×256 pixels in Web Mercator projection (EPSG:3857).
-
-## Usage
-
-```python
-from huggingface_hub import HfFileSystem
-from openzenith import decode_v2
-
-fs = HfFileSystem(repo_id="{repo_id}")
-with fs.open("tiles/z10/163/395.ozt2", "rb") as f:
-    data = f.read()
-elevation, meta = decode_v2(data)
-```
-
-## Source
-
-Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [aliasfox/srtm30m-merged](https://huggingface.co/datasets/aliasfox/srtm30m-merged)
-""")
-
-    dataset_info = metadata_dir / "dataset_info.json"
-    dataset_info.write_text(f'''{{
-  "description": "SRTM 30m elevation tiles in OZT2 format (~93% smaller than Terrarium PNG)",
-  "format": "OZT2",
-  "tile_size": 256,
-  "projection": "Web Mercator (EPSG:3857)",
-  "compression": "Zstd + gradient prediction + adaptive quantization",
-  "compression_ratio": "~93% smaller than Terrarium PNG",
-  "zoom_levels": {list(local_counts.keys())},
-  "tile_count": {total_local},
-  "source": "SRTM 30m",
-  "homepage": "https://openzenith.cyopsys.com"
-}}
-''')
-
-    print(f"\nSkipping metadata upload (network issues)...")
-
-    # Upload each zoom level as a SINGLE COMMIT via upload_folder.
-    # This avoids the 128 commits/hr rate limit — each z-dir = 1 commit.
-    # Use upload_large_folder only for incremental updates (skip_existing).
     uploaded_z = []
     for zdir in get_zoom_subdirs(tile_dir, zoom_range):
         z = int(zdir.name[1:])
@@ -247,84 +251,93 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
         z_path_in_repo = f"{path_in_repo}/{zdir.name}"
 
         if skip_existing:
-            import time as _time, urllib.request
-
-            # Pre-fetch HF state: get all x-dir tile counts via HF web API
-            # This is fast (one request) and avoids per-x-dir API calls
+            # Step 1: get HF x-dir list (non-recursive, fast)
             print(f"\nChecking HF state for z{z}...")
-            hf_counts: dict[str, int] = {}
-            try:
-                hf_req = urllib.request.Request(
-                    f"https://huggingface.co/api/datasets/{repo_id}/tree/main/tiles/z{z}",
-                    headers={"User-Agent": "openzenith/1.0"},
-                )
-                with urllib.request.urlopen(hf_req, timeout=30) as r:
-                    hf_data = json.loads(r.read())
-                for entry in hf_data:
-                    if entry.get("type") == "directory":
-                        xd_name = entry["path"].split("/")[-1]
-                        hf_counts[xd_name] = -1  # -1 = x-dir exists, count unknown
-            except Exception as e:
-                print(f"  Warning: could not fetch HF state: {e}")
+            hf_xd_counts = hf_list_x_dirs(repo_id, z)
+            print(f"  HF has {len(hf_xd_counts)} x-dirs in paginated listing")
 
-            # Get local x-dirs and filter to only incomplete ones
+            # Step 2: categorize local x-dirs
             x_dirs = sorted([xd for xd in zdir.iterdir() if xd.is_dir()])
-            incomplete_dirs = []
+            need_check = []      # in HF paginated list
+            need_full_upload = []  # confirmed not in HF
+
             for xd in x_dirs:
-                local_count = sum(1 for _ in xd.glob("*.ozt2"))
-                if local_count == 0:
+                local_tiles = sorted(xd.glob("*.ozt2"))
+                if not local_tiles:
                     continue
-                hf_count = hf_counts.get(xd.name, 0)
-                if hf_count < local_count:
-                    incomplete_dirs.append((xd, local_count, hf_count))
+                if xd.name not in hf_xd_counts:
+                    need_full_upload.append((xd, local_tiles))
+                else:
+                    need_check.append((xd, local_tiles))
 
-            if not incomplete_dirs:
-                print(f"  z{z}: all {tile_count:,} tiles already uploaded ({len(x_dirs)} x-dirs)")
-                uploaded_z.append(z)
-                continue
-
-            print(f"  z{z}: {len(incomplete_dirs)}/{len(x_dirs)} x-dirs need upload")
-            for xd, local_c, hf_c in incomplete_dirs[:5]:
-                print(f"    {xd.name}: HF has {max(0, hf_c)}, local has {local_c} (need {local_c - max(0, hf_c)})")
-            if len(incomplete_dirs) > 5:
-                print(f"    ... and {len(incomplete_dirs) - 5} more")
-
+            # Step 3: verify completeness for x-dirs in paginated list
             z_ok = 0
             z_errors = 0
-            for xd, local_count, hf_count in incomplete_dirs:
+            print(f"  z{z}: verifying {len(need_check)} x-dirs, {len(need_full_upload)} need direct check")
+            for xd, local_tiles in need_check:
                 xd_path_in_repo = f"{path_in_repo}/z{z}/{xd.name}"
-                ok = _upload_x_dir_with_retry(
-                    api, repo_id, xd, xd_path_in_repo, z
-                )
+                hf_files = hf_get_x_dir_files(repo_id, z, xd.name)
+                local_names = set(t.name for t in local_tiles if _valid_tile_name(t.name))
+                missing_names = local_names - hf_files
+
+                if not missing_names:
+                    print(f"  z{z}/{xd.name}: fully synced ({len(local_names)} tiles)")
+                    z_ok += len(local_names)
+                    _time.sleep(0.3)
+                    continue
+
+                local_map = {t.name: t for t in local_tiles}
+                missing_tiles = [local_map[n] for n in sorted(missing_names)]
+                print(f"  z{z}/{xd.name}: {len(missing_names)} missing of {len(local_names)}")
+                ok = _upload_delta(api, repo_id, xd_path_in_repo, z, xd.name, missing_tiles)
                 if ok:
-                    z_ok += local_count
+                    z_ok += len(missing_tiles)
                 else:
                     z_errors += 1
+                _time.sleep(0.5)
+
+            # Step 4: x-dirs not in paginated list — check existence directly
+            # HF caps tree listings at 1000 entries; x-dirs beyond that cap may not appear
+            for xd, local_tiles in need_full_upload:
+                hf_files = hf_get_x_dir_files(repo_id, z, xd.name)
+                if hf_files:
+                    # Exists on HF but wasn't in paginated listing
+                    local_names = set(t.name for t in local_tiles if _valid_tile_name(t.name))
+                    missing_names = local_names - hf_files
+                    if not missing_names:
+                        print(f"  z{z}/{xd.name}: fully synced (direct check, {len(local_names)} tiles)")
+                        _time.sleep(0.3)
+                        continue
+                    local_map = {t.name: t for t in local_tiles}
+                    missing_tiles = [local_map[n] for n in sorted(missing_names)]
+                    print(f"  z{z}/{xd.name}: {len(missing_names)} missing — delta upload")
+                    ok = _upload_delta(api, repo_id, f"{path_in_repo}/z{z}/{xd.name}", z, xd.name, missing_tiles)
+                    _time.sleep(0.5)
+                else:
+                    # Truly new x-dir — full upload
+                    print(f"  z{z}/{xd.name}: full upload ({len(local_tiles)} tiles)")
+                    ok = _upload_delta(api, repo_id, f"{path_in_repo}/z{z}/{xd.name}", z, xd.name, local_tiles)
+                    _time.sleep(0.5)
+
             if z_errors == 0:
                 uploaded_z.append(z)
-                print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(incomplete_dirs)} x-dirs)")
+                print(f"  z{z}: done, {z_ok} tiles uploaded/verified")
             else:
-                print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs failed")
+                print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs had errors")
         else:
-            # Full upload: chunk x-dirs into batches and upload each batch
-            # as a single commit using upload_folder (NOT upload_large_folder —
-            # upload_large_folder silently fails to commit).
-            # Each batch = 1 commit. Stay within 128 commits/hr limit.
-            # Use copies (not symlinks) to avoid any symlink issues.
-            import time, shutil
+            # Full upload: batch x-dirs, use upload_folder
+            import shutil
             x_dirs = sorted([xd for xd in zdir.iterdir() if xd.is_dir()])
-            BATCH_SIZE = 5  # x-dirs per commit (small to avoid network timeouts)
-            batches = [x_dirs[i:i+BATCH_SIZE] for i in range(0, len(x_dirs), BATCH_SIZE)]
+            BATCH_SIZE = 5
+            batches = [x_dirs[i:i + BATCH_SIZE] for i in range(0, len(x_dirs), BATCH_SIZE)]
             print(f"\nUploading z{z}/ in {len(batches)} batch(es) of ~{BATCH_SIZE} x-dirs ({tile_count:,} tiles)...")
             z_ok = 0
             z_errors = 0
             for bid, batch in enumerate(batches):
-                t0 = time.time()
-                # Create temp dir with COPIES of the x-dirs (not symlinks)
+                t0 = _time.time()
                 batch_dir = Path(tempfile.mkdtemp(prefix="ozt2_batch_"))
                 for xd in batch:
                     dst = batch_dir / xd.name
-                    # Copy the entire x-dir recursively (preserving file contents)
                     shutil.copytree(xd, dst, copy_function=shutil.copy2)
                 try:
                     api.upload_folder(
@@ -332,15 +345,15 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
                         folder_path=str(batch_dir),
                         path_in_repo=z_path_in_repo,
                         repo_type="dataset",
-                        commit_message=f"Upload z{z} OZT2 tiles batch {bid+1}/{len(batches)} ({len(batch)} x-dirs)",
+                        commit_message=f"Upload z{z} OZT2 tiles batch {bid + 1}/{len(batches)} ({len(batch)} x-dirs)",
                     )
                     batch_tiles = sum(1 for xd in batch for _ in xd.glob("*.ozt2"))
                     z_ok += batch_tiles
-                    elapsed = time.time() - t0
-                    print(f"  batch {bid+1}/{len(batches)}: {batch_tiles} tiles in {elapsed:.0f}s ({batch[0].name}–{batch[-1].name})")
+                    elapsed = _time.time() - t0
+                    print(f"  batch {bid + 1}/{len(batches)}: {batch_tiles} tiles in {elapsed:.0f}s ({batch[0].name}–{batch[-1].name})")
                 except Exception as e:
                     z_errors += len(batch)
-                    print(f"  ERROR batch {bid+1}/{len(batches)}: {e}")
+                    print(f"  ERROR batch {bid + 1}/{len(batches)}: {e}")
                 finally:
                     shutil.rmtree(batch_dir)
             if z_errors == 0:
@@ -349,25 +362,10 @@ Source: [SRTM 30m](https://cgiarcsi.community/data/srtm-30m-elevation) via [alia
             else:
                 print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs failed")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Upload complete!")
     print(f"Zoom levels uploaded: {uploaded_z}")
     print(f"Repository: https://huggingface.co/datasets/{repo_id}")
-
-    # Print dataset metadata
-    metadata = {
-        "repo_id": repo_id,
-        "format": "OZT2 (gradient prediction + adaptive quantization + Zstd)",
-        "tile_count": sum(local_counts.values()),
-        "zoom_levels": uploaded_z,
-        "description": (
-            "SRTM 30m elevation tiles in OZT2 format (~93% smaller than Terrarium PNG). "
-            "Each tile is 256x256 pixels, Web Mercator projection (EPSG:3857)."
-        ),
-    }
-    print(f"\nSuggested dataset.json metadata:")
-    import json
-    print(json.dumps(metadata, indent=2))
 
 
 if __name__ == "__main__":
@@ -397,7 +395,6 @@ if __name__ == "__main__":
         print(f"Error: {tile_dir} does not exist")
         sys.exit(1)
 
-    # Parse zoom range
     zoom_range = None
     if args.zoom:
         if "," in args.zoom:
@@ -410,7 +407,6 @@ if __name__ == "__main__":
             z = int(args.zoom)
             zoom_range = (z, z)
 
-    # Token from env
     token = args.token or os.environ.get("HF_TOKEN")
 
     upload_tiles(

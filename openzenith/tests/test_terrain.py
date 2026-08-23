@@ -52,11 +52,11 @@ from openzenith.terrain import (
     slope_fast,
     specific_catchment_area,
     tangent_curvature,
-    tpi,
     total_curvature,
+    tpi,
     tri,
-    visibility_index,
     viewshed,
+    visibility_index,
 )
 
 
@@ -835,14 +835,14 @@ class TestAspectSlope:
     def test_returns_two_arrays(self):
         """Returns tuple of (aspect, slope)."""
         dem = make_slope_dem(20, 20)
-        asp, slp = aspect_slope(dem)
+        asp, _slp = aspect_slope(dem)
         assert asp.shape == dem.shape
-        assert slp.shape == dem.shape
+        assert _slp.shape == dem.shape
 
     def test_flat_nan_aspect(self):
         """Flat area gives NaN aspect."""
         dem = np.ones((10, 10), dtype=np.float32) * 100.0
-        asp, slp = aspect_slope(dem)
+        asp, _slp = aspect_slope(dem)
         assert np.isnan(asp[5, 5])
 
 

@@ -135,14 +135,14 @@ class TestAutoSelectBits:
         """Explicit 8-bit should quantize even small ranges."""
         data = np.array([[100, 200], [300, 400]], dtype=np.int16)
         encoded = encode(data, bits_per_pixel=8)
-        decoded, meta = decode(encoded)
+        _decoded, meta = decode(encoded)
         assert meta["bits_per_pixel"] == 8
 
     def test_all_nodata_tile(self):
         """All-NODATA tile should not crash."""
         data = np.full((8, 8), -32768, dtype=np.int16)
         encoded = encode(data)
-        decoded, meta = decode(encoded)
+        decoded, _meta = decode(encoded)
         assert decoded.shape == data.shape
 
 
@@ -186,5 +186,5 @@ class TestEdgeCases:
         """Large elevation range uses 16-bit."""
         data = np.array([[-5000, 8000], [0, 0]], dtype=np.int16)
         encoded = encode(data, bits_per_pixel=16)
-        decoded, meta = decode(encoded)
+        _decoded, meta = decode(encoded)
         assert meta["bits_per_pixel"] == 16

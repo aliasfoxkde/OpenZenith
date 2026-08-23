@@ -7,14 +7,13 @@ from openzenith.hydrology import (
     basin_id,
     breach_bridges,
     breach_depressions,
-    breach_least_cost_path,
     cost_distance,
     cross_section,
     cross_section_area,
     d8_flow_direction,
     delineate_watershed,
-    depth_to_water,
     depression_depth_stats,
+    depth_to_water,
     downslope_distance_to_outlet,
     downslope_flowpath_length,
     elevation_above_stream,
@@ -23,10 +22,10 @@ from openzenith.hydrology import (
     fill_depressions,
     flood_inundation,
     flow_accumulation,
-    inundation_depth,
     flow_accumulation_fast,
     flow_accumulation_max,
     gage_watershed,
+    inundation_depth,
     ls_factor,
     max_upslope_flow_length,
     slope_area_ratio,
@@ -370,7 +369,7 @@ class TestBreachDepressions:
         assert result[0, 0] == 100.0
 
 
-class TestFlowAccumulation:
+class TestFlowAccumulationIterative:
     """Tests for flow_accumulation (iterative, not fast)."""
 
     def test_iterative_matches_fast(self):

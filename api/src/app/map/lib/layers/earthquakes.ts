@@ -61,6 +61,7 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("earthquakes")) {
           map.addSource("earthquakes", { type: "geojson", data: geojson });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("earthquakes") as any).setData(geojson);
         }
 
@@ -134,6 +135,7 @@ export function refreshEarthquakeFilter(map: maplibregl.Map): void {
   const filtered = filterByTime(allFeatures);
   const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: filtered };
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
     (map.getSource("earthquakes") as any).setData(geojson);
   } catch {}
 }

@@ -24,6 +24,7 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("burnScars")) {
           map.addSource("burnScars", { type: "geojson", data: geojson });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("burnScars") as any).setData(geojson);
         }
 

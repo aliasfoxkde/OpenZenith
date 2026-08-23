@@ -285,6 +285,7 @@ export default function Home() {
     const map = heroMapInstance.current;
     if (!map) return;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getSource
       const source = map.getSource("osm") as any;
       if (source && source.setTiles) {
         const url = dark

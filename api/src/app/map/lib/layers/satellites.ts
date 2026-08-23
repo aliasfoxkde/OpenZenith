@@ -155,6 +155,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("satellites")) {
           map.addSource("satellites", { type: "geojson", data: { type: "FeatureCollection", features } });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("satellites") as any).setData({ type: "FeatureCollection", features });
         }
         setStatus(handle, "satellites", "loaded", features.length);

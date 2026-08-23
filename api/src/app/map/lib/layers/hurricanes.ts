@@ -52,6 +52,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
         if (!map.getSource("hurricanes")) {
           map.addSource("hurricanes", { type: "geojson", data: geojson });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("hurricanes") as any).setData(geojson);
         }
 
@@ -251,6 +252,7 @@ export function startHurricaneAnimation(
           (f.geometry as GeoJSON.MultiLineString).coordinates = [coords];
         }
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property access
       (source as any).setData({ type: "FeatureCollection", features: source._data?.features || [] });
     } catch {}
   };
@@ -270,6 +272,7 @@ export function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle)
       .then((data) => {
         if (data?.features) {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
             (map.getSource("hurricanes") as any).setData(data);
           } catch {}
         }

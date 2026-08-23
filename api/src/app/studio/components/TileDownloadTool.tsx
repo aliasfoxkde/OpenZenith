@@ -431,7 +431,9 @@ export function TileDownloadTool({ dark, map }: Props) {
 
   useEffect(() => {
     if (!map) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre event type untyped
     const onClick = (e: any) => handleMapClick(e);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre event type untyped
     const onMove = (e: any) => handleMouseMove(e);
     map.on("click", onClick);
     map.on("mousemove", onMove);

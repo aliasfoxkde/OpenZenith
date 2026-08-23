@@ -154,6 +154,7 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
         if (!map.getSource("aviationWeather")) {
           map.addSource("aviationWeather", { type: "geojson", data: { type: "FeatureCollection", features } });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("aviationWeather") as any).setData({ type: "FeatureCollection", features });
         }
         setStatus(handle, "aviationWeather", "loaded", features.length);

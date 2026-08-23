@@ -59,7 +59,7 @@ jobs:
         working-directory: core
 
       - name: Test
-        run: cargo test --lib
+        run: cargo test --all-targets
         working-directory: core
 
   api-lint:

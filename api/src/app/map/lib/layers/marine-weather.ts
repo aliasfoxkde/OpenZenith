@@ -186,6 +186,7 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
         if (!map.getSource("marineWeather")) {
           map.addSource("marineWeather", { type: "geojson", data: geojson });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("marineWeather") as any)?.setData(geojson);
         }
       } catch {

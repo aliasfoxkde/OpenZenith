@@ -101,6 +101,7 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
             }
 
             // Update source with latest position (accumulate on map)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
             const source = map.getSource("vessels") as any;
             if (source && source.setData) {
               // Accumulate features by merging with existing data

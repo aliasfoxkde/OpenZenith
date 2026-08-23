@@ -101,11 +101,14 @@ function calculateNightShadowPolygon(declination: number): number[][] {
  * Load day/night terminator overlay.
  */
 export function loadDayNightTerminator(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium.Viewer
   viewer: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   _intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
   _entitiesRef: React.MutableRefObject<Record<string, any>>,
   stateLayers: { dayNight: boolean },
 ) {
@@ -193,7 +196,9 @@ export function loadDayNightTerminator(
  * Toggle day/night terminator on/off.
  */
 export function toggleDayNightTerminator(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium.Viewer
   viewer: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
   Cesium: any,
   enabled: boolean,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,

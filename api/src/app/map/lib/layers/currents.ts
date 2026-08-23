@@ -391,6 +391,7 @@ function renderFrame() {
   const map = mapRef;
   const canvas = canvasEl;
   if (!map || !canvas) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getContainer
   const container = (map as any).getContainer();
   if (!container) return;
 
@@ -533,6 +534,7 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
     pointer-events: none;
     z-index: 1;
   `;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getContainer
   (map as any).getContainer().appendChild(canvasEl);
 
   // Initialize particles
@@ -606,8 +608,9 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
   map.on("movestart", onMoveStart);
   map.on("moveend", onMoveEnd);
   map.on("zoomend", onMoveEnd);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
   (addOceanCurrents as any)._onMoveStart = onMoveStart;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
   (addOceanCurrents as any)._onMoveEnd = onMoveEnd;
 }
 
@@ -630,11 +633,13 @@ export function removeOceanCurrents(map: maplibregl.Map): void {
     for (const m of markers) {
       m.remove();
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property access
     (addOceanCurrents as any)._markers = [];
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
   const onMoveStart = (addOceanCurrents as any)._onMoveStart;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
   const onMoveEnd = (addOceanCurrents as any)._onMoveEnd;
   if (onMoveStart)
     try {

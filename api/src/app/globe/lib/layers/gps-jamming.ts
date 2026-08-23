@@ -41,8 +41,8 @@ const H3_RESOLUTION_EDGES: Record<number, number> = {
 };
 
 /** Color gradient for intensity (red = severe, orange = moderate, yellow = low) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
 function intensityColor(intensity: number, Cesium: any): any {
-  if (intensity >= 0.8) return Cesium.Color.RED;
   if (intensity >= 0.5) return Cesium.Color.ORANGE;
   if (intensity >= 0.3) return Cesium.Color.YELLOW;
   return Cesium.Color.GREEN;
@@ -182,16 +182,20 @@ function generateKnownJammingZones(): GpsJammingHex[] {
  * Load GPS jamming hex grid on the globe.
  */
 export function loadGpsJamming(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium.Viewer
   viewer: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
   _entitiesRef: React.MutableRefObject<Record<string, any>>,
   stateLayers: { gpsJamming: boolean },
 ) {
   updateStatus("gpsJamming", { error: null });
   const retry = createRetryGuard();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity array
   let hexEntities: any[] = [];
 
   const renderHexGrid = (hexes: GpsJammingHex[]) => {

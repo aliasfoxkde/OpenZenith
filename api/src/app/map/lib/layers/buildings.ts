@@ -108,6 +108,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("buildings")) {
           map.addSource("buildings", { type: "geojson", data: geojson });
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
           (map.getSource("buildings") as any)?.setData(geojson);
         }
       } catch {

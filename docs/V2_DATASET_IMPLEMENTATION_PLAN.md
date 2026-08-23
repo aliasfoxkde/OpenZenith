@@ -4,6 +4,8 @@
 **Goal:** Systematic implementation of the v2 elevation dataset using OZT2 compression
 **Outcome:** ~93% storage reduction (70GB → ~5GB for 30m global), contributor-friendly pipeline, full SDK support
 
+> ⚠️ **Partially stale (2026-08-23):** OZT2 format, Python SDK, JS decoder, HF backend, z10 tiles are complete. z7–z9 and z11 pending upload. See [Status Update](#status-update-2026-08-23) at bottom.
+
 ---
 
 ## Executive Summary
@@ -1520,3 +1522,23 @@ Week 9+: Phase 7 (Testing & Polish) 🔄 IN PROGRESS
 - [ ] 200+ Python SDK tests passing
 - [ ] All existing API tests passing (no regressions)
 - [ ] Storage on R2 reduced by >80% compared to Terrarium PNG baseline
+
+
+## Status Update (2026-08-23)
+
+### ✅ Completed
+- OZT2 format implemented (`tile_format_v2.py`)
+- Python SDK encode/decode working
+- JavaScript OZT2 decoder (`ozt2_decode.ts`) deployed to /wasm-demo
+- HF backend (`OZT2HFBackend`) implemented
+- z10 tiles encoded and uploaded to HF (152K tiles, all verified synced)
+- Upload script rewritten with per-file delta detection
+
+### 🔄 In Progress
+- z7–z9 and z11 tiles pending HF upload (local encoding complete)
+- z11 tiles pending R2 upload and Edge deploy
+
+### ⏳ Pending
+- Upload remaining zoom levels to HF
+- Finalize upload script for production use
+

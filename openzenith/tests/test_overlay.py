@@ -1,9 +1,8 @@
 """Tests for openzenith.overlay — vector-DEM overlay operations."""
 
 import numpy as np
-import pytest
 
-from openzenith.overlay import extract_at_points, zonal_stats, rasterize_lines
+from openzenith.overlay import extract_at_points, rasterize_lines, zonal_stats
 
 
 class TestExtractAtPoints:

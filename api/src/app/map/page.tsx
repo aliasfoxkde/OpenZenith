@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
@@ -24,7 +24,6 @@ import {
 } from "./lib/layers";
 import {
   renderAnnotations,
-  removeAnnotations,
   loadAnnotations,
   saveAnnotations,
   randomColor,
@@ -504,7 +503,6 @@ export default function MapPage() {
     loadAnnotations(),
   );
   const drawPointsRef = useRef<[number, number][]>([]);
-  const drawLineRef = useRef<unknown>(null);
   const drawVertexRef = useRef<maplibregl.Marker[]>([]);
   const [annotationName, setAnnotationName] = useState("");
 
@@ -798,9 +796,9 @@ export default function MapPage() {
   // Close sidebar on outside click (mobile)
   useEffect(() => {
     if (!sidebarOpen || !isMobile) return;
-    const handler = () => setSidebarOpen(false);
-    document.addEventListener("backbutton" as any, handler);
-    return () => document.removeEventListener("backbutton" as any, handler);
+    const handler = (_e: Event) => setSidebarOpen(false);
+    document.addEventListener("backbutton", handler);
+    return () => document.removeEventListener("backbutton", handler);
   }, [sidebarOpen, isMobile]);
 
   // Global keyboard shortcuts
@@ -895,12 +893,10 @@ export default function MapPage() {
   // Pause/resume layer polling when tab is hidden/visible
   useEffect(() => {
     const handle = layerHandleRef.current;
-    let savedIntervals: ReturnType<typeof setInterval>[] = [];
 
     const onVisibility = () => {
       if (document.hidden) {
         // Pause all intervals
-        savedIntervals = [...handle.intervals];
         handle.intervals.forEach(clearInterval);
         handle.intervals = [];
       } else {
@@ -2467,7 +2463,6 @@ export default function MapPage() {
                       const minE = Math.min(...elevs);
                       const maxE = Math.max(...elevs);
                       const range = maxE - minE || 1;
-                      const w = profileData.length * 4;
                       const points = profileData
                         .map((p, i) => `${i * 4},${60 - ((p.elevation - minE) / range) * 55 - 2}`)
                         .join(" ");
@@ -2903,6 +2898,8 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
   for (const id of Z_ORDER) {
     if (map.getLayer(id)) {
       try {
+        // maplibregl.Map.moveLayer is not in the public types but exists at runtime
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (map as any).moveLayer(id);
       } catch {
         /* skip */
@@ -2915,6 +2912,7 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
   // then labels are moved back to the absolute top.
   if (map.getLayer("hillshade-base")) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- maplibregl.Map.moveLayer not in public types
       (map as any).moveLayer("hillshade-base");
     } catch {
       /* skip */
@@ -2923,6 +2921,7 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
   // Labels — always on absolute top (above hillshade)
   if (map.getLayer("labels-raster")) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- maplibregl.Map.moveLayer not in public types
       (map as any).moveLayer("labels-raster");
     } catch {
       /* skip */

@@ -1,23 +1,17 @@
 """Tests for openzenith.vector — shapefile and GDB read/write."""
 
-import json
-import os
-import sys
-import tempfile
-from pathlib import Path
 
 import pytest
 
 # shapefile is pyshp
 import shapefile
 
-from openzenith.vector import shapefile_to_geojson, list_gdb_layers
+from openzenith.vector import shapefile_to_geojson
 
 
 class TestShapefileToGeojson:
     def test_point_features(self, tmp_path):
         """Convert point shapefile to GeoJSON."""
-        import shapefile
 
         shp_path = tmp_path / "points.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
@@ -41,7 +35,6 @@ class TestShapefileToGeojson:
 
     def test_polygon_features(self, tmp_path):
         """Convert polygon shapefile to GeoJSON."""
-        import shapefile
 
         shp_path = tmp_path / "polys.shp"
         with shapefile.Writer(str(shp_path), shapefile.POLYGON) as w:
@@ -59,7 +52,6 @@ class TestShapefileToGeojson:
 
     def test_linestring_features(self, tmp_path):
         """Convert linestring shapefile to GeoJSON."""
-        import shapefile
 
         shp_path = tmp_path / "lines.shp"
         with shapefile.Writer(str(shp_path), shapefile.POLYLINE) as w:
@@ -74,7 +66,6 @@ class TestShapefileToGeojson:
 
     def test_bbox_filter(self, tmp_path):
         """Bounding box filter excludes features outside bbox."""
-        import shapefile
 
         shp_path = tmp_path / "filtered.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
@@ -91,7 +82,6 @@ class TestShapefileToGeojson:
 
     def test_field_filter(self, tmp_path):
         """Only requested fields are included in properties."""
-        import shapefile
 
         shp_path = tmp_path / "fields.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
@@ -110,7 +100,6 @@ class TestShapefileToGeojson:
 
     def test_empty_shapefile(self, tmp_path):
         """Empty shapefile returns empty FeatureCollection."""
-        import shapefile
 
         shp_path = tmp_path / "empty.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
@@ -126,7 +115,6 @@ class TestGdbToGeojson:
     def test_gdb_import_error_if_fiona_missing(self, monkeypatch):
         """GDB functions raise ImportError when fiona is not available."""
         import openzenith.vector as vector_module
-        original = vector_module.gdb_to_geojson.__wrapped__ if hasattr(vector_module.gdb_to_geojson, "__wrapped__") else None
 
         monkeypatch.setitem(__import__("sys").modules, "fiona", None)
         # Force reimport to trigger ImportError
@@ -138,8 +126,9 @@ class TestGdbToGeojson:
 
     def test_list_gdb_layers_import_error(self, monkeypatch):
         """list_gdb_layers raises ImportError without fiona."""
-        import openzenith.vector as vector_module
         import importlib
+
+        import openzenith.vector as vector_module
         importlib.reload(vector_module)
 
         monkeypatch.setitem(__import__("sys").modules, "fiona", None)
@@ -150,8 +139,9 @@ class TestGdbToGeojson:
 class TestExportToGdb:
     def test_export_import_error_if_fiona_missing(self, monkeypatch):
         """export_to_gdb raises ImportError when fiona is not available."""
-        import openzenith.vector as vector_module
         import importlib
+
+        import openzenith.vector as vector_module
         importlib.reload(vector_module)
 
         monkeypatch.setitem(__import__("sys").modules, "fiona", None)

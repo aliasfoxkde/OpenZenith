@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 
 from openzenith.cli import (
-    _latlon_to_tile,
     _latlon_to_grid_coords,
+    _latlon_to_tile,
     _parse_zoom_levels,
     main,
 )

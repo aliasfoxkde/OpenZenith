@@ -16,6 +16,8 @@ build/
 # debug
 npm-debug.log*
 
+# Lockfile is committed so clean checkouts can use npm ci.
+
 # env
 .env*.local
 
@@ -29,7 +31,3 @@ next-env.d.ts
 # python
 __pycache__/
 *.pyc
-
-# Lock files
-*.lock
-package-lock.json

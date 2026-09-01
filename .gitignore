@@ -25,10 +25,6 @@ ozt2/
 dist/
 build/
 
-# Lock files
-*.lock
-
-
 # Data (downloaded at setup)
 data/
 

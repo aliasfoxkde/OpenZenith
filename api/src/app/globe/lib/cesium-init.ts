@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { switchBasemapOnViewer } from "./helpers";
 import { createOZTTerrainProvider } from "./terrain-ozt2";
-import { _createCSRTerrainProvider } from "./terrain-csr";
+import { createCSRTerrainProvider } from "./terrain-csr";
 import type { DashboardState } from "./types";
 
 const CESIUM_CDNS = [

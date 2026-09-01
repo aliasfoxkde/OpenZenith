@@ -14,6 +14,9 @@ pub mod viewshed;
 pub mod wasm;
 
 // Re-export for convenience
-pub use d8::{d8_flow_direction, d8_flow_direction_par, flow_accumulation, flow_accumulation_par, stream_order};
-pub use ozt2::{gradient_reconstruct, left_reconstruct, gradient_predict};
+pub use d8::{
+    d8_flow_direction, d8_flow_direction_par, flow_accumulation, flow_accumulation_par,
+    stream_order,
+};
+pub use ozt2::{gradient_predict, gradient_reconstruct, left_reconstruct};
 pub use viewshed::viewshed;

@@ -54,7 +54,8 @@ fn main() {
 }
 
 fn error_exit(msg: String) -> ! {
-    let _ = io::stderr().write_all(format!("{{\"error\": {}}}\n", serde_json::to_string(&msg).unwrap()).as_bytes());
+    let _ = io::stderr()
+        .write_all(format!("{{\"error\": {}}}\n", serde_json::to_string(&msg).unwrap()).as_bytes());
     std::process::exit(1);
 }
 
@@ -78,13 +79,19 @@ struct D8Output {
 fn cmd_d8(input: &str) -> Result<String, String> {
     let inp: D8Input = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
     if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "data length {} != rows*cols {}*{}",
+            inp.data.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
 
-    use openzenith_core::d8_flow_direction;
     use ndarray::Array2;
+    use openzenith_core::d8_flow_direction;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
     let result = d8_flow_direction(&arr.view(), inp.nodata);
 
     let out = D8Output {
@@ -113,13 +120,19 @@ struct AccumOutput {
 fn cmd_accum(input: &str) -> Result<String, String> {
     let inp: AccumInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
     if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "data length {} != rows*cols {}*{}",
+            inp.data.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
 
-    use openzenith_core::flow_accumulation;
     use ndarray::Array2;
+    use openzenith_core::flow_accumulation;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
     let result = flow_accumulation(&arr.view(), inp.nodata);
 
     let out = AccumOutput {
@@ -148,16 +161,28 @@ struct ReconstructOutput {
 }
 
 fn cmd_gradient_reconstruct(input: &str) -> Result<String, String> {
-    let inp: ReconstructInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    let inp: ReconstructInput =
+        serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
     if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "data length {} != rows*cols {}*{}",
+            inp.data.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
 
-    use openzenith_core::gradient_reconstruct;
     use ndarray::Array2;
+    use openzenith_core::gradient_reconstruct;
 
-    let residuals = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
-    let result = gradient_reconstruct(&residuals.view(), inp.nodata, inp.dequant_min, inp.dequant_scale);
+    let residuals = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
+    let result = gradient_reconstruct(
+        &residuals.view(),
+        inp.nodata,
+        inp.dequant_min,
+        inp.dequant_scale,
+    );
 
     let out = ReconstructOutput {
         rows: inp.rows,
@@ -189,15 +214,22 @@ struct ViewshedOutput {
 }
 
 fn cmd_viewshed(input: &str) -> Result<String, String> {
-    let inp: ViewshedInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    let inp: ViewshedInput =
+        serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
     if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "data length {} != rows*cols {}*{}",
+            inp.data.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
 
-    use openzenith_core::viewshed;
     use ndarray::Array2;
+    use openzenith_core::viewshed;
 
-    let dem = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
+    let dem = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
     let result = viewshed(
         &dem.view(),
         inp.observer_row,
@@ -211,7 +243,12 @@ fn cmd_viewshed(input: &str) -> Result<String, String> {
     let out = ViewshedOutput {
         rows: inp.rows,
         cols: inp.cols,
-        data: result.into_raw_vec_and_offset().0.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect(),
+        data: result
+            .into_raw_vec_and_offset()
+            .0
+            .iter()
+            .map(|&b| if b { 1u8 } else { 0u8 })
+            .collect(),
     };
     serde_json::to_string(&out).map_err(|e| format!("serialization error: {e}"))
 }
@@ -240,19 +277,32 @@ struct StreamOrderOutput {
 }
 
 fn cmd_stream_order(input: &str) -> Result<String, String> {
-    let inp: StreamOrderInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    let inp: StreamOrderInput =
+        serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
     if inp.streams.len() != inp.rows * inp.cols {
-        return Err(format!("streams length {} != rows*cols {}*{}", inp.streams.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "streams length {} != rows*cols {}*{}",
+            inp.streams.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
     if inp.flow_dir.len() != inp.rows * inp.cols {
-        return Err(format!("flow_dir length {} != rows*cols {}*{}", inp.flow_dir.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "flow_dir length {} != rows*cols {}*{}",
+            inp.flow_dir.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
 
-    use openzenith_core::stream_order;
     use ndarray::Array2;
+    use openzenith_core::stream_order;
 
-    let streams = Array2::from_shape_vec((inp.rows, inp.cols), inp.streams).map_err(|e| format!("invalid array shape: {e}"))?;
-    let flow_dir = Array2::from_shape_vec((inp.rows, inp.cols), inp.flow_dir).map_err(|e| format!("invalid array shape: {e}"))?;
+    let streams = Array2::from_shape_vec((inp.rows, inp.cols), inp.streams)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
+    let flow_dir = Array2::from_shape_vec((inp.rows, inp.cols), inp.flow_dir)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
     let result = stream_order(&streams.view(), &flow_dir.view(), inp.nodata_dir);
 
     let out = StreamOrderOutput {
@@ -281,15 +331,22 @@ struct GradientPredictOutput {
 }
 
 fn cmd_gradient_predict(input: &str) -> Result<String, String> {
-    let inp: GradientPredictInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
+    let inp: GradientPredictInput =
+        serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
     if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!("data length {} != rows*cols {}*{}", inp.data.len(), inp.rows, inp.cols));
+        return Err(format!(
+            "data length {} != rows*cols {}*{}",
+            inp.data.len(),
+            inp.rows,
+            inp.cols
+        ));
     }
 
-    use openzenith_core::gradient_predict;
     use ndarray::Array2;
+    use openzenith_core::gradient_predict;
 
-    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data).map_err(|e| format!("invalid array shape: {e}"))?;
+    let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
+        .map_err(|e| format!("invalid array shape: {e}"))?;
     let result = gradient_predict(&arr.view(), inp.nodata);
 
     let out = GradientPredictOutput {

@@ -127,11 +127,7 @@ pub fn gradient_predict(elevation: &ArrayView2<f32>, nodata: f32) -> Array2<i16>
                 )
             };
 
-            let residual = if pred_count == 0 {
-                e
-            } else {
-                e - pred
-            };
+            let residual = if pred_count == 0 { e } else { e - pred };
             residuals[[i, j]] = residual as i16;
         }
     }
@@ -162,11 +158,7 @@ mod tests {
 
     #[test]
     fn test_gradient_reconstruct_nodata() {
-        let residuals = arr2(&[
-            [0i16, 0, 0],
-            [0, -32768, 0],
-            [0, 0, 0],
-        ]);
+        let residuals = arr2(&[[0i16, 0, 0], [0, -32768, 0], [0, 0, 0]]);
         let out = gradient_reconstruct(&residuals.view(), -32768, 0.0, 1.0);
         assert_eq!(out[[1, 1]], -32768.0);
     }

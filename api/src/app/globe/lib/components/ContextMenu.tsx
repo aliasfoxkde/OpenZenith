@@ -159,7 +159,7 @@ interface ContextMenuProps {
   cesiumRef: React.RefObject<any>;
   toolManagerRef: React.RefObject<any>;
   elevationProfileRef: React.RefObject<any>;
-  _activeTool: ToolMode;
+  activeTool: _ToolMode;
   setActiveTool: React.Dispatch<React.SetStateAction<_ToolMode>>;
   setSelectedSat: (s: any) => void;
   setFollowSat: (f: boolean) => void;
@@ -175,7 +175,6 @@ export function ContextMenu({
   cesiumRef,
   toolManagerRef,
   elevationProfileRef,
-  _activeTool: _ToolMode,
   setActiveTool,
   setSelectedSat,
   setFollowSat,

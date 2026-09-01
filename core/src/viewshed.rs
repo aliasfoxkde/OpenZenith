@@ -43,9 +43,8 @@ pub fn viewshed(
         return Array2::from_elem((rows, cols), false);
     }
 
-    let max_dist = max_distance_cells.unwrap_or(
-        ((rows * rows + cols * cols) as f32).sqrt().ceil() as usize,
-    );
+    let max_dist =
+        max_distance_cells.unwrap_or(((rows * rows + cols * cols) as f32).sqrt().ceil() as usize);
 
     let obs_elev = dem[[observer_row, observer_col]];
     if obs_elev <= nodata {
@@ -85,10 +84,7 @@ pub fn viewshed(
 
             // Bilinear interpolation of terrain height at (ray_r, ray_c)
             let (r0, c0) = (ray_r.floor() as usize, ray_c.floor() as usize);
-            let (r1, c1) = (
-                (r0 + 1).min(rows - 1),
-                (c0 + 1).min(cols - 1),
-            );
+            let (r1, c1) = ((r0 + 1).min(rows - 1), (c0 + 1).min(cols - 1));
             // Sample 4 corners (clamp to bounds)
             let h00 = dem.get([r0, c0]).copied().unwrap_or(nodata);
             let h10 = dem.get([r1, c0]).copied().unwrap_or(nodata);
@@ -191,7 +187,10 @@ mod tests {
         // Observer always visible
         assert!(vis[[0, 0]]);
         // Hill at (1,0) is on the S ray (angle=0), 1 cell away → visible
-        assert!(vis[[1, 0]], "hill at (1,0) should be visible from observer at (0,0)");
+        assert!(
+            vis[[1, 0]],
+            "hill at (1,0) should be visible from observer at (0,0)"
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { _setStatus, latLonToTile } from "./types";
+import { latLonToTile } from "./types";
 
 /* ─── Topo Contours ─── */
 

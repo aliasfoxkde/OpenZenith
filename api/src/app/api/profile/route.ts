@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { latLonToTile, _tileToLatLon } from "@/lib/srtm/zoom-math";
+import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";

@@ -10,7 +10,16 @@ use rayon::prelude::*;
 // Direction offset tables (matches Python D8_DR, D8_DC)
 const DR: [isize; 8] = [0, 1, 1, 1, 0, -1, -1, -1];
 const DC: [isize; 8] = [1, 1, 0, -1, -1, -1, 0, 1];
-const DIST: [f32; 8] = [1.0, std::f32::consts::SQRT_2, 1.0, std::f32::consts::SQRT_2, 1.0, std::f32::consts::SQRT_2, 1.0, std::f32::consts::SQRT_2];
+const DIST: [f32; 8] = [
+    1.0,
+    std::f32::consts::SQRT_2,
+    1.0,
+    std::f32::consts::SQRT_2,
+    1.0,
+    std::f32::consts::SQRT_2,
+    1.0,
+    std::f32::consts::SQRT_2,
+];
 
 /// D8 flow direction for a DEM.
 ///
@@ -308,7 +317,11 @@ pub fn stream_order(
 
                 let tgt_order = order[[nr, nc]];
                 if my_order > tgt_order {
-                    let new_order = if same_order_count >= 2 { my_order + 1 } else { my_order };
+                    let new_order = if same_order_count >= 2 {
+                        my_order + 1
+                    } else {
+                        my_order
+                    };
                     if new_order > tgt_order {
                         order[[nr, nc]] = new_order;
                         changed = true;
@@ -353,11 +366,7 @@ mod tests {
         // E slope: centre cell drains S (dir=2)
         // centre (1,1) elev=5, S neighbour (2,1) elev=0 → slope = 5/1 = 5
         // other neighbours are higher or equal
-        let dem = arr2(&[
-            [10.0, 10.0, 10.0],
-            [10.0, 5.0, 10.0],
-            [10.0, 0.0, 10.0],
-        ]);
+        let dem = arr2(&[[10.0, 10.0, 10.0], [10.0, 5.0, 10.0], [10.0, 0.0, 10.0]]);
         let fd = d8_flow_direction(&dem.view(), -32768.0);
         // (1,1) drains S → dir 2
         assert_eq!(fd[[1, 1]], 2, "(1,1) should drain S (dir=2)");
@@ -367,11 +376,7 @@ mod tests {
     fn test_d8_slope_to_east() {
         // Centre (1,1) elev=5, E neighbour (1,2) elev=0 → drains E (dir=0)
         // All other neighbours are higher or equal, so E (steepest drop) wins.
-        let dem = arr2(&[
-            [10.0, 10.0, 10.0],
-            [10.0, 5.0, 0.0],
-            [10.0, 10.0, 10.0],
-        ]);
+        let dem = arr2(&[[10.0, 10.0, 10.0], [10.0, 5.0, 0.0], [10.0, 10.0, 10.0]]);
         let fd = d8_flow_direction(&dem.view(), -32768.0);
         assert_eq!(fd[[1, 1]], 0, "(1,1) should drain E (dir=0)");
     }
@@ -403,11 +408,7 @@ mod tests {
         // 3 cells in a chain: source → mid → outlet
         // source (0,1) drains S(2) → mid (1,1)
         // mid (1,1) drains S(2) → outlet (2,1) (clipped, off-grid)
-        let fd = arr2(&[
-            [-1i8, 2, -1],
-            [-1, 2, -1],
-            [-1, -1, -1],
-        ]);
+        let fd = arr2(&[[-1i8, 2, -1], [-1, 2, -1], [-1, -1, -1]]);
         let accum = flow_accumulation(&fd.view(), -1);
         // source = 1, mid = source + 1 = 2, outlet = mid + 1 = 3
         assert_eq!(accum[[0, 1]], 1);
@@ -421,11 +422,7 @@ mod tests {
         // source B (1,0) drains E(0) → (1,1)
         // both flow to outlet (1,1) via E from (0,1) draining SE(1)?
         // Let (0,1) drain S(2) to (1,1), and (1,1) drain off-grid
-        let fd = arr2(&[
-            [0i8, 2, -1],
-            [0, -1, -1],
-            [-1, -1, -1],
-        ]);
+        let fd = arr2(&[[0i8, 2, -1], [0, -1, -1], [-1, -1, -1]]);
         let accum = flow_accumulation(&fd.view(), -1);
         // (0,0) source → 1, (1,0) source → 1, (0,1) = 2, (1,1) = 1+1+2 = 4?
         // Let's trace: (0,0)→(0,1)→(1,1); (1,0)→(1,1)
@@ -452,10 +449,7 @@ mod tests {
         // Two first-order streams meeting at a confluence
         // (0,0) drains S to (1,0); (1,1) drains N to (1,0)
         // Confluence at (1,0) should be order 2 (two order-1 streams meet)
-        let streams = arr2(&[
-            [1i8, 0],
-            [1, 1],
-        ]);
+        let streams = arr2(&[[1i8, 0], [1, 1]]);
         let flow_dir = arr2(&[
             [2i8, -1], // (0,0) drains S to (1,0)
             [6, -1],   // (1,1) drains N to (1,0); (1,0) drains off-grid

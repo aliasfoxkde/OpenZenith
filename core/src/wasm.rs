@@ -10,8 +10,8 @@
 //!   await init();
 //!   const { data, metadata } = decode_ozt2(tile_bytes);
 
-use wasm_bindgen::prelude::*;
 use ndarray::Array2;
+use wasm_bindgen::prelude::*;
 
 // ─── Gradient reconstruction (pure Rust, no external deps) ────────────────────
 
@@ -43,7 +43,8 @@ pub fn gradient_reconstruct_wasm(
     let arr: Array2<i16> = Array2::from_shape_vec((height, width), residuals_slice.to_vec())
         .unwrap_or_else(|_| Array2::zeros((height, width)));
 
-    let reconstructed = super::ozt2::gradient_reconstruct(&arr.view(), nodata, dequant_min, dequant_scale);
+    let reconstructed =
+        super::ozt2::gradient_reconstruct(&arr.view(), nodata, dequant_min, dequant_scale);
 
     // Convert f32 → u16 (meters, clip to valid range)
     let out: Vec<u16> = reconstructed
@@ -75,7 +76,8 @@ pub fn left_reconstruct_wasm(
     let arr: Array2<i16> = Array2::from_shape_vec((height, width), residuals_slice.to_vec())
         .unwrap_or_else(|_| Array2::zeros((height, width)));
 
-    let reconstructed = super::ozt2::left_reconstruct(&arr.view(), nodata, dequant_min, dequant_scale);
+    let reconstructed =
+        super::ozt2::left_reconstruct(&arr.view(), nodata, dequant_min, dequant_scale);
 
     let out: Vec<u16> = reconstructed
         .into_raw_vec_and_offset()
@@ -173,7 +175,11 @@ pub fn viewshed_wasm(
         max_distance_cells,
     );
 
-    vis.into_raw_vec_and_offset().0.iter().map(|&b| if b { 1u8 } else { 0u8 }).collect()
+    vis.into_raw_vec_and_offset()
+        .0
+        .iter()
+        .map(|&b| if b { 1u8 } else { 0u8 })
+        .collect()
 }
 
 /// OZT2 decode: decompress and reconstruct a full OZT2 tile.
@@ -282,9 +288,19 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
     const RESIDUAL_NODATA: i16 = -32768;
 
     let reconstructed = if predictor == 0 {
-        super::ozt2::gradient_reconstruct(&residuals_arr.view(), RESIDUAL_NODATA, dequant_min, dequant_scale)
+        super::ozt2::gradient_reconstruct(
+            &residuals_arr.view(),
+            RESIDUAL_NODATA,
+            dequant_min,
+            dequant_scale,
+        )
     } else {
-        super::ozt2::left_reconstruct(&residuals_arr.view(), RESIDUAL_NODATA, dequant_min, dequant_scale)
+        super::ozt2::left_reconstruct(
+            &residuals_arr.view(),
+            RESIDUAL_NODATA,
+            dequant_min,
+            dequant_scale,
+        )
     };
 
     // Reconstructed values are already in metres (dequantized during reconstruction).
@@ -308,8 +324,18 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
 
     let metadata = js_sys::Object::new();
     js_sys::Reflect::set(&metadata, &"min_elevation".into(), &(vmin as f64).into()).unwrap();
-    js_sys::Reflect::set(&metadata, &"elevation_range".into(), &(elev_range as f64).into()).unwrap();
-    js_sys::Reflect::set(&metadata, &"max_elevation".into(), &((vmin + elev_range) as f64).into()).unwrap();
+    js_sys::Reflect::set(
+        &metadata,
+        &"elevation_range".into(),
+        &(elev_range as f64).into(),
+    )
+    .unwrap();
+    js_sys::Reflect::set(
+        &metadata,
+        &"max_elevation".into(),
+        &((vmin + elev_range) as f64).into(),
+    )
+    .unwrap();
     js_sys::Reflect::set(&metadata, &"bits_per_pixel".into(), &(bits as f64).into()).unwrap();
     js_sys::Reflect::set(&metadata, &"predictor".into(), &predictor_name.into()).unwrap();
     js_sys::Reflect::set(&metadata, &"compressor".into(), &decompressor_name.into()).unwrap();

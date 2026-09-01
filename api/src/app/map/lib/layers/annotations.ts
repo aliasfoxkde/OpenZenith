@@ -1,5 +1,3 @@
-import type { _LayerHandle } from "./types";
-
 /* ─── Annotation layer — user-drawn points, lines, polygons ─── */
 
 const ANNOTATIONS_KEY = "openzenith-annotations";

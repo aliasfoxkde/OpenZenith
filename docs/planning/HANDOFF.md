@@ -1,7 +1,6 @@
 # OpenZenith handoff
 
-**Evidence boundary (central audit):** branch `main`, HEAD
-`23c3120d3dca8a9936941d2c5b1db5024349834c`, 0 dirty status entries.
+**Evidence boundary (central audit):** branch `docs/refresh-openzenith-handoff-20260901`, HEAD `7c3ce9c157d1713579633f4647f7ce20710835e8`, 5 dirty status entries.
 **Status:** active; multi-surface elevation platform with runtime, offline,
 visual, and release qualification still required.
 **Role:** geospatial SDK/API/UI with Rust/WASM terrain kernels and optional MCP

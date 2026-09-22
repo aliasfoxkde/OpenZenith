@@ -40,6 +40,24 @@ import { getClientElevation } from "@/lib/client-elevation";
 import { ContextMenu } from "./lib/components/ContextMenu";
 import { HudOverlays } from "./lib/components/HudOverlays";
 
+/**
+ * Entity names, quake places, callsigns and event titles come from
+ * third-party feeds (USGS, OpenSky, AIS, EONET) and are rendered through
+ * `dangerouslySetInnerHTML` in the hover tooltip, so they must never be
+ * trusted as HTML.
+ */
+function escapeHtml(value: unknown): string {
+  return String(value).replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case '"': return "&quot;";
+      default: return "&#39;";
+    }
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Component
    ═══════════════════════════════════════════════════════════════ */
@@ -53,9 +71,8 @@ export default function Globe() {
   const dataLoadedRef = useRef<Record<string, boolean>>({});
   const entitiesRef = useRef<Record<string, any>>({});
   const satDataRef = useRef<any[]>([]);
-  const loadLayerDynamicRef = useRef<(key: string) => Promise<void>>(
-    undefined as unknown as (key: string) => Promise<void>,
-  );
+  // Nullable: the loader is assigned during render, before any caller can run.
+  const loadLayerDynamicRef = useRef<((key: string) => Promise<void>) | null>(null);
   const addCloudOverlayRef = useRef<(() => void) | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
@@ -203,7 +220,9 @@ export default function Globe() {
   // ─── Init Cesium Viewer ───
   useEffect(() => {
     if (!containerRef.current) return;
-    let destroyed = false;
+    // Held in an object so the cleanup callback's write is visible to the type
+    // checker — a bare `let` here is folded to `false` by control-flow analysis.
+    const mount = { destroyed: false };
 
     // Visibility handler (outer scope so cleanup can access it)
     const onVisibilityChange = () => {
@@ -242,7 +261,7 @@ export default function Globe() {
           ] as const;
           for (const dk of dynamicKeys) {
             if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {
-              loadLayerDynamicRef.current?.(dk);
+              void loadLayerDynamicRef.current?.(dk);
             }
           }
         }
@@ -255,11 +274,11 @@ export default function Globe() {
     let handleDocumentClick: ((e: Event) => void) | null = null;
 
     const container = containerRef.current;
-    (async () => {
+    const initViewer = async () => {
       let viewer: any = null;
       try {
         const result = await initCesiumViewer(container, state);
-        if (destroyed) {
+        if (mount.destroyed) {
           result.viewer.destroy();
           return;
         }
@@ -287,28 +306,28 @@ export default function Globe() {
             if (entId.startsWith("eq-")) {
               const mag = ent.properties?.mag?.getValue?.() || "";
               const place = ent.properties?.place?.getValue?.() || "";
-              html = `<div style="font-weight:700;color:var(--err)">M${mag}</div><div>${place}</div>`;
+              html = `<div style="font-weight:700;color:var(--err)">M${escapeHtml(mag)}</div><div>${escapeHtml(place)}</div>`;
             } else if (entId.startsWith("flight-") || entId.startsWith("mil-")) {
-              const callsign = entName || "";
+              const callsign = escapeHtml(entName);
               const alt = ent.properties?.altitude?.getValue?.();
               const speed = ent.properties?.velocity?.getValue?.();
               html = `<div style="font-weight:700;color:var(--warn)">${callsign}</div>${alt != null ? `<div>Alt: ${Math.round(alt * 3.281)}ft</div>` : ""}${speed != null ? `<div>Spd: ${Math.round(speed * 1.944)}kts</div>` : ""}`;
             } else if (entId.startsWith("vessel-")) {
-              const name = entName || "";
-              const mmsi = entId.replace("vessel-", "");
+              const name = escapeHtml(entName);
+              const mmsi = escapeHtml(entId.replace("vessel-", ""));
               html = `<div style="font-weight:700;color:#4488ff">${name}</div><div>MMSI: ${mmsi}</div>`;
             } else if (entId.startsWith("sat-") || entType === "orbitalTrack") {
-              const name = entName || "";
+              const name = escapeHtml(entName);
               const alt = ent.properties?.altitude?.getValue?.();
               html = `<div style="font-weight:700;color:#aa44ff">${name}</div>${alt != null ? `<div>Alt: ${(alt / 1000).toFixed(0)}km</div>` : ""}`;
             } else if (entId.startsWith("storm-")) {
-              html = `<div style="font-weight:700;color:#ff00ff">${entName || "Storm"}</div>`;
+              html = `<div style="font-weight:700;color:#ff00ff">${escapeHtml(entName || "Storm")}</div>`;
             } else if (entId.startsWith("event-")) {
               const cat = ent.properties?.category?.getValue?.() || "";
               const title = ent.properties?.title?.getValue?.() || entName || "Event";
-              html = `<div style="font-weight:700">${title}</div><div style="color:var(--text-muted)">${cat}</div>`;
+              html = `<div style="font-weight:700">${escapeHtml(title)}</div><div style="color:var(--text-muted)">${escapeHtml(cat)}</div>`;
             } else if (entName) {
-              html = `<div>${entName}</div>`;
+              html = `<div>${escapeHtml(entName)}</div>`;
             }
             if (html) {
               setHoverTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, html });
@@ -376,7 +395,7 @@ export default function Globe() {
 
             getClientElevation(lat, lng)
               .then((d) =>
-                { setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }); },
+                { setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation ?? null, lat, lon: lng }); },
               )
               .catch(() => {});
           }
@@ -505,13 +524,13 @@ export default function Globe() {
           setCompassHeading(-heading);
         };
 
-        (window as any).__ozSetFollowEntity = (entity: any | null) => {
+        (window as any).__ozSetFollowEntity = (entity: any) => {
           followEntity = entity;
         };
         viewer.scene.preRender.addEventListener(preRenderListener);
       } catch (err: any) {
         // Only update state if component is still mounted
-        if (!destroyed) {
+        if (!mount.destroyed) {
           console.error("[Globe] Cesium initialization failed:", err);
           setLoading(false);
           // Show error in status
@@ -520,10 +539,12 @@ export default function Globe() {
           );
         }
       }
-    })();
+    };
+
+    void initViewer();
 
     return () => {
-      destroyed = true;
+      mount.destroyed = true;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (handleDocumentContextmenu) document.removeEventListener("contextmenu", handleDocumentContextmenu);
       if (handleDocumentClick) document.removeEventListener("click", handleDocumentClick);
@@ -914,28 +935,28 @@ export default function Globe() {
             }
             break;
           case "radar":
-            if (on) loadLayerDynamic("radar");
+            if (on) void loadLayerDynamic("radar");
             if (!on) {
               removeEntities("radar-");
               dataLoadedRef.current.radar = false;
             }
             break;
           case "flights":
-            if (on) loadLayerDynamic("flights");
+            if (on) void loadLayerDynamic("flights");
             if (!on) {
               removeEntities("flight-");
               dataLoadedRef.current.flights = false;
             }
             break;
           case "militaryFlights":
-            if (on) loadLayerDynamic("militaryFlights");
+            if (on) void loadLayerDynamic("militaryFlights");
             if (!on) {
               removeEntities("mil-");
               dataLoadedRef.current.militaryFlights = false;
             }
             break;
           case "vessels":
-            if (on) loadLayerDynamic("vessels");
+            if (on) void loadLayerDynamic("vessels");
             if (!on) {
               removeEntities("vessel-");
               dataLoadedRef.current.vessels = false;
@@ -944,7 +965,7 @@ export default function Globe() {
             }
             break;
           case "warnings":
-            if (on) loadLayerDynamic("warnings");
+            if (on) void loadLayerDynamic("warnings");
             if (!on) {
               removeEntities("warn-");
               dataLoadedRef.current.warnings = false;
@@ -959,14 +980,14 @@ export default function Globe() {
             }
             break;
           case "satellites":
-            if (on) loadLayerDynamic("satellites");
+            if (on) void loadLayerDynamic("satellites");
             if (!on) {
               removeEntities("sat-");
               dataLoadedRef.current.satellites = false;
             }
             break;
           case "hurricaneTracks":
-            if (on) loadLayerDynamic("hurricaneTracks");
+            if (on) void loadLayerDynamic("hurricaneTracks");
             if (!on) {
               removeEntities("storm-");
               dataLoadedRef.current.hurricaneTracks = false;
@@ -1002,14 +1023,14 @@ export default function Globe() {
             else toggleImageryOverlay("VIIRS_CityLights");
             break;
           case "nlnogNodes":
-            if (on) loadLayerDynamic("nlnogNodes");
+            if (on) void loadLayerDynamic("nlnogNodes");
             if (!on) {
               removeEntities("nlnog-");
               dataLoadedRef.current.nlnogNodes = false;
             }
             break;
           case "flightArcs":
-            if (on) loadLayerDynamic("flightArcs");
+            if (on) void loadLayerDynamic("flightArcs");
             if (!on) {
               removeEntities("arc-");
               dataLoadedRef.current.flightArcs = false;
@@ -1020,7 +1041,7 @@ export default function Globe() {
           case "elevationColor":
             // Toggle elevation color material on the globe
             if (on && !dataLoadedRef.current.elevationColor) {
-              doLoadElevationColor();
+              void doLoadElevationColor();
               dataLoadedRef.current.elevationColor = true;
             } else if (!on) {
               removeEntities("elev-");
@@ -1028,35 +1049,35 @@ export default function Globe() {
             }
             break;
           case "orbitalTracks":
-            if (on) loadLayerDynamic("orbitalTracks");
+            if (on) void loadLayerDynamic("orbitalTracks");
             if (!on) {
               removeEntities("orbit-");
               dataLoadedRef.current.orbitalTracks = false;
             }
             break;
           case "groundTracks":
-            if (on) loadLayerDynamic("groundTracks");
+            if (on) void loadLayerDynamic("groundTracks");
             if (!on) {
               removeEntities("gtrack-");
               dataLoadedRef.current.groundTracks = false;
             }
             break;
           case "currents":
-            if (on) loadLayerDynamic("currents");
+            if (on) void loadLayerDynamic("currents");
             if (!on) {
               removeEntities("current-");
               dataLoadedRef.current.currents = false;
             }
             break;
           case "gpsJamming":
-            if (on) loadLayerDynamic("gpsJamming");
+            if (on) void loadLayerDynamic("gpsJamming");
             if (!on) {
               removeEntities("gps-jam-");
               dataLoadedRef.current.gpsJamming = false;
             }
             break;
           case "dayNight":
-            if (on) loadLayerDynamic("dayNight");
+            if (on) void loadLayerDynamic("dayNight");
             if (!on) {
               removeEntities("day-night");
               dataLoadedRef.current.dayNight = false;
@@ -1156,11 +1177,11 @@ export default function Globe() {
     const update = () => {
       if (elevTimerRef.current) clearTimeout(elevTimerRef.current);
       elevTimerRef.current = setTimeout(() => {
-        doLoadElevationColor();
+        void doLoadElevationColor();
       }, 2000);
     };
 
-    doLoadElevationColor();
+    void doLoadElevationColor();
 
     const viewer = viewerRef.current;
     if (viewer) {
@@ -1190,7 +1211,10 @@ export default function Globe() {
   }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
 
   // ─── Render ───
-  const currentTheme = THEMES[state.theme] || THEMES.default;
+  // `state.theme` may be unknown to the registry, so the lookup can miss — view
+  // THEMES as Partial to keep the default fallback visible to the checker.
+  const themeRegistry = THEMES as Partial<Record<string, (typeof THEMES)[string]>>;
+  const currentTheme = themeRegistry[state.theme] ?? THEMES.default;
   const isHud = state.theme === "classified" || state.theme === "crimson";
   const themeStyle = useMemo(() => {
     const obj: Record<string, string> = {};
@@ -1205,8 +1229,11 @@ export default function Globe() {
   }, [currentTheme.css]);
 
   return (
-    <div className="wv-wrap" style={themeStyle}>
+    <main className="wv-wrap" style={themeStyle}>
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
+
+      {/* Screen-reader page identity: the globe canvas itself has no text. */}
+      <h1 className="wv-sr-only">OpenZenith Globe — Interactive 3D Earth</h1>
 
       {loading && (
         <div className="wv-loading-overlay">
@@ -1370,7 +1397,7 @@ export default function Globe() {
         </button>
         <button
           className="wv-zoom-btn"
-          onClick={flyToISS}
+          onClick={() => { void flyToISS(); }}
           title="Fly to ISS"
           aria-label="Fly to ISS"
           style={{ fontSize: "10px", color: "var(--accent)" }}
@@ -1425,7 +1452,9 @@ export default function Globe() {
                 className="wv-coord-val"
                 title="Click to copy"
                 onClick={() => {
-                  navigator.clipboard.writeText(val);
+                  // Clipboard access is denied in insecure contexts; a copy
+                  // failure is not worth surfacing as an unhandled rejection.
+                  navigator.clipboard.writeText(val).catch(() => {});
                 }}
               >
                 {val}
@@ -1489,7 +1518,7 @@ export default function Globe() {
           setActiveTool={setActiveTool}
           setSelectedSat={setSelectedSat}
           setFollowSat={setFollowSat}
-          flyToISS={flyToISS}
+          flyToISS={() => { void flyToISS(); }}
         />
       )}
 
@@ -1523,6 +1552,6 @@ export default function Globe() {
               : `${cameraAlt.toFixed(0)} m`}
         </span>
       </div>
-    </div>
+    </main>
   );
 }

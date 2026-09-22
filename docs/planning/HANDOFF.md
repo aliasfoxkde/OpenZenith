@@ -10,6 +10,10 @@ surface.
 deployment claim).
 
 > **Current execution authority:** Use `/nas/Temp/repos/Platform-Architecture/docs/planning/HANDOFF_AUDIT_2026-08-13.md` for verified cross-repository findings and `/nas/Temp/repos/Platform-Architecture/docs/planning/CODEX_CLI_EXECUTION_PACKETS_2026-08-13.md` for bounded implementation sessions. This handoff records OpenZenith-specific evidence only.
+>
+> **Update (2026-09-21):** repo-wide audit and the current phased execution plan
+> live in [IMPROVEMENT_PLAN_2026-09-21.md](IMPROVEMENT_PLAN_2026-09-21.md);
+> start there for up-to-date state (v0.8.1 baseline, coverage gaps, phases).
 
 ## Repository surfaces
 

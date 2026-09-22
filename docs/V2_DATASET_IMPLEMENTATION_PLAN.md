@@ -476,7 +476,8 @@ Phase 4 (Month 3+): Archive/promote old aliasfox/srtm30m-merged (don't delete)
 > ⚠️ DEPRECATED: This dataset is superseded by `openzenith/elevation-v2-ozt2`.
 > The new dataset uses OZT2 compression (93% smaller) and includes
 > Copernicus GLO-30 in addition to SRTM 30m.
-> This dataset will be archived in 2026-09-01.
+> This dataset was slated for archive on 2026-09-01; as of 2026-09-21 it is
+> superseded by `openzenith/elevation-v2-ozt2` but retirement is still pending.
 > See: https://openzenith.pages.dev/api/elevation
 ```
 

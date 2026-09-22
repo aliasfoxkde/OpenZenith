@@ -20,7 +20,7 @@ Generated from systematic fan-out audit of Python SDK, Rust core, and frontend.
 | MEDIUM | Add Rust tests for stream_order, flow_accum edge cases | Tests | Coverage |
 | LOW | Fix TypeScript `any` refs in globe page | Types | Maintainability |
 | LOW | Add client-side cache (stale-while-revalidate) | Perf | Reduced re-fetch |
-| LOW | Add GPS-jamming / space-weather / coverage API routes | Feature | Missing endpoints |
+| ~~LOW~~ DONE | ~~Add GPS-jamming / space-weather / coverage API routes~~ | Feature | Shipped: `api/gps-jamming`, `api/space-weather`, `api/coverage` exist |
 | LOW | Fix WASM demo to fetch real OZT2 tiles | Feature | Demo quality |
 | LOW | Fix WASM memory management (try/finally) | Correctness | No leaks |
 | LOW | Add `tpi`, `roughness`, `curvature` CLI commands | Feature | Terrain indices |
@@ -29,7 +29,9 @@ Generated from systematic fan-out audit of Python SDK, Rust core, and frontend.
 
 ## CRITICAL: Python Error Handling — Bare `except Exception` Swallows
 
-**Files with silent exception swallows** (16 occurrences):
+**Files with silent exception swallows** (11 `except Exception` sites remain
+in non-test `openzenith/` as of 2026-09-21; the table below reflects the
+original August audit and line numbers have since drifted):
 
 | File | Line | Context |
 |---|---|---|

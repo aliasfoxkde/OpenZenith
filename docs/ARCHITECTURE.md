@@ -103,29 +103,39 @@ openzenith/
 
 ## API Routes
 
-Located in `api/src/app/api/`:
+Located in `api/src/app/api/` (80 route handlers). Highlights:
 
 | Route | Purpose |
 |-------|---------|
-| `/api/elevation` | Point elevation query |
-| `/api/elevation/batch` | Batch elevation |
-| `/api/terrain` | Slope, aspect, hillshade, profile |
-| `/api/waterways` | D8 flow accumulation |
-| `/api/trace` | Downstream trace |
-| `/api/watershed` | Watershed delineation |
+| `/api/elevation` | Point elevation query (plus `/api/elevation/batch`) |
+| `/api/tile/{z}/{x}/{y}` | Raw Int16 elevation tiles |
+| `/api/dem-tile/{z}/{x}/{y}` | OZT2/PNG terrain tiles |
+| `/api/gebco-tile/{z}/{x}/{y}` | GEBCO bathymetry tiles |
+| `/api/slope`, `/api/aspect`, `/api/contours`, `/api/profile` | Terrain analysis |
+| `/api/streams`, `/api/trace`, `/api/watershed`, `/api/twi` | Hydrology (D8-based) |
 | `/api/earthquakes` | USGS real-time earthquakes |
 | `/api/flights` | OpenSky Network aircraft |
-| `/api/weather` | Open-Meteo weather |
-| `/api/tides` | NOAA tide predictions |
+| `/api/weather/warnings` | NWS active weather warnings |
 | `/api/wildfires` | MODIS active fires |
-| `/api/openapi.json` | OpenAPI spec |
+| `/api/satellites` | Celestrak TLE/JSON elements |
+| `/api/vessels`, `/api/hurricanes` | AIS ships, storm tracks |
+| `/api/collections`, `/api/stac` | STAC/OGC metadata surface |
+| `/api/docs`, `/api/openapi.json` | Interactive docs + OpenAPI spec |
+
+The full listing is the directory itself (`api/src/app/api/*/route.ts`);
+`/api/docs` renders it from `openapi.json`. NOAA tide logic lives in
+`api/src/lib/tides/noaa.ts` (library only — no public route yet).
 
 ---
 
 ## CI/CD
 
-- **CI**: `.github/workflows/ci.yml` — lint, typecheck, test, coverage
-- **Deploy**: `.github/workflows/deploy.yml` — triggered via `workflow_run` from CI
+- **Primary**: GitForge (local) — `.gitforce.yml` pipeline mirrors the CI gates
+  (api lint/typecheck/test, python lint/test, rust fmt/clippy/test)
+- **Mirror**: `.github/workflows/ci.yml` — lint, typecheck, test, coverage
+  (GitHub Actions is a sync mirror; releases are tagged on GitHub)
+- **Deploy**: Cloudflare Pages via `npm run pages:deploy` from `api/`
+  (wrangler; artifact verified with `scripts/verify_pages_deployment.mjs`)
 - **Secrets**: `CLOUDFLARE_API_TOKEN`, `HF_TOKEN`, `R2_*`
 
 ---

@@ -82,7 +82,8 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 | Coverage | Global ocean |
 | Status | **Not yet created** |
 
-**Build pipeline:** `scripts/convert_gebco_to_ozt2.py`
+**Build pipeline:** not yet written — needs `scripts/convert_gebco_to_ozt2.py`
+(modeled on `scripts/convert_to_ozt2.py`); see V2_DATASET_IMPLEMENTATION_PLAN.md §2.3
 
 ---
 

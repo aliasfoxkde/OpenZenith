@@ -10,7 +10,7 @@ This directory contains detailed documentation for OpenZenith.
 |----------|---------|
 | `ARCHITECTURE.md` | System overview, data flow, backend priority chain |
 | `DATASET_MANIFEST.md` | Data sources, storage locations, tile formats |
-| `CHANGELOG.md` | Version history and notable changes |
+| `archive/CHANGELOG.md` | Version history through v0.6.4 (recent: `../.github/CHANGELOG.md`) |
 | `CONTRIBUTING.md` | How to contribute |
 
 ## Other Docs

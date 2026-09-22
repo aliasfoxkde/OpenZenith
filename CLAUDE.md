@@ -51,11 +51,15 @@ openzenith trace --lat 36.0 --lon -118.0
 ```
 /nas/Temp/repos/OpenZenith/
 ├── api/                          # Next.js 15 App Router (Cloudflare Pages)
-│   ├── src/app/                  # Pages and API routes (47 routes)
+│   ├── src/app/                  # Pages and API routes (80 API routes)
 │   │   ├── api/                 # REST API endpoints (earthquakes, flights, elevation, etc.)
 │   │   ├── map/                 # 2D MapLibre map page
 │   │   ├── globe/               # 3D CesiumJS globe page
 │   │   ├── explore/             # Combined explore page
+│   │   ├── studio/              # Geospatial studio (drawing, measurement, analysis)
+│   │   ├── landing/             # Landing page shared components/hooks
+│   │   ├── demo/                # API demonstration interface
+│   │   ├── about/ + contribute/ # Project info and contribution pages
 │   │   └── wasm-demo/            # Browser WASM demo (D8, viewshed, OZT2 decode)
 │   ├── src/components/          # Shared React components
 │   ├── src/lib/                 # Shared libraries (tile, elevation, cache, etc.)

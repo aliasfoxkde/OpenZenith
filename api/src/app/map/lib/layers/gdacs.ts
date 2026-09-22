@@ -6,7 +6,7 @@ import { setStatus, warnLayerError } from "./types";
 export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("gdacs")) return;
 
-  const doLoad = async () => {
+  const doLoad = () => {
     try {
       // GDACS public API and RSS are no longer freely accessible.
       // Return empty gracefully.

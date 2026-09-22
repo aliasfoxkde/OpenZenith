@@ -18,8 +18,8 @@ const MAX_TERRAIN_ZOOM = 12;
  * Create a terrain provider that loads Terrarium PNG heightmap tiles from R2.
  */
 export function createTerrariumTerrainProvider(Cesium: CesiumType) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const provider = new (Cesium as any).EllipsoidTerrainProvider();
+
+  const provider = new (Cesium).EllipsoidTerrainProvider();
 
   // Override requestTileGeometry to fetch and decode Terrarium PNG tiles
   const origRequest = provider.requestTileGeometry?.bind(provider);
@@ -43,7 +43,8 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
-        const ctx = canvas.getContext("2d")!;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
         ctx.drawImage(image, 0, 0);
         const imageData = ctx.getImageData(0, 0, w, h);
         const pixels = imageData.data;
@@ -58,8 +59,8 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
           heights[i] = R * 256 + G + B / 256 - 32768;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const HDT = (Cesium as any).HeightmapTerrainData;
+
+        const HDT = (Cesium).HeightmapTerrainData;
         if (!HDT) return null;
 
         return new HDT({
@@ -79,8 +80,8 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
       })
       .catch(() => {
         // Tile fetch failed — return flat terrain
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const HDT = (Cesium as any).HeightmapTerrainData;
+
+        const HDT = (Cesium).HeightmapTerrainData;
         if (!HDT) return null;
         const flat = new Float32Array(256 * 256);
         return new HDT({

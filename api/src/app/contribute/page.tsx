@@ -13,9 +13,9 @@ function useTheme() {
   });
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => setDark(e.matches);
+    const handler = (e: MediaQueryListEvent) => { setDark(e.matches); };
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    return () => { mq.removeEventListener("change", handler); };
   }, []);
   return dark;
 }
@@ -159,9 +159,9 @@ export default function ContributePage() {
             <button
               className="ct-format-btn"
               onClick={() =>
-                setUploadData(
+                { setUploadData(
                   '{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{}}]}',
-                )
+                ); }
               }
             >
               GeoJSON
@@ -169,25 +169,25 @@ export default function ContributePage() {
             <button
               className="ct-format-btn"
               onClick={() =>
-                setUploadData(
+                { setUploadData(
                   "latitude,longitude,name,elevation_m\n40.7128,-74.0060,New York,10\n34.0522,-118.2437,Los Angeles,93",
-                )
+                ); }
               }
             >
               CSV
             </button>
-            <button className="ct-format-btn" onClick={() => setUploadData('GEOGCS["WGS 84"]\nDATA["WGS 84"]\n')}>
+            <button className="ct-format-btn" onClick={() => { setUploadData('GEOGCS["WGS 84"]\nDATA["WGS 84"]\n'); }}>
               Well-Known Text
             </button>
             <button
               className="ct-format-btn"
-              onClick={() => setUploadData("PointZM 86.9258 27.9881 8848.86\nPointZM 87.086 27.9881 8516\n")}
+              onClick={() => { setUploadData("PointZM 86.9258 27.9881 8848.86\nPointZM 87.086 27.9881 8516\n"); }}
             >
               GPX Tracks
             </button>
             <button
               className="ct-format-btn"
-              onClick={() => setUploadData("id;name;type;latitude;longitude;elevation\n1;Peak;summit;27.98;86.93;8849")}
+              onClick={() => { setUploadData("id;name;type;latitude;longitude;elevation\n1;Peak;summit;27.98;86.93;8849"); }}
             >
               Custom CSV
             </button>
@@ -202,11 +202,11 @@ export default function ContributePage() {
               e.preventDefault();
               setDragOver(true);
             }}
-            onDragLeave={() => setDragOver(false)}
+            onDragLeave={() => { setDragOver(false); }}
             onDrop={(e) => {
               e.preventDefault();
               setDragOver(false);
-              const file = e.dataTransfer.files[0];
+              const file = e.dataTransfer.files.item(0);
               if (file) handleFile(file);
             }}
           >

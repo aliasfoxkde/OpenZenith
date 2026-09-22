@@ -71,7 +71,7 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); }}
         style={{
           background: bg,
           border: `1px solid ${border}`,

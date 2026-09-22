@@ -5,8 +5,9 @@ import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 const NLNOG_API = "https://api.ring.nlnog.net/1.0";

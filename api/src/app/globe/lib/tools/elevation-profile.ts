@@ -213,7 +213,8 @@ export function renderProfileChart(profile: ProfilePoint[], width: number, heigh
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
 
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("2D canvas context unavailable");
   const dpr = window.devicePixelRatio || 1;
   ctx.scale(dpr, dpr);
 
@@ -440,7 +441,7 @@ export function renderProfileChart(profile: ProfilePoint[], width: number, heigh
     ctx.stroke();
   }
   const last = profile[profile.length - 1];
-  if (last?.elev != null) {
+  if (last.elev != null) {
     const ex = pad.left + (last.dist / maxDist) * chartW;
     const ey = pad.top + chartH - ((last.elev - minElev) / elevRange) * chartH;
     ctx.beginPath();

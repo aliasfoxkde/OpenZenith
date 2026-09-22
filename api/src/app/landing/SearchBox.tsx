@@ -34,7 +34,7 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
       }
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    return () => { document.removeEventListener("mousedown", handler); };
   }, []);
 
   function handleSearch(value: string) {
@@ -69,7 +69,7 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
       }
     }
 
-    timerRef.current = setTimeout(async () => {
+    const runSearch = async () => {
       try {
         const res = await fetch(`/api/geocode?query=${encodeURIComponent(value)}&limit=5`);
         if (!res.ok) {
@@ -93,6 +93,10 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
         setError("Address search is temporarily unavailable. Check your connection and retry.");
         setOpen(true);
       }
+    };
+
+    timerRef.current = setTimeout(() => {
+      void runSearch();
     }, 300);
   }
 
@@ -126,7 +130,7 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
           placeholder="Search address or place..."
           aria-label="Search address or place"
           value={query}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => { handleSearch(e.target.value); }}
           onFocus={() => {
             if (results.length > 0) setOpen(true);
           }}

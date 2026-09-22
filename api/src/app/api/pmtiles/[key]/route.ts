@@ -13,24 +13,28 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stays promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
-export async function GET() {
-  return NextResponse.json(
-    {
-      error: "PMTiles endpoint deprecated",
-      message: "Terrain tiles are now served via /api/dem-tile/{z}/{x}/{y} using HuggingFace SRTM 30m chunks.",
-      alternatives: [
-        { type: "dem-tiles", url: "/api/dem-tile/{z}/{x}/{y}", format: "Terrarium PNG" },
-        { type: "ogc-tiles", url: "/api/tiles/WebMercatorQuad/{z}/{x}/{y}", format: "OGC API Tiles" },
-        { type: "elevation", url: "/api/elevation?lat={lat}&lon={lon}", format: "JSON" },
-      ],
-    },
-    {
-      status: 410,
-      headers: CORS_HEADERS,
-    },
+// Static 410 response — nothing to await. Stays promise-returning because callers await handlers.
+export function GET() {
+  return Promise.resolve(
+    NextResponse.json(
+      {
+        error: "PMTiles endpoint deprecated",
+        message: "Terrain tiles are now served via /api/dem-tile/{z}/{x}/{y} using HuggingFace SRTM 30m chunks.",
+        alternatives: [
+          { type: "dem-tiles", url: "/api/dem-tile/{z}/{x}/{y}", format: "Terrarium PNG" },
+          { type: "ogc-tiles", url: "/api/tiles/WebMercatorQuad/{z}/{x}/{y}", format: "OGC API Tiles" },
+          { type: "elevation", url: "/api/elevation?lat={lat}&lon={lon}", format: "JSON" },
+        ],
+      },
+      {
+        status: 410,
+        headers: CORS_HEADERS,
+      },
+    ),
   );
 }

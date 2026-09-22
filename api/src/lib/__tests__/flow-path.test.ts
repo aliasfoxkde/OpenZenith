@@ -23,9 +23,9 @@ function terrain(elevationAt: (lat: number, lon: number) => number | null): {
   calls: Array<{ lat: number; lon: number }>;
 } {
   const calls: Array<{ lat: number; lon: number }> = [];
-  batchMock.mockImplementation(async (points) => {
+  batchMock.mockImplementation((points) => {
     for (const point of points) calls.push({ lat: point.lat, lon: point.lon });
-    return points.map((point) => ({ ...point, elevation: elevationAt(point.lat, point.lon) }));
+    return Promise.resolve(points.map((point) => ({ ...point, elevation: elevationAt(point.lat, point.lon) })));
   });
   return { calls };
 }
@@ -74,7 +74,7 @@ describe("calculateSphereDirections", () => {
     expect(dirs[1]?.dLat).toBeCloseTo(-0.0000000151, 10);
     expect(dirs[1]?.dLon).toBeCloseTo(0.002, 10);
     // west mirrors east
-    expect(dirs[3]?.dLon).toBeCloseTo(-dirs[1]!.dLon, 15);
+    expect(dirs[3]?.dLon).toBeCloseTo(-dirs[1].dLon, 15);
   });
 
   it("returns no directions when sides is zero", () => {
@@ -247,7 +247,7 @@ describe("traceDownstream", () => {
     expect(result.elevations).toEqual([1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 0]);
     const lons = result.coordinates.map(([lon]) => lon);
     for (let i = 1; i < lons.length; i++) {
-      expect(lons[i]).toBeGreaterThan(lons[i - 1]!);
+      expect(lons[i]).toBeGreaterThan(lons[i - 1]);
     }
     // the seed's neighbours were actually queried — more than the start point
     expect(calls.length).toBeGreaterThan(1);
@@ -303,7 +303,7 @@ describe("traceUpstream", () => {
     expect(result.elevations).toEqual([250, 350, 450, 550, 650, 750, 850, 950, 1050, 1150, 1250]);
     const lons = result.coordinates.map(([lon]) => lon);
     for (let i = 1; i < lons.length; i++) {
-      expect(lons[i]).toBeGreaterThanOrEqual(lons[i - 1]!);
+      expect(lons[i]).toBeGreaterThanOrEqual(lons[i - 1]);
     }
     expect(calls.length).toBeGreaterThan(1);
   });

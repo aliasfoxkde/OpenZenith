@@ -77,7 +77,7 @@ export function SettingsWidget({ globe }: WidgetProps) {
     });
   };
 
-  const sectionToggle = (key: SectionKey) => setOpenSections((p) => ({ ...p, [key]: !p[key] }));
+  const sectionToggle = (key: SectionKey) => { setOpenSections((p) => ({ ...p, [key]: !p[key] })); };
 
   const section = (key: SectionKey, title: string, children: React.ReactNode) => (
     <div className="wv-section">
@@ -85,7 +85,7 @@ export function SettingsWidget({ globe }: WidgetProps) {
         id={`wv-section-header-${key}`}
         title={title}
         open={openSections[key]}
-        onToggle={() => sectionToggle(key)}
+        onToggle={() => { sectionToggle(key); }}
         bodyId={`wv-section-body-${key}`}
       />
       <div
@@ -108,7 +108,7 @@ export function SettingsWidget({ globe }: WidgetProps) {
         id={`wv-setting-${key}`}
         type="checkbox"
         checked={settings[key] as boolean}
-        onChange={(e) => update(key, e.target.checked)}
+        onChange={(e) => { update(key, e.target.checked); }}
         style={{ accentColor: "var(--accent)" }}
       />
     </div>
@@ -145,7 +145,7 @@ export function SettingsWidget({ globe }: WidgetProps) {
               max={50000}
               step={500}
               value={settings.entityCap}
-              onChange={(e) => update("entityCap", Math.max(100, Math.min(50000, +e.target.value || 5000)))}
+              onChange={(e) => { update("entityCap", Math.max(100, Math.min(50000, +e.target.value || 5000))); }}
               style={{
                 width: 70,
                 background: "#1a1a1a",
@@ -174,7 +174,7 @@ export function SettingsWidget({ globe }: WidgetProps) {
           <select
             id="wv-setting-coordFormat"
             value={settings.coordFormat}
-            onChange={(e) => update("coordFormat", e.target.value)}
+            onChange={(e) => { update("coordFormat", e.target.value); }}
             style={{
               background: "#1a1a1a",
               border: "1px solid #333",
@@ -204,7 +204,7 @@ export function SettingsWidget({ globe }: WidgetProps) {
             <button
               key={k}
               className={`wv-bm-btn ${globe.state.theme === k ? "active" : ""}`}
-              onClick={() => globe.switchTheme(k)}
+              onClick={() => { globe.switchTheme(k); }}
             >
               {v.icon} {v.label}
             </button>

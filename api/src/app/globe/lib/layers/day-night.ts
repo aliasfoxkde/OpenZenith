@@ -107,9 +107,9 @@ export function loadDayNightTerminator(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  _intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  _intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
-  _entitiesRef: React.MutableRefObject<Record<string, any>>,
+  _entitiesRef: React.RefObject<Record<string, any>>,
   stateLayers: { dayNight: boolean },
 ) {
   updateStatus("dayNight", { error: null });

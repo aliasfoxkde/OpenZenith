@@ -57,8 +57,9 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
       const wind = parseInt(cols[windIdx]?.trim(), 10) || 0;
       const time = cols[isoTimeIdx]?.trim() || "";
 
-      if (!stormTracks.has(sid)) {
-        stormTracks.set(sid, {
+      let track = stormTracks.get(sid);
+      if (!track) {
+        track = {
           coords: [],
           times: [],
           winds: [],
@@ -66,9 +67,9 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
           season: cols[seasonIdx]?.trim() || "",
           basin: cols[basinIdx]?.trim() || "",
           nature: cols[natureIdx]?.trim() || "",
-        });
+        };
+        stormTracks.set(sid, track);
       }
-      const track = stormTracks.get(sid)!;
       track.coords.push([lon, lat]);
       track.times.push(time);
       track.winds.push(wind);
@@ -207,7 +208,7 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   return { type: "FeatureCollection", features };
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

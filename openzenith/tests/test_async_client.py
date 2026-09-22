@@ -47,10 +47,12 @@ class TestElevationClient:
     async def test_get_elevation_batch_small(self):
         """Batch of 2 points returns results for both."""
         client = ElevationClient(timeout=10.0)
-        results = await client.get_elevation_batch([
-            (40.7128, -74.0060),   # NYC
-            (35.6762, 139.6503),  # Tokyo
-        ])
+        results = await client.get_elevation_batch(
+            [
+                (40.7128, -74.0060),  # NYC
+                (35.6762, 139.6503),  # Tokyo
+            ]
+        )
         await client.close()
 
         assert len(results) == 2
@@ -76,10 +78,12 @@ class TestElevationClient:
     async def test_get_elevation_batch_dict_points(self):
         """Batch accepts dict-style points."""
         client = ElevationClient(timeout=10.0)
-        results = await client.get_elevation_batch([
-            {"lat": 40.7128, "lon": -74.0060, "id": "nyc"},
-            {"lat": 35.6762, "lon": 139.6503},
-        ])
+        results = await client.get_elevation_batch(
+            [
+                {"lat": 40.7128, "lon": -74.0060, "id": "nyc"},
+                {"lat": 35.6762, "lon": 139.6503},
+            ]
+        )
         await client.close()
 
         assert len(results) == 2
@@ -165,9 +169,14 @@ class TestElevationResultUnit:
     def test_all_fields_preserved(self):
         """All fields are stored correctly."""
         r = ElevationResult(
-            lat=40.0, lon=-74.0, elevation=10.5,
-            id="pt1", source="srtm", surface_type="land",
-            resolution=30, error=None,
+            lat=40.0,
+            lon=-74.0,
+            elevation=10.5,
+            id="pt1",
+            source="srtm",
+            surface_type="land",
+            resolution=30,
+            error=None,
         )
         assert r.lat == 40.0
         assert r.lon == -74.0
@@ -299,10 +308,12 @@ class TestElevationBatchProcessorUnit:
 
         with patch.object(client, "get_elevation_batch", new_callable=AsyncMock) as mock_batch:
             mock_batch.return_value = mock_batch_results
-            result = await proc.process_all([
-                {"lat": 40.0, "lon": -74.0},
-                {"lat": 41.0, "lon": -73.0},
-            ])
+            result = await proc.process_all(
+                [
+                    {"lat": 40.0, "lon": -74.0},
+                    {"lat": 41.0, "lon": -73.0},
+                ]
+            )
 
         assert len(result) == 2
         assert result[0].elevation == 10.0
@@ -326,4 +337,3 @@ class TestElevationBatchProcessorUnit:
             assert len(items) == 1
 
         await client.close()
-

@@ -13,7 +13,7 @@ export function loadRadar(
   cesiumRef: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   toggleImageryOverlay: (name: string, url?: string, opacity?: number) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { radar: boolean },
 ) {
   updateStatus("radar", { error: null });
@@ -57,22 +57,24 @@ export function loadRadar(
       startAnimation();
 
       // Refresh data every 10 minutes
-      const iv = setInterval(async () => {
-        if (!stateLayers.radar) return;
-        try {
-          const d = await fetchRainViewer();
-          if (!d.radar) return;
-          const past = (d.radar.past || []).map((f: any) => f.path);
-          const forecast = (d.radar.forecast || []).map((f: any) => f.path);
-          radarFrames = [...past, ...forecast];
-          frameIndex = 0;
-          updateStatus("radar", { lastUpdate: Date.now(), count: radarFrames.length });
-        } catch {
-          retry.recordFailure();
-          updateStatus("radar", {
-            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Radar data unavailable",
-          });
-        }
+      const iv = setInterval(() => {
+        void (async () => {
+          if (!stateLayers.radar) return;
+          try {
+            const d = await fetchRainViewer();
+            if (!d.radar) return;
+            const past = (d.radar.past || []).map((f: any) => f.path);
+            const forecast = (d.radar.forecast || []).map((f: any) => f.path);
+            radarFrames = [...past, ...forecast];
+            frameIndex = 0;
+            updateStatus("radar", { lastUpdate: Date.now(), count: radarFrames.length });
+          } catch {
+            retry.recordFailure();
+            updateStatus("radar", {
+              error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Radar data unavailable",
+            });
+          }
+        })();
       }, 600000);
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -82,5 +84,5 @@ export function loadRadar(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

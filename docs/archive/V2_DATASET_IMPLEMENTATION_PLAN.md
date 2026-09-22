@@ -1,3 +1,5 @@
+> **Historical document (archived 2026-09-22).** This plan is preserved as a record of past work; the v2 dataset and OZT2 pipeline it describes shipped (see docs/DATASET_MANIFEST.md). Current plans live in `docs/planning/`. Do not treat as authoritative.
+
 # OpenZenith v2 Dataset & OZT2 Implementation Plan
 
 **Date:** 2026-08-06

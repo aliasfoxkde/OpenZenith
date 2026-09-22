@@ -49,7 +49,7 @@ export function BasemapWidget({ globe }: WidgetProps) {
         <button
           key={key}
           className={`wv-bm-preview-card ${globe.state.basemap === key ? "active" : ""}`}
-          onClick={() => globe.switchBasemap(key)}
+          onClick={() => { globe.switchBasemap(key); }}
         >
           <div
             className="wv-bm-preview-thumb"

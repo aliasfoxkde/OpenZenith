@@ -57,9 +57,9 @@ export function loadSatellites(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
-  entitiesRef: React.MutableRefObject<Record<string, any>>,
-  satDataRef: React.MutableRefObject<any[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  entitiesRef: React.RefObject<Record<string, any>>,
+  satDataRef: React.RefObject<any[]>,
   stateLayers: { satellites: boolean; orbitalTracks?: boolean; groundTracks?: boolean },
 ) {
   updateStatus("satellites", { error: null });
@@ -256,83 +256,85 @@ export function loadSatellites(
       }
 
       // ─── Refresh interval ───
-      const iv = setInterval(async () => {
-        if (!stateLayers.satellites) return;
-        try {
-          const t = await fetchCelestrak();
-          if (!Array.isArray(t)) return;
-          const sj = (window as any).satellite;
-          const n = new Date();
-          const updated = t
-            .slice(0, 1500)
-            .filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2)
-            .map((x: any) => {
-              let c: [number, number, number] | null = null;
-              let v = 0;
-              if (sj) {
-                try {
-                  const sr = sj.twoline2satrec(x.TLE_LINE1, x.TLE_LINE2);
-                  const p = sj.propagate(sr, n);
-                  if (p.position) {
-                    const g = sj.eciToGeodetic(p.position, sj.gstime(n));
-                    c = [sj.degreesLong(g.longitude), sj.degreesLat(g.latitude), g.height];
-                    if (p.velocity) v = Math.sqrt(p.velocity.x ** 2 + p.velocity.y ** 2 + p.velocity.z ** 2);
+      const iv = setInterval(() => {
+        void (async () => {
+          if (!stateLayers.satellites) return;
+          try {
+            const t = await fetchCelestrak();
+            if (!Array.isArray(t)) return;
+            const sj = (window as any).satellite;
+            const n = new Date();
+            const updated = t
+              .slice(0, 1500)
+              .filter((x: any) => x.TLE_LINE1 && x.TLE_LINE2)
+              .map((x: any) => {
+                let c: [number, number, number] | null = null;
+                let v = 0;
+                if (sj) {
+                  try {
+                    const sr = sj.twoline2satrec(x.TLE_LINE1, x.TLE_LINE2);
+                    const p = sj.propagate(sr, n);
+                    if (p.position) {
+                      const g = sj.eciToGeodetic(p.position, sj.gstime(n));
+                      c = [sj.degreesLong(g.longitude), sj.degreesLat(g.latitude), g.height];
+                      if (p.velocity) v = Math.sqrt(p.velocity.x ** 2 + p.velocity.y ** 2 + p.velocity.z ** 2);
+                    }
+                  } catch {
+                    /* skip */
                   }
-                } catch {
-                  /* skip */
                 }
+                const name = x.NAME || x.OBJECT_NAME || "";
+                return {
+                  tle1: x.TLE_LINE1,
+                  tle2: x.TLE_LINE2,
+                  name,
+                  coords: c,
+                  velocity: v,
+                  purpose: classifySatellite(name),
+                  orbit: c ? classifyOrbit(c[2]) : "Unknown",
+                  noradId: x.NORAD_CAT_ID,
+                };
+              })
+              .filter((f: any) => f.coords);
+            satDataRef.current = updated;
+
+            // Update point positions
+            const pts = entitiesRef.current["sat-points"];
+            if (pts) {
+              const count = Math.min(updated.length, pts.length);
+              for (let i = 0; i < count; i++) {
+                const f = updated[i];
+                if (!f.coords) continue;
+                pts.get(i).position = Cesium.Cartesian3.fromDegrees(
+                  f.coords[0],
+                  f.coords[1],
+                  Math.max(f.coords[2] * 1000, 160_000),
+                );
               }
-              const name = x.NAME || x.OBJECT_NAME || "";
-              return {
-                tle1: x.TLE_LINE1,
-                tle2: x.TLE_LINE2,
-                name,
-                coords: c,
-                velocity: v,
-                purpose: classifySatellite(name),
-                orbit: c ? classifyOrbit(c[2]) : "Unknown",
-                noradId: x.NORAD_CAT_ID,
-              };
-            })
-            .filter((f: any) => f.coords);
-          satDataRef.current = updated;
-
-          // Update point positions
-          const pts = entitiesRef.current["sat-points"] as any;
-          if (pts) {
-            const count = Math.min(updated.length, pts.length);
-            for (let i = 0; i < count; i++) {
-              const f = updated[i];
-              if (!f.coords) continue;
-              pts.get(i).position = Cesium.Cartesian3.fromDegrees(
-                f.coords[0],
-                f.coords[1],
-                Math.max(f.coords[2] * 1000, 160_000),
-              );
             }
-          }
 
-          // Update notable satellite positions
-          const newNotable = updated.filter((f: any) => notablePatterns.some((p) => p.test(f.name)));
-          for (const sat of newNotable.slice(0, 50)) {
-            const entity = viewer.entities.getById(`sat-notable-${sat.noradId || sat.name}`);
-            if (entity && sat.coords) {
-              entity.position = Cesium.Cartesian3.fromDegrees(
-                sat.coords[0],
-                sat.coords[1],
-                Math.max(sat.coords[2] * 1000, 160_000),
-              );
+            // Update notable satellite positions
+            const newNotable = updated.filter((f: any) => notablePatterns.some((p) => p.test(f.name)));
+            for (const sat of newNotable.slice(0, 50)) {
+              const entity = viewer.entities.getById(`sat-notable-${sat.noradId || sat.name}`);
+              if (entity && sat.coords) {
+                entity.position = Cesium.Cartesian3.fromDegrees(
+                  sat.coords[0],
+                  sat.coords[1],
+                  Math.max(sat.coords[2] * 1000, 160_000),
+                );
+              }
             }
-          }
 
-          updateStatus("satellites", { lastUpdate: Date.now(), count: updated.length, error: null });
-          retry.recordSuccess();
-        } catch {
-          retry.recordFailure();
-          updateStatus("satellites", {
-            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Satellite data unavailable",
-          });
-        }
+            updateStatus("satellites", { lastUpdate: Date.now(), count: updated.length, error: null });
+            retry.recordSuccess();
+          } catch {
+            retry.recordFailure();
+            updateStatus("satellites", {
+              error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Satellite data unavailable",
+            });
+          }
+        })();
       }, 300000);
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -342,5 +344,5 @@ export function loadSatellites(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

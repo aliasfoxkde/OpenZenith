@@ -9,7 +9,8 @@ interface FooterProps {
 export function Footer({ dark }: FooterProps) {
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSecondary = dark ? "#888" : "#737373";
+  // Must match --oz-text-secondary in globals.css (WCAG AAA 7:1 on bg).
+  const textSecondary = dark ? "#a3a3a3" : "#525252";
   const footerBg = dark ? "#0c0c0c" : "#f8f8f8";
 
   return (
@@ -44,7 +45,7 @@ export function Footer({ dark }: FooterProps) {
           </div>
           {/* Product */}
           <div>
-            <h4
+            <h3
               style={{
                 fontSize: "0.75rem",
                 fontWeight: 600,
@@ -55,7 +56,7 @@ export function Footer({ dark }: FooterProps) {
               }}
             >
               Product
-            </h4>
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
               {[
                 { label: "Map", href: "/map" },
@@ -77,7 +78,7 @@ export function Footer({ dark }: FooterProps) {
           </div>
           {/* Data */}
           <div>
-            <h4
+            <h3
               style={{
                 fontSize: "0.75rem",
                 fontWeight: 600,
@@ -88,7 +89,7 @@ export function Footer({ dark }: FooterProps) {
               }}
             >
               Data Sources
-            </h4>
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
               {[
                 { label: "NASA SRTM 30m", href: "https://www.earthdata.nasa.gov/elevation" },
@@ -112,7 +113,7 @@ export function Footer({ dark }: FooterProps) {
           </div>
           {/* Resources */}
           <div>
-            <h4
+            <h3
               style={{
                 fontSize: "0.75rem",
                 fontWeight: 600,
@@ -123,7 +124,7 @@ export function Footer({ dark }: FooterProps) {
               }}
             >
               Resources
-            </h4>
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
               {[
                 { label: "OpenAPI Spec", href: "/api/openapi.json" },

@@ -31,8 +31,8 @@ describe("Layer Registry", () => {
   it("getLayersByCategory returns layers grouped by category", () => {
     const groups = getLayersByCategory();
     expect(groups.atmosphere).toBeDefined();
-    expect(groups.atmosphere!.length).toBeGreaterThan(0);
-    for (const layer of groups.atmosphere!) {
+    expect(groups.atmosphere.length).toBeGreaterThan(0);
+    for (const layer of groups.atmosphere) {
       expect(layer.category).toBe("atmosphere");
     }
     expect(groups.terrain).toBeDefined();
@@ -45,8 +45,8 @@ describe("Layer Registry", () => {
     for (const [id, enabled] of Object.entries(state)) {
       expect(typeof enabled).toBe("boolean");
       const layer = LAYERS.find((l) => l.id === id);
-      expect(layer).toBeDefined();
-      expect(enabled).toBe(layer!.defaultEnabled);
+      if (!layer) throw new Error(`no layer registered for id ${id}`);
+      expect(enabled).toBe(layer.defaultEnabled);
     }
   });
 

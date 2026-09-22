@@ -10,7 +10,7 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
     try {
       const res = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
       const data = await res.json();
-      if (!map.getSource || !data.features) return;
+      if (!data.features) return;
       setStatus(handle, "events", "loaded", data.features.length);
 
       try {
@@ -67,8 +67,12 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 300000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 300000), // 5 min
+  );
 }
 
 export function removeNaturalEvents(map: maplibregl.Map): void {

@@ -39,6 +39,7 @@ def extract_at_points(
     Returns:
         List of dicts with original properties + lat, lon, elevation,
         slope_deg, aspect_deg, tpi
+
     """
     from openzenith.terrain import aspect as _aspect
     from openzenith.terrain import slope as _slope
@@ -84,15 +85,17 @@ def extract_at_points(
         if fields:
             props = {k: v for k, v in props.items() if k in fields}
 
-        results.append({
-            **props,
-            "lat": round(lat, 6),
-            "lon": round(lon, 6),
-            "elevation": elev,
-            "slope_deg": slope_val,
-            "aspect_deg": aspect_val,
-            "tpi": tpi_val,
-        })
+        results.append(
+            {
+                **props,
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "elevation": elev,
+                "slope_deg": slope_val,
+                "aspect_deg": aspect_val,
+                "tpi": tpi_val,
+            }
+        )
 
     return results
 
@@ -118,6 +121,7 @@ def zonal_stats(
 
     Returns:
         List of dicts with original properties + zonal statistics
+
     """
     rows, cols = dem.shape
 
@@ -159,7 +163,7 @@ def zonal_stats(
             continue
 
         # Extract sub-grid and mask with polygon
-        sub = dem[r_min:r_max + 1, c_min:c_max + 1]
+        sub = dem[r_min : r_max + 1, c_min : c_max + 1]
 
         # Create row/col grids for points in sub-grid
         r_idx = np.arange(r_min, r_max + 1)[:, None] * np.ones((1, c_max - c_min + 1), dtype=int)
@@ -222,8 +226,9 @@ def _points_in_polygon(
         for k in range(num_verts):
             vi_lat, vi_lon = py[k], px[k]
             vj_lat, vj_lon = py[j], px[j]
-            if ((vi_lat > lat) != (vj_lat > lat)) and \
-               (lon < (vj_lon - vi_lon) * (lat - vi_lat) / (vj_lat - vi_lat) + vi_lon):
+            if ((vi_lat > lat) != (vj_lat > lat)) and (
+                lon < (vj_lon - vi_lon) * (lat - vi_lat) / (vj_lat - vi_lat) + vi_lon
+            ):
                 c = not c
             j = k
         inside[i] = c
@@ -251,6 +256,7 @@ def rasterize_lines(
 
     Returns:
         2D float32 array with lines rasterized (0 elsewhere)
+
     """
     rows, cols = dem.shape
 

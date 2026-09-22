@@ -1,3 +1,5 @@
+> **Historical document (archived 2026-09-22).** This plan is preserved as a record of past work; the console-error and rendering issues it targets were fixed and verified (the /globe page ships today). Current plans live in `docs/planning/`. Do not treat as authoritative.
+
 # Globe Page Revamp Plan
 
 ## Status: ACTIVE

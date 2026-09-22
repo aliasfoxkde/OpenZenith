@@ -217,7 +217,7 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
 
   // Decompress
   const compressedData = tileBytes.slice(HEADER_SIZE);
-  const decompressed = await decompress(compressedData, compressor as number);
+  const decompressed = await decompress(compressedData, compressor);
 
   // Parse int16 residuals
   if (decompressed.byteLength % 2 !== 0) {

@@ -11,8 +11,9 @@ import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 import { tileToBboxString } from "@/lib/srtm/zoom-math";

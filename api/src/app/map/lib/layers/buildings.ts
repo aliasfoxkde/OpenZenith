@@ -102,7 +102,6 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
 
       setStatus(handle, "buildings", features.length ? "loaded" : "empty", features.length);
 
-      if (!map.getSource) return;
       try {
         const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
         if (!map.getSource("buildings")) {
@@ -121,13 +120,16 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
   };
 
   // Load on zoom/pan when zoom >= 12
-  map.on("moveend", loadBuildings);
-  loadBuildings();
+  const onMoveEnd = () => {
+    void loadBuildings();
+  };
+  map.on("moveend", onMoveEnd);
+  void loadBuildings();
 
   // Cleanup: remove the moveend listener
   const origCleanup = handle.cleanup;
   handle.cleanup = () => {
-    map.off("moveend", loadBuildings);
+    map.off("moveend", onMoveEnd);
     origCleanup?.();
   };
 }

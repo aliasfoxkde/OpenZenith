@@ -1,8 +1,8 @@
 """Tests for openzenith.converter (GeoTIFF to OZT1 converter)."""
 
 import json
-import os
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -53,11 +53,11 @@ class TestConvertTile:
             pytest.skip("converter module not available")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, "N00E000.tif")
+            src = Path(tmpdir) / "N00E000.tif"
             self._write_synthetic_geotiff(src)
             result = convert_tile(src, tmpdir, compression=COMP_ZSTD_PREDICT, zstd_level=3)
 
-            assert os.path.exists(os.path.join(tmpdir, "N00E000.ozt1"))
+            assert (Path(tmpdir) / "N00E000.ozt1").exists()
             assert result["verified"] is True
             assert result["source_bytes"] > 0
             assert result["output_bytes"] > 0
@@ -71,11 +71,11 @@ class TestConvertTile:
             pytest.skip("converter module not available")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, "N00E000.tif")
+            src = Path(tmpdir) / "N00E000.tif"
             original = self._write_synthetic_geotiff(src, seed=99)
             convert_tile(src, tmpdir, compression=COMP_ZSTD_PREDICT, zstd_level=3)
 
-            with open(os.path.join(tmpdir, "N00E000.ozt1"), "rb") as f:
+            with (Path(tmpdir) / "N00E000.ozt1").open("rb") as f:
                 encoded = f.read()
             decoded, _ = decode(encoded)
             assert_array_equal(original, decoded)
@@ -88,7 +88,7 @@ class TestConvertTile:
             pytest.skip("converter module not available")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, "N40W074.tif")
+            src = Path(tmpdir) / "N40W074.tif"
             self._write_synthetic_geotiff(src, min_e=-50, max_e=500)
             result = convert_tile(src, tmpdir, zstd_level=5)
 
@@ -117,7 +117,7 @@ class TestConvertDirectory:
         with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as dst_dir:
             # Create 3 synthetic tiles
             for i, name in enumerate(["N00E000.tif", "N01E000.tif", "N02E000.tif"]):
-                path = os.path.join(src_dir, name)
+                path = Path(src_dir) / name
                 try:
                     self._write_synthetic_geotiff(path, seed=i * 10)
                 except Exception:  # noqa: BLE001
@@ -127,9 +127,9 @@ class TestConvertDirectory:
 
                 assert len(results) == 3
                 assert all("error" not in r for r in results)
-                assert os.path.exists(os.path.join(dst_dir, "N00E000.ozt1"))
-                assert os.path.exists(os.path.join(dst_dir, "N01E000.ozt1"))
-                assert os.path.exists(os.path.join(dst_dir, "N02E000.ozt1"))
+                assert (Path(dst_dir) / "N00E000.ozt1").exists()
+                assert (Path(dst_dir) / "N01E000.ozt1").exists()
+                assert (Path(dst_dir) / "N02E000.ozt1").exists()
 
     def test_convert_with_manifest(self):
         """convert_directory should create a manifest.json."""
@@ -139,7 +139,7 @@ class TestConvertDirectory:
             pytest.skip("converter module not available")
 
         with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as dst_dir:
-            path = os.path.join(src_dir, "N00E000.tif")
+            path = Path(src_dir) / "N00E000.tif"
             try:
                 self._write_synthetic_geotiff(path)
             except Exception:  # noqa: BLE001
@@ -147,9 +147,9 @@ class TestConvertDirectory:
 
             convert_directory(src_dir, dst_dir, zstd_level=3)
 
-            manifest_path = os.path.join(dst_dir, "manifest.json")
-            assert os.path.exists(manifest_path)
-            with open(manifest_path) as f:
+            manifest_path = Path(dst_dir) / "manifest.json"
+            assert manifest_path.exists()
+            with manifest_path.open() as f:
                 manifest = json.load(f)
             assert manifest["tiles_converted"] == 1
             assert "total_reduction_pct" in manifest
@@ -171,8 +171,15 @@ class TestConverterEdgeCases:
         arr[mask] = -32768
 
         with rasterio.open(
-            path, "w", driver="GTiff", height=shape[0], width=shape[1],
-            count=1, dtype=np.int16, nodata=-32768, crs="EPSG:4326",
+            path,
+            "w",
+            driver="GTiff",
+            height=shape[0],
+            width=shape[1],
+            count=1,
+            dtype=np.int16,
+            nodata=-32768,
+            crs="EPSG:4326",
             transform=rasterio.transform.from_bounds(0, 1, 1, 0, shape[1], shape[0]),
         ) as dst:
             dst.write(arr, 1)
@@ -186,7 +193,7 @@ class TestConverterEdgeCases:
             pytest.skip("converter module not available")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, "N00E000.tif")
+            src = Path(tmpdir) / "N00E000.tif"
             self._write_synthetic_geotiff(src, min_e=0, max_e=3000)
 
             result_lossless = convert_tile(src, tmpdir, quantize_bits=None, zstd_level=3)

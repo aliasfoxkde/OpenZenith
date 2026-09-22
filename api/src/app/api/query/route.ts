@@ -9,8 +9,9 @@ export const runtime = "edge";
 const VALID_INCLUDES = ["elevation", "address", "weather", "tides", "waterways"] as const;
 type IncludeType = (typeof VALID_INCLUDES)[number];
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stays promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 /**
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
               } else {
                 result.address = {
                   display_name: data.display_name || null,
-                  name: data.name || (data.display_name as string)?.split(",")[0] || null,
+                  name: data.name || (data.display_name as string | undefined)?.split(",")[0] || null,
                   type: data.type || null,
                   address: data.address || null,
                   osm_id: data.osm_id || null,

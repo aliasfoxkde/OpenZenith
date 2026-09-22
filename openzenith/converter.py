@@ -1,8 +1,8 @@
 """SRTM 30m GeoTIFF to OZT1 converter."""
 
 import json
-import os
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -22,12 +22,12 @@ def convert_tile(
 
     Returns metadata dict with compression stats.
     """
-    name = os.path.basename(src_path)
+    name = Path(src_path).name
     t0 = time.time()
 
     # Load source
     arr = load_geotiff(src_path)
-    src_size = os.path.getsize(src_path)
+    src_size = Path(src_path).stat().st_size
 
     # Encode
     encoded = encode(
@@ -56,10 +56,10 @@ def convert_tile(
                 rmse = float(np.max(np.abs(arr[valid] - decoded[valid])))
 
     # Write output
-    os.makedirs(dst_dir, exist_ok=True)
+    Path(dst_dir).mkdir(parents=True, exist_ok=True)
     dst_name = name.replace(".tif", ".ozt1").replace(".tiff", ".ozt1")
-    dst_path = os.path.join(dst_dir, dst_name)
-    with open(dst_path, "wb") as f:
+    dst_path = Path(dst_dir) / dst_name
+    with dst_path.open("wb") as f:
         f.write(encoded)
 
     # Compute bounds
@@ -116,8 +116,9 @@ def convert_directory(
         quantize_bits: Quantization bit depth (None=lossless)
         max_tiles: Maximum number of tiles to convert
         pattern: Optional glob pattern to filter files
+
     """
-    files = sorted([f for f in os.listdir(src_dir) if f.endswith((".tif", ".tiff"))])
+    files = sorted([f.name for f in Path(src_dir).iterdir() if f.name.endswith((".tif", ".tiff"))])
 
     if pattern:
         import fnmatch
@@ -133,11 +134,15 @@ def convert_directory(
 
     print(f"Converting {len(files)} tiles from {src_dir}")
     print(f"Output: {dst_dir}")
-    print(f"Compression: zstd level {zstd_level}, quantize={quantize_bits if quantize_bits else 'lossless'}")
+    print(
+        "Compression: "
+        f"zstd level {zstd_level}, "
+        f"quantize={quantize_bits if quantize_bits else 'lossless'}"
+    )
     print("=" * 80)
 
     for i, fname in enumerate(files):
-        src_path = os.path.join(src_dir, fname)
+        src_path = str(Path(src_dir) / fname)
         try:
             result = convert_tile(
                 src_path,
@@ -169,7 +174,10 @@ def convert_directory(
 
     print("=" * 80)
     print(f"Converted: {len(successful)}/{len(files)} tiles")
-    print(f"Total: {total_src / 1e9:.2f} GB → {total_dst / 1e9:.2f} GB ({total_reduction:.1f}% reduction)")
+    print(
+        f"Total: {total_src / 1e9:.2f} GB → {total_dst / 1e9:.2f} GB "
+        f"({total_reduction:.1f}% reduction)"
+    )
 
     # Save conversion manifest
     manifest = {
@@ -185,8 +193,8 @@ def convert_directory(
         "results": successful,
     }
 
-    manifest_path = os.path.join(dst_dir, "manifest.json")
-    with open(manifest_path, "w") as f:
+    manifest_path = Path(dst_dir) / "manifest.json"
+    with manifest_path.open("w") as f:
         json.dump(manifest, f, indent=2)
 
     print(f"Manifest saved to {manifest_path}")

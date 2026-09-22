@@ -2,6 +2,7 @@
 
 import tempfile
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -26,11 +27,11 @@ class TestGridToGtiffMetadata:
         assert len(meta["geotransform"]) == 6
 
     def test_transform_overrides(self):
-        """transform tuple overrides origin_lat/lon/cell_size."""
+        """Transform tuple overrides origin_lat/lon/cell_size."""
         meta = grid_to_gtiff_metadata(100, 200, transform=(40.0, -74.0, 0.001, 0.001))
         gt = meta["geotransform"]
-        assert gt[0] == -74.0   # lon_min
-        assert gt[3] == 40.0    # lat_max
+        assert gt[0] == -74.0  # lon_min
+        assert gt[3] == 40.0  # lat_max
 
     def test_custom_nodata(self):
         """Custom nodata value is stored."""
@@ -47,6 +48,7 @@ class TestExportGeotiff:
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path = export_geotiff(dem, f.name)
             import rasterio
+
             with rasterio.open(path) as src:
                 assert src.dtypes[0] == "int16"
                 assert src.nodata == -32768.0
@@ -60,6 +62,7 @@ class TestExportGeotiff:
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path = export_geotiff(dem, f.name)
             import rasterio
+
             with rasterio.open(path) as src:
                 assert src.dtypes[0] == "int16"
                 data = src.read(1)
@@ -72,6 +75,7 @@ class TestExportGeotiff:
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path = export_geotiff(dem, f.name, transform=transform)
             import rasterio
+
             with rasterio.open(path) as src:
                 # Bounds
                 assert src.bounds.left == pytest.approx(-74.0)
@@ -87,6 +91,7 @@ class TestExportGeotiff:
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path = export_geotiff(dem, f.name)
             import rasterio
+
             with rasterio.open(path) as src:
                 data = src.read(1)
                 assert data[0, 1] == -32768  # NaN → nodata
@@ -97,6 +102,7 @@ class TestExportGeotiff:
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path = export_geotiff(dem, f.name, crs="EPSG:3857")
             import rasterio
+
             with rasterio.open(path) as src:
                 assert "3857" in str(src.crs)
 
@@ -110,6 +116,7 @@ class TestExportCog:
         with tempfile.NamedTemporaryFile(suffix="_cog.tif", delete=False) as f:
             path = export_cog(dem, f.name, overview_levels=[2, 4, 8])
             import rasterio
+
             with rasterio.open(path) as src:
                 ovrs = src.overviews(1)
                 assert len(ovrs) >= 3
@@ -117,12 +124,12 @@ class TestExportCog:
     def test_cog_zstd_compression(self):
         """COG with zstd compression produces smaller output than uncompressed."""
         dem = np.full((256, 256), 1000, dtype=np.int16)
-        import os
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path_zstd = export_cog(dem, f.name, compress="zstd")
         with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
             path_raw = export_geotiff(dem, f.name, compress="none")
-        size_zstd = os.path.getsize(path_zstd)
-        size_raw = os.path.getsize(path_raw)
+        size_zstd = Path(path_zstd).stat().st_size
+        size_raw = Path(path_raw).stat().st_size
         assert size_zstd < size_raw, "zstd should compress better than none"

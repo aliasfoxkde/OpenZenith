@@ -62,7 +62,8 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
       ws = new WebSocket(config.wsUrl);
       vesselCount = 0;
 
-      let dataTimeout: ReturnType<typeof setTimeout>;
+      // Only set once `ws.onopen` fires — reads before that see undefined.
+      let dataTimeout: ReturnType<typeof setTimeout> | undefined;
 
       ws.onopen = () => {
         // Subscribe to global vessel positions
@@ -110,7 +111,9 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
 
               // Check if MMSI already exists, update it
               const mmsi = report.MMSI;
-              const idx = features.findIndex((f: GeoJSON.Feature) => f.properties?.mmsi === mmsi);
+              // Structural type on purpose: `features` mirrors MapLibre's
+              // internal source data, whose `properties` may be absent.
+              const idx = features.findIndex((f: { properties?: { mmsi?: number } }) => f.properties?.mmsi === mmsi);
               const feature: GeoJSON.Feature = {
                 type: "Feature",
                 geometry: {
@@ -161,7 +164,7 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
         if (dataTimeout) clearTimeout(dataTimeout);
         // Auto-reconnect after 30s (not 10s — reduce load on non-functional service)
         setTimeout(() => {
-          if (map.getSource("vessels")) connect();
+          if (map.getSource("vessels")) void connect();
         }, 30000);
       };
     } catch (err) {
@@ -170,7 +173,7 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  connect();
+  void connect();
 
   handle.cleanup = () => {
     if (ws) {

@@ -40,15 +40,15 @@ import numpy as np
 
 # Default terrain color palette (elevation in meters → RGB)
 DEFAULT_TERRAIN_PALETTE: list[tuple[float, tuple[int, int, int]]] = [
-    (-32768.0, (0, 0, 0)),       # NODATA
-    (-10.0,   (30, 90, 160)),    # Deep ocean
-    (0.0,     (50, 130, 200)),   # Shallow ocean
-    (1.0,     (80, 160, 100)),   # Beach/marsh
-    (50.0,    (60, 140, 60)),    # Lowland forest
-    (200.0,   (100, 160, 80)),   # Hills
-    (500.0,   (150, 140, 120)),  # Mountains
-    (1500.0,  (200, 180, 160)),  # High mountains
-    (3000.0,  (240, 240, 250)),  # Alpine/snow
+    (-32768.0, (0, 0, 0)),  # NODATA
+    (-10.0, (30, 90, 160)),  # Deep ocean
+    (0.0, (50, 130, 200)),  # Shallow ocean
+    (1.0, (80, 160, 100)),  # Beach/marsh
+    (50.0, (60, 140, 60)),  # Lowland forest
+    (200.0, (100, 160, 80)),  # Hills
+    (500.0, (150, 140, 120)),  # Mountains
+    (1500.0, (200, 180, 160)),  # High mountains
+    (3000.0, (240, 240, 250)),  # Alpine/snow
 ]
 
 
@@ -85,24 +85,28 @@ def plot_terrain(
 
     Returns:
         (Figure, Axes) tuple.
+
     """
     try:
         import matplotlib.pyplot as plt
-    except ImportError:
-        raise ImportError(
-            "matplotlib required. Install with: pip install matplotlib"
-        )
+    except ImportError as err:
+        raise ImportError("matplotlib required. Install with: pip install matplotlib") from err
 
     valid = dem != -32768
     masked = np.where(valid, dem, np.nan)
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
-        extent: tuple[float,float,float,float] | None = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
+        extent: tuple[float, float, float, float] | None = (
+            lon0,
+            lon0 + dem.shape[1] * dlon,
+            lat0 - dem.shape[0] * dlat,
+            lat0,
+        )
     else:
         extent = None
 
-    fig, ax_ = (plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax))
+    fig, ax_ = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
     ax_.axis("off")
     ax_.set_title(title, fontsize=14)
 
@@ -162,11 +166,12 @@ def plot_hillshade(
 
     Returns:
         (Figure, Axes) tuple.
+
     """
     try:
         import matplotlib.pyplot as plt
-    except ImportError:
-        raise ImportError("matplotlib required.")
+    except ImportError as err:
+        raise ImportError("matplotlib required.") from err
 
     from openzenith.terrain import hillshade
 
@@ -180,13 +185,18 @@ def plot_hillshade(
     hs = hillshade(dem, cell_size_deg=cell_size)
     masked_hs = np.where(dem != -32768, hs, np.nan)
 
-    fig, ax_ = (plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax))
+    fig, ax_ = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
     ax_.axis("off")
     ax_.set_title("Hillshade", fontsize=14)
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
-        extent: tuple[float,float,float,float] | None = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
+        extent: tuple[float, float, float, float] | None = (
+            lon0,
+            lon0 + dem.shape[1] * dlon,
+            lat0 - dem.shape[0] * dlat,
+            lat0,
+        )
     else:
         extent = None
 
@@ -225,11 +235,12 @@ def plot_contours(
 
     Returns:
         (Figure, Axes) tuple.
+
     """
     try:
         import matplotlib.pyplot as plt
-    except ImportError:
-        raise ImportError("matplotlib required.")
+    except ImportError as err:
+        raise ImportError("matplotlib required.") from err
 
     valid = dem != -32768
     masked = np.where(valid, dem, np.nan)
@@ -239,13 +250,18 @@ def plot_contours(
     start = math.floor(vmn / interval) * interval
     levels = np.arange(start, vmx + interval, interval)
 
-    fig, ax_ = (plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax))
+    fig, ax_ = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
     ax_.axis("off")
     ax_.set_title(f"Contours (interval={interval}m)", fontsize=14)
 
     if transform is not None:
         lat0, lon0, dlat, dlon = transform
-        extent: tuple[float,float,float,float] | None = (lon0, lon0 + dem.shape[1] * dlon, lat0 - dem.shape[0] * dlat, lat0)
+        extent: tuple[float, float, float, float] | None = (
+            lon0,
+            lon0 + dem.shape[1] * dlon,
+            lat0 - dem.shape[0] * dlat,
+            lat0,
+        )
     else:
         extent = None
 
@@ -292,6 +308,7 @@ def terrain_to_3d_mesh(
 
     Returns:
         GeoJSON FeatureCollection dict with mesh geometry and properties.
+
     """
     rows, cols = dem.shape
 
@@ -306,7 +323,7 @@ def terrain_to_3d_mesh(
         lat0, lon0, dlat, dlon = 0.0, 0.0, 0.001, 0.001
 
     # Subsampled grid for quad evaluation (one value per cell corner)
-    r_idx, c_idx = np.mgrid[0:rows - 1:step, 0:cols - 1:step]
+    r_idx, c_idx = np.mgrid[0 : rows - 1 : step, 0 : cols - 1 : step]
 
     # Quad validity: all four corners must be non-nodata
     # dem is indexed [row, col]
@@ -327,8 +344,8 @@ def terrain_to_3d_mesh(
 
     # Pre-compute all vertex coordinates as 1D arrays
     # Vertex layout per quad: [v0=(r,c), v1=(r,c+1), v2=(r+1,c), v3=(r+1,c+1)]
-    lats = lat0 + valid_r * dlat          # shape (n_quads,)
-    lons = lon0 + valid_c * dlon          # shape (n_quads,)
+    lats = lat0 + valid_r * dlat  # shape (n_quads,)
+    lons = lon0 + valid_c * dlon  # shape (n_quads,)
     lats_up = lat0 + (valid_r + 1) * dlat
     lons_rt = lon0 + (valid_c + 1) * dlon
 
@@ -343,7 +360,8 @@ def terrain_to_3d_mesh(
     # Build Triangle Features: 2 per quad
     features = []
     n_tri = 2 * n_quads
-    # tri_vidx[i] = which vertex of the quad (0=v0,1=v1,2=v2,3=v3) for corner i of 6-triangle-corner seq
+    # tri_vidx[i] = which vertex of the quad (0=v0,1=v1,2=v2,3=v3) for corner i
+    # of the 6-triangle-corner sequence
     # Tri1 corners: 0,1,2  Tri2 corners: 1,3,2  → [0,1,2,1,3,2]
     tri_vidx = np.array([0, 1, 2, 1, 3, 2])
 
@@ -357,10 +375,12 @@ def terrain_to_3d_mesh(
     lat_tri = np.where(tri_vidx < 2, lats_t, lats_up_t).reshape(n_tri, 3)
 
     # z per triangle corner: v0→z0, v1→z1, v2→z2, v3→z3
-    z_quad = np.stack([z0, z1, z2, z3], axis=1)   # (n_quads, 4)
+    z_quad = np.stack([z0, z1, z2, z3], axis=1)  # (n_quads, 4)
     # tile to (n_quads, 6) then select via tri_vidx
     z_quad_t = np.broadcast_to(z_quad[:, np.newaxis, :], (n_quads, 6, 4))
-    z_tri = np.take_along_axis(z_quad_t, tri_vidx[np.newaxis, :, np.newaxis], axis=2).reshape(n_tri, 3)
+    z_tri = np.take_along_axis(z_quad_t, tri_vidx[np.newaxis, :, np.newaxis], axis=2).reshape(
+        n_tri, 3
+    )
 
     for i in range(n_tri):
         coords = [
@@ -369,11 +389,13 @@ def terrain_to_3d_mesh(
             [float(lon_tri[i, 2]), float(lat_tri[i, 2]), float(z_tri[i, 2])],
         ]
         ez0, ez1, ez2 = float(z_tri[i, 0]), float(z_tri[i, 1]), float(z_tri[i, 2])
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Triangle", "coordinates": coords},
-            "properties": {"elevation_0": ez0, "elevation_1": ez1, "elevation_2": ez2},
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Triangle", "coordinates": coords},
+                "properties": {"elevation_0": ez0, "elevation_1": ez1, "elevation_2": ez2},
+            }
+        )
 
     return {"type": "FeatureCollection", "features": features}
 
@@ -403,12 +425,13 @@ def terrain_to_glb(
 
     Requires: numpy-stl, trimesh
         pip install numpy-stl trimesh
+
     """
     try:
         import numpy as np
         import trimesh
-    except ImportError:
-        raise ImportError("numpy-stl and trimesh required. pip install numpy-stl trimesh")
+    except ImportError as err:
+        raise ImportError("numpy-stl and trimesh required. pip install numpy-stl trimesh") from err
 
     rows, cols = dem.shape
 
@@ -440,7 +463,7 @@ def terrain_to_glb(
     rgba = rgba_flat.reshape(rows, cols, 4)  # (rows, cols, 4) RGBA
 
     # ── First pass: collect valid quad (r, c) positions into arrays ──────────
-    r_idx, c_idx = np.mgrid[0:rows - 1:step, 0:cols - 1:step]
+    r_idx, c_idx = np.mgrid[0 : rows - 1 : step, 0 : cols - 1 : step]
 
     nodata = dem == -32768
     quad_valid = (
@@ -456,17 +479,21 @@ def terrain_to_glb(
 
     if n_quads == 0:
         # Return minimal empty mesh
-        mesh = trimesh.Trimesh(vertices=np.zeros((0, 3), dtype=np.float32), faces=np.zeros((0, 3), dtype=np.uint32))
+        mesh = trimesh.Trimesh(
+            vertices=np.zeros((0, 3), dtype=np.float32), faces=np.zeros((0, 3), dtype=np.uint32)
+        )
         return mesh.to_glb()
 
     # Pre-compute global vertex indices per quad (vertex layout: v0, v1, v2, v3)
     # v0=(r,c), v1=(r,c+1), v2=(r+1,c), v3=(r+1,c+1)
     # Adjacent quads share an edge: stride between vertex rows = 2 * cols_valid + 1
     cols_valid = (cols - 1) // step + 1
-    cols_vertices = 2 * cols_valid + 1    # vertices per row in global vertex array
-    2 * ((rows - 1) // step + 1)   # vertices per column
-    global_v0 = cols_vertices * (valid_r // step) + (valid_c // step)   # (r,c) → cols_vertices*r + c
-    global_v = np.stack([global_v0, global_v0 + 1, global_v0 + cols_vertices, global_v0 + cols_vertices + 1], axis=1)  # (n_quads, 4)
+    cols_vertices = 2 * cols_valid + 1  # vertices per row in global vertex array
+    2 * ((rows - 1) // step + 1)  # vertices per column
+    global_v0 = cols_vertices * (valid_r // step) + (valid_c // step)  # (r,c) → cols_vertices*r + c
+    global_v = np.stack(
+        [global_v0, global_v0 + 1, global_v0 + cols_vertices, global_v0 + cols_vertices + 1], axis=1
+    )  # (n_quads, 4)
 
     # ── Second pass: build faces using cumulative vertex counts ───────────────
     # Each quad contributes 4 unique vertices, placed consecutively
@@ -475,9 +502,9 @@ def terrain_to_glb(
 
     # Vertex layout: [v0, v1, v2, v3] for each quad, placed consecutively
     # Triangle 1: [v+0, v+1, v+2]  Triangle 2: [v+1, v+3, v+2]
-    base = vertex_offsets[:, np.newaxis] + global_v   # (n_quads, 4): global indices per quad
-    tri1 = np.stack([base[:, 0], base[:, 1], base[:, 2]], axis=1)   # (n_quads, 3)
-    tri2 = np.stack([base[:, 1], base[:, 3], base[:, 2]], axis=1)   # (n_quads, 3)
+    base = vertex_offsets[:, np.newaxis] + global_v  # (n_quads, 4): global indices per quad
+    tri1 = np.stack([base[:, 0], base[:, 1], base[:, 2]], axis=1)  # (n_quads, 3)
+    tri2 = np.stack([base[:, 1], base[:, 3], base[:, 2]], axis=1)  # (n_quads, 3)
     faces = np.concatenate([tri1, tri2], axis=0, dtype=np.uint32)  # (2*n_quads, 3)
 
     # Build vertices and colors in quad order
@@ -491,22 +518,27 @@ def terrain_to_glb(
     z2 = dem[valid_r + 1, valid_c] * scale
     z3 = dem[valid_r + 1, valid_c + 1] * scale
 
-    vertices_arr = np.stack([
-        np.concatenate([vlons, vlons_rt, vlons, vlons_rt]),
-        np.concatenate([vlats, vlats, vlats_up, vlats_up]),
-        np.concatenate([z0, z1, z2, z3]),
-    ], axis=1).astype(np.float32)
+    vertices_arr = np.stack(
+        [
+            np.concatenate([vlons, vlons_rt, vlons, vlons_rt]),
+            np.concatenate([vlats, vlats, vlats_up, vlats_up]),
+            np.concatenate([z0, z1, z2, z3]),
+        ],
+        axis=1,
+    ).astype(np.float32)
 
     # Colors: repeat per quad (4 vertices each)
     colors_list = []
     for i in range(n_quads):
         r, c = valid_r[i], valid_c[i]
-        colors_list.extend([
-            rgba[r, c].tolist(),
-            rgba[r, c + 1].tolist(),
-            rgba[r + 1, c].tolist(),
-            rgba[r + 1, c + 1].tolist(),
-        ])
+        colors_list.extend(
+            [
+                rgba[r, c].tolist(),
+                rgba[r, c + 1].tolist(),
+                rgba[r + 1, c].tolist(),
+                rgba[r + 1, c + 1].tolist(),
+            ]
+        )
     colors_arr = np.asarray(colors_list, dtype=np.float32)
 
     mesh = trimesh.Trimesh(
@@ -556,6 +588,7 @@ def terrain_to_png(
 
     Returns:
         Raw PNG bytes.
+
     """
     pal = palette or DEFAULT_TERRAIN_PALETTE
     stop_elevs = np.array([p[0] for p in pal], dtype=np.float64)
@@ -583,13 +616,16 @@ def terrain_to_png(
         alpha = np.where(nodata_mask, np.uint8(0), np.uint8(255))
         rgba = np.dstack([rgb, alpha])
         import PIL.Image
+
         img = PIL.Image.fromarray(rgba, mode="RGBA")
     else:
         rgb = np.where(nodata_mask[:, :, np.newaxis], np.uint8(0), rgb)
         import PIL.Image
+
         img = PIL.Image.fromarray(rgb, mode="RGB")
 
     import io
+
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

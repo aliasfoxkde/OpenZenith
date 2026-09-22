@@ -5,8 +5,9 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function GET(request: NextRequest) {

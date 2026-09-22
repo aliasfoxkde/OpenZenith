@@ -29,7 +29,7 @@ const VALID_PERIODS = new Set([
   "1.0_month",
 ]);
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

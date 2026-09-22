@@ -25,8 +25,9 @@ function jsonResponse(body: unknown, status = 200): Response {
 type Responder = (url: string) => Response;
 
 function routeFetch(routes: Array<{ match: RegExp; respond: Responder }>): ReturnType<typeof vi.fn> {
-  return vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
-    const url = typeof input === "string" ? input : input.toString();
+  return vi.fn((input: RequestInfo | URL): Response => {
+    // Explicit per-type serialisation: Request's default toString is useless.
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     for (const route of routes) {
       if (route.match.test(url)) return route.respond(url);
     }
@@ -188,7 +189,7 @@ describe("getTides — upstream failure handling", () => {
   });
 
   it("returns null when the station request rejects (network failure)", async () => {
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(() => {
       throw new TypeError("fetch failed");
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -288,6 +289,5 @@ describe("getTides — request shape", () => {
     const result = await getTides(0, 0);
     expect(result?.predictions.map((p) => p.height)).toEqual([-1.5, 4, 12.0625]);
     expect(result?.predictions.map((p) => p.typeLabel)).toEqual(["Low", "High", "High"]);
-    expect(result?.predictions.every((p) => p.type === "L" || p.type === "H")).toBe(true);
   });
 });

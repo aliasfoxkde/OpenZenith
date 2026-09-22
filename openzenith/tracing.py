@@ -46,6 +46,7 @@ def trace_downstream(
 
     Returns:
         Dict with path, elevations, distances, or None if starting in ocean
+
     """
     try:
         from openzenith.elevation import get_elevation
@@ -101,11 +102,13 @@ def trace_downstream(
     if cached_elev is not None:
         current_elev = cached_elev
     else:
-        current_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+        current_elev = get_elevation(
+            current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir
+        )
         if current_elev is not None:
             elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = current_elev
 
-    for step in range(max_steps):
+    for _step in range(max_steps):
         # Load grid if needed
         if grid_info is None:
             grid_info = _load_grid_at(current_lat, current_lon, zoom, tile_cache_dir)
@@ -121,7 +124,8 @@ def trace_downstream(
 
         # Check if we need a new grid (center cell too far from grid center)
         dist_to_center = math.sqrt(
-            (current_lat - grid_info["center_lat"]) ** 2 + (current_lon - grid_info["center_lon"]) ** 2
+            (current_lat - grid_info["center_lat"]) ** 2
+            + (current_lon - grid_info["center_lon"]) ** 2
         )
         grid_reloaded = False
         if dist_to_center > cell_size_deg * 20:
@@ -141,7 +145,9 @@ def trace_downstream(
         if grid_reloaded:
             current_elev = elevation_cache.get((round(current_lat, 6), round(current_lon, 6)))
             if current_elev is None:
-                current_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+                current_elev = get_elevation(
+                    current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir
+                )
                 if current_elev is not None:
                     elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = current_elev
 
@@ -159,7 +165,9 @@ def trace_downstream(
             if 0 <= nr < dem.shape[0] and 0 <= nc < dem.shape[1]:
                 neighbor_coords.append((d, nr, nc))
 
-        def fetch_neighbor_elev(args, lat_min=lat_min, lon_min=lon_min, cell_size_deg=cell_size_deg, dem=dem):
+        def fetch_neighbor_elev(
+            args, lat_min=lat_min, lon_min=lon_min, cell_size_deg=cell_size_deg, dem=dem
+        ):
             d, nr, nc = args
             key = (round(lat_min + nr * cell_size_deg, 6), round(lon_min + nc * cell_size_deg, 6))
             cached = elevation_cache.get(key)
@@ -176,7 +184,7 @@ def trace_downstream(
         # Find steepest descent neighbor
         best_drop = 0
         best_dir = -1
-        for d, nr, nc, neighbor_elev in neighbor_results:
+        for d, _nr, _nc, neighbor_elev in neighbor_results:
             if neighbor_elev <= -30000:
                 continue
             drop = current_elev_val - neighbor_elev
@@ -211,7 +219,9 @@ def trace_downstream(
         # Get elevation at new position (use cache to avoid redundant lookups)
         new_elev = elevation_cache.get((round(current_lat, 6), round(current_lon, 6)))
         if new_elev is None:
-            new_elev = get_elevation(current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir)
+            new_elev = get_elevation(
+                current_lat, current_lon, zoom_levels=[zoom], cache_dir=tile_cache_dir
+            )
             if new_elev is not None:
                 elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = new_elev
 
@@ -219,9 +229,7 @@ def trace_downstream(
             # Reached ocean/nodata
             if new_elev is not None and new_elev <= 0:
                 # Reached sea level
-                step_dist = _haversine_distance(
-                    path[-1][0], path[-1][1], current_lat, current_lon
-                )
+                step_dist = _haversine_distance(path[-1][0], path[-1][1], current_lat, current_lon)
                 total_distance += step_dist
                 path.append([current_lat, current_lon])
                 elevations.append(float(new_elev))
@@ -272,11 +280,12 @@ def _load_grid_at(
         result = load_elevation_grid(lat, lon, zoom, radius_cells=radius, cache_dir=cache_dir)
         # Replace NaN with NODATA for hydrology
         import numpy as np
+
         result["grid"] = np.where(np.isnan(result["grid"]), -32768.0, result["grid"])
         # Snap center to nearest valid cell
         cr, cc = result["center_row"], result["center_col"]
         if result["grid"][cr, cc] <= -30000:
-            best_dist = float('inf')
+            best_dist = float("inf")
             for r in range(result["grid"].shape[0]):
                 for c in range(result["grid"].shape[1]):
                     if result["grid"][r, c] > -30000:
@@ -284,11 +293,17 @@ def _load_grid_at(
                         if d < best_dist:
                             best_dist = d
                             result["center_row"], result["center_col"] = r, c
-            if best_dist == float('inf'):
+            if best_dist == float("inf"):
                 return None
         return result
     except Exception as err:  # noqa: BLE001
-        _logger.debug("trace_downstream failed (lat=%.4f, lon=%.4f): %s: %s", lat, lon, type(err).__name__, err)
+        _logger.debug(
+            "trace_downstream failed (lat=%.4f, lon=%.4f): %s: %s",
+            lat,
+            lon,
+            type(err).__name__,
+            err,
+        )
         return None
 
 
@@ -297,7 +312,9 @@ def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> f
     R = 6371000.0  # Earth radius in meters
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c

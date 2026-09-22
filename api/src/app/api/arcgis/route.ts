@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     parsed.searchParams.set("f", "json");
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => { controller.abort(); }, 15000);
 
     const resp = await fetch(parsed.toString(), {
       signal: controller.signal,
@@ -70,6 +70,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }

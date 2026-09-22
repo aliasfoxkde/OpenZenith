@@ -11,7 +11,7 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 const TILE_SIZE = 256;
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

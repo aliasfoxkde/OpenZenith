@@ -5,14 +5,15 @@ import type { Mock } from "vitest";
 // fallback branch is reachable.
 vi.mock("@/lib/cache", () => ({
   cachedFetch: vi.fn(async (url: string, ...args: unknown[]) =>
-    fetch(url, ...(args.filter((a): a is RequestInit => typeof a === "object") as RequestInit[])),
+    fetch(url, ...(args.filter((a): a is RequestInit => typeof a === "object"))),
   ),
   staleWhileRevalidate: vi.fn(),
   CACHE_TTL: { WARNINGS: 0 },
 }));
 
-// Mock env vars
-const originalEnv = process.env;
+// Env vars are stubbed per test with vi.stubEnv (auto-restored via
+// vi.unstubAllEnvs) — mutating process.env directly leaked a fake
+// FIRMS_MAP_KEY when an assertion failed mid-test.
 
 function createMockRequest(url: string) {
   return { url } as unknown as import("next/server").NextRequest;
@@ -28,9 +29,14 @@ const FIRMS_HEADER =
   "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight";
 
 describe("Wildfires API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
   it("returns empty features when no API key is configured", async () => {
-    // Temporarily remove the key
-    process.env = { ...originalEnv, FIRMS_MAP_KEY: "" };
+    // Temporarily remove the key (stubEnv restores even if an assertion fails)
+    vi.stubEnv("FIRMS_MAP_KEY", "");
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
@@ -38,13 +44,11 @@ describe("Wildfires API", () => {
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(0);
     expect(data.error).toContain("not configured");
-
-    process.env = originalEnv;
   });
 
   it("accepts custom bbox and days parameters", async () => {
-    process.env = { ...originalEnv, FIRMS_MAP_KEY: "test-key" };
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(FIRMS_HEADER, { status: 200 }));
+    vi.stubEnv("FIRMS_MAP_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires?days=3&bbox=-130,25,-60,50"));
@@ -52,8 +56,6 @@ describe("Wildfires API", () => {
     expect(data.type).toBe("FeatureCollection");
     expect(data.days).toBe(3);
     expect(data.bbox).toBe("-130,25,-60,50");
-
-    process.env = originalEnv;
   });
 });
 
@@ -116,7 +118,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
       "37.5,-122.3,333.4,1.2,1.1,2026-09-21,1830,VIIRS_SNPP_NRT,viirs,85,1.0NRT,300.2,42.7,N",
       "38.1,-121.9,,1.0,1.0,2026-09-21,1831,VIIRS_SNPP_NRT,viirs,l,1.0NRT,299.9,,",
     ].join("\n");
-    stubFetch(vi.fn(async () => new Response(csv, { status: 200 })));
+    stubFetch(vi.fn(() => new Response(csv, { status: 200 })));
 
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires?days=2"));
@@ -159,7 +161,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
       FIRMS_HEADER,
       "37.5,-122.3,333.4,1.2,1.1,2026-09-21,1830,VIIRS_SNPP_NRT,viirs,85,1.0NRT,300.2,42.7,N",
     ].join("\n");
-    stubFetch(vi.fn(async () => new Response(csv, { status: 200 })));
+    stubFetch(vi.fn(() => new Response(csv, { status: 200 })));
 
     const GET = await getRoute();
     const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
@@ -177,7 +179,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
       ",,300,1,1,2026-09-21,1830,SAT,inst,50,1.0,290,1,N", // NaN lat/lon
       "3.0,4.0,301,1,1,2026-09-21,1831,SAT,inst,60,1.0,291,1,D",
     ].join("\n");
-    stubFetch(vi.fn(async () => new Response(csv, { status: 200 })));
+    stubFetch(vi.fn(() => new Response(csv, { status: 200 })));
 
     const GET = await getRoute();
     const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
@@ -194,7 +196,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     for (let i = 0; i < 3010; i++) {
       rows.push(`${10 + i * 0.001},${20 + i * 0.001},300,1,1,2026-09-21,1830,SAT,inst,50,1.0,290,1,N`);
     }
-    stubFetch(vi.fn(async () => new Response(rows.join("\n"), { status: 200 })));
+    stubFetch(vi.fn(() => new Response(rows.join("\n"), { status: 200 })));
 
     const GET = await getRoute();
     const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
@@ -205,7 +207,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
   it("returns a 200 error payload when FIRMS responds non-2xx", async () => {
     stubKey();
     const longBody = "rate limit exceeded — please retry later and reference the FIRMS usage policy page for details.";
-    stubFetch(vi.fn(async () => new Response(longBody, { status: 429 })));
+    stubFetch(vi.fn(() => new Response(longBody, { status: 429 })));
 
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
@@ -220,7 +222,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
 
   it("returns an empty feature collection for a header-only CSV", async () => {
     stubKey();
-    stubFetch(vi.fn(async () => new Response(FIRMS_HEADER, { status: 200 })));
+    stubFetch(vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
 
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
@@ -234,7 +236,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
 
   it("clamps days to 1..7 in the upstream URL", async () => {
     stubKey();
-    stubFetch(vi.fn(async () => new Response(FIRMS_HEADER, { status: 200 })));
+    stubFetch(vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
 
     const GET = await getRoute();
     await GET(createMockRequest("https://example.com/api/wildfires?days=100"));
@@ -249,7 +251,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
 
   it("forwards a custom satellite to the FIRMS URL and the response payload", async () => {
     stubKey();
-    stubFetch(vi.fn(async () => new Response(FIRMS_HEADER, { status: 200 })));
+    stubFetch(vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
 
     const GET = await getRoute();
     const data = await (

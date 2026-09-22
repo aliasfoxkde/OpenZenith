@@ -64,7 +64,9 @@ declare namespace maplibregl {
     dragPan: { enable(): void; disable(): void };
   }
 
-  class NavigationControl {}
+  // Constructor-only global — MapLibre's NavigationControl exposes no members
+  // this app touches, so it is declared as a bare constructor.
+  const NavigationControl: new () => object;
 
   class LngLatBounds {
     extend(point: [number, number] | { lng: number; lat: number }): this;

@@ -34,18 +34,18 @@ export function setCacheStorageProvider(next: (() => CacheStorageLike | undefine
   cacheStorageProvider = next;
 }
 
-async function resolveCacheStorage(): Promise<CacheStorageLike | undefined> {
+function resolveCacheStorage(): Promise<CacheStorageLike | undefined> {
   if (cacheStorageProvider) {
     try {
-      return await cacheStorageProvider();
+      return Promise.resolve(cacheStorageProvider());
     } catch {
       // A broken provider must not take the caller down — behave like a miss.
-      return undefined;
+      return Promise.resolve(undefined);
     }
   }
   // Cache API is available in CF Workers / some edge runtimes only
-  if (typeof caches !== "undefined") return caches;
-  return undefined;
+  if (typeof caches !== "undefined") return Promise.resolve(caches);
+  return Promise.resolve(undefined);
 }
 
 interface CacheEntry {
@@ -70,7 +70,8 @@ export async function cacheGet(key: string): Promise<ArrayBuffer | null> {
     try {
       const cfCache = await cacheStorage.open(CACHE_NAME);
       const cached = await cfCache.match(key);
-      if (cached) return cached.arrayBuffer();
+      // Awaited inside try/catch so a rejected body read is caught below.
+      if (cached) return await cached.arrayBuffer();
     } catch {
       // Cache API not available (local dev)
     }

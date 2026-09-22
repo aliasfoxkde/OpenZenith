@@ -130,8 +130,9 @@ async function putEcCfCache(z: number, x: number, y: number, data: ArrayBuffer):
   }
 }
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {

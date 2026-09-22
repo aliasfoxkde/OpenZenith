@@ -21,12 +21,13 @@ export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: str
       for (let i = 0; i < shuffled.length - 1; i += 2) {
         const a = shuffled[i];
         const b = shuffled[i + 1];
-        const lonA = a[5],
-          latA = a[6],
-          altA = a[7] || 0;
-        const lonB = b[5],
-          latB = b[6],
-          altB = b[7] || 0;
+        // OpenSky emits numbers, but the endpoint is untyped — coerce explicitly.
+        const lonA = Number(a[5]),
+          latA = Number(a[6]),
+          altA = Number(a[7]) || 0;
+        const lonB = Number(b[5]),
+          latB = Number(b[6]),
+          altB = Number(b[7]) || 0;
         const dist = Math.sqrt((lonA - lonB) ** 2 + (latA - latB) ** 2);
         if (dist < 15 || dist > 80) continue;
         const positions: CesiumType.Cartesian3[] = [];
@@ -55,5 +56,5 @@ export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: str
     }
   };
 
-  doLoad();
+  void doLoad();
 }

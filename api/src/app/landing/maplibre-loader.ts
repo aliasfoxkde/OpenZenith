@@ -14,8 +14,8 @@ export function loadMapLibre(): Promise<void> {
     }
     const js = document.createElement("script");
     js.src = "https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js";
-    js.onload = () => resolve();
-    js.onerror = () => reject(new Error("MapLibre GL script failed to load"));
+    js.onload = () => { resolve(); };
+    js.onerror = () => { reject(new Error("MapLibre GL script failed to load")); };
     document.head.appendChild(js);
   });
   return w._maplibreLoading;

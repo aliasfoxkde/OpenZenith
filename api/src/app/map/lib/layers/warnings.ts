@@ -10,7 +10,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const res = await fetch("/api/weather/warnings");
       const data = await res.json();
-      if (!map.getSource || !data.features) return;
+      if (!data.features) return;
       setStatus(handle, "warnings", "loaded", data.features.length);
 
       try {
@@ -72,8 +72,12 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 300000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 300000),
+  );
 }
 
 export function removeWarnings(map: maplibregl.Map): void {

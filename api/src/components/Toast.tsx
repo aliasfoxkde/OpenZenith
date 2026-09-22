@@ -37,7 +37,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, variant: ToastVariant = "info") => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       setToasts((prev) => [...prev, { id, message, variant }]);
-      setTimeout(() => removeToast(id), 5000);
+      setTimeout(() => { removeToast(id); }, 5000);
     },
     [removeToast],
   );
@@ -96,7 +96,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
             <span style={{ fontSize: 14, opacity: 0.8, flexShrink: 0 }}>{style.icon}</span>
             <span style={{ flex: 1 }}>{toast.message}</span>
             <button
-              onClick={() => onDismiss(toast.id)}
+              onClick={() => { onDismiss(toast.id); }}
               style={{
                 background: "none",
                 border: "none",

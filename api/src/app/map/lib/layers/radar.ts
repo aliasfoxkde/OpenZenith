@@ -11,7 +11,7 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
       const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
       const data = await res.json();
       const latest = data.radar?.past?.[data.radar.past.length - 1];
-      if (!latest || !map.getSource) return;
+      if (!latest) return;
 
       try {
         if (!map.getSource("radar")) {
@@ -39,8 +39,12 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000),
+  );
 }
 
 export function removeRadar(map: maplibregl.Map): void {

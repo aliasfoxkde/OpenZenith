@@ -12,7 +12,7 @@ export function loadSpaceWeather(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { spaceWeather: boolean },
 ) {
   updateStatus("spaceWeather", { error: null });
@@ -77,8 +77,12 @@ export function loadSpaceWeather(
           const intensity = c[2];
           if (intensity > 2) {
             // threshold: skip low-intensity
-            if (!byLon.has(lon)) byLon.set(lon, []);
-            byLon.get(lon)!.push({ lat, intensity });
+            let points = byLon.get(lon);
+            if (!points) {
+              points = [];
+              byLon.set(lon, points);
+            }
+            points.push({ lat, intensity });
           }
         }
 
@@ -112,20 +116,22 @@ export function loadSpaceWeather(
         /* aurora polygon data is optional */
       }
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.spaceWeather) return;
-        try {
-          const kd = await fetchSWPCkpForecast();
-          const kp = kd?.[0]?.kp_index ?? 0;
-          removeEntities("swpc-");
-          addKpIndicator(kp);
-          updateStatus("spaceWeather", { lastUpdate: Date.now(), count: 1 });
-        } catch {
-          retry.recordFailure();
-          updateStatus("spaceWeather", {
-            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Space weather data unavailable",
-          });
-        }
+      const iv = setInterval(() => {
+        void (async () => {
+          if (!stateLayers.spaceWeather) return;
+          try {
+            const kd = await fetchSWPCkpForecast();
+            const kp = kd?.[0]?.kp_index ?? 0;
+            removeEntities("swpc-");
+            addKpIndicator(kp);
+            updateStatus("spaceWeather", { lastUpdate: Date.now(), count: 1 });
+          } catch {
+            retry.recordFailure();
+            updateStatus("spaceWeather", {
+              error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Space weather data unavailable",
+            });
+          }
+        })();
       }, 300000); // 5 min
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -135,5 +141,5 @@ export function loadSpaceWeather(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

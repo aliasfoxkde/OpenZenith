@@ -83,12 +83,12 @@ export function WidgetShell({ config, state, onStateChange, children }: WidgetSh
           {config.title}
         </span>
         <button
-          onClick={() => onStateChange({ collapsed: !state.collapsed })}
+          onClick={() => { onStateChange({ collapsed: !state.collapsed }); }}
           title={state.collapsed ? "Expand" : "Collapse"}
         >
           {state.collapsed ? "▼" : "▲"}
         </button>
-        <button onClick={() => onStateChange({ visible: false })} title="Close">
+        <button onClick={() => { onStateChange({ visible: false }); }} title="Close">
           ×
         </button>
       </div>

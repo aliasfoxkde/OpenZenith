@@ -3,7 +3,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -1199,7 +1199,7 @@ const openApiSpec = {
   ],
 };
 
-export async function GET(request: NextRequest) {
+export function GET(request: NextRequest) {
   const baseUrl = new URL(request.url).origin;
   return NextResponse.json(
     { ...openApiSpec, servers: [{ url: baseUrl, description: "Current deployment" }] },

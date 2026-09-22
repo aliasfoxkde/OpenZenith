@@ -33,7 +33,9 @@ export function GeocodeTool({ map, dark }: Props) {
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (query.length < 3) return;
-    timerRef.current = setTimeout(() => search(query), 400);
+    timerRef.current = setTimeout(() => {
+      void search(query);
+    }, 400);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -56,8 +58,10 @@ export function GeocodeTool({ map, dark }: Props) {
       <input
         placeholder="Search address..."
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && search(query)}
+        onChange={(e) => { setQuery(e.target.value); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void search(query);
+        }}
         style={{
           width: "100%",
           padding: "8px 10px",
@@ -76,7 +80,7 @@ export function GeocodeTool({ map, dark }: Props) {
           {results.map((r, i) => (
             <div
               key={i}
-              onClick={() => flyTo(r.lat, r.lon)}
+              onClick={() => { flyTo(r.lat, r.lon); }}
               style={{
                 padding: "8px 10px",
                 background: inputBg,

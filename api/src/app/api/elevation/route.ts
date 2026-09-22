@@ -82,7 +82,7 @@ async function getElevation(lat: number, lon: number) {
   };
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

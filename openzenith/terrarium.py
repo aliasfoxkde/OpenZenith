@@ -24,6 +24,7 @@ def decode_tile(png_bytes: bytes) -> np.ndarray:
     Returns:
         (height, width) float32 array of elevation values in meters.
         NoData pixels (encoded as R=0, G=0, B=0) return NaN.
+
     """
     img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
     pixels = np.array(img, dtype=np.float64)
@@ -51,6 +52,7 @@ def encode_tile(elevation: np.ndarray, nodata: float = np.nan) -> bytes:
 
     Returns:
         PNG file bytes with Terrarium encoding.
+
     """
     h, w = elevation.shape
     arr = elevation.flatten().astype(np.float64)

@@ -171,13 +171,13 @@ import { addDroughtHazard, removeDroughtHazard } from "./drought-hazard";
 import { addPM25, removePM25 } from "./pm25";
 import { addAOD, removeAOD } from "./aod";
 
-const LAYER_HANDLERS: Record<
-  string,
-  {
-    add: (map: maplibregl.Map, handle: LayerHandle) => void;
-    remove: (map: maplibregl.Map) => void;
-  }
-> = {
+interface LayerHandler {
+  add: (map: maplibregl.Map, handle: LayerHandle) => void;
+  remove: (map: maplibregl.Map) => void;
+}
+
+// Values stay nullable: callers can pass a layer id with no 2D handler.
+const LAYER_HANDLERS: Record<string, LayerHandler | undefined> = {
   hillshade: { add: addHillshade, remove: removeHillshade },
   elevationColor: { add: addElevationColor, remove: removeElevationColor },
   elevationAccuracy: { add: addElevationAccuracy, remove: removeElevationAccuracy },

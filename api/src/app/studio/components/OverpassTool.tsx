@@ -61,7 +61,10 @@ export function OverpassTool({ map, dark, onResult }: Props) {
           } else if (el.type === "way" && el.bounds) {
             geometry = {
               type: "Point",
-              coordinates: [(el.bounds.minlon + el.bounds.maxlon) / 2, (el.bounds.minlat + el.bounds.maxlat) / 2],
+              coordinates: [
+                (Number(el.bounds.minlon) + Number(el.bounds.maxlon)) / 2,
+                (Number(el.bounds.minlat) + Number(el.bounds.maxlat)) / 2,
+              ],
             };
           } else if (el.lat !== undefined) {
             geometry = { type: "Point", coordinates: [el.lon, el.lat] };
@@ -101,7 +104,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
       {/* Preset selector */}
       <select
         value={presetIdx}
-        onChange={(e) => selectPreset(Number(e.target.value))}
+        onChange={(e) => { selectPreset(Number(e.target.value)); }}
         style={{
           width: "100%",
           padding: "6px 8px",
@@ -127,7 +130,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
       {/* Query editor */}
       <textarea
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => { setQuery(e.target.value); }}
         rows={6}
         spellCheck={false}
         style={{
@@ -147,7 +150,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
 
       {/* Run button */}
       <button
-        onClick={runQuery}
+        onClick={() => { void runQuery(); }}
         disabled={loading || !query.trim()}
         style={{
           padding: "8px 16px",

@@ -26,7 +26,7 @@ interface RequestBody {
         description?: string;
         maxLength?: number;
       };
-      example: Record<string, unknown>;
+      example?: Record<string, unknown>;
     };
   };
 }
@@ -57,7 +57,7 @@ interface OpenApiSpec {
     description: string;
     license?: { name: string };
   };
-  servers: { url: string; description: string }[];
+  servers?: { url: string; description: string }[];
   paths: Record<string, Record<string, Endpoint>>;
   tags: { name: string; description: string }[];
 }
@@ -83,9 +83,9 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   return (
     <button
       onClick={() => {
-        navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(text).catch(() => {});
         setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        setTimeout(() => { setCopied(false); }, 1500);
       }}
       title={label}
       style={{
@@ -174,7 +174,7 @@ function ParamTable({ params }: { params: Param[] }) {
               }}
             >
               {p.schema?.type}
-              {p.schema?.minimum !== undefined && p.schema?.maximum !== undefined
+              {p.schema?.minimum !== undefined && p.schema.maximum !== undefined
                 ? ` (${p.schema.minimum}..${p.schema.maximum})`
                 : ""}
               {p.schema?.maxLength ? ` (max ${p.schema.maxLength} chars)` : ""}
@@ -258,7 +258,7 @@ function EndpointCard({
       }
       setParamValues(init);
     }
-    if (endpoint.requestBody?.content?.["application/json"]?.example) {
+    if (endpoint.requestBody?.content["application/json"].example) {
       setBodyText(JSON.stringify(endpoint.requestBody.content["application/json"].example, null, 2));
     }
   }, [endpoint]);
@@ -306,7 +306,7 @@ function EndpointCard({
   return (
     <div style={{ border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", marginBottom: "0.75rem" }}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => { setOpen(!open); }}
         style={{
           width: "100%",
           display: "flex",
@@ -380,7 +380,7 @@ function EndpointCard({
               </h4>
               <textarea
                 value={bodyText}
-                onChange={(e) => setBodyText(e.target.value)}
+                onChange={(e) => { setBodyText(e.target.value); }}
                 rows={5}
                 style={{
                   width: "100%",
@@ -482,7 +482,7 @@ function EndpointCard({
                       <input
                         type="text"
                         value={paramValues[p.name] || ""}
-                        onChange={(e) => setParamValues({ ...paramValues, [p.name]: e.target.value })}
+                        onChange={(e) => { setParamValues({ ...paramValues, [p.name]: e.target.value }); }}
                         placeholder={p.example !== undefined ? String(p.example) : p.description}
                         style={{
                           width: "100%",
@@ -522,7 +522,7 @@ function EndpointCard({
             </div>
 
             <button
-              onClick={tryEndpoint}
+              onClick={() => { void tryEndpoint(); }}
               disabled={loading}
               style={{
                 background: color,
@@ -648,8 +648,8 @@ export default function DocsPage() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((data) => setSpec(data as OpenApiSpec))
-      .catch((err) => setSpecError(err instanceof Error ? err.message : "Failed to load API spec"));
+      .then((data) => { setSpec(data as OpenApiSpec); })
+      .catch((err: unknown) => { setSpecError(err instanceof Error ? err.message : "Failed to load API spec"); });
   }, []);
 
   if (specError) {
@@ -691,19 +691,20 @@ export default function DocsPage() {
     );
   }
 
-  const serverUrl = spec.servers?.[0]?.url || "";
+  const serverUrl = spec.servers?.at(0)?.url || "";
 
   // Group endpoints by tag
-  const tagged: Record<string, { path: string; method: string; endpoint: Endpoint }[]> = {};
+  const tagged = new Map<string, { path: string; method: string; endpoint: Endpoint }[]>();
   for (const [path, methods] of Object.entries(spec.paths)) {
     for (const [method, endpoint] of Object.entries(methods)) {
       const tag = endpoint.tags?.[0] || "Other";
-      if (!tagged[tag]) tagged[tag] = [];
-      tagged[tag].push({ path, method, endpoint: endpoint as Endpoint });
+      const group = tagged.get(tag) ?? [];
+      group.push({ path, method, endpoint: endpoint });
+      tagged.set(tag, group);
     }
   }
 
-  const activeEndpoints = activeTag ? tagged[activeTag] || [] : Object.values(tagged).flat();
+  const activeEndpoints = activeTag ? (tagged.get(activeTag) ?? []) : [...tagged.values()].flat();
 
   return (
     <ErrorBoundary>
@@ -911,7 +912,7 @@ export default function DocsPage() {
           </h2>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <button
-              onClick={() => setActiveTag(null)}
+              onClick={() => { setActiveTag(null); }}
               style={{
                 background: !activeTag ? accent : "#161616",
                 color: !activeTag ? "#000" : textDim,
@@ -929,7 +930,7 @@ export default function DocsPage() {
             {spec.tags.map((tag) => (
               <button
                 key={tag.name}
-                onClick={() => setActiveTag(tag.name)}
+                onClick={() => { setActiveTag(tag.name); }}
                 style={{
                   background: activeTag === tag.name ? accent : "#161616",
                   color: activeTag === tag.name ? "#000" : textDim,

@@ -41,13 +41,13 @@ afterEach(() => {
 describe("exportMapScreenshot", () => {
   it("returns early when getCanvas is undefined", () => {
     const map: { getCanvas?: () => HTMLCanvasElement } = {};
-    expect(exportMapScreenshot(map)).toBeUndefined();
+    // void return — assert the observable effect instead of the return value
+    exportMapScreenshot(map);
     expect(createdLinks).toHaveLength(0);
   });
 
   it("returns early when canvas is null", () => {
-    const result = exportMapScreenshot({ getCanvas: () => null as unknown as HTMLCanvasElement });
-    expect(result).toBeUndefined();
+    exportMapScreenshot({ getCanvas: () => null as unknown as HTMLCanvasElement });
     expect(createdLinks).toHaveLength(0);
   });
 

@@ -5,8 +5,9 @@ import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 /**
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${apiKey}/${satellite}/${bbox}/${days}`;
 
-    const resp = await cachedFetch(url, CACHE_TTL.WARNINGS || 300, {
+    const resp = await cachedFetch(url, CACHE_TTL.WARNINGS, {
       signal: AbortSignal.timeout(10000),
       headers: { "User-Agent": "OpenZenith/1.0" },
     });

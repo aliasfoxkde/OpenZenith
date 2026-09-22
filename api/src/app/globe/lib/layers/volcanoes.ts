@@ -38,7 +38,7 @@ export function loadVolcanoes(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { volcanoes: boolean },
 ) {
   updateStatus("volcanoes", { error: null });
@@ -128,8 +128,7 @@ export function loadVolcanoes(
 
       updateStatus("volcanoes", { lastUpdate: Date.now(), count });
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.volcanoes) return;
+      const refresh = async () => {
         try {
           const d = await fetchVolcanoAlerts();
           const feats = d.features || [];
@@ -184,6 +183,11 @@ export function loadVolcanoes(
             error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable",
           });
         }
+      };
+
+      const iv = setInterval(() => {
+        if (!stateLayers.volcanoes) return;
+        void refresh();
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -192,5 +196,5 @@ export function loadVolcanoes(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

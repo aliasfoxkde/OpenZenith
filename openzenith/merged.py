@@ -28,7 +28,8 @@ Usage:
 
     # Download from HuggingFace first:
     #   pip install huggingface_hub
-    #   huggingface-cli download aliasfox/srtm30m-merged --repo-type dataset --local-dir ./srtm30m-merged
+    #   huggingface-cli download aliasfox/srtm30m-merged --repo-type dataset \
+    #       --local-dir ./srtm30m-merged
 """
 
 import math
@@ -68,8 +69,9 @@ class MergedFile:
     __slots__ = ("cols", "data", "index", "path", "rows", "version")
 
     def __init__(self, path: str | Path):
+        """Read the whole .merged file and parse its chunk header and index."""
         self.path = Path(path)
-        with open(self.path, "rb") as f:
+        with self.path.open("rb") as f:
             self.data = f.read()
 
         if len(self.data) < HEADER_SIZE:
@@ -101,6 +103,7 @@ class MergedFile:
             2D numpy array of the chunk.
             - Version 1: Int16 (elevation in meters, -32768 = nodata)
             - Version 2: Float32
+
         """
         if row < 0 or row >= self.rows or col < 0 or col >= self.cols:
             raise ValueError(f"Chunk ({row}, {col}) out of range ({self.rows}x{self.cols})")
@@ -162,6 +165,7 @@ def read_elevation_from_merged(
 
     Returns:
         Elevation in meters, or None if no data (ocean/nodata).
+
     """
     tile_name = lat_lon_to_srtm_name(lat, lon)
     lat_dir, _base = srtm_name_to_dir(tile_name)
@@ -228,6 +232,7 @@ def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
     index_path = srtm_dir / "srtm_index.json"
     if index_path.exists():
         import json as _json
+
         try:
             raw = _json.loads(index_path.read_text())
             result: dict[tuple[int, int], dict] = {}
@@ -269,6 +274,7 @@ def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
     # Persist for next time
     try:
         import json as _json
+
         raw = {f"{k[0]},{k[1]}": v for k, v in result.items()}
         index_path.write_text(_json.dumps(raw))
     except Exception:  # noqa: BLE001, S110

@@ -10,7 +10,7 @@ import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

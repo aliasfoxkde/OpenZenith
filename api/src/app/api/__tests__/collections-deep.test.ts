@@ -17,8 +17,8 @@ type FetchRoute = { match: string; respond: () => Response };
 
 /** Route stubbed fetch calls by URL substring; anything else fails the test. */
 function stubFetch(routes: FetchRoute[]) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input);
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const hit = routes.find((r) => url.includes(r.match));
     if (!hit) throw new Error(`unexpected fetch: ${url}`);
     return hit.respond();
@@ -64,7 +64,7 @@ describe("Collection by ID — extended", () => {
 describe("Collection Items — extended", () => {
   it("OPTIONS returns CORS headers", async () => {
     const { OPTIONS } = await import("@/app/api/collections/[id]/items/route");
-    const resp = await OPTIONS();
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
@@ -134,7 +134,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
   it("returns a 200 error payload when the upstream fetch rejects", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
+      vi.fn(() => {
         throw new Error("connection reset");
       }),
     );

@@ -39,6 +39,7 @@ def shapefile_to_geojson(
 
     Returns:
         GeoJSON FeatureCollection dict
+
     """
     sf = shapefile.Reader(shp_path)
     shape_type_map = {
@@ -73,15 +74,17 @@ def shapefile_to_geojson(
             continue
 
         coords = _shape_points_to_coords(shapeRec.shape, geom_type)
-        props = dict(zip(fields, shapeRec.record))
+        props = dict(zip(fields, shapeRec.record, strict=False))
         if filter_fields:
             props = {k: v for k, v in props.items() if k in filter_fields}
 
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": geom_type, "coordinates": coords},
-            "properties": props,
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": geom_type, "coordinates": coords},
+                "properties": props,
+            }
+        )
 
     return {"type": "FeatureCollection", "features": features}
 
@@ -93,18 +96,18 @@ def _shape_points_to_coords(shape: Any, geom_type: str) -> list:
     if geom_type == "LineString":
         return [list(p) for p in pts]
     if geom_type in ("Polygon", "MultiPolygon"):
-        parts = list(shape.parts) + [len(pts)]
+        parts = [*list(shape.parts), len(pts)]
         rings = []
         for i in range(len(parts) - 1):
-            rings.append([list(p) for p in pts[parts[i]:parts[i + 1]]])
+            rings.append([list(p) for p in pts[parts[i] : parts[i + 1]]])
         if geom_type == "Polygon":
             return rings
         return [rings]
     if geom_type == "MultiLineString":
-        parts = list(shape.parts) + [len(pts)]
+        parts = [*list(shape.parts), len(pts)]
         lines = []
         for i in range(len(parts) - 1):
-            lines.append([list(p) for p in pts[parts[i]:parts[i + 1]]])
+            lines.append([list(p) for p in pts[parts[i] : parts[i + 1]]])
         return lines
     return [list(p) for p in pts]
 
@@ -127,13 +130,13 @@ def gdb_to_geojson(gdb_path: str, layer: str | None = None) -> dict:
 
     Returns:
         GeoJSON FeatureCollection dict
+
     """
     try:
         import fiona
     except ImportError as err:
         raise ImportError(
-            "Reading GDB files requires fiona. "
-            "Install with: pip install fiona"
+            "Reading GDB files requires fiona. Install with: pip install fiona"
         ) from err
 
     if layer:
@@ -156,8 +159,7 @@ def list_gdb_layers(gdb_path: str) -> list[str]:
         import fiona
     except ImportError as err:
         raise ImportError(
-            "Listing GDB layers requires fiona. "
-            "Install with: pip install fiona"
+            "Listing GDB layers requires fiona. Install with: pip install fiona"
         ) from err
     return fiona.listlayers(gdb_path)
 
@@ -177,13 +179,13 @@ def export_to_gdb(
         output_path: Path to the output .gdb directory (will be created)
         layer_name: Name of the feature class within the GDB
         geometry_type: Override geometry type (auto-detected from first feature if None)
+
     """
     try:
         import fiona
     except ImportError as err:
         raise ImportError(
-            "Writing GDB files requires fiona. "
-            "Install with: pip install fiona"
+            "Writing GDB files requires fiona. Install with: pip install fiona"
         ) from err
 
     features = geojson.get("features", [])
@@ -243,7 +245,9 @@ def export_to_gdb(
                     clean_props[k] = ""
                 else:
                     clean_props[k] = v
-            dst.write({
-                "geometry": geom,
-                "properties": clean_props,
-            })
+            dst.write(
+                {
+                    "geometry": geom,
+                    "properties": clean_props,
+                }
+            )

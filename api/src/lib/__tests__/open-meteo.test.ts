@@ -121,7 +121,7 @@ describe("windDirection", () => {
 
 describe("getWeather", () => {
   it("parses current conditions and the daily forecast", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(openMeteoPayload()));
+    const fetchMock = vi.fn(() => jsonResponse(openMeteoPayload()));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getWeather(40.7, -74);
@@ -174,7 +174,7 @@ describe("getWeather", () => {
   });
 
   it("reports upstream units when provided", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(openMeteoPayload()));
+    const fetchMock = vi.fn(() => jsonResponse(openMeteoPayload()));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getWeather(40.7, -74);
@@ -190,7 +190,7 @@ describe("getWeather", () => {
   it("falls back to metric defaults when units are absent", async () => {
     const payload = openMeteoPayload();
     const body = { current: payload.current, daily: payload.daily };
-    const fetchMock = vi.fn(async () => jsonResponse(body));
+    const fetchMock = vi.fn(() => jsonResponse(body));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getWeather(40.7, -74);
@@ -208,7 +208,7 @@ describe("getWeather", () => {
   it("is_day is false for the night value", async () => {
     const payload = openMeteoPayload();
     payload.current.is_day = 0;
-    const fetchMock = vi.fn(async () => jsonResponse(payload));
+    const fetchMock = vi.fn(() => jsonResponse(payload));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getWeather(40.7, -74);
@@ -218,7 +218,7 @@ describe("getWeather", () => {
   it("returns an empty daily list when the forecast block is missing", async () => {
     const payload = openMeteoPayload();
     const body = { current: payload.current, current_units: payload.current_units };
-    const fetchMock = vi.fn(async () => jsonResponse(body));
+    const fetchMock = vi.fn(() => jsonResponse(body));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getWeather(40.7, -74);
@@ -227,35 +227,35 @@ describe("getWeather", () => {
   });
 
   it("returns null for a non-200 response", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ error: true, reason: "quota" }, 400));
+    const fetchMock = vi.fn(() => jsonResponse({ error: true, reason: "quota" }, 400));
     vi.stubGlobal("fetch", fetchMock);
 
     expect(await getWeather(40.7, -74)).toBeNull();
   });
 
   it("returns null when the API reports an error envelope", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ error: true, reason: "out of range" }));
+    const fetchMock = vi.fn(() => jsonResponse({ error: true, reason: "out of range" }));
     vi.stubGlobal("fetch", fetchMock);
 
     expect(await getWeather(40.7, -74)).toBeNull();
   });
 
   it("returns null for a malformed payload without a current block", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ daily: {} }));
+    const fetchMock = vi.fn(() => jsonResponse({ daily: {} }));
     vi.stubGlobal("fetch", fetchMock);
 
     expect(await getWeather(40.7, -74)).toBeNull();
   });
 
   it("returns null when the payload is not JSON", async () => {
-    const fetchMock = vi.fn(async () => new Response("<html>oops</html>", { status: 200 }));
+    const fetchMock = vi.fn(() => new Response("<html>oops</html>", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     expect(await getWeather(40.7, -74)).toBeNull();
   });
 
   it("returns null when the network request rejects", async () => {
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(() => {
       throw new TypeError("fetch failed");
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -265,12 +265,12 @@ describe("getWeather", () => {
   });
 
   it("builds the request URL with coordinates, variables and clamped forecast_days", async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => jsonResponse(openMeteoPayload()));
+    const fetchMock = vi.fn((_input: string) => jsonResponse(openMeteoPayload()));
     vi.stubGlobal("fetch", fetchMock);
 
     await getWeather(40.7, -74);
 
-    const url = String(fetchMock.mock.calls[0][0]);
+    const url = fetchMock.mock.calls[0][0];
     expect(url.startsWith("https://api.open-meteo.com/v1/forecast?")).toBe(true);
     const params = new URL(url).searchParams;
     expect(params.get("latitude")).toBe("40.7");
@@ -304,13 +304,13 @@ describe("getWeather", () => {
   });
 
   it("clamps forecast_days to the 16 day API maximum", async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => jsonResponse(openMeteoPayload()));
+    const fetchMock = vi.fn((_input: string) => jsonResponse(openMeteoPayload()));
     vi.stubGlobal("fetch", fetchMock);
 
     await getWeather(40.7, -74, 100);
-    expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get("forecast_days")).toBe("16");
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("forecast_days")).toBe("16");
 
     await getWeather(40.7, -74, 7);
-    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get("forecast_days")).toBe("7");
+    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get("forecast_days")).toBe("7");
   });
 });

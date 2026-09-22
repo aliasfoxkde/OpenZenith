@@ -54,6 +54,7 @@ def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
 
     Returns:
         2D float32 array with depressions filled
+
     """
     import heapq
 
@@ -123,6 +124,7 @@ def breach_depressions(
 
     Returns:
         2D float32 array with depressions breached (carved channels)
+
     """
     import heapq
 
@@ -191,6 +193,7 @@ def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
 
     Returns:
         2D int8 array of flow directions
+
     """
     rows, cols = dem.shape
     flow_dir = np.full((rows, cols), -1, dtype=np.int8)
@@ -203,8 +206,9 @@ def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
 
     for d in range(8):
         # Get neighbor elevation
-        neighbor_elev = padded[1 + D8_DR[d]:rows + 1 + D8_DR[d],
-                               1 + D8_DC[d]:cols + 1 + D8_DC[d]]
+        neighbor_elev = padded[
+            1 + D8_DR[d] : rows + 1 + D8_DR[d], 1 + D8_DC[d] : cols + 1 + D8_DC[d]
+        ]
         # Compute slope (drop per unit distance)
         slope = (dem - neighbor_elev) / D8_DISTANCE[d]
         # Only downhill to valid cells
@@ -235,6 +239,7 @@ def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
 
     Returns:
         2D int32 array of accumulation counts
+
     """
     rows, cols = flow_dir.shape
     accum = np.ones((rows, cols), dtype=np.int32)
@@ -379,6 +384,7 @@ def extract_streams(accum: np.ndarray, threshold: int = 100) -> np.ndarray:
 
     Returns:
         2D bool array (True = stream)
+
     """
     return accum >= threshold
 
@@ -389,9 +395,11 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
     Args:
         streams: 2D bool array from extract_streams
         flow_dir: 2D int8 array from d8_flow_direction
+        nodata_dir: Direction value marking cells with no downstream flow (pits)
 
     Returns:
         2D int32 array of Strahler orders (0 = not a stream)
+
     """
     rows, cols = streams.shape
     order = np.where(streams, np.int32(1), np.int32(0))
@@ -416,7 +424,13 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
             tgt_r = src_r + dr
             tgt_c = src_c + dc
 
-            valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols) & streams[src_r, src_c]
+            valid = (
+                (tgt_r >= 0)
+                & (tgt_r < rows)
+                & (tgt_c >= 0)
+                & (tgt_c < cols)
+                & streams[src_r, src_c]
+            )
             sr = src_r[valid]
             sc = src_c[valid]
             tr = tgt_r[valid]
@@ -439,12 +453,15 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
                     count = 0
                     for dd in range(8):
                         irr, icc = r - int(D8_DR[dd]), c - int(D8_DC[dd])
-                        if 0 <= irr < rows and 0 <= icc < cols and flow_dir[irr, icc] == dd and streams[irr, icc] and order[irr, icc] >= o:
-                                count += 1
-                    if count >= 2:
-                        new_order = o + 1
-                    else:
-                        new_order = o
+                        if (
+                            0 <= irr < rows
+                            and 0 <= icc < cols
+                            and flow_dir[irr, icc] == dd
+                            and streams[irr, icc]
+                            and order[irr, icc] >= o
+                        ):
+                            count += 1
+                    new_order = o + 1 if count >= 2 else o
                     if new_order > order[r, c]:
                         order[r, c] = new_order
                         changed = True
@@ -452,7 +469,9 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
     return order
 
 
-def stream_link_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
+def stream_link_identifier(
+    streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
+) -> np.ndarray:
     """Assign unique IDs to stream segments.
 
     Each continuous stream segment (between junctions) gets a unique ID.
@@ -461,9 +480,11 @@ def stream_link_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir
     Args:
         streams: 2D bool array from extract_streams
         flow_dir: 2D int8 array from d8_flow_direction
+        nodata_dir: Direction value marking cells with no downstream flow (pits)
 
     Returns:
         2D int32 array of link IDs (0 = not a stream)
+
     """
     rows, cols = streams.shape
     links = np.zeros((rows, cols), dtype=np.int32)
@@ -503,7 +524,7 @@ def stream_link_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir
     heads = stream_mask & ~has_upstream
 
     # BFS from each head, assigning link IDs
-    for h_r, h_c in zip(*np.where(heads)):
+    for h_r, h_c in zip(*np.where(heads), strict=False):
         queue = deque([(h_r, h_c)])
         visited = {(h_r, h_c)}
         links[h_r, h_c] = next_link_id
@@ -526,7 +547,9 @@ def stream_link_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir
     return links
 
 
-def stream_reach_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
+def stream_reach_identifier(
+    streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
+) -> np.ndarray:
     """Assign unique reach IDs to stream network.
 
     A reach is a continuous stream segment between two junctions
@@ -536,9 +559,11 @@ def stream_reach_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_di
     Args:
         streams: 2D bool array from extract_streams
         flow_dir: 2D int8 array from d8_flow_direction
+        nodata_dir: Direction value marking cells with no downstream flow (pits)
 
     Returns:
         2D int32 array of reach IDs (0 = not a stream)
+
     """
     rows, cols = streams.shape
     reaches = np.zeros((rows, cols), dtype=np.int32)
@@ -560,7 +585,7 @@ def stream_reach_identifier(streams: np.ndarray, flow_dir: np.ndarray, nodata_di
     # Find all junctions and outlets
     junctions = set()
     outlets = set()
-    stream_cells = list(zip(*np.where(streams)))
+    stream_cells = list(zip(*np.where(streams), strict=False))
 
     for r, c in stream_cells:
         up_count = count_upstream_streams(r, c)
@@ -652,11 +677,9 @@ def flood_inundation(
 
     Returns:
         2D bool array where True = inundated
+
     """
-    if fill_depressions_first:
-        filled = fill_depressions(dem, nodata)
-    else:
-        filled = dem
+    filled = fill_depressions(dem, nodata) if fill_depressions_first else dem
 
     return (filled < water_level) & (filled > nodata)
 
@@ -679,11 +702,9 @@ def inundation_depth(
 
     Returns:
         2D float32 array of water depth in meters (negative above water)
+
     """
-    if fill_depressions_first:
-        filled = fill_depressions(dem, nodata)
-    else:
-        filled = dem.astype(np.float32)
+    filled = fill_depressions(dem, nodata) if fill_depressions_first else dem.astype(np.float32)
 
     depth = np.full(filled.shape, np.nan, dtype=np.float32)
     valid = filled > nodata
@@ -710,14 +731,14 @@ def depression_depth_stats(
     Returns:
         List of dicts with keys: 'row', 'col', 'depth_m', 'volume_m3',
         'spill_elev_m', 'area_m2', 'cell_count'
+
     """
     try:
         from scipy import ndimage
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
-            "depression_depth_stats requires scipy. "
-            "Install with: pip install scipy"
-        )
+            "depression_depth_stats requires scipy. Install with: pip install scipy"
+        ) from err
 
     filled = fill_depressions(dem, nodata)
     diff = (filled - dem.astype(np.float64)).astype(np.float32)
@@ -758,15 +779,17 @@ def depression_depth_stats(
         spill_row = int(cells_r[spill_idx])
         spill_col = int(cells_c[spill_idx])
 
-        depressions.append({
-            "row": spill_row,
-            "col": spill_col,
-            "depth_m": round(depth, 2),
-            "volume_m3": round(volume, 2),
-            "spill_elev_m": round(spill_elev, 2),
-            "area_m2": round(area, 2),
-            "cell_count": cell_count,
-        })
+        depressions.append(
+            {
+                "row": spill_row,
+                "col": spill_col,
+                "depth_m": round(depth, 2),
+                "volume_m3": round(volume, 2),
+                "spill_elev_m": round(spill_elev, 2),
+                "area_m2": round(area, 2),
+                "cell_count": cell_count,
+            }
+        )
 
     # Sort by depth (deepest first)
     depressions.sort(key=lambda x: x["depth_m"], reverse=True)
@@ -798,6 +821,7 @@ def cross_section(
     Returns:
         Dict with keys: 'distances_m', 'elevations', 'width_m', 'max_depth_m',
         'cross_section_area_m2', 'hydraulic_radius_m'
+
     """
     rows, cols = dem.shape
     cell_size_deg = 0.001
@@ -859,7 +883,9 @@ def cross_section(
 
     # Compute geometry
     bank_left_elev = elevations[bank_left_idx] if bank_left_idx < len(elevations) else center_elev
-    bank_right_elev = elevations[bank_right_idx] if bank_right_idx < len(elevations) else center_elev
+    bank_right_elev = (
+        elevations[bank_right_idx] if bank_right_idx < len(elevations) else center_elev
+    )
     bank_elev = min(bank_left_elev, bank_right_elev)
 
     # Width
@@ -869,7 +895,7 @@ def cross_section(
     max_depth = max(0.0, bank_elev - center_elev)
 
     # Cross-section area (trapezoidal approximation below bank level)
-    active_elevs = [max(bank_elev, e) for e in elevations[bank_left_idx:bank_right_idx + 1]]
+    active_elevs = [max(bank_elev, e) for e in elevations[bank_left_idx : bank_right_idx + 1]]
     if len(active_elevs) >= 2:
         avg_depth = sum(max(0, bank_elev - e) for e in active_elevs) / len(active_elevs)
         cross_section_area = avg_depth * width_m
@@ -918,6 +944,7 @@ def delineate_watershed(
 
     Returns:
         Dict with watershed boundaries, area, elevation stats, or None if failed
+
     """
     try:
         from openzenith.elevation import load_elevation_grid
@@ -928,7 +955,9 @@ def delineate_watershed(
     # Load elevation grid centered on pour point
     try:
         result = load_elevation_grid(
-            lat, lon, zoom,
+            lat,
+            lon,
+            zoom,
             radius_cells=radius_cells,
             cache_dir=tile_cache_dir,
         )
@@ -949,7 +978,7 @@ def delineate_watershed(
 
     # If center is NODATA, find nearest valid cell
     if dem[center_r, center_c] <= -30000:
-        best_dist = float('inf')
+        best_dist = float("inf")
         for r in range(rows):
             for c in range(cols):
                 if dem[r, c] > -30000:
@@ -957,7 +986,7 @@ def delineate_watershed(
                     if dist < best_dist:
                         best_dist = dist
                         center_r, center_c = r, c
-        if best_dist == float('inf'):
+        if best_dist == float("inf"):
             print("❌ No valid elevation data in grid")
             return None
 
@@ -967,6 +996,7 @@ def delineate_watershed(
 
     # Compute flow accumulation (use fast topological sort)
     from openzenith.hydrology import flow_accumulation_fast
+
     flow_accumulation_fast(flow_dir)
 
     # Trace upstream from pour point
@@ -1010,7 +1040,7 @@ def delineate_watershed(
         return None
 
     cell_size_m = cell_size_deg * 111320  # approximate meters per degree at equator
-    area_km2 = ws_pixels * (cell_size_m ** 2) / 1e6
+    area_km2 = ws_pixels * (cell_size_m**2) / 1e6
 
     ws_elevations = dem[watershed]
     valid_elev = ws_elevations[ws_elevations > -30000]
@@ -1021,7 +1051,7 @@ def delineate_watershed(
         return None
 
     boundary_coords = []
-    for r, c in zip(ws_rows, ws_cols):
+    for r, c in zip(ws_rows, ws_cols, strict=False):
         # Check if boundary cell
         is_edge = False
         for d in range(8):
@@ -1030,10 +1060,12 @@ def delineate_watershed(
                 is_edge = True
                 break
         if is_edge:
-            boundary_coords.append([
-                lat_min + r * cell_size_deg,
-                lon_min + c * cell_size_deg,
-            ])
+            boundary_coords.append(
+                [
+                    lat_min + r * cell_size_deg,
+                    lon_min + c * cell_size_deg,
+                ]
+            )
 
     return {
         "center": [lat, lon],
@@ -1067,6 +1099,7 @@ def downslope_flowpath_length(
 
     Returns:
         2D float32 array of flowpath length in meters
+
     """
     if flow_dir is None:
         flow_dir = d8_flow_direction(dem, nodata)
@@ -1160,6 +1193,7 @@ def upslope_flowpath_length(
 
     Returns:
         2D float32 array of upslope flowpath length in meters
+
     """
     if flow_dir is None:
         flow_dir = d8_flow_direction(dem, nodata)
@@ -1243,6 +1277,7 @@ def stream_power_index(
 
     Returns:
         2D float32 array of SPI values
+
     """
     from openzenith.terrain import slope as calc_slope
 
@@ -1300,6 +1335,7 @@ def twi(
     Returns:
         2D float32 array of TWI values. NODATA cells and cells with
         zero slope are set to NaN.
+
     """
     from openzenith.terrain import slope as calc_slope
 
@@ -1360,6 +1396,7 @@ def breach_least_cost_path(
 
     Returns:
         2D float32 array — cells on breach paths are lowered to the outlet elevation
+
     """
     from scipy.ndimage import distance_transform_edt
 
@@ -1435,6 +1472,7 @@ def ls_factor(
 
     Returns:
         2D float32 array of LS-factor values
+
     """
     from openzenith.terrain import slope as calc_slope
 
@@ -1442,7 +1480,7 @@ def ls_factor(
     _rows, _cols = dem.shape
 
     slp = calc_slope(dem, cell_size_deg, nodata)  # slope in degrees
-    slope_pct = np.tan(np.deg2rad(slp)) * 100.0   # slope in percent
+    slope_pct = np.tan(np.deg2rad(slp)) * 100.0  # slope in percent
 
     # Flow direction and accumulation
     filled = fill_depressions(dem, nodata)
@@ -1482,6 +1520,7 @@ def stream_basins(
 
     Returns:
         2D int32 array of basin IDs (0 = no basin)
+
     """
     from scipy import ndimage
 
@@ -1512,12 +1551,19 @@ def stream_basins(
                 for prev_d in [1, 2, 3, 4, 5, 6, 7, 8]:
                     pr = r + dr_map[prev_d]
                     pc = c + dc_map[prev_d]
-                    if 0 <= pr < rows and 0 <= pc < cols and flow_dir[pr, pc] == prev_d and stream_mask[pr, pc]:
+                    if (
+                        0 <= pr < rows
+                        and 0 <= pc < cols
+                        and flow_dir[pr, pc] == prev_d
+                        and stream_mask[pr, pc]
+                    ):
                         has_upstream = True
                         break
                 if not has_upstream:
                     # This is the outlet — trace all cells flowing here
-                    _trace_basin(result, flow_dir, stream_mask, r, c, basin_id, dr_map, dc_map, nodata_dir)
+                    _trace_basin(
+                        result, flow_dir, stream_mask, r, c, basin_id, dr_map, dc_map, nodata_dir
+                    )
 
     return result
 
@@ -1576,8 +1622,8 @@ def snap_pour_point(
 
     Returns:
         List of (row, col) snapped pour point coordinates
-    """
 
+    """
     rows, cols = dem.shape
     valid = dem > nodata
 
@@ -1632,6 +1678,7 @@ def sub_basins(
 
     Returns:
         2D int32 array of sub-basin IDs (0 = no basin)
+
     """
     rows, cols = flow_dir.shape
     valid = (flow_dir != nodata_dir) & streams
@@ -1698,6 +1745,7 @@ def fill_burn(
 
     Returns:
         2D float32 array with streams burned in and depressions filled
+
     """
     result = dem.astype(np.float32).copy()
 
@@ -1736,6 +1784,7 @@ def gage_watershed(
 
     Returns:
         2D int32 array of watershed IDs (0 = no watershed)
+
     """
     rows, cols = flow_dir.shape
     result = np.zeros(flow_dir.shape, dtype=np.int32)
@@ -1802,6 +1851,7 @@ def breach_bridges(
 
     Returns:
         2D float32 array with bridges removed
+
     """
     from scipy import ndimage
 
@@ -1816,7 +1866,7 @@ def breach_bridges(
 
         # Find cells where the stream crosses a ridge (bridge)
         min_elev = np.min(stream_elevs)
-        for r, c in zip(*np.where(mask)):
+        for r, c in zip(*np.where(mask), strict=False):
             # Check if this stream cell is elevated above the min
             if dem[r, c] > min_elev + 1.0:
                 # Check cross-section width
@@ -1849,8 +1899,8 @@ def flow_accumulation_max(
 
     Returns:
         2D float32 array of max accumulation values along each flow path
-    """
 
+    """
     filled = fill_depressions(dem, nodata)
     fd = d8_flow_direction(filled, nodata)
     accum = flow_accumulation_fast(fd)
@@ -1897,6 +1947,7 @@ def watershed(
 
     Returns:
         2D int32 array of watershed IDs (0 = no watershed)
+
     """
     rows, cols = dem.shape
     filled = fill_depressions(dem, nodata)
@@ -1924,6 +1975,7 @@ def max_upslope_flow_length(
 
     Returns:
         2D float32 array of longest upslope path length (meters)
+
     """
     from openzenith.terrain import flow_length
 
@@ -1953,6 +2005,7 @@ def slope_area_ratio(
 
     Returns:
         2D float32 array of slope/area ratio
+
     """
     from openzenith.terrain import slope as _slope
 
@@ -1989,6 +2042,7 @@ def downslope_distance_to_outlet(
 
     Returns:
         2D float32 array of distances (meters)
+
     """
     from openzenith.terrain import flow_length
 
@@ -2012,6 +2066,7 @@ def cross_section_area(
 
     Returns:
         List of cross-sectional areas (m²) at each profile point
+
     """
     if len(profile) < 2:
         return []
@@ -2047,6 +2102,7 @@ def elevation_above_stream(
 
     Returns:
         2D float32 array of elevation differences (meters)
+
     """
     from scipy.ndimage import distance_transform_edt
 
@@ -2097,6 +2153,7 @@ def stream_gradients(
 
     Returns:
         2D float32 array of stream gradients (m/m)
+
     """
     from scipy import ndimage
 
@@ -2141,6 +2198,7 @@ def cost_distance(
 
     Returns:
         2D float32 array of least-cost distances
+
     """
     import heapq
 
@@ -2154,8 +2212,9 @@ def cost_distance(
             cost[r, c] = 0.0
 
     # Priority queue: (cost, row, col)
-    heap = [(0.0, r, c) for r, c in outlets
-            if 0 <= r < rows and 0 <= c < cols and dem[r, c] > nodata]
+    heap = [
+        (0.0, r, c) for r, c in outlets if 0 <= r < rows and 0 <= c < cols and dem[r, c] > nodata
+    ]
     heapq.heapify(heap)
     visited = np.zeros((rows, cols), dtype=bool)
 
@@ -2179,10 +2238,7 @@ def cost_distance(
                 elev_diff = abs(dem[nr, nc] - dem[r, c])
                 move_dist = dists[d] * cell_m
 
-                if cost_function == "slope":
-                    move_cost = elev_diff * move_dist
-                else:
-                    move_cost = move_dist
+                move_cost = elev_diff * move_dist if cost_function == "slope" else move_dist
 
                 new_cost = cur_cost + move_cost
                 if new_cost < cost[nr, nc]:
@@ -2214,6 +2270,7 @@ def basin_id(
 
     Returns:
         2D int32 array of basin IDs
+
     """
     from scipy import ndimage
 
@@ -2238,16 +2295,27 @@ def basin_id(
                 has_upstream = False
                 for prev_d in range(8):
                     pr, pc = r + dr_map[prev_d], c + dc_map[prev_d]
-                    if 0 <= pr < rows and 0 <= pc < cols and flow_dir[pr, pc] == prev_d and stream_mask[pr, pc]:
+                    if (
+                        0 <= pr < rows
+                        and 0 <= pc < cols
+                        and flow_dir[pr, pc] == prev_d
+                        and stream_mask[pr, pc]
+                    ):
                         has_upstream = True
                         break
                 if not has_upstream:
                     # This is the outlet of link_id — trace all upstream cells
-                    _trace_basin(result, flow_dir, labeled_streams == link_id,
-                                r, c, link_id,
-                                {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1},
-                                {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1},
-                                nodata_dir)
+                    _trace_basin(
+                        result,
+                        flow_dir,
+                        labeled_streams == link_id,
+                        r,
+                        c,
+                        link_id,
+                        {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1},
+                        {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1},
+                        nodata_dir,
+                    )
                     break
 
     return result
@@ -2270,6 +2338,7 @@ def average_distributary_slope(
 
     Returns:
         2D float32 array of average slopes per stream cell (m/m)
+
     """
     from scipy import ndimage
 
@@ -2295,7 +2364,7 @@ def average_distributary_slope(
         length = n_cells * cell_m
         if length > 0:
             avg_slope = elev_diff / length
-            for r, c in zip(*np.where(mask)):
+            for r, c in zip(*np.where(mask), strict=False):
                 result[r, c] = avg_slope
 
     result[~streams] = nodata
@@ -2319,6 +2388,7 @@ def depth_to_water(
 
     Returns:
         2D float32 array of water table depth (meters below surface)
+
     """
     from scipy.ndimage import distance_transform_edt
 
@@ -2370,6 +2440,7 @@ def stream_link_class(
 
     Returns:
         2D int32 array of stream orders
+
     """
     from scipy import ndimage
 
@@ -2399,7 +2470,12 @@ def stream_link_class(
                 upstream_orders = []
                 for prev_d in range(8):
                     pr, pc = r + dr_map[prev_d], c + dc_map[prev_d]
-                    if 0 <= pr < streams.shape[0] and 0 <= pc < streams.shape[1] and flow_dir[pr, pc] == prev_d and streams[pr, pc]:
+                    if (
+                        0 <= pr < streams.shape[0]
+                        and 0 <= pc < streams.shape[1]
+                        and flow_dir[pr, pc] == prev_d
+                        and streams[pr, pc]
+                    ):
                         upstream_orders.append(order[labeled[pr, pc]])
                 if len(upstream_orders) >= 2:
                     max_up = max(upstream_orders)

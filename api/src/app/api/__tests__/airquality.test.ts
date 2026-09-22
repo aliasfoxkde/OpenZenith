@@ -1,22 +1,33 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+
+// Each test stubs globalThis.fetch wholesale instead of queueing
+// mockResolvedValueOnce responses: an orphaned route call from a timed-out
+// test would otherwise consume the next test's queued response and force
+// that test onto the live network (the hermeticity net in test-setup.ts
+// turns that into a loud failure, but the corruption is best avoided).
+function aqResponse(current: unknown): Response {
+  return new Response(JSON.stringify({ current }), { status: 200 });
+}
 
 describe("Air Quality API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("returns GeoJSON with air quality data", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          current: {
-            pm2_5: 35.2,
-            pm10: 50.1,
-            carbon_monoxide: 200,
-            nitrogen_dioxide: 15,
-            sulphur_dioxide: 5,
-            ozone: 40,
-            us_aqi: 75,
-            time: "2026-04-10T12:00",
-          },
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        aqResponse({
+          pm2_5: 35.2,
+          pm10: 50.1,
+          carbon_monoxide: 200,
+          nitrogen_dioxide: 15,
+          sulphur_dioxide: 5,
+          ozone: 40,
+          us_aqi: 75,
+          time: "2026-04-10T12:00",
         }),
-        { status: 200 },
       ),
     );
 
@@ -35,9 +46,7 @@ describe("Air Quality API", () => {
   });
 
   it("returns empty features when no current data", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ current: null }), { status: 200 }),
-    );
+    vi.stubGlobal("fetch", vi.fn(() => aqResponse(null)));
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
@@ -48,7 +57,7 @@ describe("Air Quality API", () => {
   });
 
   it("returns error when upstream fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
+    vi.stubGlobal("fetch", vi.fn(() => new Response("error", { status: 500 })));
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
@@ -56,21 +65,19 @@ describe("Air Quality API", () => {
   });
 
   it("uses default coordinates when none provided", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          current: {
-            pm2_5: 10,
-            pm10: 20,
-            carbon_monoxide: 100,
-            nitrogen_dioxide: 10,
-            sulphur_dioxide: 3,
-            ozone: 30,
-            us_aqi: 42,
-            time: "2026-04-10T12:00",
-          },
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        aqResponse({
+          pm2_5: 10,
+          pm10: 20,
+          carbon_monoxide: 100,
+          nitrogen_dioxide: 10,
+          sulphur_dioxide: 3,
+          ozone: 30,
+          us_aqi: 42,
+          time: "2026-04-10T12:00",
         }),
-        { status: 200 },
       ),
     );
 

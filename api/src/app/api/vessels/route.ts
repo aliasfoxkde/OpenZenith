@@ -10,7 +10,7 @@ export const runtime = "edge";
  * If AISSTREAM_KEY is set, returns the WebSocket URL and key.
  * Otherwise returns empty config with helpful message.
  */
-export async function GET(_request: NextRequest) {
+export function GET(_request: NextRequest) {
   const apiKey = process.env.AISSTREAM_KEY;
 
   if (!apiKey) {
@@ -42,6 +42,6 @@ export async function GET(_request: NextRequest) {
   );
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }

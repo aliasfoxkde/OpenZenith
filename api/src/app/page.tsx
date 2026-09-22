@@ -42,11 +42,14 @@ export default function Home() {
   useEffect(() => {
     if (geoInitDone.current) return;
     geoInitDone.current = true;
-    let cancelled = false;
-    (async () => {
+    // Read through a function so every check observes the live flag instead of
+    // a flow-narrowed snapshot of `false`.
+    const cancelFlag = { cancelled: false };
+    const isCancelled = () => cancelFlag.cancelled;
+    void (async () => {
       try {
         const geoRes = await fetch("/api/geoip");
-        if (cancelled) return;
+        if (isCancelled()) return;
         const geo = await geoRes.json();
 
         const userLat = geo?.latitude;
@@ -66,13 +69,13 @@ export default function Home() {
         const latStr = clampedLat.toFixed(4);
         const lonStr = clampedLon.toFixed(4);
 
-        if (cancelled) return;
+        if (isCancelled()) return;
         setLat(latStr);
         setLon(lonStr);
 
         // Fetch elevation and address for user location
         const eRes = await fetch(`/api/query?lat=${clampedLat}&lon=${clampedLon}&include=elevation,address`);
-        if (cancelled) return;
+        if (isCancelled()) return;
         const eData = await eRes.json();
         if (!eData.error) {
           if (eData.elevation) setResult(eData.elevation);
@@ -92,7 +95,7 @@ export default function Home() {
       }
     })();
     return () => {
-      cancelled = true;
+      cancelFlag.cancelled = true;
     };
   }, []);
 
@@ -107,12 +110,12 @@ export default function Home() {
 
   // Back-to-top scroll listener
   useEffect(() => {
-    const onScroll = () => setShowTop(window.scrollY > 500);
+    const onScroll = () => { setShowTop(window.scrollY > 500); };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => { window.removeEventListener("scroll", onScroll); };
   }, []);
 
-  const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: "smooth" }), []);
+  const scrollToTop = useCallback(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
   async function lookup(latOverride?: number, lonOverride?: number) {
     const la = latOverride ?? parseFloat(lat);
@@ -312,7 +315,7 @@ export default function Home() {
               onPick={(la, lo) => {
                 setLat(la.toString());
                 setLon(lo.toString());
-                lookup(la, lo);
+                void lookup(la, lo);
               }}
             />
 
@@ -328,7 +331,7 @@ export default function Home() {
                 placeholder="Latitude"
                 aria-label="Latitude"
                 value={lat}
-                onChange={(e) => setLat(e.target.value)}
+                onChange={(e) => { setLat(e.target.value); }}
                 style={inputStyle}
               />
               <input
@@ -337,13 +340,13 @@ export default function Home() {
                 placeholder="Longitude"
                 aria-label="Longitude"
                 value={lon}
-                onChange={(e) => setLon(e.target.value)}
+                onChange={(e) => { setLon(e.target.value); }}
                 style={inputStyle}
               />
               <button
                 id="lookup-btn"
                 className="oz-lookup-btn"
-                onClick={() => lookup()}
+                onClick={() => { void lookup(); }}
                 disabled={loading}
                 style={{
                   padding: "0 1rem",
@@ -389,7 +392,7 @@ export default function Home() {
               <button
                 id="shuffle-btn"
                 className="oz-shuffle-btn"
-                onClick={() => setSampleLocations(pickRandomLocations(4))}
+                onClick={() => { setSampleLocations(pickRandomLocations(4)); }}
                 title="Shuffle locations"
                 style={{
                   padding: "0.1rem 0.3rem",
@@ -520,11 +523,11 @@ export default function Home() {
                     type="button"
                     aria-label={`What does "${s.label}" mean?`}
                     aria-expanded={tooltip === s.tip}
-                    onMouseEnter={() => setTooltip(s.tip)}
-                    onMouseLeave={() => setTooltip(null)}
-                    onFocus={() => setTooltip(s.tip)}
-                    onBlur={() => setTooltip(null)}
-                    onClick={() => setTooltip(tooltip === s.tip ? null : s.tip)}
+                    onMouseEnter={() => { setTooltip(s.tip); }}
+                    onMouseLeave={() => { setTooltip(null); }}
+                    onFocus={() => { setTooltip(s.tip); }}
+                    onBlur={() => { setTooltip(null); }}
+                    onClick={() => { setTooltip(tooltip === s.tip ? null : s.tip); }}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",

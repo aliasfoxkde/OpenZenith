@@ -1,5 +1,4 @@
-"""
-OZT2 Tile Backend — read elevation from local .ozt2 tile files.
+"""OZT2 Tile Backend — read elevation from local .ozt2 tile files.
 
 Provides a ChunkBackend-compatible interface for local OZT2 tiles,
 with optional R2-compatible fetch for remote tiles.
@@ -32,9 +31,11 @@ class OZT2Backend:
     Example:
         OZT2Backend("/data/ozt2_tiles")
         → reads /data/ozt2_tiles/z10/163/395.ozt2
+
     """
 
     def __init__(self, tile_dir: str | Path, suffix: str = ".ozt2"):
+        """Point the backend at a directory of OZT2 tiles laid out as z{z}/{x}/{y}."""
         self.tile_dir = Path(tile_dir)
         self.suffix = suffix
 
@@ -49,6 +50,7 @@ class OZT2Backend:
         Returns:
             256×256 Int16Array of elevation values (meters).
             NoData = -32768. Returns None if tile not found.
+
         """
         tile_path = self.tile_dir / f"z{z}" / str(x) / f"{y}{self.suffix}"
         if not tile_path.exists():
@@ -74,20 +76,27 @@ class OZT2Backend:
         return tile_path.exists()
 
     def get_elevation_at(
-        self, z: int, x: int, y: int,
-        lat: float, lon: float,
+        self,
+        z: int,
+        x: int,
+        y: int,
+        lat: float,
+        lon: float,
     ) -> float | None:
         """Get elevation at a specific lat/lon within a tile.
 
         Performs bilinear interpolation within the decoded tile.
 
         Args:
-            z, x, y: Tile coordinates
+            z: Zoom level of the tile.
+            x: Tile X (column) coordinate at that zoom.
+            y: Tile Y (row) coordinate at that zoom.
             lat: Latitude of point
             lon: Longitude of point
 
         Returns:
             Elevation in meters, or None if tile not found or point is NODATA.
+
         """
         tile = self.fetch_tile(z, x, y)
         if tile is None:
@@ -96,7 +105,7 @@ class OZT2Backend:
         h, w = tile.shape
 
         # Web Mercator tile bounds
-        n = 2 ** z
+        n = 2**z
         lon_min = x / n * 360.0 - 180.0
         lon_max = (x + 1) / n * 360.0 - 180.0
         # y=0 in tile coords = north (lat_max), y increases southward
@@ -128,10 +137,10 @@ class OZT2Backend:
 
         # Bilinear interpolation
         elev = (
-            v00 * (1 - fx_frac) * (1 - fy_frac) +
-            v10 * fx_frac * (1 - fy_frac) +
-            v01 * (1 - fx_frac) * fy_frac +
-            v11 * fx_frac * fy_frac
+            v00 * (1 - fx_frac) * (1 - fy_frac)
+            + v10 * fx_frac * (1 - fy_frac)
+            + v01 * (1 - fx_frac) * fy_frac
+            + v11 * fx_frac * fy_frac
         )
 
         return round(float(elev), 1)
@@ -158,11 +167,13 @@ class OZT2R2Backend:
         r2_access_key_id: str | None = None,
         r2_secret_access_key: str | None = None,
     ):
+        """Store the bucket/prefix and resolve R2 credentials from arguments or env."""
         self.bucket_name = bucket_name
         self.prefix = prefix.rstrip("/") + "/"
         self._client = None
 
         import os
+
         self.r2_account_id = r2_account_id or os.environ.get("CLOUDFLARE_ACCOUNT_ID")
         self.r2_access_key_id = r2_access_key_id or os.environ.get("R2_ACCESS_KEY_ID")
         self.r2_secret_access_key = r2_secret_access_key or os.environ.get("R2_SECRET_ACCESS_KEY")
@@ -174,8 +185,8 @@ class OZT2R2Backend:
 
         try:
             import boto3
-        except ImportError:
-            raise ImportError("boto3 required for R2 backend. Install: pip install boto3")
+        except ImportError as err:
+            raise ImportError("boto3 required for R2 backend. Install: pip install boto3") from err
 
         self._client = boto3.client(
             "s3",
@@ -217,7 +228,9 @@ class OZT2R2Backend:
             client.head_object(Bucket=self.bucket_name, Key=key)
             return True
         except (ClientError, EndpointConnectionError, ReadTimeoutError) as err:
-            _logger.debug("R2 tile exists check failed (key=%s): %s: %s", key, type(err).__name__, err)
+            _logger.debug(
+                "R2 tile exists check failed (key=%s): %s: %s", key, type(err).__name__, err
+            )
             return False
 
 
@@ -245,6 +258,7 @@ class OZT2HFBackend:
         cache_dir: str | Path | None = None,
         revision: str = "main",
     ):
+        """Store the dataset repo id, revision, and optional local cache directory."""
         self.repo_id = repo_id
         self.revision = revision
         self._cache_dir = Path(cache_dir) if cache_dir else None
@@ -252,6 +266,7 @@ class OZT2HFBackend:
     def _get_token(self) -> str | None:
         """Get HF token from env or token attribute."""
         import os
+
         return os.environ.get("HF_TOKEN")
 
     def _tile_url(self, z: int, x: int, y: int) -> str:
@@ -293,11 +308,16 @@ class OZT2HFBackend:
         try:
             import aiohttp
             from aiohttp import ClientError
-        except ImportError:
-            raise ImportError("aiohttp required for async fetch. Install: pip install aiohttp")
+        except ImportError as err:
+            raise ImportError(
+                "aiohttp required for async fetch. Install: pip install aiohttp"
+            ) from err
 
         try:
-            async with aiohttp.ClientSession() as session, session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp,
+            ):
                 data = await resp.read()
             elevation, _ = decode(data)
 
@@ -309,7 +329,9 @@ class OZT2HFBackend:
             _logger.debug("HF tile fetch success: z=%d x=%d y=%d", z, x, y)
             return elevation
         except (ClientError, TileError) as err:
-            _logger.debug("HF tile fetch/decode failed (url=%s): %s: %s", url, type(err).__name__, err)
+            _logger.debug(
+                "HF tile fetch/decode failed (url=%s): %s: %s", url, type(err).__name__, err
+            )
             return None
 
     def fetch_tile(self, z: int, x: int, y: int) -> np.ndarray | None:
@@ -318,6 +340,7 @@ class OZT2HFBackend:
         Checks local cache first, then downloads via HTTP.
         """
         import asyncio
+
         return asyncio.run(self.fetch_tile_async(z, x, y))
 
     def fetch_tile_bytes(self, z: int, x: int, y: int) -> bytes | None:
@@ -335,6 +358,7 @@ class OZT2HFBackend:
         try:
             import urllib.error
             import urllib.request
+
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = resp.read()
@@ -343,7 +367,9 @@ class OZT2HFBackend:
                 cached.write_bytes(data)
             return data
         except (urllib.error.URLError, OSError, TileError) as err:
-            _logger.debug("HF tile bytes fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
+            _logger.debug(
+                "HF tile bytes fetch failed (url=%s): %s: %s", url, type(err).__name__, err
+            )
             return None
 
     def tile_exists(self, z: int, x: int, y: int) -> bool:
@@ -357,11 +383,14 @@ class OZT2HFBackend:
         try:
             import urllib.error
             import urllib.request
+
             req = urllib.request.Request(url, method="HEAD", headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status == 200
         except (urllib.error.URLError, OSError) as err:
-            _logger.debug("HF tile exists check failed (url=%s): %s: %s", url, type(err).__name__, err)
+            _logger.debug(
+                "HF tile exists check failed (url=%s): %s: %s", url, type(err).__name__, err
+            )
             return False
 
     async def prefetch_tiles_async(
@@ -375,11 +404,13 @@ class OZT2HFBackend:
 
         Returns:
             Number of tiles successfully cached.
+
         """
         if self._cache_dir is None:
             return 0
 
         import asyncio
+
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def _fetch_one(z: int, x: int, y: int) -> bool:
@@ -395,7 +426,14 @@ class OZT2HFBackend:
 
                 import aiohttp
                 from aiohttp import ClientError
-                async with semaphore, aiohttp.ClientSession() as session, session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+
+                async with (
+                    semaphore,
+                    aiohttp.ClientSession() as session,
+                    session.get(
+                        url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+                    ) as resp,
+                ):
                     data = await resp.read()
                 if cached:
                     cached.parent.mkdir(parents=True, exist_ok=True)
@@ -403,7 +441,9 @@ class OZT2HFBackend:
                 _logger.debug("HF prefetch success: z=%d x=%d y=%d", z, x, y)
                 return True
             except (ClientError, TileError) as err:
-                _logger.debug("HF prefetch failed (z=%d,x=%d,y=%d): %s: %s", z, x, y, type(err).__name__, err)
+                _logger.debug(
+                    "HF prefetch failed (z=%d,x=%d,y=%d): %s: %s", z, x, y, type(err).__name__, err
+                )
                 return False
 
         results = await asyncio.gather(*[_fetch_one(z, x, y) for z, x, y in tiles])
@@ -417,6 +457,8 @@ class OZT2HFBackend:
 
         Returns:
             Number of tiles successfully cached.
+
         """
         import asyncio
+
         return asyncio.run(self.prefetch_tiles_async(tiles))

@@ -5,7 +5,6 @@ to GeoJSON FeatureCollections for visualization in GIS applications,
 MapLibre, QGIS, or any GeoJSON-compatible viewer.
 """
 
-
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -32,10 +31,14 @@ def grid_to_geojson(
 
     Returns:
         GeoJSON FeatureCollection dict
+
     """
     _rows, _cols = data.shape
-    valid = (~np.isnan(data) if np.issubdtype(data.dtype, np.floating)
-             else np.ones_like(data, dtype=bool))
+    valid = (
+        ~np.isnan(data)
+        if np.issubdtype(data.dtype, np.floating)
+        else np.ones_like(data, dtype=bool)
+    )
 
     # Get valid cell coordinates
     iy, ix = np.where(valid)
@@ -68,7 +71,7 @@ def grid_to_geojson(
             },
             "properties": {name: float(val)},
         }
-        for lat, lon, val in zip(lats, lons, vals)
+        for lat, lon, val in zip(lats, lons, vals, strict=False)
     ]
 
     return {"type": "FeatureCollection", "features": features}
@@ -97,6 +100,7 @@ def contour_to_geojson(
 
     Returns:
         GeoJSON FeatureCollection with LineString features
+
     """
     if transform is None:
         lat0, lon0, dy, dx = 0.0, 0.0, 0.001, 0.001
@@ -176,17 +180,19 @@ def contour_to_geojson(
             idx = next_idx
 
         if len(coords) >= 2:
-            features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [
-                        [round(lon, decimals + 2), round(lat, decimals + 2)]
-                        for lat, lon in coords
-                    ],
-                },
-                "properties": {"elevation": round(float(level), decimals)},
-            })
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [round(lon, decimals + 2), round(lat, decimals + 2)]
+                            for lat, lon in coords
+                        ],
+                    },
+                    "properties": {"elevation": round(float(level), decimals)},
+                }
+            )
 
     return {"type": "FeatureCollection", "features": features}
 
@@ -213,6 +219,7 @@ def contour_to_kml(
 
     Returns:
         KML string
+
     """
     geojson = contour_to_geojson(dem, interval, transform, min_elev, max_elev)
     return _geojson_to_kml(geojson, name, altitude_mode)
@@ -236,6 +243,7 @@ def grid_to_kml(
 
     Returns:
         KML string
+
     """
     geojson = grid_to_geojson(data, transform, value_name)
     return _geojson_to_kml(geojson, name, altitude_mode)
@@ -255,10 +263,11 @@ def _geojson_to_kml(
 
     Returns:
         KML string
+
     """
     kml_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        "<kml xmlns=\"http://www.opengis.net/kml/2.2\">",
+        '<kml xmlns="http://www.opengis.net/kml/2.2">',
         "<Document>",
         f"<name>{name}</name>",
         "<Folder>",

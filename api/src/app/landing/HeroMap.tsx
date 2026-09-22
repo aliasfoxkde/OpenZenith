@@ -31,7 +31,7 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
   useEffect(() => {
     if (!mapDivRef.current || mapRef.current) return;
     let cancelled = false;
-    (async () => {
+    const initMap = async () => {
       try {
         const mlgl = await waitForMapLibre();
         if (cancelled || !mapDivRef.current) return;
@@ -145,7 +145,8 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
       } catch {
         setLoading(false);
       }
-    })();
+    };
+    void initMap();
     return () => {
       cancelled = true;
       if (mapRef.current) {
@@ -160,8 +161,7 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
     const map = mapRef.current;
     if (!map) return;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getSource
-      const source = map.getSource("osm") as any;
+      const source = map.getSource("osm");
       if (source && source.setTiles) {
         const url = dark ? BASEMAPS.dark.url : BASEMAPS.voyager.url;
         // initTheme() notify can fire this right after init with no actual

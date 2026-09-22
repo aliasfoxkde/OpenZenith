@@ -217,8 +217,9 @@ function tileToLatLon(z: number, x: number, y: number) {
   return { north, south, west, east };
 }
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stays promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {

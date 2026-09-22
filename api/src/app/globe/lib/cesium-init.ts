@@ -27,8 +27,8 @@ async function loadCesiumWithFallback(baseUrl: string, timeoutMs = 15000): Promi
       await new Promise<void>((resolve, reject) => {
         const js = document.createElement("script");
         js.src = `${cdn}Cesium.js`;
-        js.onload = () => resolve();
-        js.onerror = () => reject(new Error(`CDN failed: ${cdn}`));
+        js.onload = () => { resolve(); };
+        js.onerror = () => { reject(new Error(`CDN failed: ${cdn}`)); };
         // Timeout
         const t = setTimeout(() => {
           js.remove();

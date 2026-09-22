@@ -25,15 +25,24 @@ export function setEarthquakeTimeFilter(timeMs: number | null) {
 
 export function getEarthquakeTimeRange(): { min: number; max: number } {
   if (allFeatures.length === 0) return { min: Date.now() - 86400000, max: Date.now() };
-  const times = allFeatures.map((f) => new Date(f.properties?.time || 0).getTime()).filter((t) => t > 0);
+  const times = allFeatures.map(featureTimeMs).filter((t) => t > 0);
   return { min: Math.min(...times), max: Math.max(...times) };
+}
+
+/**
+ * Feature time in epoch ms — 0 when the feed carries no usable time. Typed
+ * structurally because features come from parsed JSON, where RFC 7946 allows
+ * `properties` to be absent or null.
+ */
+function featureTimeMs(f: { properties?: { time?: number } | null }): number {
+  return new Date(f.properties?.time || 0).getTime();
 }
 
 function filterByTime(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
   if (currentTimeMs === null) return features;
   const cutoff = currentTimeMs;
   return features.filter((f) => {
-    const t = new Date(f.properties?.time || 0).getTime();
+    const t = featureTimeMs(f);
     return t > 0 && t <= cutoff;
   });
 }
@@ -49,7 +58,6 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
       allFeatures = data?.features || [];
       const filtered = filterByTime(allFeatures);
 
-      if (!map.getSource) return;
       setStatus(handle, "earthquakes", allFeatures.length ? "loaded" : "empty", allFeatures.length);
 
       try {
@@ -127,8 +135,12 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 60000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 60000),
+  );
 }
 
 export function refreshEarthquakeFilter(map: maplibregl.Map): void {

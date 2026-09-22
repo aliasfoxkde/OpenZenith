@@ -217,6 +217,12 @@ function buildHash(state: MapViewState): string {
 
 /* ─── Component ─── */
 
+/** Per-layer load report recorded by the layer handle callback. */
+interface LayerStatusEntry {
+  status: string;
+  count?: number;
+}
+
 const RASTER_LAYERS = new Set([
   "hillshade",
   "elevationColor",
@@ -291,7 +297,7 @@ export default function MapPage() {
   const showToast = useCallback((msg: string, type: "error" | "info" = "error") => {
     const id = ++toastIdRef.current;
     setToasts((prev) => [...prev.slice(-4), { id, msg, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 6000);
+    setTimeout(() => { setToasts((prev) => prev.filter((t) => t.id !== id)); }, 6000);
   }, []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -304,13 +310,13 @@ export default function MapPage() {
   const mlglRef = useRef<MapLibreGL | null>(null);
   const pinsRef = useRef<maplibregl.Marker[]>([]);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const [layerStatus, setLayerStatus] = useState<Record<string, { status: string; count?: number }>>({});
+  const [layerStatus, setLayerStatus] = useState<Record<string, LayerStatusEntry | undefined>>({});
 
   // Derived map health status from load error and layer statuses
   const mapHealth = useMemo(() => {
     if (loadError) return "error";
     if (loading) return "loading";
-    const hasError = Object.values(layerStatus).some((s) => s.status === "error");
+    const hasError = Object.values(layerStatus).some((s) => s?.status === "error");
     if (hasError) return "degraded";
     return "ok";
   }, [loadError, loading, layerStatus]);
@@ -350,7 +356,8 @@ export default function MapPage() {
   const handleEqTimeChange = useCallback((val: number) => {
     setEqTimeSlider(val);
     setEarthquakeTimeFilter(val);
-    refreshEarthquakeFilter(mapRef.current!);
+    const map = mapRef.current;
+    if (map) refreshEarthquakeFilter(map);
   }, []);
 
   const handleEqPlay = useCallback(() => {
@@ -373,9 +380,12 @@ export default function MapPage() {
       }
       setEqTimeSlider(t);
       setEarthquakeTimeFilter(t);
-      refreshEarthquakeFilter(mapRef.current!);
+      const map = mapRef.current;
+      if (map) refreshEarthquakeFilter(map);
     }, 100);
-  }, [eqPlaying, eqRange]);
+    // eqRange is intentionally absent: the range is re-read from the feed
+    // (getEarthquakeTimeRange) on every play, not from the last-rendered state.
+  }, [eqPlaying]);
 
   /* Hurricane animation */
   const [hurricaneAnimating, setHurricaneAnimating] = useState(false);
@@ -384,7 +394,7 @@ export default function MapPage() {
   const toggleHurricaneAnimation = useCallback(() => {
     const map = mapRef.current;
     const handle = layerHandleRef.current;
-    if (!map || !handle) return;
+    if (!map) return;
     if (hurricaneAnimating) {
       stopHurricaneAnimation(map, handle);
       setHurricaneAnimating(false);
@@ -400,7 +410,7 @@ export default function MapPage() {
     if (!mapState.layers.hurricaneTracks && hurricaneAnimating) {
       const map = mapRef.current;
       const handle = layerHandleRef.current;
-      if (map && handle) stopHurricaneAnimation(map, handle);
+      if (map) stopHurricaneAnimation(map, handle);
       setHurricaneAnimating(false);
       setHurricaneProgress(0);
     }
@@ -512,7 +522,9 @@ export default function MapPage() {
         map.removeSource("draw-preview");
       } catch {}
     }
-  }, [drawMode, annotations, annotationName]);
+    // drawMode state is intentionally absent — the mode is read from
+    // drawModeRef.current so the callback stays valid between renders.
+  }, [annotations, annotationName]);
 
   const cancelDrawing = useCallback(() => {
     drawPointsRef.current = [];
@@ -695,16 +707,16 @@ export default function MapPage() {
     if (map) measureRef.current.updateMap(map, measurePoints, measureMode);
     // Fetch elevation profile when 2+ points in distance mode
     if (measureMode === "distance" && measurePoints.length >= 2) {
-      fetchElevationProfile(measurePoints);
+      void fetchElevationProfile(measurePoints);
     }
   }, [measurePoints, measureMode, fetchElevationProfile]);
 
   // Detect mobile viewport
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => { setIsMobile(window.innerWidth < 768); };
     check();
     window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    return () => { window.removeEventListener("resize", check); };
   }, []);
 
   // Touch swipe to close sidebar on mobile
@@ -729,16 +741,16 @@ export default function MapPage() {
   // Close sidebar on outside click (mobile)
   useEffect(() => {
     if (!sidebarOpen || !isMobile) return;
-    const handler = (_e: Event) => setSidebarOpen(false);
+    const handler = (_e: Event) => { setSidebarOpen(false); };
     document.addEventListener("backbutton", handler);
-    return () => document.removeEventListener("backbutton", handler);
+    return () => { document.removeEventListener("backbutton", handler); };
   }, [sidebarOpen, isMobile]);
 
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs
-      const tag = (e.target as HTMLElement)?.tagName;
+      const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       if (e.key === "l" || e.key === "L") {
@@ -794,8 +806,10 @@ export default function MapPage() {
       }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+    return () => { window.removeEventListener("keydown", handler); };
+    // measureMode must be live: with it missing this handler kept its mount-time
+    // value and P could enter but never exit measure mode.
+  }, [measureMode]);
 
   // Keyboard shortcuts for measure and draw modes
   useEffect(() => {
@@ -820,7 +834,7 @@ export default function MapPage() {
       }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    return () => { window.removeEventListener("keydown", handler); };
   }, [measureMode, drawMode, clearMeasure, cancelDrawing, finishDrawing]);
 
   // Pause/resume layer polling when tab is hidden/visible
@@ -857,7 +871,7 @@ export default function MapPage() {
     if (!containerRef.current || mapRef.current) return;
     let cancelled = false;
 
-    (async () => {
+    const initMap = async () => {
       try {
         const mlgl = await waitForMapLibre();
         if (cancelled) return;
@@ -1002,7 +1016,7 @@ export default function MapPage() {
 
             // Auto-finish for point mode
             if (drawModeRef.current === "point") {
-              setTimeout(() => finishDrawing(), 0);
+              setTimeout(() => { finishDrawing(); }, 0);
             }
             return;
           }
@@ -1052,7 +1066,7 @@ export default function MapPage() {
             setCursorPos({ lat: ev.lngLat.lat, lon: ev.lngLat.lng });
           }, 80);
         });
-        map.on("mouseout", () => setCursorPos(null));
+        map.on("mouseout", () => { setCursorPos(null); });
 
         map.addControl(new mlgl.NavigationControl(), "top-right");
         map.addControl(new mlgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
@@ -1064,7 +1078,7 @@ export default function MapPage() {
           const point = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
           setCtxMenu({ x: e.clientX, y: e.clientY, lng: point.lng, lat: point.lat });
         });
-        map.getCanvas().addEventListener("click", () => setCtxMenu(null), true);
+        map.getCanvas().addEventListener("click", () => { setCtxMenu(null); }, true);
         document.addEventListener(
           "click",
           (e) => {
@@ -1077,12 +1091,18 @@ export default function MapPage() {
       } catch {
         if (!cancelled) setLoadError(true);
       }
-    })();
+    };
+
+    void initMap();
 
     return () => {
       cancelled = true;
       // Clear data layer refresh intervals
 
+      // Reading the ref here is intentional: the handle accumulates refresh
+      // intervals for the map's whole lifetime, so cleanup must see the
+      // latest one, not the value from mount time.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       const handle = layerHandleRef.current;
       handle.intervals.forEach(clearInterval);
       handle.intervals = [];
@@ -1091,6 +1111,10 @@ export default function MapPage() {
         mapRef.current = null;
       }
     };
+    // Mount-once map construction: the map is created from the INITIAL
+    // center/zoom/basemap/layers; later changes flow through switchBasemap
+    // and the per-layer effects, not by rebuilding the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Switch basemap
@@ -1265,6 +1289,24 @@ export default function MapPage() {
     link.click();
   }, []);
 
+  // Copy the elevation at a point (context menu). Best-effort: clipboard access
+  // can be denied without user focus.
+  const copyElevationAt = async (lat: number, lng: number) => {
+    try {
+      const d = await getClientElevation(lat, lng);
+      const label =
+        d.elevation !== null
+          ? `${d.elevation}m`
+          : d.status === "unavailable"
+            ? "Elevation service unavailable"
+            : "No data";
+      navigator.clipboard.writeText(`${label} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`).catch(() => {});
+    } catch {
+      /* ignore */
+    }
+    setCtxMenu(null);
+  };
+
   // Export visible layers as GeoJSON
   const handleExportGeoJSON = useCallback(() => {
     const map = mapRef.current;
@@ -1344,7 +1386,7 @@ export default function MapPage() {
             )}
 
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => { setSidebarOpen(!sidebarOpen); }}
               aria-label="Toggle layer panel"
               aria-expanded={sidebarOpen}
               style={{
@@ -1370,7 +1412,7 @@ export default function MapPage() {
         <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
           {isMobile && (
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => { setSidebarOpen(!sidebarOpen); }}
               aria-label="Toggle layer panel"
               aria-expanded={sidebarOpen}
               style={{
@@ -1392,13 +1434,19 @@ export default function MapPage() {
               {sidebarOpen ? "✕" : "☰"}
             </button>
           )}
-          <Toolbar onSearch={handleSearch} onJumpTo={handleJumpTo} onScreenshot={handleScreenshot} />
+          <Toolbar
+            onSearch={(query) => {
+              void handleSearch(query);
+            }}
+            onJumpTo={handleJumpTo}
+            onScreenshot={handleScreenshot}
+          />
         </div>
 
         {/* Measure tools */}
         <div style={{ position: "absolute", top: 52, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
           <button
-            onClick={() => toggleMeasureMode("distance")}
+            onClick={() => { toggleMeasureMode("distance"); }}
             title="Measure distance (Esc to cancel)"
             aria-label="Measure distance"
             aria-pressed={measureMode === "distance"}
@@ -1417,7 +1465,7 @@ export default function MapPage() {
             RULER
           </button>
           <button
-            onClick={() => toggleMeasureMode("area")}
+            onClick={() => { toggleMeasureMode("area"); }}
             title="Measure area (Esc to cancel)"
             aria-label="Measure area"
             aria-pressed={measureMode === "area"}
@@ -1543,7 +1591,7 @@ export default function MapPage() {
             <>
               <input
                 value={annotationName}
-                onChange={(e) => setAnnotationName(e.target.value)}
+                onChange={(e) => { setAnnotationName(e.target.value); }}
                 placeholder="Name..."
                 aria-label="Annotation name"
                 style={{
@@ -1663,7 +1711,10 @@ export default function MapPage() {
             {annotations.length > 0 && <StatusIndicator color="#00ff88" label={`${annotations.length} ANNOT`} />}
             {drawMode !== "none" && <StatusIndicator color="#00ff88" label={`DRAW: ${drawMode.toUpperCase()}`} />}
             <button
-              onClick={() => exportMapScreenshot(mapRef.current!, "openzenith-map")}
+              onClick={() => {
+                const map = mapRef.current;
+                if (map) exportMapScreenshot(map, "openzenith-map");
+              }}
               title="Export screenshot"
               aria-label="Export map screenshot as PNG"
               style={{
@@ -1702,7 +1753,7 @@ export default function MapPage() {
           >
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`);
+                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`).catch(() => {});
                 setCtxMenu(null);
               }}
               style={{
@@ -1722,7 +1773,7 @@ export default function MapPage() {
             </button>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`);
+                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`).catch(() => {});
                 setCtxMenu(null);
               }}
               style={{
@@ -1750,7 +1801,7 @@ export default function MapPage() {
                   const sec = ((a - deg - min / 60) * 3600).toFixed(2);
                   return `${deg}\u00b0${min}'${sec}"${dir}`;
                 };
-                navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`);
+                navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`).catch(() => {});
                 setCtxMenu(null);
               }}
               style={{
@@ -1770,7 +1821,7 @@ export default function MapPage() {
             </button>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`);
+                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`).catch(() => {});
                 setCtxMenu(null);
               }}
               style={{
@@ -1790,7 +1841,7 @@ export default function MapPage() {
             </button>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)}, ${ctxMenu.lat.toFixed(6)}`);
+                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)}, ${ctxMenu.lat.toFixed(6)}`).catch(() => {});
                 setCtxMenu(null);
               }}
               style={{
@@ -1831,16 +1882,8 @@ export default function MapPage() {
               Open in OSM
             </button>
             <button
-              onClick={async () => {
-                try {
-                  const d = await getClientElevation(ctxMenu.lat, ctxMenu.lng);
-                  navigator.clipboard.writeText(
-                    `${d.elevation !== null ? d.elevation + "m" : d.status === "unavailable" ? "Elevation service unavailable" : "No data"} @ ${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`,
-                  );
-                } catch {
-                  /* ignore */
-                }
-                setCtxMenu(null);
+              onClick={() => {
+                void copyElevationAt(ctxMenu.lat, ctxMenu.lng);
               }}
               style={{
                 display: "block",
@@ -1878,7 +1921,7 @@ export default function MapPage() {
         {/* Mobile backdrop overlay */}
         {sidebarOpen && isMobile && (
           <div
-            onClick={() => setSidebarOpen(false)}
+            onClick={() => { setSidebarOpen(false); }}
             style={{
               position: "absolute",
               top: 0,
@@ -1934,7 +1977,7 @@ export default function MapPage() {
                 }}
               >
                 MAP CONTROLS
-                {mapState && Object.values(mapState.layers).filter(Boolean).length > 0 && (
+                {Object.values(mapState.layers).filter(Boolean).length > 0 && (
                   <span style={{ color: T.accent, fontWeight: 400, fontSize: "0.7rem", marginLeft: "0.5rem" }}>
                     {Object.values(mapState.layers).filter(Boolean).length}/{Object.keys(mapState.layers).length} active
                   </span>
@@ -1942,7 +1985,7 @@ export default function MapPage() {
               </span>
               <button
                 aria-label="Close sidebar"
-                onClick={() => setSidebarOpen(false)}
+                onClick={() => { setSidebarOpen(false); }}
                 style={{
                   background: "none",
                   border: "none",
@@ -1960,11 +2003,10 @@ export default function MapPage() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
                 {BASEMAP_ORDER.map((key) => {
                   const bm = BASEMAPS[key];
-                  if (!bm) return null;
                   return (
                     <button
                       key={key}
-                      onClick={() => switchBasemap(key)}
+                      onClick={() => { switchBasemap(key); }}
                       style={{
                         padding: "0.25rem 0.5rem",
                         borderRadius: 3,
@@ -2025,8 +2067,8 @@ export default function MapPage() {
               <div key={layer.id} style={{ padding: "0.3rem 0.35rem", borderBottom: "1px solid rgba(0,229,255,0.15)" }}>
                 <LayerToggle
                   label={layer.name}
-                  checked={!!mapState.layers[layer.id]}
-                  onChange={(checked) => toggleLayer(layer.id, checked)}
+                  checked={mapState.layers[layer.id]}
+                  onChange={(checked) => { toggleLayer(layer.id, checked); }}
                   color={layer.accent}
                 />
                 <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
@@ -2048,7 +2090,7 @@ export default function MapPage() {
               return (
                 <div key={cat} style={{ marginBottom: "0.4rem" }}>
                   <button
-                    onClick={() => setExpandedCategory(isOpen ? null : cat)}
+                    onClick={() => { setExpandedCategory(isOpen ? null : cat); }}
                     style={{
                       width: "100%",
                       display: "flex",
@@ -2078,7 +2120,9 @@ export default function MapPage() {
                   </button>
                   {isOpen && (
                     <div style={{ padding: "0.25rem 0.15rem" }}>
-                      {layers.map((layer) => (
+                      {layers.map((layer) => {
+                        const status = layerStatus[layer.id];
+                        return (
                         <div
                           key={layer.id}
                           style={{
@@ -2088,39 +2132,39 @@ export default function MapPage() {
                         >
                           <LayerToggle
                             label={layer.name}
-                            checked={!!mapState.layers[layer.id]}
-                            onChange={(checked) => toggleLayer(layer.id, checked)}
+                            checked={mapState.layers[layer.id]}
+                            onChange={(checked) => { toggleLayer(layer.id, checked); }}
                             color={layer.accent}
                           />
                           <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
                             {layer.description}
-                            {mapState.layers[layer.id] && layerStatus[layer.id] && (
+                            {mapState.layers[layer.id] && status && (
                               <span
                                 aria-live="polite"
-                                aria-label={`${layer.name} status: ${layerStatus[layer.id].status}`}
+                                aria-label={`${layer.name} status: ${status.status}`}
                                 style={{
                                   marginLeft: 6,
                                   padding: "0 3px",
                                   borderRadius: 2,
                                   fontSize: "0.55rem",
                                   fontFamily: T.fontMono,
-                                  ...(layerStatus[layer.id].status === "loading"
+                                  ...(status.status === "loading"
                                     ? { color: T.amber }
-                                    : layerStatus[layer.id].status === "error"
+                                    : status.status === "error"
                                       ? { color: T.red }
-                                      : layerStatus[layer.id].status === "empty"
+                                      : status.status === "empty"
                                         ? { color: T.textMuted }
                                         : { color: T.green }),
                                 }}
                               >
-                                {layerStatus[layer.id].status === "loading"
+                                {status.status === "loading"
                                   ? "⟳"
-                                  : layerStatus[layer.id].status === "error"
+                                  : status.status === "error"
                                     ? "✕ ERR"
-                                    : layerStatus[layer.id].status === "empty"
+                                    : status.status === "empty"
                                       ? "∅ 0"
-                                      : layerStatus[layer.id].count !== undefined
-                                        ? `✓ ${layerStatus[layer.id].count}`
+                                      : status.count !== undefined
+                                        ? `✓ ${status.count}`
                                         : "✓"}
                               </span>
                             )}
@@ -2131,7 +2175,7 @@ export default function MapPage() {
                                   min={10}
                                   max={100}
                                   value={layerOpacity[layer.id] ?? 100}
-                                  onChange={(e) => setOpacity(layer.id, Number(e.target.value))}
+                                  onChange={(e) => { setOpacity(layer.id, Number(e.target.value)); }}
                                   style={{ width: 70, height: 14, accentColor: layer.accent, cursor: "pointer" }}
                                 />
                                 <span
@@ -2148,7 +2192,8 @@ export default function MapPage() {
                             )}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -2162,7 +2207,7 @@ export default function MapPage() {
                   {["1d", "7d", "30d"].map((f) => (
                     <button
                       key={f}
-                      onClick={() => handleEqFeedChange(f)}
+                      onClick={() => { handleEqFeedChange(f); }}
                       style={{
                         ...btnStyle,
                         flex: 1,
@@ -2190,7 +2235,7 @@ export default function MapPage() {
                     min={eqRange.min}
                     max={eqRange.max}
                     value={eqTimeSlider ?? eqRange.max}
-                    onChange={(e) => handleEqTimeChange(Number(e.target.value))}
+                    onChange={(e) => { handleEqTimeChange(Number(e.target.value)); }}
                     style={{ flex: 1, height: 14, accentColor: T.accent, cursor: "pointer" }}
                   />
                 </div>
@@ -2199,7 +2244,8 @@ export default function MapPage() {
                     onClick={() => {
                       setEqTimeSlider(null);
                       setEarthquakeTimeFilter(null);
-                      refreshEarthquakeFilter(mapRef.current!);
+                      const map = mapRef.current;
+                      if (map) refreshEarthquakeFilter(map);
                     }}
                     style={{ ...btnStyle, fontSize: "0.58rem", marginTop: 4 }}
                   >
@@ -2268,7 +2314,7 @@ export default function MapPage() {
                 </button>
               </div>
               <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
-                <button onClick={() => setShowBookmarks((v) => !v)} style={{ ...btnStyle, flex: 1 }}>
+                <button onClick={() => { setShowBookmarks((v) => !v); }} style={{ ...btnStyle, flex: 1 }}>
                   {showBookmarks ? "▾" : "▸"} Bookmarks
                 </button>
               </div>
@@ -2277,10 +2323,12 @@ export default function MapPage() {
                   <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
                     <input
                       value={bookmarkName}
-                      onChange={(e) => setBookmarkName(e.target.value)}
+                      onChange={(e) => { setBookmarkName(e.target.value); }}
                       placeholder="Bookmark name..."
                       aria-label="Bookmark name"
-                      onKeyDown={(e) => e.key === "Enter" && saveBookmark()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveBookmark();
+                      }}
                       style={{
                         flex: 1,
                         padding: "3px 6px",
@@ -2314,7 +2362,7 @@ export default function MapPage() {
                       }}
                     >
                       <button
-                        onClick={() => loadBookmark(bm)}
+                        onClick={() => { loadBookmark(bm); }}
                         style={{
                           background: "none",
                           border: "none",
@@ -2327,7 +2375,7 @@ export default function MapPage() {
                         ◎ {bm.name}
                       </button>
                       <button
-                        onClick={() => deleteBookmark(i)}
+                        onClick={() => { deleteBookmark(i); }}
                         style={{
                           background: "none",
                           border: "none",
@@ -2353,7 +2401,7 @@ export default function MapPage() {
                   Center: <span style={{ color: T.accent }}>{formatCoord(mapState.center[0], mapState.center[1])}</span>
                 </div>
                 <button
-                  onClick={() => setCoordFormat((f) => (f === "dd" ? "dms" : "dd"))}
+                  onClick={() => { setCoordFormat((f) => (f === "dd" ? "dms" : "dd")); }}
                   style={{ ...btnStyle, fontSize: "0.6rem", padding: "1px 6px" }}
                 >
                   {coordFormat.toUpperCase()}
@@ -2521,7 +2569,7 @@ export default function MapPage() {
                           {new Date(a.timestamp).toLocaleDateString()}
                         </span>
                         <button
-                          onClick={() => deleteAnnotation(a.id)}
+                          onClick={() => { deleteAnnotation(a.id); }}
                           style={{
                             background: "none",
                             border: "none",
@@ -2641,12 +2689,12 @@ export default function MapPage() {
               },
             ] as const
           ).map((layer) => {
-            const on = !!mapState.layers[layer.id];
+            const on = mapState.layers[layer.id];
             return (
               <div
                 key={layer.id}
                 style={{ marginBottom: 8, cursor: "pointer", opacity: on ? 1 : 0.35 }}
-                onClick={() => toggleLayer(layer.id, !on)}
+                onClick={() => { toggleLayer(layer.id, !on); }}
                 title={`Click to ${on ? "disable" : "enable"} ${layer.name}`}
               >
                 <div
@@ -2883,8 +2931,8 @@ function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
 
 function addBoundaryLayers(map: maplibregl.Map) {
   if (map.getLayer("boundaries-glow")) return;
-  loadBoundariesData().then((data) => {
-    if (!data || !map.getSource) return;
+  void loadBoundariesData().then((data) => {
+    if (!data) return;
     try {
       if (!map.getSource("boundaries")) {
         map.addSource("boundaries", { type: "geojson", data });
@@ -2947,7 +2995,7 @@ function addPinMarker(
   map: maplibregl.Map,
   mlgl: MapLibreGL,
   pin: ElevationPin,
-  pinsStore: React.MutableRefObject<maplibregl.Marker[]>,
+  pinsStore: React.RefObject<maplibregl.Marker[]>,
 ) {
   const el = document.createElement("div");
   el.style.cssText = `

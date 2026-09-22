@@ -3,7 +3,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -14,7 +14,7 @@ export async function OPTIONS() {
  * Usage:
  *   GET /api/docs-md                - Full API documentation (markdown)
  */
-export async function GET() {
+export function GET() {
   const now = new Date().toISOString();
   const docs = `# OpenZenith API Documentation
 

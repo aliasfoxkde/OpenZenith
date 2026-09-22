@@ -399,8 +399,9 @@ async function clientBatchDirect(
     const p = points[i];
     if (!isWithinSRTM(p.lat, p.lon)) continue;
     const name = latLonToSrtmName(p.lat, p.lon);
-    if (!tileGroups.has(name)) tileGroups.set(name, []);
-    tileGroups.get(name)!.push({ idx: i, lat: p.lat, lon: p.lon, id: p.id });
+    const group = tileGroups.get(name) ?? [];
+    group.push({ idx: i, lat: p.lat, lon: p.lon, id: p.id });
+    tileGroups.set(name, group);
   }
 
   const results: Array<{ lat: number; lon: number; elevation: number | null; id?: string }> = points.map((p) => ({

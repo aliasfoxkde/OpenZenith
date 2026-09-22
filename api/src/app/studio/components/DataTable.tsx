@@ -8,6 +8,22 @@ interface Props {
   dataset: UploadedDataset;
 }
 
+/**
+ * The shared `GeoJSON.Feature` declaration types geometry/properties as always
+ * present, but uploaded files follow RFC 7946, where both may be null. Reading
+ * uploads through this shape keeps the null guards below honest.
+ */
+interface UploadedFeature {
+  type: "Feature";
+  geometry: GeoJSON.Geometry | null;
+  properties: Record<string, string | number | boolean | null> | null;
+  bbox?: number[];
+}
+
+function asUploaded(features: GeoJSON.Feature[]): UploadedFeature[] {
+  return features;
+}
+
 export function DataTable({ dark, dataset }: Props) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -16,7 +32,7 @@ export function DataTable({ dark, dataset }: Props) {
   const PAGE_SIZE = 50;
 
   const features = useMemo(() => {
-    let list = dataset.data.features.filter((f) => f.geometry);
+    let list = asUploaded(dataset.data.features).filter((f) => f.geometry);
 
     // Filter
     if (filterText) {
@@ -54,7 +70,7 @@ export function DataTable({ dark, dataset }: Props) {
   const columns = useMemo(() => {
     const geomCol = { key: "__geom__", label: "Geometry" };
     const propKeys = new Set<string>();
-    for (const f of dataset.data.features) {
+    for (const f of asUploaded(dataset.data.features)) {
       if (f.properties) {
         for (const k of Object.keys(f.properties)) propKeys.add(k);
       }
@@ -85,9 +101,10 @@ export function DataTable({ dark, dataset }: Props) {
   }, [dataset]);
 
   const handleExportCSV = useCallback(() => {
-    const props = Object.keys(dataset.data.features[0]?.properties ?? {});
+    const uploaded = asUploaded(dataset.data.features);
+    const props = Object.keys(uploaded[0]?.properties ?? {});
     const header = props.join(",");
-    const rows = dataset.data.features.map((f) =>
+    const rows = uploaded.map((f) =>
       props
         .map((p) => {
           const v = f.properties?.[p];
@@ -100,18 +117,19 @@ export function DataTable({ dark, dataset }: Props) {
   }, [dataset]);
 
   const handleExportKML = useCallback(() => {
-    const placemarks = dataset.data.features
+    const placemarks = asUploaded(dataset.data.features)
       .map((f) => {
-        const name = f.properties?.name ?? "";
-        const desc = f.properties?.description ?? "";
+        const props = f.properties ?? {};
+        const name = String(props.name ?? "");
+        const desc = String(props.description ?? "");
         const geom = f.geometry;
         let geomXml = "";
-        if (geom.type === "Point") {
+        if (geom?.type === "Point") {
           geomXml = `<Point><coordinates>${geom.coordinates[0]},${geom.coordinates[1]},0</coordinates></Point>`;
-        } else if (geom.type === "LineString") {
+        } else if (geom?.type === "LineString") {
           const coords = geom.coordinates.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ");
           geomXml = `<LineString><coordinates>${coords}</coordinates></LineString>`;
-        } else if (geom.type === "Polygon") {
+        } else if (geom?.type === "Polygon") {
           const rings = geom.coordinates
             .map(
               (ring: number[][]) =>
@@ -182,7 +200,7 @@ ${placemarks}
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  onClick={() => handleSort(col.key)}
+                  onClick={() => { handleSort(col.key); }}
                   style={{
                     padding: "4px 6px",
                     textAlign: "left",
@@ -203,7 +221,7 @@ ${placemarks}
           <tbody>
             {paged.map((f, i) => (
               <tr key={i} style={{ borderBottom: `1px solid ${border}` }}>
-                <td style={{ padding: "2px 6px", color: textSec }}>{f.geometry?.type?.replace("Multi", "") ?? "-"}</td>
+                <td style={{ padding: "2px 6px", color: textSec }}>{f.geometry?.type.replace("Multi", "") ?? "-"}</td>
                 {columns.slice(1).map((col) => {
                   const v = f.properties?.[col.key];
                   return (
@@ -238,11 +256,11 @@ ${placemarks}
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: textSec, fontSize: 10 }}>
-          <button onClick={() => setPage(0)} disabled={page === 0} style={btnStyle(inputBg, border, text)}>
+          <button onClick={() => { setPage(0); }} disabled={page === 0} style={btnStyle(inputBg, border, text)}>
             First
           </button>
           <button
-            onClick={() => setPage(Math.max(0, page - 1))}
+            onClick={() => { setPage(Math.max(0, page - 1)); }}
             disabled={page === 0}
             style={btnStyle(inputBg, border, text)}
           >
@@ -252,14 +270,14 @@ ${placemarks}
             {page + 1} / {totalPages}
           </span>
           <button
-            onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+            onClick={() => { setPage(Math.min(totalPages - 1, page + 1)); }}
             disabled={page >= totalPages - 1}
             style={btnStyle(inputBg, border, text)}
           >
             Next
           </button>
           <button
-            onClick={() => setPage(totalPages - 1)}
+            onClick={() => { setPage(totalPages - 1); }}
             disabled={page >= totalPages - 1}
             style={btnStyle(inputBg, border, text)}
           >

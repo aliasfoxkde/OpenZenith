@@ -37,7 +37,7 @@ const ALLOWED_TILE_HOSTS = [
   "example.com",
 ];
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

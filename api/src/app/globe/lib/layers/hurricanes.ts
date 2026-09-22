@@ -48,8 +48,9 @@ const CAT_ORDER: Record<string, number> = {
   EX: 0,
 };
 
-/** Category → wind speed range (kt) */
-const CAT_WINDS: Record<string, { min: number; max: number; label: string }> = {
+/** Category → wind speed range (kt). Partial: storm categories come from an
+ * upstream CSV column, so an unlisted category is a normal runtime case. */
+const CAT_WINDS: Partial<Record<string, { min: number; max: number; label: string }>> = {
   TD: { min: 0, max: 33, label: "Tropical Depression" },
   TS: { min: 34, max: 63, label: "Tropical Storm" },
   STS: { min: 34, max: 63, label: "Sub-Tropical Storm" },
@@ -72,7 +73,7 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
       const csv = await fetchHurricaneTracks();
       if (!Cesium || !viewer) return;
       const lines = csv.split("\n").slice(1);
-      const storms: Record<string, StormTrackPoint[]> = {};
+      const storms: Record<string, StormTrackPoint[] | undefined> = {};
 
       for (const line of lines) {
         const p = line.split(",");
@@ -86,8 +87,7 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
         const wind = parseFloat(p[11]) || 0; // Wind speed in knots (column 11)
         const pressure = parseFloat(p[12]) || 0; // Pressure (column 12)
         if (isNaN(lat) || isNaN(lon)) continue;
-        if (!storms[sid]) storms[sid] = [];
-        storms[sid].push({
+        (storms[sid] ??= []).push({
           coordinates: [lon, lat],
           cat,
           name: name || "Unnamed",
@@ -273,5 +273,5 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
     }
   };
 
-  doLoad();
+  void doLoad();
 }

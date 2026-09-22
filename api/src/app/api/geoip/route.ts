@@ -21,14 +21,17 @@ interface CfRequestProperties {
   colo?: string;
 }
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
-export async function GET(request: NextRequest) {
+// Reads only request headers — no I/O to await. It stays promise-returning
+// because callers await handlers.
+export function GET(request: NextRequest) {
   const cf = (request as NextRequest & { cf?: CfRequestProperties }).cf;
 
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       ip: cf?.ip || request.headers.get("x-forwarded-for") || "unknown",
       city: cf?.city || null,
@@ -52,4 +55,5 @@ export async function GET(request: NextRequest) {
       },
     },
   );
+  return Promise.resolve(response);
 }

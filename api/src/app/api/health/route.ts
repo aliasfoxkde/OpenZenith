@@ -4,11 +4,11 @@ import pkg from "../../../../package.json";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
-export async function GET(request: NextRequest) {
+export function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const backend = process.env.STORAGE_BACKEND || "huggingface";
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import vm from "node:vm";
 import { computeProfileInWorker } from "../worker-utils";
 
 /**
@@ -65,8 +66,9 @@ class FakeWorker {
 
     try {
       // Evaluate the worker source the way a real worker would: it registers a
-      // handler on `self` and answers via self.postMessage().
-      new Function("self", script)(selfObj);
+      // handler on `self` and answers via self.postMessage(). A fresh vm context
+      // gives the script its own globals, mirroring a dedicated worker scope.
+      vm.runInNewContext(script, { self: selfObj });
     } catch (err) {
       this.onerror?.({ message: err instanceof Error ? err.message : String(err) });
       return;

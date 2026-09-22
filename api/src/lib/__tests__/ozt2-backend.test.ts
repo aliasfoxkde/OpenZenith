@@ -23,7 +23,7 @@ vi.mock("@/lib/storage/cache", () => ({
   cachePut: (key: string, data: ArrayBuffer) => cachePutMock(key, data),
 }));
 
-vi.mock("@/lib/storage/huggingface-backend", async () => {
+vi.mock("@/lib/storage/huggingface-backend", () => {
   class StubChunkBackend {
     fetchChunk = (srtmName: string, row: number, col: number) => fetchChunkMock(srtmName, row, col);
     constructor(
@@ -141,13 +141,13 @@ describe("OZT2HuggingFaceBackend", () => {
     cachePutMock.mockResolvedValue(undefined);
     fetchChunkMock.mockResolvedValue(new ArrayBuffer(0));
     fetchMock.mockReset();
-    fetchMock.mockImplementation(async (input: string) => {
+    fetchMock.mockImplementation((input: string) => {
       const entry = tiles.get(input);
       if (!entry || "status" in entry) {
         const status = entry && "status" in entry ? entry.status : 404;
-        return new Response("not found", { status });
+        return Promise.resolve(new Response("not found", { status }));
       }
-      return new Response(entry, { status: 200 });
+      return Promise.resolve(new Response(entry, { status: 200 }));
     });
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -193,7 +193,7 @@ describe("OZT2HuggingFaceBackend", () => {
     fetchMock.mockImplementation((_input: string, init?: RequestInit) => {
       const signal = init?.signal;
       return new Promise<Response>((_resolve, reject) => {
-        signal?.addEventListener("abort", () => reject(new Error("The operation was aborted")));
+        signal?.addEventListener("abort", () => { reject(new Error("The operation was aborted")); });
       });
     });
 
@@ -213,7 +213,7 @@ describe("OZT2HuggingFaceBackend", () => {
     await backend.getElevation(lat, lon);
 
     expect(cachePutMock).toHaveBeenCalledTimes(1);
-    const [key, data] = cachePutMock.mock.calls[0] as [string, ArrayBuffer];
+    const [key, data] = cachePutMock.mock.calls[0];
     expect(key).toBe(tileKey(lat, lon, 10));
     expect(data.byteLength).toBeGreaterThan(0);
   });
@@ -224,7 +224,9 @@ describe("OZT2HuggingFaceBackend", () => {
     // The cache stores the raw compressed OZT2 bytes (what cachePut writes
     // after a fetch) — the read path must decode, not reinterpret.
     const compressed = flatTile(103);
-    cacheGetMock.mockImplementation(async (key: string) => (key === tileKey(lat, lon, 10) ? compressed : null));
+    cacheGetMock.mockImplementation((key: string) =>
+      Promise.resolve(key === tileKey(lat, lon, 10) ? compressed : null),
+    );
     const backend = new OZT2HuggingFaceBackend();
 
     const tile = (await backend.getTile(10, latLonToTile(lat, lon, 10).x, latLonToTile(lat, lon, 10).y)) as Int16Array;
@@ -320,7 +322,7 @@ describe("OZT2HuggingFaceBackend", () => {
     const keys = cacheGetMock.mock.calls.map((call) => call[0]);
     expect(keys).toContain(geometry.key);
 
-    cacheGetMock.mockImplementation(async (key: string) => (key === geometry.key ? chunk : null));
+    cacheGetMock.mockImplementation((key: string) => Promise.resolve(key === geometry.key ? chunk : null));
     const second = await backend.getElevation(lat, lon);
 
     expect(second).toBe(320);
@@ -358,6 +360,6 @@ describe("OZT2HuggingFaceBackend", () => {
 });
 
 function requestedUrlOf(fetchMock: { mock: { calls: Array<[string, RequestInit?]> } }): string | null {
-  const first = fetchMock.mock.calls[0];
-  return first ? (first[0] as string) : null;
+  const first = fetchMock.mock.calls.at(0);
+  return first ? first[0] : null;
 }

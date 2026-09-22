@@ -138,6 +138,17 @@ interface MarineResponse {
    Constants
    ═══════════════════════════════════════════════════════════════ */
 
+// Tab configs (module-const: static data, stable identity for effects)
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "noaa", label: "NOAA & USGS", icon: "🌊" },
+  { id: "flights", label: "Flights", icon: "✈️" },
+  { id: "earthquakes", label: "Earthquakes", icon: "💥" },
+  { id: "satellites", label: "Satellites", icon: "🛰️" },
+  { id: "marine", label: "Marine", icon: "🚢" },
+  { id: "overpass", label: "Overpass / OSM", icon: "🔍" },
+  { id: "overture", label: "Overture Maps", icon: "🌐" },
+];
+
 const OVERTURE_THEMES = [
   { id: "places", label: "Places", desc: "Points of interest, businesses, landmarks", types: ["place"] },
   { id: "buildings", label: "Buildings", desc: "Building footprints with height and type", types: ["building"] },
@@ -469,7 +480,7 @@ export default function ExplorePage() {
   const fetchNoaa = useCallback(
     async (idx?: number) => {
       const i = idx ?? noaaSelected;
-      const ds = NOAA_DATASETS[i];
+      const ds = NOAA_DATASETS.at(i);
       if (!ds) return;
       if (ds.url === null) {
         // Point-based: NWS forecast or alerts
@@ -492,10 +503,10 @@ export default function ExplorePage() {
                 const fcResp = await proxyFetch(props.forecastHourly);
                 setNoaaData(fcResp as NoaaData);
               } else {
-                setNoaaData(gpResp as unknown as NoaaData);
+                setNoaaData(gpResp);
               }
             } else {
-              setNoaaData(gpResp as unknown as NoaaData);
+              setNoaaData(gpResp);
             }
           } catch (e: unknown) {
             setNoaaError(e instanceof Error ? e.message : "NWS fetch failed");
@@ -641,20 +652,10 @@ export default function ExplorePage() {
   const selectedOvertureTheme = OVERTURE_THEMES.find((t) => t.id === ovTheme);
 
   // Tab configs
-  const TABS: { id: TabId; label: string; icon: string }[] = [
-    { id: "noaa", label: "NOAA & USGS", icon: "\uD83C\uDF0A" },
-    { id: "flights", label: "Flights", icon: "\u2708\uFE0F" },
-    { id: "earthquakes", label: "Earthquakes", icon: "\uD83D\uDCA5" },
-    { id: "satellites", label: "Satellites", icon: "\uD83D\uDEF0\uFE0F" },
-    { id: "marine", label: "Marine", icon: "\uD83D\uDEA2" },
-    { id: "overpass", label: "Overpass / OSM", icon: "\uD83D\uDD0D" },
-    { id: "overture", label: "Overture Maps", icon: "\uD83C\uDF10" },
-  ];
-
   // Keyboard shortcuts: number keys switch tabs
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const num = parseInt(e.key);
       if (num >= 1 && num <= TABS.length) {
@@ -662,7 +663,7 @@ export default function ExplorePage() {
       }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    return () => { window.removeEventListener("keydown", handler); };
   }, []);
 
   return (
@@ -687,7 +688,7 @@ export default function ExplorePage() {
                 role="tab"
                 aria-selected={tab === t.id}
                 className={`ex-tab ${tab === t.id ? "active" : ""}`}
-                onClick={() => setTab(t.id)}
+                onClick={() => { setTab(t.id); }}
               >
                 {t.icon} {t.label}
               </button>
@@ -730,16 +731,16 @@ export default function ExplorePage() {
                             placeholder="lat"
                             aria-label="NWS alert latitude"
                             value={nwsLat}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setNwsLat(e.target.value)}
+                            onClick={(e) => { e.stopPropagation(); }}
+                            onChange={(e) => { setNwsLat(e.target.value); }}
                           />
                           <input
                             style={{ width: 90, fontSize: "0.78rem", padding: "0.3rem 0.5rem" }}
                             placeholder="lon"
                             aria-label="NWS alert longitude"
                             value={nwsLon}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setNwsLon(e.target.value)}
+                            onClick={(e) => { e.stopPropagation(); }}
+                            onChange={(e) => { setNwsLon(e.target.value); }}
                           />
                         </div>
                       )}
@@ -748,7 +749,7 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="ex-row">
-                  <button className="primary" onClick={() => fetchNoaa()} disabled={noaaLoading}>
+                  <button className="primary" onClick={() => { void fetchNoaa(); }} disabled={noaaLoading}>
                     {noaaLoading ? "Fetching..." : "Fetch Data"}
                   </button>
                   <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/proxy</span>
@@ -921,7 +922,7 @@ export default function ExplorePage() {
                                     <span className="ex-badge" style={{ background: `${sevColor}18`, color: sevColor }}>
                                       {p.severity}
                                     </span>
-                                    <span>{p.areaDesc?.split(";")?.[0] || ""}</span>
+                                    <span>{p.areaDesc?.split(";")[0] || ""}</span>
                                   </div>
                                   <div style={{ fontSize: "0.72rem", color: "#555", marginTop: "0.15rem" }}>
                                     {p.headline || ""}
@@ -934,7 +935,7 @@ export default function ExplorePage() {
                       </div>
                     )}
                     {/* NHC storms */}
-                    {noaaData?.activeStorms && (
+                    {noaaData.activeStorms && (
                       <div>
                         <div className="ex-stat">
                           <span className="num">{noaaData.activeStorms.length}</span> active storms
@@ -943,7 +944,7 @@ export default function ExplorePage() {
                       </div>
                     )}
                     {/* NASA EONET */}
-                    {noaaData?.events && (
+                    {noaaData.events && (
                       <div>
                         <div className="ex-stat">
                           <span className="num">{noaaData.events.length}</span> events
@@ -974,7 +975,7 @@ export default function ExplorePage() {
                                 {(() => {
                                   const c = ev.geometry?.coordinates;
                                   if (!c || !Array.isArray(c[0]) || !Array.isArray(c[0][0])) return null;
-                                  const firstCoord = (c[0] as unknown as number[][])[0];
+                                  const firstCoord = (c[0] as unknown as number[][]).at(0);
                                   if (!firstCoord) return null;
                                   return (
                                     <div style={{ fontSize: "0.7rem", color: "#555", marginTop: "0.1rem" }}>
@@ -992,8 +993,8 @@ export default function ExplorePage() {
                     {/* Fallback: raw JSON */}
                     {!noaaData.features &&
                       !noaaData.properties?.periods &&
-                      !noaaData?.activeStorms &&
-                      !noaaData?.events && (
+                      !noaaData.activeStorms &&
+                      !noaaData.events && (
                         <pre style={{ marginTop: "0.75rem" }}>
                           {JSON.stringify(noaaData, null, 2).substring(0, 8000)}
                         </pre>
@@ -1017,31 +1018,31 @@ export default function ExplorePage() {
                   <input
                     placeholder="west,south,east,north"
                     value={flBbox}
-                    onChange={(e) => setFlBbox(e.target.value)}
+                    onChange={(e) => { setFlBbox(e.target.value); }}
                     style={{ width: 220 }}
                   />
                   <label>Callsign</label>
                   <input
                     placeholder="UAL, DAL, AAL..."
                     value={flCallsign}
-                    onChange={(e) => setFlCallsign(e.target.value)}
+                    onChange={(e) => { setFlCallsign(e.target.value); }}
                     style={{ width: 120 }}
                   />
                 </div>
                 <div className="ex-filter-group">
                   <label>Alt Min (m)</label>
-                  <input placeholder="0" type="number" value={flAltMin} onChange={(e) => setFlAltMin(e.target.value)} />
+                  <input placeholder="0" type="number" value={flAltMin} onChange={(e) => { setFlAltMin(e.target.value); }} />
                   <label>Alt Max (m)</label>
                   <input
                     placeholder="15000"
                     type="number"
                     value={flAltMax}
-                    onChange={(e) => setFlAltMax(e.target.value)}
+                    onChange={(e) => { setFlAltMax(e.target.value); }}
                   />
                   <label>Status</label>
                   <select
                     value={flOnGround}
-                    onChange={(e) => setFlOnGround(e.target.value as "all" | "airborne" | "ground")}
+                    onChange={(e) => { setFlOnGround(e.target.value as "all" | "airborne" | "ground"); }}
                   >
                     <option value="all">All</option>
                     <option value="airborne">Airborne</option>
@@ -1050,7 +1051,7 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="ex-row" style={{ marginBottom: "1rem" }}>
-                  <button className="primary" onClick={fetchFlights} disabled={flLoading}>
+                  <button className="primary" onClick={() => { void fetchFlights(); }} disabled={flLoading}>
                     {flLoading ? "Fetching..." : "Fetch Flights"}
                   </button>
                   <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/flights &middot; 15s cache</span>
@@ -1144,7 +1145,7 @@ export default function ExplorePage() {
 
                 <div className="ex-filter-group">
                   <label>Min Magnitude</label>
-                  <select value={eqMinMag} onChange={(e) => setEqMinMag(e.target.value)}>
+                  <select value={eqMinMag} onChange={(e) => { setEqMinMag(e.target.value); }}>
                     <option value="0">All</option>
                     <option value="1">M1.0+</option>
                     <option value="2.5">M2.5+</option>
@@ -1153,13 +1154,13 @@ export default function ExplorePage() {
                     <option value="6">M6.0+</option>
                   </select>
                   <label>Period</label>
-                  <select value={eqPeriod} onChange={(e) => setEqPeriod(e.target.value)}>
+                  <select value={eqPeriod} onChange={(e) => { setEqPeriod(e.target.value); }}>
                     <option value="hour">Past Hour</option>
                     <option value="day">Past Day</option>
                     <option value="week">Past Week</option>
                     <option value="month">Past Month</option>
                   </select>
-                  <button className="primary" onClick={fetchEarthquakes} disabled={eqLoading}>
+                  <button className="primary" onClick={() => { void fetchEarthquakes(); }} disabled={eqLoading}>
                     {eqLoading ? "Fetching..." : "Fetch"}
                   </button>
                 </div>
@@ -1236,7 +1237,7 @@ export default function ExplorePage() {
 
                 <div className="ex-filter-group">
                   <label>Group</label>
-                  <select value={satGroup} onChange={(e) => setSatGroup(e.target.value)} style={{ width: 160 }}>
+                  <select value={satGroup} onChange={(e) => { setSatGroup(e.target.value); }} style={{ width: 160 }}>
                     {SATELLITE_GROUPS.map((g) => (
                       <option key={g.id} value={g.id}>
                         {g.label}
@@ -1247,10 +1248,10 @@ export default function ExplorePage() {
                   <input
                     placeholder="STARLINK, ISS, NOAA..."
                     value={satSearch}
-                    onChange={(e) => setSatSearch(e.target.value)}
+                    onChange={(e) => { setSatSearch(e.target.value); }}
                     style={{ width: 200 }}
                   />
-                  <button className="primary" onClick={fetchSatellites} disabled={satLoading}>
+                  <button className="primary" onClick={() => { void fetchSatellites(); }} disabled={satLoading}>
                     {satLoading ? "Fetching..." : "Fetch"}
                   </button>
                 </div>
@@ -1331,17 +1332,17 @@ export default function ExplorePage() {
                   <input
                     placeholder="40.7128"
                     value={marLat}
-                    onChange={(e) => setMarLat(e.target.value)}
+                    onChange={(e) => { setMarLat(e.target.value); }}
                     style={{ width: 120 }}
                   />
                   <label>Longitude</label>
                   <input
                     placeholder="-74.006"
                     value={marLon}
-                    onChange={(e) => setMarLon(e.target.value)}
+                    onChange={(e) => { setMarLon(e.target.value); }}
                     style={{ width: 120 }}
                   />
-                  <button className="primary" onClick={fetchMarine} disabled={marLoading}>
+                  <button className="primary" onClick={() => { void fetchMarine(); }} disabled={marLoading}>
                     {marLoading ? "Fetching..." : "Fetch"}
                   </button>
                 </div>
@@ -1465,7 +1466,7 @@ export default function ExplorePage() {
                   </label>
                   <input
                     value={opBbox}
-                    onChange={(e) => setOpBbox(e.target.value)}
+                    onChange={(e) => { setOpBbox(e.target.value); }}
                     placeholder="-74.02,40.70,-73.95,40.78"
                   />
                 </div>
@@ -1476,7 +1477,7 @@ export default function ExplorePage() {
                   </label>
                   <textarea
                     value={opQuery}
-                    onChange={(e) => setOpQuery(e.target.value)}
+                    onChange={(e) => { setOpQuery(e.target.value); }}
                     rows={6}
                     placeholder={`[out:json][timeout:25];\nnode["amenity"]({{bbox}});\nout;`}
                     style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: "0.82rem", resize: "vertical" }}
@@ -1484,7 +1485,7 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="ex-row" style={{ marginBottom: "1rem" }}>
-                  <button className="primary" onClick={runOverpass} disabled={opLoading}>
+                  <button className="primary" onClick={() => { void runOverpass(); }} disabled={opLoading}>
                     {opLoading ? "Running..." : "Run Query"}
                   </button>
                   <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/overpass</span>
@@ -1494,7 +1495,7 @@ export default function ExplorePage() {
                   <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Quick Queries</div>
                   <div className="ex-query-grid">
                     {OVERPASS_QUERIES.map((q, i) => (
-                      <button key={i} className="ex-query-btn" onClick={() => setOpQuery(q.query)}>
+                      <button key={i} className="ex-query-btn" onClick={() => { setOpQuery(q.query); }}>
                         {q.label}
                       </button>
                     ))}
@@ -1571,7 +1572,7 @@ export default function ExplorePage() {
                   <label style={{ fontSize: "0.75rem", color: "#666", whiteSpace: "nowrap" }}>Type</label>
                   <select
                     value={ovType}
-                    onChange={(e) => setOvType(e.target.value)}
+                    onChange={(e) => { setOvType(e.target.value); }}
                     style={{ width: "auto", minWidth: 120 }}
                   >
                     {selectedOvertureTheme?.types.map((t) => (
@@ -1583,10 +1584,10 @@ export default function ExplorePage() {
                   <input
                     placeholder="west,south,east,north (e.g. -74.02,40.70,-73.95,40.78)"
                     value={ovBbox}
-                    onChange={(e) => setOvBbox(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && fetchOverture()}
+                    onChange={(e) => { setOvBbox(e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") void fetchOverture(); }}
                   />
-                  <button className="primary" onClick={fetchOverture} disabled={ovLoading}>
+                  <button className="primary" onClick={() => { void fetchOverture(); }} disabled={ovLoading}>
                     {ovLoading ? "Fetching..." : "Query"}
                   </button>
                 </div>
@@ -1609,14 +1610,14 @@ export default function ExplorePage() {
                       Results: {ovTheme}/{ovType}
                     </h3>
                     <div className="ex-stat">
-                      <span className="num">{ovData.features?.length || 0}</span> features
+                      <span className="num">{ovData.features.length || 0}</span> features
                     </div>
-                    {ovData.features?.length > 0 && (
+                    {ovData.features.length > 0 && (
                       <pre style={{ maxHeight: 500, marginTop: "0.5rem" }}>
                         {JSON.stringify(ovData.features.slice(0, 20), null, 2)}
                       </pre>
                     )}
-                    {ovData.features?.length > 20 && (
+                    {ovData.features.length > 20 && (
                       <div className="ex-empty" style={{ padding: "0.75rem" }}>
                         ...and {(ovData.features.length - 20).toLocaleString()} more features
                       </div>

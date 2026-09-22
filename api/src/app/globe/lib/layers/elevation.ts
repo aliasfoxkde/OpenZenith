@@ -42,8 +42,6 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
 
   try {
     const results = await getClientElevationBatch(points);
-    if (!results) return;
-
     if (entitiesRef.current["elev-points"]) {
       viewer.scene.primitives.remove(entitiesRef.current["elev-points"]);
     }

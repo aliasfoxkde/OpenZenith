@@ -10,8 +10,6 @@ import pytest
 from PIL import Image
 
 from openzenith.elevation import (
-    DEFAULT_OZT2_DIR,
-    DEFAULT_TILE_DIR,
     _get_elevation_from_ozt2,
     _interpolate_from_tile,
     _log_tile_error,
@@ -22,13 +20,10 @@ from openzenith.elevation import (
     get_elevation_from_ozt2,
     get_tile_count,
     latlon_to_tile,
-    load_ozt2_tiles,
     load_ozt2_tiles_from_hf,
     load_tiles,
-    load_elevation_grid,
 )
 from openzenith.terrarium import decode_tile, encode_tile
-
 
 # ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -59,15 +54,18 @@ def _make_tile_dir(tile_dir: Path, zoom: int, x: int, y: int, height: int = 1000
 # ─── latlon_to_tile ─────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("lat,lon,zoom", [
-    (0.0, 0.0, 0),
-    (0.0, -180.0, 8),
-    (0.0, 179.9, 8),
-    (85.0, 0.0, 8),
-    (-85.0, 0.0, 8),
-    (40.7128, -74.0060, 10),
-    (35.6762, 139.6503, 10),
-])
+@pytest.mark.parametrize(
+    "lat,lon,zoom",
+    [
+        (0.0, 0.0, 0),
+        (0.0, -180.0, 8),
+        (0.0, 179.9, 8),
+        (85.0, 0.0, 8),
+        (-85.0, 0.0, 8),
+        (40.7128, -74.0060, 10),
+        (35.6762, 139.6503, 10),
+    ],
+)
 def test_latlon_to_tile(lat, lon, zoom):
     """Web Mercator tile coordinate conversion returns valid tile coordinates."""
     n = 2**zoom
@@ -93,10 +91,10 @@ def test_latlon_to_tile_roundtrip():
 
 def test_latlon_to_tile_boundary():
     """Edge cases at lat/lon boundaries."""
-    x, y = latlon_to_tile(0.0, -180.0, 1)
+    x, _y = latlon_to_tile(0.0, -180.0, 1)
     assert x == 0
 
-    x, y = latlon_to_tile(0.0, 180.0, 1)
+    x, _y = latlon_to_tile(0.0, 180.0, 1)
     assert x in (0, 1, 2)
 
 
@@ -192,6 +190,7 @@ def test_interpolate_from_tile_nodata():
 
 def test_interpolate_from_tile_bilinear():
     """Bilinear interpolation returns a value in the range of the 4 corner pixels."""
+
     def enc(h):
         v = int(h) + 32768
         return (min(255, v >> 8), v - (v >> 8) * 256, 0)
@@ -211,6 +210,7 @@ def test_interpolate_from_tile_bilinear():
 
 def test_interpolate_from_tile_partial_nodata():
     """If some corners are NODATA, return nearest valid pixel."""
+
     def enc(h):
         v = int(h) + 32768
         return (min(255, v >> 8), v - (v >> 8) * 256, 0)
@@ -264,11 +264,14 @@ def test_get_elevation_with_tile(tmp_path):
     assert abs(result - 1600.0) < 50.0  # Within interpolation tolerance
 
 
-@pytest.mark.parametrize("lat,lon,zoom_levels,expected_approx", [
-    (40.0, -105.0, [8], 1600.0),  # Denver area
-    (35.0, -118.0, [8], 700.0),   # LA area
-    (0.0, 0.0, [8], 0.0),          # Ocean
-])
+@pytest.mark.parametrize(
+    "lat,lon,zoom_levels,expected_approx",
+    [
+        (40.0, -105.0, [8], 1600.0),  # Denver area
+        (35.0, -118.0, [8], 700.0),  # LA area
+        (0.0, 0.0, [8], 0.0),  # Ocean
+    ],
+)
 def test_get_elevation_batch_coords(tmp_path, lat, lon, zoom_levels, expected_approx):
     """Test get_elevation_batch with specific coordinates."""
     z = zoom_levels[0]
@@ -365,7 +368,7 @@ def test_get_elevation_batch_exception_handling(tmp_path):
     e.DEFAULT_TILE_DIR = str(tmp_path)
     try:
         # Create a corrupt tile that will cause decode to fail
-        corrupt_png = (tmp_path / "8" / "0")
+        corrupt_png = tmp_path / "8" / "0"
         corrupt_png.mkdir(parents=True, exist_ok=True)
         (corrupt_png / "0.png").write_bytes(b"not a png")
 
@@ -383,15 +386,19 @@ def test_get_elevation_batch_exception_handling(tmp_path):
 def test_load_tiles_import_error():
     """load_tiles raises ImportError if huggingface_hub not installed."""
     import builtins
+
     original_import = builtins.__import__
+
     def mock_import(name, *args, **kwargs):
         if name == "huggingface_hub":
             raise ImportError("No module named 'huggingface_hub'")
         return original_import(name, *args, **kwargs)
 
-    with mock.patch.object(builtins, "__import__", side_effect=mock_import):
-        with pytest.raises(ImportError, match="huggingface_hub"):
-            load_tiles()
+    with (
+        mock.patch.object(builtins, "__import__", side_effect=mock_import),
+        pytest.raises(ImportError, match="huggingface_hub"),
+    ):
+        load_tiles()
 
 
 def test_load_tiles_sets_default(tmp_path):
@@ -404,7 +411,7 @@ def test_load_tiles_sets_default(tmp_path):
         with mock.patch("huggingface_hub.snapshot_download") as mock_download:
             mock_download.return_value = str(tmp_path / "dataset")
             load_tiles(cache_dir=tmp_path)
-            assert e.DEFAULT_TILE_DIR == tmp_path / "dataset"
+            assert tmp_path / "dataset" == e.DEFAULT_TILE_DIR
     finally:
         e.DEFAULT_TILE_DIR = saved
 
@@ -443,7 +450,9 @@ def test_get_elevation_from_ozt2_uses_default_dir(tmp_path):
     saved = e.DEFAULT_OZT2_DIR
     e.DEFAULT_OZT2_DIR = tmp_path
     try:
-        with mock.patch("openzenith.elevation._get_elevation_from_ozt2", return_value=42.0) as mock_get:
+        with mock.patch(
+            "openzenith.elevation._get_elevation_from_ozt2", return_value=42.0
+        ) as mock_get:
             result = get_elevation_from_ozt2(40.0, -74.0)
             assert result == 42.0
             mock_get.assert_called_once()
@@ -470,6 +479,7 @@ def test_get_elevation_from_ozt2_all_nodata(tmp_path):
 
     # Create fake OZT2 data: header + all -32768 values
     import struct
+
     header = struct.pack("<III", 256, 256, 0)  # width, height, flags
     data = struct.pack("<h", -32768) * 256 * 256
     (tile_dir / f"{y}.ozt2").write_bytes(header + data)
@@ -490,7 +500,7 @@ def test_load_ozt2_tiles_sets_default_dir(tmp_path):
     try:
         result = e.load_ozt2_tiles(str(tmp_path))
         assert result == tmp_path
-        assert e.DEFAULT_OZT2_DIR == tmp_path
+        assert tmp_path == e.DEFAULT_OZT2_DIR
     finally:
         e.DEFAULT_OZT2_DIR = saved
 
@@ -501,15 +511,19 @@ def test_load_ozt2_tiles_sets_default_dir(tmp_path):
 def test_load_ozt2_tiles_from_hf_import_error():
     """load_ozt2_tiles_from_hf raises ImportError if huggingface_hub not installed."""
     import builtins
+
     original_import = builtins.__import__
+
     def mock_import(name, *args, **kwargs):
         if name == "huggingface_hub":
             raise ImportError("No module named 'huggingface_hub'")
         return original_import(name, *args, **kwargs)
 
-    with mock.patch.object(builtins, "__import__", side_effect=mock_import):
-        with pytest.raises(ImportError, match="huggingface_hub"):
-            load_ozt2_tiles_from_hf()
+    with (
+        mock.patch.object(builtins, "__import__", side_effect=mock_import),
+        pytest.raises(ImportError, match="huggingface_hub"),
+    ):
+        load_ozt2_tiles_from_hf()
 
 
 def test_load_ozt2_tiles_from_hf_sets_default(tmp_path):
@@ -521,7 +535,9 @@ def test_load_ozt2_tiles_from_hf_sets_default(tmp_path):
     try:
         with mock.patch("huggingface_hub.snapshot_download") as mock_download:
             mock_download.return_value = str(tmp_path / "dataset")
-            result = load_ozt2_tiles_from_hf(repo_id="test/repo", zoom_levels=[10], cache_dir=tmp_path)
+            result = load_ozt2_tiles_from_hf(
+                repo_id="test/repo", zoom_levels=[10], cache_dir=tmp_path
+            )
             assert result == tmp_path / "dataset" / "tiles"
     finally:
         e.DEFAULT_OZT2_DIR = saved
@@ -563,7 +579,7 @@ def test_get_tile_count_with_files(tmp_path):
 
 def test_download_tiles_requires_region_or_bbox():
     """download_tiles raises ValueError if no region or bbox provided."""
-    with pytest.raises(ValueError, match="bbox|region|lat"):
+    with pytest.raises(ValueError, match=r"bbox|region|lat"):
         download_tiles()
 
 
@@ -573,10 +589,13 @@ def test_download_tiles_unknown_region():
         download_tiles(region="nonexistent_region")
 
 
-@pytest.mark.parametrize("region,expected_bbox", [
-    ("europe", (34, -25, 72, 45)),
-    ("usa", (24, -125, 50, -66)),
-])
+@pytest.mark.parametrize(
+    "region,expected_bbox",
+    [
+        ("europe", (34, -25, 72, 45)),
+        ("usa", (24, -125, 50, -66)),
+    ],
+)
 def test_download_tiles_region_bbox(region, expected_bbox, tmp_path):
     """download_tiles maps region names to correct bounding boxes."""
     import openzenith.elevation as e
@@ -672,7 +691,8 @@ def test_load_elevation_grid_returns_dict(tmp_path):
     e.DEFAULT_TILE_DIR = str(tmp_path)
     try:
         result = e.load_elevation_grid(
-            40.0, -105.0,
+            40.0,
+            -105.0,
             zoom=8,
             radius_cells=5,
         )

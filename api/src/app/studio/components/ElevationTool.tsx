@@ -10,7 +10,7 @@ interface Props {
   dark: boolean;
   cursorPos: { lat: number; lon: number } | null;
   onProfileChange?: (coords: [number, number][] | null) => void;
-  profileClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
+  profileClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
 }
 
 export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, profileClickRef }: Props) {
@@ -29,8 +29,8 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
       const result: ElevationResult = {
         lat,
         lon,
-        elevation: data?.elevation ?? null,
-        surfaceType: data?.surfaceType ?? "unknown",
+        elevation: data.elevation,
+        surfaceType: data.surfaceType,
       };
       setResults((prev) => [result, ...prev].slice(0, 50));
       return result;
@@ -45,7 +45,7 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
   const handleManualQuery = () => {
     const lat = parseFloat(manualLat);
     const lon = parseFloat(manualLon);
-    if (!isNaN(lat) && !isNaN(lon)) queryElevation(lat, lon);
+    if (!isNaN(lat) && !isNaN(lon)) void queryElevation(lat, lon);
   };
 
   const handleMapClick = useCallback(
@@ -62,7 +62,7 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
         }
         return; // Don't query single elevation in profile mode
       }
-      queryElevation(lat, lon);
+      void queryElevation(lat, lon);
     },
     [profileMode, profileStart, profileEnd, queryElevation, onProfileChange],
   );
@@ -86,7 +86,8 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
   const copyCSV = () => {
     const header = "lat,lon,elevation,surface_type";
     const rows = results.map((r) => `${r.lat},${r.lon},${r.elevation ?? ""},${r.surfaceType || ""}`);
-    navigator.clipboard.writeText([header, ...rows].join("\n"));
+    // Best-effort: clipboard access can be denied without user focus.
+    navigator.clipboard.writeText([header, ...rows].join("\n")).catch(() => {});
   };
 
   const bg = dark ? "#141414" : "#fff";
@@ -106,7 +107,7 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
         <input
           placeholder="lat"
           value={manualLat}
-          onChange={(e) => setManualLat(e.target.value)}
+          onChange={(e) => { setManualLat(e.target.value); }}
           style={{
             flex: 1,
             padding: "5px 8px",
@@ -120,7 +121,7 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
         <input
           placeholder="lon"
           value={manualLon}
-          onChange={(e) => setManualLon(e.target.value)}
+          onChange={(e) => { setManualLon(e.target.value); }}
           style={{
             flex: 1,
             padding: "5px 8px",
@@ -151,7 +152,9 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
       {/* Use cursor position */}
       {cursorPos && (
         <button
-          onClick={() => queryElevation(cursorPos.lat, cursorPos.lon)}
+          onClick={() => {
+            void queryElevation(cursorPos.lat, cursorPos.lon);
+          }}
           style={{
             padding: "4px 10px",
             background: "transparent",

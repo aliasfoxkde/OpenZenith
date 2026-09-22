@@ -1,9 +1,15 @@
 import { test, expect } from "@playwright/test";
 
+/** Assert a nullable Playwright value is present before use. */
+function must<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("unexpected null value");
+  return value;
+}
+
 test.describe("Landing page", () => {
   test("loads successfully", async ({ page }) => {
     const response = await page.goto("/");
-    expect(response!.status()).toBeLessThan(400);
+    expect(must(response).status()).toBeLessThan(400);
   });
 
   test("has correct title", async ({ page }) => {
@@ -29,7 +35,7 @@ test.describe("Landing page", () => {
     await page.waitForSelector(".oz-result-value", { timeout: 15000 });
     const resultText = await page.locator(".oz-result-value").textContent();
     // Everest summit elevation should be > 8000m
-    expect(parseInt(resultText!.replace(/,/g, ""))).toBeGreaterThan(8000);
+    expect(parseInt(must(resultText).replace(/,/g, ""))).toBeGreaterThan(8000);
   });
 
   test("shows error for invalid coordinates", async ({ page }) => {
@@ -77,7 +83,7 @@ test.describe("Landing page", () => {
     await page.goto("/");
 
     // Scroll down
-    await page.evaluate(() => window.scrollTo(0, 1000));
+    await page.evaluate(() => { window.scrollTo(0, 1000); });
 
     // Check that the page scrolled successfully
     const scrollY = await page.evaluate(() => window.scrollY);

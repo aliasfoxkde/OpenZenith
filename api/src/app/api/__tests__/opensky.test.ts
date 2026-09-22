@@ -79,14 +79,14 @@ describe("OpenSky Token API", () => {
 
   it("exposes CORS preflight", async () => {
     const { OPTIONS } = await import("@/app/api/opensky/token/route");
-    const resp = await OPTIONS();
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
   it("returns the error payload when the auth server responds non-2xx", async () => {
     stubCredentials();
-    stubFetch(vi.fn(async () => new Response("invalid_credentials", { status: 401 })));
+    stubFetch(vi.fn(() => new Response("invalid_credentials", { status: 401 })));
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
@@ -100,7 +100,7 @@ describe("OpenSky Token API", () => {
   it("returns the error payload when the token request rejects", async () => {
     stubCredentials();
     stubFetch(
-      vi.fn(async () => {
+      vi.fn(() => {
         throw new Error("network unreachable");
       }),
     );
@@ -112,7 +112,7 @@ describe("OpenSky Token API", () => {
 
   it("requests a client-credentials token and returns it uncached", async () => {
     stubCredentials();
-    stubFetch(vi.fn(async () => jsonResponse(tokenBody("tok-fresh", 3600))));
+    stubFetch(vi.fn(() => jsonResponse(tokenBody("tok-fresh", 3600))));
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
@@ -138,7 +138,7 @@ describe("OpenSky Token API", () => {
 
   it("serves the second request from the in-memory token cache", async () => {
     stubCredentials();
-    stubFetch(vi.fn(async () => jsonResponse(tokenBody("tok-cached", 3600))));
+    stubFetch(vi.fn(() => jsonResponse(tokenBody("tok-cached", 3600))));
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const first = await GET();
@@ -158,7 +158,7 @@ describe("OpenSky Token API", () => {
     const start = Date.now();
     vi.setSystemTime(start);
     stubCredentials();
-    stubFetch(vi.fn(async () => jsonResponse(tokenBody("tok-a", 3600))));
+    stubFetch(vi.fn(() => jsonResponse(tokenBody("tok-a", 3600))));
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const first = await GET();
@@ -166,7 +166,7 @@ describe("OpenSky Token API", () => {
 
     // Cached lifetime is 3300s (3600 minus the 300s buffer); advance past it.
     vi.setSystemTime(start + 3301 * 1000);
-    fetchMock.mockImplementation(async () => jsonResponse(tokenBody("tok-b", 3600)));
+    fetchMock.mockImplementation(() => jsonResponse(tokenBody("tok-b", 3600)));
 
     const second = await GET();
     const data = await second.json();
@@ -177,7 +177,7 @@ describe("OpenSky Token API", () => {
 
   it("never caches a token whose lifetime is shorter than the refresh buffer", async () => {
     stubCredentials();
-    stubFetch(vi.fn(async () => jsonResponse(tokenBody("tok-short", 200))));
+    stubFetch(vi.fn(() => jsonResponse(tokenBody("tok-short", 200))));
 
     const { GET } = await import("@/app/api/opensky/token/route");
     expect((await (await GET()).json()).cached).toBe(false);

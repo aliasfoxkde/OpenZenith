@@ -2,6 +2,9 @@
 //!
 //! Tests JSON I/O by piping input to stdin and checking stdout output.
 
+// In integration tests an unwrap/expect failure IS the test failing.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use assert_cmd::assert::OutputAssertExt;
 use assert_cmd::Command;
 use serde_json::json;

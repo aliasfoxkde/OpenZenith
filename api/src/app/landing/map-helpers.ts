@@ -23,7 +23,7 @@ export function addOrUpdatePin(map: maplibregl.Map, lon: number, lat: number) {
 
   const mapWithPin = map as MapWithPin;
   if (mapWithPin._ozPin) mapWithPin._ozPin.remove();
-  const marker = new window.maplibregl!.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+  const marker = new window.maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
   mapWithPin._ozPin = marker;
 }
 

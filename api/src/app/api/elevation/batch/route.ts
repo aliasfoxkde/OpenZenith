@@ -20,7 +20,7 @@ export const runtime = "edge";
 // HuggingFace backend (edge-compatible)
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -115,8 +115,12 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < points.length; i++) {
       const { x, y } = latLonToTile(points[i].lat, points[i].lon, zoom);
       const key = `${x}/${y}`;
-      if (!tileGroups.has(key)) tileGroups.set(key, []);
-      tileGroups.get(key)!.push(i);
+      const group = tileGroups.get(key);
+      if (group) {
+        group.push(i);
+      } else {
+        tileGroups.set(key, [i]);
+      }
     }
 
     for (const [tileKey, indices] of tileGroups) {

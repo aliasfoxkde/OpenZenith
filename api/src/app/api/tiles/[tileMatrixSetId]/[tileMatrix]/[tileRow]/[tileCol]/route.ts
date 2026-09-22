@@ -23,7 +23,7 @@ const CACHE_HEADERS: Record<string, string> = {
 // Direct HuggingFace backend — avoids process.env which may not work on edge
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

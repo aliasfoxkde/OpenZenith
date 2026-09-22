@@ -13,8 +13,9 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-// Map STAC collection IDs to their data source URLs
-const STAC_COLLECTION_SOURCES: Record<string, { url: string; cacheTtl: number }> = {
+// Map STAC collection IDs to their data source URLs. Lookup is by request path
+// segment, so an id outside this table yields undefined.
+const STAC_COLLECTION_SOURCES: Partial<Record<string, { url: string; cacheTtl: number }>> = {
   earthquakes: {
     url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
     cacheTtl: CACHE_TTL.EARTHQUAKES,
@@ -33,8 +34,9 @@ const STAC_COLLECTION_SOURCES: Record<string, { url: string; cacheTtl: number }>
   },
 };
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 /**
@@ -47,7 +49,7 @@ function firstPosition(geometry: GeoJSON.Geometry): [number, number] | null {
   const coords: unknown = (geometry as GeoJSON.Point).coordinates;
   if (!Array.isArray(coords)) return null;
   if (typeof coords[0] === "number" && typeof coords[1] === "number") {
-    return [coords[0] as number, coords[1] as number];
+    return [coords[0], coords[1]];
   }
   for (const child of coords) {
     const found = firstPosition(child as GeoJSON.Geometry);
@@ -78,11 +80,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: `Upstream returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
     }
 
+    // Upstream payloads are untyped JSON and can legitimately be `null`.
     const data = (await resp.json()) as {
       type?: string;
       features?: GeoJSON.Feature[];
       geometries?: unknown[];
-    };
+    } | null;
 
     let features: GeoJSON.Feature[] = [];
 
@@ -103,8 +106,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const [west, south, east, north] = bboxParam.split(",").map(Number);
       if (!isNaN(west) && !isNaN(south) && !isNaN(east) && !isNaN(north)) {
         features = features.filter((f) => {
-          if (!f.geometry) return false;
-          const pos = firstPosition(f.geometry);
+          // RFC 7946 allows `geometry: null`; the local GeoJSON.Feature
+          // declaration models geometry as always present.
+          const geometry = f.geometry as GeoJSON.Geometry | null;
+          if (!geometry) return false;
+          const pos = firstPosition(geometry);
           if (!pos) return false;
           const [lon, lat] = pos;
           return lon >= west && lon <= east && lat >= south && lat <= north;

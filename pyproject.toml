@@ -69,7 +69,23 @@ packages = ["openzenith"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-lint.per-file-ignores."__init__.py" = ["E402"]
+
+[tool.ruff.lint]
+# Strict set: pycodestyle/pyflakes, isort, bugbear, flake8-comprehensions,
+# pyupgrade, flake8-simplify, ruff-specific, flake8-use-pathlib, pydocstyle.
+# D203/D213 excluded as ruff recommends (incompatible with D211/D212).
+extend-select = [
+    "E", "W", "F", "I", "B", "C4", "UP", "SIM", "RUF", "PTH", "D",
+]
+ignore = ["D203", "D213"]
+# × (U+00D7) and − (U+2212) are intentional math symbols in dimension strings
+# like "3600×1800" and elevation deltas, not confusable typos.
+allowed-confusables = ["×", "−"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+# Test names document themselves; enforcing docstrings there is noise.
+"openzenith/tests/*" = ["D101", "D102", "D103", "D107"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]

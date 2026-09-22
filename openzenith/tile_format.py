@@ -1,5 +1,4 @@
-"""
-OpenZenith Tile Format (OZT1)
+"""OpenZenith Tile Format (OZT1).
 
 A custom binary format for storing elevation data that beats image codecs
 (AVIF, PNG, WebP) for scientific elevation data because it preserves exact
@@ -71,8 +70,7 @@ def encode(
     zstd_level: int = 9,
     quantize_bits: int | None = None,
 ) -> bytes:
-    """
-    Encode an elevation array to OZT1 binary format.
+    """Encode an elevation array to OZT1 binary format.
 
     Args:
         elevation: 2D int16 array of elevation values
@@ -84,6 +82,7 @@ def encode(
 
     Returns:
         Complete OZT1 binary tile
+
     """
     if elevation.ndim != 2:
         raise TileError(f"Expected 2D array, got {elevation.ndim}D")
@@ -150,21 +149,21 @@ def encode(
 
 
 def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
-    """
-    Decode an OZT1 binary tile.
+    """Decode an OZT1 binary tile.
 
     Args:
         tile_bytes: Complete OZT1 binary data
 
     Returns:
         Tuple of (elevation_array, metadata_dict)
+
     """
     if len(tile_bytes) < HEADER_SIZE:
         raise TileError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
 
     # Parse header
-    (magic, version, width, height, bits, nodata, min_e, max_e, compression, zstd_level) = HEADER_STRUCT.unpack(
-        tile_bytes[:HEADER_SIZE]
+    (magic, version, width, height, bits, nodata, min_e, max_e, compression, zstd_level) = (
+        HEADER_STRUCT.unpack(tile_bytes[:HEADER_SIZE])
     )
 
     if magic != MAGIC:
@@ -255,7 +254,9 @@ def _decompress_delta(compressed: bytes, width: int, height: int) -> np.ndarray:
     offset += n_first_row
     first_col = np.frombuffer(raw[offset : offset + n_first_col], dtype=np.int16)
     offset += n_first_col
-    row_d = np.frombuffer(raw[offset : offset + n_row_deltas], dtype=np.int16).reshape(height, width - 1)
+    row_d = np.frombuffer(raw[offset : offset + n_row_deltas], dtype=np.int16).reshape(
+        height, width - 1
+    )
     offset += n_row_deltas
     col_d = np.frombuffer(raw[offset:], dtype=np.int16).reshape(height - 1, width)
 
@@ -313,7 +314,9 @@ def _decompress_predict(compressed: bytes, width: int, height: int) -> np.ndarra
     offset += n_first_row
     first_col = np.frombuffer(raw[offset : offset + n_first_col], dtype=np.int32)
     offset += n_first_col
-    row_residuals = np.frombuffer(raw[offset : offset + n_row_residuals], dtype=np.int16).reshape(height, width - 1)
+    row_residuals = np.frombuffer(raw[offset : offset + n_row_residuals], dtype=np.int16).reshape(
+        height, width - 1
+    )
 
     # Reconstruct using cumsum (vectorized)
     arr = np.empty((height, width), dtype=np.int32)

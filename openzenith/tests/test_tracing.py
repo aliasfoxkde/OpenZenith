@@ -1,6 +1,7 @@
 """Tests for downstream tracing module."""
 
-from unittest.mock import patch, MagicMock
+import contextlib
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -14,10 +15,10 @@ from openzenith.tracing import (
     trace_downstream,
 )
 
-
 # ---------------------------------------------------------------------------
 # D8 Constants
 # ---------------------------------------------------------------------------
+
 
 class TestD8Constants:
     """Verify D8 flow direction constants are correct."""
@@ -56,6 +57,7 @@ class TestD8Constants:
 # ---------------------------------------------------------------------------
 # Haversine Distance
 # ---------------------------------------------------------------------------
+
 
 class TestHaversineDistance:
     """Tests for _haversine_distance helper."""
@@ -122,12 +124,13 @@ class TestHaversineDistance:
 # trace_downstream — unit tests with mocked _load_grid_at
 # ---------------------------------------------------------------------------
 
+
 def _make_grid(center_row, center_col, elevs):
     """Build a mock grid dict matching what load_elevation_grid returns.
 
     elevs is a 2D list or ndarray (shape must match rows×cols).
     """
-    rows, cols = elevs.shape
+    _rows, _cols = elevs.shape
     grid = np.array(elevs, dtype=np.float32)
     cell_size = 1.0 / (2**10)  # zoom 10 → ~30m cells
     return {
@@ -146,10 +149,12 @@ class TestTraceDownstreamMocked:
     """Unit tests for trace_downstream with fully mocked grid loading."""
 
     def _run_with_mock_grid(self, mock_grid, lat=40.0, lon=-105.0, zoom=10, max_steps=1000):
-        """Helper: run trace_downstream with a single shared mock grid."""
-        with patch("openzenith.tracing._load_grid_at", return_value=mock_grid):
-            with patch("openzenith.elevation.get_elevation", return_value=100.0):
-                return trace_downstream(lat, lon, zoom=zoom, max_steps=max_steps)
+        """Run trace_downstream against a single shared mock grid."""
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=mock_grid),
+            patch("openzenith.elevation.get_elevation", return_value=100.0),
+        ):
+            return trace_downstream(lat, lon, zoom=zoom, max_steps=max_steps)
 
     def test_simple_downhill_path(self):
         """trace_downstream returns a valid result with downhill movement."""
@@ -203,9 +208,11 @@ class TestTraceDownstreamMocked:
         grid["grid"][3, 3] = -32768.0  # nodata
         grid["grid"][2, 4] = -32768.0  # nodata beyond
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=50.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=50.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         assert result["total_distance"] > 0
@@ -239,10 +246,12 @@ class TestTraceDownstreamMocked:
             call_count += 1
             return original_load(*args, **kwargs)
 
-        with patch("openzenith.tracing._load_grid_at", side_effect=counting_load):
-            with patch("openzenith.elevation.get_elevation", return_value=500.0):
-                # Give it many steps so it definitely crosses grid boundary
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=500)
+        with (
+            patch("openzenith.tracing._load_grid_at", side_effect=counting_load),
+            patch("openzenith.elevation.get_elevation", return_value=500.0),
+        ):
+            # Give it many steps so it definitely crosses grid boundary
+            trace_downstream(40.0, -105.0, zoom=10, max_steps=500)
 
         # Should have reloaded at least once (when center drifts > 20 cells from center)
         assert call_count >= 1, f"Expected grid reload, got {call_count} loads"
@@ -264,9 +273,11 @@ class TestTraceDownstreamMocked:
 
     def test_returns_none_when_load_grid_fails(self):
         """If _load_grid_at returns None, trace_downstream returns None."""
-        with patch("openzenith.tracing._load_grid_at", return_value=None):
-            with patch("openzenith.elevation.get_elevation", return_value=100.0):
-                result = trace_downstream(40.0, -105.0, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=None),
+            patch("openzenith.elevation.get_elevation", return_value=100.0),
+        ):
+            result = trace_downstream(40.0, -105.0, max_steps=100)
         assert result is None
 
     def test_returns_none_when_start_elev_is_none(self):
@@ -307,9 +318,15 @@ class TestTraceDownstreamMocked:
         result = self._run_with_mock_grid(grid)
         assert result is not None
         expected_keys = {
-            "start", "end", "start_elev", "end_elev",
-            "path", "elevations", "distances",
-            "total_distance", "steps",
+            "start",
+            "end",
+            "start_elev",
+            "end_elev",
+            "path",
+            "elevations",
+            "distances",
+            "total_distance",
+            "steps",
         }
         assert expected_keys.issubset(result.keys())
 
@@ -327,7 +344,7 @@ class TestTraceDownstreamMocked:
         assert len(result["path"]) == len(result["elevations"]) == len(result["distances"])
 
     def test_distances_increase_monotonically(self):
-        """distances list must be monotonically increasing."""
+        """Distances list must be monotonically increasing."""
         elevs = np.full((7, 7), 100.0)
         grid = _make_grid(3, 3, elevs)
         grid["grid"][3, 3] = 400.0
@@ -354,9 +371,11 @@ class TestTraceDownstreamMocked:
 
     def test_tile_cache_dir_passed_through(self):
         """tile_cache_dir is forwarded to get_elevation calls."""
-        with patch("openzenith.tracing._load_grid_at", return_value=None):
-            with patch("openzenith.elevation.get_elevation", return_value=None) as mock_get:
-                trace_downstream(40.0, -105.0, tile_cache_dir="/custom/cache", max_steps=1)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=None),
+            patch("openzenith.elevation.get_elevation", return_value=None) as mock_get,
+        ):
+            trace_downstream(40.0, -105.0, tile_cache_dir="/custom/cache", max_steps=1)
         # At least one call should have cache_dir set
         for call in mock_get.call_args_list:
             kwargs = call.kwargs
@@ -367,6 +386,7 @@ class TestTraceDownstreamMocked:
 # ---------------------------------------------------------------------------
 # _load_grid_at
 # ---------------------------------------------------------------------------
+
 
 class TestLoadGridAt:
     """Tests for the internal _load_grid_at helper."""
@@ -395,8 +415,7 @@ class TestLoadGridAt:
     def test_center_nodata_snaps_to_nearest_valid(self):
         """If center cell is nodata, center_row/col snaps to nearest valid cell."""
         mock_result = {
-            "grid": np.array([[-32768.0, -32768.0],
-                               [100.0, 200.0]], dtype=np.float32),
+            "grid": np.array([[-32768.0, -32768.0], [100.0, 200.0]], dtype=np.float32),
             "center_row": 0,
             "center_col": 0,
             "lat_min": 40.0,
@@ -434,7 +453,9 @@ class TestLoadGridAt:
 
     def test_load_elevation_grid_exception_returns_none(self):
         """If load_elevation_grid raises, _load_grid_at logs and returns None."""
-        with patch("openzenith.elevation.load_elevation_grid", side_effect=RuntimeError("tile not found")):
+        with patch(
+            "openzenith.elevation.load_elevation_grid", side_effect=RuntimeError("tile not found")
+        ):
             result = _load_grid_at(40.0, -105.0, 10)
         assert result is None
 
@@ -469,6 +490,7 @@ class TestLoadGridAt:
 # Integration-style tests (still use mocks for network, test real algo)
 # ---------------------------------------------------------------------------
 
+
 class TestTraceDownstreamFlowLogic:
     """Test real flow-tracing decisions with controlled mock grids."""
 
@@ -484,9 +506,11 @@ class TestTraceDownstreamFlowLogic:
         grid["grid"][2, 2] = 200.0
         grid["grid"][3, 2] = 150.0  # S neighbor lowest in grid (mock overrides)
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         # With flat mock elevation, no downhill movement occurs (all drops are 0)
         # but the grid was loaded correctly and result is valid
@@ -508,9 +532,11 @@ class TestTraceDownstreamFlowLogic:
         grid["grid"][2, 2] = 200.0
         grid["grid"][2, 1] = 150.0  # W neighbor lowest in grid (mock overrides)
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         assert "path" in result
@@ -529,9 +555,11 @@ class TestTraceDownstreamFlowLogic:
         grid["grid"][2, 2] = 200.0
         grid["grid"][1, 3] = 150.0  # NE neighbor lowest in grid (mock overrides)
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         assert "path" in result
@@ -547,9 +575,11 @@ class TestTraceDownstreamFlowLogic:
         grid["grid"][3, 2] = 155.0  # S: drop=45 (less steep)
         # Both are downhill, but E has steeper drop
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         first_step_lon = result["path"][1][1]
@@ -567,9 +597,11 @@ class TestTraceDownstreamFlowLogic:
         grid["grid"][1, 2] = -32768.0
         grid["grid"][2, 3] = 100.0  # only valid downhill neighbor
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         assert result["steps"] >= 1
@@ -577,7 +609,7 @@ class TestTraceDownstreamFlowLogic:
         assert result["path"][1][1] > -105.0
 
     def test_zoom_level_passed_to_load_grid(self):
-        """zoom parameter is forwarded through to _load_grid_at."""
+        """Zoom parameter is forwarded through to _load_grid_at."""
         with patch("openzenith.tracing._load_grid_at") as mock_load:
             mock_load.return_value = None
             with patch("openzenith.elevation.get_elevation", return_value=100.0):
@@ -591,6 +623,7 @@ class TestTraceDownstreamFlowLogic:
 # ---------------------------------------------------------------------------
 # Edge / boundary conditions
 # ---------------------------------------------------------------------------
+
 
 class TestTraceDownstreamEdgeCases:
     """Boundary and edge-case behavior."""
@@ -607,9 +640,11 @@ class TestTraceDownstreamEdgeCases:
         grid["grid"][1, 1] = 50.0
         grid["grid"][1, 2] = -10.0  # ocean to the east (mock overrides to 50.0)
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=50.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=50.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         # With flat mock elevation, no movement occurs (all gradients are 0)
         # but the grid loaded correctly and result is valid
@@ -631,9 +666,11 @@ class TestTraceDownstreamEdgeCases:
         grid["grid"][2, 4] = 140.0  # keep east path going
         grid["grid"][2, 0] = 140.0  # keep west path going
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         # Oscillation detection kicks in after a few steps
@@ -646,9 +683,11 @@ class TestTraceDownstreamEdgeCases:
         grid = _make_grid(1, 1, elevs)
         grid["grid"][1, 1] = 100.0
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=100.0):
-                result = trace_downstream(40.5, -105.5, zoom=10, max_steps=10)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=100.0),
+        ):
+            result = trace_downstream(40.5, -105.5, zoom=10, max_steps=10)
 
         assert result is not None
         assert result["start"][0] == 40.5
@@ -661,9 +700,11 @@ class TestTraceDownstreamEdgeCases:
         grid["grid"][2, 2] = 200.0
         grid["grid"][2, 3] = 100.0
 
-        with patch("openzenith.tracing._load_grid_at", return_value=grid):
-            with patch("openzenith.elevation.get_elevation", return_value=200.0):
-                result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=200.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=100)
 
         assert result is not None
         assert result["end_elev"] == pytest.approx(result["elevations"][-1], abs=0.01)
@@ -680,9 +721,7 @@ class TestTraceDownstreamIntegration:
 
     def test_ocean_point_returns_none_or_trivial(self):
         """A mid-ocean point should quickly terminate."""
-        try:
+        # Network/tile errors are acceptable — any failure just ends the test
+        with contextlib.suppress(Exception):
             result = trace_downstream(30.0, -40.0, max_steps=100)
             assert isinstance(result, (dict, type(None)))
-        except Exception:  # noqa: BLE001
-            # Network/tile errors are acceptable
-            pass

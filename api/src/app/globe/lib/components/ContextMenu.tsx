@@ -73,7 +73,7 @@ export function CtxSubMenu({ label, icon, children, expandedGroup, onToggle }: C
   return (
     <>
       <button
-        onClick={() => onToggle(isOpen ? "" : label)}
+        onClick={() => { onToggle(isOpen ? "" : label); }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -197,6 +197,17 @@ export function ContextMenu({
 
   const toggleGroup = (label: string) => {
     setExpandedGroup(expandedGroup === label ? null : label);
+  };
+
+  const copyElevation = async () => {
+    try {
+      const d = await getClientElevation(lat, lng);
+      const elevationLabel = d.elevation !== null ? `${d.elevation}m` : "No data";
+      safeCopy(`${elevationLabel} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    } catch {
+      /* */
+    }
+    closeCtx();
   };
 
   const v = viewerRef.current;
@@ -522,16 +533,8 @@ export function ContextMenu({
           <CtxMenuItem
             label="Elevation"
             color="var(--ok)"
-            onClick={async () => {
-              try {
-                const d = await getClientElevation(lat, lng);
-                safeCopy(
-                  `${d?.elevation !== null && d?.elevation !== undefined ? d.elevation + "m" : "No data"} @ ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                );
-              } catch {
-                /* */
-              }
-              closeCtx();
+            onClick={() => {
+              void copyElevation();
             }}
           />
         </CtxSubMenu>

@@ -16,7 +16,9 @@ export const runtime = "edge";
 
 // Data source mapping: collection ID -> upstream GeoJSON URL
 // External URLs are absolute; internal paths are resolved relative to the request origin
-const COLLECTION_SOURCES: Record<string, { url: string; cacheTtl: number }> = {
+// Partial keeps the lookup result possibly undefined: collection ids come straight
+// from the URL, so a miss is a normal runtime case that must stay reachable.
+const COLLECTION_SOURCES: Partial<Record<string, { url: string; cacheTtl: number }>> = {
   earthquakes: {
     url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
     cacheTtl: 60,
@@ -43,7 +45,7 @@ const COLLECTION_SOURCES: Record<string, { url: string; cacheTtl: number }> = {
   },
 };
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

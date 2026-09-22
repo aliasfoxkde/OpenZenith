@@ -21,9 +21,10 @@ const BLACK_PIXEL: [number, number, number] = [0, 0, 0];
 const { chunkStore } = vi.hoisted(() => ({ chunkStore: new Map<string, ArrayBuffer>() }));
 
 vi.mock("@/lib/storage/cache", () => ({
-  cacheGet: async (key: string): Promise<ArrayBuffer | null> => chunkStore.get(key) ?? null,
-  cachePut: async (key: string, data: ArrayBuffer): Promise<void> => {
+  cacheGet: (key: string): Promise<ArrayBuffer | null> => Promise.resolve(chunkStore.get(key) ?? null),
+  cachePut: (key: string, data: ArrayBuffer): Promise<void> => {
     chunkStore.set(key, data);
+    return Promise.resolve();
   },
 }));
 
@@ -166,7 +167,9 @@ function terrariumElevation(r: number, g: number, b: number): number {
 }
 
 function awsResponse(png: ArrayBuffer): Response {
-  return { ok: true, arrayBuffer: async () => png } as unknown as Response;
+  // `arrayBuffer` returns the buffer directly; the assembler awaits the call, so
+  // the value is resolved identically without an async wrapper.
+  return { ok: true, arrayBuffer: () => png } as unknown as Response;
 }
 
 // ─── SRTM chunk fixtures ──────────────────────────────────────────────────────
@@ -199,8 +202,9 @@ function buildChunk(elevation: (localRow: number, localCol: number) => number, c
 /** Storage that synthesises every requested chunk at a fixed elevation. */
 function constantStorage(elevation: (srtmName: string, localRow: number, localCol: number) => number): ChunkBackend {
   return {
-    fetchChunk: vi.fn(async (srtmName: string, row: number, col: number): Promise<ArrayBuffer> =>
-      buildChunk((r, c) => elevation(srtmName, r, c), row, col),
+    fetchChunk: vi.fn(
+      (srtmName: string, row: number, col: number): Promise<ArrayBuffer> =>
+        Promise.resolve(buildChunk((r, c) => elevation(srtmName, r, c), row, col)),
     ),
   };
 }
@@ -231,7 +235,7 @@ afterEach(() => {
 });
 
 function stubFetch(handler: (url: string) => Response | null): ReturnType<typeof vi.fn> {
-  const fetchMock = vi.fn(async (url: string) => handler(url));
+  const fetchMock = vi.fn((url: string) => handler(url));
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -254,7 +258,7 @@ describe("getTileData — AWS terrain source", () => {
     const result = await getTileData(5, 12, 14, storage);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(storage.fetchChunk).not.toHaveBeenCalled();
+    expect((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
     expect(result.zoom).toBe(5);
     expect(result.width).toBe(TILE_SIZE);
     expect(result.height).toBe(TILE_SIZE);
@@ -285,7 +289,7 @@ describe("getTileData — AWS terrain source", () => {
     const result = await getTileData(11, 0, 0, storage);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(storage.fetchChunk).not.toHaveBeenCalled();
+    expect((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
     expect(Array.from(result.data).every((v) => v === NODATA)).toBe(true);
   });
 
@@ -348,8 +352,9 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     const blankedChunkRow = Math.floor(blankedRow / 256);
     const blankedLocalRow = blankedRow - blankedChunkRow * 256;
     const storage: ChunkBackend = {
-      fetchChunk: vi.fn(async (_name: string, row: number, col: number): Promise<ArrayBuffer> =>
-        buildChunk((r) => (row === blankedChunkRow && r === blankedLocalRow ? NODATA : 4321), row, col),
+      fetchChunk: vi.fn(
+        (_name: string, row: number, col: number): Promise<ArrayBuffer> =>
+          Promise.resolve(buildChunk((r) => (row === blankedChunkRow && r === blankedLocalRow ? NODATA : 4321), row, col)),
       ),
     };
 
@@ -376,11 +381,11 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     stubFetch(() => null);
     const calls: string[] = [];
     const storage: ChunkBackend = {
-      fetchChunk: vi.fn(async (srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
+      fetchChunk: vi.fn((srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
         calls.push(srtmName);
         // The sliver west of -116 belongs to N40W116, which has no chunks here.
         if (srtmName === "N40W116.tif") throw new Error("chunk not found");
-        return buildChunk(() => 4321, row, col);
+        return Promise.resolve(buildChunk(() => 4321, row, col));
       }),
     };
 
@@ -663,7 +668,7 @@ describe("getTileData — Terrarium PNG decoding", () => {
   });
 
   it("returns null data paths when the payload is not a PNG", async () => {
-    const fetchMock = stubFetch(() => awsResponse(new TextEncoder().encode("not a png").buffer as ArrayBuffer));
+    const fetchMock = stubFetch(() => awsResponse(new TextEncoder().encode("not a png").buffer));
     const storage = constantStorage(() => NODATA);
 
     // Below the AWS cutoff a broken tile falls through to HuggingFace, which is
@@ -675,7 +680,7 @@ describe("getTileData — Terrarium PNG decoding", () => {
   });
 
   it("treats a failed request as an empty tile source", async () => {
-    const fetchMock = stubFetch(() => ({ ok: false, arrayBuffer: async () => new ArrayBuffer(0) }) as unknown as Response);
+    const fetchMock = stubFetch(() => ({ ok: false, arrayBuffer: () => new ArrayBuffer(0) }) as unknown as Response);
     const storage = constantStorage(() => 500);
 
     const result = await getTileData(11, 0, 0, storage);

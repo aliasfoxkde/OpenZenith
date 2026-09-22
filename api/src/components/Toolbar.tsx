@@ -55,8 +55,8 @@ export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
         <input
           type="text"
           value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          onChange={(e) => { setSearchValue(e.target.value); }}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
           placeholder="Search location..."
           style={{
             background: "transparent",
@@ -77,7 +77,7 @@ export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
 
       {/* Coordinate input */}
       <button
-        onClick={() => setShowCoords(!showCoords)}
+        onClick={() => { setShowCoords(!showCoords); }}
         style={{
           background: showCoords ? T.accent : "transparent",
           border: `1px solid ${T.border}`,
@@ -98,8 +98,8 @@ export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
           <input
             type="text"
             value={latValue}
-            onChange={(e) => setLatValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJump()}
+            onChange={(e) => { setLatValue(e.target.value); }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleJump(); }}
             placeholder="LAT"
             style={{
               background: "transparent",
@@ -116,8 +116,8 @@ export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
           <input
             type="text"
             value={lonValue}
-            onChange={(e) => setLonValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJump()}
+            onChange={(e) => { setLonValue(e.target.value); }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleJump(); }}
             placeholder="LON"
             style={{
               background: "transparent",

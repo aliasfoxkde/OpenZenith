@@ -6,9 +6,9 @@ import { DEFAULT_LAYERS, BASEMAPS, SIDEBAR_SECTIONS } from "./constants";
  * Category shortcut mapping: category key → list of layer IDs.
  * If a category name is used in the URL, all its layers are enabled.
  */
-const CATEGORY_MAP: Record<string, string[]> = {};
+const CATEGORY_MAP = new Map<string, string[]>();
 for (const sec of SIDEBAR_SECTIONS) {
-  CATEGORY_MAP[sec.key] = sec.layerIds as string[];
+  CATEGORY_MAP.set(sec.key, sec.layerIds);
 }
 
 /** All known layer IDs for validating individual layer names */
@@ -31,7 +31,8 @@ export function parseHash(h: string): Partial<DashboardState> {
     const get = (key: string) => parts.find((p) => p[0] === key)?.[1];
 
     // Position from path segments: #zoom/lat/lng
-    const pathParts = parts[0]?.[0]?.split("/") || [];
+    // hash is non-empty here, so parts[0][0] is always a string (possibly "")
+    const pathParts = parts[0][0].split("/");
     const zoomVal = pathParts[0];
     const lat = pathParts[1];
     const lng = pathParts[2];
@@ -46,7 +47,7 @@ export function parseHash(h: string): Partial<DashboardState> {
     // Layers: expand categories
     const layersStr = get("l") || "";
     const activeLayers = layersStr
-      ? layersStr.split("+").flatMap((token) => CATEGORY_MAP[token] || (ALL_LAYER_IDS.includes(token) ? [token] : []))
+      ? layersStr.split("+").flatMap((token) => CATEGORY_MAP.get(token) || (ALL_LAYER_IDS.includes(token) ? [token] : []))
       : [];
 
     const vm = get("view");
@@ -93,7 +94,7 @@ export function buildHash(s: DashboardState): string {
     const usedCategories: string[] = [];
     const remaining = new Set(active);
 
-    for (const [catKey, catLayers] of Object.entries(CATEGORY_MAP)) {
+    for (const [catKey, catLayers] of CATEGORY_MAP) {
       if (catLayers.every((l) => remaining.has(l))) {
         usedCategories.push(catKey);
         catLayers.forEach((l) => remaining.delete(l));
@@ -115,9 +116,14 @@ export function fmtTime(ts: number | null): string {
 }
 
 export function safeCopy(text: string) {
+  // navigator.clipboard is absent in insecure contexts even though the DOM
+  // types declare it as always present, so widen it before probing.
+  const clipboard = navigator.clipboard as Clipboard | undefined;
   try {
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text);
+    if (clipboard?.writeText) {
+      // Best-effort write: a rejection here is no more actionable than the
+      // fallback path failing, and the caller gets no return value.
+      clipboard.writeText(text).catch(() => {});
     } else {
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -125,7 +131,9 @@ export function safeCopy(text: string) {
       ta.style.opacity = "0";
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand("copy");
+      // execCommand is deprecated, but in insecure contexts — where the async
+      // Clipboard API above is absent — it remains the only copy primitive.
+      (document as { execCommand?: (commandId: string) => boolean }).execCommand?.("copy");
       document.body.removeChild(ta);
     }
   } catch {
@@ -145,7 +153,8 @@ export function elevationColor(elev: number): string {
 
 export function switchBasemapOnViewer(viewer: any, key: string) {
   const Cesium = (window as any).Cesium;
-  const bm = BASEMAPS[key];
+  // key comes from user state, so it may not be in the registry
+  const bm = BASEMAPS[key] as { label: string; url: string } | undefined;
   const imageryLayers = viewer.imageryLayers;
 
   while (imageryLayers.length > 0) {
@@ -242,7 +251,7 @@ export function toggleImageryOverlay(
     layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider(opts));
     const idx = layers.length - 1;
     if (opacity !== undefined && layers.get(idx)) {
-      (layers.get(idx) as any).alpha = opacity;
+      (layers.get(idx)).alpha = opacity;
     }
   }
   viewer.scene.requestRender();

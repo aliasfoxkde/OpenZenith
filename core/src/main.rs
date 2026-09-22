@@ -54,8 +54,10 @@ fn main() {
 }
 
 fn error_exit(msg: String) -> ! {
-    let _ = io::stderr()
-        .write_all(format!("{{\"error\": {}}}\n", serde_json::to_string(&msg).unwrap()).as_bytes());
+    // Serializing a String cannot fail, but the error path must not panic on
+    // the (unreachable) Err — it degrades to a plain JSON string escape.
+    let payload = serde_json::to_string(&msg).unwrap_or_else(|_| format!("\"{msg}\""));
+    let _ = io::stderr().write_all(format!("{{\"error\": {payload}}}\n").as_bytes());
     std::process::exit(1);
 }
 

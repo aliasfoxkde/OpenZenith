@@ -12,23 +12,26 @@ import { NextRequest } from "next/server";
 const r2Store = vi.hoisted(() => new Map<string, ArrayBuffer>());
 
 vi.mock("@/lib/tile", () => ({
-  getTileData: vi.fn(async () => ({ data: new Int16Array(256 * 256), width: 256, height: 256, zoom: 8 })),
+  getTileData: vi.fn(() => Promise.resolve({ data: new Int16Array(256 * 256), width: 256, height: 256, zoom: 8 })),
   CACHE_TTL: { ELEVATION: 86400 },
 }));
 
 vi.mock("@/lib/storage/backend", () => {
-  class HuggingFaceChunkBackend {}
+  function HuggingFaceChunkBackend() {}
   return { HuggingFaceChunkBackend };
 });
 
 vi.mock("@/lib/storage/r2-tile-cache", () => ({
-  r2GetTile: vi.fn(async (_prefix: string, z: number, x: number, y: number) => r2Store.get(`${z}/${x}/${y}`) ?? null),
-  r2PutTile: vi.fn(async (_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
+  r2GetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
+    Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
+  ),
+  r2PutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
     const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
     r2Store.set(
       `${z}/${x}/${y}`,
       bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
     );
+    return Promise.resolve();
   }),
 }));
 
@@ -58,12 +61,14 @@ function rampTile(): Int16Array {
 beforeEach(() => {
   r2Store.clear();
   mockGetTileData.mockReset();
-  mockGetTileData.mockImplementation(async () => ({
-    data: rampTile(),
-    width: 4,
-    height: 4,
-    zoom: 8,
-  }));
+  mockGetTileData.mockImplementation(() =>
+    Promise.resolve({
+      data: rampTile(),
+      width: 4,
+      height: 4,
+      zoom: 8,
+    }),
+  );
   mockR2GetTile.mockClear();
   mockR2PutTile.mockClear();
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -100,7 +105,7 @@ describe("Contours API validation (/api/contours)", () => {
 describe("Contours API R2 cache-aside", () => {
   it("serves a cached GeoJSON body with X-Cache HIT", async () => {
     const cachedBody = JSON.stringify({ type: "FeatureCollection", features: [{ cached: true }] });
-    r2Store.set("8/70/50", new TextEncoder().encode(cachedBody).buffer as ArrayBuffer);
+    r2Store.set("8/70/50", new TextEncoder().encode(cachedBody).buffer);
 
     const resp = await GET(new NextRequest("http://localhost/api/contours/8/70/50"), routeCtx("8", "70", "50"));
     expect(resp.status).toBe(200);
@@ -148,7 +153,7 @@ describe("Contours API generation", () => {
       expect(feature.properties.elevation).toBeGreaterThanOrEqual(0);
     }
 
-    await vi.waitFor(() => expect(mockR2PutTile).toHaveBeenCalled());
+    await vi.waitFor(() => { expect(mockR2PutTile).toHaveBeenCalled(); });
     expect(mockR2PutTile.mock.calls[0].slice(0, 4)).toEqual(["contours", 8, 72, 52]);
   });
 
@@ -165,12 +170,14 @@ describe("Contours API generation", () => {
   });
 
   it("returns an empty FeatureCollection when every cell is NoData", async () => {
-    mockGetTileData.mockImplementation(async () => ({
-      data: new Int16Array(16).fill(-32768),
-      width: 4,
-      height: 4,
-      zoom: 8,
-    }));
+    mockGetTileData.mockImplementation(() =>
+      Promise.resolve({
+        data: new Int16Array(16).fill(-32768),
+        width: 4,
+        height: 4,
+        zoom: 8,
+      }),
+    );
 
     const resp = await GET(new NextRequest("http://localhost/api/contours/8/72/52"), routeCtx("8", "72", "52"));
     expect(resp.status).toBe(200);
@@ -182,7 +189,7 @@ describe("Contours API generation", () => {
   it("skips cells that touch a NoData corner", async () => {
     const data = rampTile();
     data[5] = -32768;
-    mockGetTileData.mockImplementation(async () => ({ data, width: 4, height: 4, zoom: 8 }));
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data, width: 4, height: 4, zoom: 8 }));
 
     const resp = await GET(new NextRequest("http://localhost/api/contours/8/72/52"), routeCtx("8", "72", "52"));
     expect(resp.status).toBe(200);
@@ -195,7 +202,7 @@ describe("Contours API generation", () => {
     // segment — too short to chain into a LineString.
     const data = new Int16Array(16);
     data[15] = 100;
-    mockGetTileData.mockImplementation(async () => ({ data, width: 4, height: 4, zoom: 10 }));
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data, width: 4, height: 4, zoom: 10 }));
 
     const resp = await GET(new NextRequest("http://localhost/api/contours/10/72/52"), routeCtx("10", "72", "52"));
     expect(resp.status).toBe(200);
@@ -214,12 +221,14 @@ describe("Contours API generation", () => {
     ],
   ])("extracts segments across every marching squares case (%s)", async (_name, pattern) => {
     // 0/1 pattern scaled to 0/200 so the 100m contour level cuts the grid
-    mockGetTileData.mockImplementation(async () => ({
-      data: Int16Array.from(pattern, (bit) => (bit === 1 ? 200 : 0)),
-      width: 4,
-      height: 4,
-      zoom: 8,
-    }));
+    mockGetTileData.mockImplementation(() =>
+      Promise.resolve({
+        data: Int16Array.from(pattern, (bit) => (bit === 1 ? 200 : 0)),
+        width: 4,
+        height: 4,
+        zoom: 8,
+      }),
+    );
 
     const resp = await GET(new NextRequest("http://localhost/api/contours/8/72/52"), routeCtx("8", "72", "52"));
     expect(resp.status).toBe(200);

@@ -11,6 +11,15 @@ export { formatDistance, formatArea };
 
 export type DrawMode = "none" | "point" | "line" | "polygon" | "edit";
 
+/**
+ * The global `GeoJSON.Feature` declares geometry as always present, but
+ * unlocated records can carry `geometry: null`. The measurement helpers accept
+ * that shape so their null guards stay type-checked instead of dead code.
+ */
+type NullableGeometryFeature = Omit<GeoJSON.Feature, "geometry"> & {
+  geometry: GeoJSON.Feature["geometry"] | null;
+};
+
 export interface DrawState {
   mode: DrawMode;
   features: GeoJSON.Feature[];
@@ -331,7 +340,7 @@ export function deleteSelected(state: DrawState): DrawState {
 }
 
 /** Get coordinates array from a feature (for vertex editing) */
-function getFeatureCoords(feature: GeoJSON.Feature): [number, number][] | null {
+function getFeatureCoords(feature: NullableGeometryFeature): [number, number][] | null {
   const g = feature.geometry;
   if (!g) return null;
   if (g.type === "LineString") return g.coordinates as [number, number][];
@@ -345,7 +354,7 @@ function getFeatureCoords(feature: GeoJSON.Feature): [number, number][] | null {
 
 /** Set coordinates back on a feature */
 function setFeatureCoords(feature: GeoJSON.Feature, coords: [number, number][]): GeoJSON.Feature {
-  const g = feature.geometry!;
+  const g = feature.geometry;
   if (g.type === "LineString") {
     return { ...feature, geometry: { type: "LineString", coordinates: [...coords] } };
   }
@@ -384,7 +393,7 @@ export function deleteVertex(state: DrawState, vertexIndex: number): DrawState {
   const coords = getFeatureCoords(feature);
   if (!coords || vertexIndex >= coords.length) return state;
   // Don't allow deleting below minimum vertices
-  if (coords.length <= (feature.geometry!.type === "LineString" ? 2 : 3)) return state;
+  if (coords.length <= (feature.geometry.type === "LineString" ? 2 : 3)) return state;
 
   const newCoords = coords.filter((_, i) => i !== vertexIndex);
   const newFeatures = [...state.features];
@@ -429,7 +438,6 @@ export function addVertex(state: DrawState, afterIndex: number, coord: [number, 
 export function enterEditMode(state: DrawState): DrawState {
   if (state.selectedFeatureIndex < 0) return state;
   const feature = state.features[state.selectedFeatureIndex];
-  if (!feature.geometry) return state;
   const editable = feature.geometry.type === "LineString" || feature.geometry.type === "Polygon";
   if (!editable) return state;
   return { ...state, mode: "edit", selectedVertexIndex: -1 };
@@ -495,7 +503,7 @@ export interface Measurement {
 }
 
 /** Measure a GeoJSON feature */
-export function measureFeature(feature: GeoJSON.Feature): Measurement | null {
+export function measureFeature(feature: NullableGeometryFeature): Measurement | null {
   const g = feature.geometry;
   if (!g) return null;
 

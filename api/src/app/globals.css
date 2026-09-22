@@ -21,7 +21,8 @@
   --oz-border: #222;
   --oz-border-light: #1a1a1a;
   --oz-text: #e5e5e5;
-  --oz-text-secondary: #888;
+  /* WCAG 2.1 AAA (7:1) on --oz-bg #0a0a0a: #a3a3a3 measures 7.79:1. */
+  --oz-text-secondary: #a3a3a3;
   --oz-hero-overlay: linear-gradient(
     180deg,
     rgba(10, 10, 10, 0.72) 0%,
@@ -42,7 +43,8 @@
   --oz-border: #e5e5e5;
   --oz-border-light: #f0f0f0;
   --oz-text: #171717;
-  --oz-text-secondary: #737373;
+  /* WCAG 2.1 AAA (7:1) on --oz-bg #fafafa: #525252 measures 7.49:1. */
+  --oz-text-secondary: #525252;
   --oz-hero-overlay: linear-gradient(
     180deg,
     rgba(255, 255, 255, 0.8) 0%,

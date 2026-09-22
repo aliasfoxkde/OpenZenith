@@ -16,12 +16,12 @@ const ctx = (z: number | string, x: number | string, y: number | string) => ({
   params: Promise.resolve({ z: String(z), x: String(x), y: String(y) }),
 });
 
-const asciiBuf = (text: string): ArrayBuffer => new TextEncoder().encode(text).buffer as ArrayBuffer;
+const asciiBuf = (text: string): ArrayBuffer => new TextEncoder().encode(text).buffer;
 
 /** A Cloudflare Cache API double backed by a plain object. */
-function stubCaches(entries: Record<string, { body: ArrayBuffer; cachedAt?: string }> = {}) {
+function stubCaches(entries: Record<string, { body: ArrayBuffer; cachedAt?: string } | undefined> = {}) {
   const puts: Array<{ key: string; bytes: number }> = [];
-  const match = vi.fn(async (key: string) => {
+  const match = vi.fn((key: string) => {
     const entry = entries[key];
     if (!entry) return undefined;
     const headers = new Headers({ "Content-Type": "image/png" });
@@ -31,7 +31,7 @@ function stubCaches(entries: Record<string, { body: ArrayBuffer; cachedAt?: stri
   const put = vi.fn(async (key: string, stored: Response) => {
     puts.push({ key, bytes: (await stored.arrayBuffer()).byteLength });
   });
-  const open = vi.fn(async () => ({ match, put }));
+  const open = vi.fn(() => Promise.resolve({ match, put }));
   vi.stubGlobal("caches", { open });
   const handle = { open, match, put, puts };
   return handle;
@@ -82,7 +82,7 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
 
   it("exposes CORS preflight", async () => {
     const { OPTIONS } = await route();
-    const resp = await OPTIONS();
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
@@ -123,8 +123,8 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
 
   it("serves an OZT2 tile straight from R2", async () => {
     const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockImplementation(async (prefix: string) =>
-      prefix === "ozt2" ? asciiBuf("ozt2-tile-bytes") : null,
+    vi.mocked(r2GetTile).mockReset().mockImplementation((prefix: string) =>
+      Promise.resolve(prefix === "ozt2" ? asciiBuf("ozt2-tile-bytes") : null),
     );
 
     const { GET } = await route();
@@ -155,10 +155,9 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     vi.stubEnv("NODE_ENV", "development");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockImplementation(async (prefix: string) => {
-      if (prefix === "ozt2") throw new Error("R2 unavailable");
-      return null;
-    });
+    vi.mocked(r2GetTile).mockReset().mockImplementation((prefix: string) =>
+      prefix === "ozt2" ? Promise.reject(new Error("R2 unavailable")) : Promise.resolve(null),
+    );
 
     try {
       const { GET } = await route();
@@ -187,8 +186,8 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
 
   it("serves a PNG tile from the R2 cache", async () => {
     const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockImplementation(async (prefix: string) =>
-      prefix === "dem-tile" ? asciiBuf("png-tile-bytes") : null,
+    vi.mocked(r2GetTile).mockReset().mockImplementation((prefix: string) =>
+      Promise.resolve(prefix === "dem-tile" ? asciiBuf("png-tile-bytes") : null),
     );
 
     const { GET } = await route();
@@ -215,7 +214,7 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
 
-    await vi.waitFor(() => expect(cachesMock.puts.length).toBe(1));
+    await vi.waitFor(() => { expect(cachesMock.puts.length).toBe(1); });
     expect(cachesMock.puts[0].key).toBe("/api/dem-tile/4/8/5?fmt=png");
     expect(cachesMock.puts[0].bytes).toBeGreaterThan(0);
   });
@@ -282,9 +281,7 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
 
   it("keeps serving tiles when the Cache API is unavailable", async () => {
     vi.stubGlobal("caches", {
-      open: vi.fn(async () => {
-        throw new Error("cache unavailable");
-      }),
+      open: vi.fn(() => Promise.reject(new Error("cache unavailable"))),
     });
 
     const { GET } = await route();
@@ -296,7 +293,10 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
   it("survives a failing cache write after a fresh assembly", async () => {
     const open = vi
       .fn()
-      .mockResolvedValueOnce({ match: vi.fn(async () => undefined), put: vi.fn(async () => undefined) })
+      .mockResolvedValueOnce({
+        match: vi.fn(() => Promise.resolve(undefined)),
+        put: vi.fn(() => Promise.resolve(undefined)),
+      })
       .mockRejectedValueOnce(new Error("cache write failed"));
     vi.stubGlobal("caches", { open });
 
@@ -304,19 +304,19 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => { expect(open).toHaveBeenCalledTimes(2); });
   });
 
   it("keeps serving tiles when the cache write rejects asynchronously", async () => {
-    const put = vi.fn(async () => {
-      throw new Error("quota exceeded");
+    const put = vi.fn(() => Promise.reject(new Error("quota exceeded")));
+    vi.stubGlobal("caches", {
+      open: vi.fn(() => Promise.resolve({ match: vi.fn(() => Promise.resolve(undefined)), put })),
     });
-    vi.stubGlobal("caches", { open: vi.fn(async () => ({ match: vi.fn(async () => undefined), put })) });
 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => { expect(put).toHaveBeenCalledTimes(1); });
   });
 });

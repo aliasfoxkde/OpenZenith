@@ -45,7 +45,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
       if (zoom < 7) {
         // Clear contours at low zoom (DEM assembly unreliable)
         if (map.getSource("contours")) {
-          map.getSource("contours")?.setData?.({ type: "FeatureCollection", features: [] });
+          map.getSource("contours")?.setData({ type: "FeatureCollection", features: [] });
         }
         return;
       }
@@ -85,7 +85,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
       await Promise.allSettled(promises);
 
       if (map.getSource("contours") && allFeatures.length > 0) {
-        map.getSource("contours")?.setData?.({ type: "FeatureCollection", features: allFeatures });
+        map.getSource("contours")?.setData({ type: "FeatureCollection", features: allFeatures });
       }
     } catch {
       /* skip */
@@ -94,12 +94,14 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
 
   const onMoveEnd = () => {
     if (loadTimeout) clearTimeout(loadTimeout);
-    loadTimeout = setTimeout(loadContours, 300);
+    loadTimeout = setTimeout(() => {
+      void loadContours();
+    }, 300);
   };
 
   map.on("moveend", onMoveEnd);
   map.on("zoomend", onMoveEnd);
-  loadContours();
+  void loadContours();
 
   handle.cleanup = () => {
     map.off("moveend", onMoveEnd);

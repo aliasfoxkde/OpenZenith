@@ -1,3 +1,5 @@
+> **Historical document (archived 2026-09-22).** This plan is preserved as a record of past work; its items were subsequently implemented or superseded by docs/planning/IMPROVEMENT_PLAN_2026-09-21.md and docs/planning/MASTER_PLAN_2026-09-22.md. Current plans live in `docs/planning/`. Do not treat as authoritative.
+
 # OpenZenith Enhancement Plan — Post-Session Audit
 
 Generated from systematic fan-out audit of Python SDK, Rust core, and frontend.

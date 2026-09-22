@@ -104,6 +104,7 @@ class ElevationClient:
         client = ElevationClient()
         result = await client.get_elevation(40.7128, -74.0060)
         await client.close()
+
     """
 
     def __init__(
@@ -115,13 +116,14 @@ class ElevationClient:
         connector_limit: int = 32,
         session: aiohttp.ClientSession | None = None,
     ):
+        """Store client configuration and create the connection pool."""
         try:
             import aiohttp
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "aiohttp required for async client. "
                 "Install with: pip install openzenith[async] or pip install aiohttp"
-            )
+            ) from err
 
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
@@ -194,6 +196,7 @@ class ElevationClient:
             return self._external_session
         if not hasattr(self, "_session") or self._session is None or self._session.closed:
             import aiohttp
+
             self._session = aiohttp.ClientSession(connector=self._connector)
         assert self._session is not None
         return self._session
@@ -214,6 +217,7 @@ class ElevationClient:
 
         Returns:
             ElevationResult with elevation in meters, or None if no data.
+
         """
         results = await self.get_elevation_batch([(lat, lon)], ids=[id] if id else None)
         return results[0]
@@ -241,6 +245,7 @@ class ElevationClient:
 
         Raises:
             RuntimeError: If all requests fail after retries.
+
         """
         if not points:
             return []
@@ -283,7 +288,7 @@ class ElevationClient:
             results_by_idx: dict[int, ElevationResult] = {}
             for r in api_results:
                 idx = None
-                for orig_idx, lat, lon, pid in chunk:
+                for orig_idx, lat, lon, _pid in chunk:
                     if r.get("lat") == lat and r.get("lon") == lon:
                         idx = orig_idx
                         break
@@ -304,10 +309,15 @@ class ElevationClient:
                 if orig_idx in results_by_idx:
                     out.append(results_by_idx[orig_idx])
                 else:
-                    out.append(ElevationResult(
-                        lat=lat, lon=lon, elevation=None,
-                        id=pid, error="not_returned",
-                    ))
+                    out.append(
+                        ElevationResult(
+                            lat=lat,
+                            lon=lon,
+                            elevation=None,
+                            id=pid,
+                            error="not_returned",
+                        )
+                    )
 
             return out
 
@@ -323,14 +333,21 @@ class ElevationClient:
 
     async def close(self) -> None:
         """Close the underlying aiohttp session (no-op if session was injected)."""
-        if self._owns_session and hasattr(self, "_session") and self._session is not None and not self._session.closed:
+        if (
+            self._owns_session
+            and hasattr(self, "_session")
+            and self._session is not None
+            and not self._session.closed
+        ):
             assert self._session is not None
             await self._session.close()
 
     async def __aenter__(self) -> Self:
+        """Enter the async context and return this client for awaited queries."""
         return self
 
     async def __aexit__(self, *args) -> None:
+        """Close the HTTP session when leaving the async context."""
         await self.close()
 
 
@@ -359,6 +376,7 @@ class ElevationBatchProcessor:
         client: An ElevationClient instance.
         max_concurrency: Max simultaneous API requests (default: 8).
         chunk_size: Points per API call, max 2000 (default: 2000).
+
     """
 
     def __init__(
@@ -367,6 +385,7 @@ class ElevationBatchProcessor:
         max_concurrency: int = 8,
         chunk_size: int = 2000,
     ):
+        """Store the client plus concurrency and chunking limits."""
         self._client = client
         self._max_concurrency = max_concurrency
         self._chunk_size = min(chunk_size, 2000)
@@ -405,6 +424,7 @@ class ElevationBatchProcessor:
 
         Returns:
             List of ElevationResult in input order.
+
         """
         if not points:
             return []

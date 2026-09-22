@@ -4,7 +4,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       if (features.length >= limit) break;
 
       if (el.type === "way" && el.geometry) {
-        const coords = (el.geometry || []).map((c) => [c[1], c[0]]);
+        const coords = el.geometry.map((c) => [c[1], c[0]]);
         if (coords.length < 2) continue;
 
         const isPolygon = el.tags?.natural === "water" && coords.length >= 3;

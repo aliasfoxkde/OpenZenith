@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import type { UploadedDataset, DatasetVisualization, VisualizationMode, ColorRamp } from "../lib/types";
 import { SUPPORTED_FORMATS } from "../lib/constants";
 import { parseFile, createDataset, parseBinaryFile } from "../lib/parsers";
+import type { UploadedFeatureCollection } from "../lib/map-helpers";
 import { DataTable } from "./DataTable";
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
 }
 
 /** Extract property names from a feature collection */
-function getPropertyNames(data: GeoJSON.FeatureCollection): string[] {
+function getPropertyNames(data: UploadedFeatureCollection): string[] {
   const names = new Set<string>();
   for (const f of data.features) {
     if (!f.properties) continue;
@@ -29,7 +30,7 @@ function getPropertyNames(data: GeoJSON.FeatureCollection): string[] {
 }
 
 /** Detect primary geometry type */
-function getPrimaryGeometryType(data: GeoJSON.FeatureCollection): "point" | "line" | "polygon" | "mixed" {
+function getPrimaryGeometryType(data: UploadedFeatureCollection): "point" | "line" | "polygon" | "mixed" {
   const types = new Set<string>();
   for (const f of data.features) {
     if (f.geometry) types.add(f.geometry.type);
@@ -110,7 +111,9 @@ export function DataTool({
         }
       };
 
-      fileArray.forEach(processFile);
+      for (const file of fileArray) {
+        void processFile(file);
+      }
     },
     [datasets, onDatasetsChange],
   );
@@ -129,7 +132,7 @@ export function DataTool({
     setDragOver(true);
   };
 
-  const onDragLeave = () => setDragOver(false);
+  const onDragLeave = () => { setDragOver(false); };
 
   const handleVizChange = useCallback(
     (ds: UploadedDataset, partial: Partial<DatasetVisualization>) => {
@@ -191,7 +194,9 @@ export function DataTool({
           multiple
           accept={SUPPORTED_FORMATS.map((f) => f.ext).join(",")}
           style={{ display: "none" }}
-          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+          onChange={(e) => {
+            if (e.target.files) handleFiles(e.target.files);
+          }}
         />
       </div>
 
@@ -230,7 +235,7 @@ export function DataTool({
                     <input
                       type="checkbox"
                       checked={ds.visible}
-                      onChange={(e) => onToggleDataset(ds.id, e.target.checked)}
+                      onChange={(e) => { onToggleDataset(ds.id, e.target.checked); }}
                     />
                     <span
                       style={{
@@ -273,7 +278,7 @@ export function DataTool({
                     </button>
                   )}
                   <button
-                    onClick={() => onRemoveDataset(ds.id)}
+                    onClick={() => { onRemoveDataset(ds.id); }}
                     style={{
                       background: "none",
                       border: "none",
@@ -304,7 +309,7 @@ export function DataTool({
                     {/* Tab bar */}
                     <div style={{ display: "flex", gap: 4 }}>
                       <button
-                        onClick={() => setExpandedPanel("style")}
+                        onClick={() => { setExpandedPanel("style"); }}
                         style={{
                           padding: "2px 10px",
                           fontSize: 10,
@@ -318,7 +323,7 @@ export function DataTool({
                         Style
                       </button>
                       <button
-                        onClick={() => setExpandedPanel("table")}
+                        onClick={() => { setExpandedPanel("table"); }}
                         style={{
                           padding: "2px 10px",
                           fontSize: 10,
@@ -345,7 +350,7 @@ export function DataTool({
                               .map(([mode, label]) => (
                                 <button
                                   key={mode}
-                                  onClick={() => handleVizChange(ds, { mode })}
+                                  onClick={() => { handleVizChange(ds, { mode }); }}
                                   style={{
                                     padding: "2px 8px",
                                     fontSize: 10,
@@ -368,7 +373,7 @@ export function DataTool({
                             <span style={{ color: textSec, fontSize: 10, width: 48, flexShrink: 0 }}>Property</span>
                             <select
                               value={viz.property ?? ""}
-                              onChange={(e) => handleVizChange(ds, { property: e.target.value || null })}
+                              onChange={(e) => { handleVizChange(ds, { property: e.target.value || null }); }}
                               style={selectStyle}
                             >
                               <option value="">-- select --</option>
@@ -389,7 +394,7 @@ export function DataTool({
                               {(Object.entries(RAMP_LABELS) as [ColorRamp, string][]).map(([ramp, label]) => (
                                 <button
                                   key={ramp}
-                                  onClick={() => handleVizChange(ds, { colorRamp: ramp })}
+                                  onClick={() => { handleVizChange(ds, { colorRamp: ramp }); }}
                                   style={{
                                     padding: "2px 8px",
                                     fontSize: 10,

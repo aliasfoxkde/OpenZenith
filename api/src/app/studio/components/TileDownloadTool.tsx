@@ -172,7 +172,7 @@ function generateBashScript(
   zMax: number,
   tiles: { z: number; x: number; y: number }[],
 ): string {
-  const tileList = tiles.map((t) => t.z + "/" + t.x + "/" + t.y).join(" ");
+  const tileList = tiles.map((t) => `${t.z}/${t.x}/${t.y}`).join(" ");
   return [
     "#!/bin/bash",
     "# OpenZenith Tile Downloader",
@@ -186,13 +186,13 @@ function generateBashScript(
       ", " +
       bbox.lonMax.toFixed(4) +
       "]",
-    "# Zoom: " + zMin + "-" + zMax + " | Tiles: " + tiles.length,
+    `# Zoom: ${zMin}-${zMax} | Tiles: ${tiles.length}`,
     "",
     'OUTDIR="tiles/' + dataset + '"',
     'mkdir -p "$OUTDIR"',
     "",
     "COUNT=0",
-    "TOTAL=" + tiles.length,
+    `TOTAL=${tiles.length}`,
     "",
     "for TILE in " + tileList + "; do",
     '  Z=$(echo "$TILE" | cut -d/ -f1)',
@@ -223,7 +223,7 @@ function generatePythonScript(
   zMax: number,
   tiles: { z: number; x: number; y: number }[],
 ): string {
-  const pyTiles = tiles.map((t) => "    (" + t.z + ", " + t.x + ", " + t.y + "),").join("\n");
+  const pyTiles = tiles.map((t) => `    (${t.z}, ${t.x}, ${t.y}),`).join("\n");
   return [
     "#!/usr/bin/env python3",
     '"""OpenZenith Tile Downloader',
@@ -238,7 +238,7 @@ function generatePythonScript(
       ", " +
       bbox.lonMax.toFixed(4) +
       "]",
-    "Zoom: " + zMin + "-" + zMax + " | Tiles: " + tiles.length,
+    `Zoom: ${zMin}-${zMax} | Tiles: ${tiles.length}`,
     '"""',
     "",
     "import os",
@@ -325,8 +325,8 @@ export function TileDownloadTool({ dark, map }: Props) {
   useEffect(() => {
     return () => {
       try {
-        if (map && boxSourceRef.current) {
-          map.removeLayer(boxLayerRef.current!);
+        if (map && boxSourceRef.current && boxLayerRef.current) {
+          map.removeLayer(boxLayerRef.current);
           map.removeSource(boxSourceRef.current);
         }
       } catch {
@@ -432,9 +432,9 @@ export function TileDownloadTool({ dark, map }: Props) {
   useEffect(() => {
     if (!map) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre event type untyped
-    const onClick = (e: any) => handleMapClick(e);
+    const onClick = (e: any) => { handleMapClick(e); };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre event type untyped
-    const onMove = (e: any) => handleMouseMove(e);
+    const onMove = (e: any) => { handleMouseMove(e); };
     map.on("click", onClick);
     map.on("mousemove", onMove);
     return () => {
@@ -447,15 +447,19 @@ export function TileDownloadTool({ dark, map }: Props) {
     setBbox(null);
     setDrawStart(null);
     if (map) {
-      try {
-        map.removeLayer(boxLayerRef.current!);
-      } catch {
-        /* ok */
+      if (boxLayerRef.current) {
+        try {
+          map.removeLayer(boxLayerRef.current);
+        } catch {
+          /* ok */
+        }
       }
-      try {
-        map.removeSource(boxSourceRef.current!);
-      } catch {
-        /* ok */
+      if (boxSourceRef.current) {
+        try {
+          map.removeSource(boxSourceRef.current);
+        } catch {
+          /* ok */
+        }
       }
     }
   }, [map]);
@@ -495,7 +499,7 @@ export function TileDownloadTool({ dark, map }: Props) {
   );
 
   const copyCode = useCallback((code: string) => {
-    navigator.clipboard.writeText(code);
+    void navigator.clipboard.writeText(code);
   }, []);
 
   const sizeEstimate = tileCount > 0 ? "~" + ((tileCount * 15) / 1024).toFixed(1) + " MB" : "\u2014";
@@ -514,7 +518,7 @@ export function TileDownloadTool({ dark, map }: Props) {
         <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Dataset</label>
         <select
           value={dataset}
-          onChange={(e) => setDataset(e.target.value)}
+          onChange={(e) => { setDataset(e.target.value); }}
           style={{
             width: "100%",
             padding: "6px 8px",
@@ -543,7 +547,7 @@ export function TileDownloadTool({ dark, map }: Props) {
             min={0}
             max={12}
             value={zMin}
-            onChange={(e) => setZMin(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)))}
+            onChange={(e) => { setZMin(Math.max(0, Math.min(12, parseInt(e.target.value) || 0))); }}
             style={{
               width: "100%",
               padding: "6px 8px",
@@ -562,7 +566,7 @@ export function TileDownloadTool({ dark, map }: Props) {
             min={0}
             max={12}
             value={zMax}
-            onChange={(e) => setZMax(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)))}
+            onChange={(e) => { setZMax(Math.max(0, Math.min(12, parseInt(e.target.value) || 0))); }}
             style={{
               width: "100%",
               padding: "6px 8px",
@@ -676,7 +680,7 @@ export function TileDownloadTool({ dark, map }: Props) {
           <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 6 }}>Download Script</label>
           <div style={{ display: "flex", gap: 6 }}>
             <button
-              onClick={() => downloadScript("bash")}
+              onClick={() => { downloadScript("bash"); }}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -692,7 +696,7 @@ export function TileDownloadTool({ dark, map }: Props) {
               Shell Script
             </button>
             <button
-              onClick={() => downloadScript("python")}
+              onClick={() => { downloadScript("python"); }}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -724,7 +728,7 @@ export function TileDownloadTool({ dark, map }: Props) {
           {Object.entries(CODE_EXAMPLES).map(([key, ex]) => (
             <button
               key={key}
-              onClick={() => setActiveExample(key)}
+              onClick={() => { setActiveExample(key); }}
               style={{
                 padding: "4px 8px",
                 borderRadius: 4,
@@ -741,7 +745,7 @@ export function TileDownloadTool({ dark, map }: Props) {
         </div>
         <div style={{ position: "relative" }}>
           <button
-            onClick={() => copyCode(CODE_EXAMPLES[activeExample].code)}
+            onClick={() => { copyCode(CODE_EXAMPLES[activeExample].code); }}
             style={{
               position: "absolute",
               top: 6,

@@ -48,7 +48,8 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
   };
 
   const handleCopyJSON = () => {
-    navigator.clipboard.writeText(exportGeoJSONString(drawState));
+    // Best-effort: clipboard access can be denied without user focus.
+    navigator.clipboard.writeText(exportGeoJSONString(drawState)).catch(() => {});
   };
 
   return (
@@ -63,10 +64,10 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           <button
             key={m.id}
             onClick={() =>
-              onDrawStateChange({
+              { onDrawStateChange({
                 ...createDrawState(),
                 mode: drawState.mode === m.id ? "none" : m.id,
-              })
+              }); }
             }
             style={{
               flex: 1,
@@ -129,7 +130,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
               Delete Vertex
             </button>
             <button
-              onClick={() => onDrawStateChange(exitEditMode(drawState))}
+              onClick={() => { onDrawStateChange(exitEditMode(drawState)); }}
               style={{
                 flex: 1,
                 padding: "5px",
@@ -150,7 +151,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
       {/* Actions */}
       <div style={{ display: "flex", gap: 4 }}>
         <button
-          onClick={() => onDrawStateChange(undo(drawState))}
+          onClick={() => { onDrawStateChange(undo(drawState)); }}
           disabled={drawState.history.length === 0}
           style={{
             flex: 1,
@@ -166,7 +167,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           Undo
         </button>
         <button
-          onClick={() => onDrawStateChange(redo(drawState))}
+          onClick={() => { onDrawStateChange(redo(drawState)); }}
           disabled={drawState.redoStack.length === 0}
           style={{
             flex: 1,
@@ -182,7 +183,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           Redo
         </button>
         <button
-          onClick={() => onDrawStateChange(deleteSelected(drawState))}
+          onClick={() => { onDrawStateChange(deleteSelected(drawState)); }}
           disabled={drawState.selectedFeatureIndex < 0}
           style={{
             flex: 1,
@@ -220,7 +221,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           {drawState.mode === "edit" ? "Done" : "Edit"}
         </button>
         <button
-          onClick={() => onDrawStateChange(createDrawState())}
+          onClick={() => { onDrawStateChange(createDrawState()); }}
           style={{
             flex: 1,
             padding: "6px",
@@ -317,16 +318,14 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
               if (!m) return null;
               if (m.type === "distance") return <span> &mdash; {formatDistance(m.value, imperial)}</span>;
               if (m.type === "area") return <span> &mdash; {formatArea(m.value, imperial)}</span>;
-              if (m.type === "point") {
-                const c = drawState.features[drawState.selectedFeatureIndex].geometry!.coordinates as [number, number];
-                return (
-                  <span>
-                    {" "}
-                    &mdash; {c[1].toFixed(5)}, {c[0].toFixed(5)}
-                  </span>
-                );
-              }
-              return null;
+              // Remaining case is a point measurement ("distance"/"area" returned above).
+              const c = drawState.features[drawState.selectedFeatureIndex].geometry.coordinates as [number, number];
+              return (
+                <span>
+                  {" "}
+                  &mdash; {c[1].toFixed(5)}, {c[0].toFixed(5)}
+                </span>
+              );
             })()}
           </span>
         )}

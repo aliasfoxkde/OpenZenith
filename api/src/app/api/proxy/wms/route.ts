@@ -26,7 +26,7 @@ const ALLOWED_WMS_HOSTS = [
   "example.com",
 ];
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

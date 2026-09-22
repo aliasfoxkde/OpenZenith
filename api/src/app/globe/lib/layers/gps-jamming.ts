@@ -189,9 +189,9 @@ export function loadGpsJamming(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
-  _entitiesRef: React.MutableRefObject<Record<string, any>>,
+  _entitiesRef: React.RefObject<Record<string, any>>,
   stateLayers: { gpsJamming: boolean },
 ) {
   updateStatus("gpsJamming", { error: null });
@@ -273,10 +273,9 @@ export function loadGpsJamming(
     }
   };
 
-  doLoad();
+  void doLoad();
 
-  // Refresh interval (GPS jamming zones don't change often)
-  const iv = setInterval(async () => {
+  const refresh = async () => {
     if (!stateLayers.gpsJamming) return;
     try {
       const hexes = await fetchGpsJammingData();
@@ -285,6 +284,11 @@ export function loadGpsJamming(
     } catch (err) {
       warnLayerError("gpsJamming", err, "refresh");
     }
+  };
+
+  // Refresh interval (GPS jamming zones don't change often)
+  const iv = setInterval(() => {
+    void refresh();
   }, 600000); // 10 minutes
 
   intervalsRef.current.push(iv);

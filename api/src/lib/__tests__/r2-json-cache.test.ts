@@ -52,8 +52,8 @@ function makeObject(body: string, customMetadata?: Record<string, string>): Fake
   const record: { body: string; customMetadata?: Record<string, string> } = { body, customMetadata };
   return {
     customMetadata,
-    text: async () => record.body,
-    arrayBuffer: async () => new ArrayBuffer(0),
+    text: () => Promise.resolve(record.body),
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
     setBody: (next: string) => {
       record.body = next;
     },
@@ -68,20 +68,22 @@ function createBucket(): FakeBucket {
     deletes: [],
     getError: null,
     putError: null,
-    get: async (key: string) => {
+    get: (key: string) => {
       bucket.getCalls.push(key);
-      if (bucket.getError) throw bucket.getError;
-      return bucket.store.get(key) ?? null;
+      if (bucket.getError) return Promise.reject(bucket.getError);
+      return Promise.resolve(bucket.store.get(key) ?? null);
     },
-    put: async (key: string, value: unknown, options?: R2PutOptions) => {
+    put: (key: string, value: unknown, options?: R2PutOptions) => {
       bucket.puts.push({ key, value, options });
-      if (bucket.putError) throw bucket.putError;
+      if (bucket.putError) return Promise.reject(bucket.putError);
       const body = typeof value === "string" ? value : JSON.stringify(value);
       bucket.store.set(key, makeObject(body, options?.customMetadata));
+      return Promise.resolve();
     },
-    delete: async (key: string) => {
+    delete: (key: string) => {
       bucket.deletes.push(key);
       bucket.store.delete(key);
+      return Promise.resolve();
     },
   };
   return bucket;
@@ -108,7 +110,7 @@ describe("r2PutJson", () => {
     await r2PutJson("api/earthquakes/all_day", { count: 3 }, 120);
 
     expect(bucket.puts).toHaveLength(1);
-    const put = bucket.puts[0] as RecordedPut;
+    const put = bucket.puts[0];
     expect(put.key).toBe("api/earthquakes/all_day");
     expect(put.value).toBe('{"count":3}');
     expect(put.options?.httpMetadata?.contentType).toBe("application/json");
@@ -120,7 +122,7 @@ describe("r2PutJson", () => {
   it("defaults to a 60 second TTL", async () => {
     await r2PutJson("api/vessels", []);
 
-    const put = bucket.puts[0] as RecordedPut;
+    const put = bucket.puts[0];
     expect(put.value).toBe("[]");
     expect(String(put.options?.customMetadata?.ttl)).toBe("60000");
   });

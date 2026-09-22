@@ -18,6 +18,12 @@ import {
   exitEditMode,
 } from "../../app/studio/lib/drawing";
 
+/** Fail the test when a helper returns nothing, and narrow the result for use below. */
+function must<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("expected a result, got nothing");
+  return value;
+}
+
 describe("createDrawState", () => {
   it("returns default state", () => {
     const state = createDrawState();
@@ -226,10 +232,9 @@ describe("measureFeature", () => {
       },
       properties: {},
     };
-    const m = measureFeature(feature);
-    expect(m).not.toBeNull();
-    expect(m!.type).toBe("distance");
-    expect(m!.value).toBeGreaterThan(0);
+    const m = must(measureFeature(feature));
+    expect(m.type).toBe("distance");
+    expect(m.value).toBeGreaterThan(0);
   });
 
   it("measures a polygon feature", () => {
@@ -248,10 +253,9 @@ describe("measureFeature", () => {
       },
       properties: {},
     };
-    const m = measureFeature(feature);
-    expect(m).not.toBeNull();
-    expect(m!.type).toBe("area");
-    expect(m!.value).toBeGreaterThan(0);
+    const m = must(measureFeature(feature));
+    expect(m.type).toBe("area");
+    expect(m.value).toBeGreaterThan(0);
   });
 
   it("measures a point feature", () => {
@@ -260,10 +264,9 @@ describe("measureFeature", () => {
       geometry: { type: "Point", coordinates: [0, 0] },
       properties: {},
     };
-    const m = measureFeature(feature);
-    expect(m).not.toBeNull();
-    expect(m!.type).toBe("point");
-    expect(m!.value).toBe(0);
+    const m = must(measureFeature(feature));
+    expect(m.type).toBe("point");
+    expect(m.value).toBe(0);
   });
 
   it("returns null for null geometry", () => {
@@ -278,29 +281,31 @@ describe("measureFeature", () => {
 
 describe("measureDrawing", () => {
   it("measures in-progress line", () => {
-    const m = measureDrawing(
-      [
-        [0, 0],
-        [1, 0],
-      ],
-      "line",
+    const m = must(
+      measureDrawing(
+        [
+          [0, 0],
+          [1, 0],
+        ],
+        "line",
+      ),
     );
-    expect(m).not.toBeNull();
-    expect(m!.type).toBe("distance");
-    expect(m!.value).toBeGreaterThan(0);
+    expect(m.type).toBe("distance");
+    expect(m.value).toBeGreaterThan(0);
   });
 
   it("measures in-progress polygon", () => {
-    const m = measureDrawing(
-      [
-        [0, 0],
-        [1, 0],
-        [1, 1],
-      ],
-      "polygon",
+    const m = must(
+      measureDrawing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+        ],
+        "polygon",
+      ),
     );
-    expect(m).not.toBeNull();
-    expect(m!.type).toBe("area");
+    expect(m.type).toBe("area");
   });
 
   it("returns null for empty coords", () => {

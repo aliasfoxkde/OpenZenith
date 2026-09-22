@@ -177,11 +177,11 @@ async function getPointElevationFromAWS(
     if (typeof DecompressionStream !== "undefined") {
       const ds = new DecompressionStream("deflate");
       const writer = ds.writable.getWriter();
-      writer.write(compressed as unknown as BufferSource);
-      writer.close();
+      await writer.write(compressed);
+      await writer.close();
       const reader = ds.readable.getReader();
       const chunks: Uint8Array[] = [];
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
         chunks.push(value);

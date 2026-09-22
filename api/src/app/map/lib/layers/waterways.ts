@@ -12,7 +12,7 @@ export function addWaterways(map: maplibregl.Map, handle: LayerHandle): void {
       const center = map.getCenter();
       const res = await fetch(`/api/waterways?lat=${center.lat.toFixed(4)}&lon=${center.lng.toFixed(4)}&radius=50`);
       const data = await res.json();
-      if (!map.getSource || !data?.features) return;
+      if (!data?.features) return;
 
       try {
         if (!map.getSource("waterways")) {
@@ -42,9 +42,13 @@ export function addWaterways(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
+  void doLoad();
   // Re-fetch on pan (debounced via interval)
-  handle.intervals.push(setInterval(doLoad, 30000));
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 30000),
+  );
 }
 
 export function removeWaterways(map: maplibregl.Map): void {

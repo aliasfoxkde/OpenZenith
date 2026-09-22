@@ -1,11 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { mockRequest } from "./helpers";
 
 describe("Proxy WMS API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("proxies WMS GetMap request from allowed host", async () => {
     const mockPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(mockPng, { status: 200, headers: { "Content-Type": "image/png" } }),
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(mockPng, { status: 200, headers: { "Content-Type": "image/png" } }))),
     );
 
     const { GET } = await import("@/app/api/proxy/wms/route");

@@ -14,23 +14,25 @@ import { unzlibSync } from "fflate";
 const r2Store = vi.hoisted(() => new Map<string, ArrayBuffer>());
 
 vi.mock("@/lib/tile", () => ({
-  getTileData: vi.fn(async () => ({ data: new Int16Array(256 * 256), width: 256, height: 256, zoom: 8 })),
+  getTileData: vi.fn(() => Promise.resolve({ data: new Int16Array(256 * 256), width: 256, height: 256, zoom: 8 })),
   CACHE_TTL: { ELEVATION: 86400 },
 }));
 
-vi.mock("@/lib/storage/backend", () => {
-  class HuggingFaceChunkBackend {}
-  return { HuggingFaceChunkBackend };
-});
+vi.mock("@/lib/storage/backend", () => ({
+  HuggingFaceChunkBackend: vi.fn(),
+}));
 
 vi.mock("@/lib/storage/r2-tile-cache", () => ({
-  r2GetTile: vi.fn(async (_prefix: string, z: number, x: number, y: number) => r2Store.get(`${z}/${x}/${y}`) ?? null),
-  r2PutTile: vi.fn(async (_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
+  r2GetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
+    Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
+  ),
+  r2PutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
     const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
     r2Store.set(
       `${z}/${x}/${y}`,
       bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
     );
+    return Promise.resolve();
   }),
 }));
 
@@ -70,23 +72,24 @@ function stubCfCache(options: {
   const putCalls: string[] = [];
   let openCount = 0;
 
-  const open = vi.fn(async (): Promise<CfCache> => {
+  const open = vi.fn((): Promise<CfCache> => {
     const nth = openCount++;
     const phase = nth === 0 ? "lookup" : "write";
     if (options.openThrowsOn?.includes(phase)) {
-      throw new Error("Cache API unavailable");
+      return Promise.reject(new Error("Cache API unavailable"));
     }
     const cache: CfCache = {
-      match: vi.fn(async () => {
-        if (options.matchThrows) throw new Error("cache match failed");
-        return options.entry ?? null;
+      match: vi.fn(() => {
+        if (options.matchThrows) return Promise.reject(new Error("cache match failed"));
+        return Promise.resolve(options.entry ?? null);
       }),
-      put: vi.fn(async (key: string) => {
+      put: vi.fn((key: string) => {
         putCalls.push(key);
+        return Promise.resolve();
       }),
     };
     caches.push(cache);
-    return cache;
+    return Promise.resolve(cache);
   });
 
   vi.stubGlobal("caches", { open });
@@ -94,7 +97,7 @@ function stubCfCache(options: {
 }
 
 function pngBytes(size = 8): ArrayBuffer {
-  return new Uint8Array(size).fill(7).buffer as ArrayBuffer;
+  return new Uint8Array(size).fill(7).buffer;
 }
 
 function cachedResponse(bytes: ArrayBuffer, cachedAt: number): Response {
@@ -138,12 +141,14 @@ function decodePng(bytes: Uint8Array, width: number, height: number): Array<[num
 beforeEach(() => {
   r2Store.clear();
   mockGetTileData.mockReset();
-  mockGetTileData.mockImplementation(async () => ({
-    data: new Int16Array(8 * 8).fill(500),
-    width: 8,
-    height: 8,
-    zoom: 8,
-  }));
+  mockGetTileData.mockImplementation(() =>
+    Promise.resolve({
+      data: new Int16Array(8 * 8).fill(500),
+      width: 8,
+      height: 8,
+      zoom: 8,
+    }),
+  );
   mockR2GetTile.mockClear();
   mockR2PutTile.mockClear();
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -217,7 +222,7 @@ describe("Elevation color API cache layers", () => {
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(mockR2GetTile).toHaveBeenCalledWith("elevation-color", 8, 100, 60);
     // The R2 hit is written back into the edge cache
-    await vi.waitFor(() => expect(cf.putCalls.length).toBeGreaterThan(0));
+    await vi.waitFor(() => { expect(cf.putCalls.length).toBeGreaterThan(0); });
     expect(cf.putCalls[0]).toBe("/api/elevation-color/8/100/60");
   });
 
@@ -249,7 +254,7 @@ describe("Elevation color API cache layers", () => {
     const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    await vi.waitFor(() => expect(mockR2PutTile).toHaveBeenCalled());
+    await vi.waitFor(() => { expect(mockR2PutTile).toHaveBeenCalled(); });
   });
 });
 
@@ -268,7 +273,7 @@ describe("Elevation color API generation", () => {
     expect(Array.from(bytes.slice(0, 8))).toEqual(PNG_SIGNATURE);
     expect(resp.headers.get("Content-Length")).toBe(String(bytes.byteLength));
 
-    await vi.waitFor(() => expect(mockR2PutTile.mock.calls.length).toBeGreaterThan(0));
+    await vi.waitFor(() => { expect(mockR2PutTile.mock.calls.length).toBeGreaterThan(0); });
     expect(mockR2PutTile.mock.calls[0].slice(0, 4)).toEqual(["elevation-color", 8, 100, 60]);
     expect(cf.putCalls[0]).toBe("/api/elevation-color/8/100/60");
 
@@ -283,7 +288,7 @@ describe("Elevation color API generation", () => {
   it("renders NoData cells as the dark ocean color", async () => {
     stubCfCache();
     const data = new Int16Array(8 * 8).fill(-32768);
-    mockGetTileData.mockImplementation(async () => ({ data, width: 8, height: 8, zoom: 8 }));
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data, width: 8, height: 8, zoom: 8 }));
 
     const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
     const bytes = new Uint8Array(await resp.arrayBuffer());

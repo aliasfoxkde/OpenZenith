@@ -1,6 +1,21 @@
 /** MapLibre style expression — nested arrays of strings, numbers, and sub-expressions */
 type MapLibreExpression = (string | number | MapLibreExpression)[];
 
+/**
+ * Feature model for parsed uploads. RFC 7946 allows a feature to carry
+ * `properties: null` (or omit geometry), but the global GeoJSON namespace in
+ * this folder types both as always present. Widening them here keeps the
+ * optional-chain guards in this file honest instead of pretending the checks
+ * are unreachable.
+ */
+export type UploadedFeature = Omit<GeoJSON.Feature, "geometry" | "properties"> & {
+  geometry?: { type: string };
+  properties?: GeoJSON.Feature["properties"] | null;
+};
+
+/** FeatureCollection made of {@link UploadedFeature}s. */
+export type UploadedFeatureCollection = { type: "FeatureCollection"; features: UploadedFeature[] };
+
 /** Color ramp definitions */
 export const COLOR_RAMPS = {
   sequential: [
@@ -21,7 +36,7 @@ export const COLOR_RAMPS = {
 } as const;
 
 /** Extract numeric property values from features */
-function getPropertyRange(data: GeoJSON.FeatureCollection, property: string): { min: number; max: number } | null {
+function getPropertyRange(data: UploadedFeatureCollection, property: string): { min: number; max: number } | null {
   let min = Infinity;
   let max = -Infinity;
   let found = false;
@@ -37,7 +52,7 @@ function getPropertyRange(data: GeoJSON.FeatureCollection, property: string): { 
 }
 
 /** Get unique string property values */
-function getUniqueValues(data: GeoJSON.FeatureCollection, property: string): string[] {
+function getUniqueValues(data: UploadedFeatureCollection, property: string): string[] {
   const seen = new Set<string>();
   for (const f of data.features) {
     const v = f.properties?.[property];
@@ -48,7 +63,7 @@ function getUniqueValues(data: GeoJSON.FeatureCollection, property: string): str
 
 /** Build a MapLibre interpolate expression for choropleth coloring */
 function buildChoroplethExpression(
-  data: GeoJSON.FeatureCollection,
+  data: UploadedFeatureCollection,
   property: string,
   colorRamp: "sequential" | "diverging",
 ): MapLibreExpression {
@@ -65,7 +80,7 @@ function buildChoroplethExpression(
 }
 
 /** Build a MapLibre match expression for categorical coloring */
-function buildCategoricalExpression(data: GeoJSON.FeatureCollection, property: string): MapLibreExpression {
+function buildCategoricalExpression(data: UploadedFeatureCollection, property: string): MapLibreExpression {
   const values = getUniqueValues(data, property);
   const ramp = COLOR_RAMPS.categorical;
   const expr: MapLibreExpression = ["match", ["to-string", ["get", property]]];
@@ -81,7 +96,7 @@ function buildCategoricalExpression(data: GeoJSON.FeatureCollection, property: s
 export function addGeoJSONLayer(
   map: maplibregl.Map,
   id: string,
-  data: GeoJSON.FeatureCollection,
+  data: UploadedFeatureCollection,
   color: string = "#3b82f6",
   visualization?: import("./types").DatasetVisualization,
 ) {

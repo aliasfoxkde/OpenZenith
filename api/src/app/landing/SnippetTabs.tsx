@@ -80,32 +80,33 @@ export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, 
       <div className="oz-snippet-bar">
         <div className="oz-snippet-tabs">
           {result && (
-            <button className={`oz-snippet-tab ${tab === "result" ? "active" : ""}`} onClick={() => setTab("result")}>
+            <button className={`oz-snippet-tab ${tab === "result" ? "active" : ""}`} onClick={() => { setTab("result"); }}>
               Result
             </button>
           )}
-          <button className={`oz-snippet-tab ${tab === "url" ? "active" : ""}`} onClick={() => setTab("url")}>
+          <button className={`oz-snippet-tab ${tab === "url" ? "active" : ""}`} onClick={() => { setTab("url"); }}>
             API URL
           </button>
-          <button className={`oz-snippet-tab ${tab === "tile" ? "active" : ""}`} onClick={() => setTab("tile")}>
+          <button className={`oz-snippet-tab ${tab === "tile" ? "active" : ""}`} onClick={() => { setTab("tile"); }}>
             Tile
           </button>
-          <button className={`oz-snippet-tab ${tab === "curl" ? "active" : ""}`} onClick={() => setTab("curl")}>
+          <button className={`oz-snippet-tab ${tab === "curl" ? "active" : ""}`} onClick={() => { setTab("curl"); }}>
             cURL
           </button>
-          <button className={`oz-snippet-tab ${tab === "js" ? "active" : ""}`} onClick={() => setTab("js")}>
+          <button className={`oz-snippet-tab ${tab === "js" ? "active" : ""}`} onClick={() => { setTab("js"); }}>
             JS
           </button>
-          <button className={`oz-snippet-tab ${tab === "python" ? "active" : ""}`} onClick={() => setTab("python")}>
+          <button className={`oz-snippet-tab ${tab === "python" ? "active" : ""}`} onClick={() => { setTab("python"); }}>
             Python
           </button>
         </div>
         <button
           className="oz-snippet-copy"
           onClick={() => {
-            navigator.clipboard.writeText(snippetText(tab, la, lo, result));
+            // Best-effort: clipboard access can be denied without user focus.
+            navigator.clipboard.writeText(snippetText(tab, la, lo, result)).catch(() => {});
             setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
+            setTimeout(() => { setCopied(false); }, 1500);
           }}
         >
           {copied ? "Copied" : "Copy"}

@@ -87,8 +87,12 @@ export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 3600000)); // 1 hour
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 3600000), // 1 hour
+  );
 }
 
 export function removeWildfires(map: maplibregl.Map): void {

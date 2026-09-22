@@ -108,7 +108,8 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
 
   const updateWidget = useCallback((id: string, patch: Partial<WidgetState>) => {
     setWidgets((prev) => {
-      const entry = prev[id];
+      // ids can be absent from the map even though Record indexing types as present
+      const entry = prev[id] as WidgetEntry | undefined;
       if (!entry) return prev;
       return {
         ...prev,
@@ -119,7 +120,9 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
 
   const toggleWidget = useCallback(
     (id: string) => {
-      updateWidget(id, { visible: !widgets[id]?.state.visible });
+      // ids can be absent from the map even though Record indexing types as present
+      const entry = widgets[id] as WidgetEntry | undefined;
+      updateWidget(id, { visible: !entry?.state.visible });
     },
     [widgets, updateWidget],
   );

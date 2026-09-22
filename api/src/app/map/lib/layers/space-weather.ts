@@ -13,7 +13,6 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
       const coords = data?.coordinates || [];
       setStatus(handle, "spaceWeather", coords.length ? "loaded" : "empty", coords.length);
 
-      if (!map.getSource) return;
       try {
         const features: GeoJSON.Feature[] = [];
         for (const coord of coords) {
@@ -70,8 +69,12 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000)); // 10 min — aurora forecast updates slowly
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000), // 10 min — aurora forecast updates slowly
+  );
 }
 
 export function removeSpaceWeather(map: maplibregl.Map): void {

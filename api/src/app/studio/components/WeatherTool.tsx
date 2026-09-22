@@ -36,8 +36,8 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
       >
         <input
           type="checkbox"
-          checked={!!layers.weather_warnings}
-          onChange={(e) => onToggleLayer("weather_warnings", e.target.checked)}
+          checked={layers.weather_warnings}
+          onChange={(e) => { onToggleLayer("weather_warnings", e.target.checked); }}
         />
         <div>
           <div style={{ color: text, fontSize: 12, fontWeight: 600 }}>Weather Warnings</div>
@@ -56,7 +56,7 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
           fontSize: 11,
         }}
       >
-        <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+        <input type="checkbox" checked={autoRefresh} onChange={(e) => { setAutoRefresh(e.target.checked); }} />
         Auto-refresh (2 min)
       </label>
 

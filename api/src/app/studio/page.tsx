@@ -116,7 +116,7 @@ export default function StudioPage() {
       if (e.key === "Escape") setSidebarOpen(false);
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    return () => { window.removeEventListener("keydown", handler); };
   }, []);
 
   /* ─── Map init ─── */
@@ -305,7 +305,7 @@ export default function StudioPage() {
           if (ev.key === "Enter") {
             setDrawState((prev) => finishDrawing(prev));
           } else if (ev.key === "Escape") {
-            setDrawState((prev) => ({ ...prev, currentCoords: [], mode: "none" as DrawMode }));
+            setDrawState((prev) => ({ ...prev, currentCoords: [], mode: "none" }));
           } else if (ev.key === "z" && (ev.ctrlKey || ev.metaKey)) {
             ev.preventDefault();
             setDrawState((prev) => undo(prev));
@@ -336,6 +336,9 @@ export default function StudioPage() {
       cancelled = true;
       // Clear intervals
 
+      // Reading the ref at cleanup time is intentional: intervals accumulate
+      // over the map's whole lifetime.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       const handle = layerHandleRef.current;
       for (const interval of handle.intervals) clearInterval(interval);
       handle.intervals = [];
@@ -348,6 +351,9 @@ export default function StudioPage() {
         mapRef.current = null;
       }
     };
+    // Mount-once map construction from initial basemap/center/zoom; later
+    // changes flow through toggleLayer/switchBasemap, not a rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ─── Layer toggling ─── */
@@ -526,7 +532,7 @@ export default function StudioPage() {
 
     // Use Web Worker for interpolation computation
     computeProfileInWorker(coords[0], coords[1])
-      .then(({ points }) => setProfileCoords(points))
+      .then(({ points }) => { setProfileCoords(points); })
       .catch(() => {
         // Fallback: simple interpolation on main thread
         const interpolated: [number, number][] = [];
@@ -704,7 +710,7 @@ export default function StudioPage() {
           {/* Sidebar toggle */}
           {mapReady && (
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => { setSidebarOpen(!sidebarOpen); }}
               aria-label={sidebarOpen ? "Close sidebar panel" : "Open sidebar panel"}
               aria-expanded={sidebarOpen}
               aria-controls="studio-sidebar"
@@ -730,7 +736,7 @@ export default function StudioPage() {
           {/* Mobile overlay backdrop */}
           {isMobile && sidebarOpen && (
             <div
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => { setSidebarOpen(false); }}
               style={{
                 position: "absolute",
                 inset: 0,
@@ -869,7 +875,7 @@ export default function StudioPage() {
         {overpassLayerId && <span style={{ color: "#8b5cf6" }}>OSM query</span>}
         <span style={{ flex: 1 }} />
         <button
-          onClick={() => exportMapScreenshot(mapRef.current!, "openzenith-studio")}
+          onClick={() => { exportMapScreenshot(mapRef.current!, "openzenith-studio"); }}
           title="Export screenshot"
           aria-label="Export map screenshot as PNG"
           style={{

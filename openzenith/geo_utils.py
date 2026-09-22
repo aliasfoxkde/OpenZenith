@@ -95,7 +95,10 @@ def compute_rmse(original: np.ndarray, reconstructed: np.ndarray, nodata: int = 
 
 
 def compute_slope_deviation(
-    original: np.ndarray, reconstructed: np.ndarray, pixel_size_m: float = 30.0, nodata: int = -32768
+    original: np.ndarray,
+    reconstructed: np.ndarray,
+    pixel_size_m: float = 30.0,
+    nodata: int = -32768,
 ) -> dict:
     """Compute slope deviation between original and reconstructed."""
     valid = (original != nodata) & (reconstructed != nodata)

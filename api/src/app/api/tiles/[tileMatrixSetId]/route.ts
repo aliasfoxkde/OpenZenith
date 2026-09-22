@@ -4,7 +4,7 @@ import { wmtsCapabilitiesResponse } from "../wmts-capabilities";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

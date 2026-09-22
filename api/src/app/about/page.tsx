@@ -13,9 +13,9 @@ function useTheme() {
   });
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => setDark(e.matches);
+    const handler = (e: MediaQueryListEvent) => { setDark(e.matches); };
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    return () => { mq.removeEventListener("change", handler); };
   }, []);
   return dark;
 }
@@ -25,15 +25,20 @@ const S = `
 .ab-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif}
 .ab-body{max-width:800px;margin:0 auto;padding:2rem 2rem 4rem}
 .ab-body h1{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;letter-spacing:-0.02em}
-.ab-body .sub{color:#888;font-size:0.85rem;margin:0 0 2.5rem;line-height:1.6}
-.ab-body h2{font-size:1.05rem;font-weight:600;margin:2rem 0 0.75rem;padding-bottom:0.5rem;border-bottom:1px solid rgba(255,255,255,0.06)}
+/* Text colors use the global theme tokens (WCAG AAA 7:1 on both themes). */
+.ab-body .sub{color:var(--oz-text-secondary);font-size:0.85rem;margin:0 0 2.5rem;line-height:1.6}
+.ab-body h2{font-size:1.05rem;font-weight:600;margin:2rem 0 0.75rem;padding-bottom:0.5rem;border-bottom:1px solid var(--oz-border)}
 .ab-body h3{font-size:0.9rem;font-weight:600;margin:1.25rem 0 0.5rem}
-.ab-body p{font-size:0.85rem;color:#888;line-height:1.7;margin:0.5rem 0}
-.ab-body a{color:#4a9eff;text-decoration:none}
+.ab-body p{font-size:0.85rem;color:var(--oz-text-secondary);line-height:1.7;margin:0.5rem 0}
+.ab-body a{color:#5aa9ff;text-decoration:none}
+[data-theme="light"] .ab-body a{color:#084a85}
 .ab-body a:hover{text-decoration:underline}
-.ab-body code{background:rgba(74,158,255,0.1);color:#4a9eff;padding:0.1rem 0.3rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.82rem}
-.ab-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:1.25rem;margin-bottom:0.75rem;transition:border-color .15s}
-.ab-card:hover{border-color:rgba(255,255,255,0.12)}
+/* In-text links must be distinguishable without color alone (WCAG 1.4.1). */
+.ab-body p a{text-decoration:underline}
+.ab-body code{background:rgba(90,169,255,0.12);color:#5aa9ff;padding:0.1rem 0.3rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.82rem}
+[data-theme="light"] .ab-body code{background:rgba(8,74,133,0.08);color:#084a85}
+.ab-card{background:var(--oz-bg-card);border:1px solid var(--oz-border);border-radius:12px;padding:1.25rem;margin-bottom:0.75rem;transition:border-color .15s}
+.ab-card:hover{border-color:#333}
 .ab-card .icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.9rem;margin-bottom:0.5rem}
 .ab-card .icon.green{background:rgba(34,197,94,0.12);color:#22c55e}
 .ab-card .icon.blue{background:rgba(74,158,255,0.12);color:#4a9eff}
@@ -42,19 +47,21 @@ const S = `
 .ab-card .icon.rose{background:rgba(244,63,94,0.12);color:#f43f5e}
 .ab-card .icon.cyan{background:rgba(6,182,212,0.12);color:#06b6d4}
 .ab-card h3{margin:0 0 0.2rem;font-size:0.9rem;font-weight:600}
-.ab-card p{margin:0;color:#888;font-size:0.82rem;line-height:1.5}
+.ab-card p{margin:0;color:var(--oz-text-secondary);font-size:0.82rem;line-height:1.5}
 .ab-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.75rem;margin:1rem 0 2rem}
-.ab-stat{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:1rem;text-align:center}
+.ab-stat{background:var(--oz-bg-card);border:1px solid var(--oz-border);border-radius:10px;padding:1rem;text-align:center}
+/* Stat numbers: #22c55e passes AAA on the dark bg; green-900 for light. */
 .ab-stat .num{font-size:1.5rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:#22c55e}
-.ab-stat .label{font-size:0.72rem;color:#666;margin-top:0.25rem}
+[data-theme="light"] .ab-stat .num{color:#14532d}
+.ab-stat .label{font-size:0.72rem;color:var(--oz-text-secondary);margin-top:0.25rem}
 .ab-timeline{position:relative;padding-left:2rem;margin:1rem 0}
-.ab-timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.08)}
+.ab-timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:1px;background:var(--oz-border)}
 .ab-timeline-item{position:relative;margin-bottom:1.5rem}
-.ab-timeline-item::before{content:'';position:absolute;left:-2rem;top:0.35rem;width:14px;height:14px;border-radius:50%;background:#22c55e;border:2px solid #0a0a0a}
-.ab-timeline-item h4{margin:0 0 0.15rem;font-size:0.85rem;font-weight:600;color:#ccc}
-.ab-timeline-item p{margin:0;font-size:0.8rem;color:#666;line-height:1.5}
+.ab-timeline-item::before{content:'';position:absolute;left:-2rem;top:0.35rem;width:14px;height:14px;border-radius:50%;background:#22c55e;border:2px solid var(--oz-bg)}
+.ab-timeline-item h3{margin:0 0 0.15rem;font-size:0.85rem;font-weight:600;color:var(--oz-text)}
+.ab-timeline-item p{margin:0;font-size:0.8rem;color:var(--oz-text-secondary);line-height:1.5}
 .ab-tech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.5rem;margin:0.75rem 0}
-.ab-tech-tag{padding:0.4rem 0.7rem;font-size:0.78rem;background:rgba(255,255,255,0.03);color:#888;border:1px solid rgba(255,255,255,0.06);border-radius:6px;text-align:center;font-family:'JetBrains Mono',monospace}
+.ab-tech-tag{padding:0.4rem 0.7rem;font-size:0.78rem;background:var(--oz-bg-code);color:var(--oz-text-secondary);border:1px solid var(--oz-border);border-radius:6px;text-align:center;font-family:'JetBrains Mono',monospace}
 @media(max-width:768px){
   .ab-body{padding:1rem 1.25rem 3rem}
   .ab-stat-grid{grid-template-columns:repeat(2,1fr)}
@@ -74,7 +81,7 @@ export default function AboutPage() {
 
         <Navbar dark breadcrumb="About" />
 
-        <div className="ab-body">
+        <main className="ab-body">
           <h1>About OpenZenith</h1>
           <p className="sub">
             A free, open-source geospatial platform providing global elevation data, interactive maps, and geospatial
@@ -279,41 +286,41 @@ export default function AboutPage() {
           <h2>Project History</h2>
           <div className="ab-timeline">
             <div className="ab-timeline-item">
-              <h4>SRTM Data Processing</h4>
+              <h3>SRTM Data Processing</h3>
               <p>
                 Converted NASA SRTM HGT files into OZT1-compressed terrain tiles, optimized for edge delivery via
                 Cloudflare R2.
               </p>
             </div>
             <div className="ab-timeline-item">
-              <h4>API Launch</h4>
+              <h3>API Launch</h3>
               <p>
                 Built the elevation API on Cloudflare Edge Runtime with bilinear interpolation, tile caching, and
                 CORS-free access.
               </p>
             </div>
             <div className="ab-timeline-item">
-              <h4>Interactive Map</h4>
+              <h3>Interactive Map</h3>
               <p>
                 Added a full-featured MapLibre GL map with hillshade, 3D terrain, multiple basemaps, and elevation pin
                 queries.
               </p>
             </div>
             <div className="ab-timeline-item">
-              <h4>Globe</h4>
+              <h3>Globe</h3>
               <p>
                 Integrated CesiumJS for a 3D globe with real-time overlays: earthquakes, flights, satellites, and
                 natural events.
               </p>
             </div>
             <div className="ab-timeline-item">
-              <h4>Data Explorer</h4>
+              <h3>Data Explorer</h3>
               <p>
                 Built a multi-tab data explorer integrating NOAA, USGS, Celestrak, OpenSky, ArcGIS, and Overpass API.
               </p>
             </div>
             <div className="ab-timeline-item">
-              <h4>Platform Expansion</h4>
+              <h3>Platform Expansion</h3>
               <p>
                 Expanded with shared components, quality infrastructure (ESLint, Prettier, Vitest), and comprehensive
                 API documentation.
@@ -342,7 +349,7 @@ export default function AboutPage() {
             </a>
             . Elevation data is sourced from NASA SRTM, which is public domain.
           </p>
-        </div>
+        </main>
 
         <GetInTouch
           dark={dark}

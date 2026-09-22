@@ -125,7 +125,7 @@ function getFormat(request: NextRequest): Format {
   return FMT_PNG;
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

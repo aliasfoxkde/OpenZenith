@@ -16,8 +16,6 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
         fetch("/api/hurricanes?track=full"),
       ]);
 
-      if (!map.getSource) return;
-
       // Build combined GeoJSON
       const features: GeoJSON.Feature[] = [];
 
@@ -174,8 +172,12 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000),
+  );
 }
 
 export function removeHurricaneTracks(map: maplibregl.Map): void {
@@ -200,9 +202,13 @@ export function startHurricaneAnimation(
   if (!source?._data?.features) return;
 
   // Collect timestamps from track data (MultiLineString features with times/winds arrays)
-  const trackFeatures = source._data.features.filter(
-    (f: GeoJSON.Feature) => f.geometry?.type === "MultiLineString" && (f.properties as Record<string, unknown>)?.times,
-  );
+  // GeoJSON allows `geometry: null` and `properties: null`, so both stay
+  // guarded even though the Feature type marks them non-optional.
+  const trackFeatures = source._data.features.filter((f: GeoJSON.Feature) => {
+    const geometry = f.geometry as GeoJSON.Geometry | null;
+    const properties = f.properties as Record<string, unknown> | null;
+    return geometry?.type === "MultiLineString" && properties?.times;
+  });
 
   if (trackFeatures.length === 0) return;
 
@@ -264,7 +270,7 @@ export function startHurricaneAnimation(
 
 export function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle): void {
   while (handle.intervals.length > 0) {
-    clearInterval(handle.intervals.pop()!);
+    clearInterval(handle.intervals.pop());
   }
   // Re-fetch to restore full tracks
   if (map.getSource("hurricanes")) {

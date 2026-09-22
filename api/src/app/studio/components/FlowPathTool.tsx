@@ -16,7 +16,7 @@ interface Props {
   cursorPos: { lat: number; lon: number } | null;
   imperial?: boolean;
   /** Shared ref — set by FlowPathTool, read by Studio page click handler */
-  flowPathClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
+  flowPathClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
 }
 
 const FLOW_SOURCE = "flowpath-source";
@@ -71,7 +71,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
 
     const fc: GeoJSON.FeatureCollection = {
       type: "FeatureCollection",
-      features: features.map((p) => p.geojson as GeoJSON.Feature),
+      features: features.map((p) => p.geojson),
     };
     (mapRef2.current.getSource(FLOW_SOURCE) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void }).setData(
       fc,
@@ -131,7 +131,9 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
         },
       });
     }
-  }, [map]);
+    // Reads the map through mapRef2.current, so the map prop itself is not a
+    // dependency (addLayer stays valid across map instances).
+  }, []);
 
   /** Color a path segment by elevation gradient (blue=low → brown/green=high) */
   function elevationColor(minElev: number, maxElev: number, elev: number): string {
@@ -270,11 +272,17 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   // Expose click handler to parent page
   useEffect(() => {
     if (!flowPathClickRef) return;
-    flowPathClickRef.current = mode !== "none" ? handleClick : null;
+    // handleClick is async; the shared ref contract is a void handler, so the
+    // promise is discarded here (it handles its own errors).
+    flowPathClickRef.current =
+      mode !== "none"
+        ? (lat: number, lon: number) => void handleClick(lat, lon)
+        : null;
     return () => {
-      if (flowPathClickRef) flowPathClickRef.current = null;
+      flowPathClickRef.current = null;
     };
-  }, [handleClick, mode]);
+    // flowPathClickRef is a stable ref prop; listed to satisfy the rule.
+  }, [handleClick, mode, flowPathClickRef]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -291,7 +299,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   const handleExport = () => {
     const fc: GeoJSON.FeatureCollection = {
       type: "FeatureCollection",
-      features: paths.map((p) => p.geojson as GeoJSON.Feature),
+      features: paths.map((p) => p.geojson),
     };
     const blob = new Blob([JSON.stringify(fc, null, 2)], { type: "application/geo+json" });
     const url = URL.createObjectURL(blob);
@@ -325,7 +333,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
       {/* Mode buttons */}
       <div style={{ display: "flex", gap: 6 }}>
         <button
-          onClick={() => handleModeToggle("downstream")}
+          onClick={() => { handleModeToggle("downstream"); }}
           style={{
             flex: 1,
             padding: "8px 4px",
@@ -341,7 +349,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           ↓ Downstream
         </button>
         <button
-          onClick={() => handleModeToggle("upstream")}
+          onClick={() => { handleModeToggle("upstream"); }}
           style={{
             flex: 1,
             padding: "8px 4px",
@@ -369,7 +377,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               max={0.01}
               step={0.0001}
               value={precision}
-              onChange={(e) => setPrecision(parseFloat(e.target.value))}
+              onChange={(e) => { setPrecision(parseFloat(e.target.value)); }}
               style={{ flex: 1 }}
             />
             <span style={{ color: text, fontFamily: "monospace", minWidth: 50, textAlign: "right" }}>
@@ -384,7 +392,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               max={90}
               step={1}
               value={directions}
-              onChange={(e) => setDirections(parseInt(e.target.value))}
+              onChange={(e) => { setDirections(parseInt(e.target.value)); }}
               style={{ flex: 1 }}
             />
             <span style={{ color: text, fontFamily: "monospace", minWidth: 30, textAlign: "right" }}>{directions}</span>
@@ -397,7 +405,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               max={10000}
               step={100}
               value={maxPoints}
-              onChange={(e) => setMaxPoints(parseInt(e.target.value))}
+              onChange={(e) => { setMaxPoints(parseInt(e.target.value)); }}
               style={{ flex: 1 }}
             />
             <span style={{ color: text, fontFamily: "monospace", minWidth: 50, textAlign: "right" }}>

@@ -298,7 +298,7 @@ export function loadCurrents(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   _removeEntities: (prefix: string) => void,
-  _intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  _intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   _stateLayers: { currents: boolean },
 ) {
   updateStatus("currents", { error: null });

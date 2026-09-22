@@ -391,8 +391,8 @@ function renderFrame() {
   const map = mapRef;
   const canvas = canvasEl;
   if (!map || !canvas) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getContainer
-  const container = (map as any).getContainer();
+  // The local maplibregl shim omits getContainer; the runtime Map always has it.
+  const container = (map as unknown as { getContainer(): HTMLElement | undefined }).getContainer();
   if (!container) return;
 
   const width = container.clientWidth;

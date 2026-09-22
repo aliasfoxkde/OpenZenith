@@ -28,7 +28,7 @@ export function loadEarthquakes(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { earthquakes: boolean },
 ) {
   updateStatus("earthquakes", { error: null });
@@ -166,32 +166,36 @@ export function loadEarthquakes(
 
   const retry = createRetryGuard();
 
+  const refresh = async () => {
+    if (!stateLayers.earthquakes) return;
+    try {
+      const d = await fetchEarthquakes();
+      removeEntities("eq-");
+      const fs = d.features || [];
+      fs.forEach((f: any, i: number) => { addQuakeEntity(f, i); });
+      updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
+      retry.recordSuccess();
+    } catch (err) {
+      warnLayerError("earthquakes", err, "entity build");
+      retry.recordFailure();
+      if (retry.shouldRetry) {
+        updateStatus("earthquakes", { error: `Retrying (${retry.failureCount}/5)...` });
+      } else {
+        updateStatus("earthquakes", { error: "Data unavailable after 5 failed attempts" });
+      }
+    }
+  };
+
   const doLoad = async () => {
     try {
       const data = await fetchEarthquakes();
       if (!Cesium || !viewer) return;
       const features = data.features || [];
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f: any, i: number) => addQuakeEntity(f, i));
+      features.forEach((f: any, i: number) => { addQuakeEntity(f, i); });
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.earthquakes) return;
-        try {
-          const d = await fetchEarthquakes();
-          removeEntities("eq-");
-          const fs = d.features || [];
-          fs.forEach((f: any, i: number) => addQuakeEntity(f, i));
-          updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
-          retry.recordSuccess();
-        } catch (err) {
-          warnLayerError("earthquakes", err, "entity build");
-          retry.recordFailure();
-          if (retry.shouldRetry) {
-            updateStatus("earthquakes", { error: `Retrying (${retry.failureCount}/5)...` });
-          } else {
-            updateStatus("earthquakes", { error: "Data unavailable after 5 failed attempts" });
-          }
-        }
+      const iv = setInterval(() => {
+        void refresh();
       }, 60000);
       intervalsRef.current.push(iv);
     } catch {
@@ -199,7 +203,7 @@ export function loadEarthquakes(
     }
   };
 
-  doLoad();
+  void doLoad();
 }
 
 /** Convert MMI intensity to human-readable label */

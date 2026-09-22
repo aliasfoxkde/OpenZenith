@@ -48,6 +48,7 @@ from openzenith.hydrology import (
 
 def make_slope_dem(rows=10, cols=10, nodata=-32768.0):
     """Create a simple DEM that slopes down from top-left to bottom-right.
+
     All cells have valid downhill flow.
     """
     dem = np.zeros((rows, cols), dtype=np.float32)
@@ -80,6 +81,7 @@ class TestD8FlowDirection:
 
     def test_pit_filled(self):
         """After pit-fill, a DEM with a pit should have no NODATA pits remaining.
+
         The filled pit becomes flat (equal to spill elevation) which is expected.
         """
         # Create a 5x5 DEM with a pit in center (lower than all neighbors)
@@ -94,8 +96,7 @@ class TestD8FlowDirection:
         assert filled[2, 2] != 50.0
 
     def test_depression_filled_no_flat_pits(self):
-        """Pit-fill should create drainage from a bowl-shaped depression.
-        """
+        """Pit-fill should create drainage from a bowl-shaped depression."""
         # Create a bowl: edges=100, center=50, raised rim
         dem = np.ones((7, 7), dtype=np.float32) * 100.0
         for r in range(2, 5):
@@ -261,14 +262,18 @@ class TestDelineateWatershed:
     def test_delineate_watershed_returns_dict_or_none(self):
         """delineate_watershed returns None when load_elevation_grid raises."""
         import unittest.mock
+
         # Mock to raise an exception (simulates no tile data available)
-        with unittest.mock.patch("openzenith.elevation.load_elevation_grid", side_effect=Exception("No tiles")):
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid", side_effect=Exception("No tiles")
+        ):
             result = delineate_watershed(40.0, -74.0, zoom=10, radius_cells=50)
             assert result is None
 
     def test_delineate_watershed_returns_expected_keys(self):
         """When successful, result has expected keys."""
         import unittest.mock
+
         np.random.seed(42)
         dem = np.random.randint(100, 500, size=(100, 100)).astype(np.float32)
 
@@ -283,7 +288,9 @@ class TestDelineateWatershed:
             "center_lon": -74.0,
         }
 
-        with unittest.mock.patch("openzenith.elevation.load_elevation_grid", return_value=mock_result):
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid", return_value=mock_result
+        ):
             result = delineate_watershed(40.0, -74.0, zoom=10, radius_cells=50)
             if result is not None:
                 assert "center" in result
@@ -296,6 +303,7 @@ class TestDelineateWatershed:
     def test_delineate_watershed_zoom_parameter(self):
         """Different zoom levels work without crashing."""
         import unittest.mock
+
         np.random.seed(42)
         dem = np.random.randint(100, 500, size=(100, 100)).astype(np.float32)
 
@@ -310,7 +318,9 @@ class TestDelineateWatershed:
             "center_lon": -74.0,
         }
 
-        with unittest.mock.patch("openzenith.elevation.load_elevation_grid", return_value=mock_result):
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid", return_value=mock_result
+        ):
             result = delineate_watershed(40.0, -74.0, zoom=12, radius_cells=50)
             assert result is None or isinstance(result, dict)
 
@@ -321,6 +331,7 @@ class TestDrainageDensityIntegration:
     def test_drainage_density_returns_array(self):
         """drainage_density returns a 2D array of float values."""
         from openzenith.terrain import drainage_density
+
         flow_accum = np.ones((20, 20), dtype=np.float32)
         flow_accum[10, :] = 100
         result = drainage_density(flow_accum)
@@ -331,6 +342,7 @@ class TestDrainageDensityIntegration:
     def test_drainage_density_non_negative(self):
         """Drainage density values should be non-negative."""
         from openzenith.terrain import drainage_density
+
         np.random.seed(42)
         flow_accum = np.random.randint(1, 500, size=(30, 30)).astype(np.float32)
         result = drainage_density(flow_accum)
@@ -339,6 +351,7 @@ class TestDrainageDensityIntegration:
     def test_drainage_density_reasonable_value(self):
         """Drainage density values should be in a reasonable range."""
         from openzenith.terrain import drainage_density
+
         np.random.seed(42)
         flow_accum = np.random.randint(1, 500, size=(30, 30)).astype(np.float32)
         result = drainage_density(flow_accum)

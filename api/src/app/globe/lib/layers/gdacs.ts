@@ -33,7 +33,7 @@ export function loadGDACS(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { gdacs: boolean },
 ) {
   updateStatus("gdacs", { error: null });
@@ -102,10 +102,10 @@ export function loadGDACS(
 
       updateStatus("gdacs", { lastUpdate: Date.now(), count });
 
-      const iv = setInterval(async () => {
+      const iv = setInterval(() => {
         if (!stateLayers.gdacs) return;
         removeEntities("gdacs-");
-        doLoad();
+        void doLoad();
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -114,5 +114,5 @@ export function loadGDACS(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

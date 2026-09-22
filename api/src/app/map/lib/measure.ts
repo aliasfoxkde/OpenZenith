@@ -154,8 +154,8 @@ export function createMeasureController() {
       });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (map.getSource(sourceId) as any).setData({
+     
+    (map.getSource(sourceId)).setData({
       type: "FeatureCollection",
       features,
     });

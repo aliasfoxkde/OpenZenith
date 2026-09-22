@@ -39,8 +39,9 @@ function getContourInterval(zoom: number) {
   return { minor: 500, major: 2000 };
 }
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stays promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
@@ -280,15 +281,17 @@ function chainSegments(segments: [number, number][], _tolerance: number = 0.0005
   for (let i = 0; i < segments.length; i += 2) {
     const a = segments[i];
     const b = segments[i + 1];
-    if (!a || !b) continue;
 
     const keyA = pointStr(a[0], a[1]);
     const keyB = pointStr(b[0], b[1]);
 
-    if (!edgeMap.has(keyA)) edgeMap.set(keyA, []);
-    if (!edgeMap.has(keyB)) edgeMap.set(keyB, []);
-    edgeMap.get(keyA)!.push(b);
-    edgeMap.get(keyB)!.push(a);
+    const edgesA = edgeMap.get(keyA) ?? [];
+    edgesA.push(b);
+    edgeMap.set(keyA, edgesA);
+
+    const edgesB = edgeMap.get(keyB) ?? [];
+    edgesB.push(a);
+    edgeMap.set(keyB, edgesB);
   }
 
   const visited = new Set<string>();

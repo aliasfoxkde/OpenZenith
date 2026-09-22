@@ -6,6 +6,21 @@ description = "High-performance Rust core for OpenZenith terrain analysis"
 license = "MIT"
 repository = "https://github.com/aliasfox/openzenith"
 
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+# A terrain-analysis library must not panic on caller input: every failure
+# mode is a Result (or a documented error JSON for the CLI/WASM shells).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+# Deliberately NOT enabled: arithmetic_side_effects / cast_possible_truncation
+# / cast_sign_loss measured 103 hits, all in D8/viewshed neighbor indexing
+# where offsets are -1..1 and indices are bounded by the grid dimensions by
+# construction. Enforcing them would add 100+ unreachable assertions to hot
+# loops. Revisit if untrusted indices ever reach these functions directly.
+
 [lib]
 name = "openzenith_core"
 crate-type = ["cdylib", "rlib"]

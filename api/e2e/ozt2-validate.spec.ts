@@ -60,14 +60,14 @@ test.describe("OZT2 Tile Format", () => {
 
       const bytes = await resp.body();
       expect(bytes).not.toBeNull();
-      expect(bytes!.length).toBeGreaterThan(6);
+      expect(bytes.length).toBeGreaterThan(6);
 
       // Verify OZT2 header
-      const view = new DataView(bytes!.buffer, bytes!.byteOffset, 6);
+      const view = new DataView(bytes.buffer, bytes.byteOffset, 6);
       const vmin = view.getInt16(0, true);
       const vrange = view.getUint16(2, true);
-      const bits = new Uint8Array(bytes!.buffer, bytes!.byteOffset + 4, 1)[0];
-      const flags = new Uint8Array(bytes!.buffer, bytes!.byteOffset + 5, 1)[0];
+      const bits = new Uint8Array(bytes.buffer, bytes.byteOffset + 4, 1)[0];
+      const flags = new Uint8Array(bytes.buffer, bytes.byteOffset + 5, 1)[0];
 
       // Header sanity checks
       expect(vmin).toBeGreaterThanOrEqual(-500);   // Dead Sea
@@ -85,9 +85,9 @@ test.describe("OZT2 Tile Format", () => {
       expect(compressor).toBeLessThanOrEqual(2);
 
       // Just verify the tile is non-trivial (not empty/nodata)
-      const sizeKB = bytes!.length / 1024;
+      const sizeKB = bytes.length / 1024;
       console.log(`  ${tile.name}: ${sizeKB.toFixed(1)}KB`);
-      expect(bytes!.length).toBeGreaterThan(100);
+      expect(bytes.length).toBeGreaterThan(100);
     });
   }
 
@@ -101,10 +101,10 @@ test.describe("OZT2 Tile Format", () => {
     const body = await resp.body();
     expect(body).not.toBeNull();
     // PNG signature: 137 80 78 71 13 10 26 10
-    expect(body![0]).toBe(137);
-    expect(body![1]).toBe(80); // 'P'
-    expect(body![2]).toBe(78); // 'N'
-    expect(body![3]).toBe(71); // 'G'
+    expect(body[0]).toBe(137);
+    expect(body[1]).toBe(80); // 'P'
+    expect(body[2]).toBe(78); // 'N'
+    expect(body[3]).toBe(71); // 'G'
   });
 
   test("OZT2 tiles smaller than PNG equivalent", async ({ request }) => {
@@ -116,8 +116,6 @@ test.describe("OZT2 Tile Format", () => {
 
     const ozt2Bytes = await ozt2Resp.body();
     const pngBytes = await pngResp.body();
-
-    if (!ozt2Bytes || !pngBytes) return;
 
     const xFallback = ozt2Resp.headers()["x-dem-tile-format-fallback"];
     if (xFallback === "ozt2-to-png") {

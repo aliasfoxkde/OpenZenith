@@ -111,7 +111,9 @@ function delineateWatershed(
   visited.add(centerRow * cols + centerCol);
 
   while (queue.length > 0) {
-    const [r, c] = queue.shift()!;
+    const next = queue.shift();
+    if (!next) break;
+    const [r, c] = next;
     for (let d = 0; d < 8; d++) {
       const nr = r + D8_DR[d];
       const nc = c + D8_DC[d];
@@ -132,7 +134,7 @@ function delineateWatershed(
   return watershed;
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

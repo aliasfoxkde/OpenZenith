@@ -176,7 +176,7 @@ describe("HuggingFaceChunkBackend", () => {
     await makeBackend(true).fetchChunk(tile.name, 0, 0);
 
     expect(cachePutMock).toHaveBeenCalledTimes(1);
-    const [key, data] = cachePutMock.mock.calls[0] as [string, ArrayBuffer];
+    const [key, data] = cachePutMock.mock.calls[0];
     expect(key).toBe(`oz:merged:${tile.name}`);
     expect(Array.from(new Uint8Array(data))).toEqual(Array.from(new Uint8Array(merged)));
   });

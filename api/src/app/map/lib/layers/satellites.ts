@@ -144,8 +144,6 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
         } catch {}
       }
 
-      if (!map.getSource) return;
-
       if (features.length === 0) {
         setStatus(handle, "satellites", "empty");
         return;
@@ -166,8 +164,12 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000)); // 10 min refresh
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000), // 10 min refresh
+  );
 }
 
 export function removeSatellites(map: maplibregl.Map): void {

@@ -88,7 +88,7 @@ function flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint3
   return accum;
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

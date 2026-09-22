@@ -1,6 +1,5 @@
 """Tests for openzenith.vector — shapefile and GDB read/write."""
 
-
 import pytest
 
 # shapefile is pyshp
@@ -12,7 +11,6 @@ from openzenith.vector import shapefile_to_geojson
 class TestShapefileToGeojson:
     def test_point_features(self, tmp_path):
         """Convert point shapefile to GeoJSON."""
-
         shp_path = tmp_path / "points.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
             w.field("name", "C")
@@ -35,7 +33,6 @@ class TestShapefileToGeojson:
 
     def test_polygon_features(self, tmp_path):
         """Convert polygon shapefile to GeoJSON."""
-
         shp_path = tmp_path / "polys.shp"
         with shapefile.Writer(str(shp_path), shapefile.POLYGON) as w:
             w.field("id", "N")
@@ -52,7 +49,6 @@ class TestShapefileToGeojson:
 
     def test_linestring_features(self, tmp_path):
         """Convert linestring shapefile to GeoJSON."""
-
         shp_path = tmp_path / "lines.shp"
         with shapefile.Writer(str(shp_path), shapefile.POLYLINE) as w:
             w.field("name", "C")
@@ -66,7 +62,6 @@ class TestShapefileToGeojson:
 
     def test_bbox_filter(self, tmp_path):
         """Bounding box filter excludes features outside bbox."""
-
         shp_path = tmp_path / "filtered.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
             w.field("id", "N")
@@ -82,7 +77,6 @@ class TestShapefileToGeojson:
 
     def test_field_filter(self, tmp_path):
         """Only requested fields are included in properties."""
-
         shp_path = tmp_path / "fields.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
             w.field("a", "N")
@@ -100,7 +94,6 @@ class TestShapefileToGeojson:
 
     def test_empty_shapefile(self, tmp_path):
         """Empty shapefile returns empty FeatureCollection."""
-
         shp_path = tmp_path / "empty.shp"
         with shapefile.Writer(str(shp_path), shapefile.POINT) as w:
             w.field("id", "N")
@@ -119,6 +112,7 @@ class TestGdbToGeojson:
         monkeypatch.setitem(__import__("sys").modules, "fiona", None)
         # Force reimport to trigger ImportError
         import importlib
+
         importlib.reload(vector_module)
 
         with pytest.raises(ImportError, match="requires fiona"):
@@ -129,6 +123,7 @@ class TestGdbToGeojson:
         import importlib
 
         import openzenith.vector as vector_module
+
         importlib.reload(vector_module)
 
         monkeypatch.setitem(__import__("sys").modules, "fiona", None)
@@ -142,6 +137,7 @@ class TestExportToGdb:
         import importlib
 
         import openzenith.vector as vector_module
+
         importlib.reload(vector_module)
 
         monkeypatch.setitem(__import__("sys").modules, "fiona", None)

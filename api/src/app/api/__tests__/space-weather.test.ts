@@ -27,7 +27,7 @@ function request(type?: string): NextRequest {
 }
 
 function okResponse(): void {
-  mockFetch.mockImplementation(async (url: string) => (url === KP_URL ? jsonResponse(KP_PAYLOAD) : jsonResponse(AURORA_PAYLOAD)));
+  mockFetch.mockImplementation((url: string) => Promise.resolve(url === KP_URL ? jsonResponse(KP_PAYLOAD) : jsonResponse(AURORA_PAYLOAD)));
 }
 
 /**
@@ -36,11 +36,11 @@ function okResponse(): void {
  */
 function queueResponses(...responses: Array<Response | Error>): void {
   const pending = [...responses];
-  mockFetch.mockImplementation(async () => {
+  mockFetch.mockImplementation(() => {
     const next = pending.shift();
-    if (!next) throw new Error("unexpected extra fetch");
-    if (next instanceof Error) throw next;
-    return next;
+    if (!next) return Promise.reject(new Error("unexpected extra fetch"));
+    if (next instanceof Error) return Promise.reject(next);
+    return Promise.resolve(next);
   });
 }
 
@@ -59,7 +59,7 @@ afterEach(() => {
 describe("Space weather API (/api/space-weather)", () => {
   it("exposes CORS preflight", async () => {
     const { OPTIONS } = await import("@/app/api/space-weather/route");
-    const resp = await OPTIONS();
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });

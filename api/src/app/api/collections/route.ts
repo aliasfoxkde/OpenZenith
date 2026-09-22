@@ -3,7 +3,7 @@ import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -46,7 +46,7 @@ const FEATURE_COLLECTIONS = [
   },
 ];
 
-export async function GET(request: NextRequest) {
+export function GET(request: NextRequest) {
   try {
     const baseUrl = new URL(request.url).origin;
     const collections = FEATURE_COLLECTIONS.map((col) => ({

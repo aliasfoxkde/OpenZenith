@@ -43,7 +43,6 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
 
       setStatus(handle, "volcanoes", features.length ? "loaded" : "empty", features.length);
 
-      if (!map.getSource) return;
       try {
         const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
 
@@ -90,8 +89,12 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000)); // 10 min (weekly report)
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000), // 10 min (weekly report)
+  );
 }
 
 export function removeVolcanoes(map: maplibregl.Map): void {

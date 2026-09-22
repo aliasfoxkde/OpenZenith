@@ -42,7 +42,9 @@ def _make_slope_tile(shape=(64, 64), nodata=-32768):
 class TestEncodeDecode:
     """Test encode/decode roundtrip for all compression modes."""
 
-    @pytest.mark.parametrize("compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT])
+    @pytest.mark.parametrize(
+        "compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT]
+    )
     def test_roundtrip_random_tile(self, compression):
         """Random tile should roundtrip losslessly."""
         arr = _make_test_tile()
@@ -53,7 +55,9 @@ class TestEncodeDecode:
         assert meta["height"] == 256
         assert meta["bits_per_sample"] == 16
 
-    @pytest.mark.parametrize("compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT])
+    @pytest.mark.parametrize(
+        "compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT]
+    )
     def test_roundtrip_flat_tile(self, compression):
         """Flat tile should roundtrip and compress well."""
         arr = _make_flat_tile()
@@ -61,7 +65,9 @@ class TestEncodeDecode:
         decoded, _meta = decode(encoded)
         assert_array_equal(arr, decoded)
 
-    @pytest.mark.parametrize("compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT])
+    @pytest.mark.parametrize(
+        "compression", [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT]
+    )
     def test_roundtrip_slope_tile(self, compression):
         """Slope tile tests prediction effectiveness."""
         arr = _make_slope_tile()
@@ -71,7 +77,15 @@ class TestEncodeDecode:
 
     def test_small_tile(self):
         """Tiny tile (4x4) should work."""
-        arr = np.array([[100, 101, 102, 103], [110, 111, 112, 113], [120, 121, 122, 123], [130, 131, 132, 133]], dtype=np.int16)
+        arr = np.array(
+            [
+                [100, 101, 102, 103],
+                [110, 111, 112, 113],
+                [120, 121, 122, 123],
+                [130, 131, 132, 133],
+            ],
+            dtype=np.int16,
+        )
         for comp in [COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT]:
             encoded = encode(arr, compression=comp)
             decoded, _ = decode(encoded)

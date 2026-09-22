@@ -14,12 +14,20 @@ interface MilitaryAircraft {
   [key: string]: unknown;
 }
 
+/** Aircraft record guaranteed to carry coordinates. */
+type LocatedAircraft = MilitaryAircraft & { lat: number; lon: number };
+
+/** The fetcher only keeps aircraft that carry coordinates. */
+function hasCoordinates(a: MilitaryAircraft): a is LocatedAircraft {
+  return Boolean(a.lat && a.lon);
+}
+
 export function loadMilitaryFlights(
   viewer: any,
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { militaryFlights: boolean },
 ) {
   updateStatus("militaryFlights", { error: null });
@@ -34,14 +42,14 @@ export function loadMilitaryFlights(
         }
         return;
       }
-      const ac = data.ac.filter((a: MilitaryAircraft) => a.lat && a.lon);
+      const ac = data.ac.filter(hasCoordinates);
       updateStatus("militaryFlights", { lastUpdate: Date.now(), count: ac.length });
-      ac.forEach((a: MilitaryAircraft, i: number) => {
+      ac.forEach((a: LocatedAircraft, i: number) => {
         const alt = a.alt_baro || a.alt_geom || 0;
         viewer.entities.add({
           id: `mil-${i}`,
           name: a.call || a.reg || "MIL",
-          position: Cesium.Cartesian3.fromDegrees(a.lon!, a.lat!, alt),
+          position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, alt),
           point: { pixelSize: 5, color: Cesium.Color.MAGENTA, outlineColor: Cesium.Color.WHITE.withAlpha(0.3) },
           label: {
             text: a.call || "",
@@ -57,18 +65,17 @@ export function loadMilitaryFlights(
         });
       });
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.militaryFlights) return;
+      const refresh = async () => {
         try {
           const d = await fetchMilitaryFlights();
           if (d.ac) {
             removeEntities("mil-");
             d.ac
-              .filter((a: MilitaryAircraft) => a.lat && a.lon)
-              .forEach((a: MilitaryAircraft, i: number) => {
+              .filter(hasCoordinates)
+              .forEach((a: LocatedAircraft, i: number) => {
                 viewer.entities.add({
                   id: `mil-${i}`,
-                  position: Cesium.Cartesian3.fromDegrees(a.lon!, a.lat!, a.alt_baro || 0),
+                  position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, a.alt_baro || 0),
                   point: { pixelSize: 5, color: Cesium.Color.MAGENTA },
                   label: {
                     text: a.call || "",
@@ -95,6 +102,11 @@ export function loadMilitaryFlights(
             updateStatus("militaryFlights", { error: "Data unavailable after 5 failed attempts" });
           }
         }
+      };
+
+      const iv = setInterval(() => {
+        if (!stateLayers.militaryFlights) return;
+        void refresh();
       }, 30000);
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -104,5 +116,5 @@ export function loadMilitaryFlights(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

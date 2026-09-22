@@ -11,7 +11,7 @@ import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

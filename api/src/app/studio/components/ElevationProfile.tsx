@@ -31,11 +31,13 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
   useEffect(() => {
     if (coordinates.length < 2) return;
 
-    let cancelled = false;
+    // Explicitly `boolean` — the cleanup closure below mutates this flag, so
+    // the checks inside the effect must not be folded to a constant.
+    let cancelled: boolean = false;
     setLoading(true);
     setError(null);
 
-    (async () => {
+    void (async () => {
       try {
         // Compute distances between consecutive points
         const pointsWithDist: ElevationPoint[] = [

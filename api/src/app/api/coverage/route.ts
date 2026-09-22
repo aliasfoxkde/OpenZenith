@@ -3,8 +3,9 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 /**
@@ -15,7 +16,9 @@ export async function OPTIONS() {
  *
  * Tile imagery is served via: /api/elevation-accuracy/{z}/{x}/{y}
  */
-export async function GET() {
+// No upstream I/O — the handler only builds a static payload. It stays
+// promise-returning because callers await handlers.
+export function GET() {
   const datasets = [
     {
       id: "arcticdem",
@@ -79,7 +82,7 @@ export async function GET() {
     },
   ];
 
-  return NextResponse.json(
+  const response = NextResponse.json(
     { datasets, tileEndpoint: "/api/elevation-accuracy/{z}/{x}/{y}" },
     {
       headers: {
@@ -88,4 +91,5 @@ export async function GET() {
       },
     },
   );
+  return Promise.resolve(response);
 }

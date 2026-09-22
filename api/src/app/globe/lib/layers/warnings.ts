@@ -9,7 +9,7 @@ export function loadWarnings(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { warnings: boolean },
 ) {
   updateStatus("warnings", { error: null });
@@ -83,6 +83,24 @@ export function loadWarnings(
     }
   };
 
+  const refresh = async () => {
+    if (!stateLayers.warnings) return;
+    try {
+      const d = await fetchWarnings();
+      if (d.features) {
+        removeEntities("warn-");
+        d.features.forEach(addWarningEntity);
+        updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length });
+      }
+    } catch (err) {
+      warnLayerError("warnings", err, "entity build");
+      retry.recordFailure();
+      updateStatus("warnings", {
+        error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Warning data unavailable",
+      });
+    }
+  };
+
   const doLoad = async () => {
     try {
       const data = await fetchWarnings();
@@ -90,22 +108,8 @@ export function loadWarnings(
       updateStatus("warnings", { lastUpdate: Date.now(), count: data.features.length });
       data.features.forEach(addWarningEntity);
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.warnings) return;
-        try {
-          const d = await fetchWarnings();
-          if (d.features) {
-            removeEntities("warn-");
-            d.features.forEach(addWarningEntity);
-            updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length });
-          }
-        } catch (err) {
-          warnLayerError("warnings", err, "entity build");
-          retry.recordFailure();
-          updateStatus("warnings", {
-            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Warning data unavailable",
-          });
-        }
+      const iv = setInterval(() => {
+        void refresh();
       }, 300000);
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -115,5 +119,5 @@ export function loadWarnings(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

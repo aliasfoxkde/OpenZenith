@@ -102,7 +102,7 @@ async function loadWasm(): Promise<WasmExports> {
   const init = initModule.default as (module_or_path?: Request | URL | string | ArrayBuffer) => Promise<WasmExports>;
   // ~ prefix resolves via webpack — use fetchable URL so init loads from same dir
   const wasmUrl = new URL("/pkg/openzenith_core_bg.wasm", window.location.origin);
-  return (await init(wasmUrl)) as WasmExports;
+  return (await init(wasmUrl));
 }
 
 /** Copy a Float32Array into WASM linear memory, return pointer + length. */
@@ -123,8 +123,8 @@ function fdToWasm(wasm: WasmExports, fd: Int8Array): [number, number] {
 function readVecU8(wasm: WasmExports, ptr: number): Uint8Array {
   const view = new Uint32Array(wasm.memory.buffer);
   const metaPtr = ptr - 16;
-  const dataPtr = Number(view[metaPtr / 4]);
-  const dataLen = Number(view[metaPtr / 4 + 1]);
+  const dataPtr = view[metaPtr / 4];
+  const dataLen = view[metaPtr / 4 + 1];
   return new Uint8Array(wasm.memory.buffer).slice(dataPtr, dataPtr + dataLen);
 }
 
@@ -133,8 +133,8 @@ function readVecU32(wasm: WasmExports, ptr: number): Uint32Array {
   // wasm-bindgen stores [ptr, len] at ptr-16 for Vec<T>
   const view = new Uint32Array(wasm.memory.buffer);
   const metaPtr = ptr - 16;
-  const dataPtr = Number(view[metaPtr / 4]);
-  const dataLen = Number(view[metaPtr / 4 + 1]);
+  const dataPtr = view[metaPtr / 4];
+  const dataLen = view[metaPtr / 4 + 1];
   return new Uint32Array(wasm.memory.buffer).slice(dataPtr / 4, dataPtr / 4 + dataLen);
 }
 
@@ -179,7 +179,8 @@ function elevationColour(v: number, minE: number, maxE: number): [number, number
 // ─── Canvas renderers ────────────────────────────────────────────────────────
 
 function renderFlowDir(canvas: HTMLCanvasElement, fd: Uint8Array, rows: number, cols: number) {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   canvas.width = cols;
   canvas.height = rows;
   const img = ctx.createImageData(cols, rows);
@@ -194,7 +195,8 @@ function renderFlowDir(canvas: HTMLCanvasElement, fd: Uint8Array, rows: number, 
 }
 
 function renderFlowAcc(canvas: HTMLCanvasElement, acc: Uint32Array, rows: number, cols: number) {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   canvas.width = cols;
   canvas.height = rows;
   const img = ctx.createImageData(cols, rows);
@@ -218,7 +220,8 @@ function _renderDEM(
   maxE: number,
   highlightCell?: [number, number],
 ) {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   canvas.width = cols;
   canvas.height = rows;
   const img = ctx.createImageData(cols, rows);
@@ -249,7 +252,8 @@ function _renderDEM(
 }
 
 function renderViewshed(canvas: HTMLCanvasElement, vis: Uint8Array, rows: number, cols: number) {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   canvas.width = cols;
   canvas.height = rows;
   const img = ctx.createImageData(cols, rows);
@@ -329,7 +333,7 @@ export default function WasmDemo() {
         setStatus("WASM loaded — running demos...");
         runDemos(m);
       })
-      .catch((e) => setStatus(`Error: ${e}`));
+      .catch((e: unknown) => { setStatus(`Error: ${String(e)}`); });
   }, []);
 
   function runDemos(w: WasmExports) {
@@ -426,7 +430,7 @@ export default function WasmDemo() {
       // Our demo encoder uses compressor=0 (none), so we return data as-is.
       const result = w.decode_ozt2(tileBytes, (bytes: Uint8Array, _codec: string) => bytes);
       const ms = performance.now() - t0;
-      const decodedElevs = result.elevations as unknown as Uint16Array;
+      const decodedElevs = result.elevations;
       setOzeTileInfo(
         `Decoded ${W}×${H} tile in ${ms.toFixed(1)}ms — ` +
           `range: [${decodedElevs[0]}, ${Math.max(...decodedElevs)}]m`,

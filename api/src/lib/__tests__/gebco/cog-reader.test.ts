@@ -25,13 +25,13 @@ interface Call {
 /** Stub fetch, serving a strip per quadrant and recording every range request. */
 function stubFetch(buildStrip: (url: string) => { body: Uint8Array; status: number }): { calls: Call[] } {
   const calls: Call[] = [];
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input.toString();
-    const range = String(new Headers(init?.headers).get("Range") ?? "");
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const range = new Headers(init?.headers).get("Range") ?? "";
     calls.push({ url, range, status: 0 });
     const { body, status } = buildStrip(url);
     calls[calls.length - 1].status = status;
-    return new Response(body as unknown as BodyInit, { status });
+    return Promise.resolve(new Response(body as unknown as BodyInit, { status }));
   });
   vi.stubGlobal("fetch", fetchMock);
   return { calls };
@@ -179,9 +179,7 @@ describe("getGebcoElevation", () => {
   it("propagates a network failure to the caller", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
-        throw new TypeError("fetch failed");
-      }),
+      vi.fn((): Promise<Response> => Promise.reject(new TypeError("fetch failed"))),
     );
 
     await expect(getGebcoElevation(40, -74)).rejects.toThrow("fetch failed");

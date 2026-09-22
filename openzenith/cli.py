@@ -36,7 +36,9 @@ def cmd_download(args):
     if args.region and not args.bbox:
         bbox = REGION_BBOXES.get(args.region.lower())
         if not bbox:
-            print(f"❌ Unknown region '{args.region}'. Available: {', '.join(REGION_BBOXES.keys())}")
+            print(
+                f"❌ Unknown region '{args.region}'. Available: {', '.join(REGION_BBOXES.keys())}"
+            )
             sys.exit(1)
         args.bbox = ",".join(str(v) for v in bbox)
 
@@ -49,10 +51,7 @@ def cmd_download(args):
         print(f"📊 Region: [{lat_min}, {lon_min}] to [{lat_max}, {lon_max}]")
 
         # Estimate required zoom levels for coverage
-        if args.zoom_levels:
-            zoom_levels = _parse_zoom_levels(args.zoom_levels)
-        else:
-            zoom_levels = list(range(11))
+        zoom_levels = _parse_zoom_levels(args.zoom_levels) if args.zoom_levels else list(range(11))
 
         # Count tiles needed for bbox
         total_tiles = 0
@@ -62,7 +61,9 @@ def cmd_download(args):
             tiles = (x2 - x1 + 1) * (y2 - y1 + 1)
             total_tiles += tiles
 
-        print(f"📈 Estimated tiles: {total_tiles:,} across zoom {min(zoom_levels)}-{max(zoom_levels)}")
+        print(
+            f"📈 Estimated tiles: {total_tiles:,} across zoom {min(zoom_levels)}-{max(zoom_levels)}"
+        )
 
     cache_dir = args.cache_dir or str(Path.home() / ".cache" / "openzenith-dem")
     print(f"📁 Cache directory: {cache_dir}")
@@ -97,7 +98,7 @@ def cmd_query(args):
 
         print(f"📊 Querying {len(points)} points...")
         results = get_elevation_batch(points)
-        for (lat, lon), elev in zip(points, results):
+        for (lat, lon), elev in zip(points, results, strict=False):
             status = f"{elev:.1f}m" if elev is not None else "N/A (ocean/no data)"
             print(f"  ({lat:.4f}, {lon:.4f}) → {status}")
     else:
@@ -131,13 +132,20 @@ def cmd_trace(args):
         print("❌ Could not trace — point may be in ocean or have no valid elevation data")
         return
 
-    print(f"✅ Traced {result['total_distance']:.1f} km in {result['steps']} steps ({elapsed:.1f}s)")
-    print(f"   Start: ({result['start'][0]:.4f}, {result['start'][1]:.4f}) at {result['start_elev']:.0f}m")
-    print(f"   End:   ({result['end'][0]:.4f}, {result['end'][1]:.4f}) at {result['end_elev']:.0f}m")
+    print(
+        f"✅ Traced {result['total_distance']:.1f} km in {result['steps']} steps ({elapsed:.1f}s)"
+    )
+    print(
+        f"   Start: ({result['start'][0]:.4f}, {result['start'][1]:.4f}) "
+        f"at {result['start_elev']:.0f}m"
+    )
+    print(
+        f"   End:   ({result['end'][0]:.4f}, {result['end'][1]:.4f}) at {result['end_elev']:.0f}m"
+    )
     print(f"   Elev drop: {result['start_elev'] - result['end_elev']:.0f}m")
 
     if args.output:
-        with open(args.output, "w") as f:
+        with Path(args.output).open("w") as f:
             json.dump(result, f, indent=2)
         print(f"💾 Path saved to {args.output}")
 
@@ -168,7 +176,7 @@ def cmd_watershed(args):
     print(f"   Elev range: {result['min_elev']:.0f}m — {result['max_elev']:.0f}m")
 
     if args.output:
-        with open(args.output, "w") as f:
+        with Path(args.output).open("w") as f:
             json.dump(result, f, indent=2)
         print(f"💾 Saved to {args.output}")
 
@@ -184,6 +192,7 @@ def cmd_info(args):
     if cache_dir.exists():
         try:
             from openzenith.elevation import get_tile_count
+
             counts = get_tile_count(str(cache_dir))
             total = sum(counts.values())
             if total > 0:
@@ -200,6 +209,7 @@ def cmd_info(args):
     # Check API connectivity
     try:
         import requests
+
         t0 = time.time()
         r = requests.get("https://openzenith.cyopsys.com/api/health", timeout=5)
         lat_ms = (time.time() - t0) * 1000
@@ -228,6 +238,7 @@ def cmd_validate(args):
     """Run elevation validation."""
     # Re-export from validate script
     from scripts.validate_elevation import main as validate_main
+
     validate_main()
 
 
@@ -270,7 +281,9 @@ def cmd_hillshade(args):
     print(f"   Azimuth: {args.azimuth}°  Altitude: {args.altitude}°")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    hs = hillshade(grid["grid"], args.azimuth, args.altitude, grid["cell_size_deg"], z_factor=args.z_factor)
+    hs = hillshade(
+        grid["grid"], args.azimuth, args.altitude, grid["cell_size_deg"], z_factor=args.z_factor
+    )
     elapsed = time.time() - t0
 
     print(f"✅ {hs.shape[0]}×{hs.shape[1]} hillshade ({elapsed:.1f}s)")
@@ -279,6 +292,7 @@ def cmd_hillshade(args):
     if args.output:
         try:
             from PIL import Image
+
             Image.fromarray(hs, mode="L").save(args.output)
             print(f"💾 Saved image to {args.output}")
         except ImportError:
@@ -311,14 +325,15 @@ def cmd_viewshed(args):
 
     visible = vs.sum()
     total = vs.size
-    print(f"✅ {visible:,}/{total:,} cells visible ({100*visible/total:.1f}%) ({elapsed:.1f}s)")
+    print(f"✅ {visible:,}/{total:,} cells visible ({100 * visible / total:.1f}%) ({elapsed:.1f}s)")
 
     if args.output:
         try:
             from PIL import Image
+
             img = np.zeros((*vs.shape, 3), dtype=np.uint8)
-            img[vs] = [0, 255, 0]    # visible = green
-            img[~vs] = [40, 40, 40]   # not visible = dark gray
+            img[vs] = [0, 255, 0]  # visible = green
+            img[~vs] = [40, 40, 40]  # not visible = dark gray
             Image.fromarray(img).save(args.output)
             print(f"💾 Saved image to {args.output}")
         except ImportError:
@@ -338,7 +353,10 @@ def cmd_twi(args):
     elapsed = time.time() - t0
 
     valid = result[~np.isnan(result)]
-    print(f"✅ TWI: range [{np.min(valid):.1f}, {np.max(valid):.1f}], median={np.median(valid):.1f} ({elapsed:.1f}s)")
+    print(
+        f"✅ TWI: range [{np.min(valid):.1f}, {np.max(valid):.1f}], "
+        f"median={np.median(valid):.1f} ({elapsed:.1f}s)"
+    )
 
     if args.output:
         np.save(args.output, result)
@@ -448,7 +466,10 @@ def cmd_profile(args):
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import profile
 
-    print(f"📏 Computing profile from ({args.lat1:.4f}, {args.lon1:.4f}) → ({args.lat2:.4f}, {args.lon2:.4f})...")
+    print(
+        f"📏 Computing profile from ({args.lat1:.4f}, {args.lon1:.4f}) "
+        f"→ ({args.lat2:.4f}, {args.lon2:.4f})..."
+    )
     t0 = time.time()
     # Load at midpoint to ensure both endpoints are in the grid
     mid_lat = (args.lat1 + args.lat2) / 2
@@ -460,7 +481,9 @@ def cmd_profile(args):
 
     # Generate evenly-spaced points along the line
     n = max(args.samples, 2)
-    points = [(round(r1 + (r2 - r1) * i / (n - 1)), round(c1 + (c2 - c1) * i / (n - 1))) for i in range(n)]
+    points = [
+        (round(r1 + (r2 - r1) * i / (n - 1)), round(c1 + (c2 - c1) * i / (n - 1))) for i in range(n)
+    ]
 
     result = profile(grid["grid"], points, grid["cell_size_deg"])
     elapsed = time.time() - t0
@@ -472,16 +495,20 @@ def cmd_profile(args):
     dists = [p["distance_m"] for p in result]
     elevs = [p["elevation"] for p in result]
     print(f"✅ {len(result)} points, {dists[-1]:.1f}m total ({elapsed:.1f}s)")
-    print(f"   Elevation: {min(elevs):.0f}m → {max(elevs):.0f}m (range {max(elevs)-min(elevs):.0f}m)")
+    print(
+        f"   Elevation: {min(elevs):.0f}m → {max(elevs):.0f}m "
+        f"(range {max(elevs) - min(elevs):.0f}m)"
+    )
 
     if args.output:
         import json
+
         if args.output.endswith(".csv"):
-            with open(args.output, "w") as f:
+            with Path(args.output).open("w") as f:
                 f.write("distance_m,elevation\n")
                 f.writelines(f"{p['distance_m']:.1f},{p['elevation']}\n" for p in result)
         else:
-            with open(args.output, "w") as f:
+            with Path(args.output).open("w") as f:
                 json.dump(result, f)
         print(f"💾 Saved to {args.output}")
 
@@ -493,14 +520,21 @@ def cmd_contour(args):
     from openzenith.elevation import load_elevation_grid
     from openzenith.export import contour_to_geojson
 
-    print(f"🗺️  Extracting contours at {args.interval}m interval around ({args.lat:.4f}, {args.lon:.4f})...")
+    print(
+        f"🗺️  Extracting contours at {args.interval}m interval "
+        f"around ({args.lat:.4f}, {args.lon:.4f})..."
+    )
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    result = contour_to_geojson(grid["grid"], interval=args.interval, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
+    result = contour_to_geojson(
+        grid["grid"],
+        interval=args.interval,
+        transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]),
+    )
     elapsed = time.time() - t0
 
     out_path = args.output or f"contours_{args.interval}m.geojson"
-    with open(out_path, "w") as f:
+    with Path(out_path).open("w") as f:
         _json.dump(result, f)
     print(f"✅ {len(result['features'])} contour lines → {out_path} ({elapsed:.1f}s)")
 
@@ -517,11 +551,13 @@ def cmd_geojson(args):
     print(f"📄 Exporting {kind} grid as GeoJSON around ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    result = grid_to_geojson(grid["grid"], name=name, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"]))
+    result = grid_to_geojson(
+        grid["grid"], name=name, transform=(0, 0, grid["cell_size_deg"], grid["cell_size_deg"])
+    )
     elapsed = time.time() - t0
 
     out_path = args.output or f"{kind}.geojson"
-    with open(out_path, "w") as f:
+    with Path(out_path).open("w") as f:
         _json.dump(result, f)
     print(f"✅ {len(result['features'])} points → {out_path} ({elapsed:.1f}s)")
 
@@ -585,11 +621,15 @@ def cmd_streams(args):
 
     stream_cells = streams.sum()
     total = streams.size
-    print(f"✅ {stream_cells:,}/{total:,} cells marked as streams ({100*stream_cells/total:.1f}%) ({elapsed:.1f}s)")
+    print(
+        f"✅ {stream_cells:,}/{total:,} cells marked as streams "
+        f"({100 * stream_cells / total:.1f}%) ({elapsed:.1f}s)"
+    )
 
     if args.output:
         try:
             from PIL import Image
+
             img = np.zeros((*streams.shape, 3), dtype=np.uint8)
             img[streams] = [0, 100, 255]
             Image.fromarray(img).save(args.output)
@@ -739,7 +779,9 @@ def cmd_multi_hillshade(args):
     print(f"🌤️  Computing multi-directional hillshade at ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
     grid = load_elevation_grid(args.lat, args.lon, args.radius)
-    result = multi_hillshade(grid["grid"], cell_size_deg=grid["cell_size_deg"], z_factor=args.z_factor)
+    result = multi_hillshade(
+        grid["grid"], cell_size_deg=grid["cell_size_deg"], z_factor=args.z_factor
+    )
     elapsed = time.time() - t0
 
     print(f"✅ {result.shape[0]}×{result.shape[1]} multi-hillshade ({elapsed:.1f}s)")
@@ -748,6 +790,7 @@ def cmd_multi_hillshade(args):
     if args.output:
         try:
             from PIL import Image
+
             Image.fromarray(result, mode="L").save(args.output)
             print(f"💾 Saved image to {args.output}")
         except ImportError:
@@ -771,6 +814,7 @@ def cmd_color_relief(args):
     if args.output:
         try:
             from PIL import Image
+
             Image.fromarray(rgba, mode="RGBA").save(args.output)
             print(f"💾 Saved image to {args.output}")
         except ImportError:
@@ -780,9 +824,11 @@ def cmd_color_relief(args):
 
 # ─── Helper functions for encode/ingest ───────────────────────────────────────
 
+
 def _load_geotiff(path: str) -> np.ndarray:
     """Load a GeoTIFF as int16 array (delegates to geo_utils)."""
     from openzenith.geo_utils import load_geotiff as _lg
+
     return _lg(path)
 
 
@@ -792,6 +838,7 @@ def _load_merged(path: str) -> np.ndarray:
     Returns the full tile with horizontal-differencing undone.
     """
     from openzenith.merged import MergedFile
+
     mf = MergedFile(path)
     # Merge all 15x15 chunks into one 3601x3601 array
     tile = np.empty((3601, 3601), dtype=np.int16)
@@ -805,7 +852,7 @@ def _load_merged(path: str) -> np.ndarray:
             # Chunks may be edge-adjusted
             chunk_r = chunk.shape[0]
             chunk_c = chunk.shape[1]
-            tile[r0:r0 + chunk_r, c0:c0 + chunk_c] = chunk
+            tile[r0 : r0 + chunk_r, c0 : c0 + chunk_c] = chunk
     return tile
 
 
@@ -892,7 +939,10 @@ def cmd_encode(args):
             # Validate
             if args.validate:
                 is_lossless, rmse, _vmeta = validate_roundtrip(
-                    elev, bits_per_pixel=meta_r.get("auto_selected_bits", meta_r.get("bits_per_pixel", 16))
+                    elev,
+                    bits_per_pixel=meta_r.get(
+                        "auto_selected_bits", meta_r.get("bits_per_pixel", 16)
+                    ),
                 )
             else:
                 is_lossless, rmse = True, 0.0
@@ -922,18 +972,19 @@ def cmd_encode(args):
 
     # Single file
     if input_path.is_file():
-        if output_path.is_dir():
-            dst = output_path / f"{input_path.stem}.ozt2"
-        else:
-            dst = output_path
+        dst = output_path / f"{input_path.stem}.ozt2" if output_path.is_dir() else output_path
         result = encode_file(input_path, dst)
         if result:
             print(f"✅ Encoded: {dst} ({result['size']:,} bytes)")
         return
 
     # Directory
-    files = list(input_path.rglob("*.tif")) + list(input_path.rglob("*.tiff")) + \
-            list(input_path.rglob("*.merged")) + list(input_path.rglob("*.raw"))
+    files = (
+        list(input_path.rglob("*.tif"))
+        + list(input_path.rglob("*.tiff"))
+        + list(input_path.rglob("*.merged"))
+        + list(input_path.rglob("*.raw"))
+    )
 
     if not files:
         print(f"❌ No DEM files found in {input_path}")
@@ -954,7 +1005,7 @@ def cmd_encode(args):
         print(f"\n✅ Encoded {len(results)}/{len(files)} files")
         print(f"   Total size: {total_size / 1e6:.1f} MB")
         print(f"   Avg RMSE: {avg_rmse:.2f}m")
-        print(f"   Lossless: {lossless_count} ({100*lossless_count/len(results):.0f}%)")
+        print(f"   Lossless: {lossless_count} ({100 * lossless_count / len(results):.0f}%)")
     else:
         print("\n❌ No files encoded successfully")
         sys.exit(1)
@@ -986,9 +1037,9 @@ def cmd_ingest(args):
 
     # Find all DEM files
     dem_files = (
-        list(dataset_path.rglob("*.tif")) +
-        list(dataset_path.rglob("*.tiff")) +
-        list(dataset_path.rglob("*.merged"))
+        list(dataset_path.rglob("*.tif"))
+        + list(dataset_path.rglob("*.tiff"))
+        + list(dataset_path.rglob("*.merged"))
     )
 
     if not dem_files:
@@ -1005,10 +1056,7 @@ def cmd_ingest(args):
         try:
             # Load elevation
             ext = f.suffix.lower()
-            if ext in (".tif", ".tiff"):
-                elev = _load_geotiff(str(f))
-            else:
-                elev = _load_merged(str(f))
+            elev = _load_geotiff(str(f)) if ext in (".tif", ".tiff") else _load_merged(str(f))
 
             # Encode to OZT2
             encoded, meta = auto_encode(elev, max_rmse=1.0)
@@ -1019,14 +1067,16 @@ def cmd_ingest(args):
             # Compute bbox from filename (SRTM naming convention)
             bbox = _filename_to_bbox(f.name)
 
-            tiles.append({
-                "file": tile_name,
-                "source_file": str(f.relative_to(dataset_path)),
-                "size_bytes": len(encoded),
-                "bits": meta.get("auto_selected_bits", 16),
-                "rmse": meta.get("rmse", 0),
-                "coverage": bbox,
-            })
+            tiles.append(
+                {
+                    "file": tile_name,
+                    "source_file": str(f.relative_to(dataset_path)),
+                    "size_bytes": len(encoded),
+                    "bits": meta.get("auto_selected_bits", 16),
+                    "rmse": meta.get("rmse", 0),
+                    "coverage": bbox,
+                }
+            )
             print(f"  ✅ {f.name} → {tile_name} ({len(encoded):,}B)")
 
         except OSError as e:
@@ -1089,7 +1139,10 @@ def cmd_tiles(args):
     elif args.region:
         bbox = REGION_BBOXES.get(args.region.lower())
         if not bbox:
-            print(f"❌ Unknown region '{args.region}'. Available: {', '.join(sorted(REGION_BBOXES.keys()))}")
+            print(
+                f"❌ Unknown region '{args.region}'. "
+                f"Available: {', '.join(sorted(REGION_BBOXES.keys()))}"
+            )
             sys.exit(1)
         lat_min, lon_min, lat_max, lon_max = bbox
     elif args.lat is not None and args.lon is not None:
@@ -1121,7 +1174,10 @@ def cmd_tiles(args):
     print(f"📈 Zoom: {min(zoom_levels)}-{max(zoom_levels)}")
     print(f"📊 Tiles: {total_tiles:,}")
     print(f"📦 Est. size: {size_mb:.1f} MB")
-    print(f"📈 Per zoom: {', '.join(f'z{z}={zoom_breakdown[z]:,}' for z in sorted(zoom_breakdown.keys()))}")
+    print(
+        "📈 Per zoom: "
+        f"{', '.join(f'z{z}={zoom_breakdown[z]:,}' for z in sorted(zoom_breakdown.keys()))}"
+    )
 
     if total_tiles > 100000:
         print(f"\n⚠️  {total_tiles:,} tiles is a large download. Use --zoom to narrow the range.")
@@ -1154,6 +1210,7 @@ def cmd_tiles(args):
     print(f"  elev = get_elevation({mid_lat:.4f}, {mid_lon:.4f})")
     print("  # => {elev}m")
 
+
 REGION_BBOXES = {
     "world": (-90, -180, 90, 180),
     "europe": (34, -25, 72, 45),
@@ -1166,6 +1223,7 @@ REGION_BBOXES = {
     "arctic": (60, -180, 90, 180),
     "antarctica": (-90, -180, -60, 180),
 }
+
 
 def _parse_zoom_levels(s: str) -> list[int]:
     """Parse zoom level specification: '0-8' or '0,1,2,5' or '8' or '0-3,5,7-9'."""
@@ -1182,8 +1240,9 @@ def _parse_zoom_levels(s: str) -> list[int]:
             result.add(int(part))
     return sorted(result)
 
+
 def _latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
-    n = 2 ** zoom
+    n = 2**zoom
     x = int(((lon + 180) / 360) * n)
     lat_rad = (lat * math.pi) / 180
     y = int(((1 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2) * n)
@@ -1192,7 +1251,9 @@ def _latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
 
 # ─── Main ───
 
+
 def main():
+    """Build the argument parser and dispatch the requested CLI subcommand."""
     parser = argparse.ArgumentParser(
         prog="openzenith",
         description="OpenZenith — Global elevation data tools",
@@ -1201,16 +1262,24 @@ def main():
 
     # download
     dl = sub.add_parser("download", help="Download elevation tiles from HuggingFace")
-    dl.add_argument("--region", type=str, default=None, help="Named region (europe, usa, asia, world, etc.)")
-    dl.add_argument("--bbox", type=str, default=None, help="Bounding box: lat_min,lon_min,lat_max,lon_max")
-    dl.add_argument("--zoom-levels", type=str, default=None, help="Zoom levels (e.g. '0-8' or '0,4,8')")
+    dl.add_argument(
+        "--region", type=str, default=None, help="Named region (europe, usa, asia, world, etc.)"
+    )
+    dl.add_argument(
+        "--bbox", type=str, default=None, help="Bounding box: lat_min,lon_min,lat_max,lon_max"
+    )
+    dl.add_argument(
+        "--zoom-levels", type=str, default=None, help="Zoom levels (e.g. '0-8' or '0,4,8')"
+    )
     dl.add_argument("--cache-dir", type=str, default=None, help="Local cache directory")
 
     # query
     q = sub.add_parser("query", help="Query elevation at coordinates")
     q.add_argument("--lat", type=float, default=None)
     q.add_argument("--lon", type=float, default=None)
-    q.add_argument("--batch", type=str, default=None, help='Batch points: "lat1,lon1 lat2,lon2 ..."')
+    q.add_argument(
+        "--batch", type=str, default=None, help='Batch points: "lat1,lon1 lat2,lon2 ..."'
+    )
 
     # trace
     tr = sub.add_parser("trace", help="Trace downstream path from a point")
@@ -1265,7 +1334,9 @@ def main():
     tw.add_argument("--output", type=str, default=None, help="Output .npy file")
 
     # aspect
-    asp = sub.add_parser("aspect", help="Compute terrain aspect (compass direction of steepest descent)")
+    asp = sub.add_parser(
+        "aspect", help="Compute terrain aspect (compass direction of steepest descent)"
+    )
     asp.add_argument("--lat", type=float, required=True)
     asp.add_argument("--lon", type=float, required=True)
     asp.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
@@ -1279,14 +1350,18 @@ def main():
     tpi_p.add_argument("--output", type=str, default=None, help="Output .npy file")
 
     # roughness
-    rough_p = sub.add_parser("roughness", help="Compute terrain roughness (max - min in 3×3 window)")
+    rough_p = sub.add_parser(
+        "roughness", help="Compute terrain roughness (max - min in 3×3 window)"
+    )
     rough_p.add_argument("--lat", type=float, required=True)
     rough_p.add_argument("--lon", type=float, required=True)
     rough_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
     rough_p.add_argument("--output", type=str, default=None, help="Output .npy file")
 
     # curvature
-    curv_p = sub.add_parser("curvature", help="Compute terrain curvature (second derivative of elevation)")
+    curv_p = sub.add_parser(
+        "curvature", help="Compute terrain curvature (second derivative of elevation)"
+    )
     curv_p.add_argument("--lat", type=float, required=True)
     curv_p.add_argument("--lon", type=float, required=True)
     curv_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
@@ -1323,17 +1398,32 @@ def main():
     en = sub.add_parser("encode", help="Encode GeoTIFF or raw DEM to OZT2 format")
     en.add_argument("input", help="Input file or directory")
     en.add_argument("output", help="Output .ozt2 file or directory")
-    en.add_argument("--format", default="auto", choices=["auto", "geotiff", "rawint16", "merged"],
-                    help="Input format (auto=detect from extension)")
-    en.add_argument("--max-rmse", type=float, default=1.0,
-                    help="Max RMSE for adaptive bit-depth selection (meters)")
-    en.add_argument("--bits", type=int, choices=[8, 10, 12, 16], default=None,
-                    help="Force fixed bit depth (default=auto)")
-    en.add_argument("--predictor", default="gradient",
-                    choices=["none", "left", "gradient"],
-                    help="Prediction method (default=gradient)")
-    en.add_argument("--validate", action="store_true",
-                    help="Validate roundtrip after encoding")
+    en.add_argument(
+        "--format",
+        default="auto",
+        choices=["auto", "geotiff", "rawint16", "merged"],
+        help="Input format (auto=detect from extension)",
+    )
+    en.add_argument(
+        "--max-rmse",
+        type=float,
+        default=1.0,
+        help="Max RMSE for adaptive bit-depth selection (meters)",
+    )
+    en.add_argument(
+        "--bits",
+        type=int,
+        choices=[8, 10, 12, 16],
+        default=None,
+        help="Force fixed bit depth (default=auto)",
+    )
+    en.add_argument(
+        "--predictor",
+        default="gradient",
+        choices=["none", "left", "gradient"],
+        help="Prediction method (default=gradient)",
+    )
+    en.add_argument("--validate", action="store_true", help="Validate roundtrip after encoding")
     en.add_argument("--quiet", "-q", action="store_true", help="Suppress per-file output")
 
     # ingest
@@ -1348,8 +1438,12 @@ def main():
 
     # tiles
     tl = sub.add_parser("tiles", help="Download tiles for a specific region")
-    tl.add_argument("--bbox", type=str, default=None, help="Bounding box: lat_min,lon_min,lat_max,lon_max")
-    tl.add_argument("--region", type=str, default=None, help="Named region (europe, usa, world, etc.)")
+    tl.add_argument(
+        "--bbox", type=str, default=None, help="Bounding box: lat_min,lon_min,lat_max,lon_max"
+    )
+    tl.add_argument(
+        "--region", type=str, default=None, help="Named region (europe, usa, world, etc.)"
+    )
     tl.add_argument("--lat", type=float, default=None, help="Center latitude")
     tl.add_argument("--lon", type=float, default=None, help="Center longitude")
     tl.add_argument("--radius", type=float, default=0.5, help="Radius in degrees (default: 0.5)")
@@ -1379,7 +1473,9 @@ def main():
     st.add_argument("--lon", type=float, required=True)
     st.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
     st.add_argument("--zoom", type=int, default=None, help="Zoom level for tile loading")
-    st.add_argument("--threshold", type=int, default=100, help="Minimum upstream pixels for streams")
+    st.add_argument(
+        "--threshold", type=int, default=100, help="Minimum upstream pixels for streams"
+    )
     st.add_argument("--output", type=str, default=None, help="Output PNG or .npy file")
 
     # export-geotiff
@@ -1406,14 +1502,18 @@ def main():
     tr_i.add_argument("--output", type=str, default=None, help="Output .npy file")
 
     # profile-curvature
-    pc = sub.add_parser("profile-curvature", help="Compute profile curvature (along slope direction)")
+    pc = sub.add_parser(
+        "profile-curvature", help="Compute profile curvature (along slope direction)"
+    )
     pc.add_argument("--lat", type=float, required=True)
     pc.add_argument("--lon", type=float, required=True)
     pc.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
     pc.add_argument("--output", type=str, default=None, help="Output .npy file")
 
     # planform-curvature
-    plc = sub.add_parser("planform-curvature", help="Compute planform curvature (perpendicular to slope)")
+    plc = sub.add_parser(
+        "planform-curvature", help="Compute planform curvature (perpendicular to slope)"
+    )
     plc.add_argument("--lat", type=float, required=True)
     plc.add_argument("--lon", type=float, required=True)
     plc.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")

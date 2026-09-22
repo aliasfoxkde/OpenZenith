@@ -14,10 +14,15 @@ export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps
 
   const copyCode = () => {
     const textToCopy = code || getTextContent(children);
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard
+      .writeText(textToCopy)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => { setCopied(false); }, 2000);
+      })
+      .catch(() => {
+        // clipboard unavailable/denied — leave the button label as "Copy"
+      });
   };
 
   return (

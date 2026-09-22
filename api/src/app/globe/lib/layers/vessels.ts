@@ -81,7 +81,7 @@ export function loadVessels(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { vessels: boolean },
 ) {
   updateStatus("vessels", { error: null });
@@ -173,7 +173,7 @@ export function loadVessels(
   const rebuildEntities = () => {
     removeEntities("vessel-");
     const positions = Array.from(positionCache.values());
-    positions.forEach((v, i) => addVesselEntity(v, i));
+    positions.forEach((v, i) => { addVesselEntity(v, i); });
     updateStatus("vessels", {
       lastUpdate: Date.now(),
       count: positions.length,
@@ -220,7 +220,7 @@ export function loadVessels(
 
           if (msg.MessageType === "PositionReport") {
             const meta = msg.MetaData;
-            const pos = (msg as any).PositionReport || {};
+            const pos = (msg).PositionReport || {};
             const report: AISPositionReport = {
               MMSI: meta.mmsi,
               Latitude: pos.Latitude ?? 0,
@@ -257,7 +257,7 @@ export function loadVessels(
         // Reconnect after 30s if layer is still active
         if (stateLayers.vessels) {
           setTimeout(() => {
-            if (stateLayers.vessels) connectWebSocket();
+            if (stateLayers.vessels) void connectWebSocket();
           }, 30000);
         }
       };
@@ -269,7 +269,7 @@ export function loadVessels(
   };
 
   // Start WebSocket connection
-  connectWebSocket();
+  void connectWebSocket();
 
   // Periodic cleanup of stale positions (vessels not seen in 10 minutes)
   const cleanupIv = setInterval(() => {

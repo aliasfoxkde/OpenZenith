@@ -37,7 +37,7 @@ export function loadWildfires(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { wildfires: boolean },
 ) {
   updateStatus("wildfires", { error: null });
@@ -145,10 +145,10 @@ export function loadWildfires(
 
       updateStatus("wildfires", { lastUpdate: Date.now(), count });
 
-      const iv = setInterval(async () => {
+      const iv = setInterval(() => {
         if (!stateLayers.wildfires) return;
         removeEntities("fire-");
-        doLoad();
+        void doLoad();
       }, 21600000); // 6 hours
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -160,5 +160,5 @@ export function loadWildfires(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

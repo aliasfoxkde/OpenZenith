@@ -48,5 +48,5 @@ export function loadGroundTracks(viewer: any, Cesium: any) {
     }
   };
 
-  Promise.all(notable.map(loadTrack));
+  void Promise.all(notable.map(loadTrack));
 }

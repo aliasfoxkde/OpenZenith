@@ -10,7 +10,6 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const res = await fetch("/api/nlnog");
       const data = await res.json();
-      if (!map.getSource) return;
 
       // API returns {nodes: [...], count: N}, not GeoJSON — convert
       const nodes = data?.nodes || data?.features || [];
@@ -71,8 +70,12 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000),
+  );
 }
 
 export function removeNLNOGNodes(map: maplibregl.Map): void {

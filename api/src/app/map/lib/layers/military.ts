@@ -13,7 +13,6 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
       const ac = data?.ac || [];
       setStatus(handle, "militaryFlights", ac.length ? "loaded" : "empty", ac.length);
 
-      if (!map.getSource) return;
       try {
         const geojson: GeoJSON.FeatureCollection = {
           type: "FeatureCollection",
@@ -62,8 +61,12 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 120000));
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 120000), // 2 min
+  );
 }
 
 export function removeMilitary(map: maplibregl.Map): void {

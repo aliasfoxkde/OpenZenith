@@ -1,5 +1,4 @@
-"""
-OpenZenith Tile Format v2 (OZT2) — Adaptive Quantization + Gradient Prediction + Brotli
+"""OpenZenith Tile Format v2 (OZT2) — Adaptive Quantization + Gradient Prediction + Brotli.
 
 A next-generation elevation tile format that achieves ~93% compression over Terrarium PNG
 by combining per-tile adaptive bit depth, gradient prediction residuals, and Brotli compression.
@@ -48,18 +47,21 @@ import numpy as np
 
 try:
     import brotli
+
     HAS_BROTLI = True
 except ImportError:
     HAS_BROTLI = False
 
 try:
     import zstandard as zstd
+
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
 
 try:
     import zlib
+
     HAS_ZLIB = True
 except ImportError:
     HAS_ZLIB = False
@@ -85,6 +87,7 @@ class TileError(Exception):
 
 # ─── Prediction ───
 
+
 def _gradient_predict(arr: np.ndarray) -> np.ndarray:
     """Gradient predictor: p[i,j] = left + above - upper_left.
 
@@ -96,10 +99,9 @@ def _gradient_predict(arr: np.ndarray) -> np.ndarray:
 
     res = np.empty((h, w), dtype=np.int32)
     res[0, 0] = a[0, 0]
-    res[0, 1:] = a[0, 1:] - a[0, :-1]           # first row: left predict
-    res[1:, 0] = a[1:, 0] - a[:-1, 0]           # first col: above predict
-    res[1:, 1:] = (a[1:, 1:]
-                   - (a[1:, :-1] + a[:-1, 1:] - a[:-1, :-1]))  # gradient
+    res[0, 1:] = a[0, 1:] - a[0, :-1]  # first row: left predict
+    res[1:, 0] = a[1:, 0] - a[:-1, 0]  # first col: above predict
+    res[1:, 1:] = a[1:, 1:] - (a[1:, :-1] + a[:-1, 1:] - a[:-1, :-1])  # gradient
 
     return res
 
@@ -161,6 +163,7 @@ def _left_reconstruct(residuals: np.ndarray, height: int, width: int) -> np.ndar
 
 # ─── Compression ───
 
+
 def _compress(data: bytes, compressor: int = COMP_BROTLI, level: int = 11) -> bytes:
     """Compress data with the specified compressor."""
     if compressor == COMP_BROTLI and HAS_BROTLI:
@@ -186,6 +189,7 @@ def _decompress(data: bytes, compressor: int = COMP_BROTLI) -> bytes:
 
 
 # ─── Adaptive Quantization ───
+
 
 def _auto_select_bits(elevation_range: int) -> int:
     """Auto-select bit depth based on elevation range.
@@ -226,6 +230,7 @@ def _dequantize(quantized: np.ndarray, vmin: int, bits: int, original_range: int
 
 # ─── Encode / Decode ───
 
+
 def encode(
     elevation: np.ndarray,
     nodata_value: int = -32768,
@@ -246,6 +251,7 @@ def encode(
 
     Returns:
         Complete OZT2 binary tile
+
     """
     if elevation.ndim != 2:
         raise TileError(f"Expected 2D array, got {elevation.ndim}D")
@@ -273,7 +279,7 @@ def encode(
         quantized = _quantize(arr, vmin, bits)
     else:
         # Lossless: use raw int16 values shifted by vmin
-        quantized = (arr.astype(np.int32) - vmin)
+        quantized = arr.astype(np.int32) - vmin
         bits = 16
 
     # Apply prediction
@@ -294,7 +300,12 @@ def encode(
 
     # Build header (6 bytes)
     flags = ((predictor & 0x03) | ((compressor & 0x03) << 2)).to_bytes(1, "little")
-    header = struct.pack("<h", vmin) + struct.pack("<H", max(0, elev_range)) + struct.pack("B", bits) + flags
+    header = (
+        struct.pack("<h", vmin)
+        + struct.pack("<H", max(0, elev_range))
+        + struct.pack("B", bits)
+        + flags
+    )
 
     return header + compressed
 
@@ -307,6 +318,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
 
     Returns:
         Tuple of (elevation_array, metadata_dict)
+
     """
     if len(tile_bytes) < HEADER_SIZE:
         raise TileError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
@@ -397,6 +409,7 @@ def validate_roundtrip(
 
     Returns:
         (is_lossless, rmse, metadata)
+
     """
     encoded = encode(elevation, nodata_value=nodata_value, **encode_kwargs)
     decoded, meta = decode(encoded)
@@ -407,7 +420,14 @@ def validate_roundtrip(
         # Should be lossless
         is_lossless = np.array_equal(elevation, decoded)
         if not is_lossless and valid.any():
-            rmse = float(np.sqrt(np.mean((elevation[valid].astype(np.float32) - decoded[valid].astype(np.float32)) ** 2)))
+            rmse = float(
+                np.sqrt(
+                    np.mean(
+                        (elevation[valid].astype(np.float32) - decoded[valid].astype(np.float32))
+                        ** 2
+                    )
+                )
+            )
         else:
             rmse = 0.0
         return is_lossless, rmse, meta
@@ -415,7 +435,7 @@ def validate_roundtrip(
         # Lossy — compute RMSE
         if valid.any():
             diff = elevation[valid].astype(np.float32) - decoded[valid].astype(np.float32)
-            rmse = float(np.sqrt(np.mean(diff ** 2)))
+            rmse = float(np.sqrt(np.mean(diff**2)))
         else:
             rmse = 0.0
         return False, rmse, meta
@@ -440,6 +460,7 @@ def auto_encode(
 
     Returns:
         (encoded_bytes, metadata)
+
     """
     # Try adaptive quantization from 8-bit
     for bits in range(8, 17):
@@ -447,13 +468,20 @@ def auto_encode(
         is_lossless, rmse, meta = result
 
         if is_lossless or rmse <= max_rmse:
-            encoded = encode(elevation, nodata_value=nodata_value, bits_per_pixel=bits, compress_level=compress_level)
+            encoded = encode(
+                elevation,
+                nodata_value=nodata_value,
+                bits_per_pixel=bits,
+                compress_level=compress_level,
+            )
             meta["rmse"] = rmse
             meta["auto_selected_bits"] = bits
             return encoded, meta
 
     # Fallback: lossless
-    encoded = encode(elevation, nodata_value=nodata_value, bits_per_pixel=16, compress_level=compress_level)
+    encoded = encode(
+        elevation, nodata_value=nodata_value, bits_per_pixel=16, compress_level=compress_level
+    )
     _, rmse, meta = validate_roundtrip(elevation, nodata_value=nodata_value, bits_per_pixel=16)
     meta["rmse"] = rmse
     meta["auto_selected_bits"] = 16

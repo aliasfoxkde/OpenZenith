@@ -49,7 +49,7 @@ export function loadEvents(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { events: boolean },
 ) {
   updateStatus("events", { error: null });
@@ -113,7 +113,7 @@ export function loadEvents(
         title,
         CATEGORY_LABELS[cat] || cat,
         f.properties?.description || null,
-        coords ? `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}` : null,
+        `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}`,
         updated ? `Updated: ${new Date(updated).toLocaleDateString()}` : null,
       ]
         .filter(Boolean)
@@ -146,24 +146,26 @@ export function loadEvents(
       if (!Cesium || !viewer) return;
       const features = data.features || [];
       updateStatus("events", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f: any, i: number) => addEventEntity(f, i));
+      features.forEach((f: any, i: number) => { addEventEntity(f, i); });
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.events) return;
-        try {
-          const d = await fetchEONET();
-          const fs = d.features || [];
-          removeEntities("event-");
-          fs.forEach((f: any, i: number) => addEventEntity(f, i));
-          updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
-          retry.recordSuccess();
-        } catch (err) {
-          warnLayerError("events", err, "entity build");
-          retry.recordFailure();
-          updateStatus("events", {
-            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Event data unavailable",
-          });
-        }
+      const iv = setInterval(() => {
+        void (async () => {
+          if (!stateLayers.events) return;
+          try {
+            const d = await fetchEONET();
+            const fs = d.features || [];
+            removeEntities("event-");
+            fs.forEach((f: any, i: number) => { addEventEntity(f, i); });
+            updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
+            retry.recordSuccess();
+          } catch (err) {
+            warnLayerError("events", err, "entity build");
+            retry.recordFailure();
+            updateStatus("events", {
+              error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Event data unavailable",
+            });
+          }
+        })();
       }, 1800000);
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -173,5 +175,5 @@ export function loadEvents(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

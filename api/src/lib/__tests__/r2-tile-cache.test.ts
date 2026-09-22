@@ -48,8 +48,8 @@ interface FakeBucket {
 function makeObject(body: ArrayBuffer): FakeR2Object {
   return {
     body,
-    arrayBuffer: async () => body,
-    text: async () => new TextDecoder().decode(body),
+    arrayBuffer: () => Promise.resolve(body),
+    text: () => Promise.resolve(new TextDecoder().decode(body)),
   };
 }
 
@@ -60,14 +60,14 @@ function createBucket(): FakeBucket {
     puts: [],
     getError: null,
     putError: null,
-    get: async (key: string) => {
+    get: (key: string): Promise<FakeR2Object | null> => {
       bucket.getCalls.push(key);
-      if (bucket.getError) throw bucket.getError;
-      return bucket.store.get(key) ?? null;
+      if (bucket.getError) return Promise.reject(bucket.getError);
+      return Promise.resolve(bucket.store.get(key) ?? null);
     },
-    put: async (key: string, value: unknown, options?: R2PutOptions) => {
+    put: (key: string, value: unknown, options?: R2PutOptions): Promise<void> => {
       bucket.puts.push({ key, value, options });
-      if (bucket.putError) throw bucket.putError;
+      if (bucket.putError) return Promise.reject(bucket.putError);
       const bytes =
         value instanceof ArrayBuffer
           ? new Uint8Array(value)
@@ -77,9 +77,11 @@ function createBucket(): FakeBucket {
       const copy = new ArrayBuffer(bytes.byteLength);
       new Uint8Array(copy).set(bytes);
       bucket.store.set(key, makeObject(copy));
+      return Promise.resolve();
     },
-    delete: async (key: string) => {
+    delete: (key: string): Promise<void> => {
       bucket.store.delete(key);
+      return Promise.resolve();
     },
   };
   return bucket;
@@ -165,7 +167,7 @@ describe("r2PutTile", () => {
     await r2PutTile("elevation-color", 10, 350, 500, tileBytes(8, 3), "image/png");
 
     expect(bucket.puts).toHaveLength(1);
-    const put = bucket.puts[0] as RecordedPut;
+    const put = bucket.puts[0];
     expect(put.key).toBe("elevation-color/10/350/500");
     expect(put.options?.httpMetadata?.contentType).toBe("image/png");
     expect(put.options?.httpMetadata?.cacheControl).toBe("public, max-age=31536000, immutable");
@@ -181,7 +183,7 @@ describe("r2PutTile", () => {
   it("defaults the content type to application/octet-stream", async () => {
     await r2PutTile("terrain", 7, 12, 34, tileBytes(2, 5));
 
-    const put = bucket.puts[0] as RecordedPut;
+    const put = bucket.puts[0];
     expect(put.options?.httpMetadata?.contentType).toBe("application/octet-stream");
   });
 

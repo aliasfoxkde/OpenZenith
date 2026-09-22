@@ -11,22 +11,29 @@ import type { NextRequest } from "next/server";
 vi.mock("@/lib/tile", () => {
   const data = new Int16Array(256 * 256).fill(123);
   return {
-    getTileData: vi.fn(async () => ({ data, width: 256, height: 256, zoom: 8 })),
+    getTileData: vi.fn(() => ({ data, width: 256, height: 256, zoom: 8 })),
     CACHE_TTL: { ELEVATION: 86400 },
   };
 });
 
 vi.mock("@/lib/storage/backend", () => {
-  class HuggingFaceChunkBackend {}
+  // Only constructed by the route; tile reads are intercepted via @/lib/tile.
+  function HuggingFaceChunkBackend() {}
   return { HuggingFaceChunkBackend };
 });
 
 const r2Store = new Map<string, ArrayBuffer>();
 
+// Promise-returning mocks: the route chains .catch() on r2PutTile and awaits
+// both, so the stubs must keep the real signatures' Promise results.
 vi.mock("@/lib/storage/r2-tile-cache", () => ({
-  r2GetTile: vi.fn(async (_prefix: string, z: number, x: number, y: number) => r2Store.get(`${z}/${x}/${y}`) ?? null),
-  r2PutTile: vi.fn(async (_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer) => {
+  r2GetTile: vi.fn(
+    (_prefix: string, z: number, x: number, y: number): Promise<ArrayBuffer | null> =>
+      Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
+  ),
+  r2PutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer): Promise<void> => {
     r2Store.set(`${z}/${x}/${y}`, buf);
+    return Promise.resolve();
   }),
 }));
 
@@ -58,7 +65,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
   it("serves from R2 cache on second request", async () => {
     await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     // r2PutTile is fire-and-forget in the route — wait for the store write
-    await vi.waitFor(() => expect(r2Store.size).toBe(1));
+    await vi.waitFor(() => { expect(r2Store.size).toBe(1); });
     const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     expect(resp.headers.get("X-Cache")).toBe("HIT");
   });
@@ -101,8 +108,8 @@ describe("Raw DEM tile API (/api/tile)", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
   });
 
-  it("exposes CORS preflight", async () => {
-    const resp = await OPTIONS();
+  it("exposes CORS preflight", () => {
+    const resp = OPTIONS();
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBeDefined();
   });
 });

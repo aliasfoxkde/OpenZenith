@@ -196,7 +196,7 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
     // Point
     const point = pm.querySelector("Point coordinates");
     if (point) {
-      const coords = point.textContent!.trim().split(/\s+/).map(Number);
+      const coords = point.textContent.trim().split(/\s+/).map(Number);
       if (coords.length >= 2) {
         features.push({
           type: "Feature",
@@ -211,7 +211,7 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
     const line = pm.querySelector("LineString coordinates");
     if (line) {
       const coords = line
-        .textContent!.trim()
+        .textContent.trim()
         .split(/\s+/)
         .reduce((acc: [number, number][], _, i, arr) => {
           if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -232,7 +232,7 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
     if (outerRing) {
       const parseRing = (el: Element): [number, number][] =>
         el
-          .textContent!.trim()
+          .textContent.trim()
           .split(/\s+/)
           .reduce((acc: [number, number][], _, i, arr) => {
             if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -261,12 +261,12 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
         for (const child of Array.from(container.children)) {
           const tag = child.tagName;
           if (tag === "Point") {
-            const coords = child.querySelector("coordinates")?.textContent?.trim().split(/\s+/).map(Number);
+            const coords = child.querySelector("coordinates")?.textContent.trim().split(/\s+/).map(Number);
             if (coords && coords.length >= 2) geoms.push({ type: "Point", coordinates: [coords[0], coords[1]] });
           } else if (tag === "LineString") {
             const lineCoords = child
               .querySelector("coordinates")
-              ?.textContent?.trim()
+              ?.textContent.trim()
               .split(/\s+/)
               .reduce((acc: [number, number][], _, i, arr) => {
                 if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -277,7 +277,7 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
             const outer = child.querySelector("outerBoundaryIs LinearRing coordinates");
             if (outer) {
               const outerCoords = outer
-                .textContent!.trim()
+                .textContent.trim()
                 .split(/\s+/)
                 .reduce((acc: [number, number][], _, i, arr) => {
                   if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -286,7 +286,7 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
               const inners = [...child.querySelectorAll("innerBoundaryIs LinearRing coordinates")]
                 .map((el) =>
                   el
-                    .textContent!.trim()
+                    .textContent.trim()
                     .split(/\s+/)
                     .reduce((acc: [number, number][], _, i, arr) => {
                       if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -312,7 +312,7 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
           features.push({
             type: "Feature",
             geometry: {
-              type: `Multi${t}` as "MultiPoint" | "MultiLineString" | "MultiPolygon",
+              type: `Multi${t}`,
               coordinates: geoms.map((g) => g.coordinates),
             },
             properties: { name, description: desc },

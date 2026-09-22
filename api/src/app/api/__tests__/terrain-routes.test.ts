@@ -26,20 +26,22 @@ vi.mock("@/lib/tile", () => {
     return t;
   };
   return {
-    getTileData: vi.fn(async () => ({ data: makeTile(), width: 256, height: 256, zoom: 10 })),
+    getTileData: vi.fn(() =>
+      Promise.resolve({ data: makeTile(), width: 256, height: 256, zoom: 10 }),
+    ),
     CACHE_TTL: { ELEVATION: 86400 },
   };
 });
 
 vi.mock("@/lib/storage/backend", () => {
-  class HuggingFaceChunkBackend {}
+  // The routes under test construct this backend, but every tile read goes
+  // through the mocked `getTileData` above — only the constructor runs.
+  const HuggingFaceChunkBackend = vi.fn();
   // trace/twi/watershed/streams gate on a known starting elevation before
   // running — satisfy the gate so the hydrologic paths execute.
-  class OZT2HuggingFaceBackend {
-    async getElevation(): Promise<number> {
-      return 500;
-    }
-  }
+  const OZT2HuggingFaceBackend = vi.fn(() => ({
+    getElevation: () => Promise.resolve(500),
+  }));
   return { HuggingFaceChunkBackend, OZT2HuggingFaceBackend };
 });
 
@@ -136,8 +138,9 @@ describe("Terrain routes — shared validation", () => {
 
 describe("Terrain routes — OPTIONS CORS preflight", () => {
   it("slope and aspect expose CORS preflight", async () => {
-    const slopeResp = await SLOPE_OPTIONS();
-    const aspectResp = await ASPECT_OPTIONS();
+    // Preflight handlers may be sync or promise-returning — normalize first.
+    const slopeResp = await Promise.resolve(SLOPE_OPTIONS());
+    const aspectResp = await Promise.resolve(ASPECT_OPTIONS());
     expect(slopeResp.headers.get("Access-Control-Allow-Origin")).toBeDefined();
     expect(aspectResp.headers.get("Access-Control-Allow-Origin")).toBeDefined();
   });

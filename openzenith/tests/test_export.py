@@ -131,7 +131,7 @@ class TestContourToGeoJSON:
         for r in range(rows):
             for c in range(cols):
                 dist_sq = (r - cx) ** 2 + (c - cy) ** 2
-                dem[r, c] = 100.0 * np.exp(-dist_sq / (2 * sigma ** 2))
+                dem[r, c] = 100.0 * np.exp(-dist_sq / (2 * sigma**2))
 
         result = contour_to_geojson(dem, interval=10.0)
 
@@ -165,7 +165,7 @@ class TestContourToKML:
         dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
         result = contour_to_kml(dem, interval=50)
         assert isinstance(result, str)
-        assert result.startswith('<?xml')
+        assert result.startswith("<?xml")
 
     def test_contains_kml_tags(self):
         """Output contains KML structure tags."""
@@ -190,7 +190,7 @@ class TestGridToKML:
         data = np.array([[100, 110], [105, 115]], dtype=np.float32)
         result = grid_to_kml(data)
         assert isinstance(result, str)
-        assert result.startswith('<?xml')
+        assert result.startswith("<?xml")
 
     def test_contains_kml_tags(self):
         """Output contains KML structure tags."""
@@ -208,11 +208,13 @@ class TestGeoJSONToKML:
         """Point features are converted to KML Placemarks."""
         geojson = {
             "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [-74.0, 40.7, 100]},
-                "properties": {"elevation": 100}
-            }]
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [-74.0, 40.7, 100]},
+                    "properties": {"elevation": 100},
+                }
+            ],
         }
         result = _geojson_to_kml(geojson, name="Test")
         assert "<Point>" in result
@@ -223,14 +225,16 @@ class TestGeoJSONToKML:
         """LineString features are converted to KML LineString."""
         geojson = {
             "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [[-74.0, 40.7], [-74.1, 40.8]]
-                },
-                "properties": {"elevation": 500}
-            }]
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-74.0, 40.7], [-74.1, 40.8]],
+                    },
+                    "properties": {"elevation": 500},
+                }
+            ],
         }
         result = _geojson_to_kml(geojson, name="Contour")
         assert "<LineString>" in result
@@ -240,14 +244,18 @@ class TestGeoJSONToKML:
         """Polygon features are converted to KML Polygon."""
         geojson = {
             "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[-74.0, 40.7], [-74.1, 40.7], [-74.1, 40.8], [-74.0, 40.7]]]
-                },
-                "properties": {"name": "TestPolygon"}
-            }]
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[-74.0, 40.7], [-74.1, 40.7], [-74.1, 40.8], [-74.0, 40.7]]
+                        ],
+                    },
+                    "properties": {"name": "TestPolygon"},
+                }
+            ],
         }
         result = _geojson_to_kml(geojson, name="Poly")
         assert "<Polygon>" in result
@@ -264,14 +272,16 @@ class TestGeoJSONToKML:
         """Custom altitude mode is used in LineString."""
         geojson = {
             "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [[-74.0, 40.7], [-74.1, 40.8]]
-                },
-                "properties": {"elevation": 500}
-            }]
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-74.0, 40.7], [-74.1, 40.8]],
+                    },
+                    "properties": {"elevation": 500},
+                }
+            ],
         }
         result = _geojson_to_kml(geojson, name="Contour", altitude_mode="absolute")
         assert "absolute" in result

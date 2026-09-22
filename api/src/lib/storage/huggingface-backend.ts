@@ -55,7 +55,7 @@ abstract class BaseChunkBackend implements ChunkBackend {
 
     // Timeout HuggingFace fetches to avoid CPU limit on cold starts
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => { controller.abort(); }, 8000);
     try {
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
@@ -102,7 +102,7 @@ abstract class BaseChunkBackend implements ChunkBackend {
     const url = this.buildUrl(`${latDir}/${base}_${rowStr}_${colStr}.deflate`);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => { controller.abort(); }, 8000);
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!response.ok) {

@@ -255,9 +255,12 @@ declare namespace CesiumType {
     far: number;
   }
 
-  class CallbackProperty {
-    constructor(callback: (time: JulianDate) => unknown, isConstant: boolean);
+  /** Time-dynamic property resolved by a callback each frame. */
+  interface CallbackProperty {
+    getValue(time?: JulianDate): unknown;
   }
+
+  const CallbackProperty: new (callback: (time: JulianDate) => unknown, isConstant: boolean) => CallbackProperty;
 
   class SampledPositionProperty {
     constructor(referenceFrame?: number);
@@ -265,9 +268,15 @@ declare namespace CesiumType {
     setInterpolationOptions(options: { interpolationAlgorithm?: unknown; interpolationDegree?: number }): void;
   }
 
-  class UrlTemplateImageryProvider {
-    constructor(options: { url: string; maximumLevel?: number; credit?: string });
+  interface UrlTemplateImageryProvider {
+    [key: string]: unknown;
   }
+
+  const UrlTemplateImageryProvider: new (options: {
+    url: string;
+    maximumLevel?: number;
+    credit?: string;
+  }) => UrlTemplateImageryProvider;
 
   class PointPrimitiveCollection {
     constructor(options?: Record<string, unknown>);
@@ -366,17 +375,35 @@ declare namespace CesiumType {
     WHEEL: number;
   };
 
-  class PolylineGlowMaterialProperty {
-    constructor(options: { color?: Color; glowPower?: number; taperPower?: number });
+  interface PolylineGlowMaterialProperty {
+    [key: string]: unknown;
   }
 
-  class PolylineDashMaterialProperty {
-    constructor(options: { color?: Color; dashLength?: number; dashPattern?: number });
+  const PolylineGlowMaterialProperty: new (options: {
+    color?: Color;
+    glowPower?: number;
+    taperPower?: number;
+  }) => PolylineGlowMaterialProperty;
+
+  interface PolylineDashMaterialProperty {
+    [key: string]: unknown;
   }
 
-  class ColorMaterialProperty {
-    constructor(options: { color?: Color; transparent?: boolean; alpha?: number | CallbackProperty });
+  const PolylineDashMaterialProperty: new (options: {
+    color?: Color;
+    dashLength?: number;
+    dashPattern?: number;
+  }) => PolylineDashMaterialProperty;
+
+  interface ColorMaterialProperty {
+    [key: string]: unknown;
   }
+
+  const ColorMaterialProperty: new (options: {
+    color?: Color;
+    transparent?: boolean;
+    alpha?: number | CallbackProperty;
+  }) => ColorMaterialProperty;
 
   class EllipsoidTerrainProvider {
     constructor();
@@ -384,26 +411,29 @@ declare namespace CesiumType {
     getTileDataAvailable?: (x: number, y: number, level: number) => boolean | undefined;
   }
 
-  class HeightmapTerrainData {
-    constructor(options: {
-      buffer: Float32Array;
-      width: number;
-      height: number;
-      structure: {
-        heightScale: number;
-        heightOffset: number;
-        elementsPerHeight: number;
-        stride: number;
-        elementMultiplier: number;
-        isBigEndian: boolean;
-      };
-      childTileMask?: number;
-    });
+  interface HeightmapTerrainData {
+    [key: string]: unknown;
   }
 
-  class Resource {
-    static fetchImage(options: { url: string }): Promise<HTMLImageElement>;
-  }
+  const HeightmapTerrainData: new (options: {
+    buffer: Float32Array;
+    width: number;
+    height: number;
+    structure: {
+      heightScale: number;
+      heightOffset: number;
+      elementsPerHeight: number;
+      stride: number;
+      elementMultiplier: number;
+      isBigEndian: boolean;
+    };
+    childTileMask?: number;
+  }) => HeightmapTerrainData;
+
+  const Resource: {
+    new (options?: { url: string }): { fetch(options?: Record<string, unknown>): Promise<Response> };
+    fetchImage(options: { url: string }): Promise<HTMLImageElement>;
+  };
 
   const Ion: { defaultAccessToken: string | undefined };
 
@@ -425,5 +455,5 @@ interface Window {
     gstime: (julianDate: number) => number;
     eciToEcf: (positionEci: { x: number; y: number; z: number }, gstime: number) => { x: number; y: number; z: number };
   };
-  __ozSetFollowEntity?: (entity: Entity | null) => void;
+  __ozSetFollowEntity?: (entity: CesiumType.Entity | null) => void;
 }

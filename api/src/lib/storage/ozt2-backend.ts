@@ -77,7 +77,7 @@ export class OZT2HuggingFaceBackend {
     const url = `https://huggingface.co/datasets/${this.repoId}/resolve/main/tiles/z${z}/${x}/${y}.ozt2`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timer = setTimeout(() => { controller.abort(); }, this.timeoutMs);
 
     try {
       const response = await fetch(url, { signal: controller.signal });
@@ -138,33 +138,31 @@ export class OZT2HuggingFaceBackend {
       const chunkCacheKey = `oz:chunk:${srtmName}:${chunkRow}:${chunkCol}`;
       let compressedData = await cacheGet(chunkCacheKey);
       if (!compressedData) {
+        // fetchChunk either resolves with the chunk or throws, so a miss here
+        // always yields data worth caching.
         compressedData = await this.fallback.fetchChunk(srtmName, chunkRow, chunkCol);
-        if (compressedData) {
-          await cachePut(chunkCacheKey, compressedData).catch(() => {});
-        }
+        await cachePut(chunkCacheKey, compressedData).catch(() => {});
       }
 
-      if (compressedData) {
-        const rawBytes = unzlibSync(new Uint8Array(compressedData));
-        const chunkWidth = chunkCol < 14 ? 256 : 3601 - 14 * 256;
-        const chunkHeight = chunkRow < 14 ? 256 : 3601 - 14 * 256;
-        const pixels = chunkWidth * chunkHeight;
-        const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
-        const data = new Int16Array(pixels);
-        data[0] = rawData[0];
-        for (let r = 0; r < chunkHeight; r++) {
-          const rowOff = r * chunkWidth;
-          data[rowOff] = rawData[rowOff];
-          for (let c = 1; c < chunkWidth; c++) {
-            data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
-          }
+      const rawBytes = unzlibSync(new Uint8Array(compressedData));
+      const chunkWidth = chunkCol < 14 ? 256 : 3601 - 14 * 256;
+      const chunkHeight = chunkRow < 14 ? 256 : 3601 - 14 * 256;
+      const pixels = chunkWidth * chunkHeight;
+      const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
+      const data = new Int16Array(pixels);
+      data[0] = rawData[0];
+      for (let r = 0; r < chunkHeight; r++) {
+        const rowOff = r * chunkWidth;
+        data[rowOff] = rawData[rowOff];
+        for (let c = 1; c < chunkWidth; c++) {
+          data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
         }
-        const localRow = pixel.row - chunkRow * 256;
-        const localCol = pixel.col - chunkCol * 256;
-        if (localRow >= 0 && localRow < chunkHeight && localCol >= 0 && localCol < chunkWidth) {
-          const elev = data[localRow * chunkWidth + localCol];
-          if (elev !== -32768) return elev;
-        }
+      }
+      const localRow = pixel.row - chunkRow * 256;
+      const localCol = pixel.col - chunkCol * 256;
+      if (localRow >= 0 && localRow < chunkHeight && localCol >= 0 && localCol < chunkWidth) {
+        const elev = data[localRow * chunkWidth + localCol];
+        if (elev !== -32768) return elev;
       }
     } catch {
       // Fall through to null

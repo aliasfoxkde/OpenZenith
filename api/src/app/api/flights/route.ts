@@ -4,7 +4,7 @@ import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -77,8 +77,9 @@ export async function GET(request: NextRequest) {
     url.searchParams.set("lomin", String(lomin));
     url.searchParams.set("lomax", String(lomax));
   }
-  if (searchParams.has("bbox")) {
-    url.searchParams.set("bbox", searchParams.get("bbox")!);
+  const bbox = searchParams.get("bbox");
+  if (bbox !== null) {
+    url.searchParams.set("bbox", bbox);
   }
 
   try {
@@ -94,7 +95,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = (await resp.json()) as { time: number; states: OpenSkyState[] };
+    // `states` is omitted by OpenSky on some error/empty payloads
+    const data = (await resp.json()) as { time: number; states?: OpenSkyState[] };
 
     // If bbox provided, OpenSky already filtered — return as-is (slimmed)
     // If no bbox, slim the response to reduce payload from ~6MB to ~1MB

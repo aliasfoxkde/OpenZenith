@@ -274,8 +274,7 @@ async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int
     if (!resp.ok) return null;
 
     const buf = await resp.arrayBuffer();
-    const decoded = await decodeTerrariumPNG(new Uint8Array(buf));
-    return decoded;
+    return decodeTerrariumPNG(new Uint8Array(buf));
   } catch {
     return null;
   }
@@ -290,7 +289,7 @@ async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int
  * @param png - Raw PNG file bytes
  * @returns 256x256 Int16Array of elevation values
  */
-async function decodeTerrariumPNG(png: Uint8Array): Promise<Int16Array | null> {
+function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
   try {
     let offset = 8; // Skip PNG signature
 

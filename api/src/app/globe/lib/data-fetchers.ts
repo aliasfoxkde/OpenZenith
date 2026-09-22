@@ -25,13 +25,13 @@ async function dedupFetch(url: string, timeoutMs = DEFAULT_TIMEOUT): Promise<Res
   if (existing) return existing;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => { controller.abort(); }, timeoutMs);
 
   try {
     const p = fetch(url, { signal: controller.signal }).finally(() => {
       clearTimeout(timeout);
       inflight.delete(url);
-    }) as Promise<Response>;
+    });
     inflight.set(url, p);
     return await p;
   } catch (err) {
@@ -239,9 +239,10 @@ export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchGDACS(_signal?: AbortSignal): Promise<any> {
-  // GDACS public API discontinued — return empty
-  return { type: "FeatureCollection", features: [] };
+export function fetchGDACS(_signal?: AbortSignal): Promise<any> {
+  // GDACS public API discontinued — return empty.
+  // Promise-shaped because layer loaders await their fetchers.
+  return Promise.resolve({ type: "FeatureCollection", features: [] });
 }
 
 export async function fetchMarineWeather(_signal?: AbortSignal): Promise<any> {

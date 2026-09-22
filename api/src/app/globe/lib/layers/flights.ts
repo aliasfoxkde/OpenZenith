@@ -74,9 +74,9 @@ export function loadFlights(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { flights: boolean },
-  _entitiesRef?: React.MutableRefObject<Record<string, any>>,
+  _entitiesRef?: React.RefObject<Record<string, any>>,
 ) {
   updateStatus("flights", { error: null });
   const retry = createRetryGuard();
@@ -166,7 +166,7 @@ export function loadFlights(
         position: Cesium.Cartesian3.fromDegrees(s[SV.LON], s[SV.LAT], Math.max(alt, 0)),
         polyline: {
           positions: Cesium.Cartesian3.fromDegreesArray(
-            [s[SV.LON], s[SV.LAT], s[SV.LON] + dLon, s[SV.LAT] + dLat],
+            [Number(s[SV.LON]), Number(s[SV.LAT]), Number(s[SV.LON]) + dLon, Number(s[SV.LAT]) + dLat],
             Math.max(alt, 0),
             Math.max(alt, 0),
           ),
@@ -223,8 +223,8 @@ export function loadFlights(
           const camH = cam.height;
           const span = Math.min(camH * 0.8, 5);
           const spanDeg = span / 111320;
-          const camLng = Cesium.Math.toDegrees(cam.longitude);
-          const camLat = Cesium.Math.toDegrees(cam.latitude);
+          const camLng = Number(Cesium.Math.toDegrees(cam.longitude));
+          const camLat = Number(Cesium.Math.toDegrees(cam.latitude));
           const bbox = {
             lamin: +(camLat - spanDeg / 2).toFixed(2),
             lamax: +(camLat + spanDeg / 2).toFixed(2),
@@ -254,10 +254,10 @@ export function loadFlights(
         .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
         .slice(0, MAX_FLIGHTS);
       updateStatus("flights", { lastUpdate: Date.now(), count: states.length });
-      states.forEach((s: any[], i: number) => addFlightEntity(s, i, states.length <= 300));
+      states.forEach((s: any[], i: number) => { addFlightEntity(s, i, states.length <= 300); });
 
       // Refresh interval
-      const iv = setInterval(async () => {
+      const refresh = async () => {
         if (!stateLayers.flights) return;
 
         try {
@@ -268,8 +268,8 @@ export function loadFlights(
               const camH = cam.height;
               const span = Math.min(camH * 0.8, 5);
               const spanDeg = span / 111320;
-              const camLng = Cesium.Math.toDegrees(cam.longitude);
-              const camLat = Cesium.Math.toDegrees(cam.latitude);
+              const camLng = Number(Cesium.Math.toDegrees(cam.longitude));
+              const camLat = Number(Cesium.Math.toDegrees(cam.latitude));
               const bboxKey = `${(camLat - spanDeg / 2).toFixed(2)},${(camLat + spanDeg / 2).toFixed(2)},${(camLng - spanDeg / 2).toFixed(2)},${(camLng + spanDeg / 2).toFixed(2)}`;
 
               if (bboxKey !== lastBboxKey || authenticated) {
@@ -299,7 +299,7 @@ export function loadFlights(
             const filtered = newData.states
               .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
               .slice(0, MAX_FLIGHTS);
-            filtered.forEach((s: any[], i: number) => addFlightEntity(s, i, filtered.length <= 300));
+            filtered.forEach((s: any[], i: number) => { addFlightEntity(s, i, filtered.length <= 300); });
             updateStatus("flights", {
               lastUpdate: Date.now(),
               count: filtered.length,
@@ -313,6 +313,9 @@ export function loadFlights(
             updateStatus("flights", { error: "Data unavailable after 5 failed attempts" });
           }
         }
+      };
+      const iv = setInterval(() => {
+        void refresh();
       }, 15000);
       intervalsRef.current.push(iv);
     } catch (err) {
@@ -322,5 +325,5 @@ export function loadFlights(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

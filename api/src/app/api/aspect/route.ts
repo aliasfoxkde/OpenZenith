@@ -86,8 +86,9 @@ function computeAspect(dem: Float32Array, rows: number, cols: number, cellSizeM:
   return result;
 }
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stays promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function GET(request: NextRequest) {

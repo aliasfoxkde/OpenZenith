@@ -56,7 +56,7 @@ function buildTiff(options: TiffOptions): Buffer {
   const payloads = options.rawTileData
     ? [options.rawTileData]
     : (options.planes ?? []).map((plane) => plane.buffer.slice(plane.byteOffset, plane.byteOffset + plane.byteLength));
-  const compressed = options.rawTileData
+  const compressed: Buffer[] = options.rawTileData
     ? [Buffer.from(options.rawTileData)]
     : payloads.map((payload) => deflateSync(new Uint8Array(payload as ArrayBuffer), { level: 6 }));
 
@@ -169,7 +169,7 @@ describe("LocalTifBackend.fetchChunk", () => {
     const decoded = decodeChunk(await backend.fetchChunk("N40W074.tif", 0, 0));
 
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[0] as Int16Array, TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[0], TILE, TILE, TILE));
   });
 
   it("reads the final tile using end-of-file as its upper bound", async () => {
@@ -178,7 +178,7 @@ describe("LocalTifBackend.fetchChunk", () => {
 
     const decoded = decodeChunk(await backend.fetchChunk("N00E000.tif", 1, 1));
 
-    expectInt16Equal(decoded, expectedWindow(planes[3] as Int16Array, TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[3], TILE, TILE, TILE));
   });
 
   it("clamps a partial edge tile to the image width", async () => {
@@ -188,7 +188,7 @@ describe("LocalTifBackend.fetchChunk", () => {
     const decoded = decodeChunk(await backend.fetchChunk("N47E008.tif", 0, 1));
 
     expect(decoded.length).toBe(TILE * 44);
-    expectInt16Equal(decoded, expectedWindow(planes[1] as Int16Array, TILE, TILE, 300 - TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[1], TILE, TILE, 300 - TILE));
   });
 
   it("clamps both axes on the bottom-right partial tile", async () => {
@@ -198,7 +198,7 @@ describe("LocalTifBackend.fetchChunk", () => {
     const decoded = decodeChunk(await backend.fetchChunk("N47E008.tif", 1, 1));
 
     expect(decoded.length).toBe(44 * 44);
-    expectInt16Equal(decoded, expectedWindow(planes[3] as Int16Array, TILE, 300 - TILE, 300 - TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[3], TILE, 300 - TILE, 300 - TILE));
   });
 
   it("parses big-endian (MM) GeoTIFFs", async () => {
@@ -207,7 +207,7 @@ describe("LocalTifBackend.fetchChunk", () => {
 
     const decoded = decodeChunk(await backend.fetchChunk("N10W010.tif", 0, 1));
 
-    expectInt16Equal(decoded, expectedWindow(planes[1] as Int16Array, TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[1], TILE, TILE, TILE));
   });
 
   it("defaults the tile size to 256 when the tile tags are absent", async () => {
@@ -217,7 +217,7 @@ describe("LocalTifBackend.fetchChunk", () => {
     const decoded = decodeChunk(await backend.fetchChunk("N51E000.tif", 0, 0));
 
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[0] as Int16Array, TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[0], TILE, TILE, TILE));
   });
 
   it("returns an empty buffer for a chunk outside the tile grid", async () => {
@@ -264,7 +264,7 @@ describe("LocalTifBackend.fetchChunk", () => {
 
     const decoded = decodeChunk(await backend.fetchChunk("badtilesize.tif", 0, 0));
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[0] as Int16Array, TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[0], TILE, TILE, TILE));
   });
 
   it("returns an empty buffer when the tile is not a zlib stream", async () => {

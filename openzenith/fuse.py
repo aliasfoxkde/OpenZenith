@@ -46,14 +46,18 @@ GEBCO_BASE_URL = "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surfac
 """Base URL for GEBCO 2025 quadrant GeoTIFFs (CEDA hosted, supports HTTP range requests)."""
 
 GEBCO_RESOLUTION_ARCSEC = 15  # 15 arc-second = ~450m at equator
-GEBCO_PIXELS_PER_DEG = 240   # 3600 arc-sec / 15 arc-sec per pixel
+GEBCO_PIXELS_PER_DEG = 240  # 3600 arc-sec / 15 arc-sec per pixel
 GEBCO_NODATA = -32768
-"""GEBCO uses Int16 with no explicit nodata; unrealistic values (< -11000 or > 9000) are treated as nodata."""
+"""GEBCO uses Int16 with no explicit nodata.
+
+Unrealistic values (< -11000 or > 9000) are treated as nodata.
+"""
 
 GEBCO_LAND_THRESHOLD = 0.0  # positive = above sea level
 
 
 # ─── GEBCO tile math ───────────────────────────────────────────────────────────
+
 
 def _quad_name(lat: float, lon: float) -> str:
     """Return GEBCO quadrant filename for a lat/lon."""
@@ -136,6 +140,7 @@ class FusedDEM:
         )
         elev, mask = fused.query(40.0, -74.0, 41.0, -73.0)
         print(f"Elevation at NYC: {elev[0,0]:.1f}m")
+
     """
 
     def __init__(
@@ -147,6 +152,7 @@ class FusedDEM:
         srtm_tiles: dict | None = None,
         use_http_fallback: bool = True,
     ) -> None:
+        """Store data directories and the HTTP fallback policy for fused queries."""
         self.srtm_dir = Path(srtm_dir) if srtm_dir else None
         self.gebco_dir = Path(gebco_dir) if gebco_dir else None
         self.gebco_url = gebco_url
@@ -168,13 +174,16 @@ class FusedDEM:
         """Query a rectangular region and return fused elevation + land/ocean mask.
 
         Args:
-            lat_min, lon_min: Southwest corner of the query region.
-            lat_max, lon_max: Northeast corner.
+            lat_min: Southern edge of the query region in degrees.
+            lon_min: Western edge of the query region in degrees.
+            lat_max: Northern edge of the query region in degrees.
+            lon_max: Eastern edge of the query region in degrees.
             resolution: Grid cell size in degrees (default: 0.001 ≈ 111m at equator).
 
         Returns:
             (elevation, mask) where elevation is int16 (meters, NODATA=-32768)
             and mask is uint8 (0=ocean, 1=land, 2=SRTM nodata).
+
         """
         rows = max(1, math.ceil((lat_max - lat_min) / resolution))
         cols = max(1, math.ceil((lon_max - lon_min) / resolution))
@@ -212,6 +221,7 @@ class FusedDEM:
         Returns:
             (elevation_meters, surface_type) where surface_type is
             "land", "ocean", or "unknown".
+
         """
         srtm_result = self._srtm_elevation(lat, lon)
         if srtm_result is not None:
@@ -236,13 +246,16 @@ class FusedDEM:
         """Async version of query() using aiohttp for GEBCO HTTP and asyncio.to_thread for SRTM.
 
         Args:
-            lat_min, lon_min: Southwest corner of the query region.
-            lat_max, lon_max: Northeast corner.
+            lat_min: Southern edge of the query region in degrees.
+            lon_min: Western edge of the query region in degrees.
+            lat_max: Northern edge of the query region in degrees.
+            lon_max: Eastern edge of the query region in degrees.
             resolution: Grid cell size in degrees (default: 0.001 ≈ 111m at equator).
 
         Returns:
             (elevation, mask) where elevation is int16 (meters, NODATA=-32768)
             and mask is uint8 (0=ocean, 1=land, 2=SRTM nodata).
+
         """
         rows = max(1, math.ceil((lat_max - lat_min) / resolution))
         cols = max(1, math.ceil((lon_max - lon_min) / resolution))
@@ -256,9 +269,8 @@ class FusedDEM:
         # Pre-build SRTM tile index in thread (avoids blocking event loop)
         if self._srtm_tiles is None and self.srtm_dir is not None:
             from openzenith.merged import discover_srtm_tiles
-            self._srtm_tiles = await asyncio.to_thread(
-                discover_srtm_tiles, self.srtm_dir
-            )
+
+            self._srtm_tiles = await asyncio.to_thread(discover_srtm_tiles, self.srtm_dir)
 
         # Collect all point tasks
         tasks = []
@@ -273,7 +285,7 @@ class FusedDEM:
         # Run all queries concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for (r, c), result in zip(coords, results):
+        for (r, c), result in zip(coords, results, strict=False):
             if isinstance(result, Exception):
                 _logger.debug("Async query failed for (%d,%d): %s", r, c, result)
                 continue
@@ -296,6 +308,7 @@ class FusedDEM:
         Returns:
             List of elevations in meters (None if no data available),
             in the same order as input pairs.
+
         """
         if not lat_lon_pairs:
             return []
@@ -303,9 +316,8 @@ class FusedDEM:
         # Pre-build SRTM tile index in thread if needed
         if self._srtm_tiles is None and self.srtm_dir is not None:
             from openzenith.merged import discover_srtm_tiles
-            self._srtm_tiles = await asyncio.to_thread(
-                discover_srtm_tiles, self.srtm_dir
-            )
+
+            self._srtm_tiles = await asyncio.to_thread(discover_srtm_tiles, self.srtm_dir)
 
         # Query all points concurrently
         tasks = [self._query_point_async(lat, lon) for lat, lon in lat_lon_pairs]
@@ -367,7 +379,9 @@ class FusedDEM:
         session = await self._get_gebco_session()
 
         try:
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.get(
+                url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
                 if resp.status not in (200, 206):
                     return None
                 data = await resp.read()
@@ -379,20 +393,31 @@ class FusedDEM:
                     return None
                 return elev
         except (aiohttp.ClientError, OSError) as err:
-            _logger.debug("GEBCO async HTTP fetch failed (url=%s): %s: %s", url, type(err).__name__, err)
+            _logger.debug(
+                "GEBCO async HTTP fetch failed (url=%s): %s: %s", url, type(err).__name__, err
+            )
             return None
 
     async def _get_gebco_session(self) -> aiohttp.ClientSession:
         """Get or create a shared aiohttp session for GEBCO HTTP requests."""
-        if not hasattr(self, "_gebco_session") or self._gebco_session is None or self._gebco_session.closed:
+        if (
+            not hasattr(self, "_gebco_session")
+            or self._gebco_session is None
+            or self._gebco_session.closed
+        ):
             import aiohttp
+
             connector = aiohttp.TCPConnector(limit=32)
             self._gebco_session = aiohttp.ClientSession(connector=connector)
         return self._gebco_session
 
     async def close_gebco_session(self) -> None:
         """Close the shared GEBCO HTTP session."""
-        if hasattr(self, "_gebco_session") and self._gebco_session is not None and not self._gebco_session.closed:
+        if (
+            hasattr(self, "_gebco_session")
+            and self._gebco_session is not None
+            and not self._gebco_session.closed
+        ):
             await self._gebco_session.close()
             self._gebco_session = None
 
@@ -415,6 +440,7 @@ class FusedDEM:
         # Build SRTM tiles index lazily
         if self._srtm_tiles is None:
             from openzenith.merged import discover_srtm_tiles
+
             self._srtm_tiles = discover_srtm_tiles(self.srtm_dir)
 
         if (srtm_lat, srtm_lon) not in self._srtm_tiles:
@@ -457,7 +483,9 @@ class FusedDEM:
             is_land = True
             return elev, is_land
         except (OSError, ValueError) as err:
-            _logger.debug("SRTM merged read failed (path=%s): %s: %s", merged_path, type(err).__name__, err)
+            _logger.debug(
+                "SRTM merged read failed (path=%s): %s: %s", merged_path, type(err).__name__, err
+            )
             return None
 
     # ─── GEBCO ────────────────────────────────────────────────────────────────
@@ -503,11 +531,13 @@ class FusedDEM:
         """Read a GEBCO quadrant GeoTIFF as a numpy array."""
         try:
             import rasterio
+
             with rasterio.open(path) as src:
                 return src.read(1)  # shape: (21600, 21600)
         except ImportError:
             # Fallback: use PIL for geotiff
             from PIL import Image
+
             img = Image.open(path)
             return np.array(img, dtype=np.int16)
 
@@ -572,7 +602,8 @@ def load_fused_tile(
     """Load a fused SRTM+GEBCO tile as a 256×256 grid.
 
     Args:
-        lat, lon: Center of the tile (or SW corner depending on convention).
+        lat: Latitude of the tile center in degrees.
+        lon: Longitude of the tile center in degrees.
         zoom: Web Mercator zoom level. Determines tile size.
         srtm_dir: Path to SRTM .merged files.
         gebco_dir: Path to GEBCO quadrant GeoTIFFs.
@@ -580,9 +611,10 @@ def load_fused_tile(
 
     Returns:
         (elevation_grid, mask) as for FusedDEM.query().
+
     """
     # Convert center lat/lon to tile coords (inline — no script dependency)
-    n = 2 ** zoom
+    n = 2**zoom
     x_tile = int((lon + 180) / 360 * n)
     lat_rad = math.radians(lat)
     y_tile = int(((1 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2) * n)
@@ -613,14 +645,17 @@ def load_fused_elevation_grid(
     Convenience function equivalent to creating a FusedDEM and calling query().
 
     Args:
-        lat_min, lon_min: Southwest corner.
-        lat_max, lon_max: Northeast corner.
+        lat_min: Southern edge of the region in degrees.
+        lon_min: Western edge of the region in degrees.
+        lat_max: Northern edge of the region in degrees.
+        lon_max: Eastern edge of the region in degrees.
         resolution: Cell size in degrees (default: 0.001 ≈ 111m).
         srtm_dir: Path to SRTM .merged files.
         gebco_dir: Path to GEBCO quadrant GeoTIFFs.
 
     Returns:
         (elevation, mask) arrays as for FusedDEM.query().
+
     """
     fused = FusedDEM(srtm_dir=srtm_dir, gebco_dir=gebco_dir)
     return fused.query(lat_min, lon_min, lat_max, lon_max, resolution=resolution)

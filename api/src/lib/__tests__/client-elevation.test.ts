@@ -102,8 +102,10 @@ interface Fixtures {
 
 function installFixtures(fixtures: Fixtures = {}): { calls: RecordedCall[]; fetchMock: ReturnType<typeof vi.fn> } {
   const calls: RecordedCall[] = [];
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input.toString();
+  // Callers under test `await fetch(...)`, so a synchronous Response resolves
+  // exactly like the real fetch's Promise<Response>.
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit): Response => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const range = init?.headers ? new Headers(init.headers).get("Range") : null;
     calls.push({ url, range });
 
@@ -539,10 +541,10 @@ describe("getClientElevationBatch", () => {
     const fetchesFor = (tile: string) => calls.filter((c) => c.url.includes(`/${tile}.merged`)).length;
     expect(fetchesFor("N41W072")).toBe(1);
     // the first tile has fallen out of both caches, so it is fetched again
-    await getClientElevation(points[0]!.lat, points[0]!.lon);
+    await getClientElevation(points[0].lat, points[0].lon);
     expect(fetchesFor("N41W072")).toBe(2);
     // the most recent tile is still cached
-    await getClientElevation(points[69]!.lat, points[69]!.lon);
+    await getClientElevation(points[69].lat, points[69].lon);
     expect(fetchesFor("N41W003")).toBe(1);
   });
 });

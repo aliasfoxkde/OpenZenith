@@ -11,7 +11,7 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
       const center = map.getCenter();
       const res = await fetch(`/api/airquality?lat=${center.lat.toFixed(2)}&lon=${center.lng.toFixed(2)}`);
       const data = await res.json();
-      if (!map.getSource || !data?.features) return;
+      if (!data?.features) return;
 
       try {
         if (!map.getSource("air-quality")) {
@@ -88,8 +88,12 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 300000)); // 5 min
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 300000),
+  ); // 5 min
 }
 
 export function removeAirQuality(map: maplibregl.Map): void {

@@ -10,7 +10,7 @@ const AURORA_CACHE_TTL = 600; // 10 minutes
 const KP_URL = "https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json";
 const AURORA_URL = "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

@@ -1,13 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 "use client";
 
 import { useState } from "react";
 import { SIDEBAR_SECTIONS } from "../constants";
 import { LAYERS } from "@/lib/layers/registry";
+import type { LayerDefinition } from "@/lib/layers/types";
 import { SectionHeader } from "./SectionHeader";
 import type { WidgetProps } from "./types";
 
-const LAYER_MAP = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
+// Values stay nullable: a section can list a layer id that is not registered.
+const LAYER_MAP: Record<string, LayerDefinition | undefined> = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
 
 export function LayersWidget({ globe }: WidgetProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
@@ -22,7 +24,7 @@ export function LayersWidget({ globe }: WidgetProps) {
             id={`wv-section-header-${section.key}`}
             title={section.title}
             open={openSections[section.key]}
-            onToggle={() => setOpenSections((p) => ({ ...p, [section.key]: !p[section.key] }))}
+            onToggle={() => { setOpenSections((p) => ({ ...p, [section.key]: !p[section.key] })); }}
             bodyId={`wv-section-body-${section.key}`}
           />
           <div
@@ -50,7 +52,7 @@ export function LayersWidget({ globe }: WidgetProps) {
                     id={`wv-layer-toggle-${layerId}`}
                     type="checkbox"
                     checked={checked}
-                    onChange={() => globe.toggleLayer(layerId as any)}
+                    onChange={() => { globe.toggleLayer(layerId); }}
                   />
                 </div>
               );

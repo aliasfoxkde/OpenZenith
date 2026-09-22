@@ -53,6 +53,11 @@ export function parseMergedHeader(data: Uint8Array): MergedIndex | null {
   return { rows, cols, entries };
 }
 
+/** Indexed lookup that stays nullable — an out-of-range chunk has no entry. */
+function entryAt(entries: MergedIndex["entries"], idx: number): MergedIndex["entries"][number] | undefined {
+  return entries[idx];
+}
+
 export function extractChunkFromMerged(
   mergedData: Uint8Array,
   index: MergedIndex,
@@ -60,7 +65,7 @@ export function extractChunkFromMerged(
   col: number,
 ): Uint8Array {
   const idx = row * index.cols + col;
-  const entry = index.entries[idx];
+  const entry = entryAt(index.entries, idx);
   // A corrupt index (out-of-range chunk or chunk extending past EOF) must
   // throw a catchable error, not slice garbage or RangeError deep in DataView.
   if (!entry || entry.offset + entry.size > mergedData.length) {

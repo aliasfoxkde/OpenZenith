@@ -3,8 +3,9 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function GET(request: NextRequest) {
@@ -52,11 +53,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Nominatim payloads are untyped JSON — display_name is only sometimes present.
+    const displayName = typeof data.display_name === "string" ? data.display_name : undefined;
+
     return NextResponse.json(
       {
         place: {
           display_name: data.display_name,
-          name: data.name || (data.display_name as string)?.split(",")[0],
+          name: data.name || displayName?.split(",")[0],
           type: data.type,
           address: data.address,
           osm_id: data.osm_id,

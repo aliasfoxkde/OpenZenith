@@ -59,7 +59,7 @@ const VALID_GROUPS = new Set([
  * - Handle text error responses gracefully
  */
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

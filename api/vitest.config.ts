@@ -5,6 +5,11 @@ export default defineConfig({
   test: {
     setupFiles: ["./src/test-setup.ts"],
     environment: "node",
+    // Slow storage (NFS) + parallel transform make cold imports legitimately
+    // exceed vitest's 5s default on this machine (stac's route import alone
+    // measured 7.6s). A real hang still fails; it just gets 15s to prove it.
+    testTimeout: 15_000,
+    hookTimeout: 15_000,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"],
     coverage: {
       provider: "v8",

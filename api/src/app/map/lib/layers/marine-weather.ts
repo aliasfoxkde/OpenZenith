@@ -180,7 +180,6 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
 
       setStatus(handle, "marineWeather", features.length ? "loaded" : "empty", features.length);
 
-      if (!map.getSource) return;
       try {
         const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
         if (!map.getSource("marineWeather")) {
@@ -198,8 +197,12 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 600000)); // 10 min
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 600000),
+  ); // 10 min
 }
 
 export function removeMarineWeather(map: maplibregl.Map): void {

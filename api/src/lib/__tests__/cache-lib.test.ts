@@ -31,19 +31,20 @@ function createCaches(): FakeCaches {
   stores.set(NAMESPACE, new Map<string, Response>());
   return {
     stores,
-    open: async (name: string) => {
+    open: (name: string) => {
       let store = stores.get(name);
       if (!store) {
         store = new Map<string, Response>();
         stores.set(name, store);
       }
       const bound = store;
-      return {
-        match: async (key: string) => bound.get(key) ?? null,
-        put: async (key: string, response: Response) => {
+      return Promise.resolve({
+        match: (key: string) => Promise.resolve(bound.get(key) ?? null),
+        put: (key: string, response: Response) => {
           bound.set(key, response);
+          return Promise.resolve();
         },
-      };
+      } satisfies FakeCache);
     },
   };
 }
@@ -168,9 +169,7 @@ describe("cachedFetch", () => {
 
   it("falls back to a direct fetch when the Cache API throws", async () => {
     vi.stubGlobal("caches", {
-      open: async () => {
-        throw new Error("cache unavailable");
-      },
+      open: () => Promise.reject(new Error("cache unavailable")),
     });
     fetchMock.mockResolvedValue(jsonResponse('{"direct":2}'));
 
@@ -301,9 +300,7 @@ describe("staleWhileRevalidate", () => {
 
   it("falls back to a direct fetch when the Cache API throws", async () => {
     vi.stubGlobal("caches", {
-      open: async () => {
-        throw new Error("cache unavailable");
-      },
+      open: () => Promise.reject(new Error("cache unavailable")),
     });
     fetchMock.mockResolvedValue(jsonResponse('{"direct":4}'));
 

@@ -9,7 +9,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from openzenith.merged import INDEX_ENTRY_SIZE, MAGIC, MergedFile, discover_srtm_tiles, get_merged_file, lat_lon_to_srtm_name, read_elevation_from_merged, srtm_name_to_dir
+from openzenith.merged import (
+    INDEX_ENTRY_SIZE,
+    MAGIC,
+    MergedFile,
+    discover_srtm_tiles,
+    get_merged_file,
+    lat_lon_to_srtm_name,
+    read_elevation_from_merged,
+    srtm_name_to_dir,
+)
 
 
 def make_merged_v1(chunks: list[np.ndarray]) -> tuple[bytes, list[int]]:

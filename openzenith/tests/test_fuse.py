@@ -1,7 +1,6 @@
 """Tests for openzenith.fuse multi-DEM fusion."""
 
 import asyncio
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -51,7 +50,7 @@ class TestGebcoTileMath:
         assert GEBCO_PIXELS_PER_DEG == 240
         assert GEBCO_RESOLUTION_ARCSEC == 15
         # Check: 3600 arc-sec / 240 pixels = 15 arc-sec/pixel
-        assert 3600 / GEBCO_PIXELS_PER_DEG == pytest.approx(GEBCO_RESOLUTION_ARCSEC)
+        assert pytest.approx(GEBCO_RESOLUTION_ARCSEC) == 3600 / GEBCO_PIXELS_PER_DEG
 
 
 class TestFusedDEMQuery:
@@ -122,7 +121,10 @@ class TestLoadFusedElevationGrid:
     def test_returns_correct_types(self):
         """Returns (elevation, mask) tuple of correct types."""
         elev, mask = load_fused_elevation_grid(
-            40.0, -74.0, 40.1, -73.9,
+            40.0,
+            -74.0,
+            40.1,
+            -73.9,
             resolution=0.01,
             srtm_dir=None,
             gebco_dir=None,

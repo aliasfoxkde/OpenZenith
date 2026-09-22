@@ -1,11 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+/** Assert a nullable Playwright response is present before use. */
+function must<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("unexpected null response");
+  return value;
+}
+
 // Targets the configured baseURL (playwright.config.ts — E2E_BASE_URL to
 // retarget; production by default).
 test.describe("Production site verification", () => {
   test("landing page loads and has title", async ({ page }) => {
     const resp = await page.goto("/");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
     await expect(page).toHaveTitle(/OpenZenith/);
   });
 
@@ -38,7 +44,7 @@ test.describe("Production site verification", () => {
 
   test("OpenAPI docs page loads", async ({ page }) => {
     const resp = await page.goto("/api/docs");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
     await page.waitForTimeout(2000);
     // Verify the docs page rendered HTML content
     const html = await page.content();
@@ -49,7 +55,7 @@ test.describe("Production site verification", () => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
     const resp = await page.goto("/map");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
     await page.waitForTimeout(5000);
     expect(errors).toHaveLength(0);
   });
@@ -61,29 +67,29 @@ test.describe("Production site verification", () => {
       if (err.message !== "Event") errors.push(err.message);
     });
     const resp = await page.goto("/globe");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
     await page.waitForTimeout(5000);
     expect(errors).toHaveLength(0);
   });
 
   test("demo page loads", async ({ page }) => {
     const resp = await page.goto("/demo");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
   });
 
   test("explore page loads", async ({ page }) => {
     const resp = await page.goto("/explore");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
   });
 
   test("about page loads", async ({ page }) => {
     const resp = await page.goto("/about");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
   });
 
   test("contribute page loads", async ({ page }) => {
     const resp = await page.goto("/contribute");
-    expect(resp!.status()).toBeLessThan(400);
+    expect(must(resp).status()).toBeLessThan(400);
   });
 
   test("geocode API responds", async ({ request }) => {

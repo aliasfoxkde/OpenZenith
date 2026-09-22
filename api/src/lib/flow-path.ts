@@ -73,8 +73,8 @@ class MinHeap {
   pop(): HeapNode | undefined {
     if (this.heap.length === 0) return undefined;
     const min = this.heap[0];
-    const last = this.heap.pop()!;
-    if (this.heap.length > 0) {
+    const last = this.heap.pop();
+    if (last !== undefined && this.heap.length > 0) {
       this.heap[0] = last;
       this.bubbleDown(0);
     }
@@ -104,7 +104,7 @@ class MinHeap {
 
   private bubbleDown(i: number): void {
     const length = this.heap.length;
-    while (true) {
+    for (;;) {
       const left = 2 * i + 1;
       const right = 2 * i + 2;
       let smallest = i;
@@ -133,8 +133,8 @@ class MaxHeap {
   pop(): HeapNode | undefined {
     if (this.heap.length === 0) return undefined;
     const max = this.heap[0];
-    const last = this.heap.pop()!;
-    if (this.heap.length > 0) {
+    const last = this.heap.pop();
+    if (last !== undefined && this.heap.length > 0) {
       this.heap[0] = last;
       this.bubbleDown(0);
     }
@@ -160,7 +160,7 @@ class MaxHeap {
 
   private bubbleDown(i: number): void {
     const length = this.heap.length;
-    while (true) {
+    for (;;) {
       const left = 2 * i + 1;
       const right = 2 * i + 2;
       let largest = i;
@@ -278,8 +278,8 @@ async function traceFlowPath(
 
   // Get starting elevation and seed the heap
   const startResult = await getClientElevationBatch([{ lat, lon }]);
-  const startElev = startResult[0]?.elevation;
-  if (startElev === null || startElev === undefined) {
+  const startElev = startResult[0]?.elevation ?? null;
+  if (startElev === null) {
     return { coordinates: [], elevations: [] };
   }
   if (startElev <= 0 && stopAtSeaLevel) {
@@ -293,7 +293,8 @@ async function traceFlowPath(
   const pathElevs: number[] = [];
 
   while (!heap.isEmpty() && pathCoords.length < maxPoints) {
-    const node = heap.pop()!;
+    const node = heap.pop();
+    if (!node) continue;
     const nKey = visitedKey(node.lat, node.lon);
     if (visited.has(nKey)) continue;
     visited.add(nKey);
@@ -312,8 +313,8 @@ async function traceFlowPath(
       if (visited.has(k) || queued.has(k)) continue;
 
       const results = await getClientElevationBatch([{ lat: nLat, lon: nLon }]);
-      const elev = results[0]?.elevation;
-      if (elev === null || elev === undefined) {
+      const elev = results[0]?.elevation ?? null;
+      if (elev === null) {
         queued.add(k); // no data here — never re-query this point
         continue;
       }

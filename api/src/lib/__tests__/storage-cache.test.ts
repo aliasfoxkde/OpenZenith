@@ -31,7 +31,7 @@ function createCaches(): FakeCaches {
   return {
     stores,
     openCalls,
-    open: async (name: string) => {
+    open: (name: string) => {
       openCalls.push(name);
       let store = stores.get(name);
       if (!store) {
@@ -39,12 +39,13 @@ function createCaches(): FakeCaches {
         stores.set(name, store);
       }
       const bound = store;
-      return {
-        match: async (key: string) => bound.get(key) ?? null,
-        put: async (key: string, response: Response) => {
+      return Promise.resolve({
+        match: (key: string) => Promise.resolve(bound.get(key) ?? null),
+        put: (key: string, response: Response) => {
           bound.set(key, response);
+          return Promise.resolve();
         },
-      };
+      });
     },
   };
 }
@@ -174,10 +175,11 @@ describe("storage chunk cache (Cloudflare Cache API)", () => {
 
   it("ignores Cache API write failures", async () => {
     setCacheStorageProvider(() => ({
-      open: async () => ({
-        match: async () => null,
-        put: async () => Promise.reject(new Error("quota exceeded")),
-      }),
+      open: () =>
+        Promise.resolve({
+          match: () => Promise.resolve(null),
+          put: () => Promise.reject(new Error("quota exceeded")),
+        }),
     }));
 
     await expect(cachePut(KEY, bytes(4, 4))).resolves.toBeUndefined();

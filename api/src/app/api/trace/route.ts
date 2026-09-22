@@ -31,8 +31,9 @@ const D8_DR = [0, 1, 1, 1, 0, -1, -1, -1];
 const D8_DC = [1, 1, 0, -1, -1, -1, 0, 1];
 const D8_DIST = [1, Math.SQRT2, 1, Math.SQRT2, 1, Math.SQRT2, 1, Math.SQRT2];
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stay promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
 export async function POST(request: NextRequest) {

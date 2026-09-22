@@ -1,13 +1,22 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 const mockNlnogNodes = [
   { id: 1, hostname: "ams01", asn: 123, ipv4: "1.2.3.4", city: "Amsterdam", countrycode: "NL", geo: "52.37,4.9" },
   { id: 2, hostname: "lon01", asn: 456, ipv4: "5.6.7.8", city: "London", countrycode: "GB", geo: "51.51,-0.13" },
 ];
 
+// Wholesale fetch stub per test (see airquality.test.ts for why the
+// mockResolvedValueOnce queue pattern is avoided here).
 describe("NLNOG endpoint", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("returns nodes array with count", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }))),
+    );
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
@@ -21,7 +30,10 @@ describe("NLNOG endpoint", () => {
   });
 
   it("nodes have required fields", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }))),
+    );
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
@@ -37,7 +49,10 @@ describe("NLNOG endpoint", () => {
   });
 
   it("includes CORS and cache headers", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(mockNlnogNodes), { status: 200 }))),
+    );
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();

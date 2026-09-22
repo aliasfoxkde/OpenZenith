@@ -109,7 +109,7 @@ function encodeTile(
 
 function gridFrom(values: number[][], width: number): Int16Array {
   const out = new Int16Array(values.length * width);
-  values.forEach((row, i) => out.set(row, i * width));
+  values.forEach((row, i) => { out.set(row, i * width); });
   return out;
 }
 

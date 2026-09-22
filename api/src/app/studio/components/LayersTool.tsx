@@ -7,7 +7,9 @@ interface Props {
   dark: boolean;
   basemap: string;
   onBasemapChange: (key: string) => void;
-  layers: Record<string, boolean>;
+  // Layer keys appear as they are toggled, so an absent key (not yet toggled)
+  // is a real state — the `!!` coercion below keeps the checkbox controlled.
+  layers: Record<string, boolean | undefined>;
   onToggleLayer: (id: string, enabled: boolean) => void;
   datasets: UploadedDataset[];
 }
@@ -38,7 +40,7 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
           {Object.entries(BASEMAPS).map(([key, bm]) => (
             <button
               key={key}
-              onClick={() => onBasemapChange(key)}
+              onClick={() => { onBasemapChange(key); }}
               style={{
                 padding: "6px 8px",
                 background: basemap === key ? "#3b82f6" : inputBg,
@@ -63,7 +65,7 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
           <input
             type="checkbox"
             checked={!!layers.hillshade}
-            onChange={(e) => onToggleLayer("hillshade", e.target.checked)}
+            onChange={(e) => { onToggleLayer("hillshade", e.target.checked); }}
           />
           <span style={{ color: text, fontSize: 12 }}>Hillshade</span>
         </label>
@@ -92,7 +94,7 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
               <input
                 type="checkbox"
                 checked={!!layers[layer.id]}
-                onChange={(e) => onToggleLayer(layer.id, e.target.checked)}
+                onChange={(e) => { onToggleLayer(layer.id, e.target.checked); }}
               />
             </label>
           ))}

@@ -36,8 +36,8 @@ interface Props {
   imperial?: boolean;
   onImperialChange?: (imperial: boolean) => void;
   onProfileChange?: (coords: [number, number][] | null) => void;
-  profileClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
-  flowPathClickRef?: React.MutableRefObject<((lat: number, lon: number) => void) | null>;
+  profileClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
+  flowPathClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
   flowPathActive?: boolean;
 }
 
@@ -86,7 +86,7 @@ export function ToolPanel(props: Props) {
             aria-selected={activeTab === tab.id}
             aria-controls={`panel-${tab.id}`}
             tabIndex={activeTab === tab.id ? 0 : -1}
-            onClick={() => onTabChange(tab.id)}
+            onClick={() => { onTabChange(tab.id); }}
             style={{
               padding: "10px 12px",
               background: activeTab === tab.id ? (dark ? "#1a1a1a" : "#fff") : "transparent",

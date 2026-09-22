@@ -70,12 +70,14 @@ type FetchRoute = { match: string; respond: () => Response };
 
 /** Route stubbed fetch calls by URL substring so concurrent includes stay deterministic. */
 function stubFetch(routes: FetchRoute[]) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input);
-    const hit = routes.find((r) => url.includes(r.match));
-    if (!hit) throw new Error(`unexpected fetch: ${url}`);
-    return hit.respond();
-  });
+  const fetchMock = vi.fn((input: RequestInfo | URL) =>
+    Promise.resolve().then(() => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const hit = routes.find((r) => url.includes(r.match));
+      if (!hit) throw new Error(`unexpected fetch: ${url}`);
+      return hit.respond();
+    }),
+  );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -306,9 +308,7 @@ describe("Query API — reverse geocode (address) include", () => {
   });
 
   it("returns a null address when the geocode request throws", async () => {
-    const fetchMock = vi.fn(async () => {
-      throw new Error("dns failure");
-    });
+    const fetchMock = vi.fn(() => Promise.reject(new Error("dns failure")));
     vi.stubGlobal("fetch", fetchMock);
     const data = await (await (await GET())(mockRequest(QUERY))).json();
     expect(data.address).toBeNull();
@@ -482,9 +482,7 @@ describe("Query API — waterways include", () => {
   });
 
   it("returns null waterways when the Overpass request throws", async () => {
-    const fetchMock = vi.fn(async () => {
-      throw new Error("timeout");
-    });
+    const fetchMock = vi.fn(() => Promise.reject(new Error("timeout")));
     vi.stubGlobal("fetch", fetchMock);
     const data = await (await (await GET())(mockRequest(QUERY))).json();
     expect(data.waterways).toBeNull();
@@ -501,7 +499,9 @@ describe("Query API — waterways include", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://overpass-api.de/api/interpreter");
     expect(init.method).toBe("POST");
-    const body = decodeURIComponent(String(init.body));
+    const rawBody = init.body;
+    if (typeof rawBody !== "string") throw new Error("expected a string Overpass request body");
+    const body = decodeURIComponent(rawBody);
     expect(body).toContain("(10.49,20.24,10.51,20.26)");
     expect(body).toContain('way["waterway"~"river|stream|canal"]');
   });

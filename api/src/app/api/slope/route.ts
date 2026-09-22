@@ -77,7 +77,7 @@ function computeSlope(dem: Float32Array, rows: number, cols: number, cellSizeM: 
   return result;
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

@@ -19,7 +19,7 @@ export function FlipCard({
   const [flipped, setFlipped] = useState(false);
 
   return (
-    <div style={{ height, perspective: 600, cursor: "pointer" }} onClick={() => setFlipped((f) => !f)}>
+    <div style={{ height, perspective: 600, cursor: "pointer" }} onClick={() => { setFlipped((f) => !f); }}>
       <div
         style={{
           position: "relative",

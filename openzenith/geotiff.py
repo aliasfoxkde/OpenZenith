@@ -61,6 +61,7 @@ def grid_to_gtiff_metadata(
 
     Returns:
         Dict with 'geotransform' (GDAL-style 6-tuple), 'width', 'height', 'nodata'.
+
     """
     if transform is not None:
         origin_lat, origin_lon, dlat, dlon = transform
@@ -116,6 +117,7 @@ def export_geotiff(
 
     Returns:
         Path to the output file.
+
     """
     output_path = Path(output_path)
     rows, cols = data.shape
@@ -141,9 +143,14 @@ def export_geotiff(
         compress = "zstd"
 
     metadata = grid_to_gtiff_metadata(
-        rows, cols, transform,
-        origin_lat=origin_lat, origin_lon=origin_lon,
-        cell_size=cell_size, nodata=nodata, crs=crs,
+        rows,
+        cols,
+        transform,
+        origin_lat=origin_lat,
+        origin_lon=origin_lon,
+        cell_size=cell_size,
+        nodata=nodata,
+        crs=crs,
     )
 
     try:
@@ -152,6 +159,7 @@ def export_geotiff(
     except ImportError:
         # Fallback: write plain TIFF without georeferencing
         from PIL import Image
+
         img = Image.fromarray(out_data.astype(np.int16), mode="I;16")
         img.save(output_path)
         return output_path
@@ -216,6 +224,7 @@ def export_cog(
 
     Returns:
         Path to the output COG file.
+
     """
     output_path = Path(output_path)
 
@@ -225,11 +234,10 @@ def export_cog(
     try:
         import rasterio
         from rasterio.transform import from_origin
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
-            "rasterio required for COG export. "
-            "Install with: pip install rasterio"
-        )
+            "rasterio required for COG export. Install with: pip install rasterio"
+        ) from err
 
     rows, cols = data.shape
 
@@ -241,9 +249,14 @@ def export_cog(
         out_data = data.astype(np.int16)
 
     metadata = grid_to_gtiff_metadata(
-        rows, cols, transform,
-        origin_lat=origin_lat, origin_lon=origin_lon,
-        cell_size=cell_size, nodata=nodata, crs=crs,
+        rows,
+        cols,
+        transform,
+        origin_lat=origin_lat,
+        origin_lon=origin_lon,
+        cell_size=cell_size,
+        nodata=nodata,
+        crs=crs,
     )
     gt = metadata["geotransform"]
     transform_rio = from_origin(gt[0], gt[3], gt[1], abs(gt[5]))

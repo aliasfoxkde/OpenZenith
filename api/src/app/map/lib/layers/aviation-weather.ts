@@ -143,8 +143,6 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
         }
       } catch {}
 
-      if (!map.getSource) return;
-
       if (features.length === 0) {
         setStatus(handle, "aviationWeather", "empty");
         return;
@@ -165,8 +163,12 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
       }
   };
 
-  doLoad();
-  handle.intervals.push(setInterval(doLoad, 300000)); // 5 min refresh
+  void doLoad();
+  handle.intervals.push(
+    setInterval(() => {
+      void doLoad();
+    }, 300000), // 5 min refresh
+  );
 }
 
 export function removeAviationWeather(map: maplibregl.Map): void {
@@ -185,7 +187,8 @@ export function removeAviationWeather(map: maplibregl.Map): void {
 /** Parse aviation weather geometry from various NOAA formats */
 function parseAviationGeometry(entry: Record<string, unknown>): GeoJSON.Geometry | null {
   // Try coordinates array: [[lon,lat], [lon,lat], ...]
-  const coords = entry.coordinates || entry.area || (entry.geometry as Record<string, unknown>)?.coordinates;
+  const coords =
+    entry.coordinates || entry.area || (entry.geometry as Record<string, unknown> | undefined)?.coordinates;
   if (Array.isArray(coords) && coords.length >= 3) {
     const ring: [number, number][] = [];
     for (const c of coords) {
@@ -207,8 +210,10 @@ function parseAviationGeometry(entry: Record<string, unknown>): GeoJSON.Geometry
       if (Array.isArray(v) && v.length >= 2) {
         ring.push([v[0], v[1]]);
       } else if (typeof v === "object" && v !== null) {
-        const lon = (v as Record<string, number>).lon ?? (v as Record<string, number>).lng ?? 0;
-        const lat = (v as Record<string, number>).lat ?? 0;
+        // NOAA polygon vertices are either [lon, lat] pairs or {lon|lng, lat} objects
+        const vert = v as Partial<Record<string, number>>;
+        const lon = vert.lon ?? vert.lng ?? 0;
+        const lat = vert.lat ?? 0;
         ring.push([lon, lat]);
       }
     }

@@ -10,7 +10,8 @@ export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { query?: string };
+    const raw = await request.json();
+    const body = raw as { query?: string };
     const query = body.query;
 
     if (!query || typeof query !== "string") {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => { controller.abort(); }, 30000);
 
     const resp = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
@@ -45,6 +46,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }

@@ -3,11 +3,11 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
-const COLLECTIONS: Record<string, { title: string; description: string }> = {
+const COLLECTIONS: Partial<Record<string, { title: string; description: string }>> = {
   earthquakes: {
     title: "Earthquakes",
     description: "Real-time earthquake data from USGS (magnitude, depth, location)",

@@ -1,24 +1,29 @@
 # Project Documentation
 
-This directory contains detailed documentation for OpenZenith.
+Canonical agent guidance for this project lives at [`../CLAUDE.md`](../CLAUDE.md)
+(repo root): architecture, API surface, Python SDK, and development commands.
 
-> **Note:** The canonical agent guidance for this project lives at [`../CLAUDE.md`](../CLAUDE.md) (repo root). It documents the full architecture, API, Python SDK, and development commands.
+## Precedence rule
 
-## What's Here
+When documents conflict: **repo-root `CLAUDE.md`** > **canonical docs below** >
+**`docs/archive/`** (never authoritative — historical record only).
+
+## Canonical documents
 
 | Document | Purpose |
 |----------|---------|
-| `ARCHITECTURE.md` | System overview, data flow, backend priority chain |
-| `DATASET_MANIFEST.md` | Data sources, storage locations, tile formats |
-| `archive/CHANGELOG.md` | Version history through v0.6.4 (recent: `../.github/CHANGELOG.md`) |
-| `CONTRIBUTING.md` | How to contribute |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | System overview, data flow, backend priority chain |
+| [`DATASET_MANIFEST.md`](DATASET_MANIFEST.md) | Data sources, storage locations, tile formats |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contributing elevation data to the v2 dataset |
+| [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) | The companion `openzenith-data` community tile repository |
+| [`security/TRIAGE.md`](security/TRIAGE.md) | Aegis security-findings triage and baseline policy |
+| [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) | Current phased improvement plan and progress log |
+| [`planning/IMPROVEMENT_PLAN_2026-09-21.md`](planning/IMPROVEMENT_PLAN_2026-09-21.md) | Prior improvement cycle (Phases 1–7, complete) with progress log |
+| [`planning/HANDOFF.md`](planning/HANDOFF.md) | Session handoff notes for the next agent |
 
-## Other Docs
+## Archive
 
-- `API_AUDIT_REPORT*.md` — API route audits (may be stale)
-- `GAP_ANALYSIS.md` — Feature gap analysis (may be stale)
-- `PERFORMANCE_AUDIT.md` — Performance findings (may be stale)
-- `ROADMAP.md` — Future plans
-- `V2_DATASET_IMPLEMENTATION_PLAN.md` — OZT2 dataset implementation details
-
-For a current status view, see the [GitHub Actions](https://github.com/aliasfoxkde/OpenZenith/actions) and [HuggingFace dataset](https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2).
+Everything under [`archive/`](archive/) is historical: completed plans, past
+audits, and superseded roadmaps, each with a header stating why it was
+archived. Notable: `archive/CHANGELOG.md` (history through v0.6.4 — current
+versions: [`../.github/CHANGELOG.md`](../.github/CHANGELOG.md)).

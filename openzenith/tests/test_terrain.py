@@ -181,14 +181,18 @@ class TestViewshed:
             for c in range(20):
                 dem[r, c] = 200.0
         # Observer at north edge
-        vs = viewshed(dem, observer_row=0, observer_col=10, observer_height=2.0, cell_size_deg=0.001)
+        vs = viewshed(
+            dem, observer_row=0, observer_col=10, observer_height=2.0, cell_size_deg=0.001
+        )
         # Cells behind the ridge should be hidden
         assert not vs[15, 10], "Cell behind ridge should not be visible"
 
     def test_max_distance(self):
         """max_distance_cells should limit the viewshed."""
         dem = np.ones((20, 20), dtype=np.float32) * 100.0
-        vs = viewshed(dem, observer_row=10, observer_col=10, max_distance_cells=3, cell_size_deg=0.001)
+        vs = viewshed(
+            dem, observer_row=10, observer_col=10, max_distance_cells=3, cell_size_deg=0.001
+        )
         # Only cells within 3 cell distances should be visible
         for r in range(20):
             for c in range(20):
@@ -424,7 +428,7 @@ class TestProfileCurvature:
         """Concave slope (decelerating) should have positive profile curvature."""
         # Create a bowl shape: z = x^2
         x = np.linspace(-1, 1, 50).astype(np.float32)
-        dem = np.tile(x ** 2, (50, 1)) * 1000
+        dem = np.tile(x**2, (50, 1)) * 1000
         result = profile_curvature(dem)
         center = result[25, 25]
         assert not np.isnan(center)
@@ -448,7 +452,7 @@ class TestPlanformCurvature:
     def test_valley_shape(self):
         """Valley should have negative planform curvature."""
         x = np.linspace(-1, 1, 50).astype(np.float32)
-        dem = np.tile(x ** 2, (50, 1)) * 1000
+        dem = np.tile(x**2, (50, 1)) * 1000
         result = planform_curvature(dem)
         center = result[25, 25]
         assert not np.isnan(center)
@@ -617,7 +621,7 @@ class TestHackIntegral:
         assert result["chi"].shape == dem.shape
 
     def test_chi_is_float32(self):
-        """chi grid should be float32."""
+        """Chi grid should be float32."""
         dem = make_slope_dem(30, 30)
         result = hack_integral(dem)
         assert result["chi"].dtype == np.float32
@@ -696,6 +700,7 @@ class TestFlowWidth:
     def test_flow_width_with_direction(self):
         """flow_width with provided flow direction."""
         from openzenith.hydrology import d8_flow_direction
+
         dem = np.zeros((20, 20), dtype=np.float32)
         for r in range(20):
             dem[r, :] = r * 10.0
@@ -891,7 +896,7 @@ class TestHypsometry:
         assert result.shape == dem.shape
 
     def test_high_cell_high_hypsometry(self):
-        """hypsometry returns float32 array 0-1."""
+        """Hypsometry returns float32 array 0-1."""
         dem = np.zeros((10, 10), dtype=np.float32)
         for r in range(10):
             dem[r, :] = r * 50.0

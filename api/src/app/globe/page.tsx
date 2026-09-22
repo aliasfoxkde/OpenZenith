@@ -61,6 +61,10 @@ export default function Globe() {
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
 
   const [state, setState] = useState<DashboardState>(DEFAULT_STATE);
+  // Always-current view of layer state for effects/closures that must not
+  // re-fire on unrelated layer toggles.
+  const stateLayersRef = useRef(state.layers);
+  stateLayersRef.current = state.layers;
   const [loading, setLoading] = useState(true);
 
   // Apply hash/localStorage state on mount (client-only to avoid hydration mismatch)
@@ -151,7 +155,7 @@ export default function Globe() {
       const now = new Date();
       setClock(now.toUTCString().split(" ")[4] + "Z");
     }, 1000);
-    return () => clearInterval(iv);
+    return () => { clearInterval(iv); };
   }, []);
 
   // Persist theme
@@ -254,7 +258,7 @@ export default function Globe() {
     (async () => {
       let viewer: any = null;
       try {
-        const result = await initCesiumViewer(container!, state);
+        const result = await initCesiumViewer(container, state);
         if (destroyed) {
           result.viewer.destroy();
           return;
@@ -372,7 +376,7 @@ export default function Globe() {
 
             getClientElevation(lat, lng)
               .then((d) =>
-                setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }),
+                { setElevPopup({ x: click.position.x, y: click.position.y, elev: d?.elevation ?? null, lat, lon: lng }); },
               )
               .catch(() => {});
           }
@@ -523,7 +527,10 @@ export default function Globe() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (handleDocumentContextmenu) document.removeEventListener("contextmenu", handleDocumentContextmenu);
       if (handleDocumentClick) document.removeEventListener("click", handleDocumentClick);
+      // Both refs are read at cleanup time on purpose: intervals and the
+      // lightning module accumulate over the viewer's whole lifetime.
       intervalsRef.current.forEach(clearInterval);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       layerModulesRef.current.lightning?.cleanupLightning();
       if (viewerRef.current) {
         viewerRef.current.destroy();
@@ -531,6 +538,9 @@ export default function Globe() {
         (window as unknown as { __ozViewer?: unknown }).__ozViewer = undefined;
       }
     };
+    // Mount-once Cesium viewer construction; later state flows through the
+    // dedicated per-layer effects and refs, not by rebuilding the viewer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Basemap switch ──
@@ -595,12 +605,12 @@ export default function Globe() {
     if (!document.fullscreenElement) {
       wrap
         .requestFullscreen()
-        .then(() => setIsFullscreen(true))
+        .then(() => { setIsFullscreen(true); })
         .catch(() => {});
     } else {
       document
         .exitFullscreen()
-        .then(() => setIsFullscreen(false))
+        .then(() => { setIsFullscreen(false); })
         .catch(() => {});
     }
   }, []);
@@ -636,7 +646,7 @@ export default function Globe() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => { window.removeEventListener("keydown", onKeyDown); };
   }, [zoomIn, zoomOut, resetView, toggleFullscreen, coordFormats]);
 
   // Render elevation profile chart
@@ -869,9 +879,20 @@ export default function Globe() {
       dataLoadedRef.current[key] = true;
     },
 
-    [state.layers],
+    // The remaining callees are all useCallback([], …)-stable; listing them
+    // costs nothing and keeps the rule honest.
+    [state.layers, updateStatus, removeEntities, toggleImageryOverlay],
   );
   loadLayerDynamicRef.current = loadLayerDynamic;
+
+  // ─── Elevation Color (batched) ───
+  // Defined before toggleLayer, which lists it as a dependency (a deps array
+  // is evaluated during render, so it cannot reference a later declaration).
+  const elevTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doLoadElevationColor = useCallback(async () => {
+    await loadElevationColor(viewerRef.current, cesiumRef.current, entitiesRef.current);
+  }, []);
 
   // ─── Layer toggling ───
   const toggleLayer = useCallback(
@@ -1055,7 +1076,9 @@ export default function Globe() {
       });
     },
 
-    [loadLayerDynamic],
+    // state.layers is read inside the updater's side branches; the remaining
+    // callees are useCallback([], …)-stable.
+    [loadLayerDynamic, state.layers, updateStatus, removeEntities, toggleImageryOverlay, doLoadElevationColor],
   );
 
   // ─── Section/theme toggles ───
@@ -1127,12 +1150,6 @@ export default function Globe() {
   );
 
   // ─── Elevation Color (batched) ───
-  const elevTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const doLoadElevationColor = useCallback(async () => {
-    await loadElevationColor(viewerRef.current, cesiumRef.current, entitiesRef.current);
-  }, []);
-
   useEffect(() => {
     if (!state.layers.elevationColor || loading) return;
 
@@ -1161,10 +1178,14 @@ export default function Globe() {
   // ─── Load initial layers ───
   useEffect(() => {
     if (!loading) {
-      if (state.layers.earthquakes)
-        loadEarthquakes(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
-      if (state.layers.events)
-        loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, state.layers);
+      // Read through the ref so the effect only re-fires for the two keys it
+      // loads; passing whole-layer state as a dep would re-run earthquake and
+      // event loading on every unrelated layer toggle.
+      const layers = stateLayersRef.current;
+      if (layers.earthquakes)
+        loadEarthquakes(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, layers);
+      if (layers.events)
+        loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, layers);
     }
   }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
 
@@ -1184,7 +1205,7 @@ export default function Globe() {
   }, [currentTheme.css]);
 
   return (
-    <div className="wv-wrap" style={themeStyle as React.CSSProperties}>
+    <div className="wv-wrap" style={themeStyle}>
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
 
       {loading && (
@@ -1244,7 +1265,7 @@ export default function Globe() {
               }
             }}
             onBlur={(e) => {
-              const text = (e.target as HTMLInputElement).value.trim();
+              const text = (e.target).value.trim();
               const viewer = viewerRef.current;
               if (viewer && text && text !== "Double-click to edit") {
                 const entity = viewer.entities.getById(editingAnnotation.id);
@@ -1269,7 +1290,7 @@ export default function Globe() {
                 <button
                   key={mode}
                   className={`wv-view-btn ${state.viewMode === mode ? "active" : ""}`}
-                  onClick={() => switchViewMode(mode)}
+                  onClick={() => { switchViewMode(mode); }}
                 >
                   {mode === "3d" ? "3D" : mode === "columbus" ? "CB" : "2D"}
                 </button>
@@ -1279,7 +1300,7 @@ export default function Globe() {
             <div className="wv-theme-switcher">
               <button
                 className="wv-theme-btn"
-                onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+                onClick={() => { setThemeDropdownOpen(!themeDropdownOpen); }}
                 title="Change theme"
               >
                 {currentTheme.icon}
@@ -1290,7 +1311,7 @@ export default function Globe() {
                     <button
                       key={k}
                       className={`wv-theme-option ${state.theme === k ? "active" : ""}`}
-                      onClick={() => switchTheme(k)}
+                      onClick={() => { switchTheme(k); }}
                     >
                       <span
                         className="swatch"
@@ -1394,7 +1415,7 @@ export default function Globe() {
       {/* Coordinate formats panel */}
       {coordFormats && showCoordPanel && (
         <div className="wv-coord-panel">
-          <button className="wv-coord-close" aria-label="Close coordinate panel" onClick={() => setShowCoordPanel(false)} title="Close (C)">
+          <button className="wv-coord-close" aria-label="Close coordinate panel" onClick={() => { setShowCoordPanel(false); }} title="Close (C)">
             &times;
           </button>
           {Object.entries(coordFormats).map(([fmt, val]) => (
@@ -1416,19 +1437,19 @@ export default function Globe() {
 
       {/* Orbital altitude presets */}
       <div className="wv-orbit-presets">
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(408, "ISS")}>
+        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(408, "ISS"); }}>
           ISS<span className="alt">408 km</span>
         </button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(2000, "LEO")}>
+        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(2000, "LEO"); }}>
           LEO<span className="alt">2,000 km</span>
         </button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(20200, "MEO")}>
+        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(20200, "MEO"); }}>
           MEO<span className="alt">20,200 km</span>
         </button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(35786, "GEO")}>
+        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(35786, "GEO"); }}>
           GEO<span className="alt">35,786 km</span>
         </button>
-        <button className="wv-orbit-btn" onClick={() => flyToOrbit(45000, "Moon")}>
+        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(45000, "Moon"); }}>
           Moon<span className="alt">384,400 km</span>
         </button>
       </div>
@@ -1442,7 +1463,7 @@ export default function Globe() {
           key={id}
           config={entry.config}
           state={entry.state}
-          onStateChange={(patch) => updateWidget(id, patch)}
+          onStateChange={(patch) => { updateWidget(id, patch); }}
         >
           <entry.component globe={globeContext} />
         </WidgetShell>
@@ -1450,7 +1471,7 @@ export default function Globe() {
 
       {/* Close theme dropdown on outside click */}
       {themeDropdownOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setThemeDropdownOpen(false)} />
+        <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => { setThemeDropdownOpen(false); }} />
       )}
 
       {/* Context menu (right-click) */}

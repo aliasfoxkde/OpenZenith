@@ -43,7 +43,7 @@ export function loadAviationWeather(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { aviationWeather: boolean },
 ) {
   updateStatus("aviationWeather", { error: null });
@@ -80,7 +80,7 @@ export function loadAviationWeather(
 
     viewer.entities.add({
       id: `sigmet-pt-${i}`,
-      name: `${hazard}`,
+      name: hazard,
       position: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, 0),
       billboard: {
         image: AVIATION_ICON,
@@ -143,7 +143,7 @@ export function loadAviationWeather(
 
     viewer.entities.add({
       id: `airmet-pt-${i}`,
-      name: `${hazard}`,
+      name: hazard,
       position: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, 0),
       point: {
         pixelSize: 5,
@@ -185,7 +185,7 @@ export function loadAviationWeather(
       try {
         const sigmetData = await fetchSigmets();
         const sigmets = Array.isArray(sigmetData) ? sigmetData : sigmetData?.features || sigmetData?.data || [];
-        (Array.isArray(sigmets) ? sigmets : []).forEach((s: any, i: number) => addSigmet(s, i));
+        (Array.isArray(sigmets) ? sigmets : []).forEach((s: any, i: number) => { addSigmet(s, i); });
         total += (Array.isArray(sigmets) ? sigmets : []).length;
       } catch {
         /* sigmets optional */
@@ -195,7 +195,7 @@ export function loadAviationWeather(
       try {
         const airmetData = await fetchAirmets();
         const airmets = Array.isArray(airmetData) ? airmetData : airmetData?.features || airmetData?.data || [];
-        (Array.isArray(airmets) ? airmets : []).forEach((a: any, i: number) => addAirmet(a, i));
+        (Array.isArray(airmets) ? airmets : []).forEach((a: any, i: number) => { addAirmet(a, i); });
         total += (Array.isArray(airmets) ? airmets : []).length;
       } catch {
         /* airmets optional */
@@ -203,31 +203,33 @@ export function loadAviationWeather(
 
       updateStatus("aviationWeather", { lastUpdate: Date.now(), count: total });
 
-      const iv = setInterval(async () => {
-        if (!stateLayers.aviationWeather) return;
-        try {
-          removeEntities("sigmet-");
-          removeEntities("airmet-");
-          if (!Cesium || !viewer) return;
-          const sd = await fetchSigmets();
-          const ad = await fetchAirmets();
-          let t = 0;
-          (Array.isArray(sd) ? sd : []).forEach((s: any, i: number) => {
-            addSigmet(s, i);
-            t++;
-          });
-          (Array.isArray(ad) ? ad : []).forEach((a: any, i: number) => {
-            addAirmet(a, i);
-            t++;
-          });
-          updateStatus("aviationWeather", { lastUpdate: Date.now(), count: t });
-        } catch (err) {
-          warnLayerError("aviationWeather", err, "entity build");
-          retry.recordFailure();
-          updateStatus("aviationWeather", {
-            error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Aviation weather unavailable",
-          });
-        }
+      const iv = setInterval(() => {
+        void (async () => {
+          if (!stateLayers.aviationWeather) return;
+          try {
+            removeEntities("sigmet-");
+            removeEntities("airmet-");
+            if (!Cesium || !viewer) return;
+            const sd = await fetchSigmets();
+            const ad = await fetchAirmets();
+            let t = 0;
+            (Array.isArray(sd) ? sd : []).forEach((s: any, i: number) => {
+              addSigmet(s, i);
+              t++;
+            });
+            (Array.isArray(ad) ? ad : []).forEach((a: any, i: number) => {
+              addAirmet(a, i);
+              t++;
+            });
+            updateStatus("aviationWeather", { lastUpdate: Date.now(), count: t });
+          } catch (err) {
+            warnLayerError("aviationWeather", err, "entity build");
+            retry.recordFailure();
+            updateStatus("aviationWeather", {
+              error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Aviation weather unavailable",
+            });
+          }
+        })();
       }, 300000); // 5 min
       intervalsRef.current.push(iv);
     } catch {
@@ -235,5 +237,5 @@ export function loadAviationWeather(
     }
   };
 
-  doLoad();
+  void doLoad();
 }

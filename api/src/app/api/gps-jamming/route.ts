@@ -3,7 +3,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 
@@ -17,7 +17,7 @@ export async function OPTIONS() {
  * publicly known GPS interference zones (Ukraine conflict zone,
  * Middle East, Taiwan Strait, Russian border areas).
  */
-export async function GET() {
+export function GET() {
   const hexes = [
     // Ukraine conflict zone — well documented GPS interference
     {

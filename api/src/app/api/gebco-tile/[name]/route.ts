@@ -6,7 +6,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 // Elevation queries use /api/elevation with R2-backed terrarium tiles.
 export const runtime = "edge";
 
-export async function OPTIONS() {
+export function OPTIONS() {
   return corsPreflightResponse();
 }
 

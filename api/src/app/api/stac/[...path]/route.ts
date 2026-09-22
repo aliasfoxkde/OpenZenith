@@ -115,11 +115,12 @@ function layerToCollection(layer: (typeof LAYERS)[number], baseUrl: string): Sta
   };
 }
 
-export async function OPTIONS() {
-  return corsPreflightResponse();
+// Preflight has nothing to await — stays promise-returning because callers await handlers.
+export function OPTIONS() {
+  return Promise.resolve(corsPreflightResponse());
 }
 
-export async function GET(request: Request) {
+function catalogResponse(request: Request): Response {
   const url = new URL(request.url);
   const baseUrl = url.origin;
   const path = url.pathname.replace("/api/stac", "");
@@ -151,4 +152,10 @@ export async function GET(request: Request) {
   }
 
   return Response.json({ error: "Not found" }, { status: 404, headers: CORS_HEADERS });
+}
+
+// Catalog is built from static layer metadata — nothing to await. Stays
+// promise-returning because callers await handlers.
+export function GET(request: Request) {
+  return Promise.resolve(catalogResponse(request));
 }

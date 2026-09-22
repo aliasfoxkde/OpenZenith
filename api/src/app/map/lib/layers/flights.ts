@@ -71,7 +71,7 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
         }));
 
       if (map.getSource("flights")) {
-        map.getSource("flights")?.setData?.({ type: "FeatureCollection", features });
+        map.getSource("flights")?.setData({ type: "FeatureCollection", features });
       }
       setStatus(handle, "flights", "loaded", features.length);
     } catch (err) {
@@ -81,11 +81,13 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
   };
 
   // Load immediately, then refresh on pan/zoom
-  loadFlights();
+  void loadFlights();
   let moveTimeout: ReturnType<typeof setTimeout> | null = null;
   const onMoveEnd = () => {
     if (moveTimeout) clearTimeout(moveTimeout);
-    moveTimeout = setTimeout(loadFlights, 5000); // 5s debounce
+    moveTimeout = setTimeout(() => {
+      void loadFlights();
+    }, 5000); // 5s debounce
   };
   map.on("moveend", onMoveEnd);
   handle.cleanup = () => {
@@ -93,7 +95,11 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
     if (moveTimeout) clearTimeout(moveTimeout);
   };
   // Also refresh periodically (slower, 2 min)
-  handle.intervals.push(setInterval(loadFlights, 120000));
+  handle.intervals.push(
+    setInterval(() => {
+      void loadFlights();
+    }, 120000),
+  );
 }
 
 export function removeFlights(map: maplibregl.Map): void {

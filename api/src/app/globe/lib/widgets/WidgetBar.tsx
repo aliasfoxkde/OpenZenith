@@ -22,7 +22,7 @@ export function WidgetBar({ widgets, onToggle, onResetLayout }: WidgetBarProps) 
         <button
           key={id}
           className={`wv-widget-bar-btn ${!entry.state.visible ? "hidden" : ""}`}
-          onClick={() => onToggle(id)}
+          onClick={() => { onToggle(id); }}
           title={`${entry.state.visible ? "Hide" : "Show"} ${entry.config.title}`}
         >
           <span>{WIDGET_ICONS[id] || entry.config.icon || "?"}</span>

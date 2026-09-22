@@ -30,7 +30,7 @@ export function loadLightning(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   _removeEntities: (prefix: string) => void,
-  intervalsRef: React.MutableRefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { lightning: boolean },
 ) {
   updateStatus("lightning", { error: null });

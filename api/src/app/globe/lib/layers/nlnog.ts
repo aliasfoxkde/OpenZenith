@@ -2,6 +2,17 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
+/** Node shape served by /api/nlnog. */
+interface NlnogNode {
+  id: number;
+  hostname: string;
+  asn: number;
+  city: string;
+  country: string;
+  lat: number;
+  lon: number;
+}
+
 export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   if (!Cesium || !viewer) return;
 
@@ -14,7 +25,7 @@ export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: str
         updateStatus("nlnogNodes", { error: "no data" });
         return;
       }
-      const nodes = data.nodes as any[];
+      const nodes = data.nodes as NlnogNode[];
       const ds = Cesium.CustomDataSource("NLNOG Ring Nodes");
 
       for (const node of nodes) {
@@ -82,5 +93,5 @@ export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: str
     }
   };
 
-  doLoad();
+  void doLoad();
 }

@@ -28,7 +28,9 @@ const NODATA = -32768;
  * 0=N, 90=E, 180=S, 270=W. Flat areas = -1.
  */
 function computeAspect(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
-  const result = new Float32Array(rows * cols);
+  // Border cells lack a full 3×3 window — keep them NaN so they are
+  // excluded from direction bins and emitted as null, not fake values.
+  const result = new Float32Array(rows * cols).fill(NaN);
 
   for (let r = 1; r < rows - 1; r++) {
     for (let c = 1; c < cols - 1; c++) {

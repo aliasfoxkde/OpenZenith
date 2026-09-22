@@ -87,7 +87,8 @@ function flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint3
 }
 
 function computeSlope(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
-  const result = new Float32Array(rows * cols);
+  // Border cells lack a full 3×3 window — keep them NaN, not fake 0-slope.
+  const result = new Float32Array(rows * cols).fill(NaN);
   for (let r = 1; r < rows - 1; r++) {
     for (let c = 1; c < cols - 1; c++) {
       const idx = r * cols + c;

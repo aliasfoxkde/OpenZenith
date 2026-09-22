@@ -27,7 +27,9 @@ const NODATA = -32768;
  * Returns slope in degrees (0-90).
  */
 function computeSlope(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
-  const result = new Float32Array(rows * cols);
+  // Border cells lack a full 3×3 window — keep them NaN so they are
+  // excluded from stats and emitted as null, not fake 0-slope values.
+  const result = new Float32Array(rows * cols).fill(NaN);
 
   for (let r = 1; r < rows - 1; r++) {
     for (let c = 1; c < cols - 1; c++) {

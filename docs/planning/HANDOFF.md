@@ -14,6 +14,18 @@ deployment claim).
 > **Update (2026-09-21):** repo-wide audit and the current phased execution plan
 > live in [IMPROVEMENT_PLAN_2026-09-21.md](IMPROVEMENT_PLAN_2026-09-21.md);
 > start there for up-to-date state (v0.8.1 baseline, coverage gaps, phases).
+>
+> **Update (2026-09-22, v0.8.3):** quality gates are now enforced, not
+> advisory: ESLint 0 errors, `tsc --noEmit` clean, vitest coverage floors
+> 92/83/81/92, pytest `--cov-fail-under=81` (measured 82.08%), Aegis
+> security gate green against a committed, triaged baseline
+> ([security/TRIAGE.md](../security/TRIAGE.md)), and an axe-core WCAG
+> AAA audit in `api/e2e/a11y.spec.ts` (8 pages, green). Known-residual
+> work (globe/lib extraction, openapi.json single-sourcing, coverage
+> climb toward 95/90) is phased in
+> [MASTER_PLAN_2026-09-22.md](MASTER_PLAN_2026-09-22.md). The v0.8.3
+> security fix (globe tooltip third-party XSS) is the one true-positive
+> finding that re-triage surfaced; it is fixed, not baselined.
 
 ## Repository surfaces
 

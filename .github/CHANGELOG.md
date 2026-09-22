@@ -3,6 +3,46 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.8.3 (2026-09-22)
+
+### Security
+- Globe hover tooltips rendered third-party feed content (USGS quake place
+  strings, OpenSky callsigns, AIS vessel names, EONET event titles) as raw
+  HTML via `dangerouslySetInnerHTML`; every feed-derived interpolation is
+  now HTML-escaped (`escapeHtml`), closing a stored-XSS vector from
+  hostile upstream feeds.
+
+### Fixed
+- `point-elevation.ts` DecompressionStream path could deadlock when
+  compressed tile bytes exceeded the writable high-water mark: the reader
+  loop now starts before `writer.write()`/`close()` are awaited.
+- Clearing an elevation profile in Studio left the profile line and
+  marker layers on the map; the null branch now removes them (and the
+  close path shares one cleanup loop).
+
+### Added
+- Aegis security/pattern gate (`scripts/aegis_scan.sh`) with committed
+  finding baseline and reviewed triage policy
+  (`docs/security/TRIAGE.md`); baseline 7,488 findings across 5 scopes,
+  every high/critical class individually verified.
+- WCAG 2.1 AAA regression gate: axe-core E2E audit
+  (`e2e/a11y.spec.ts`, wcag2a/2aa/2aaa + best-practice) on 8 pages.
+- Coverage ratchets wired into CI-equivalent local gates: vitest
+  thresholds 92/83/81/92 (from measured 92.3/83.15/81.28), Python
+  `--cov-fail-under=81` (measured 82.08%).
+
+### Changed
+- `openzenith/terrain.py` (3,486 lines) split into a `terrain/` package
+  (9 submodules) and `openzenith/hydrology.py` (2,491 lines) into
+  `hydrology/` (10 submodules); full public surface preserved
+  (77 + 42 re-exported names).
+- WCAG AAA contrast across both themes: secondary text `#a3a3a3`
+  (dark) / `#525252` (light), accent text ≥ 7:1 on every studio tool
+  panel; attribution links underlined (1.4.1); globe/explore `<main>`
+  landmarks + globe sr-only `<h1>`.
+- ESLint at 0 errors repo-wide (5,800 warn-level); `tsc --noEmit` clean;
+  977 vitest + 718 pytest tests green against the raised gates.
+
 ## v0.8.2 (2026-09-22)
 
 ### Changed

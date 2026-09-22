@@ -308,3 +308,68 @@ This is a GitForge-repo defect, surfaced here and in the GitForge project —
 OpenZenith cannot fix it from this side.
 
 - 2026-09-22: Plan written from measured baseline (§2). Phase A starting.
+
+### 2026-09-22 — Phases A–D execution evidence
+
+**Phase A (strict linting).** All six lint agents completed (three died on
+provider 429 mid-run, finished sequentially from ground-truth eslint output).
+Final state: `eslint src` severity-2 = **0** (5,800 warnings, all configured
+warn-level `no-unsafe-*`/`restrict-template-expressions`); `tsc --noEmit`
+= **0** errors. Rust gate green (clippy all-features + default `-D warnings`,
+fmt, 13 tests, release build) — WASM raw-pointer ABI documented via
+`pub unsafe fn` + `# Safety` contracts instead of lint suppression; ruff = 0.
+
+**Real defect fixed en route** (`api/src/lib/point-elevation.ts`): the
+AWS-terrarium `DecompressionStream` path awaited `writer.write()` before the
+first `reader.read()`, deadlocking on backpressure for any compressed tile
+larger than the writable high-water mark. Verified with a standalone Node
+repro; affected tests dropped from ~100s to ~9s.
+
+**Latent studio bug fixed** (`api/src/app/studio/page.tsx`): clearing an
+elevation profile returned before removing `profile-line`/
+`profile-marker-*` from the map — the layers lingered after every clear.
+Both clear paths now run the same removal loop.
+
+**Phase B (coverage).** Python: measured 81.95% → gate `--cov-fail-under=81`
+in `pyproject.toml` (strict `>=`, so the floor is the rounded-down truth);
+after the terrain/hydrology split the suite measures **82.08%**. Vitest:
+measured 92.3 stmts / 83.15 branches / 81.28 functions → thresholds raised
+70/50/70/70 → **92/83/81/92**. Known weak spots for the next ratchet:
+`lib/storage/r2-binding.ts` 60%, `lib/layers/types.ts` 0%,
+`fuse.py` 44%, `converter.py` 48%.
+
+**Phase C (WCAG AAA).** axe-core audit live in `api/e2e/a11y.spec.ts`
+(wcag2a/2aa/2aaa/best-practice, vendor-scoped MapLibre/Cesium exclusions).
+Fixes: AAA secondary-text tokens in `globals.css` (dark `#a3a3a3` 7.79:1,
+light `#525252` 7.49:1); Navbar/Footer/mobile-menu `visibility` fix;
+about-page theme-aware stylesheet + `<main>` + heading order; globe
+`<main>` landmark + sr-only `<h1>`; explore `<main>`; studio
+ToolPanel/page text `#666`/`#999` → AAA tokens; MapLibre attribution links
+underlined (1.4.1). Local-build audit pending this session.
+
+**Phase D (smells).** `openzenith/terrain.py` (3,486 lines) → `terrain/`
+package (9 submodules, largest 647) and `openzenith/hydrology.py` (2,491)
+→ `hydrology/` (10 submodules, largest 551). Public surface 100%
+preserved (77 + 42 re-exported names); `openzenith/__init__.py` untouched;
+718 tests pass; ruff clean. Largest app-side file `globe/page.tsx` reduced
+~40 lines of lint-workaround noise; `__scratch_union2.ts` removed.
+
+### 2026-09-22 — Aegis re-triage + true-positive fix (Phase E)
+
+The post-refactor aegis gate surfaced 1,855 findings not in the baseline
+(api/src 1,227, openzenith/ 625, scripts/ 3) — overwhelmingly line-shift
+artifacts of the dispositioned classes. Every high/critical class was
+spot-checked at its new location (method recorded in
+`docs/security/TRIAGE.md` §Re-triage 2026-09-22). Outcome:
+
+- **One true positive, FIXED:** the globe hover-tooltip builder
+  (`globe/page.tsx` → `HudOverlays.tsx` `dangerouslySetInnerHTML`)
+  interpolated third-party feed content (USGS place names, OpenSky
+  callsigns, AIS vessel names, EONET event titles) as raw HTML. Fixed with
+  a local `escapeHtml()` applied to every feed-derived interpolation.
+  Confirmed the only data-fed `innerHTML` sink in `api/src`.
+- Baseline regenerated deliberately at final code state: 7,488 findings
+  (1 critical / 664 high / 1,048 medium / 5,770 low / 5 info);
+  `scripts/aegis_scan.sh` gate now passes with zero new findings.
+- 3 permanent self-hits accepted and dispositioned: the gate script's own
+  inline Python heredoc trips print-statement/terraform-count.

@@ -66,12 +66,15 @@ function buildChunks(build: (row: number, col: number) => ((r: number, c: number
   return table;
 }
 
-function backendFor(chunks: ChunkTable): ChunkBackend & { fetchChunk: ReturnType<typeof vi.fn> } {
+/** Property (not method) shape so tests can assert on the mock without unbinding it. */
+type FetchChunkMock = (srtmName: string, row: number, col: number) => Promise<ArrayBuffer>;
+
+function backendFor(chunks: ChunkTable): Omit<ChunkBackend, "fetchChunk"> & { fetchChunk: FetchChunkMock } {
   return {
-    fetchChunk: vi.fn(async (srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
+    fetchChunk: vi.fn((srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
       const chunk = chunks.get(`${row}:${col}`);
-      if (!chunk) throw new Error(`no fixture chunk ${srtmName} ${row}:${col}`);
-      return chunk;
+      if (!chunk) return Promise.reject(new Error(`no fixture chunk ${srtmName} ${row}:${col}`));
+      return Promise.resolve(chunk);
     }),
   };
 }
@@ -194,9 +197,7 @@ describe("getPointElevation — SRTM chunk path", () => {
 
   it("returns null when the backend cannot fetch the chunk", async () => {
     const storage: ChunkBackend = {
-      fetchChunk: vi.fn(async () => {
-        throw new Error("chunk not found");
-      }),
+      fetchChunk: vi.fn(() => Promise.reject(new Error("chunk not found"))),
     };
 
     expect(await getPointElevation(41.95, -73.95, storage)).toBeNull();
@@ -204,7 +205,7 @@ describe("getPointElevation — SRTM chunk path", () => {
 
   it("returns null when the chunk payload is not valid zlib", async () => {
     const storage: ChunkBackend = {
-      fetchChunk: vi.fn(async () => new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer),
+      fetchChunk: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer)),
     };
 
     expect(await getPointElevation(41.95, -73.95, storage)).toBeNull();
@@ -218,7 +219,7 @@ describe("getPointElevation — AWS terrarium fallback", () => {
 
   it("uses AWS terrain tiles for blacklisted SRTM tiles", async () => {
     const png = terrariumPng(256, (x, y) => (x === TARGET.x && y === TARGET.y ? [129, 244, 0] : [0, 0, 0]));
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response(png, { status: 200 }));
+    const fetchMock = vi.fn((_url: string) => Promise.resolve(new Response(png, { status: 200 })));
     vi.stubGlobal("fetch", fetchMock);
 
     const storage = backendFor(new Map());
@@ -227,21 +228,21 @@ describe("getPointElevation — AWS terrarium fallback", () => {
     // 129 * 256 + 244 + 0 / 256 - 32768 = 500
     expect(result).toEqual({ elevation: 500, surfaceType: "land", source: "aws", tile: "AWS-z13-1444-3202" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toBe(
+    expect(fetchMock.mock.calls[0][0]).toBe(
       "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/1444/3202.png",
     );
     expect(storage.fetchChunk).not.toHaveBeenCalled();
   });
 
   it("returns null when the AWS tile request fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 404 })));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("nope", { status: 404 }))));
 
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
   });
 
   it("returns null when the target pixel is terrarium nodata (0,0,0)", async () => {
     const png = terrariumPng(256, () => [0, 0, 0]);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(png, { status: 200 })));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(png, { status: 200 }))));
 
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
   });
@@ -267,7 +268,10 @@ describe("getPointElevation — AWS terrarium fallback", () => {
       ...pngChunk("IDAT", [...idat]),
       ...pngChunk("IEND", []),
     ];
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array(bytes).buffer, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array(bytes).buffer, { status: 200 }))),
+    );
 
     const result = await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()));
 
@@ -283,7 +287,10 @@ describe("getPointElevation — AWS terrarium fallback", () => {
       ...pngChunk("IHDR", [...be32(256), ...be32(256), 8, 2, 0, 0, 0]),
       ...pngChunk("IEND", []),
     ];
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array(bytes).buffer, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array(bytes).buffer, { status: 200 }))),
+    );
 
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
   });
@@ -291,7 +298,7 @@ describe("getPointElevation — AWS terrarium fallback", () => {
   it("returns null when the response body is not a PNG", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(new Uint8Array(64).buffer, { status: 200 })),
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array(64).buffer, { status: 200 }))),
     );
 
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();

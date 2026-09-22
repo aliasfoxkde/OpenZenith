@@ -177,15 +177,21 @@ async function getPointElevationFromAWS(
     if (typeof DecompressionStream !== "undefined") {
       const ds = new DecompressionStream("deflate");
       const writer = ds.writable.getWriter();
+      const reader = ds.readable.getReader();
+      // Consume the readable side while writing: the stream applies backpressure,
+      // so awaiting the write before the first read deadlocks on larger tiles.
+      const drained = (async () => {
+        const chunks: Uint8Array[] = [];
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        return chunks;
+      })();
       await writer.write(compressed);
       await writer.close();
-      const reader = ds.readable.getReader();
-      const chunks: Uint8Array[] = [];
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
+      const chunks = await drained;
       const len = chunks.reduce((s, c) => s + c.length, 0);
       raw = new Uint8Array(len);
       off = 0;

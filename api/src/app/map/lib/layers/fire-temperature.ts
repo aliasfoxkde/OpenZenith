@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Fire Temperature (GOES-East ABI Fire Temperature) ─── */
 
@@ -27,9 +27,10 @@ export function addFireTemperature(map: maplibregl.Map, handle: LayerHandle): vo
       });
     }
     setStatus(handle, "fireTemperature", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("fireTemperature", err);
     setStatus(handle, "fireTemperature", "error");
-  }
+    }
 }
 
 export function removeFireTemperature(map: maplibregl.Map): void {

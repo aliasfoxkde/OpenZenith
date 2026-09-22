@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addAOD(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("aod")) return;
@@ -7,9 +7,10 @@ export function addAOD(map: maplibregl.Map, handle: LayerHandle): void {
     map.addSource("aod", { type: "raster", tiles: ["/api/aod/{z}/{x}/{y}"], tileSize: 256, minzoom: 0, maxzoom: 5 });
     map.addLayer({ id: "aod-raster", type: "raster", source: "aod", paint: { "raster-opacity": 0.8 } });
     setStatus(handle, "aod", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("aod", err);
     setStatus(handle, "aod", "error");
-  }
+    }
 }
 export function removeAOD(map: maplibregl.Map): void {
   try {

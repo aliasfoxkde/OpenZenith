@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addDroughtHazard(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("drought-hazard")) return;
@@ -18,9 +18,10 @@ export function addDroughtHazard(map: maplibregl.Map, handle: LayerHandle): void
       paint: { "raster-opacity": 0.8 },
     });
     setStatus(handle, "droughtHazard", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("droughtHazard", err);
     setStatus(handle, "droughtHazard", "error");
-  }
+    }
 }
 export function removeDroughtHazard(map: maplibregl.Map): void {
   try {

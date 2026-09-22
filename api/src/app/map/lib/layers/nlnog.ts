@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── NLNOG Nodes ─── */
 
@@ -64,9 +65,10 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("nlnogNodes", err);
+      setStatus(handle, "nlnogNodes", "error");
+      }
   };
 
   doLoad();

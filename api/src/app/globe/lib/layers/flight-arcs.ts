@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
 export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
@@ -47,8 +48,10 @@ export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: str
         arcCount++;
       }
       updateStatus("flightArcs", { lastUpdate: Date.now(), count: arcCount });
-    } catch {
-      updateStatus("flightArcs", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("flightArcs", err);
+      updateStatus("flightArcs", {
+        error: "fetch failed" });
     }
   };
 

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addBiomass(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("biomass")) return;
@@ -13,9 +13,10 @@ export function addBiomass(map: maplibregl.Map, handle: LayerHandle): void {
     });
     map.addLayer({ id: "biomass-raster", type: "raster", source: "biomass", paint: { "raster-opacity": 0.85 } });
     setStatus(handle, "biomass", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("biomass", err);
     setStatus(handle, "biomass", "error");
-  }
+    }
 }
 export function removeBiomass(map: maplibregl.Map): void {
   try {

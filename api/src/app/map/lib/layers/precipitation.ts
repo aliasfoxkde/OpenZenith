@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Precipitation (IMERG) ─── */
 
@@ -25,9 +25,10 @@ export function addPrecipitation(map: maplibregl.Map, handle: LayerHandle): void
       });
     }
     setStatus(handle, "precipitation", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("precipitation", err);
     setStatus(handle, "precipitation", "error");
-  }
+    }
 }
 
 export function removePrecipitation(map: maplibregl.Map): void {

@@ -20,6 +20,9 @@ export function setStatus(handle: LayerHandle, layerId: string, status: LayerSta
   handle.onStatusChange?.(layerId, status, count);
 }
 
+// Lives in the shared lib so the globe's data fetchers use the same helpers.
+export { warnLayerError, domEventCause } from "@/lib/diagnostics";
+
 /** Web Mercator tile coordinate conversion. */
 export function latLonToTile(lat: number, lon: number, zoom: number) {
   const n = 2 ** zoom;

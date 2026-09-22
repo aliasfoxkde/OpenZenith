@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchEarthquakes } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -182,7 +183,8 @@ export function loadEarthquakes(
           fs.forEach((f: any, i: number) => addQuakeEntity(f, i));
           updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
           retry.recordSuccess();
-        } catch {
+        } catch (err) {
+          warnLayerError("earthquakes", err, "entity build");
           retry.recordFailure();
           if (retry.shouldRetry) {
             updateStatus("earthquakes", { error: `Retrying (${retry.failureCount}/5)...` });

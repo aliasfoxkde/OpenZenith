@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── SAR Backscatter (OPERA L2 RTC Sentinel-1) ─── */
 
@@ -27,9 +27,10 @@ export function addSarBackscatter(map: maplibregl.Map, handle: LayerHandle): voi
       });
     }
     setStatus(handle, "sarBackscatter", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("sarBackscatter", err);
     setStatus(handle, "sarBackscatter", "error");
-  }
+    }
 }
 
 export function removeSarBackscatter(map: maplibregl.Map): void {

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Active Fires (NASA FIRMS VIIRS via /api/wildfires proxy) ─── */
 
@@ -70,9 +70,10 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
+    } catch (err) {
+      warnLayerError("burnScars", err);
       setStatus(handle, "burnScars", "error");
-    }
+      }
   };
 
   doLoad();

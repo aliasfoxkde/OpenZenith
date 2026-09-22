@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addFloodHazard(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("flood-hazard")) return;
@@ -18,7 +18,8 @@ export function addFloodHazard(map: maplibregl.Map, handle: LayerHandle): void {
       paint: { "raster-opacity": 0.8 },
     });
     setStatus(handle, "floodHazard", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("floodHazard", err);
     setStatus(handle, "floodHazard", "error");
   }
 }

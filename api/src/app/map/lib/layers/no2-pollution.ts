@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── NO₂ Air Pollution (TROPOMI L2) ─── */
 
@@ -25,9 +25,10 @@ export function addNo2Pollution(map: maplibregl.Map, handle: LayerHandle): void 
       });
     }
     setStatus(handle, "no2Pollution", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("no2Pollution", err);
     setStatus(handle, "no2Pollution", "error");
-  }
+    }
 }
 
 export function removeNo2Pollution(map: maplibregl.Map): void {

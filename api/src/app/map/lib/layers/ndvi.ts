@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── NDVI (MODIS Terra L3 16-Day) ─── */
 
@@ -25,9 +25,10 @@ export function addNdvi(map: maplibregl.Map, handle: LayerHandle): void {
       });
     }
     setStatus(handle, "ndvi", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("ndvi", err);
     setStatus(handle, "ndvi", "error");
-  }
+    }
 }
 
 export function removeNdvi(map: maplibregl.Map): void {

@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Weather Radar (RainViewer) ─── */
 
@@ -32,9 +33,10 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("radar", err);
+      setStatus(handle, "radar", "error");
+      }
   };
 
   doLoad();

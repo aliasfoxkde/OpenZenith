@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Aviation Weather (SIGMETs / AIRMETs) ─── */
 
@@ -159,9 +159,10 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
         }
         setStatus(handle, "aviationWeather", "loaded", features.length);
       } catch {}
-    } catch {
+    } catch (err) {
+      warnLayerError("aviationWeather", err);
       setStatus(handle, "aviationWeather", "error");
-    }
+      }
   };
 
   doLoad();

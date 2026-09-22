@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchFIRMS } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -150,7 +151,8 @@ export function loadWildfires(
         doLoad();
       }, 21600000); // 6 hours
       intervalsRef.current.push(iv);
-    } catch {
+    } catch (err) {
+      warnLayerError("wildfires", err, "entity build");
       retry.recordFailure();
       updateStatus("wildfires", {
         error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable",

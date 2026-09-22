@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import { elevationColor } from "../helpers";
 import { getClientElevationBatch } from "@/lib/client-elevation";
 
@@ -66,7 +67,8 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
 
     entitiesRef.current["elev-points"] = pointCollection;
     lastLoadCenter = { lat, lon: lng };
-  } catch {
-    /* batch fetch failed — skip silently */
+  } catch (err) {
+    warnLayerError("elevation", err, "batch fetch");
+    /* batch fetch failed — skip, but leave the cause on the console */
   }
 }

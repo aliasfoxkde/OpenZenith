@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError, domEventCause } from "./types";
 
 /* ─── Vessels (AIS via AISstream.io) ─── */
 
@@ -152,7 +152,8 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (ev) => {
+        warnLayerError("vessels", domEventCause(ev), "websocket");
         setStatus(handle, "vessels", "error");
       };
 
@@ -163,9 +164,10 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
           if (map.getSource("vessels")) connect();
         }, 30000);
       };
-    } catch {
+    } catch (err) {
+      warnLayerError("vessels", err);
       setStatus(handle, "vessels", "error");
-    }
+      }
   };
 
   connect();

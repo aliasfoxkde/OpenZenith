@@ -126,3 +126,13 @@ export const GLOBE_BASEMAP_KEYS: BasemapKey[] = ["dark", "satellite", "osm", "vo
 export function getBasemap(key: string): BasemapDef {
   return BASEMAPS[key as BasemapKey] ?? BASEMAPS.dark;
 }
+
+/**
+ * Distinct tile-server hostnames used by registry basemaps. The proxy
+ * allowlists (api/proxy/tile, api/proxy/wms) spread this in, so a new
+ * registry entry is proxyable by construction instead of needing a
+ * parallel edit to the proxy routes.
+ */
+export const BASEMAP_TILE_HOSTS: string[] = [
+  ...new Set(Object.values(BASEMAPS).map((b) => new URL(b.url).hostname)),
+];

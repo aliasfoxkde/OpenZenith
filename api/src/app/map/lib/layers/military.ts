@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Military ADS-B (ADSB Exchange) ─── */
 
@@ -56,9 +56,10 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
+    } catch (err) {
+      warnLayerError("militaryFlights", err);
       setStatus(handle, "militaryFlights", "error");
-    }
+      }
   };
 
   doLoad();

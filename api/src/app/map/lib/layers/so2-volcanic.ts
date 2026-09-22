@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── SO₂ Volcanic (TROPOMI L2) ─── */
 
@@ -25,9 +25,10 @@ export function addSo2Volcanic(map: maplibregl.Map, handle: LayerHandle): void {
       });
     }
     setStatus(handle, "so2Volcanic", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("so2Volcanic", err);
     setStatus(handle, "so2Volcanic", "error");
-  }
+    }
 }
 
 export function removeSo2Volcanic(map: maplibregl.Map): void {

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Hurricane Tracks ─── */
 
@@ -168,9 +168,10 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
       } catch {
         /* style may have changed */
       }
-    } catch {
+    } catch (err) {
+      warnLayerError("hurricaneTracks", err);
       setStatus(handle, "hurricaneTracks", "error");
-    }
+      }
   };
 
   doLoad();

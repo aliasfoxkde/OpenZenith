@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
 export function loadOrbitalTracks(
@@ -27,7 +28,8 @@ export function loadOrbitalTracks(
       try {
         const r = await fetch(group.url);
         tles = (await r.json()).slice(0, 20);
-      } catch {
+      } catch (err) {
+        warnLayerError("orbitalTracks", err, "tle fetch");
         return;
       }
     } else if (group.catnr) {
@@ -37,7 +39,8 @@ export function loadOrbitalTracks(
         );
         const data = await r.json();
         if (Array.isArray(data)) tles = data;
-      } catch {
+      } catch (err) {
+        warnLayerError("orbitalTracks", err, "tle fetch");
         return;
       }
     }

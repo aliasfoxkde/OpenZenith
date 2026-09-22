@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Disturbance Alerts (OPERA L3 DIST-ALERT HLS) ─── */
 
@@ -25,7 +25,8 @@ export function addDisturbanceAlerts(map: maplibregl.Map, handle: LayerHandle): 
       });
     }
     setStatus(handle, "disturbanceAlerts", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("disturbanceAlerts", err);
     setStatus(handle, "disturbanceAlerts", "error");
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
+import { BASEMAP_TILE_HOSTS } from "@/lib/basemaps";
 
 export const runtime = "edge";
 
@@ -12,14 +13,15 @@ export const runtime = "edge";
  * Usage: GET /api/proxy/wms?url=<encoded_wms_url>&layers=<layers>&...
  */
 
-/** Hostnames allowed for WMS proxy requests. */
+/** Hostnames allowed for WMS proxy requests. Registry basemaps derive their
+ * hosts automatically — add non-basemap WMS sources below. */
 const ALLOWED_WMS_HOSTS = [
   "gibs.earthdata.nasa.gov",
   "map1.vis.earthdata.nasa.gov",
   "services.arcgis.com",
   "services7.arcgis.com",
   "gis.fema.gov",
-  "basemaps.cartocdn.com",
+  ...BASEMAP_TILE_HOSTS,
   "demo.mapserver.org",
   "example.com",
 ];

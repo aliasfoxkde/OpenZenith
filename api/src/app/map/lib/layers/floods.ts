@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Flood Extent (NASA GIBS VIIRS Combined 3-Day Flood) ─── */
 
@@ -27,9 +27,10 @@ export function addFloods(map: maplibregl.Map, handle: LayerHandle): void {
       });
     }
     setStatus(handle, "floods", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("floods", err);
     setStatus(handle, "floods", "error");
-  }
+    }
 }
 
 export function removeFloods(map: maplibregl.Map): void {

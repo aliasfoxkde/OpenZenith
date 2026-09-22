@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Natural Events (NASA EONET) ─── */
 
@@ -11,7 +11,7 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
       const res = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
       const data = await res.json();
       if (!map.getSource || !data.features) return;
-      setStatus(handle, "warnings", "loaded", data.features.length);
+      setStatus(handle, "events", "loaded", data.features.length);
 
       try {
         if (!map.getSource("natural-events")) {
@@ -61,9 +61,10 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("events", err);
+      setStatus(handle, "events", "error");
+      }
   };
 
   doLoad();

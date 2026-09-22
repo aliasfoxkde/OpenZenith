@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addSeaSalinity(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("sea-salinity")) return;
@@ -18,7 +18,8 @@ export function addSeaSalinity(map: maplibregl.Map, handle: LayerHandle): void {
       paint: { "raster-opacity": 0.85 },
     });
     setStatus(handle, "seaSalinity", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("seaSalinity", err);
     setStatus(handle, "seaSalinity", "error");
   }
 }

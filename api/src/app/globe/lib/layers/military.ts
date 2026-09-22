@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchMilitaryFlights } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -96,8 +97,10 @@ export function loadMilitaryFlights(
         }
       }, 30000);
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("militaryFlights", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("militaryFlights", err);
+      updateStatus("militaryFlights", {
+        error: "fetch failed" });
     }
   };
 

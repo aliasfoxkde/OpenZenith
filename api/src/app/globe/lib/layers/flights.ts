@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { getAircraftIcon } from "../constants";
 import { fetchFlights, fetchFlightsAnonymous } from "../data-fetchers";
@@ -314,8 +315,10 @@ export function loadFlights(
         }
       }, 15000);
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("flights", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("flights", err);
+      updateStatus("flights", {
+        error: "fetch failed" });
     }
   };
 

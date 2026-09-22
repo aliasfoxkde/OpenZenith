@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── GDACS Disaster Alerts ─── */
 
@@ -17,9 +17,10 @@ export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
       // const res = await fetch("https://www.gdacs.org/rss.aspx");
       // const text = await res.text();
       // ...
-    } catch {
+    } catch (err) {
+      warnLayerError("gdacs", err);
       setStatus(handle, "gdacs", "error");
-    }
+      }
   };
 
   doLoad();

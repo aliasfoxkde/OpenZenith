@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchHurricaneTracks } from "../data-fetchers";
 
@@ -265,8 +266,10 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
       }
 
       updateStatus("hurricaneTracks", { lastUpdate: Date.now(), count });
-    } catch {
-      updateStatus("hurricaneTracks", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("hurricaneTracks", err);
+      updateStatus("hurricaneTracks", {
+        error: "fetch failed" });
     }
   };
 

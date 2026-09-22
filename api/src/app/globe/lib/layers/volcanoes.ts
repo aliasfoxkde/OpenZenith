@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchVolcanoAlerts } from "../data-fetchers";
+import { warnLayerError } from "@/lib/diagnostics";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 
@@ -176,7 +177,8 @@ export function loadVolcanoes(
           }
           updateStatus("volcanoes", { lastUpdate: Date.now(), count, error: null });
           retry.recordSuccess();
-        } catch {
+        } catch (err) {
+          warnLayerError("volcanoes", err, "entity build");
           retry.recordFailure();
           updateStatus("volcanoes", {
             error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Data unavailable",
@@ -184,7 +186,8 @@ export function loadVolcanoes(
         }
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
-    } catch {
+    } catch (err) {
+      warnLayerError("volcanoes", err);
       updateStatus("volcanoes", { error: "fetch failed" });
     }
   };

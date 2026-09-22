@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Flights (ADS-B) ─── */
 
@@ -74,9 +74,10 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
         map.getSource("flights")?.setData?.({ type: "FeatureCollection", features });
       }
       setStatus(handle, "flights", "loaded", features.length);
-    } catch {
+    } catch (err) {
+      warnLayerError("flights", err);
       setStatus(handle, "flights", "error");
-    }
+      }
   };
 
   // Load immediately, then refresh on pan/zoom

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addPM25(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("pm25")) return;
@@ -7,9 +7,10 @@ export function addPM25(map: maplibregl.Map, handle: LayerHandle): void {
     map.addSource("pm25", { type: "raster", tiles: ["/api/pm25/{z}/{x}/{y}"], tileSize: 256, minzoom: 0, maxzoom: 5 });
     map.addLayer({ id: "pm25-raster", type: "raster", source: "pm25", paint: { "raster-opacity": 0.8 } });
     setStatus(handle, "pm25", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("pm25", err);
     setStatus(handle, "pm25", "error");
-  }
+    }
 }
 export function removePM25(map: maplibregl.Map): void {
   try {

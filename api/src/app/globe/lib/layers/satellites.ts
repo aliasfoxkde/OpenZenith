@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
 import { fetchCelestrak } from "../data-fetchers";
@@ -334,8 +335,10 @@ export function loadSatellites(
         }
       }, 300000);
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("satellites", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("satellites", err);
+      updateStatus("satellites", {
+        error: "fetch failed" });
     }
   };
 

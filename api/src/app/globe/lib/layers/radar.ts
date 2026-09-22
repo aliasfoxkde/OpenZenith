@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchRainViewer } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -74,8 +75,10 @@ export function loadRadar(
         }
       }, 600000);
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("radar", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("radar", err);
+      updateStatus("radar", {
+        error: "fetch failed" });
     }
   };
 

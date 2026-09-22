@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
 import { fetchVessels } from "../data-fetchers";
@@ -247,7 +248,8 @@ export function loadVessels(
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (ev) => {
+        warnLayerError("vessels", domEventCause(ev), "websocket");
         updateStatus("vessels", { error: "WebSocket connection failed" });
       };
 
@@ -259,8 +261,10 @@ export function loadVessels(
           }, 30000);
         }
       };
-    } catch {
-      updateStatus("vessels", { error: "Failed to connect to vessel feed" });
+    } catch (err) {
+      warnLayerError("vessels", err);
+      updateStatus("vessels", {
+        error: "Failed to connect to vessel feed" });
     }
   };
 

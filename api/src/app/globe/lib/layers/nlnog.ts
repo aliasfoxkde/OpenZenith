@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
 export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
@@ -74,8 +75,10 @@ export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: str
 
       viewer.dataSources.add(ds);
       updateStatus("nlnogNodes", { lastUpdate: Date.now(), count: nodes.length });
-    } catch {
-      updateStatus("nlnogNodes", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("nlnogNodes", err);
+      updateStatus("nlnogNodes", {
+        error: "fetch failed" });
     }
   };
 

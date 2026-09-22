@@ -8,6 +8,7 @@
  * with hex-grid visualization for electronic warfare detection.
  */
 
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { createRetryGuard } from "../helpers";
 
@@ -263,7 +264,8 @@ export function loadGpsJamming(
         error: null,
       });
       retry.recordSuccess();
-    } catch {
+    } catch (err) {
+      warnLayerError("gpsJamming", err, "entity build");
       retry.recordFailure();
       updateStatus("gpsJamming", {
         error: retry.shouldRetry ? `Retrying...` : "GPS Jamming data unavailable",
@@ -280,8 +282,8 @@ export function loadGpsJamming(
       const hexes = await fetchGpsJammingData();
       renderHexGrid(hexes);
       updateStatus("gpsJamming", { lastUpdate: Date.now(), count: hexes.length });
-    } catch {
-      // Silent failure on refresh
+    } catch (err) {
+      warnLayerError("gpsJamming", err, "refresh");
     }
   }, 600000); // 10 minutes
 

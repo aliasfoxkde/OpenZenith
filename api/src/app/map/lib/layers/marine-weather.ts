@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Marine Weather (Wave Height via Open-Meteo Marine API) ─── */
 
@@ -192,9 +192,10 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
       } catch {
         /* style may have changed */
       }
-    } catch {
+    } catch (err) {
+      warnLayerError("marineWeather", err);
       setStatus(handle, "marineWeather", "error");
-    }
+      }
   };
 
   doLoad();

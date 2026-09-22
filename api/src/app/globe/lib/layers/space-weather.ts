@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchSWPCaurora, fetchSWPCkpForecast } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -127,8 +128,10 @@ export function loadSpaceWeather(
         }
       }, 300000); // 5 min
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("spaceWeather", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("spaceWeather", err);
+      updateStatus("spaceWeather", {
+        error: "fetch failed" });
     }
   };
 

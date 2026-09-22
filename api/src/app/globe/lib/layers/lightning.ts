@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
 
@@ -115,7 +116,8 @@ export function loadLightning(
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (ev) => {
+        warnLayerError("lightning", domEventCause(ev), "websocket");
         updateStatus("lightning", { error: "WebSocket connection failed. Lightning data unavailable." });
       };
 
@@ -126,8 +128,10 @@ export function loadLightning(
       };
 
       updateStatus("lightning", { lastUpdate: Date.now(), count: 0 });
-    } catch {
-      updateStatus("lightning", { error: "Unable to connect to Blitzortung WebSocket" });
+    } catch (err) {
+      warnLayerError("lightning", err);
+      updateStatus("lightning", {
+        error: "Unable to connect to Blitzortung WebSocket" });
     }
   };
 

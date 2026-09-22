@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Waterways ─── */
 
@@ -35,9 +36,10 @@ export function addWaterways(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("waterways", err);
+      setStatus(handle, "waterways", "error");
+      }
   };
 
   doLoad();

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addLandslideHazard(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("landslide-hazard")) return;
@@ -18,9 +18,10 @@ export function addLandslideHazard(map: maplibregl.Map, handle: LayerHandle): vo
       paint: { "raster-opacity": 0.8 },
     });
     setStatus(handle, "landslideHazard", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("landslideHazard", err);
     setStatus(handle, "landslideHazard", "error");
-  }
+    }
 }
 export function removeLandslideHazard(map: maplibregl.Map): void {
   try {

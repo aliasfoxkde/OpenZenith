@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addChlorophyll(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("chlorophyll")) return;
@@ -18,9 +18,10 @@ export function addChlorophyll(map: maplibregl.Map, handle: LayerHandle): void {
       paint: { "raster-opacity": 0.85 },
     });
     setStatus(handle, "chlorophyll", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("chlorophyll", err);
     setStatus(handle, "chlorophyll", "error");
-  }
+    }
 }
 export function removeChlorophyll(map: maplibregl.Map): void {
   try {

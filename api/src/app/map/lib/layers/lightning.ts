@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError, domEventCause } from "./types";
 
 /* ─── Lightning (Blitzortung.org WebSocket) ─── */
 
@@ -74,7 +74,8 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
         } catch {}
       };
 
-      ws.onerror = () => {
+      ws.onerror = (ev) => {
+        warnLayerError("lightning", domEventCause(ev), "websocket");
         setStatus(handle, "lightning", "error");
       };
 
@@ -82,9 +83,10 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
         // Reconnect after 30s
         setTimeout(connect, 30000);
       };
-    } catch {
+    } catch (err) {
+      warnLayerError("lightning", err);
       setStatus(handle, "lightning", "error");
-    }
+      }
   };
 
   connect();

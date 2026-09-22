@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchWarnings } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -98,7 +99,8 @@ export function loadWarnings(
             d.features.forEach(addWarningEntity);
             updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length });
           }
-        } catch {
+        } catch (err) {
+          warnLayerError("warnings", err, "entity build");
           retry.recordFailure();
           updateStatus("warnings", {
             error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Warning data unavailable",
@@ -106,8 +108,10 @@ export function loadWarnings(
         }
       }, 300000);
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("warnings", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("warnings", err);
+      updateStatus("warnings", {
+        error: "fetch failed" });
     }
   };
 

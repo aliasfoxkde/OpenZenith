@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addSnowCover(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("snow-cover")) return;
@@ -13,9 +13,10 @@ export function addSnowCover(map: maplibregl.Map, handle: LayerHandle): void {
     });
     map.addLayer({ id: "snow-cover-raster", type: "raster", source: "snow-cover", paint: { "raster-opacity": 0.8 } });
     setStatus(handle, "snowCover", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("snowCover", err);
     setStatus(handle, "snowCover", "error");
-  }
+    }
 }
 export function removeSnowCover(map: maplibregl.Map): void {
   try {

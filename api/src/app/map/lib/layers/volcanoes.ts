@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Volcano Alerts (Smithsonian GVP / USGS Weekly Report) ─── */
 
@@ -84,9 +84,10 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
+    } catch (err) {
+      warnLayerError("volcanoes", err);
       setStatus(handle, "volcanoes", "error");
-    }
+      }
   };
 
   doLoad();

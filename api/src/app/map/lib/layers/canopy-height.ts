@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addCanopyHeight(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("canopy-height")) return;
@@ -18,9 +18,10 @@ export function addCanopyHeight(map: maplibregl.Map, handle: LayerHandle): void 
       paint: { "raster-opacity": 0.85 },
     });
     setStatus(handle, "canopyHeight", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("canopyHeight", err);
     setStatus(handle, "canopyHeight", "error");
-  }
+    }
 }
 export function removeCanopyHeight(map: maplibregl.Map): void {
   try {

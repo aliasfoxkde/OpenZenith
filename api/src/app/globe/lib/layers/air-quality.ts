@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
 
@@ -135,8 +136,10 @@ export function loadAirQuality(
         doLoad();
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("airQuality", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("airQuality", err);
+      updateStatus("airQuality", {
+        error: "fetch failed" });
     }
   };
 

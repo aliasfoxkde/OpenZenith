@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Wildfires (NASA FIRMS) ─── */
 
@@ -80,9 +81,10 @@ export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("wildfires", err);
+      setStatus(handle, "wildfires", "error");
+      }
   };
 
   doLoad();

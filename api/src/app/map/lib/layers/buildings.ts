@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Buildings (OpenStreetMap via Overpass API) ─── */
 
@@ -114,9 +114,10 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
+    } catch (err) {
+      warnLayerError("buildings", err);
       setStatus(handle, "buildings", "error");
-    }
+      }
   };
 
   // Load on zoom/pan when zoom >= 12

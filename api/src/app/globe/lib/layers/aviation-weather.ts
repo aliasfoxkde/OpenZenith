@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchSigmets, fetchAirmets } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
@@ -220,7 +221,8 @@ export function loadAviationWeather(
             t++;
           });
           updateStatus("aviationWeather", { lastUpdate: Date.now(), count: t });
-        } catch {
+        } catch (err) {
+          warnLayerError("aviationWeather", err, "entity build");
           retry.recordFailure();
           updateStatus("aviationWeather", {
             error: retry.shouldRetry ? `Retrying (${retry.failureCount}/5)...` : "Aviation weather unavailable",

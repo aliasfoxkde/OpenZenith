@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
 
@@ -103,8 +104,10 @@ export function loadMarineWeather(
         doLoad();
       }, 3600000); // 1 hour
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("marineWeather", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("marineWeather", err);
+      updateStatus("marineWeather", {
+        error: "fetch failed" });
     }
   };
 

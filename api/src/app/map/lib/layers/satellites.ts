@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Satellite Positions (Celestrak TLE → current lat/lon) ─── */
 
@@ -160,9 +160,10 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
         }
         setStatus(handle, "satellites", "loaded", features.length);
       } catch {}
-    } catch {
+    } catch (err) {
+      warnLayerError("satellites", err);
       setStatus(handle, "satellites", "error");
-    }
+      }
   };
 
   doLoad();

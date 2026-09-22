@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 export function addSeaHeight(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("sea-height")) return;
@@ -13,9 +13,10 @@ export function addSeaHeight(map: maplibregl.Map, handle: LayerHandle): void {
     });
     map.addLayer({ id: "sea-height-raster", type: "raster", source: "sea-height", paint: { "raster-opacity": 0.85 } });
     setStatus(handle, "seaHeight", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("seaHeight", err);
     setStatus(handle, "seaHeight", "error");
-  }
+    }
 }
 export function removeSeaHeight(map: maplibregl.Map): void {
   try {

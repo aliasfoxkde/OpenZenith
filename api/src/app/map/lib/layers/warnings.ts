@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Weather Warnings ─── */
 
@@ -66,9 +66,10 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("warnings", err);
+      setStatus(handle, "warnings", "error");
+      }
   };
 
   doLoad();

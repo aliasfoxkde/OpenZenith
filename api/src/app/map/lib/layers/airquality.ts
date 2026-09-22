@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Air Quality ─── */
 
@@ -81,9 +82,10 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
       } catch {
         /* style may have changed */
       }
-    } catch {
-      /* fetch failed */
-    }
+    } catch (err) {
+      warnLayerError("airQuality", err);
+      setStatus(handle, "airQuality", "error");
+      }
   };
 
   doLoad();

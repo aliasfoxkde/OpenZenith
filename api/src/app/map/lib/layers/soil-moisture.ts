@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Soil Moisture (SMAP L3) ─── */
 
@@ -25,9 +25,10 @@ export function addSoilMoisture(map: maplibregl.Map, handle: LayerHandle): void 
       });
     }
     setStatus(handle, "soilMoisture", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("soilMoisture", err);
     setStatus(handle, "soilMoisture", "error");
-  }
+    }
 }
 
 export function removeSoilMoisture(map: maplibregl.Map): void {

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Bathymetry (Ocean Depth) ─── */
 
@@ -29,9 +29,10 @@ export function addBathymetry(map: maplibregl.Map, handle: LayerHandle): void {
       });
     }
     setStatus(handle, "bathymetry", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("bathymetry", err);
     setStatus(handle, "bathymetry", "error");
-  }
+    }
 }
 
 export function removeBathymetry(map: maplibregl.Map): void {

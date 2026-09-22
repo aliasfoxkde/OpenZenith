@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchGDACS } from "../data-fetchers";
+import { warnLayerError } from "@/lib/diagnostics";
 import { svgIcon } from "../svg-icon";
 
 const GDACS_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="#ff4444" stroke-width="2"/><path d="M12 5v7l5 5" fill="none" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/></svg>`);
@@ -107,7 +108,8 @@ export function loadGDACS(
         doLoad();
       }, 1800000); // 30 min
       intervalsRef.current.push(iv);
-    } catch {
+    } catch (err) {
+      warnLayerError("gdacs", err);
       updateStatus("gdacs", { error: "fetch failed" });
     }
   };

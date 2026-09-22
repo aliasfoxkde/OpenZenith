@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
 import { fetchEONET } from "../data-fetchers";
@@ -156,7 +157,8 @@ export function loadEvents(
           fs.forEach((f: any, i: number) => addEventEntity(f, i));
           updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
           retry.recordSuccess();
-        } catch {
+        } catch (err) {
+          warnLayerError("events", err, "entity build");
           retry.recordFailure();
           updateStatus("events", {
             error: retry.shouldRetry ? `Retrying (${retry.failureCount}/3)...` : "Event data unavailable",
@@ -164,8 +166,10 @@ export function loadEvents(
         }
       }, 1800000);
       intervalsRef.current.push(iv);
-    } catch {
-      updateStatus("events", { error: "fetch failed" });
+    } catch (err) {
+      warnLayerError("events", err);
+      updateStatus("events", {
+        error: "fetch failed" });
     }
   };
 

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { setStatus, warnLayerError } from "./types";
 
 /* ─── Dynamic Surface Water Extent (OPERA L3, Sentinel-1) ─── */
 
@@ -25,9 +25,10 @@ export function addDynamicSurfaceWater(map: maplibregl.Map, handle: LayerHandle)
       });
     }
     setStatus(handle, "dynamicSurfaceWater", "loaded");
-  } catch {
+  } catch (err) {
+    warnLayerError("dynamicSurfaceWater", err);
     setStatus(handle, "dynamicSurfaceWater", "error");
-  }
+    }
 }
 
 export function removeDynamicSurfaceWater(map: maplibregl.Map): void {

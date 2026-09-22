@@ -16,13 +16,12 @@ export const runtime = "edge";
  */
 
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
+import { BASEMAP_TILE_HOSTS } from "@/lib/basemaps";
 
-/** Hostnames allowed for tile proxy requests. */
+/** Hostnames allowed for tile proxy requests. Registry basemaps derive their
+ * hosts automatically — add non-basemap tile sources below. */
 const ALLOWED_TILE_HOSTS = [
-  "basemaps.cartocdn.com",
-  "server.arcgisonline.com",
-  "tile.openstreetmap.org",
-  "tile.opentopomap.org",
+  ...BASEMAP_TILE_HOSTS,
   "tiles.overturemaps.org",
   "tilecache.rainviewer.com",
   "gibs.earthdata.nasa.gov",

@@ -25,42 +25,63 @@ const S = `
 .ct-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif}
 .ct-body{max-width:900px;margin:0 auto;padding:1.5rem 2rem 4rem}
 .ct-body h1{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;letter-spacing:-0.02em}
-.ct-body .sub{color:#888;font-size:0.85rem;margin:0 0 2rem;line-height:1.6}
+/* Secondary text uses the global theme tokens: #a3a3a3 = 7.85:1 on #0a0a0a
+   (dark) and #525252 = 7.49:1 on #fafafa (light) — both above the AAA 7:1 bar. */
+.ct-body .sub{color:var(--oz-text-secondary);font-size:0.85rem;margin:0 0 2rem;line-height:1.6}
 .ct-body h2{font-size:1.05rem;font-weight:600;margin:2rem 0 0.75rem;padding-bottom:0.5rem}
 .ct-body h3{font-size:0.9rem;font-weight:600;margin:1.25rem 0 0.5rem}
-.ct-body p{font-size:0.85rem;color:#888;line-height:1.6;margin:0.5rem 0}
-.ct-body code{background:rgba(74,158,255,0.1);color:#4a9eff;padding:0.1rem 0.3rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.82rem}
-.ct-body a{color:#4a9eff;text-decoration:none}
+.ct-body p{font-size:0.85rem;color:var(--oz-text-secondary);line-height:1.6;margin:0.5rem 0}
+.ct-body code{background:rgba(90,169,255,0.12);color:#7cb8ff;padding:0.1rem 0.3rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.82rem}
+[data-theme="light"] .ct-body code{background:rgba(8,74,133,0.08);color:#084a85}
+/* In-text links are distinguishable without color alone (WCAG 1.4.1). */
+.ct-body p a{text-decoration:underline}
+.ct-body a{color:#5aa9ff;text-decoration:none}
+[data-theme="light"] .ct-body a{color:#084a85}
 .ct-body a:hover{text-decoration:underline}
 .ct-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:1.25rem;margin-bottom:0.75rem;transition:border-color .15s}
 .ct-card:hover{border-color:rgba(255,255,255,0.12)}
 .ct-card .icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.9rem;margin-bottom:0.5rem}
-.ct-card .icon.green{background:rgba(34,197,94,0.12);color:#22c55e}
-.ct-card .icon.blue{background:rgba(74,158,255,0.12);color:#4a9eff}
-.ct-card .icon.purple{background:rgba(168,85,247,0.12);color:#a855f7}
-.ct-card .icon.amber{background:rgba(234,179,8,0.12);color:#eab308}
+/* Icon letters sit on a 12% tint of their own hue over the card surface, so
+   each hue needs a dark-theme light shade and a light-theme deep shade to
+   clear AAA 7:1 (ratios measured against the blended tint surface). */
+.ct-card .icon.green{background:rgba(34,197,94,0.12);color:#4ade80} /* 9.3:1 on #112518 */
+.ct-card .icon.blue{background:rgba(74,158,255,0.12);color:#7cb8ff} /* 8.0:1 on #16202c */
+.ct-card .icon.purple{background:rgba(168,85,247,0.12);color:#d8b4fe} /* 9.7:1 on #21172b */
+.ct-card .icon.amber{background:rgba(234,179,8,0.12);color:#eab308} /* 8.2:1 on #29230e */
+[data-theme="light"] .ct-card .icon.green{color:#14532d} /* 8.2:1 on #e5f8ec */
+[data-theme="light"] .ct-card .icon.blue{color:#0c4a6e} /* 8.4:1 on #e9f3ff */
+[data-theme="light"] .ct-card .icon.purple{color:#581c87} /* 9.4:1 on #f5ebf9 */
+[data-theme="light"] .ct-card .icon.amber{color:#713f12} /* 8.0:1 on #fcf6e1 */
 .ct-card h3{margin:0 0 0.2rem;font-size:0.9rem;font-weight:600}
-.ct-card p{margin:0;color:#888;font-size:0.82rem;line-height:1.5}
+.ct-card p{margin:0;color:var(--oz-text-secondary);font-size:0.82rem;line-height:1.5}
 .ct-steps{counter-reset:step;display:flex;flex-direction:column;gap:0}
 .ct-step{counter-increment:step;position:relative;padding-left:2.5rem;margin-bottom:1.25rem}
-.ct-step::before{content:counter(step);position:absolute;left:0;top:0.15rem;width:22px;height:22px;border-radius:50%;background:rgba(74,158,255,0.12);color:#4a9eff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;font-family:'JetBrains Mono',monospace}
-.ct-step h4{margin:0 0 0.15rem;font-size:0.85rem;font-weight:600;color:#ccc}
-.ct-step p{margin:0;color:#888;font-size:0.8rem;line-height:1.5}
-.ct-step code{background:rgba(255,255,255,0.04);color:#4a9eff;padding:0.1rem 0.3rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.78rem}
+.ct-step::before{content:counter(step);position:absolute;left:0;top:0.15rem;width:22px;height:22px;border-radius:50%;background:rgba(74,158,255,0.12);color:#7cb8ff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;font-family:'JetBrains Mono',monospace}
+[data-theme="light"] .ct-step::before{color:#0c4a6e} /* 8.2:1 on #e6f0fb */
+/* Steps use h3 so the outline stays h1 > h2 > h3 (axe heading-order). */
+.ct-step h3{margin:0 0 0.15rem;font-size:0.85rem;font-weight:600;color:var(--oz-text)}
+.ct-step p{margin:0;color:var(--oz-text-secondary);font-size:0.8rem;line-height:1.5}
+.ct-step code{background:rgba(90,169,255,0.12);color:#7cb8ff; /* 8.23:1 on #141d27 */padding:0.1rem 0.3rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.78rem}
+[data-theme="light"] .ct-step code{background:rgba(8,74,133,0.08);color:#084a85}
 .ct-format{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.5rem;margin:0.75rem 0}
-.ct-format-btn{padding:0.4rem 0.7rem;font-size:0.78rem;background:rgba(255,255,255,0.03);color:#888;border:1px solid #1a1a1a;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;font-family:inherit}
-.ct-format-btn:hover{border-color:#4a9eff;color:#4a9eff}
+.ct-format-btn{padding:0.4rem 0.7rem;font-size:0.78rem;background:rgba(255,255,255,0.03);color:var(--oz-text-secondary);border:1px solid var(--oz-border);border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;font-family:inherit}
+.ct-format-btn:hover{border-color:#5aa9ff;color:#5aa9ff}
+[data-theme="light"] .ct-format-btn:hover{border-color:#084a85;color:#084a85}
 .ct-upload{border:2px dashed rgba(255,255,255,0.08);border-radius:12px;padding:2rem;text-align:center;transition:all .15s;cursor:pointer;background:transparent;margin-bottom:1rem}
-.ct-upload:hover,.ct-upload.dragover{border-color:#4a9ff;background:rgba(74,158,255,0.03)}
-.ct-upload-icon{font-size:2rem;margin-bottom:0.5rem;color:#4a9eff}
-.ct-upload-text{font-size:0.85rem;color:#888;margin-bottom:0.25rem}
-.ct-upload-hint{font-size:0.75rem;color:#666}
+[data-theme="light"] .ct-upload{border-color:rgba(0,0,0,0.08)}
+.ct-upload:hover,.ct-upload.dragover{border-color:#5aa9ff;background:rgba(74,158,255,0.03)}
+.ct-upload-icon{font-size:2rem;margin-bottom:0.5rem;color:#5aa9ff}
+[data-theme="light"] .ct-upload-icon{color:#084a85}
+.ct-upload-text{font-size:0.85rem;color:var(--oz-text-secondary);margin-bottom:0.25rem}
+.ct-upload-hint{font-size:0.75rem;color:var(--oz-text-secondary)}
 .ct-upload input{display:none}
-.ct-preview{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:0.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#aaa;max-height:300px;overflow:auto;white-space:pre-wrap;margin-bottom:1rem}
-.ct-api-ref{background:#0d1117;border:1px solid #1a1a1a;border-radius:8px;padding:0.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#888;line-height:1.7;overflow-x:auto;margin-bottom:1rem}
-.ct-api-ref .comment{color:#444}
-.ct-api-ref .key{color:#4a9eff}
-.ct-api-ref .str{color:#22c55e}
+.ct-preview{background:var(--oz-bg-code);border:1px solid var(--oz-border);border-radius:8px;padding:0.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--oz-text);max-height:300px;overflow:auto;white-space:pre-wrap;margin-bottom:1rem}
+/* The API reference is a fixed dark code surface in both themes, so its
+   palette is light-on-dark and stays above AAA 7:1. */
+.ct-api-ref{background:#0d1117;border:1px solid #1a1a1a;border-radius:8px;padding:0.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#a3a3a3;line-height:1.7;overflow-x:auto;margin-bottom:1rem}
+.ct-api-ref .comment{color:#9aa4ae} /* 7.48:1 on #0d1117 */
+.ct-api-ref .key{color:#5aa9ff} /* 7.71:1 on #0d1117 */
+.ct-api-ref .str{color:#22c55e} /* 8.31:1 on #0d1117 */
 @media(max-width:768px){
   .ct-body{padding:1rem 1.25rem 3rem}
   .ct-format{grid-template-columns:1fr}
@@ -104,7 +125,7 @@ export default function ContributePage() {
         {/* Shared Nav */}
         <Navbar dark={dark} breadcrumb="Contribute" />
 
-        <div className="ct-body">
+        <main className="ct-body">
           <h1>Contribute Data</h1>
           <p className="sub">
             OpenZenith thrives on community-contributed data. Here&apos;s how you can add your geospatial datasets, data
@@ -112,6 +133,8 @@ export default function ContributePage() {
           </p>
 
           {/* Overview cards */}
+          {/* h2 anchors the card h3s so the heading outline has no skipped level. */}
+          <h2>How To Contribute</h2>
           <div
             style={{
               display: "grid",
@@ -228,7 +251,7 @@ export default function ContributePage() {
             <div>
               <h3>Preview</h3>
               <div className="ct-preview">{uploadData}</div>
-              <p style={{ fontSize: "0.75rem", color: "#666" }}>
+              <p style={{ fontSize: "0.75rem", color: "var(--oz-text-secondary)" }}>
                 To submit this data, open a pull request on{" "}
                 <a href="https://github.com/aliasfoxkde/OpenZenith/pulls" target="_blank" rel="noopener noreferrer">
                   GitHub
@@ -243,41 +266,41 @@ export default function ContributePage() {
           <p>We can ingest data from various real-time and static sources:</p>
           <div className="ct-steps">
             <div className="ct-step">
-              <h4>Static GeoJSON / CSV Files</h4>
+              <h3>Static GeoJSON / CSV Files</h3>
               <p>
                 Upload point, line, or polygon datasets. Ideal for place markers, boundaries, trails, and point clouds.
                 Hosted on GitHub alongside the code or on your own CDN.
               </p>
             </div>
             <div className="ct-step">
-              <h4>ArcGIS REST Services</h4>
+              <h3>ArcGIS REST Services</h3>
               <p>
                 We already proxy ArcGIS FeatureServer queries. If you have a public ArcGIS service, we can add it to the
                 data explorer for interactive querying.
               </p>
             </div>
             <div className="ct-step">
-              <h4>Overpass API / OSM</h4>
+              <h3>Overpass API / OSM</h3>
               <p>
                 Any Overpass QL query can be saved as a preset. Suggest new quick-query templates for the Explore page.
               </p>
             </div>
             <div className="ct-step">
-              <h4>Real-Time Feeds (WMS/WFS/WCS)</h4>
+              <h3>Real-Time Feeds (WMS/WFS/WCS)</h3>
               <p>
                 Weather data, satellite imagery, and other OGC-standard services can be added as live layers to Globe
                 with configurable refresh intervals.
               </p>
             </div>
             <div className="ct-step">
-              <h4>Custom Tile Services</h4>
+              <h3>Custom Tile Services</h3>
               <p>
                 Have a custom tile server? We can add XYZ tile sources, WMTS layers, or TMS endpoints as basemap or
                 overlay options.
               </p>
             </div>
             <div className="ct-step">
-              <h4>API Endpoints</h4>
+              <h3>API Endpoints</h3>
               <p>
                 If you have a REST API serving geospatial data, we can create a proxy endpoint (like{" "}
                 <code>/api/flights</code>) to fetch and display it on Globe.
@@ -287,12 +310,12 @@ export default function ContributePage() {
 
           {/* Pull request template */}
           <h2>Contribute via Pull Request</h2>
-          <p style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.5 }}>
+          <p style={{ fontSize: "0.82rem", color: "var(--oz-text-secondary)", lineHeight: 1.5 }}>
             The easiest way to contribute is via a GitHub pull request. Here&apos;s the process:
           </p>
           <div className="ct-steps">
             <div className="ct-step">
-              <h4>Fork the Repository</h4>
+              <h3>Fork the Repository</h3>
               <p>
                 Click &quot;Fork&quot; on{" "}
                 <a href="https://github.com/aliasfoxkde/OpenZenith" target="_blank">
@@ -302,28 +325,28 @@ export default function ContributePage() {
               </p>
             </div>
             <div className="ct-step">
-              <h4>Prepare Your Data</h4>
+              <h3>Prepare Your Data</h3>
               <p>
                 Place your data file in an appropriate location. For static datasets, the <code>public/data/</code>{" "}
                 directory works well. Include metadata (source, license, coverage).
               </p>
             </div>
             <div className="ct-step">
-              <h4>Add a Route or Layer</h4>
+              <h3>Add a Route or Layer</h3>
               <p>
                 Create a new API route in <code>src/app/api/</code> or add your data as a layer in the Globe component.
                 Include proper attribution.
               </p>
             </div>
             <div className="ct-step">
-              <h4>Update Documentation</h4>
+              <h3>Update Documentation</h3>
               <p>
                 Add your endpoint to the OpenAPI spec in <code>src/app/api/openapi.json/route.ts</code> and update the
                 docs page.
               </p>
             </div>
             <div className="ct-step">
-              <h4>Open a Pull Request</h4>
+              <h3>Open a Pull Request</h3>
               <p>
                 Describe what your data is, where it comes from, and how often it updates. We&apos;ll review, test, and
                 merge.
@@ -370,7 +393,7 @@ export default function ContributePage() {
               // Add to Globe as a toggleable layer // See src/app/globe/page.tsx loadEarthquakes() for patterns
             </div>
           </div>
-        </div>
+        </main>
 
         {/* Shared Get in Touch */}
         <GetInTouch

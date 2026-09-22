@@ -24,16 +24,17 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
   const bg = dark ? "#0f0f0f" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#ccc" : "#333";
-  const textSec = dark ? "#666" : "#999";
+// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  const textSec = dark ? "#a3a3a3" : "#525252";
   const lineColor = "#3b82f6";
   const fillColor = dark ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.1)";
 
   useEffect(() => {
     if (coordinates.length < 2) return;
 
-    // Explicitly `boolean` — the cleanup closure below mutates this flag, so
-    // the checks inside the effect must not be folded to a constant.
-    let cancelled: boolean = false;
+    // Held in an object so the cleanup callback's write is visible to the type
+    // checker — a bare `let` here is folded to `false` by control-flow analysis.
+    const state = { cancelled: false };
     setLoading(true);
     setError(null);
 
@@ -76,16 +77,16 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
           p.elevation = match?.elevation ?? null;
         }
 
-        if (!cancelled) setPoints(pointsWithDist);
+        if (!state.cancelled) setPoints(pointsWithDist);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load elevation data");
+        if (!state.cancelled) setError(err instanceof Error ? err.message : "Failed to load elevation data");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!state.cancelled) setLoading(false);
       }
     })();
 
     return () => {
-      cancelled = true;
+      state.cancelled = true;
     };
   }, [coordinates]);
 

@@ -13,7 +13,8 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
 
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSec = dark ? "#888" : "#737373";
+// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  const textSec = dark ? "#a3a3a3" : "#525252";
 
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>

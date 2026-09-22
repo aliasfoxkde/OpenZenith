@@ -45,12 +45,14 @@ export default function Demo() {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
-    let cancelled = false;
+    // Held in an object so the cleanup callback's write is visible to the type
+    // checker — a bare `let` here is narrowed to `false` at the read below.
+    const state = { cancelled: false };
 
-    (async () => {
+    const initMap = async () => {
       try {
         const mlgl = await waitForMapLibre();
-        if (cancelled || !mapRef.current) return;
+        if (state.cancelled || !mapRef.current) return;
 
         const map = new mlgl.Map({
           container: mapRef.current,
@@ -75,7 +77,7 @@ export default function Demo() {
         });
 
         map.on("load", () => {
-          if (cancelled) return;
+          if (state.cancelled) return;
           addElevationLayer(map, mlgl);
           setMapReady(true);
         });
@@ -97,10 +99,12 @@ export default function Demo() {
       } catch {
         setLoadError(true);
       }
-    })();
+    };
+
+    void initMap();
 
     return () => {
-      cancelled = true;
+      state.cancelled = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -111,6 +115,17 @@ export default function Demo() {
   return (
     <ErrorBoundary>
       <div style={{ height: "100vh", display: "flex", flexDirection: "column", position: "relative" }}>
+        {/* main landmark: header bar, map canvas and overlays are contained by
+            it so axe's `region` rule (WCAG 1.3.6) is satisfied. */}
+        <main
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            position: "relative",
+          }}
+        >
         {/* Header bar */}
         <div
           style={{
@@ -143,14 +158,15 @@ export default function Demo() {
               </svg>
               OpenZenith
             </Link>
-            <span style={{ color: "#333" }}>/</span>
-            <span style={{ color: "#888", fontSize: "0.9rem" }}>Elevation Map</span>
+            /* #a3a3a3 = 7.85:1 on the #0a0a0a header bar (AAA); #333 and #888 were not */
+            <span style={{ color: "#a3a3a3" }}>/</span>
+            <span style={{ color: "#a3a3a3", fontSize: "0.9rem" }}>Elevation Map</span>
           </div>
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <Link href="/" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>
+            <Link href="/" style={{ color: "#a3a3a3", textDecoration: "none", fontSize: "0.85rem" }}>
               Home
             </Link>
-            <a href="/api/docs" style={{ color: "#888", textDecoration: "none", fontSize: "0.85rem" }}>
+            <a href="/api/docs" style={{ color: "#a3a3a3", textDecoration: "none", fontSize: "0.85rem" }}>
               Docs
             </a>
             <a
@@ -158,7 +174,7 @@ export default function Demo() {
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: "#888",
+                color: "#a3a3a3",
                 textDecoration: "none",
                 fontSize: "0.85rem",
                 display: "flex",
@@ -175,7 +191,7 @@ export default function Demo() {
           {elevation && (
             <span style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.9rem" }}>
               {elevation.elevation !== null ? `${elevation.elevation.toLocaleString()}m` : "No data"}{" "}
-              <span style={{ color: "#888" }}>
+              <span style={{ color: "#a3a3a3" }}>
                 @ {elevation.lat.toFixed(4)}, {elevation.lon.toFixed(4)}
               </span>
             </span>
@@ -246,6 +262,7 @@ export default function Demo() {
             Click anywhere to query elevation
           </div>
         )}
+        </main>
       </div>
     </ErrorBoundary>
   );

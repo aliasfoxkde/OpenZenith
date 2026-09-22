@@ -74,7 +74,10 @@ export const StatusIndicator = memo(function StatusIndicator({ color = T.green, 
         <span
           style={{
             fontSize: "0.75rem",
-            color: T.textMuted,
+            /* T.textMuted (#94a3b8) measures 5.08:1 on the translucent panel
+               composite (#2c313c over the basemap) — below the AAA 7:1 bar.
+               T.text (#e2e8f0) = 10.57:1 on that same composite. */
+            color: T.text,
             fontFamily: T.fontMono,
             letterSpacing: "0.05em",
             textShadow: "0 0 4px rgba(100, 116, 139, 0.3)",

@@ -54,7 +54,8 @@ const TABS: { id: ToolTab; label: string; icon: string }[] = [
 ];
 
 function ToolFallback({ dark }: { dark: boolean }) {
-  return <div style={{ padding: 12, color: dark ? "#666" : "#999", fontSize: 12 }}>Loading...</div>;
+  // WCAG AAA secondary text tokens (same values as --oz-text-secondary).
+  return <div style={{ padding: 12, color: dark ? "#a3a3a3" : "#525252", fontSize: 12 }}>Loading...</div>;
 }
 
 export function ToolPanel(props: Props) {
@@ -63,7 +64,8 @@ export function ToolPanel(props: Props) {
   const bg = dark ? "#0f0f0f" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSec = dark ? "#666" : "#999";
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  const textSec = dark ? "#a3a3a3" : "#525252";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: bg }}>

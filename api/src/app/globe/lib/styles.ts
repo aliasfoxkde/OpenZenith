@@ -4,6 +4,9 @@ export const STYLES = `
 .wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:var(--font-ui);background:var(--bg-solid);color:var(--text);
   display:flex;flex-direction:column}
 
+/* Screen-reader-only page heading (WCAG 2.4.2 / axe page-has-heading-one). */
+.wv-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
 .wv-scanlines{display:var(--scanlines);position:absolute;inset:0;z-index:15;pointer-events:none;
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px)}
 

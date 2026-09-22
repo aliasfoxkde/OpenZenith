@@ -256,66 +256,69 @@ const S = `
 .ex-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif;color:#e0e0e0;background:#0a0e17}
 .ex-body{padding:1.5rem 2rem 3rem;max-width:1600px;margin:0 auto}
 .ex-body h1{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;letter-spacing:-0.02em}
-.ex-body .sub{color:#555;font-size:0.85rem;margin:0 0 1.5rem}
+/* This surface is permanently dark (#0a0e17) in both themes, so every text
+   color below is light-on-dark and measured against the blended card/tint
+   surface it lands on. */
+.ex-body .sub{color:#a3a3a3;font-size:0.85rem;margin:0 0 1.5rem} /* 7.65:1 on #0a0e17 */
 .ex-body h2{font-size:1.05rem;font-weight:600;margin:1.5rem 0 0.75rem;padding-bottom:0.5rem;border-bottom:1px solid rgba(255,255,255,0.06)}
 .ex-body h3{font-size:0.9rem;font-weight:600;margin:1rem 0 0.5rem}
-.ex-body a{color:#4a9eff;text-decoration:none}
+.ex-body a{color:#7cb8ff;text-decoration:none} /* 9.33:1 on #0a0e17 */
 .ex-body a:hover{text-decoration:underline}
 .ex-body input,.ex-body textarea,.ex-body select{background:#0d1117;color:#e0e0e0;border:1px solid #222;border-radius:6px;padding:0.5rem 0.75rem;font-size:0.85rem;font-family:inherit;outline:none;width:100%;box-sizing:border-box;transition:border-color .15s}
-.ex-body input:focus,.ex-body textarea:focus{border-color:#4a9eff}
+.ex-body input:focus,.ex-body textarea:focus{border-color:#7cb8ff}
 .ex-body button{padding:0.45rem 1rem;border-radius:6px;border:none;font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s}
 .ex-body button:hover{opacity:0.85}
 .ex-body button:disabled{opacity:0.4;cursor:not-allowed}
 .ex-body button.primary{background:#4a9eff;color:#000}
-.ex-body button.secondary{background:rgba(255,255,255,0.04);color:#ccc;border:1px solid #222}
-.ex-body button.danger{background:#ef4444;color:#fff}
-.ex-body pre{background:#0d1117;border:1px solid #1a1a1a;border-radius:8px;padding:0.75rem 1rem;font-size:0.78rem;line-height:1.6;overflow:auto;max-height:500px;color:#aaa;font-family:'JetBrains Mono',monospace}
+.ex-body button.secondary{background:rgba(255,255,255,0.04);color:#cccccc;border:1px solid #222} /* 11.1:1 on #141820 */
+.ex-body button.danger{background:#7f1d1d;color:#ffffff} /* 10.0:1 (was #ef4444 = 3.8:1) */
+.ex-body pre{background:#0d1117;border:1px solid #1a1a1a;border-radius:8px;padding:0.75rem 1rem;font-size:0.78rem;line-height:1.6;overflow:auto;max-height:500px;color:#a3a3a3;font-family:'JetBrains Mono',monospace} /* 7.7:1 on #0d1117 */
 .ex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:0.75rem}
 .ex-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:1rem;transition:border-color .15s}
 .ex-card:hover{border-color:rgba(255,255,255,0.12)}
 .ex-badge{display:inline-block;padding:0.1rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:500}
-.ex-badge.fs{background:rgba(74,158,255,0.12);color:#4a9eff}
-.ex-badge.ms{background:rgba(168,85,247,0.12);color:#a855f7}
-.ex-badge.ts{background:rgba(34,197,94,0.12);color:#22c55e}
-.ex-badge.is{background:rgba(251,146,60,0.12);color:#fb923c}
-.ex-badge.wms{background:rgba(234,179,8,0.12);color:#eab308}
-.ex-badge.err{background:rgba(239,68,68,0.12);color:#ef4444}
-.ex-badge.noaa{background:rgba(56,189,248,0.12);color:#38bdf8}
-.ex-badge.usgs{background:rgba(239,68,68,0.12);color:#ef4444}
-.ex-badge.nasa{background:rgba(34,197,94,0.12);color:#22c55e}
-.ex-badge.flight{background:rgba(251,146,60,0.12);color:#fb923c}
-.ex-badge.sat{background:rgba(6,182,212,0.12);color:#06b6d4}
-.ex-badge.marine{background:rgba(59,130,246,0.12);color:#3b82f6}
+.ex-badge.fs{background:rgba(74,158,255,0.12);color:#7cb8ff} /* 7.57:1 on #162437 */
+.ex-badge.ms{background:rgba(168,85,247,0.12);color:#d8b4fe} /* 9.32:1 on #211b36 */
+.ex-badge.ts{background:rgba(34,197,94,0.12);color:#34d399} /* 8.07:1 on #112824 */
+.ex-badge.is{background:rgba(251,146,60,0.12);color:#fdba74} /* 9.21:1 on #2b2220 */
+.ex-badge.wms{background:rgba(234,179,8,0.12);color:#fde047} /* 11.49:1 on #29261a */
+.ex-badge.err{background:rgba(239,68,68,0.12);color:#fca5a5} /* 8.79:1 on #2a1921 */
+.ex-badge.noaa{background:rgba(56,189,248,0.12);color:#5ecbff} /* 8.35:1 on #142736 */
+.ex-badge.usgs{background:rgba(239,68,68,0.12);color:#fca5a5} /* 8.79:1 on #2a1921 */
+.ex-badge.nasa{background:rgba(34,197,94,0.12);color:#34d399} /* 8.07:1 on #112824 */
+.ex-badge.flight{background:rgba(251,146,60,0.12);color:#fdba74} /* 9.21:1 on #2b2220 */
+.ex-badge.sat{background:rgba(6,182,212,0.12);color:#67e8f9} /* 10.69:1 on #0e2732 */
+.ex-badge.marine{background:rgba(59,130,246,0.12);color:#93c5fd} /* 9.03:1 on #142036 */
 .ex-stat{display:flex;align-items:center;gap:0.5rem;margin:0.25rem 0;font-size:0.8rem}
-.ex-stat .num{color:#4a9eff;font-weight:600;font-family:'JetBrains Mono',monospace}
+.ex-stat .num{color:#7cb8ff;font-weight:600;font-family:'JetBrains Mono',monospace} /* 7.37:1 on #0f131c */
 .ex-row{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap}
-.ex-tag{font-size:0.7rem;padding:0.15rem 0.5rem;border-radius:4px;background:rgba(255,255,255,0.03);color:#666;border:1px solid #1a1a1a}
+.ex-tag{font-size:0.7rem;padding:0.15rem 0.5rem;border-radius:4px;background:rgba(255,255,255,0.03);color:#a3a3a3;border:1px solid #1a1a1a} /* 7.5:1 on #10131b */
 .ex-sep{width:1px;height:16px;background:#1a1a1a;margin:0 0.25rem}
-.ex-empty{text-align:center;padding:2rem;color:#444;font-size:0.85rem}
+.ex-empty{text-align:center;padding:2rem;color:#a3a3a3;font-size:0.85rem}
 .ex-query-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;margin-bottom:1rem}
-.ex-query-btn{padding:0.4rem 0.6rem;font-size:0.78rem;background:rgba(255,255,255,0.02);color:#888;border:1px solid #1a1a1a;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;font-family:inherit}
-.ex-query-btn:hover{border-color:#4a9eff;color:#4a9eff;background:rgba(74,158,255,0.05)}
+.ex-query-btn{padding:0.4rem 0.6rem;font-size:0.78rem;background:rgba(255,255,255,0.02);color:#a3a3a3;border:1px solid #1a1a1a;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;font-family:inherit}
+.ex-query-btn:hover{border-color:#7cb8ff;color:#7cb8ff;background:rgba(74,158,255,0.05)}
 .ex-tabs{display:flex;gap:0.25rem;margin-bottom:1.25rem;background:rgba(255,255,255,0.02);border-radius:8px;padding:3px;border:1px solid rgba(255,255,255,0.06);flex-wrap:wrap}
-.ex-tab{padding:0.4rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;background:transparent;color:#666;white-space:nowrap}
-.ex-tab:hover{color:#aaa}
-.ex-tab.active{background:rgba(74,158,255,0.12);color:#4a9eff}
+.ex-tab{padding:0.4rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;background:transparent;color:#a3a3a3;white-space:nowrap} /* 7.6:1 on #0e121a */
+.ex-tab:hover{color:#a3a3a3}
+.ex-tab.active{background:rgba(74,158,255,0.12);color:#7cb8ff} /* 7.57:1 on #162437 */
 .ex-toolbar{display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;flex-wrap:wrap}
 .ex-toolbar input{flex:1;min-width:120px}
-.ex-info-bar{display:flex;gap:1rem;align-items:center;padding:0.5rem 0;margin-bottom:1rem;font-size:0.8rem;color:#555;border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:0.75rem;flex-wrap:wrap}
+.ex-info-bar{display:flex;gap:1rem;align-items:center;padding:0.5rem 0;margin-bottom:1rem;font-size:0.8rem;color:#a3a3a3;border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:0.75rem;flex-wrap:wrap}
 .ex-ds-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.75rem}
 .ex-ds-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
 .ex-ds-card:hover{border-color:rgba(74,158,255,0.3);background:rgba(74,158,255,0.03)}
 .ex-ds-card.selected{border-color:rgba(74,158,255,0.5);background:rgba(74,158,255,0.06)}
 .ex-flight-table{width:100%;border-collapse:collapse;font-size:0.78rem}
-.ex-flight-table th{text-align:left;padding:0.4rem 0.6rem;color:#666;font-weight:500;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#0a0e17}
-.ex-flight-table td{padding:0.35rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);color:#bbb;font-family:'JetBrains Mono',monospace}
+.ex-flight-table th{text-align:left;padding:0.4rem 0.6rem;color:#a3a3a3;font-weight:500;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#0a0e17} /* 7.65:1 */
+.ex-flight-table td{padding:0.35rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);color:#c9c9c9;font-family:'JetBrains Mono',monospace} /* 11.2:1 on #0f131c */
 .ex-flight-table tr:hover td{background:rgba(74,158,255,0.04)}
 .ex-quake-list{display:flex;flex-direction:column;gap:0.4rem}
 .ex-quake-item{display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.8rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;transition:border-color .15s}
 .ex-quake-item:hover{border-color:rgba(239,68,68,0.3)}
 .ex-quake-mag{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;font-family:'JetBrains Mono',monospace}
 .ex-filter-group{display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap}
-.ex-filter-group label{font-size:0.75rem;color:#666;white-space:nowrap}
+.ex-filter-group label{font-size:0.75rem;color:#a3a3a3;white-space:nowrap}
 .ex-filter-group input{width:100px;flex:none}
 .ex-filter-group select{width:auto;flex:none;background:#0d1117;color:#e0e0e0;border:1px solid #222;border-radius:6px;padding:0.4rem 0.6rem;font-size:0.82rem;font-family:inherit;outline:none}
 @media(max-width:768px){
@@ -342,12 +345,14 @@ function proxyFetch(url: string): Promise<unknown> {
   });
 }
 
+/* Magnitude chips put colored digits on a 15% tint of the same hue, so the
+   digits use light shades to stay above the AAA 7:1 bar on the blended tint. */
 function magColor(mag: number): string {
-  if (mag >= 7) return "#ef4444";
-  if (mag >= 5) return "#f97316";
-  if (mag >= 3) return "#eab308";
-  if (mag >= 1) return "#22c55e";
-  return "#4a9eff";
+  if (mag >= 7) return "#fca5a5"; /* 8.50:1 on #311a22 */
+  if (mag >= 5) return "#fdba74"; /* 9.10:1 on #32211b */
+  if (mag >= 3) return "#fde047"; /* 10.73:1 on #302b19 */
+  if (mag >= 1) return "#34d399"; /* 7.56:1 on #122e26 */
+  return "#7cb8ff"; /* 7.19:1 on #18283e */
 }
 
 function magBg(mag: number): string {
@@ -674,7 +679,7 @@ export default function ExplorePage() {
         {/* Nav */}
         <Navbar dark breadcrumb="Explore" />
 
-        <div className="ex-body">
+        <main className="ex-body">
           <h1>Data Explorer</h1>
           <p className="sub">
             Search, filter, and explore geospatial data from NOAA, USGS, NASA, OpenSky, Celestrak, and more
@@ -700,7 +705,7 @@ export default function ExplorePage() {
             {tab === "noaa" && (
               <>
                 <h2>NOAA &amp; USGS Data Sources</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   Access weather warnings, hurricane data, earthquake feeds, and NASA natural events via our CORS proxy.
                 </p>
 
@@ -723,7 +728,7 @@ export default function ExplorePage() {
                         </span>
                       </div>
                       <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{ds.label}</div>
-                      <div style={{ fontSize: "0.78rem", color: "#666", lineHeight: 1.45 }}>{ds.desc}</div>
+                      <div style={{ fontSize: "0.78rem", color: "#a3a3a3", lineHeight: 1.45 }}>{ds.desc}</div>
                       {ds.url === null && (
                         <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
                           <input
@@ -752,7 +757,7 @@ export default function ExplorePage() {
                   <button className="primary" onClick={() => { void fetchNoaa(); }} disabled={noaaLoading}>
                     {noaaLoading ? "Fetching..." : "Fetch Data"}
                   </button>
-                  <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/proxy</span>
+                  <span style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>Via /api/proxy</span>
                 </div>
 
                 {noaaError && (
@@ -772,7 +777,7 @@ export default function ExplorePage() {
                         </div>
                         {noaaData.metadata?.generated && (
                           <div className="ex-stat">
-                            <span style={{ color: "#555" }}>Generated:</span>{" "}
+                            <span style={{ color: "#a3a3a3" }}>Generated:</span>{" "}
                             {new Date(noaaData.metadata.generated).toLocaleString()}
                           </div>
                         )}
@@ -802,7 +807,7 @@ export default function ExplorePage() {
                                   >
                                     {p.place || p.title || p.name || p.event || "(unnamed)"}
                                   </div>
-                                  <div className="ex-row" style={{ fontSize: "0.72rem", color: "#666" }}>
+                                  <div className="ex-row" style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>
                                     {coords && (
                                       <span>
                                         {coords[1]?.toFixed(3)}, {coords[0]?.toFixed(3)}
@@ -830,7 +835,7 @@ export default function ExplorePage() {
                                     )}
                                   </div>
                                 </div>
-                                <div style={{ fontSize: "0.7rem", color: "#444", whiteSpace: "nowrap" }}>
+                                <div style={{ fontSize: "0.7rem", color: "#a3a3a3", whiteSpace: "nowrap" }}>
                                   {p.time ? new Date(p.time).toLocaleString() : ""}
                                 </div>
                               </div>
@@ -848,14 +853,14 @@ export default function ExplorePage() {
                     {noaaData.properties?.periods && (
                       <div>
                         <div className="ex-stat">
-                          <span style={{ color: "#555" }}>Source:</span>{" "}
+                          <span style={{ color: "#a3a3a3" }}>Source:</span>{" "}
                           {noaaData.properties.forecastGenerator || "NWS"}
                         </div>
                         <div style={{ marginTop: "0.75rem" }}>
                           {noaaData.properties.periods.slice(0, 48).map((p: NoaaForecastPeriod, i: number) => (
                             <div key={i} className="ex-quake-item">
                               <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
-                                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#4a9eff" }}>
+                                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#7cb8ff" }}>
                                   {p.isDaytime ? "\u2600\uFE0F" : "\uD83C\uDF19"}
                                 </div>
                                 <div
@@ -871,12 +876,12 @@ export default function ExplorePage() {
                               </div>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: "0.82rem", fontWeight: 500 }}>{p.name}</div>
-                                <div style={{ fontSize: "0.75rem", color: "#888" }}>{p.shortForecast}</div>
-                                <div style={{ fontSize: "0.72rem", color: "#555", marginTop: "0.15rem" }}>
+                                <div style={{ fontSize: "0.75rem", color: "#a3a3a3" }}>{p.shortForecast}</div>
+                                <div style={{ fontSize: "0.72rem", color: "#a3a3a3", marginTop: "0.15rem" }}>
                                   {p.windSpeed} {p.windDirection}
                                 </div>
                               </div>
-                              <div style={{ fontSize: "0.72rem", color: "#555" }}>
+                              <div style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>
                                 {p.startTime &&
                                   new Date(p.startTime).toLocaleString([], {
                                     month: "short",
@@ -898,14 +903,16 @@ export default function ExplorePage() {
                         <div className="ex-quake-list" style={{ marginTop: "0.5rem" }}>
                           {noaaData.features.map((f: GeoFeature, i: number) => {
                             const p = f.properties as NwsAlertProperties;
+                            /* Severity text sits on a 9% tint of the same hue,
+                               so light shades keep the badge above AAA 7:1. */
                             const sevColor =
                               p.severity === "Extreme"
-                                ? "#ef4444"
+                                ? "#fca5a5" /* 8.33:1 on #252129 */
                                 : p.severity === "Severe"
-                                  ? "#f97316"
+                                  ? "#fdba74" /* 9.26:1 on #252324 */
                                   : p.severity === "Moderate"
-                                    ? "#eab308"
-                                    : "#4a9eff";
+                                    ? "#fde047" /* 11.57:1 on #252620 */
+                                    : "#7cb8ff"; /* 7.66:1 on #192331 */
                             return (
                               <div key={i} className="ex-quake-item">
                                 <div
@@ -917,14 +924,14 @@ export default function ExplorePage() {
                                   </div>
                                   <div
                                     className="ex-row"
-                                    style={{ fontSize: "0.72rem", color: "#666", marginTop: "0.1rem" }}
+                                    style={{ fontSize: "0.72rem", color: "#a3a3a3", marginTop: "0.1rem" }}
                                   >
                                     <span className="ex-badge" style={{ background: `${sevColor}18`, color: sevColor }}>
                                       {p.severity}
                                     </span>
                                     <span>{p.areaDesc?.split(";")[0] || ""}</span>
                                   </div>
-                                  <div style={{ fontSize: "0.72rem", color: "#555", marginTop: "0.15rem" }}>
+                                  <div style={{ fontSize: "0.72rem", color: "#a3a3a3", marginTop: "0.15rem" }}>
                                     {p.headline || ""}
                                   </div>
                                 </div>
@@ -965,7 +972,7 @@ export default function ExplorePage() {
                                 <div style={{ fontSize: "0.82rem", fontWeight: 500, color: "#ccc" }}>{ev.title}</div>
                                 <div
                                   className="ex-row"
-                                  style={{ fontSize: "0.72rem", color: "#666", marginTop: "0.1rem" }}
+                                  style={{ fontSize: "0.72rem", color: "#a3a3a3", marginTop: "0.1rem" }}
                                 >
                                   {ev.categories?.[0]?.title && (
                                     <span className="ex-tag">{ev.categories[0].title}</span>
@@ -978,7 +985,7 @@ export default function ExplorePage() {
                                   const firstCoord = (c[0] as unknown as number[][]).at(0);
                                   if (!firstCoord) return null;
                                   return (
-                                    <div style={{ fontSize: "0.7rem", color: "#555", marginTop: "0.1rem" }}>
+                                    <div style={{ fontSize: "0.7rem", color: "#a3a3a3", marginTop: "0.1rem" }}>
                                       {typeof firstCoord[1] === "number" ? firstCoord[1].toFixed(2) : ""},{" "}
                                       {typeof firstCoord[0] === "number" ? firstCoord[0].toFixed(2) : ""}
                                     </div>
@@ -1008,7 +1015,7 @@ export default function ExplorePage() {
             {tab === "flights" && (
               <>
                 <h2>Flight Tracker (ADS-B)</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   Real-time flight data from OpenSky Network. Filter by callsign, altitude, bounding box, and airborne
                   status.
                 </p>
@@ -1054,7 +1061,7 @@ export default function ExplorePage() {
                   <button className="primary" onClick={() => { void fetchFlights(); }} disabled={flLoading}>
                     {flLoading ? "Fetching..." : "Fetch Flights"}
                   </button>
-                  <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/flights &middot; 15s cache</span>
+                  <span style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>Via /api/flights &middot; 15s cache</span>
                 </div>
 
                 {flError && (
@@ -1072,11 +1079,11 @@ export default function ExplorePage() {
                       {flData.states.length !== flData.totalRaw && (
                         <>
                           <span className="ex-sep" />
-                          <span style={{ color: "#555" }}>filtered from {flData.totalRaw}</span>
+                          <span style={{ color: "#a3a3a3" }}>filtered from {flData.totalRaw}</span>
                         </>
                       )}
                       <span className="ex-sep" />
-                      <span style={{ color: "#444" }}>Time: {new Date(flData.time * 1000).toLocaleTimeString()}</span>
+                      <span style={{ color: "#a3a3a3" }}>Time: {new Date(flData.time * 1000).toLocaleTimeString()}</span>
                     </div>
                     <div style={{ overflow: "auto", maxHeight: 500, borderRadius: 8, border: "1px solid #1a1a1a" }}>
                       <table className="ex-flight-table">
@@ -1108,11 +1115,11 @@ export default function ExplorePage() {
                                   color:
                                     typeof s[11] === "number"
                                       ? s[11] > 0
-                                        ? "#22c55e"
+                                        ? "#34d399" /* 9.18:1 on #111925 */
                                         : s[11] < 0
-                                          ? "#ef4444"
-                                          : "#666"
-                                      : "#666",
+                                          ? "#fca5a5" /* 9.30:1 on #111925 */
+                                          : "#a3a3a3"
+                                      : "#a3a3a3", /* 7.0:1 on #111925 */
                                 }}
                               >
                                 {s[11] != null && typeof s[11] === "number"
@@ -1139,7 +1146,7 @@ export default function ExplorePage() {
             {tab === "earthquakes" && (
               <>
                 <h2>USGS Earthquake Feed</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   Real-time earthquake data from USGS. Filter by minimum magnitude and time period.
                 </p>
 
@@ -1178,7 +1185,7 @@ export default function ExplorePage() {
                         <span className="num">{eqData.features.length}</span> earthquakes
                       </span>
                       <span className="ex-sep" />
-                      <span style={{ color: "#444" }}>
+                      <span style={{ color: "#a3a3a3" }}>
                         Generated:{" "}
                         {eqData.metadata?.generated ? new Date(eqData.metadata.generated).toLocaleString() : "N/A"}
                       </span>
@@ -1200,7 +1207,7 @@ export default function ExplorePage() {
                               >
                                 {p.place}
                               </div>
-                              <div className="ex-row" style={{ fontSize: "0.72rem", color: "#666" }}>
+                              <div className="ex-row" style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>
                                 <span>
                                   {p.coordinates?.[1]?.toFixed(3)}, {p.coordinates?.[0]?.toFixed(3)}
                                 </span>
@@ -1211,10 +1218,10 @@ export default function ExplorePage() {
                               </div>
                             </div>
                             <div
-                              style={{ fontSize: "0.7rem", color: "#444", textAlign: "right", whiteSpace: "nowrap" }}
+                              style={{ fontSize: "0.7rem", color: "#a3a3a3", textAlign: "right", whiteSpace: "nowrap" }}
                             >
                               <div>{p.time != null ? new Date(p.time).toLocaleString() : ""}</div>
-                              <div style={{ color: "#555" }}>
+                              <div style={{ color: "#a3a3a3" }}>
                                 {p.type} &middot; {p.cd ? `felt ${p.cd}` : ""}
                               </div>
                             </div>
@@ -1231,7 +1238,7 @@ export default function ExplorePage() {
             {tab === "satellites" && (
               <>
                 <h2>Celestrak Satellite Tracker</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   TLE (Two-Line Element) data for active satellites from Celestrak. Search by name or filter by group.
                 </p>
 
@@ -1269,13 +1276,13 @@ export default function ExplorePage() {
                         <span className="num">{satData.length}</span> satellites
                       </span>
                       <span className="ex-sep" />
-                      <span style={{ color: "#444" }}>
+                      <span style={{ color: "#a3a3a3" }}>
                         Group: {SATELLITE_GROUPS.find((g) => g.id === satGroup)?.label}
                       </span>
                       {satSearch && (
                         <>
                           <span className="ex-sep" />
-                          <span style={{ color: "#555" }}>Filtered: &quot;{satSearch}&quot;</span>
+                          <span style={{ color: "#a3a3a3" }}>Filtered: &quot;{satSearch}&quot;</span>
                         </>
                       )}
                     </div>
@@ -1303,7 +1310,7 @@ export default function ExplorePage() {
                                 <td>
                                   <span className="ex-tag">{s.OBJECT_TYPE}</span>
                                 </td>
-                                <td style={{ fontSize: "0.68rem", color: "#555" }}>{s.TLE_LINE1}</td>
+                                <td style={{ fontSize: "0.68rem", color: "#a3a3a3" }}>{s.TLE_LINE1}</td>
                               </tr>
                             ))}
                         </tbody>
@@ -1323,7 +1330,7 @@ export default function ExplorePage() {
             {tab === "marine" && (
               <>
                 <h2>Marine Weather (Open-Meteo)</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   Wave height, direction, period, wind speed, and temperature from Open-Meteo Marine API.
                 </p>
 
@@ -1358,7 +1365,7 @@ export default function ExplorePage() {
                     <h3>
                       Current Conditions at {marLat}, {marLon}
                     </h3>
-                    <div style={{ fontSize: "0.72rem", color: "#555", marginBottom: "0.75rem" }}>
+                    <div style={{ fontSize: "0.72rem", color: "#a3a3a3", marginBottom: "0.75rem" }}>
                       Time: {marData.current.time ? new Date(marData.current.time).toLocaleString() : "N/A"}
                     </div>
                     <div className="ex-grid">
@@ -1425,14 +1432,14 @@ export default function ExplorePage() {
                             style={{
                               fontSize: "1.2rem",
                               fontWeight: 700,
-                              color: "#4a9eff",
+                              color: "#7cb8ff",
                               fontFamily: "'JetBrains Mono',monospace",
                               marginBottom: "0.15rem",
                             }}
                           >
                             {item.value}
                           </div>
-                          <div style={{ fontSize: "0.72rem", color: "#666" }}>{item.label}</div>
+                          <div style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>{item.label}</div>
                         </div>
                       ))}
                     </div>
@@ -1445,11 +1452,11 @@ export default function ExplorePage() {
             {tab === "overpass" && (
               <>
                 <h2>Overpass API / OpenStreetMap</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   Query OpenStreetMap data using the Overpass QL language. Use{" "}
                   <code
                     style={{
-                      color: "#4a9eff",
+                      color: "#7cb8ff",
                       background: "rgba(74,158,255,0.1)",
                       padding: "0.1rem 0.3rem",
                       borderRadius: 3,
@@ -1461,7 +1468,7 @@ export default function ExplorePage() {
                 </p>
 
                 <div style={{ marginBottom: "0.75rem" }}>
-                  <label style={{ fontSize: "0.78rem", color: "#666", display: "block", marginBottom: "0.25rem" }}>
+                  <label style={{ fontSize: "0.78rem", color: "#a3a3a3", display: "block", marginBottom: "0.25rem" }}>
                     Bounding Box (west,south,east,north)
                   </label>
                   <input
@@ -1472,7 +1479,7 @@ export default function ExplorePage() {
                 </div>
 
                 <div style={{ marginBottom: "0.5rem" }}>
-                  <label style={{ fontSize: "0.78rem", color: "#666", display: "block", marginBottom: "0.25rem" }}>
+                  <label style={{ fontSize: "0.78rem", color: "#a3a3a3", display: "block", marginBottom: "0.25rem" }}>
                     Overpass QL Query
                   </label>
                   <textarea
@@ -1488,7 +1495,7 @@ export default function ExplorePage() {
                   <button className="primary" onClick={() => { void runOverpass(); }} disabled={opLoading}>
                     {opLoading ? "Running..." : "Run Query"}
                   </button>
-                  <span style={{ fontSize: "0.72rem", color: "#444" }}>Via /api/overpass</span>
+                  <span style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>Via /api/overpass</span>
                 </div>
 
                 <div style={{ marginBottom: "1rem" }}>
@@ -1518,7 +1525,7 @@ export default function ExplorePage() {
                       <span className="ex-sep" />
                       <span className="num">{opStats.relations.toLocaleString()}</span> relations
                       <span className="ex-sep" />
-                      <span style={{ color: "#444" }}>Snapshot: {opResult.osm3s?.timestamp_osm_base || "N/A"}</span>
+                      <span style={{ color: "#a3a3a3" }}>Snapshot: {opResult.osm3s?.timestamp_osm_base || "N/A"}</span>
                     </div>
                     {opResult.elements.length > 0 && (
                       <pre style={{ marginTop: "0.75rem" }}>
@@ -1539,7 +1546,7 @@ export default function ExplorePage() {
             {tab === "overture" && (
               <>
                 <h2>Overture Maps</h2>
-                <p style={{ fontSize: "0.8rem", color: "#555", margin: "0 0 1rem" }}>
+                <p style={{ fontSize: "0.8rem", color: "#a3a3a3", margin: "0 0 1rem" }}>
                   Open map data from the Overture Maps Foundation. Select a theme and type, then enter a bounding box to
                   query features.
                 </p>
@@ -1556,7 +1563,7 @@ export default function ExplorePage() {
                       }}
                     >
                       <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{theme.label}</div>
-                      <div style={{ fontSize: "0.78rem", color: "#666", lineHeight: 1.45 }}>{theme.desc}</div>
+                      <div style={{ fontSize: "0.78rem", color: "#a3a3a3", lineHeight: 1.45 }}>{theme.desc}</div>
                       <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
                         {theme.types.map((t) => (
                           <span key={t} className="ex-tag">
@@ -1569,7 +1576,7 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="ex-toolbar">
-                  <label style={{ fontSize: "0.75rem", color: "#666", whiteSpace: "nowrap" }}>Type</label>
+                  <label style={{ fontSize: "0.75rem", color: "#a3a3a3", whiteSpace: "nowrap" }}>Type</label>
                   <select
                     value={ovType}
                     onChange={(e) => { setOvType(e.target.value); }}
@@ -1593,7 +1600,7 @@ export default function ExplorePage() {
                 </div>
 
                 <div className="ex-info-bar">
-                  <span style={{ fontSize: "0.72rem", color: "#444" }}>
+                  <span style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>
                     API: api.overturemaps.org/v0/{ovTheme}/{ovType}
                   </span>
                 </div>
@@ -1627,7 +1634,7 @@ export default function ExplorePage() {
               </>
             )}
           </div>
-        </div>
+        </main>
       </div>
     </ErrorBoundary>
   );

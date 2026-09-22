@@ -1407,7 +1407,11 @@ export default function MapPage() {
       />
 
       {/* Map */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
+      {/* main landmark: the map canvas, its overlays and the status bar live
+          here so axe's `region` rule (WCAG 1.3.6) is satisfied. The visually
+          hidden h1 gives the landmark document context (WCAG 2.4.6). */}
+      <main style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
+        <h1 className="oz-sr-only">OpenZenith Map</h1>
         {/* Toolbar overlay */}
         <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
           {isMobile && (
@@ -1720,7 +1724,9 @@ export default function MapPage() {
               style={{
                 background: "none",
                 border: `1px solid ${T.border}`,
-                color: T.textMuted,
+                /* T.textMuted (#94a3b8) only reaches 5.46:1 on the panel
+                   composite; T.text (#e2e8f0) = 11.37:1 — WCAG AAA. */
+                color: T.text,
                 padding: "2px 8px",
                 borderRadius: 4,
                 cursor: "pointer",
@@ -2123,75 +2129,75 @@ export default function MapPage() {
                       {layers.map((layer) => {
                         const status = layerStatus[layer.id];
                         return (
-                        <div
-                          key={layer.id}
-                          style={{
-                            padding: "0.3rem 0.35rem",
-                            borderBottom: `1px solid rgba(0,229,255,0.08)`,
-                          }}
-                        >
-                          <LayerToggle
-                            label={layer.name}
-                            checked={mapState.layers[layer.id]}
-                            onChange={(checked) => { toggleLayer(layer.id, checked); }}
-                            color={layer.accent}
-                          />
-                          <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
-                            {layer.description}
-                            {mapState.layers[layer.id] && status && (
-                              <span
-                                aria-live="polite"
-                                aria-label={`${layer.name} status: ${status.status}`}
-                                style={{
-                                  marginLeft: 6,
-                                  padding: "0 3px",
-                                  borderRadius: 2,
-                                  fontSize: "0.55rem",
-                                  fontFamily: T.fontMono,
-                                  ...(status.status === "loading"
-                                    ? { color: T.amber }
-                                    : status.status === "error"
-                                      ? { color: T.red }
-                                      : status.status === "empty"
-                                        ? { color: T.textMuted }
-                                        : { color: T.green }),
-                                }}
-                              >
-                                {status.status === "loading"
-                                  ? "⟳"
-                                  : status.status === "error"
-                                    ? "✕ ERR"
-                                    : status.status === "empty"
-                                      ? "∅ 0"
-                                      : status.count !== undefined
-                                        ? `✓ ${status.count}`
-                                        : "✓"}
-                              </span>
-                            )}
-                            {mapState.layers[layer.id] && RASTER_LAYERS.has(layer.id) && (
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                                <input
-                                  type="range"
-                                  min={10}
-                                  max={100}
-                                  value={layerOpacity[layer.id] ?? 100}
-                                  onChange={(e) => { setOpacity(layer.id, Number(e.target.value)); }}
-                                  style={{ width: 70, height: 14, accentColor: layer.accent, cursor: "pointer" }}
-                                />
+                          <div
+                            key={layer.id}
+                            style={{
+                              padding: "0.3rem 0.35rem",
+                              borderBottom: `1px solid rgba(0,229,255,0.08)`,
+                            }}
+                          >
+                            <LayerToggle
+                              label={layer.name}
+                              checked={mapState.layers[layer.id]}
+                              onChange={(checked) => { toggleLayer(layer.id, checked); }}
+                              color={layer.accent}
+                            />
+                            <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
+                              {layer.description}
+                              {mapState.layers[layer.id] && status && (
                                 <span
+                                  aria-live="polite"
+                                  aria-label={`${layer.name} status: ${status.status}`}
                                   style={{
+                                    marginLeft: 6,
+                                    padding: "0 3px",
+                                    borderRadius: 2,
                                     fontSize: "0.55rem",
                                     fontFamily: T.fontMono,
-                                    color: T.textMuted,
-                                    minWidth: 22,
+                                    ...(status.status === "loading"
+                                      ? { color: T.amber }
+                                      : status.status === "error"
+                                        ? { color: T.red }
+                                        : status.status === "empty"
+                                          ? { color: T.textMuted }
+                                          : { color: T.green }),
                                   }}
                                 >
-                                  {layerOpacity[layer.id] ?? 100}%
+                                  {status.status === "loading"
+                                    ? "⟳"
+                                    : status.status === "error"
+                                      ? "✕ ERR"
+                                      : status.status === "empty"
+                                        ? "∅ 0"
+                                        : status.count !== undefined
+                                          ? `✓ ${status.count}`
+                                          : "✓"}
                                 </span>
-                              </div>
-                            )}
+                              )}
+                              {mapState.layers[layer.id] && RASTER_LAYERS.has(layer.id) && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                                  <input
+                                    type="range"
+                                    min={10}
+                                    max={100}
+                                    value={layerOpacity[layer.id] ?? 100}
+                                    onChange={(e) => { setOpacity(layer.id, Number(e.target.value)); }}
+                                    style={{ width: 70, height: 14, accentColor: layer.accent, cursor: "pointer" }}
+                                  />
+                                  <span
+                                    style={{
+                                      fontSize: "0.55rem",
+                                      fontFamily: T.fontMono,
+                                      color: T.textMuted,
+                                      minWidth: 22,
+                                    }}
+                                  >
+                                    {layerOpacity[layer.id] ?? 100}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
                         );
                       })}
                     </div>
@@ -2693,14 +2699,18 @@ export default function MapPage() {
             return (
               <div
                 key={layer.id}
-                style={{ marginBottom: 8, cursor: "pointer", opacity: on ? 1 : 0.35 }}
+                /* Disabled cards no longer dim the whole card with opacity:
+                   blending #e2e8f0 at 0.35 against the panel measured 2.8:1.
+                   The state signal moves to the text color instead — both
+                   states stay above the AAA 7:1 bar on #0a0f1a. */
+                style={{ marginBottom: 8, cursor: "pointer" }}
                 onClick={() => { toggleLayer(layer.id, !on); }}
                 title={`Click to ${on ? "disable" : "enable"} ${layer.name}`}
               >
                 <div
                   style={{
                     fontSize: "0.62rem",
-                    color: T.text,
+                    color: on ? T.text : T.textMuted, /* 14.8:1 / 7.5:1 */
                     marginBottom: 2,
                     fontWeight: on ? 600 : 400,
                     display: "flex",
@@ -2713,7 +2723,7 @@ export default function MapPage() {
                 </div>
                 {layer.id !== "equator" && (
                   <div style={{ border: "1px solid rgba(0,229,255,0.3)", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ display: "flex", height: 12 }}>
+                    <div style={{ display: "flex", height: 12, opacity: on ? 1 : 0.35 }}>
                       {layer.colors.map((c, i) => (
                         <div key={i} style={{ flex: 1, background: c }} />
                       ))}
@@ -2724,6 +2734,8 @@ export default function MapPage() {
                           display: "flex",
                           justifyContent: "space-between",
                           fontSize: "0.5rem",
+                          /* Legend text stays undimmed: opacity-blended text
+                             measured 2.8:1 on #090d17; T.text = 14.6:1. */
                           color: T.text,
                           padding: "1px 3px",
                           background: "rgba(0,0,0,0.3)",
@@ -2796,7 +2808,7 @@ export default function MapPage() {
             Right-click + drag to rotate terrain &middot; Scroll to zoom &middot; Click to query elevation
           </div>
         )}
-      </div>
+      </main>
 
       {/* Toast notifications */}
       <div

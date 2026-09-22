@@ -55,7 +55,10 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
   const bg = dark ? "#0a0a0a" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSec = dark ? "#888" : "#737373";
+  // WCAG AAA (7:1) secondary text on both themes: #a3a3a3 on the #0a0a0a
+  // app background, #525252 on #fafafa.
+// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  const textSec = dark ? "#a3a3a3" : "#525252";
 
   return (
     <div
@@ -72,6 +75,9 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
     >
       <div
         onClick={(e) => { e.stopPropagation(); }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
         style={{
           background: bg,
           border: `1px solid ${border}`,
@@ -84,7 +90,7 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
           boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
         }}
       >
-        <h2 style={{ margin: "0 0 4px", fontSize: 18, color: text }}>Welcome to Studio</h2>
+        <h2 id="onboarding-title" style={{ margin: "0 0 4px", fontSize: 18, color: text }}>Welcome to Studio</h2>
         <p style={{ margin: "0 0 16px", fontSize: 13, color: textSec }}>
           OpenZenith&apos;s GIS sandbox. Here&apos;s what you can do:
         </p>
@@ -115,7 +121,8 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
             marginTop: 16,
             width: "100%",
             padding: "10px",
-            background: "#3b82f6",
+            /* #ffffff on #1e40af = 8.72:1 (AAA); #3b82f6 only reached 3.7:1 */
+            background: "#1e40af",
             border: "none",
             borderRadius: 6,
             color: "#fff",

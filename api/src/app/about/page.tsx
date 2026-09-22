@@ -40,12 +40,21 @@ const S = `
 .ab-card{background:var(--oz-bg-card);border:1px solid var(--oz-border);border-radius:12px;padding:1.25rem;margin-bottom:0.75rem;transition:border-color .15s}
 .ab-card:hover{border-color:#333}
 .ab-card .icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.9rem;margin-bottom:0.5rem}
-.ab-card .icon.green{background:rgba(34,197,94,0.12);color:#22c55e}
-.ab-card .icon.blue{background:rgba(74,158,255,0.12);color:#4a9eff}
-.ab-card .icon.purple{background:rgba(168,85,247,0.12);color:#a855f7}
-.ab-card .icon.amber{background:rgba(234,179,8,0.12);color:#eab308}
-.ab-card .icon.rose{background:rgba(244,63,94,0.12);color:#f43f5e}
-.ab-card .icon.cyan{background:rgba(6,182,212,0.12);color:#06b6d4}
+/* Icon letters sit on a 12% tint of their own hue. Both themes need 7:1, so
+   each hue gets a light-theme deep shade and a dark-theme light shade
+   (ratios below are against the blended tint surface). */
+.ab-card .icon.green{background:rgba(34,197,94,0.12);color:#4ade80} /* 8.6:1 on #172b1f */
+.ab-card .icon.blue{background:rgba(74,158,255,0.12);color:#7cb8ff} /* 7.4:1 on #1c2632 */
+.ab-card .icon.purple{background:rgba(168,85,247,0.12);color:#d8b4fe} /* 9.0:1 on #281e31 */
+.ab-card .icon.amber{background:rgba(234,179,8,0.12);color:#eab308} /* 7.6:1 on #2f2914 */
+.ab-card .icon.rose{background:rgba(244,63,94,0.12);color:#fda4af} /* 8.5:1 on #311b1f */
+.ab-card .icon.cyan{background:rgba(6,182,212,0.12);color:#22d3ee} /* 8.4:1 on #14292d */
+[data-theme="light"] .ab-card .icon.green{color:#14532d} /* 8.2:1 on #e4f8ec */
+[data-theme="light"] .ab-card .icon.blue{color:#0c4a6e} /* 8.5:1 on #e9f3ff */
+[data-theme="light"] .ab-card .icon.purple{color:#581c87} /* 9.5:1 on #f5ebfe */
+[data-theme="light"] .ab-card .icon.amber{color:#713f12} /* 8.1:1 on #fcf6e1 */
+[data-theme="light"] .ab-card .icon.rose{color:#881337} /* 8.4:1 on #fee8ec */
+[data-theme="light"] .ab-card .icon.cyan{color:#164e63} /* 8.2:1 on #e1f6fa */
 .ab-card h3{margin:0 0 0.2rem;font-size:0.9rem;font-weight:600}
 .ab-card p{margin:0;color:var(--oz-text-secondary);font-size:0.82rem;line-height:1.5}
 .ab-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.75rem;margin:1rem 0 2rem}
@@ -263,7 +272,8 @@ export default function AboutPage() {
                   href="https://github.com/aliasfoxkde"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: dark ? "#888" : "#737373", display: "flex" }}
+                  /* #a3a3a3 = 7.2:1 on #0a0a0a, #525252 = 7.8:1 on #fafafa */
+                  style={{ color: dark ? "#a3a3a3" : "#525252", display: "flex" }}
                   aria-label="GitHub"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -274,7 +284,8 @@ export default function AboutPage() {
                   href="https://github.com/aliasfoxkde/OpenZenith"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: dark ? "#888" : "#737373", fontSize: "0.8rem" }}
+                  /* #a3a3a3 = 7.2:1 on #0a0a0a, #525252 = 7.8:1 on #fafafa */
+                  style={{ color: dark ? "#a3a3a3" : "#525252", fontSize: "0.8rem" }}
                 >
                   OpenZenith
                 </a>

@@ -34,7 +34,8 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
   const bg = dark ? "#0f0f0f" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSec = dark ? "#666" : "#999";
+// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  const textSec = dark ? "#a3a3a3" : "#525252";
 
   const handleExport = () => {
     const json = exportGeoJSONString(drawState);

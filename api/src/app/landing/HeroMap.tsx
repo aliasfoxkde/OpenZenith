@@ -230,7 +230,11 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
             top: "50%",
             left: "50%",
             transform: "translate(-50%,-50%)",
-            background: "rgba(0,0,0,0.7)",
+            // Opaque: a translucent backdrop made the effective contrast
+            // depend on whatever was behind it (axe caught #22c55e over the
+            // light hero overlay in Firefox mid-load). #22c55e on #0a0a0a
+            // is ~8.7:1 — AAA — regardless of theme or load state.
+            background: "#0a0a0a",
             color: "#22c55e",
             padding: "0.5rem 1rem",
             borderRadius: 6,

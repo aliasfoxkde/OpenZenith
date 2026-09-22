@@ -102,11 +102,43 @@ export default function Home() {
   const cardBg = dark ? "#161616" : "#ffffff";
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSecondary = dark ? "#9CA3AF" : "#4B5563"; // both AA/AAA on their bg
+  // WCAG AAA (7:1) secondary text on every surface it lands on — page
+  // (#fafafa), cards (#ffffff) and code blocks (#f5f5f5):
+  // #a3a3a3 = 7.2:1 on #161616; #404040 = 9.9/10.4/9.5:1 respectively.
+  const textSecondary = dark ? "#9CA3AF" : "#404040";
   const accent = "#22c55e";
+  /* Accent green only clears AAA on the dark surfaces (7.9:1 on #161616);
+     on white/#f5f5f5 it drops to ~2.1:1, so light theme uses green-900. */
+  const accentText = dark ? "#22c55e" : "#14532d";
+  /* Green text sitting ON the accentDim tint needs a lighter/darker pair than
+     accentText: #22c55e on the dark tint composite (#172b1f) is only 6.57:1
+     and ~1.9:1 on #dcfce7, so chips use #4ade80 (8.6:1) / #14532d (8.3:1). */
+  const chipText = dark ? "#4ade80" : "#14532d";
+  /* Inline syntax tokens sit on the CodeBlock surfaces (#0d1117 dark /
+     #f5f5f5 light). Both sets are measured ≥7:1 (WCAG AAA). */
+  const SYN = dark
+    ? { keyword: "#d2a8ff", fn: "#61afef", str: "#98c379", num: "#d19a66" }
+    : { keyword: "#581c87", fn: "#0c4a6e", str: "#365314", num: "#7c2d12" };
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const inputBg = dark ? "#111" : "#fff";
   const W = 1400;
+
+  // White chip labels need a 7:1 background, so each layer's accent hue is
+  // mapped to its deep shade for the button fill (white text ratio in the
+  // comment). Hue identity is preserved; only the value is deepened.
+  const CHIP_BG: Record<string, string> = {
+    "#ef4444": "#991b1b", // 8.3:1
+    "#3b82f6": "#1e40af", // 8.7:1
+    "#f59e0b": "#713f12", // 8.7:1
+    "#ec4899": "#831843", // 9.7:1
+    "#a855f7": "#6b21a8", // 8.7:1
+    "#f97316": "#7c2d12", // 9.4:1
+    "#06b6d4": "#155e75", // 7.3:1
+    "#ff6600": "#7c2d12", // 9.4:1
+    "#22c55e": "#14532d", // 9.1:1
+    "#8b5cf6": "#4c1d95", // 11.0:1
+    "#0ea5e9": "#075985", // 7.6:1
+  };
 
   // Back-to-top scroll listener
   useEffect(() => {
@@ -240,6 +272,9 @@ export default function Home() {
           }
         />
 
+        {/* Primary page content. One `main` landmark wraps everything that is
+            not the shared nav or footer (axe region / landmark-one-main). */}
+        <main>
         {/* Hero: Map background + Elevation lookup */}
         <section
           id="hero"
@@ -297,7 +332,12 @@ export default function Home() {
                   color: textSecondary,
                 }}
               >
-                <span style={{ color: accent, fontSize: "0.7rem" }}>&#9679;</span>
+                <span
+                  aria-hidden="true"
+                  style={{ color: accentText /* 7.9:1 on #161616 / 9.1:1 on #ffffff */, fontSize: "0.7rem" }}
+                >
+                  &#9679;
+                </span>
                 <span>{[userGeo.city, userGeo.region, userGeo.country].filter(Boolean).join(", ")}</span>
               </div>
             )}
@@ -506,7 +546,7 @@ export default function Home() {
                   position: "relative",
                 }}
               >
-                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accent, marginBottom: "0.15rem" }}>
+                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accentText, marginBottom: "0.15rem" }}>
                   {s.value}
                 </div>
                 <div
@@ -966,7 +1006,7 @@ export default function Home() {
                         display: "inline-block",
                         padding: "0.35rem 0.85rem",
                         borderRadius: 6,
-                        background: d.color,
+                        background: CHIP_BG[d.color] ?? d.color,
                         color: "#fff",
                         fontSize: "0.75rem",
                         fontWeight: 600,
@@ -1057,7 +1097,7 @@ export default function Home() {
                       display: "inline-block",
                       padding: "0.4rem 1rem",
                       borderRadius: 6,
-                      background: "#a855f7",
+                      background: "#6b21a8", // white label = 8.7:1 (AAA)
                       color: "#fff",
                       fontSize: "0.78rem",
                       fontWeight: 600,
@@ -1244,7 +1284,7 @@ export default function Home() {
                 code={`GET /api/elevation?lat={lat}&lon={lon}\n\n# Mount Everest\ncurl "https://openzenith.cyopsys.com/api/elevation?lat=28.0&lon=86.9"\n\n{"elevation": 8233, "unit": "meters", "surface_type": "land", "tile": "8/217/151"}`}
               >
                 <div>
-                  <span style={{ color: accent }}>GET</span>{" "}
+                  <span style={{ color: accentText }}>GET</span>{" "}
                   <span style={{ color: textSecondary }}>
                     /api/elevation?lat=&#123;lat&#125;&amp;lon=&#123;lon&#125;
                   </span>
@@ -1253,7 +1293,7 @@ export default function Home() {
                   <span style={{ color: textSecondary }}># Mount Everest</span>
                 </div>
                 <div>
-                  <span style={{ color: accent }}>curl</span>{" "}
+                  <span style={{ color: accentText }}>curl</span>{" "}
                   <span style={{ color: text }}>
                     "https://openzenith.cyopsys.com/api/elevation?lat=28.0&amp;lon=86.9"
                   </span>
@@ -1272,12 +1312,12 @@ export default function Home() {
                 code={`const res = await fetch('/api/elevation?lat=48.8566&lon=2.3522')\nconst { elevation } = await res.json()`}
               >
                 <div>
-                  <span style={{ color: "#c678dd" }}>const</span> res ={" "}
-                  <span style={{ color: textSecondary }}>await</span> <span style={{ color: "#61afef" }}>fetch</span>(
-                  <span style={{ color: "#98c379" }}>'/api/elevation?lat=48.8566&amp;lon=2.3522'</span>)
+                  <span style={{ color: SYN.keyword }}>const</span> res ={" "}
+                  <span style={{ color: textSecondary }}>await</span> <span style={{ color: SYN.fn }}>fetch</span>(
+                  <span style={{ color: SYN.str }}>'/api/elevation?lat=48.8566&amp;lon=2.3522'</span>)
                 </div>
                 <div>
-                  <span style={{ color: "#c678dd" }}>const</span> &#123; elevation &#125; ={" "}
+                  <span style={{ color: SYN.keyword }}>const</span> &#123; elevation &#125; ={" "}
                   <span style={{ color: textSecondary }}>await</span> res.json()
                 </div>
               </CodeBlock>
@@ -1291,21 +1331,21 @@ export default function Home() {
                 code={`import requests\n\nres = requests.get(\n    "https://openzenith.cyopsys.com/api/elevation",\n    params={"lat": 48.8566, "lon": 2.3522})\ndata = res.json()\nprint(data["elevation"])  # 35`}
               >
                 <div>
-                  <span style={{ color: "#c678dd" }}>import</span> requests
+                  <span style={{ color: SYN.keyword }}>import</span> requests
                 </div>
                 <div style={{ marginTop: "0.3rem" }}>
-                  res = requests.<span style={{ color: "#61afef" }}>get</span>(
-                  <span style={{ color: "#98c379" }}>"https://openzenith.cyopsys.com/api/elevation"</span>,
+                  res = requests.<span style={{ color: SYN.fn }}>get</span>(
+                  <span style={{ color: SYN.str }}>"https://openzenith.cyopsys.com/api/elevation"</span>,
                 </div>
                 <div>
-                  &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span style={{ color: "#98c379" }}>"lat"</span>:{" "}
-                  <span style={{ color: "#d19a66" }}>48.8566</span>, <span style={{ color: "#98c379" }}>"lon"</span>:{" "}
-                  <span style={{ color: "#d19a66" }}>2.3522</span>&#125;)
+                  &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span style={{ color: SYN.str }}>"lat"</span>:{" "}
+                  <span style={{ color: SYN.num }}>48.8566</span>, <span style={{ color: SYN.str }}>"lon"</span>:{" "}
+                  <span style={{ color: SYN.num }}>2.3522</span>&#125;)
                 </div>
                 <div>data = res.json()</div>
                 <div>
-                  <span style={{ color: "#c678dd" }}>print</span>(data[
-                  <span style={{ color: "#98c379" }}>"elevation"</span>])&nbsp;{" "}
+                  <span style={{ color: SYN.keyword }}>print</span>(data[
+                  <span style={{ color: SYN.str }}>"elevation"</span>])&nbsp;{" "}
                   <span style={{ color: textSecondary }}># 35</span>
                 </div>
               </CodeBlock>
@@ -1448,7 +1488,7 @@ export default function Home() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: accent,
+                      color: chipText,
                       fontSize: "0.8rem",
                       fontWeight: 700,
                       flexShrink: 0,
@@ -1502,7 +1542,7 @@ export default function Home() {
                   gap: "0.4rem",
                   padding: "0.6rem 1.4rem",
                   borderRadius: 8,
-                  background: "#ff5e5b",
+                  background: "#991b1b", // white label = 8.3:1 (AAA); was #ff5e5b at 3.0:1
                   color: "#fff",
                   textDecoration: "none",
                   fontSize: "0.85rem",
@@ -1514,6 +1554,7 @@ export default function Home() {
             </div>
           </div>
         </section>
+        </main>
 
         {/* Footer */}
         <Footer dark={dark} />

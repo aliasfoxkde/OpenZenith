@@ -20,7 +20,6 @@ import {
   deleteVertex,
   exitEditMode,
   type DrawState,
-  type DrawMode,
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS } from "../map/lib/layers";
@@ -64,7 +63,9 @@ export default function StudioPage() {
   });
   const [initialTab] = useState<ToolTab>(() => {
     const p = loadPreferences();
-    return (p.activeTab as ToolTab) || "elevation";
+    // Stored preferences may not carry activeTab, so keep the truthiness check.
+    const tab = p.activeTab as ToolTab | undefined;
+    return tab || "elevation";
   });
   const [initialSidebar] = useState(() => {
     const p = loadPreferences();
@@ -109,7 +110,7 @@ export default function StudioPage() {
   /* ─── Keyboard shortcuts ─── */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "l" || e.key === "L") setSidebarOpen((v) => !v);
       if (e.key === "i" || e.key === "I") setImperial((v) => !v);
@@ -123,15 +124,20 @@ export default function StudioPage() {
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    let cancelled = false;
+    // Held in an object so the cleanup callback's write is visible to the type
+    // checker — a bare `let` here is folded to `false` by control-flow analysis.
+    const state = { cancelled: false };
 
-    (async () => {
+    const initMap = async () => {
       try {
         const mlgl = await waitForMapLibre();
-        if (cancelled) return;
+        if (state.cancelled) return;
         mlglRef.current = mlgl;
 
-        const bm = BASEMAPS[basemap] || BASEMAPS.dark;
+        // `basemap` may be stale from a stored hash, so the lookup can miss —
+        // view the registry as Partial to keep the fallback visible to the checker.
+        const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
+        const bm = registry[basemap] ?? BASEMAPS.dark;
         const map = new mlgl.Map({
           container: containerRef.current,
           style: {
@@ -149,7 +155,7 @@ export default function StudioPage() {
         });
 
         map.on("load", () => {
-          if (cancelled) return;
+          if (state.cancelled) return;
 
           // Add elevation/hillshade
           map.addSource("elevation", {
@@ -218,7 +224,10 @@ export default function StudioPage() {
               const clickedCoords = clicked[0].geometry?.coordinates;
               if (clickedCoords) {
                 const idx = ds.features.findIndex((f) => {
-                  const fc = f.geometry?.coordinates;
+                  // Uploaded GeoJSON may carry `geometry: null` (RFC 7946), which
+                  // the global Feature type hides — read through a nullable view.
+                  const geometry = f.geometry as (typeof f.geometry) | null;
+                  const fc = geometry?.coordinates;
                   if (!fc) return false;
                   return JSON.stringify(fc) === JSON.stringify(clickedCoords);
                 });
@@ -330,10 +339,12 @@ export default function StudioPage() {
       } catch {
         setLoadError(true);
       }
-    })();
+    };
+
+    void initMap();
 
     return () => {
-      cancelled = true;
+      state.cancelled = true;
       // Clear intervals
 
       // Reading the ref at cleanup time is intentional: intervals accumulate
@@ -375,7 +386,10 @@ export default function StudioPage() {
     setBasemap(key);
     const map = mapRef.current;
     if (!map) return;
-    const bm = BASEMAPS[key];
+    // `key` may not exist in the registry, so the lookup can miss — view it as
+    // Partial to keep this guard visible to the checker.
+    const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
+    const bm = registry[key];
     if (!bm) return;
     map.setStyle({
       version: 8,
@@ -395,11 +409,9 @@ export default function StudioPage() {
 
       // Sync layers on map
       const currentIds = new Set(newDatasets.map((d) => d.id));
-      // Remove old layers not in new set
-      if (datasets) {
-        for (const old of datasets) {
-          if (!currentIds.has(old.id)) removeGeoJSONLayer(map, old.id);
-        }
+      // Remove old layers not in new set (`datasets` state is never null)
+      for (const old of datasets) {
+        if (!currentIds.has(old.id)) removeGeoJSONLayer(map, old.id);
       }
       // Add new layers
       for (const ds of newDatasets) {
@@ -466,7 +478,9 @@ export default function StudioPage() {
       setOverpassLayerId(id);
 
       // Fit bounds
-      const bounds = new mlglRef.current!.LngLatBounds();
+      const mlgl = mlglRef.current;
+      if (!mlgl) return;
+      const bounds = new mlgl.LngLatBounds();
       for (const f of data.features) {
         const geom = f.geometry;
         if (geom.type === "Point") {
@@ -527,6 +541,24 @@ export default function StudioPage() {
   const handleProfileChange = useCallback((coords: [number, number][] | null) => {
     if (!coords || coords.length < 2) {
       setProfileCoords(null);
+      // Clearing a profile must also clear the map's profile layers, not
+      // just the overlay — otherwise the line/markers linger after the
+      // tool resets (removeLayer throws on absent ids, hence the guards).
+      const map = mapRef.current;
+      if (map) {
+        for (const id of ["profile-line", "profile-marker-0", "profile-marker-1"]) {
+          try {
+            map.removeLayer(id);
+          } catch {
+            /* not added yet */
+          }
+          try {
+            map.removeSource(id);
+          } catch {
+            /* not added yet */
+          }
+        }
+      }
       return;
     }
 
@@ -546,83 +578,60 @@ export default function StudioPage() {
         setProfileCoords(interpolated);
       });
 
-    if (coords) {
-      // Draw a line on the map between profile endpoints
-      const map = mapRef.current;
-      if (!map) return;
-      if (map.getSource("profile-line")) {
-        map.getSource("profile-line")?.setData({
+    // `coords` is non-null here — the guard above already returned for the
+    // null/short case, so the former null-branch cleanup was unreachable.
+    // Draw a line on the map between profile endpoints
+    const map = mapRef.current;
+    if (!map) return;
+    if (map.getSource("profile-line")) {
+      map.getSource("profile-line")?.setData({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+        properties: {},
+      });
+    } else {
+      map.addSource("profile-line", {
+        type: "geojson",
+        data: {
           type: "Feature",
           geometry: { type: "LineString", coordinates: coords },
           properties: {},
-        });
-      } else {
-        map.addSource("profile-line", {
+        },
+      });
+      map.addLayer({
+        id: "profile-line",
+        type: "line",
+        source: "profile-line",
+        paint: {
+          "line-color": "#3b82f6",
+          "line-width": 3,
+          "line-dasharray": [2, 2],
+        },
+      });
+    }
+    // Add endpoint markers
+    for (let i = 0; i < coords.length; i++) {
+      const markerId = `profile-marker-${i}`;
+      if (!map.getSource(markerId)) {
+        map.addSource(markerId, {
           type: "geojson",
           data: {
             type: "Feature",
-            geometry: { type: "LineString", coordinates: coords },
+            geometry: { type: "Point", coordinates: coords[i] },
             properties: {},
           },
         });
         map.addLayer({
-          id: "profile-line",
-          type: "line",
-          source: "profile-line",
+          id: markerId,
+          type: "circle",
+          source: markerId,
           paint: {
-            "line-color": "#3b82f6",
-            "line-width": 3,
-            "line-dasharray": [2, 2],
+            "circle-radius": 6,
+            "circle-color": i === 0 ? "#22c55e" : "#ef4444",
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#fff",
           },
         });
-      }
-      // Add endpoint markers
-      for (let i = 0; i < coords.length; i++) {
-        const markerId = `profile-marker-${i}`;
-        if (!map.getSource(markerId)) {
-          map.addSource(markerId, {
-            type: "geojson",
-            data: {
-              type: "Feature",
-              geometry: { type: "Point", coordinates: coords[i] },
-              properties: {},
-            },
-          });
-          map.addLayer({
-            id: markerId,
-            type: "circle",
-            source: markerId,
-            paint: {
-              "circle-radius": 6,
-              "circle-color": i === 0 ? "#22c55e" : "#ef4444",
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#fff",
-            },
-          });
-        }
-      }
-    } else {
-      // Clean up profile layers
-      const map = mapRef.current;
-      if (map) {
-        try {
-          map.removeLayer("profile-line");
-        } catch {}
-        try {
-          map.removeSource("profile-line");
-        } catch {}
-        try {
-          map.removeLayer("profile-marker-0");
-        } catch {}
-        try {
-          map.removeSource("profile-marker-0");
-        } catch {}
-        try {
-          map.removeLayer("profile-marker-1");
-        } catch {}
-        try {
-          map.removeSource("profile-marker-1");
-        } catch {}
       }
     }
   }, []);
@@ -631,7 +640,8 @@ export default function StudioPage() {
 
   const bg = dark ? "#0a0a0a" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
-  const textSec = dark ? "#666" : "#999";
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  const textSec = dark ? "#a3a3a3" : "#525252";
 
   /* ─── Render ─── */
 
@@ -646,7 +656,8 @@ export default function StudioPage() {
           left: 8,
           zIndex: 9999,
           padding: "4px 8px",
-          background: "#3b82f6",
+          /* #ffffff on #1e40af = 8.72:1 (AAA); #3b82f6 only reached 3.7:1 */
+          background: "#1e40af",
           color: "#fff",
           borderRadius: 4,
           fontSize: 12,
@@ -669,7 +680,8 @@ export default function StudioPage() {
           left: 120,
           zIndex: 9999,
           padding: "4px 8px",
-          background: "#3b82f6",
+          /* #ffffff on #1e40af = 8.72:1 (AAA); #3b82f6 only reached 3.7:1 */
+          background: "#1e40af",
           color: "#fff",
           borderRadius: 4,
           fontSize: 12,
@@ -687,6 +699,17 @@ export default function StudioPage() {
 
       <Navbar dark={dark} breadcrumb="Studio" />
 
+      {/* main landmark: contains the map, sidebar, status bar and onboarding
+          overlay so axe's `region` rule (WCAG 1.3.6) is satisfied. */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          position: "relative",
+        }}
+      >
       <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Map */}
         <div style={{ flex: 1, position: "relative" }}>
@@ -753,27 +776,22 @@ export default function StudioPage() {
               coordinates={profileCoords}
               onClose={() => {
                 setProfileCoords(null);
-                // Clean up profile layers
+                // Same cleanup path as handleProfileChange(null): drop the
+                // profile line and endpoint markers from the map.
                 const map = mapRef.current;
                 if (map) {
-                  try {
-                    map.removeLayer("profile-line");
-                  } catch {}
-                  try {
-                    map.removeSource("profile-line");
-                  } catch {}
-                  try {
-                    map.removeLayer("profile-marker-0");
-                  } catch {}
-                  try {
-                    map.removeSource("profile-marker-0");
-                  } catch {}
-                  try {
-                    map.removeLayer("profile-marker-1");
-                  } catch {}
-                  try {
-                    map.removeSource("profile-marker-1");
-                  } catch {}
+                  for (const id of ["profile-line", "profile-marker-0", "profile-marker-1"]) {
+                    try {
+                      map.removeLayer(id);
+                    } catch {
+                      /* not added yet */
+                    }
+                    try {
+                      map.removeSource(id);
+                    } catch {
+                      /* not added yet */
+                    }
+                  }
                 }
               }}
             />
@@ -872,10 +890,15 @@ export default function StudioPage() {
             {datasets.length} dataset{datasets.length > 1 ? "s" : ""}
           </span>
         )}
-        {overpassLayerId && <span style={{ color: "#8b5cf6" }}>OSM query</span>}
+        {overpassLayerId && (
+          <span style={{ color: dark ? "#a78bfa" : "#6d28d9" }}>OSM query</span>
+        )}
         <span style={{ flex: 1 }} />
         <button
-          onClick={() => { exportMapScreenshot(mapRef.current!, "openzenith-studio"); }}
+          onClick={() => {
+            const map = mapRef.current;
+            if (map) exportMapScreenshot(map, "openzenith-studio");
+          }}
           title="Export screenshot"
           aria-label="Export map screenshot as PNG"
           style={{
@@ -904,6 +927,7 @@ export default function StudioPage() {
           }}
         />
       )}
+      </main>
     </div>
   );
 }

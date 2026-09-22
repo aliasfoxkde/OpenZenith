@@ -30,7 +30,9 @@ export function GetInTouch({
   const cardBg = dark ? "#161616" : "#ffffff";
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSecondary = dark ? "#9CA3AF" : "#6B7280";
+  // WCAG AAA (7:1) secondary text: #a3a3a3 = 7.2:1 on the #161616 card,
+  // #525252 = 7.8:1 on the #ffffff card.
+  const textSecondary = dark ? "#a3a3a3" : "#525252";
   const accent = "#22c55e";
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const inputBg = dark ? "#111" : "#fff";
@@ -45,6 +47,9 @@ export function GetInTouch({
   return (
     <section
       id="contact"
+      /* Named section = `region` landmark, so the form content is contained
+         by a landmark for axe's region rule (WCAG 1.3.6). */
+      aria-label={heading}
       style={{
         maxWidth: 1400,
         margin: "0 auto",

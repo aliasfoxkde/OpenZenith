@@ -136,3 +136,29 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
   agents over the 20 zero-coverage files (7 routes, 13 libs) + 5 low-coverage
   routes/libs. Note: tasks #54–#59 were marked completed in a prior session
   but the coverage data shows those lib tests do not exist; re-covered here.
+- 2026-09-22: Phase 4 complete (`d474d49`, `dac1c41`): 90 files / 969 tests,
+  coverage 92.1% statements / 83.2% branches / 81.1% functions / 92.1% lines
+  (from 43.95%; gate raised to 80/70/70/80 and passing). 16 production
+  defects fixed en route — headline: A* flow-trace paths never left the
+  start point; degrees/radians unit bug made sphere-neighbour probes 57x
+  too far; missing-chunk values bled across 256px chunk boundaries; batch
+  elevation dropped caller ids and returned normalized longitudes.
+- 2026-09-22: Phase 5 complete (`cf6c570`, `a95099d`). 5.1 basemap registry
+  (`lib/basemaps.ts`) — 19 literals across 5 competing tables collapsed into
+  one typed source of truth; map/globe/theme derive from it and both proxy
+  allowlists derive their hosts, so new basemaps are proxyable by
+  construction. 5.2 catch diagnostics — `lib/diagnostics.ts`
+  (`warnLayerError`, `domEventCause`) wired into 36 map + 16 globe layer
+  failure paths, 20 globe fetchers, 4 WebSocket onerror handlers; fixed
+  events.ts reporting under the "warnings" status id; 8 map layers that
+  swallowed fetch failures with no status now flag "error";
+  error-diagnostics.test.ts pins the invariant in source. 5.3 landing
+  extraction wave 1 — page.tsx 2,151→1,520 lines; HeroMap/SearchBox/
+  SnippetTabs extracted; fixed stale-coordinate geocoder picks and the
+  Tile-tab lng-fallback bug; landing verified in-browser (both themes).
+- 2026-09-22: Phase 6 complete — playwright config already env-driven
+  (E2E_BASE_URL) with a firefox project (plan items 1–3 were done in an
+  earlier pass; the heavy Cesium suite is E2E_RUN_HEAVY opt-in). Installed
+  the firefox browser binary and ran the full suite against the LOCAL dev
+  server: chromium 32 passed / firefox 32 passed, 1 skipped (heavy), zero
+  production dependency.

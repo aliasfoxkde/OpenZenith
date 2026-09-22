@@ -97,8 +97,16 @@ function windDirection(deg: number): string {
 
 /**
  * Fetch current weather and daily forecast from Open-Meteo.
+ *
+ * `fetchImpl` lets callers (tests, alternative runtimes) substitute the
+ * transport; it defaults to the global fetch.
  */
-export async function getWeather(lat: number, lon: number, days: number = 3): Promise<WeatherData | null> {
+export async function getWeather(
+  lat: number,
+  lon: number,
+  days: number = 3,
+  fetchImpl: typeof fetch = fetch,
+): Promise<WeatherData | null> {
   try {
     const params = new URLSearchParams({
       latitude: lat.toString(),
@@ -133,7 +141,7 @@ export async function getWeather(lat: number, lon: number, days: number = 3): Pr
     });
 
     const url = `https://api.open-meteo.com/v1/forecast?${params}`;
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
     });
 

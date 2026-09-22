@@ -45,10 +45,14 @@ function distanceNm(lat1: number, lon1: number, lat2: number, lon2: number): num
  * Find the nearest tide station to a given coordinate.
  * Uses NOAA station metadata API.
  */
-async function findNearestStation(lat: number, lon: number): Promise<TideStation | null> {
+async function findNearestStation(
+  lat: number,
+  lon: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TideStation | null> {
   try {
     const url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidestations";
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
     });
     if (!res.ok) return null;
@@ -89,7 +93,12 @@ async function findNearestStation(lat: number, lon: number): Promise<TideStation
 /**
  * Fetch tide predictions for a station.
  */
-async function fetchPredictions(stationId: string, startDate: string, endDate: string): Promise<TidePrediction[]> {
+async function fetchPredictions(
+  stationId: string,
+  startDate: string,
+  endDate: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TidePrediction[]> {
   const params = new URLSearchParams({
     product: "predictions",
     application: "NOS.COOPS.TAC.WL",
@@ -103,7 +112,7 @@ async function fetchPredictions(stationId: string, startDate: string, endDate: s
   });
 
   const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?${params}`;
-  const res = await fetch(url, {
+  const res = await fetchImpl(url, {
     headers: { "User-Agent": "OpenZenith/1.0 (geospatial platform)" },
   });
 
@@ -123,10 +132,17 @@ async function fetchPredictions(stationId: string, startDate: string, endDate: s
 /**
  * Get tide data for a location.
  * Finds the nearest station and fetches today's + tomorrow's predictions.
+ *
+ * `fetchImpl` lets callers (tests, alternative runtimes) substitute the
+ * transport; it defaults to the global fetch.
  */
-export async function getTides(lat: number, lon: number): Promise<TideData | null> {
+export async function getTides(
+  lat: number,
+  lon: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TideData | null> {
   try {
-    const station = await findNearestStation(lat, lon);
+    const station = await findNearestStation(lat, lon, fetchImpl);
     if (!station) return null;
 
     // Only return if station is reasonably close (within 50nm)
@@ -137,7 +153,7 @@ export async function getTides(lat: number, lon: number): Promise<TideData | nul
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const fmt = (d: Date) => d.toISOString().split("T")[0];
-    const predictions = await fetchPredictions(station.id, fmt(today), fmt(tomorrow));
+    const predictions = await fetchPredictions(station.id, fmt(today), fmt(tomorrow), fetchImpl);
 
     return {
       station,

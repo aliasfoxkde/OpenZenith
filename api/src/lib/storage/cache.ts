@@ -14,6 +14,40 @@
 
 const CACHE_NAME = "openzenith-dem-chunks";
 
+/** Minimal Cache API surface used here — structurally satisfied by `caches`.
+ * `match` mirrors the Cache API's `Response | undefined` resolution; in-memory
+ * fakes may resolve `null`. */
+export interface CacheStorageLike {
+  open(name: string): Promise<{
+    match(key: string): Promise<Response | null | undefined>;
+    put(key: string, response: Response): Promise<unknown>;
+  }>;
+}
+
+let cacheStorageProvider: (() => CacheStorageLike | undefined) | null = null;
+
+/**
+ * Override where the Cache API is resolved from. Tests pass
+ * `() => fakeCaches`; pass `null` to restore the global `caches` default.
+ */
+export function setCacheStorageProvider(next: (() => CacheStorageLike | undefined) | null): void {
+  cacheStorageProvider = next;
+}
+
+async function resolveCacheStorage(): Promise<CacheStorageLike | undefined> {
+  if (cacheStorageProvider) {
+    try {
+      return await cacheStorageProvider();
+    } catch {
+      // A broken provider must not take the caller down — behave like a miss.
+      return undefined;
+    }
+  }
+  // Cache API is available in CF Workers / some edge runtimes only
+  if (typeof caches !== "undefined") return caches;
+  return undefined;
+}
+
 interface CacheEntry {
   data: ArrayBuffer;
   timestamp: number;
@@ -31,9 +65,10 @@ const TTL = 30 * 24 * 3600;
  */
 export async function cacheGet(key: string): Promise<ArrayBuffer | null> {
   // Try Cloudflare Cache API first
-  if (typeof caches !== "undefined") {
+  const cacheStorage = await resolveCacheStorage();
+  if (cacheStorage) {
     try {
-      const cfCache = await caches.open(CACHE_NAME);
+      const cfCache = await cacheStorage.open(CACHE_NAME);
       const cached = await cfCache.match(key);
       if (cached) return cached.arrayBuffer();
     } catch {
@@ -59,9 +94,10 @@ export async function cacheGet(key: string): Promise<ArrayBuffer | null> {
  */
 export async function cachePut(key: string, data: ArrayBuffer): Promise<void> {
   // Try Cloudflare Cache API first
-  if (typeof caches !== "undefined") {
+  const cacheStorage = await resolveCacheStorage();
+  if (cacheStorage) {
     try {
-      const cfCache = await caches.open(CACHE_NAME);
+      const cfCache = await cacheStorage.open(CACHE_NAME);
       const response = new Response(data, {
         headers: {
           "Cache-Control": `public, max-age=${TTL}`,

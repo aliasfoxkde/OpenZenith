@@ -20,6 +20,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // The real module only loads inside a Next edge build; tests inject
+      // fakes via the provider seams instead of hitting a request context.
+      "@cloudflare/next-on-pages": path.resolve(__dirname, "./src/test-stubs/next-on-pages.ts"),
     },
   },
 });

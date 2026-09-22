@@ -12,32 +12,14 @@
  * R2 TTL: managed via R2 lifecycle rules (set in CF dashboard)
  */
 
-import { getRequestContext } from "@cloudflare/next-on-pages";
-
-/** R2 bucket type — available in CF Workers runtime. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R2Bucket = any;
-
-/**
- * Get the R2 bucket binding. Returns null if not available (local dev).
- */
-function getBucket(): R2Bucket | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ctx = getRequestContext() as any;
-    return ctx.env.DEM_TILES as R2Bucket;
-  } catch {
-    // Not running in CF Pages context (local dev)
-    return null;
-  }
-}
+import { getR2Bucket } from "./r2-binding";
 
 /**
  * Try to get a cached tile from R2.
  * Returns null on miss or if R2 is unavailable.
  */
 export async function r2GetTile(type: string, z: number, x: number, y: number): Promise<ArrayBuffer | null> {
-  const bucket = getBucket();
+  const bucket = getR2Bucket();
   if (!bucket) return null;
 
   try {
@@ -63,7 +45,7 @@ export async function r2PutTile(
   data: ArrayBuffer | Uint8Array,
   contentType: string = "application/octet-stream",
 ): Promise<void> {
-  const bucket = getBucket();
+  const bucket = getR2Bucket();
   if (!bucket) return;
 
   try {

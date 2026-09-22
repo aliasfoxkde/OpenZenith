@@ -1,17 +1,9 @@
 /**
  * Tests for src/lib/storage/r2-json-cache.ts — the R2 cache-aside used for
  * JSON API responses. The R2 bucket binding is emulated in-memory and injected
- * through a mocked getRequestContext().
+ * through the setR2BucketProvider() seam.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const { getRequestContextMock } = vi.hoisted(() => ({
-  getRequestContextMock: vi.fn(),
-}));
-
-vi.mock("@cloudflare/next-on-pages", () => ({
-  getRequestContext: getRequestContextMock,
-}));
 
 // The global setup file stubs this module out for route tests; restore the real
 // implementation here.
@@ -20,6 +12,7 @@ vi.mock("@/lib/storage/r2-json-cache", async (importOriginal) => {
 });
 
 import { apiCacheKey, r2GetJson, r2PutJson } from "@/lib/storage/r2-json-cache";
+import { setR2BucketProvider } from "@/lib/storage/r2-binding";
 
 interface R2PutOptions {
   httpMetadata?: {
@@ -27,11 +20,11 @@ interface R2PutOptions {
     cacheControl?: string;
     cacheExpiry?: Date;
   };
-  customMetadata?: Record<string, string | number>;
+  customMetadata?: Record<string, string>;
 }
 
 interface FakeR2Object {
-  customMetadata?: Record<string, string | number>;
+  customMetadata?: Record<string, string>;
   text: () => Promise<string>;
   arrayBuffer: () => Promise<ArrayBuffer>;
   setBody: (body: string) => void;
@@ -55,8 +48,8 @@ interface FakeBucket {
   delete(key: string): Promise<void>;
 }
 
-function makeObject(body: string, customMetadata?: Record<string, string | number>): FakeR2Object {
-  const record: { body: string; customMetadata?: Record<string, string | number> } = { body, customMetadata };
+function makeObject(body: string, customMetadata?: Record<string, string>): FakeR2Object {
+  const record: { body: string; customMetadata?: Record<string, string> } = { body, customMetadata };
   return {
     customMetadata,
     text: async () => record.body,
@@ -102,14 +95,13 @@ describe("r2PutJson", () => {
 
   beforeEach(() => {
     vi.useFakeTimers({ now: NOW });
-    getRequestContextMock.mockReset();
     bucket = createBucket();
-    getRequestContextMock.mockReturnValue({ env: { DEM_TILES: bucket } });
+    setR2BucketProvider(() => bucket);
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    getRequestContextMock.mockReset();
+    setR2BucketProvider(null);
   });
 
   it("stores a JSON body with content type and TTL metadata", async () => {
@@ -134,16 +126,15 @@ describe("r2PutJson", () => {
   });
 
   it("is a no-op when no R2 binding is available", async () => {
-    getRequestContextMock.mockImplementation(() => {
+    setR2BucketProvider(() => {
       throw new Error("not running in a Cloudflare Pages context");
     });
 
     await expect(r2PutJson("api/earthquakes", { a: 1 })).resolves.toBeUndefined();
-    expect(getRequestContextMock).toHaveBeenCalledTimes(1);
   });
 
-  it("is a no-op when the context has no DEM_TILES binding", async () => {
-    getRequestContextMock.mockReturnValue({ env: {} });
+  it("is a no-op when the provider resolves no binding", async () => {
+    setR2BucketProvider(() => null);
 
     await expect(r2PutJson("api/earthquakes", { a: 1 })).resolves.toBeUndefined();
   });
@@ -160,18 +151,17 @@ describe("r2GetJson", () => {
 
   beforeEach(() => {
     vi.useFakeTimers({ now: NOW });
-    getRequestContextMock.mockReset();
     bucket = createBucket();
-    getRequestContextMock.mockReturnValue({ env: { DEM_TILES: bucket } });
+    setR2BucketProvider(() => bucket);
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    getRequestContextMock.mockReset();
+    setR2BucketProvider(null);
   });
 
   it("returns null when no R2 binding is available", async () => {
-    getRequestContextMock.mockImplementation(() => {
+    setR2BucketProvider(() => {
       throw new Error("not running in a Cloudflare Pages context");
     });
 

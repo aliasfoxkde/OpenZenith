@@ -8,20 +8,7 @@
  * Pattern: check R2 → fresh hit? return → miss/stale? fetch upstream → store → return
  */
 
-import { getRequestContext } from "@cloudflare/next-on-pages";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R2Bucket = any;
-
-function getBucket(): R2Bucket | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ctx = getRequestContext() as any;
-    return ctx.env.DEM_TILES as R2Bucket;
-  } catch {
-    return null;
-  }
-}
+import { getR2Bucket } from "./r2-binding";
 
 /**
  * Cache a JSON API response in R2 with a TTL.
@@ -31,14 +18,15 @@ function getBucket(): R2Bucket | null {
  * @param ttlSeconds - How long to cache (default 60s)
  */
 export async function r2PutJson(key: string, data: unknown, ttlSeconds: number = 60): Promise<void> {
-  const bucket = getBucket();
+  const bucket = getR2Bucket();
   if (!bucket) return;
 
   try {
     const body = JSON.stringify(data);
+    // R2 customMetadata values are strings — encode timestamps as decimal text.
     const metadata = {
-      cachedAt: Date.now(),
-      ttl: ttlSeconds * 1000,
+      cachedAt: String(Date.now()),
+      ttl: String(ttlSeconds * 1000),
     };
     await bucket.put(key, body, {
       httpMetadata: {
@@ -59,7 +47,7 @@ export async function r2PutJson(key: string, data: unknown, ttlSeconds: number =
  * @returns Parsed JSON data or null
  */
 export async function r2GetJson<T = unknown>(key: string): Promise<T | null> {
-  const bucket = getBucket();
+  const bucket = getR2Bucket();
   if (!bucket) return null;
 
   try {

@@ -124,3 +124,15 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
 
 ## Progress log
 - 2026-09-21: Audit complete, baseline measured, plan written. Phase 1 starting.
+- 2026-09-22: Phases 1–3 committed (hygiene `319132c`, docs `4027098`, WCAG
+  `e7a4eaf`); v0.8.1 tile-429/light-mode fix shipped earlier same week.
+- 2026-09-22: Phase 4 first wave committed (`d474d49`): terrain
+  (slope/aspect/profile/trace/twi/watershed/streams), tile/[z]/[x]/[y],
+  coverage routes. Found+fixed real bug: slope/aspect/twi border cells were
+  left as 0 from Float32Array init and leaked into stats/grid as fake
+  zero-slope values — now NaN → excluded from stats, emitted as null.
+  Vitest 419→460; statements 43.95%→57.66% (CI gate: 70%).
+- 2026-09-22: Phase 4 second wave in flight — 5 parallel test-authoring
+  agents over the 20 zero-coverage files (7 routes, 13 libs) + 5 low-coverage
+  routes/libs. Note: tasks #54–#59 were marked completed in a prior session
+  but the coverage data shows those lib tests do not exist; re-covered here.

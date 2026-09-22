@@ -63,7 +63,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const url = new URL(request.url);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "100", 10), 10000);
+  // Non-numeric or non-positive limits fall back to the default — NaN would
+  // otherwise flow into slice() and silently return an empty page.
+  const rawLimit = parseInt(url.searchParams.get("limit") || "100", 10);
+  const limit = Math.min(rawLimit >= 1 ? rawLimit : 100, 10000);
   const offset = parseInt(url.searchParams.get("offset") || "0", 10) || 0;
   const bbox = url.searchParams.get("bbox");
   const properties = url.searchParams.get("properties");
@@ -120,7 +123,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Simple property filtering: properties=field:value
     if (properties) {
       const filters = properties.split(",").map((f) => {
-        const [key, val] = f.split(":");
+        // Default the value so a filter with no ":" separator degrades to a
+        // non-matching string filter instead of crashing on undefined.
+        const [key, val = ""] = f.split(":");
         return { key, val };
       });
 
@@ -129,16 +134,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return filters.every(({ key, val }) => {
           const prop = f.properties?.[key];
           if (prop === undefined) return false;
-          // Numeric comparison
-          const numVal = parseFloat(val);
-          if (!isNaN(numVal)) {
-            // Support operators: >5, <10, >=5, <=10, 5
-            if (val.startsWith(">=")) return prop >= parseFloat(val.slice(2));
-            if (val.startsWith("<=")) return prop <= parseFloat(val.slice(2));
-            if (val.startsWith(">")) return prop > parseFloat(val.slice(1));
-            if (val.startsWith("<")) return prop < parseFloat(val.slice(1));
-            return prop === numVal;
+          // Operator prefixes must be matched BEFORE parsing — parseFloat(">=5")
+          // is NaN, which made every comparison branch unreachable.
+          const ops: Array<[string, (a: number, b: number) => boolean]> = [
+            [">=", (a, b) => a >= b],
+            ["<=", (a, b) => a <= b],
+            [">", (a, b) => a > b],
+            ["<", (a, b) => a < b],
+          ];
+          for (const [prefix, cmp] of ops) {
+            if (val.startsWith(prefix)) {
+              const n = parseFloat(val.slice(prefix.length));
+              return !isNaN(n) && cmp(Number(prop), n);
+            }
           }
+          // Plain value: numeric comparison when parseable
+          const numVal = parseFloat(val);
+          if (!isNaN(numVal)) return prop === numVal;
           // String comparison (case-insensitive)
           return String(prop).toLowerCase() === val.toLowerCase();
         });

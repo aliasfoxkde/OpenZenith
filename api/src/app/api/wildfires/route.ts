@@ -99,9 +99,15 @@ export async function GET(request: NextRequest) {
       const lat = parseFloat(cols[0]);
       const lon = parseFloat(cols[1]);
       const brightness = parseFloat(cols[2]) || 0;
-      const confidence = parseFloat(cols[9]);
-      const frp = parseFloat(cols[13]) || 0;
-      const daynight = (cols[14] || "D").trim();
+      // FIRMS area CSV is a fixed 14-column layout:
+      // lat(0) lon(1) brightness(2) ... confidence(9) version(10)
+      // bright_ti5(11) frp(12) daynight(13)
+      const rawConfidence = (cols[9] ?? "").trim();
+      const confidenceAsNum = parseFloat(rawConfidence);
+      // VIIRS emits qualitative confidence (l/n/h); MODIS emits 0-100
+      const confidence = isNaN(confidenceAsNum) ? rawConfidence : confidenceAsNum;
+      const frp = parseFloat(cols[12]) || 0;
+      const daynight = (cols[13] || "D").trim();
 
       if (isNaN(lat) || isNaN(lon)) continue;
 

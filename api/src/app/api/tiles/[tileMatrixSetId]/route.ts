@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { wmtsCapabilitiesResponse } from "../wmts-capabilities";
 
 export const runtime = "edge";
 
@@ -11,11 +12,19 @@ export async function OPTIONS() {
  * OGC API - Tiles metadata for a specific tile matrix set.
  *
  * Returns tile matrix set definition with zoom levels and tile size.
+ *
+ * Also serves the WMTS 1.0.0 capabilities document: a literal route segment
+ * for /api/tiles/WMTSCapabilities.xml is shadowed by this dynamic segment,
+ * so the capabilities path is handled here instead.
  */
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ tileMatrixSetId: string }> }) {
   const baseUrl = new URL(request.url).origin;
   const { tileMatrixSetId } = await params;
+
+  if (tileMatrixSetId === "WMTSCapabilities.xml") {
+    return wmtsCapabilitiesResponse(request);
+  }
 
   const validSets = ["WebMercatorQuad", "WorldCRS84Quad"];
   if (!validSets.includes(tileMatrixSetId)) {

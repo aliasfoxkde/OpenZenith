@@ -83,8 +83,14 @@ abstract class BaseChunkBackend implements ChunkBackend {
     if (this.tryMerged) {
       const merged = await this.fetchMergedFile(srtmName);
       if (merged) {
-        const chunk = extractChunkFromMerged(merged.data, merged.index, row, col);
-        return chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength) as ArrayBuffer;
+        try {
+          const chunk = extractChunkFromMerged(merged.data, merged.index, row, col);
+          return chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength) as ArrayBuffer;
+        } catch {
+          // Corrupt/truncated merged file — degrade to the .deflate fallback
+          // instead of throwing out of fetchChunk like every other
+          // corrupt-body case does.
+        }
       }
     }
 

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Mock } from "vitest";
+import type { NextRequest } from "next/server";
+
+type PostHandler = (req: NextRequest) => Promise<Response>;
 
 /**
  * Tests for the terrain-analysis REST surface: slope, aspect (GET with query
@@ -53,8 +56,10 @@ const mockGetTileData = getTileData as unknown as Mock;
 
 const GET_URL = "http://localhost/api/test";
 
-function makeRequest(url: string, init?: RequestInit): Request {
-  return new Request(url, init);
+// Route handlers are typed against NextRequest; the routes under test only
+// read url/method/body, so a plain Request cast suffices.
+function makeRequest(url: string, init?: RequestInit): NextRequest {
+  return new Request(url, init) as unknown as NextRequest;
 }
 
 beforeEach(() => {
@@ -93,7 +98,7 @@ describe("Terrain routes — shared validation", () => {
     ["watershed", watershedPOST, { lat: 40, lon: -74 }],
     ["streams", streamsPOST, { lat: 40, lon: -74 }],
   ])("%s rejects malformed JSON body with 400", async (_name, handler, validBody) => {
-    const resp = await (handler as (req: Request) => Promise<Response>)(
+    const resp = await (handler as PostHandler)(
       makeRequest(GET_URL, { method: "POST", body: "not-json{{" }),
     );
     expect(resp.status).toBe(400);
@@ -107,8 +112,8 @@ describe("Terrain routes — shared validation", () => {
     ["watershed", watershedPOST, { lat: 40, lon: -74 }],
     ["streams", streamsPOST, { lat: 40, lon: -74 }],
   ])("%s rejects missing coordinates with 400", async (_name, handler, validBody) => {
-    const incomplete = Object.fromEntries(Object.keys(validBody).slice(0, 0));
-    const resp = await (handler as (req: Request) => Promise<Response>)(
+    const incomplete = Object.fromEntries(Object.entries(validBody as Record<string, unknown>).slice(0, 0));
+    const resp = await (handler as PostHandler)(
       makeRequest(GET_URL, { method: "POST", body: JSON.stringify(incomplete), headers: { "Content-Type": "application/json" } }),
     );
     expect(resp.status).toBe(400);
@@ -122,7 +127,7 @@ describe("Terrain routes — shared validation", () => {
     ["streams", streamsPOST, { lat: 40, lon: -74 }],
   ])("%s rejects out-of-range coordinates with 400", async (_name, handler, validBody) => {
     const bad = { ...validBody, lat: 91, lat1: 91 };
-    const resp = await (handler as (req: Request) => Promise<Response>)(
+    const resp = await (handler as PostHandler)(
       makeRequest(GET_URL, { method: "POST", body: JSON.stringify(bad), headers: { "Content-Type": "application/json" } }),
     );
     expect(resp.status).toBe(400);
@@ -164,7 +169,7 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
     // Ramp rises toward +x (east) → east-facing cells must dominate
     expect(body.direction_bins).not.toBeNull();
     expect(body.direction_bins.E).toBeGreaterThan(0);
-    const binSum = Object.values(body.direction_bins).reduce((a, b) => a + (b as number), 0);
+    const binSum = Object.values(body.direction_bins as Record<string, number>).reduce((a, b) => a + b, 0);
     expect(binSum).toBeCloseTo(100, 0);
   });
 

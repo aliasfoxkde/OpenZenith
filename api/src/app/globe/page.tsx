@@ -434,6 +434,9 @@ export default function Globe() {
         });
 
         viewerRef.current = viewer;
+        // Diagnostic hook: E2E and support tooling detect a completed globe
+        // init through this global (the viewer itself stays module-scoped).
+        (window as unknown as { __ozViewer?: unknown }).__ozViewer = viewer;
         cesiumRef.current = Cesium;
         addCloudOverlayRef.current = addCloudOverlay;
         toolManagerRef.current = createToolManager(viewer, Cesium);
@@ -525,6 +528,7 @@ export default function Globe() {
       if (viewerRef.current) {
         viewerRef.current.destroy();
         viewerRef.current = null;
+        (window as unknown as { __ozViewer?: unknown }).__ozViewer = undefined;
       }
     };
   }, []);

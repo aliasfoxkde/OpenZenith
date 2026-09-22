@@ -114,20 +114,17 @@ export async function initCesiumViewer(
   const { Cesium } = await loadScripts();
 
   // ─── Kill ALL Cesium Ion default asset loading ───
-  // Setting only defaultAccessToken is insufficient — CesiumJS 1.119 also
-  // fetches default imagery assets from Ion even without a token.
-  // These cause 401 errors in the console.
+  // Without a token every Ion request 401s on api.cesium.com. CesiumJS 1.119
+  // builds its default base layer via createWorldImageryAsync() →
+  // IonImageryProvider.fromAssetId(2) unless `baseLayer` is passed — the old
+  // createDefaultImageryProvider factory is never called, so the only
+  // effective kill switch is `baseLayer: false` below. The basemap system
+  // installs its own imagery via switchBasemapOnViewer().
   Cesium.Ion.defaultAccessToken = undefined;
-  Cesium.Ion._terrainProvider = undefined;
-  // Override the imageryProvider factory so Viewer() never creates Ion defaults
-  const origCreateDefaultImageryProvider = Cesium.createDefaultImageryProvider;
-  Cesium.createDefaultImageryProvider = () => {
-    // Return an empty UrlTemplateImageryProvider pointing to nothing
-    // The basemap system replaces this via switchBasemapOnViewer anyway
-    return new Cesium.UrlTemplateImageryProvider({ url: "https://example.com/{z}/{x}/{y}.png" });
-  };
 
   const viewer = new Cesium.Viewer(container, {
+    // No Ion default imagery — the basemap system owns all layers.
+    baseLayer: false,
     baseLayerPicker: false,
     geocoder: false,
     homeButton: false,
@@ -146,9 +143,6 @@ export async function initCesiumViewer(
     // more robust across the full zoom range (surface to deep space)
     logarithmicDepthBuffer: true,
   });
-
-  // Restore factory after Viewer() has been constructed
-  Cesium.createDefaultImageryProvider = origCreateDefaultImageryProvider;
 
   // ─── Scene configuration ───
   const scene = viewer.scene;

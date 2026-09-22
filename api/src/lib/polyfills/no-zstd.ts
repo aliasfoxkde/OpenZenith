@@ -8,7 +8,10 @@ export class Decompressor {
   decompress(_data: Uint8Array): Uint8Array {
     throw new Error("ZSTD not available in browser context");
   }
-  stream(_data: Uint8Array): Generator<Uint8Array, void, unknown> {
+  // Declared `never`: this throws synchronously — it does not return a
+  // generator, so callers relying on lazy iteration would otherwise swallow
+  // the error until first pull.
+  stream(_data: Uint8Array): never {
     throw new Error("ZSTD not available in browser context");
   }
 }

@@ -2,7 +2,8 @@
  * OZT2 Tile E2E Tests
  *
  * Validates that the dem-tile API serves valid OZT2 tiles end-to-end.
- * These tests run against the production API.
+ * Runs against the configured baseURL (see playwright.config.ts —
+ * E2E_BASE_URL to retarget; production by default).
  *
  * Prerequisites:
  *   - OZT2 tiles must be generated (scripts/convert_to_ozt2.py) and uploaded to R2
@@ -14,8 +15,6 @@
 
 import { test, expect } from "@playwright/test";
 
-const PROD = "https://8253decd.openzenith.pages.dev";
-
 // Well-known tiles that should have land (mountains/coastal areas)
 const TEST_TILES = [
   { z: 10, x: 163, y: 395, name: "Mt. Everest area" },
@@ -26,7 +25,7 @@ const TEST_TILES = [
 
 test.describe("OZT2 Tile Format", () => {
   test("dem-tile metadata shows OZT2 format", async ({ request }) => {
-    const resp = await request.get(`${PROD}/api/dem-tile`);
+    const resp = await request.get("/api/dem-tile");
     expect(resp.ok()).toBe(true);
 
     const meta = await resp.json();
@@ -37,8 +36,7 @@ test.describe("OZT2 Tile Format", () => {
 
   for (const tile of TEST_TILES) {
     test(`OZT2 tile ${tile.z}/${tile.x}/${tile.y} (${tile.name})`, async ({ request }) => {
-      const errors: string[] = [];
-      const resp = await request.get(`${PROD}/api/dem-tile/${tile.z}/${tile.x}/${tile.y}?format=ozt2`, {
+      const resp = await request.get(`/api/dem-tile/${tile.z}/${tile.x}/${tile.y}?format=ozt2`, {
         headers: { Accept: "application/octet-stream" },
       });
 
@@ -82,16 +80,15 @@ test.describe("OZT2 Tile Format", () => {
       expect(predictor).toBeLessThanOrEqual(2);
       expect(compressor).toBeLessThanOrEqual(2);
 
-      // Tile should be smaller than PNG (OZT2 is ~60-80% smaller than PNG at these zoom levels)
+      // Just verify the tile is non-trivial (not empty/nodata)
       const sizeKB = bytes!.length / 1024;
       console.log(`  ${tile.name}: ${sizeKB.toFixed(1)}KB`);
-      // Just verify the tile is non-trivial (not empty/nodata)
       expect(bytes!.length).toBeGreaterThan(100);
     });
   }
 
   test("PNG fallback still works for legacy clients", async ({ request }) => {
-    const resp = await request.get(`${PROD}/api/dem-tile/8/40/98?format=png`);
+    const resp = await request.get("/api/dem-tile/8/40/98?format=png");
     expect(resp.ok()).toBe(true);
 
     const contentType = resp.headers()["content-type"] ?? "";
@@ -108,8 +105,8 @@ test.describe("OZT2 Tile Format", () => {
 
   test("OZT2 tiles smaller than PNG equivalent", async ({ request }) => {
     // Test with a tile known to have varied terrain
-    const ozt2Resp = await request.get(`${PROD}/api/dem-tile/10/163/395?format=ozt2`);
-    const pngResp = await request.get(`${PROD}/api/dem-tile/10/163/395?format=png`);
+    const ozt2Resp = await request.get("/api/dem-tile/10/163/395?format=ozt2");
+    const pngResp = await request.get("/api/dem-tile/10/163/395?format=png");
 
     if (!ozt2Resp.ok() || !pngResp.ok()) return;
 
@@ -131,22 +128,24 @@ test.describe("OZT2 Tile Format", () => {
 });
 
 test.describe("CesiumJS OZT2 Terrain Provider", () => {
-  // Skipped: requires full external env (Cesium Ion, network access) not available in CI
-  test.skip("globe page loads with terrain without errors", async ({ page }) => {
+  // Heavy: full Cesium load + terrain pipeline against the live site.
+  // Opt in with E2E_RUN_HEAVY=1 instead of hard-skipping.
+  test.skip(!process.env.E2E_RUN_HEAVY, "requires E2E_RUN_HEAVY=1");
+  test("globe page loads with terrain without errors", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push("PAGE:" + err.message));
     page.on("console", (msg) => {
       if (msg.type() === "error") errors.push("CONSOLE:" + msg.text());
     });
 
-    await page.goto(`${PROD}/globe`, { waitUntil: "load", timeout: 30000 });
+    await page.goto("/globe", { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(8000);
 
     const diag = await page.evaluate(() => {
-      const C = (window as any).Cesium;
+      const w = window as unknown as { Cesium?: unknown; __ozViewer?: unknown };
       return {
-        cesiumLoaded: !!C,
-        viewerExists: !!(window as any).__ozViewer,
+        cesiumLoaded: !!w.Cesium,
+        viewerExists: !!w.__ozViewer,
       };
     });
 
@@ -155,7 +154,7 @@ test.describe("CesiumJS OZT2 Terrain Provider", () => {
     expect(diag.viewerExists).toBe(true);
     // Filter out known non-critical errors (Cesium Ion 401s, etc.)
     const criticalErrors = errors.filter(
-      (e) => !e.includes("401") && !e.includes("ion") && !e.includes("CesiumIon")
+      (e) => !e.includes("401") && !e.includes("ion") && !e.includes("CesiumIon"),
     );
     expect(criticalErrors).toHaveLength(0);
   });

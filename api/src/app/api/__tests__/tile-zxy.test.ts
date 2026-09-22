@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { NextRequest } from "next/server";
 
 /**
  * Tests for /api/tile/[z]/[x]/[y] — the raw Int16 DEM tile route.
@@ -30,7 +31,9 @@ vi.mock("@/lib/storage/r2-tile-cache", () => ({
 }));
 
 import { GET, OPTIONS } from "@/app/api/tile/[z]/[x]/[y]/route";
-import { r2PutTile } from "@/lib/storage/r2-tile-cache";
+
+// Route handlers are typed against NextRequest; only url/body are read here.
+const req = (url: string): NextRequest => new Request(url) as unknown as NextRequest;
 
 const routeCtx = (z: number, x: number, y: number) => ({
   params: Promise.resolve({ z: String(z), x: String(x), y: String(y) }),
@@ -42,7 +45,7 @@ beforeEach(() => {
 
 describe("Raw DEM tile API (/api/tile)", () => {
   it("serves 131072-byte Int16 tiles on miss", async () => {
-    const resp = await GET(new Request("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
+    const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toBe("application/octet-stream");
     expect(resp.headers.get("X-Tile-Size")).toBe("256");
@@ -53,29 +56,29 @@ describe("Raw DEM tile API (/api/tile)", () => {
   });
 
   it("serves from R2 cache on second request", async () => {
-    await GET(new Request("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
+    await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     // r2PutTile is fire-and-forget in the route — wait for the store write
     await vi.waitFor(() => expect(r2Store.size).toBe(1));
-    const resp = await GET(new Request("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
+    const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     expect(resp.headers.get("X-Cache")).toBe("HIT");
   });
 
   it("rejects non-integer coordinates with 400", async () => {
     const ctx = { params: Promise.resolve({ z: "abc", x: "1", y: "1" }) };
-    const resp = await GET(new Request("http://localhost/api/tile/abc/1/1"), ctx);
+    const resp = await GET(req("http://localhost/api/tile/abc/1/1"), ctx);
     expect(resp.status).toBe(400);
     const body = await resp.json();
     expect(body.error).toContain("integers");
   });
 
   it("rejects out-of-range zoom with 400", async () => {
-    const resp = await GET(new Request("http://localhost/api/tile/16/0/0"), routeCtx(16, 0, 0));
+    const resp = await GET(req("http://localhost/api/tile/16/0/0"), routeCtx(16, 0, 0));
     expect(resp.status).toBe(400);
   });
 
   it("rejects tile indices beyond the zoom range with 400", async () => {
     // z=1 allows x,y in {0,1} only
-    const resp = await GET(new Request("http://localhost/api/tile/1/5/0"), routeCtx(1, 5, 0));
+    const resp = await GET(req("http://localhost/api/tile/1/5/0"), routeCtx(1, 5, 0));
     expect(resp.status).toBe(400);
     const body = await resp.json();
     expect(body.error).toContain("between 0 and 1");
@@ -84,7 +87,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
   it("returns 200 with error payload when assembly fails (never 5xx)", async () => {
     const { getTileData } = await import("@/lib/tile");
     (getTileData as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("chunk not found"));
-    const resp = await GET(new Request("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
+    const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     expect(resp.status).toBe(200);
     const body = await resp.json();
     expect(body.error).toContain("chunk not found");
@@ -93,7 +96,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
   it("falls through to assembly when R2 read fails", async () => {
     const { r2GetTile } = await import("@/lib/storage/r2-tile-cache");
     (r2GetTile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("R2 down"));
-    const resp = await GET(new Request("http://localhost/api/tile/8/73/96"), routeCtx(8, 73, 96));
+    const resp = await GET(req("http://localhost/api/tile/8/73/96"), routeCtx(8, 73, 96));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
   });

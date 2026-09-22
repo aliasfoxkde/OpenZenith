@@ -70,3 +70,9 @@ tests/results2/
 
 # Coverage reports (vitest --coverage)
 api/coverage/
+.coverage
+coverage.xml
+
+# SDK CLI output (openzenith contours/query default outputs)
+contours_*.geojson
+elevation.geojson

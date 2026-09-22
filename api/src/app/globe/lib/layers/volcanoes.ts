@@ -2,8 +2,9 @@
 import type { DataStatus } from "../types";
 import { fetchVolcanoAlerts } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { svgIcon } from "../svg-icon";
 
-const VOLCANO_ICON = `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="#ff4444" opacity="0.8"/><ellipse cx="12" cy="20" rx="8" ry="2" fill="#ff4444" opacity="0.4"/><path d="M12 8v4M12 14v2" stroke="#ffcc00" stroke-width="2" stroke-linecap="round" opacity="0.9"/><circle cx="12" cy="7" r="3" fill="#ff6600" opacity="0.6"/></svg>`;
+const VOLCANO_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="#ff4444" opacity="0.8"/><ellipse cx="12" cy="20" rx="8" ry="2" fill="#ff4444" opacity="0.4"/><path d="M12 8v4M12 14v2" stroke="#ffcc00" stroke-width="2" stroke-linecap="round" opacity="0.9"/><circle cx="12" cy="7" r="3" fill="#ff6600" opacity="0.6"/></svg>`);
 
 function alertColor(alert: string): string {
   switch (alert) {

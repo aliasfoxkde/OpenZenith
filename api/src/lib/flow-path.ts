@@ -27,13 +27,15 @@ export function calculateSphereDirections(
   const results: Array<{ dLat: number; dLon: number; angleDeg: number }> = [];
   const sinCenterLat = Math.sin((centerLat * Math.PI) / 180);
   const cosCenterLat = Math.cos((centerLat * Math.PI) / 180);
+  // trigonometric functions take radians — the caller speaks degrees
+  const radiusRad = (radiusDeg * Math.PI) / 180;
 
   for (let i = 0; i < sides; i++) {
     const angleDeg = (360 * i) / sides;
     const angleRad = (angleDeg * Math.PI) / 180;
 
-    const sinRadius = Math.sin(radiusDeg);
-    const cosRadius = Math.cos(radiusDeg);
+    const sinRadius = Math.sin(radiusRad);
+    const cosRadius = Math.cos(radiusRad);
 
     const lat = Math.asin(sinCenterLat * cosRadius + cosCenterLat * sinRadius * Math.cos(angleRad));
 
@@ -215,7 +217,6 @@ export async function traceDownstream(
   droneAltM?: number,
   options: FlowPathOptions = {},
 ): Promise<FlowPathResult> {
-  const _opts = options;
   return traceFlowPath(lat, lon, droneAltM, "downstream", options);
 }
 
@@ -236,7 +237,6 @@ export async function traceUpstream(
   droneAltM?: number,
   options: FlowPathOptions = {},
 ): Promise<FlowPathResult> {
-  const _opts = options;
   return traceFlowPath(lat, lon, droneAltM, "upstream", options);
 }
 
@@ -268,7 +268,12 @@ async function traceFlowPath(
   const dirsN = calculateSphereDirections(lat, lon, precision, directions);
 
   const heap = mode === "downstream" ? new MinHeap() : new MaxHeap();
+  // `visited` holds nodes already emitted to the path (claimed at pop time —
+  // marking on push instead would make every queued node skip the emit guard
+  // and the trace would never grow). `queued` keeps heap entries unique and
+  // stops no-data points from being re-queried forever.
   const visited = new Set<string>();
+  const queued = new Set<string>();
   const visitedKey = (la: number, lo: number) => `${la.toFixed(6)},${lo.toFixed(6)}`;
 
   // Get starting elevation and seed the heap
@@ -280,17 +285,19 @@ async function traceFlowPath(
   if (startElev <= 0 && stopAtSeaLevel) {
     return { coordinates: [[lon, lat]], elevations: [startElev] };
   }
-  visited.add(visitedKey(lat, lon));
+  queued.add(visitedKey(lat, lon));
   heap.push({ elevation: startElev, lat, lon });
 
-  const pathCoords: [number, number][] = [[lon, lat]];
-  const pathElevs: number[] = [startElev];
+  // The seed itself is emitted by the loop below — the path starts empty.
+  const pathCoords: [number, number][] = [];
+  const pathElevs: number[] = [];
 
   while (!heap.isEmpty() && pathCoords.length < maxPoints) {
     const node = heap.pop()!;
     const nKey = visitedKey(node.lat, node.lon);
     if (visited.has(nKey)) continue;
     visited.add(nKey);
+    queued.delete(nKey);
     pathCoords.push([node.lon, node.lat]);
     pathElevs.push(node.elevation);
 
@@ -302,18 +309,22 @@ async function traceFlowPath(
       const nLat = node.lat + d.dLat;
       const nLon = node.lon + d.dLon;
       const k = visitedKey(nLat, nLon);
-      if (visited.has(k)) continue;
-      visited.add(k);
+      if (visited.has(k) || queued.has(k)) continue;
 
       const results = await getClientElevationBatch([{ lat: nLat, lon: nLon }]);
       const elev = results[0]?.elevation;
-      if (elev === null || elev === undefined) continue;
+      if (elev === null || elev === undefined) {
+        queued.add(k); // no data here — never re-query this point
+        continue;
+      }
       if (elev <= 0 && stopAtSeaLevel) {
         pathCoords.push([nLon, nLat]);
         pathElevs.push(elev);
         heap.clear();
+        queued.clear();
         break;
       }
+      queued.add(k);
       heap.push({ elevation: elev, lat: nLat, lon: nLon });
     }
   }

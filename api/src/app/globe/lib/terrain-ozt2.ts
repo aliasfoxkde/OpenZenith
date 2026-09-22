@@ -45,13 +45,28 @@ export function createOZTTerrainProvider(Cesium: CesiumType) {
   const TDT = Cesium.HeightmapTerrainData;
   const provider: any = Object.create(Cesium.TerrainProvider.prototype);
 
-  provider.ready = true;
-  provider.readyPromise = Promise.resolve(provider);
-  Object.defineProperty(provider, "hasVertexNormals", { value: false, writable: true, configurable: true });
-  Object.defineProperty(provider, "hasWaterMask", { value: false, writable: true, configurable: true });
-  provider.errorEvent = new Cesium.Event();
+  // TerrainProvider.prototype exposes its interface as getter-only accessors
+  // in CesiumJS 1.119 — plain assignment throws "Cannot set property X which
+  // has only a getter" and aborts the whole globe init. Every member must be
+  // defined as an own property to shadow the prototype accessors.
+  const def = (key: string, value: unknown) =>
+    Object.defineProperty(provider, key, { value, writable: true, configurable: true });
 
-  provider.requestTileGeometry = function (x: number, y: number, level: number, _request: any) {
+  def("ready", true);
+  def("readyPromise", Promise.resolve(provider));
+  def("hasVertexNormals", false);
+  def("hasWaterMask", false);
+  def("errorEvent", new Cesium.Event());
+  // credit is read by the render loop every frame for credit display —
+  // leaving it to the base-class getter throws DeveloperError and stops
+  // rendering. It also carries the data attribution.
+  def("credit", new Cesium.Credit("Terrain: SRTM 30m (NASA) via OpenZenith OZT2"));
+  def("availability", undefined);
+  def("loadTileDataAvailability", function () {
+    return undefined;
+  });
+
+  def("requestTileGeometry", function (x: number, y: number, level: number, _request: any) {
     if (level > MAX_TERRAIN_ZOOM || !TDT) {
       return Promise.resolve(null);
     }
@@ -69,24 +84,30 @@ export function createOZTTerrainProvider(Cesium: CesiumType) {
         // Both failed — return flat terrain
         return makeFlatTerrain(Cesium, 256);
       });
-  };
-
-  provider.getTileDataAvailable = function (x: number, y: number, level: number) {
-    if (level > MAX_TERRAIN_ZOOM) return false;
-    return undefined;
-  };
-
-  provider.getLevelMaximumGeometricError = function (level: number) {
-    return (40075017.0 * 2.0) / ((1 << level) * 65);
-  };
-
-  provider.tilingScheme = new Cesium.GeographicTilingScheme({
-    ellipsoid: Cesium.Ellipsoid.WGS84,
-    numberOfLevelZeroTilesX: 2,
-    numberOfLevelZeroTilesY: 1,
   });
 
-  provider.ellipsoid = Cesium.Ellipsoid.WGS84;
+  def(
+    "getTileDataAvailable",
+    function (x: number, _y: number, level: number) {
+      if (level > MAX_TERRAIN_ZOOM) return false;
+      return undefined;
+    },
+  );
+
+  def("getLevelMaximumGeometricError", function (level: number) {
+    return (40075017.0 * 2.0) / ((1 << level) * 65);
+  });
+
+  def(
+    "tilingScheme",
+    new Cesium.GeographicTilingScheme({
+      ellipsoid: Cesium.Ellipsoid.WGS84,
+      numberOfLevelZeroTilesX: 2,
+      numberOfLevelZeroTilesY: 1,
+    }),
+  );
+
+  def("ellipsoid", Cesium.Ellipsoid.WGS84);
 
   return provider;
 }

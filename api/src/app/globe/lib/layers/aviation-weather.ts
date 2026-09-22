@@ -2,11 +2,12 @@
 import type { DataStatus } from "../types";
 import { fetchSigmets, fetchAirmets } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { svgIcon } from "../svg-icon";
 
 const SIGMET_COLOR = "#ff0000";
 const AIRMET_COLOR = "#ff8800";
 
-const AVIATION_ICON = `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="#ff4444" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="bold" fill="#ff4444">!</text></svg>`;
+const AVIATION_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="#ff4444" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="bold" fill="#ff4444">!</text></svg>`);
 
 function parseCoordinates(raw: string): [number, number][] {
   if (!raw) return [];

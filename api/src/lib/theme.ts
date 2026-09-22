@@ -2,6 +2,8 @@
  * Surveillance/monitoring theme constants for Map and Globe UIs.
  */
 
+import { BASEMAPS } from "./basemaps";
+
 export const SURVEILLANCE_THEME = {
   /** Deep navy/black background */
   bg: "#0a0f1a",
@@ -33,10 +35,10 @@ export const SURVEILLANCE_THEME = {
   glowSubtle: "0 0 6px rgba(0, 229, 255, 0.15)",
   /** Pulse animation for live indicators */
   pulse: "pulse 2s ease-in-out infinite",
-  /** Dark basemap URL (CartoDB Dark Matter) */
-  basemapDark: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+  /** Dark basemap URL (CartoDB Dark Matter) — from the shared basemap registry */
+  basemapDark: BASEMAPS.dark.url,
   /** Dark basemap without labels */
-  basemapDarkNolabels: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+  basemapDarkNolabels: BASEMAPS.dark_nolabel.url,
   /** Graticule grid line color */
   graticule: "rgba(0, 229, 255, 0.06)",
 } as const;

@@ -83,12 +83,17 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
   const srtmTiles = findOverlappingSrtmTiles(bounds);
   const data = new Int16Array(TILE_SIZE * TILE_SIZE).fill(NODATA);
 
+  // latLonToSrtmName emits extension-bearing names ("N36W116.tif") while the
+  // blacklist stores bare names — strip before comparing, else the blacklist
+  // never matches and known-corrupt cells assemble from bad source data.
+  const isBlacklisted = (t: string) => BLACKLISTED_SRTM_TILES.has(t.replace(".tif", ""));
+
   // Check if any overlapping SRTM tile is blacklisted (corrupted data)
-  const hasBlacklisted = srtmTiles.some((t) => BLACKLISTED_SRTM_TILES.has(t));
+  const hasBlacklisted = srtmTiles.some(isBlacklisted);
 
   // Process each SRTM tile (skip blacklisted ones)
   for (const srtmName of srtmTiles) {
-    if (BLACKLISTED_SRTM_TILES.has(srtmName)) continue;
+    if (isBlacklisted(srtmName)) continue;
     try {
       await fillTileFromSrtm(data, srtmName, bounds, storage);
     } catch {

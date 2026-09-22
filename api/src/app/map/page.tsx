@@ -39,6 +39,7 @@ import {
 } from "./lib/measure";
 import { exportMapScreenshot } from "@/lib/map-export";
 import { getClientElevation } from "@/lib/client-elevation";
+import { BASEMAPS, BASEMAP_ORDER, getBasemap } from "@/lib/basemaps";
 
 /* ─── Types ─── */
 
@@ -60,74 +61,6 @@ interface MapViewState {
 }
 
 /* ─── Constants ─── */
-
-const BASEMAPS: Record<string, { label: string; url: string; attribution: string }> = {
-  dark: {
-    label: "Dark",
-    url: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-    attribution: "&copy; CartoDB &copy; OSM",
-  },
-  voyager: {
-    label: "Voyager",
-    url: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-    attribution: "&copy; CartoDB &copy; OSM",
-  },
-  light: {
-    label: "Light",
-    url: "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-    attribution: "&copy; CartoDB &copy; OSM",
-  },
-  osm: {
-    label: "OpenStreetMap",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenStreetMap contributors",
-  },
-  satellite: {
-    label: "Satellite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "&copy; Esri",
-  },
-  topo: {
-    label: "Topographic",
-    url: "https://tile.opentopomap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenTopoMap",
-  },
-  // Additional basemaps
-  dark_nolabel: {
-    label: "Dark (no labels)",
-    url: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
-    attribution: "&copy; CartoDB &copy; OSM",
-  },
-  positron: {
-    label: "Positron",
-    url: "https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png",
-    attribution: "&copy; CartoDB &copy; OSM",
-  },
-  terrain: {
-    label: "Terrain (Stamen)",
-    url: "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; Stamen Design &copy; Stadia Maps",
-  },
-  // High-contrast dark variant with elevated land visibility
-  dark_contrast: {
-    label: "Dark+",
-    url: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-    attribution: "&copy; CartoDB &copy; OSM",
-  },
-};
-
-const BASEMAP_ORDER = [
-  "dark",
-  "dark_contrast",
-  "dark_nolabel",
-  "voyager",
-  "light",
-  "positron",
-  "osm",
-  "satellite",
-  "topo",
-  "terrain",
-];
 
 const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
@@ -930,10 +863,9 @@ export default function MapPage() {
         if (cancelled) return;
         mlglRef.current = mlgl;
 
-        const basemap = BASEMAPS[mapState.basemap] || BASEMAPS.dark;
+        const basemap = getBasemap(mapState.basemap);
 
-        const isDark =
-          mapState.basemap === "dark" || mapState.basemap === "dark_nolabel" || mapState.basemap === "dark_contrast";
+        const isDark = basemap.isDark;
 
         const map = new mlgl.Map({
           container: containerRef.current,
@@ -1167,10 +1099,9 @@ export default function MapPage() {
       const map = mapRef.current;
       const mlgl = mlglRef.current;
       if (!map || !mlgl) return;
-      const bm = BASEMAPS[key];
-      if (!bm) return;
+      const bm = getBasemap(key);
 
-      const isDark = key === "dark" || key === "dark_nolabel" || key === "dark_contrast";
+      const isDark = bm.isDark;
 
       map.setStyle({
         version: 8,
@@ -2790,9 +2721,7 @@ export default function MapPage() {
             }}
           >
             <div style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, flexShrink: 0 }} />
-            <span style={{ fontSize: "0.58rem", color: T.textMuted }}>
-              {BASEMAPS[mapState.basemap]?.label || mapState.basemap}
-            </span>
+            <span style={{ fontSize: "0.58rem", color: T.textMuted }}>{getBasemap(mapState.basemap).label}</span>
           </div>
         </div>
 
@@ -2934,16 +2863,12 @@ function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>)
 /** Add transparent label tiles on top of everything. */
 function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
   if (map.getLayer("labels-raster")) return;
-  // Only add labels for basemaps that don't have them (satellite, dark_nolabel, positron)
-  const needsLabels = ["satellite", "dark_nolabel", "positron"].includes(basemapKey);
-  if (!needsLabels) return;
+  // Only add labels for basemaps that don't render their own (registry flag)
+  const def = getBasemap(basemapKey);
+  if (def.hasLabels || !def.labelUrl) return;
   try {
-    const labelUrl =
-      basemapKey === "positron"
-        ? "https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png"
-        : "https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png";
     if (!map.getSource("labels")) {
-      map.addSource("labels", { type: "raster", tiles: [labelUrl], tileSize: 256 });
+      map.addSource("labels", { type: "raster", tiles: [def.labelUrl], tileSize: 256 });
     }
     map.addLayer({
       id: "labels-raster",

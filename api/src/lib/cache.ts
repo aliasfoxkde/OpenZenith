@@ -126,15 +126,17 @@ export async function staleWhileRevalidate(
 
             // Revalidate in background if stale
             if (age >= ttlSeconds) {
-              fetch(url, fetchOpts).then((resp) => {
-                if (resp.ok) {
-                  resp.arrayBuffer().then((buf) => {
-                    const h = new Headers(resp.headers);
-                    h.set("x-cached-at", String(Date.now()));
-                    cache.put(key, new Response(buf, { status: resp.status, headers: h })).catch(() => {});
-                  });
-                }
-              });
+              // The promise is intentionally unawaited — attach a catch so a
+              // failing revalidation can't surface as an unhandled rejection.
+              fetch(url, fetchOpts)
+                .then(async (resp) => {
+                  if (!resp.ok) return;
+                  const buf = await resp.arrayBuffer();
+                  const h = new Headers(resp.headers);
+                  h.set("x-cached-at", String(Date.now()));
+                  await cache.put(key, new Response(buf, { status: resp.status, headers: h }));
+                })
+                .catch(() => {});
             }
 
             return new Response(body, { status: cached.status, headers });

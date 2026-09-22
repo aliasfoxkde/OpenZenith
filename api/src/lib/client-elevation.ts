@@ -248,7 +248,7 @@ export async function getClientElevation(lat: number, lon: number): Promise<Clie
   // Try client-side first
   try {
     const result = await clientElevationDirect(lat, lon);
-    if (result) return { ...result, status: "ok", source: result.surfaceType === "ocean" ? "gebco2025" : "srtm" };
+    if (result) return { ...result, status: "ok" };
   } catch {
     // Fall through to server
   }
@@ -291,6 +291,7 @@ async function clientElevationDirect(
   elevation: number | null;
   surfaceType: "land" | "ocean" | "unknown";
   tile: string;
+  source: "srtm" | "gebco2025";
 } | null> {
   if (!isWithinSRTM(lat, lon)) return null;
 
@@ -309,7 +310,7 @@ async function clientElevationDirect(
     // SRTM NODATA = ocean or outside coverage — try GEBCO 2025
     try {
       const gebco = await clientGebcoElevation(lat, lon);
-      if (gebco) return gebco;
+      if (gebco) return { ...gebco, source: "gebco2025" };
     } catch {
       // GEBCO unavailable, fall through
     }
@@ -320,6 +321,9 @@ async function clientElevationDirect(
     elevation,
     surfaceType: elevation < 0 ? "ocean" : "land",
     tile: getTileBase(srtmName),
+    // The value came from SRTM even when it is negative (below-sea-level
+    // land like Death Valley) — surfaceType alone says nothing about origin.
+    source: "srtm",
   };
 }
 
@@ -342,9 +346,27 @@ export async function getClientElevationBatch(
     lon: (((p.lon % 360) + 540) % 360) - 180,
   }));
 
+  /**
+   * Rebuild each result from the caller's original request fields: the
+   * normalised longitude (float modulo error), internal bookkeeping fields,
+   * and server payloads that drop caller `id`s must never leak out.
+   */
+  const withCallerFields = (
+    results: Array<{ elevation: number | null }>,
+  ): Array<{ lat: number; lon: number; elevation: number | null; id?: string }> =>
+    results.map((r, i) => {
+      const src = points[i] ?? { lat: NaN, lon: NaN };
+      return {
+        lat: src.lat,
+        lon: src.lon,
+        elevation: r.elevation,
+        ...(src.id !== undefined && { id: src.id }),
+      };
+    });
+
   // Try client-side batch first
   try {
-    return await clientBatchDirect(normalizedPoints);
+    return withCallerFields(await clientBatchDirect(normalizedPoints));
   } catch {
     // Fall through to server
   }
@@ -358,7 +380,8 @@ export async function getClientElevationBatch(
     });
     if (res.ok) {
       const d = await res.json();
-      return d.results || points.map((p) => ({ ...p, elevation: null }));
+      if (Array.isArray(d.results)) return withCallerFields(d.results);
+      return points.map((p) => ({ ...p, elevation: null }));
     }
   } catch {
     // Server unreachable
@@ -523,8 +546,14 @@ async function clientTileDataDirect(
             if (lon < srtmBounds.lonMin || lon > srtmBounds.lonMax) continue;
 
             const pixel = latLonToPixel(lat, lon, srtmBounds);
-            const lRow = pixel.row - Math.floor(pixel.row / 256) * 256;
-            const lCol = pixel.col - Math.floor(pixel.col / 256) * 256;
+            // Only read the pixel when it belongs to the chunk we are
+            // iterating — `pixel mod 256` on a foreign chunk would apply a
+            // neighbour's wrapped values where NODATA is correct.
+            const pixelCR = Math.floor(pixel.row / 256);
+            const pixelCC = Math.floor(pixel.col / 256);
+            if (pixelCR !== cr || pixelCC !== cc) continue;
+            const lRow = pixel.row % 256;
+            const lCol = pixel.col % 256;
             if (lRow < chunk.height && lCol < chunk.width) {
               const val = chunk.data[lRow * chunk.width + lCol];
               if (val !== NODATA) data[py * TILE_SIZE + px] = val;

@@ -67,8 +67,10 @@ async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8A
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ds = new DecompressionStream("br" as any);
     const writer = ds.writable.getWriter();
-    writer.write(data);
-    writer.close();
+    // Await the writes — dropping these promises turns an invalid brotli
+    // payload into an unhandled rejection instead of a rejected decodeOZT2.
+    await writer.write(data);
+    await writer.close();
     const result = await new Response(ds.readable).arrayBuffer();
     return new Uint8Array(result);
   } else if (compressor === COMP_ZLIB) {
@@ -81,7 +83,7 @@ async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8A
     // same underlying SRTM data at full 30m resolution.
     throw new Error("ZSTD not supported in Edge. Use merged chunks fallback.");
   } else {
-    throw new Error(`Unknown compressor: ${compressor}`);
+    throw new Error(`Unsupported compressor: ${compressor}`);
   }
 }
 

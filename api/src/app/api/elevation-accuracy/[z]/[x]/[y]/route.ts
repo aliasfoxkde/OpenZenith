@@ -13,7 +13,6 @@ import { zlibSync } from "fflate";
  *   Cyan         → 2m (ArcticDEM / REMA polar regions)
  *   Bright green → 10m (Copernicus EEA 10m, Europe only)
  *   Green        → 30m (SRTM / Copernicus GLO-30, ±60° lat land)
- *   Yellow-green → 90m (Copernicus GLO-90, rest of land)
  *   Blue         → 450m (GEBCO 2025, ocean)
  *   Dark gray    → No data / unknown
  *
@@ -34,10 +33,6 @@ const CACHE_HEADERS: Record<string, string> = {
 // Copernicus EEA 10m: rough European bounding box
 const EEA10_BOUNDS = { latMin: 34, latMax: 72, lonMin: -25, lonMax: 45 };
 
-// SRTM / GLO-30 coverage: ±60° latitude, land only
-const SRTM_LAT_MAX = 60;
-const SRTM_LAT_MIN = -60;
-
 // ArcticDEM: lat > 60°N (land)
 const ARCTIC_LAT_MIN = 60;
 
@@ -52,7 +47,6 @@ const ACCURACY_COLORS: Record<string, [number, number, number]> = {
   "2m_rema": [0, 210, 230], // cyan
   "10m_eea": [34, 197, 94], // bright green
   "30m_srtm": [34, 139, 34], // green
-  "90m_glo90": [154, 205, 50], // yellow-green
   "450m_gebco": [33, 113, 181], // blue
   nodata: [20, 22, 28], // dark gray (no data)
 };
@@ -61,29 +55,23 @@ const ACCURACY_COLORS: Record<string, [number, number, number]> = {
  * Classify a point's elevation data source resolution.
  * Returns a color based on the best available source.
  *
- * Priority: ArcticDEM 2m > REMA 2m > EEA 10m > GLO-30 30m > GLO-90 90m > GEBCO 450m
+ * Priority: ArcticDEM 2m > REMA 2m > EEA 10m > GLO-30 30m > GEBCO 450m (ocean,
+ * applied by the caller via land detection).
  */
 function classifyResolution(lat: number, lon: number): [number, number, number] {
-  // Check for NODATA regions (no data from any source)
-  // All sources have global or near-global coverage via GEBCO fallback
-
+  // ArcticDEM covers most land above 60°N (Greenland, Alaska, Canada Arctic,
+  // Scandinavia, Siberia). Rough heuristic: assume land — without a land mask
+  // we accept that polar ocean is drawn as covered too.
   if (lat > ARCTIC_LAT_MIN) {
-    // ArcticDEM covers most land above 60°N (Greenland, Alaska, Canada Arctic, Scandinavia, Siberia)
-    // Rough heuristic: assume land if not obvious ocean
-    // (Without a land mask we approximate — most points >60°N are land or ice)
-    if (lon > -180 && lon < 180) {
-      return ACCURACY_COLORS["2m_arctic"];
-    }
+    return ACCURACY_COLORS["2m_arctic"];
   }
 
+  // REMA covers Antarctica
   if (lat < REMA_LAT_MAX) {
-    // REMA covers Antarctica
-    if (lon > -180 && lon < 180) {
-      return ACCURACY_COLORS["2m_rema"];
-    }
+    return ACCURACY_COLORS["2m_rema"];
   }
 
-  // Check EEA 10m coverage (Europe)
+  // EEA 10m coverage (Europe)
   if (
     lat >= EEA10_BOUNDS.latMin &&
     lat <= EEA10_BOUNDS.latMax &&
@@ -93,16 +81,9 @@ function classifyResolution(lat: number, lon: number): [number, number, number] 
     return ACCURACY_COLORS["10m_eea"];
   }
 
-  // SRTM / GLO-30 coverage (±60° latitude, land)
-  if (lat >= SRTM_LAT_MIN && lat <= SRTM_LAT_MAX) {
-    // Within SRTM coverage — 30m resolution
-    return ACCURACY_COLORS["30m_srtm"];
-  }
-
-  // Rest of land outside ±60° — GLO-90 90m
-  // We don't have a land mask here, so GLO-90 is approximate for mid-latitudes
-  // Points in the gap between SRTM (±60°) and polar (±60°) use GLO-90
-  return ACCURACY_COLORS["90m_glo90"];
+  // SRTM / GLO-30 coverage (±60° latitude) — covers every remaining latitude
+  // band, so this is also the classification fall-through.
+  return ACCURACY_COLORS["30m_srtm"];
 }
 
 /**

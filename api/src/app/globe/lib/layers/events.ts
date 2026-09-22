@@ -3,6 +3,7 @@ import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
 import { fetchEONET } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { svgIcon } from "../svg-icon";
 
 interface EonetFeature {
   geometry?: { coordinates?: [number, number] };
@@ -77,7 +78,7 @@ export function loadEvents(
       position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
       // Category icon billboard
       billboard: {
-        image: icon,
+        image: svgIcon(icon),
         width: iconSize,
         height: iconSize,
         scaleByDistance: new Cesium.NearFarScalar(5e5, 1.5, 2e7, 0.4),

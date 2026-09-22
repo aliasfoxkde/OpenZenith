@@ -37,6 +37,10 @@ export function parseMergedHeader(data: Uint8Array): MergedIndex | null {
   const rows = data[10];
   const cols = data[11];
 
+  // The index must actually be present — a truncated header would otherwise
+  // raise RangeError from the DataView reads below.
+  if (data.length < HEADER_SIZE + rows * cols * INDEX_ENTRY_SIZE) return null;
+
   const entries: Array<{ offset: number; size: number }> = [];
   for (let i = 0; i < rows * cols; i++) {
     const off = HEADER_SIZE + i * INDEX_ENTRY_SIZE;
@@ -57,6 +61,11 @@ export function extractChunkFromMerged(
 ): Uint8Array {
   const idx = row * index.cols + col;
   const entry = index.entries[idx];
+  // A corrupt index (out-of-range chunk or chunk extending past EOF) must
+  // throw a catchable error, not slice garbage or RangeError deep in DataView.
+  if (!entry || entry.offset + entry.size > mergedData.length) {
+    throw new RangeError(`Merged chunk ${row}/${col} out of bounds`);
+  }
   return mergedData.slice(entry.offset, entry.offset + entry.size);
 }
 

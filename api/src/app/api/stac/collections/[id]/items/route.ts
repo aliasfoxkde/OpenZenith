@@ -37,6 +37,25 @@ export async function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * First coordinate position of any GeoJSON geometry. Points use coordinates
+ * directly; multi-part geometries recurse into their first position so bbox
+ * filtering doesn't silently drop polygons and lines (a Point cast reads the
+ * outer ring array as lon/lat and every comparison fails).
+ */
+function firstPosition(geometry: GeoJSON.Geometry): [number, number] | null {
+  const coords: unknown = (geometry as GeoJSON.Point).coordinates;
+  if (!Array.isArray(coords)) return null;
+  if (typeof coords[0] === "number" && typeof coords[1] === "number") {
+    return [coords[0] as number, coords[1] as number];
+  }
+  for (const child of coords) {
+    const found = firstPosition(child as GeoJSON.Geometry);
+    if (found) return found;
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const source = STAC_COLLECTION_SOURCES[id];
@@ -85,9 +104,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (!isNaN(west) && !isNaN(south) && !isNaN(east) && !isNaN(north)) {
         features = features.filter((f) => {
           if (!f.geometry) return false;
-          const coords = (f.geometry as GeoJSON.Point).coordinates;
-          if (!coords) return false;
-          const [lon, lat] = coords;
+          const pos = firstPosition(f.geometry);
+          if (!pos) return false;
+          const [lon, lat] = pos;
           return lon >= west && lon <= east && lat >= south && lat <= north;
         });
       }

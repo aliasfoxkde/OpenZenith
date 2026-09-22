@@ -42,10 +42,6 @@ export class OZT2HuggingFaceBackend {
   private readonly timeoutMs: number;
   private readonly fallback: HuggingFaceChunkBackend;
 
-  // In-memory cache for decoded tiles (avoids re-decompressing frequently-used tiles)
-  private readonly tileCache = new Map<string, { data: Int16Array; timestamp: number }>();
-  private static readonly TILE_CACHE_TTL = 30 * 60 * 1000; // 30 min
-
   constructor(options: OZT2BackendOptions = {}) {
     this.repoId = options.repoId ?? "aliasfox/srtm30m-ozt2-v2";
     this.zoom = options.zoom ?? 10; // z10 ≈ 19m/pixel (Nyquist-optimal from SRTM 30m)
@@ -64,16 +60,18 @@ export class OZT2HuggingFaceBackend {
       return memCached.data;
     }
 
-    // Try CF cache first
+    // Try CF cache first. The cached payload is the raw compressed OZT2 bytes
+    // (what cachePut stores below) — it must be decoded before use, not
+    // reinterpreted as an Int16 grid.
     try {
       const cached = await cacheGet(cacheKey);
       if (cached) {
-        const data = new Int16Array(cached);
-        _setCachedTile(cacheKey, data);
-        return data;
+        const decoded = await decodeOZT2(cached);
+        _setCachedTile(cacheKey, decoded.elevation);
+        return decoded.elevation;
       }
     } catch {
-      // CF cache unavailable — proceed with fetch
+      // CF cache unavailable or corrupt — proceed with fetch
     }
 
     const url = `https://huggingface.co/datasets/${this.repoId}/resolve/main/tiles/z${z}/${x}/${y}.ozt2`;
@@ -257,7 +255,6 @@ export class OZT2HuggingFaceBackend {
       { v: v11, w: w11 },
     ];
     const valid = corners.filter((c) => c.v !== nodata);
-    if (valid.length === 0) return null;
     if (valid.length === 4) {
       return Math.round(valid.reduce((s, c) => s + c.v * c.w, 0));
     }

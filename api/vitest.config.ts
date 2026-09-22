@@ -15,10 +15,15 @@ export default defineConfig({
       provider: "v8",
       include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
       thresholds: {
-        statements: 70,
-        branches: 50,
-        functions: 70,
-        lines: 70,
+        // Ratchets upward only. Floors are the measured baseline
+        // (2026-09-22: 92.3 stmts / 83.15 branches / 81.28 functions),
+        // rounded down so ordinary variance does not flap the gate.
+        // Weakest areas today: lib/storage/r2-binding.ts 60%, lib/layers
+        // types.ts 0%, api routes' branch coverage.
+        statements: 92,
+        branches: 83,
+        functions: 81,
+        lines: 92,
       },
     },
   },

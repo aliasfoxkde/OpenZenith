@@ -89,7 +89,12 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\""
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=81"
 markers = [
     "integration: marks tests that require network access",
 ]
+# Coverage floor ratchets upward only. Measured baseline 2026-09-22 is 81.95%
+# (10,867 stmts, 1,961 miss) — floor set to 81 because fail-under is a strict
+# >= check. Weakest modules: fuse 44%, converter 48%, async_client 55%,
+# vector 55%, elevation 58%, backends/ozt2 59%. Next ratchet: 82, then 85.
+# Raise --cov-fail-under only together with tests that cover the delta.

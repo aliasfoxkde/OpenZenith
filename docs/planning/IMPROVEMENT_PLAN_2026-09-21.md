@@ -117,8 +117,6 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
 
 ## Out of scope / sequenced later
 - Monolith page extraction beyond landing (Phase 5.3) — own task, multi-session.
-- z11 R2 upload (#26), HF tile integrity (#27), HF upload perf (#28) — data-plane
-  work independent of this quality pass.
 - GitForge event-drain stall (events queue, runs don't materialize) — GitForge
   repo issue, already surfaced to the harness.
 
@@ -177,3 +175,45 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
   E2E_RUN_HEAVY=1 16 passed after fixing the globe-terrain assertion
   (uncaught JS + first-party request failures instead of zero console
   errors — third-party feed outages are environmental, not regressions).
+- 2026-09-22: #61 complete (`refactor(api): injectable R2, Cache API, and
+  fetch seams in lib/`). r2-binding.ts gained `setR2BucketProvider` +
+  structural env reading; r2-json-cache writes stringified customMetadata
+  (real R2 contract); cache.ts gained `setCacheStorageProvider` and a
+  never-throwing resolver; tides/noaa.ts takes optional `fetchImpl`.
+  Tests inject fakes through the seams — the `@cloudflare/next-on-pages`
+  module (un-loadable under node vitest: needs `server-only` with the
+  react-server condition) is aliased to a stub in vitest.config.ts;
+  production imports are unchanged. Verification: tsc clean, eslint clean,
+  vitest 978 passed / 5 skipped (92 files).
+- 2026-09-22: #26 complete — all 595,149 z11 OZT2 tiles (21 GB) are in R2
+  (`openzenith-dem`, prefix `ozt2/11/{x}/{y}`) and production-verified:
+  delta pass reports 0 to upload; `/api/dem-tile/11/{x}/{y}?format=ozt2`
+  serves `x-dem-tile-source: r2-cache` byte-identical to local across the
+  x range (land + ocean stubs). Path learned: the R2 REST object API
+  throttles (~all-429 at 96 concurrent PUTs, ~5-16 obj/s sustained); the
+  fast path was a temporary Cloudflare Worker with a direct DEM_TILES
+  binding (8-wide parallel puts, ≤40 tiles/request under the free-plan
+  50-subrequest cap, ~80-100 obj/s, 0 errors) — worker deleted after the
+  run. The durable uploader is `scripts/upload_ozt2_to_r2.py` (delta +
+  cursor pagination via `result_info.is_truncated`). No route or globe
+  code change was needed (`MAX_TERRAIN_ZOOM = 12` already consumes z11).
+- 2026-09-22: #28 (HF upload perf) — uploader rewritten
+  (`scripts/upload_ozt2_to_hf.py`): one-call `dataset_info(files_metadata)`
+  remote listing, git-blob-sha hash delta (missing + byte-stale overwrites),
+  1,500-file commits with a rolling 100/hour pacing window and
+  Retry-After-aware retries. Measured HF constraint: dataset commits are
+  hard-capped at 128/hour — 250-file batches mathematically cannot finish
+  a 150K-tile sync; big commits are the only viable shape. hf_hub's httpx
+  timeouts (10s read / 60s write) are widened to 10 min: a 40 MB commit
+  outlives 60 s through this link, and the timed-out commit lands anyway
+  (retries would duplicate it). z10 sync (missing + stale) running; final
+  state to be confirmed by a validator re-run.
+- 2026-09-22: #27 complete — HF z10 integrity validated
+  (scripts/validate_hf_ozt2.py, report /tmp/hf_validation_report.json):
+  remote 92,714 / local 151,988 z10 tiles → 59,276 missing (39% synced);
+  48-tile byte sample: 10 byte-identical, 38 hash-mismatch BUT all decode
+  cleanly with sane ranges and RMSE ≤ 1m — an older encoder generation on
+  HF, not corruption; landmarks sane (Everest 3031–8740 m). 2,980 stray
+  root-level duplicate tiles remain unreachable by the SDK (surfaced, not
+  deleted). Fix for the staleness/missing = the #28 z10 sync, which
+  overwrites hash-stale tiles and fills missing ones.

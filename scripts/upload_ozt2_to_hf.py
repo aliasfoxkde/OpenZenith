@@ -1,34 +1,61 @@
 #!/usr/bin/env python3
 """
-Upload OZT2 tiles to HuggingFace.
+Upload OZT2 tiles to HuggingFace (hash-driven delta, large commits).
 
-Uploads local .ozt2 tiles to a HuggingFace dataset repository using
-HfApi.create_commit with CommitOperationAdd for delta (missing-file-only)
-uploads. Supports incremental/resumable uploads.
+Strategy:
+1. ONE dataset_info(files_metadata=True) call returns every remote path with
+   its content id (git blob sha, or LFS oid for LFS-backed files) — replaces
+   the old per-x-directory tree listing (hundreds of HTTP calls + sleeps).
+2. Local files are hashed the same way (git blob sha1 over the bytes), so the
+   delta is exact: missing files are added, byte-stale files are OVERWRITTEN.
+   The previous name-based delta could never refresh stale uploads.
+3. Delta uploads run in large create_commit batches (default 1,500 files).
+   HF hard-caps dataset commits at 128/hour, so commits are paced through a
+   rolling one-hour window (100/hour with margin) and 429s wait out the
+   API-reported Retry-After instead of failing the batch. Big batches are
+   what make the cap survivable: 147K tiles fit in ~99 commits. Batches can run on parallel workers;
+   conflicts from concurrent commits resolve through retry-with-backoff.
 
 Usage:
-    # Upload all tiles from local directory
-    python scripts/upload_ozt2_to_hf.py \
-        --input /path/to/ozt2_tiles \
-        --repo_id aliasfox/srtm30m-ozt2-v2
+    # Delta upload all zoom levels (skips byte-identical files)
+    python scripts/upload_ozt2_to_hf.py --input /path/to/ozt2_tiles
 
-    # Dry run (show what would be uploaded)
+    # Specific zoom, bigger batches, 3 parallel workers
+    python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --zoom 10 \
+        --batch_size 400 --workers 3
+
+    # Dry run (prints the delta, uploads nothing)
     python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --dry_run
 
-    # Specific zoom levels only
-    python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --zoom 10
+    # Ignore remote state entirely and re-upload everything
+    python scripts/upload_ozt2_to_hf.py --input ./ozt2_tiles --no_skip
 """
 
 import argparse
-import json
 import os
+import re
 import sys
-import tempfile
+import threading
 import time as _time
 import urllib.request
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+DEFAULT_REPO = "aliasfox/srtm30m-ozt2-v2"
+
+# HF hard-caps dataset commits at 128/hour; pace below it with margin.
+COMMIT_RATE_PER_HOUR = 100
+
+
+def git_blob_sha(path: Path) -> str:
+    """Git blob object id — what HF reports as blob_id for non-LFS files."""
+    import hashlib
+
+    data = path.read_bytes()
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
 def count_local_tiles(tile_dir: Path, zoom_range: tuple[int, int] | None = None) -> dict[int, int]:
@@ -65,110 +92,180 @@ def get_zoom_subdirs(tile_dir: Path, zoom_range: tuple[int, int] | None = None) 
     return subdirs
 
 
-def hf_list_x_dirs(repo_id: str, z: int) -> dict[str, int]:
-    """List x-dirs on HF for a zoom level via non-recursive tree listing.
+def remote_tile_hashes(repo_id: str) -> dict[str, str]:
+    """One-shot listing: path_in_repo -> content hash for every repo tile."""
+    from huggingface_hub import HfApi
 
-    HF's API returns a maximum of 1000 entries regardless of pagination
-    parameters. Stop as soon as we get a full page (1000 entries) since
-    that means we've hit the cap — continuing would only return duplicates.
+    info = HfApi().dataset_info(repo_id, files_metadata=True)
+    hashes: dict[str, str] = {}
+    for s in info.siblings or []:
+        fn = s.rfilename
+        if fn.endswith(".ozt2"):
+            if s.lfs and s.lfs.get("oid"):
+                hashes[fn] = s.lfs["oid"]
+            elif s.blob_id:
+                hashes[fn] = s.blob_id
+    return hashes
+
+
+def local_tile_hashes(zdir: Path, zoom: int, workers: int = 8) -> dict[str, tuple[Path, str]]:
+    """Map 'z{z}/{x}/{y}.ozt2' -> (local path, git blob sha) for a zoom dir."""
+    files = sorted(zdir.glob("*/*.ozt2"))
+    out: dict[str, tuple[Path, str]] = {}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(git_blob_sha, p): p for p in files}
+        for fut in as_completed(futures):
+            p = futures[fut]
+            out[f"z{zoom}/{p.parent.name}/{p.name}"] = (p, fut.result())
+    return out
+
+
+def compute_delta(
+    local: dict[str, tuple[Path, str]],
+    remote: dict[str, str],
+    path_in_repo: str,
+    skip_existing: bool,
+) -> list[Path]:
+    """Files to upload: everything missing on the repo, plus files whose
+    remote hash differs (stale encoder generations get refreshed)."""
+    prefix = f"{path_in_repo}/"
+    delta: list[Path] = []
+    for rel, (path, sha) in sorted(local.items()):
+        remote_path = prefix + rel
+        if skip_existing and remote.get(remote_path) == sha:
+            continue
+        delta.append(path)
+    return delta
+
+
+def _relax_hf_timeouts() -> None:
+    """Widen hf_hub's httpx timeouts (10s read / 60s write).
+
+    A create_commit of ~1,500 tiles outlives the 60s write timeout through a
+    slow link; HF still lands the commit after the client gives up, so the
+    retry duplicates it. Every httpx.Timeout in this process gets 10 minutes.
     """
-    xd_counts: dict[str, int] = {}
-    offset = 0
-    limit = 500
-    HF_MAX = 1000
+    import httpx
+    import huggingface_hub.utils._http as hf_http
 
-    while True:
-        url = (
-            f"https://huggingface.co/api/datasets/{repo_id}/tree/main/tiles/z{z}"
-            f"?paginationOffset={offset}&paginationLimit={limit}"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": "openzenith/1.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = json.loads(r.read())
-        except Exception as e:
-            print(f"    Warning: HF API error listing z{z} at offset {offset}: {e}")
-            break
+    original = httpx.Timeout
+    if getattr(original, "_ozt2_patient", False):
+        return
 
-        if not isinstance(data, list):
-            break
+    def patient(*args: object, **kwargs: object) -> object:
+        kwargs = {**kwargs, "write": 600.0}
+        return original(600.0, **kwargs)
 
-        for entry in data:
-            if isinstance(entry, dict) and entry.get("type") == "directory":
-                path = entry.get("path", "")
-                parts = path.split("/")
-                if len(parts) >= 3:
-                    xd_name = parts[2]
-                    xd_counts[xd_name] = -1
-
-        if len(data) < limit or offset + len(data) >= HF_MAX:
-            break
-        offset += limit
-
-    return xd_counts
+    patient._ozt2_patient = True  # type: ignore[attr-defined]
+    httpx.Timeout = patient
+    hf_http.httpx.Timeout = patient
 
 
-def hf_get_x_dir_files(repo_id: str, z: int, xd_name: str) -> set[str]:
-    """Get set of y-index filenames present in an x-dir on HF."""
-    url = f"https://huggingface.co/api/datasets/{repo_id}/tree/main/tiles/z{z}/{xd_name}?recursive=true"
-    req = urllib.request.Request(url, headers={"User-Agent": "openzenith/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            data = json.loads(r.read())
-    except Exception:
-        return set()
+def upload_batches(
+    api,
+    repo_id: str,
+    delta: list[Path],
+    rel_of: dict[int, str],
+    zoom: int,
+    xd_name_of: dict[int, str],
+    batch_size: int,
+    workers: int,
+    commit_message: str | None,
+) -> tuple[int, int]:
+    """Upload the delta in large commits, optionally on parallel workers.
 
-    files = set()
-    if isinstance(data, list):
-        for entry in data:
-            if isinstance(entry, dict) and entry.get("type") == "file":
-                fname = entry.get("path", "").split("/")[-1]
-                if fname.endswith(".ozt2"):
-                    files.add(fname)
-    return files
+    HF caps dataset commits at 128 per hour, so commits are paced through a
+    rolling one-hour window sized below the cap and 429 responses are waited
+    out (the API reports an exact Retry-After) instead of failing the batch.
 
-
-def _upload_delta(api, repo_id: str, xd_path_in_repo: str, z: int, xd_name: str,
-                  missing_tiles: list[Path]) -> bool:
-    """Upload only missing tiles using create_commit in small batches."""
-    if not missing_tiles:
-        return True
-
+    Returns (files uploaded, batches failed)."""
     from huggingface_hub import CommitOperationAdd
 
-    BATCH = 20
-    for i in range(0, len(missing_tiles), BATCH):
-        batch = missing_tiles[i:i + BATCH]
+    _relax_hf_timeouts()
+
+    batches = [delta[i:i + batch_size] for i in range(0, len(delta), batch_size)]
+    print(f"  z{zoom}: {len(delta):,} files to upload in {len(batches)} commit(s) of <= {batch_size}")
+
+    commit_lock = threading.Lock()
+    commit_times: deque[float] = deque()
+
+    def commit_slot() -> None:
+        """Block until the rolling hourly window has a free commit slot."""
+        while True:
+            with commit_lock:
+                now = _time.monotonic()
+                while commit_times and now - commit_times[0] > 3600:
+                    commit_times.popleft()
+                if len(commit_times) < COMMIT_RATE_PER_HOUR:
+                    commit_times.append(now)
+                    return
+                wait = 3600 - (now - commit_times[0]) + 1
+            print(f"    commit pacing: hourly window full, sleeping {wait:.0f}s")
+            _time.sleep(max(wait, 1))
+
+    def run_batch(bid: int) -> bool:
+        batch = batches[bid]
         operations = [
-            CommitOperationAdd(path_in_repo=f"{xd_path_in_repo}/{t.name}", path_or_fileobj=str(t))
+            CommitOperationAdd(path_in_repo=rel_of[id(t)], path_or_fileobj=str(t))
             for t in batch
         ]
-        for attempt in range(4):
+        msg = commit_message or (
+            f"Upload z{zoom} OZT2 tiles batch {bid + 1}/{len(batches)}"
+            f" ({xd_name_of[id(batch[0])]}…{xd_name_of[id(batch[-1])]})"
+        )
+        for attempt in range(8):
+            commit_slot()
             try:
                 api.create_commit(
                     repo_id=repo_id,
                     repo_type="dataset",
                     operations=operations,
-                    commit_message=f"Upload z{z}/{xd_name} delta {i+1}-{i+len(batch)}",
+                    commit_message=msg,
                 )
-                print(f"  z{z}/{xd_name}: uploaded {len(batch)} tiles ({i+1}-{i+len(batch)})")
-                break
-            except Exception as e:
+                return True
+            except Exception as e:  # noqa: BLE001 - classify, then wait out or fail
                 err = str(e).lower()
                 if "no files have been modified" in err or "already up to date" in err:
-                    print(f"  z{z}/{xd_name}: HF already has these files")
                     return True
-                if attempt < 3:
-                    _time.sleep(2 ** attempt)
+                if "per hour" in err:
+                    wait = 1800.0
                 else:
-                    print(f"  ERROR z{z}/{xd_name} batch {i//BATCH+1}: {e}")
+                    m = re.search(r"retry after (\d+) seconds", err)
+                    if m:
+                        wait = float(m.group(1)) + 5
+                    elif "timed out" in err or "timeout" in err or "connection" in err:
+                        wait = min(300.0, 20 * 2**attempt)
+                    else:
+                        print(f"    ERROR batch {bid + 1}: {e}")
+                        return False
+                if attempt < 7:
+                    print(f"    batch {bid + 1}: waiting {wait:.0f}s before retry ({str(e)[:80]}…)")
+                    _time.sleep(wait)
+                else:
+                    print(f"    ERROR batch {bid + 1}: {e}")
                     return False
-    return True
+        return False
 
-
-def _valid_tile_name(name: str) -> bool:
-    """Check if a filename is a valid numeric y-index tile name."""
-    return name.endswith(".ozt2") and name.split(".")[0].lstrip("-").isdigit()
+    done = 0
+    failed = 0
+    if workers <= 1:
+        for bid in range(len(batches)):
+            if run_batch(bid):
+                done += len(batches[bid])
+            else:
+                failed += len(batches[bid])
+            print(f"    batch {bid + 1}/{len(batches)} done ({done:,} files uploaded)")
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(run_batch, bid): bid for bid in range(len(batches))}
+            for fut in as_completed(futures):
+                bid = futures[fut]
+                if fut.result():
+                    done += len(batches[bid])
+                else:
+                    failed += len(batches[bid])
+                print(f"    batch {futures[fut] + 1}/{len(batches)} done ({done:,} files uploaded)")
+    return done, failed
 
 
 def upload_tiles(
@@ -180,8 +277,11 @@ def upload_tiles(
     dry_run: bool = False,
     skip_existing: bool = True,
     commit_message: str | None = None,
+    batch_size: int = 1500,
+    workers: int = 2,
+    hash_workers: int = 8,
 ):
-    """Upload OZT2 tiles to HuggingFace with delta detection."""
+    """Upload OZT2 tiles to HuggingFace with exact hash-driven delta."""
     try:
         from huggingface_hub import HfApi
     except ImportError:
@@ -189,190 +289,82 @@ def upload_tiles(
 
     api = HfApi(token=token)
 
-    local_counts = count_local_tiles(tile_dir, zoom_range)
-    total_local = sum(local_counts.values())
-    print(f"Repository: https://huggingface.co/datasets/{repo_id}")
-    print(f"Local tiles: {total_local:,} ({', '.join(f'z{z}:{c}' for z, c in sorted(local_counts.items()))})")
-
-    if total_local == 0:
-        print("No tiles found to upload.")
-        return
-
-    total_size = sum(
-        f.stat().st_size
-        for zdir in get_zoom_subdirs(tile_dir, zoom_range)
-        for f in zdir.rglob("*.ozt2")
-    )
-    print(f"Estimated upload size: {total_size / 1e6:.1f} MB")
-
-    if dry_run:
-        print("\n[DRY RUN] Would upload zoom directories:")
-        for zdir in get_zoom_subdirs(tile_dir, zoom_range):
-            z = int(zdir.name[1:])
-            count = sum(1 for _ in zdir.rglob("*.ozt2"))
-            print(f"  {zdir.name}/ -> {count:,} tiles")
-        print(f"\n  Path in repo: {path_in_repo}/")
-        return
-
-    print(f"\nUploading tiles to https://huggingface.co/datasets/{repo_id}")
-    print("-" * 60)
-
-    # Use web API to check repo existence (HfApi.repo_info hangs with some token configs)
     try:
         ctx = __import__("ssl").create_default_context()
         req = urllib.request.Request(
             f"https://huggingface.co/api/datasets/{repo_id}",
-            headers={"User-Agent": "openzenith/1.0"}
+            headers={"User-Agent": "openzenith-upload/1.0"},
         )
         with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
             _ = r.read()
-        print("Repository already exists")
     except urllib.error.HTTPError as e:
         if e.code == 404:
             print(f"Creating repository: {repo_id}")
             api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
         else:
             raise
-    except Exception:
-        print(f"Creating repository (web check failed): {repo_id}")
-        try:
-            api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
-        except Exception as e2:
-            if "already exists" not in str(e2).lower():
-                raise
+    except (urllib.error.URLError, OSError, TimeoutError):
+        api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
 
-    uploaded_z = []
+    local_counts = count_local_tiles(tile_dir, zoom_range)
+    total_local = sum(local_counts.values())
+    print(f"Repository: https://huggingface.co/datasets/{repo_id}")
+    print(f"Local tiles: {total_local:,} ({', '.join(f'z{z}:{c}' for z, c in sorted(local_counts.items()))})")
+    if total_local == 0:
+        print("No tiles found to upload.")
+        return
+
+    remote: dict[str, str] = {}
+    if skip_existing:
+        print("Listing remote repo state (single metadata call) ...")
+        remote = remote_tile_hashes(repo_id)
+        print(f"  remote tiles: {len(remote):,}")
+
+    uploaded_zooms = []
+    grand_uploaded = 0
+    grand_failed = 0
     for zdir in get_zoom_subdirs(tile_dir, zoom_range):
-        z = int(zdir.name[1:])
-        tile_count = sum(1 for _ in zdir.rglob("*.ozt2"))
-        if tile_count == 0:
+        zoom = int(zdir.name[1:])
+        print(f"\n== z{zoom} ==")
+
+        print(f"  hashing local tiles ({local_counts[zoom]:,}) ...")
+        local = local_tile_hashes(zdir, zoom, hash_workers)
+        delta = compute_delta(local, remote, path_in_repo, skip_existing)
+        if skip_existing:
+            fresh = local_counts[zoom] - len(delta)
+            print(f"  delta: {len(delta):,} to upload | {fresh:,} already current")
+        if not delta:
+            print(f"  z{zoom}: already up to date")
+            uploaded_zooms.append(zoom)
+            continue
+        if dry_run:
+            size = sum(p.stat().st_size for p in delta)
+            print(f"  [DRY RUN] would upload {len(delta):,} files ({size / 1e6:.1f} MB)")
             continue
 
-        z_path_in_repo = f"{path_in_repo}/{zdir.name}"
-
-        if skip_existing:
-            # Step 1: get HF x-dir list (non-recursive, fast)
-            print(f"\nChecking HF state for z{z}...")
-            hf_xd_counts = hf_list_x_dirs(repo_id, z)
-            print(f"  HF has {len(hf_xd_counts)} x-dirs in paginated listing")
-
-            # Step 2: categorize local x-dirs
-            x_dirs = sorted([xd for xd in zdir.iterdir() if xd.is_dir()])
-            need_check = []      # in HF paginated list
-            need_full_upload = []  # confirmed not in HF
-
-            for xd in x_dirs:
-                local_tiles = sorted(xd.glob("*.ozt2"))
-                if not local_tiles:
-                    continue
-                if xd.name not in hf_xd_counts:
-                    need_full_upload.append((xd, local_tiles))
-                else:
-                    need_check.append((xd, local_tiles))
-
-            # Step 3: verify completeness for x-dirs in paginated list
-            z_ok = 0
-            z_errors = 0
-            print(f"  z{z}: verifying {len(need_check)} x-dirs, {len(need_full_upload)} need direct check")
-            for xd, local_tiles in need_check:
-                xd_path_in_repo = f"{path_in_repo}/z{z}/{xd.name}"
-                hf_files = hf_get_x_dir_files(repo_id, z, xd.name)
-                local_names = set(t.name for t in local_tiles if _valid_tile_name(t.name))
-                missing_names = local_names - hf_files
-
-                if not missing_names:
-                    print(f"  z{z}/{xd.name}: fully synced ({len(local_names)} tiles)")
-                    z_ok += len(local_names)
-                    _time.sleep(0.3)
-                    continue
-
-                local_map = {t.name: t for t in local_tiles}
-                missing_tiles = [local_map[n] for n in sorted(missing_names)]
-                print(f"  z{z}/{xd.name}: {len(missing_names)} missing of {len(local_names)}")
-                ok = _upload_delta(api, repo_id, xd_path_in_repo, z, xd.name, missing_tiles)
-                if ok:
-                    z_ok += len(missing_tiles)
-                else:
-                    z_errors += 1
-                _time.sleep(0.5)
-
-            # Step 4: x-dirs not in paginated list — check existence directly
-            # HF caps tree listings at 1000 entries; x-dirs beyond that cap may not appear
-            for xd, local_tiles in need_full_upload:
-                hf_files = hf_get_x_dir_files(repo_id, z, xd.name)
-                if hf_files:
-                    # Exists on HF but wasn't in paginated listing
-                    local_names = set(t.name for t in local_tiles if _valid_tile_name(t.name))
-                    missing_names = local_names - hf_files
-                    if not missing_names:
-                        print(f"  z{z}/{xd.name}: fully synced (direct check, {len(local_names)} tiles)")
-                        _time.sleep(0.3)
-                        continue
-                    local_map = {t.name: t for t in local_tiles}
-                    missing_tiles = [local_map[n] for n in sorted(missing_names)]
-                    print(f"  z{z}/{xd.name}: {len(missing_names)} missing — delta upload")
-                    ok = _upload_delta(api, repo_id, f"{path_in_repo}/z{z}/{xd.name}", z, xd.name, missing_tiles)
-                    _time.sleep(0.5)
-                else:
-                    # Truly new x-dir — full upload
-                    print(f"  z{z}/{xd.name}: full upload ({len(local_tiles)} tiles)")
-                    ok = _upload_delta(api, repo_id, f"{path_in_repo}/z{z}/{xd.name}", z, xd.name, local_tiles)
-                    _time.sleep(0.5)
-
-            if z_errors == 0:
-                uploaded_z.append(z)
-                print(f"  z{z}: done, {z_ok} tiles uploaded/verified")
-            else:
-                print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs had errors")
-        else:
-            # Full upload: batch x-dirs, use upload_folder
-            import shutil
-            x_dirs = sorted([xd for xd in zdir.iterdir() if xd.is_dir()])
-            BATCH_SIZE = 5
-            batches = [x_dirs[i:i + BATCH_SIZE] for i in range(0, len(x_dirs), BATCH_SIZE)]
-            print(f"\nUploading z{z}/ in {len(batches)} batch(es) of ~{BATCH_SIZE} x-dirs ({tile_count:,} tiles)...")
-            z_ok = 0
-            z_errors = 0
-            for bid, batch in enumerate(batches):
-                t0 = _time.time()
-                batch_dir = Path(tempfile.mkdtemp(prefix="ozt2_batch_"))
-                for xd in batch:
-                    dst = batch_dir / xd.name
-                    shutil.copytree(xd, dst, copy_function=shutil.copy2)
-                try:
-                    api.upload_folder(
-                        repo_id=repo_id,
-                        folder_path=str(batch_dir),
-                        path_in_repo=z_path_in_repo,
-                        repo_type="dataset",
-                        commit_message=f"Upload z{z} OZT2 tiles batch {bid + 1}/{len(batches)} ({len(batch)} x-dirs)",
-                    )
-                    batch_tiles = sum(1 for xd in batch for _ in xd.glob("*.ozt2"))
-                    z_ok += batch_tiles
-                    elapsed = _time.time() - t0
-                    print(f"  batch {bid + 1}/{len(batches)}: {batch_tiles} tiles in {elapsed:.0f}s ({batch[0].name}–{batch[-1].name})")
-                except Exception as e:
-                    z_errors += len(batch)
-                    print(f"  ERROR batch {bid + 1}/{len(batches)}: {e}")
-                finally:
-                    shutil.rmtree(batch_dir)
-            if z_errors == 0:
-                uploaded_z.append(z)
-                print(f"  z{z}: all {z_ok:,} tiles uploaded OK ({len(x_dirs)} x-dirs in {len(batches)} batches)")
-            else:
-                print(f"  z{z}: {z_ok} tiles OK, {z_errors} x-dirs failed")
+        rel_of = {id(p): f"{path_in_repo}/z{zoom}/{p.parent.name}/{p.name}" for p in delta}
+        xd_name_of = {id(p): p.parent.name for p in delta}
+        done, failed = upload_batches(
+            api, repo_id, delta, rel_of, zoom, xd_name_of,
+            batch_size, workers, commit_message,
+        )
+        grand_uploaded += done
+        grand_failed += failed
+        if failed == 0:
+            uploaded_zooms.append(zoom)
 
     print(f"\n{'=' * 60}")
-    print(f"Upload complete!")
-    print(f"Zoom levels uploaded: {uploaded_z}")
+    print(f"Upload complete: {grand_uploaded:,} files uploaded, {grand_failed:,} failed")
+    print(f"Zoom levels synced: {uploaded_zooms}")
     print(f"Repository: https://huggingface.co/datasets/{repo_id}")
+    return 0 if grand_failed == 0 else 1
 
 
-if __name__ == "__main__":
+def main() -> int:
     parser = argparse.ArgumentParser(description="Upload OZT2 tiles to HuggingFace")
     parser.add_argument("--input", "-i", required=True, help="Local OZT2 tile directory")
-    parser.add_argument("--repo_id", "-r", default="aliasfox/srtm30m-ozt2-v2",
-                        help="HuggingFace repository ID (default: aliasfox/srtm30m-ozt2-v2)")
+    parser.add_argument("--repo_id", "-r", default=DEFAULT_REPO,
+                        help=f"HuggingFace repository ID (default: {DEFAULT_REPO})")
     parser.add_argument("--token", "-t", default=None,
                         help="HuggingFace token (default: from HF_TOKEN env var)")
     parser.add_argument("--zoom", "-z", default=None,
@@ -381,19 +373,23 @@ if __name__ == "__main__":
                         help="Path in repository (default: tiles)")
     parser.add_argument("--dry_run", action="store_true",
                         help="Show what would be uploaded without uploading")
-    parser.add_argument("--skip_existing", action="store_true", default=True,
-                        help="Skip existing tiles (default: True, use --no_skip to override)")
     parser.add_argument("--no_skip", action="store_true",
-                        help="Re-upload all tiles (overwrites existing)")
+                        help="Re-upload all tiles (overwrites existing, skips nothing)")
     parser.add_argument("--commit_message", "-m", default=None,
                         help="Custom commit message")
+    parser.add_argument("--batch_size", type=int, default=1500,
+                        help="Files per create_commit batch (default 1500; HF caps\n                        commits at 128/hour, so fewer bigger commits win)")
+    parser.add_argument("--workers", type=int, default=2,
+                        help="Parallel commit workers (default 2; HF serializes commits, retries absorb conflicts)")
+    parser.add_argument("--hash_workers", type=int, default=8,
+                        help="Parallel local hashing threads (default 8)")
 
     args = parser.parse_args()
 
     tile_dir = Path(args.input)
     if not tile_dir.exists():
         print(f"Error: {tile_dir} does not exist")
-        sys.exit(1)
+        return 1
 
     zoom_range = None
     if args.zoom:
@@ -404,12 +400,11 @@ if __name__ == "__main__":
             parts = args.zoom.split("-")
             zoom_range = (int(parts[0]), int(parts[1]))
         else:
-            z = int(args.zoom)
-            zoom_range = (z, z)
+            zoom_range = (int(args.zoom),) * 2
 
     token = args.token or os.environ.get("HF_TOKEN")
 
-    upload_tiles(
+    return upload_tiles(
         tile_dir=tile_dir,
         repo_id=args.repo_id,
         token=token,
@@ -418,4 +413,11 @@ if __name__ == "__main__":
         dry_run=args.dry_run,
         skip_existing=not args.no_skip,
         commit_message=args.commit_message,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        hash_workers=args.hash_workers,
     )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

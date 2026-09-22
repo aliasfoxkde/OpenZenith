@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { SectionHeader } from "./SectionHeader";
 import type { WidgetProps } from "./types";
 import type { ToolMode } from "../tools/tools";
 import { createAnnotationManager, type AnnotationType } from "../tools/annotations";
@@ -144,14 +145,19 @@ export function ToolsWidget({ globe }: WidgetProps) {
     <>
       {/* ── Measurement ── */}
       <div className="wv-section">
+        <SectionHeader
+          id={`wv-section-header-measure`}
+          title="Measurement"
+          open={openSections.measure}
+          onToggle={() => sectionToggle("measure")}
+          bodyId={`wv-section-body-measure`}
+        />
         <div
-          className={`wv-section-header ${openSections.measure ? "open" : ""}`}
-          onClick={() => sectionToggle("measure")}
+          className={`wv-section-body ${openSections.measure ? "open" : ""}`}
+          id={`wv-section-body-measure`}
+          role="region"
+          aria-labelledby={`wv-section-header-measure`}
         >
-          <span>Measurement</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.measure ? "open" : ""}`}>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             <button
               className={`wv-widget-bar-btn ${isMeasure("measure-distance") ? "" : ""}`}
@@ -215,18 +221,24 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
       {/* ── Search / Navigate ── */}
       <div className="wv-section">
+        <SectionHeader
+          id={`wv-section-header-search`}
+          title="Search / Navigate"
+          open={openSections.search}
+          onToggle={() => sectionToggle("search")}
+          bodyId={`wv-section-body-search`}
+        />
         <div
-          className={`wv-section-header ${openSections.search ? "open" : ""}`}
-          onClick={() => sectionToggle("search")}
+          className={`wv-section-body ${openSections.search ? "open" : ""}`}
+          id={`wv-section-body-search`}
+          role="region"
+          aria-labelledby={`wv-section-header-search`}
         >
-          <span>Search / Navigate</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.search ? "open" : ""}`}>
           <div style={{ display: "flex", gap: 4 }}>
             <input
               type="text"
               placeholder="Search location..."
+              aria-label="Search location"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -275,6 +287,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
             <input
               type="text"
               placeholder="Lat"
+              aria-label="Latitude"
               value={coordLat}
               onChange={(e) => setCoordLat(e.target.value)}
               style={{
@@ -292,6 +305,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
             <input
               type="text"
               placeholder="Lon"
+              aria-label="Longitude"
               value={coordLon}
               onChange={(e) => setCoordLon(e.target.value)}
               style={{
@@ -331,18 +345,24 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
       {/* ── Bookmarks ── */}
       <div className="wv-section">
+        <SectionHeader
+          id={`wv-section-header-bookmarks`}
+          title="Bookmarks"
+          open={openSections.bookmarks}
+          onToggle={() => sectionToggle("bookmarks")}
+          bodyId={`wv-section-body-bookmarks`}
+        />
         <div
-          className={`wv-section-header ${openSections.bookmarks ? "open" : ""}`}
-          onClick={() => sectionToggle("bookmarks")}
+          className={`wv-section-body ${openSections.bookmarks ? "open" : ""}`}
+          id={`wv-section-body-bookmarks`}
+          role="region"
+          aria-labelledby={`wv-section-header-bookmarks`}
         >
-          <span>Bookmarks</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.bookmarks ? "open" : ""}`}>
           <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
             <input
               type="text"
               placeholder="Bookmark name..."
+              aria-label="Bookmark name"
               value={bmName}
               onChange={(e) => setBmName(e.target.value)}
               onKeyDown={(e) => {
@@ -380,13 +400,13 @@ export function ToolsWidget({ globe }: WidgetProps) {
           <div ref={bookmarkListRef}>
             {bookmarks.map((bm) => (
               <div className="wv-bookmark-item" key={bm.id}>
-                <span
-                  className="wv-bookmark-name"
+                <button
+                  className="wv-bookmark-name wv-bookmark-name-btn"
                   onClick={() => globe.flyTo(bm.lat, bm.lon, bm.alt)}
                   title={`${bm.lat}, ${bm.lon} @ ${bm.alt.toLocaleString()}m`}
                 >
                   {bm.name}
-                </span>
+                </button>
                 <button
                   className="wv-bookmark-del"
                   onClick={() => {
@@ -395,6 +415,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
                     saveBookmarks(updated);
                   }}
                   title="Delete"
+                  aria-label={`Delete bookmark ${bm.name}`}
                 >
                   ×
                 </button>
@@ -409,11 +430,19 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
       {/* ── Draw / Annotate ── */}
       <div className="wv-section">
-        <div className={`wv-section-header ${openSections.draw ? "open" : ""}`} onClick={() => sectionToggle("draw")}>
-          <span>Draw / Annotate</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.draw ? "open" : ""}`}>
+        <SectionHeader
+          id={`wv-section-header-draw`}
+          title="Draw / Annotate"
+          open={openSections.draw}
+          onToggle={() => sectionToggle("draw")}
+          bodyId={`wv-section-body-draw`}
+        />
+        <div
+          className={`wv-section-body ${openSections.draw ? "open" : ""}`}
+          id={`wv-section-body-draw`}
+          role="region"
+          aria-labelledby={`wv-section-header-draw`}
+        >
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {annModes.map(({ mode, label }) => (
               <button
@@ -482,14 +511,19 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
       {/* ── Screenshot ── */}
       <div className="wv-section">
+        <SectionHeader
+          id={`wv-section-header-screenshot`}
+          title="Screenshot"
+          open={openSections.screenshot}
+          onToggle={() => sectionToggle("screenshot")}
+          bodyId={`wv-section-body-screenshot`}
+        />
         <div
-          className={`wv-section-header ${openSections.screenshot ? "open" : ""}`}
-          onClick={() => sectionToggle("screenshot")}
+          className={`wv-section-body ${openSections.screenshot ? "open" : ""}`}
+          id={`wv-section-body-screenshot`}
+          role="region"
+          aria-labelledby={`wv-section-header-screenshot`}
         >
-          <span>Screenshot</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.screenshot ? "open" : ""}`}>
           <button
             className="wv-widget-bar-btn"
             onClick={handleScreenshot}
@@ -502,20 +536,26 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
       {/* ── Range Rings ── */}
       <div className="wv-section">
+        <SectionHeader
+          id={`wv-section-header-rangeRings`}
+          title="Range Rings"
+          open={openSections.rangeRings}
+          onToggle={() => sectionToggle("rangeRings")}
+          bodyId={`wv-section-body-rangeRings`}
+        />
         <div
-          className={`wv-section-header ${openSections.rangeRings ? "open" : ""}`}
-          onClick={() => sectionToggle("rangeRings")}
+          className={`wv-section-body ${openSections.rangeRings ? "open" : ""}`}
+          id={`wv-section-body-rangeRings`}
+          role="region"
+          aria-labelledby={`wv-section-header-rangeRings`}
         >
-          <span>Range Rings</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.rangeRings ? "open" : ""}`}>
           <div className="wv-row" style={{ gap: 4 }}>
             <label style={{ fontSize: "10px" }}>Radii (km)</label>
             <input
               type="text"
               value={ringRadii}
               placeholder="50, 100, 200"
+              aria-label="Ring radii in kilometers"
               onChange={(e) => setRingRadii(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -570,15 +610,24 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
       {/* ── BGP Lookup ── */}
       <div className="wv-section">
-        <div className={`wv-section-header ${openSections.bgp ? "open" : ""}`} onClick={() => sectionToggle("bgp")}>
-          <span>BGP Lookup</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.bgp ? "open" : ""}`}>
+        <SectionHeader
+          id={`wv-section-header-bgp`}
+          title="BGP Lookup"
+          open={openSections.bgp}
+          onToggle={() => sectionToggle("bgp")}
+          bodyId={`wv-section-body-bgp`}
+        />
+        <div
+          className={`wv-section-body ${openSections.bgp ? "open" : ""}`}
+          id={`wv-section-body-bgp`}
+          role="region"
+          aria-labelledby={`wv-section-header-bgp`}
+        >
           <div style={{ display: "flex", gap: 4 }}>
             <input
               type="text"
               placeholder="e.g. 8.8.8.0/24"
+              aria-label="BGP prefix"
               value={bgpPrefix}
               onChange={(e) => setBgpPrefix(e.target.value)}
               onKeyDown={(e) => {

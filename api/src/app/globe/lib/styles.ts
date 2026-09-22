@@ -68,6 +68,9 @@ export const STYLES = `
 .wv-section{border-bottom:1px solid var(--border)}
 .wv-section-header{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;cursor:pointer;font-size:11px;font-weight:600;color:var(--text-dim);user-select:none;transition:background .1s}
 .wv-section-header:hover{background:var(--bg-hover)}
+/* button reset so SectionHeader <button> matches the previous <div> look */
+.wv-section-header-btn{width:100%;border:none;background:none;text-align:left;font-family:inherit;letter-spacing:inherit}
+.wv-section-header-btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .wv-section-header .arrow{font-size:8px;transition:transform .2s}
 .wv-section-header.open .arrow{transform:rotate(90deg)}
 .wv-section-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
@@ -146,7 +149,8 @@ export const STYLES = `
 .wv-orbit-btn .alt{font-size:8px;color:var(--text-muted);margin-left:4px}
 
 /* ── Compass ── */
-.wv-compass{position:absolute;right:12px;top:56px;z-index:30;width:48px;height:48px;border:1px solid var(--border);border-radius:50%;background:var(--bg-solid);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s}
+.wv-compass{position:absolute;right:12px;top:56px;z-index:30;width:48px;height:48px;border:1px solid var(--border);border-radius:50%;background:var(--bg-solid);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s;padding:0;font-family:inherit}
+.wv-compass:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wv-compass:hover{border-color:var(--border-hover)}
 .wv-compass-inner{position:relative;width:32px;height:32px;transition:transform .1s linear}
 .wv-compass-n{position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--err);font-family:var(--font-mono)}
@@ -231,6 +235,8 @@ export const STYLES = `
 .wv-bookmark-item{display:flex;align-items:center;justify-content:space-between;padding:4px 0;gap:6px}
 .wv-bookmark-name{flex:1;color:var(--text-dim);font-size:10px;font-family:var(--font-mono);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wv-bookmark-name:hover{color:var(--accent)}
+/* button reset — bookmark names are <button>s for keyboard/screen-reader access */
+.wv-bookmark-name-btn{border:none;background:none;text-align:left;padding:0}
 .wv-bookmark-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0 4px}
 .wv-bookmark-del:hover{color:var(--err)}
 `;

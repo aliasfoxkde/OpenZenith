@@ -1614,6 +1614,7 @@ export default function MapPage() {
                 value={annotationName}
                 onChange={(e) => setAnnotationName(e.target.value)}
                 placeholder="Name..."
+                aria-label="Annotation name"
                 style={{
                   background: T.panel,
                   border: `1px solid ${T.border}`,
@@ -2200,7 +2201,7 @@ export default function MapPage() {
                                   max={100}
                                   value={layerOpacity[layer.id] ?? 100}
                                   onChange={(e) => setOpacity(layer.id, Number(e.target.value))}
-                                  style={{ width: 70, height: 3, accentColor: layer.accent, cursor: "pointer" }}
+                                  style={{ width: 70, height: 14, accentColor: layer.accent, cursor: "pointer" }}
                                 />
                                 <span
                                   style={{
@@ -2259,7 +2260,7 @@ export default function MapPage() {
                     max={eqRange.max}
                     value={eqTimeSlider ?? eqRange.max}
                     onChange={(e) => handleEqTimeChange(Number(e.target.value))}
-                    style={{ flex: 1, height: 3, accentColor: T.accent, cursor: "pointer" }}
+                    style={{ flex: 1, height: 14, accentColor: T.accent, cursor: "pointer" }}
                   />
                 </div>
                 {eqTimeSlider && (
@@ -2301,7 +2302,7 @@ export default function MapPage() {
                         max={100}
                         value={Math.round(hurricaneProgress * 100)}
                         readOnly
-                        style={{ flex: 1, height: 3, accentColor: "#f97316", cursor: "pointer" }}
+                        style={{ flex: 1, height: 14, accentColor: "#f97316", cursor: "pointer" }}
                       />
                       <span style={{ fontSize: "0.58rem", fontFamily: T.fontMono, color: T.textMuted, minWidth: 30 }}>
                         {Math.round(hurricaneProgress * 100)}%
@@ -2347,6 +2348,7 @@ export default function MapPage() {
                       value={bookmarkName}
                       onChange={(e) => setBookmarkName(e.target.value)}
                       placeholder="Bookmark name..."
+                      aria-label="Bookmark name"
                       onKeyDown={(e) => e.key === "Enter" && saveBookmark()}
                       style={{
                         flex: 1,
@@ -2359,7 +2361,7 @@ export default function MapPage() {
                         fontFamily: T.fontMono,
                       }}
                     />
-                    <button onClick={saveBookmark} style={{ ...btnStyle }}>
+                    <button onClick={saveBookmark} style={{ ...btnStyle }} aria-label="Save bookmark" title="Save bookmark">
                       +
                     </button>
                   </div>

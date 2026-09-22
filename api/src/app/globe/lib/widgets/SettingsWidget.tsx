@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { WidgetProps } from "./types";
 import { THEMES } from "../constants";
+import { SectionHeader } from "./SectionHeader";
 
 type SectionKey = "ui" | "performance" | "coords" | "theme";
 
@@ -78,10 +79,33 @@ export function SettingsWidget({ globe }: WidgetProps) {
 
   const sectionToggle = (key: SectionKey) => setOpenSections((p) => ({ ...p, [key]: !p[key] }));
 
+  const section = (key: SectionKey, title: string, children: React.ReactNode) => (
+    <div className="wv-section">
+      <SectionHeader
+        id={`wv-section-header-${key}`}
+        title={title}
+        open={openSections[key]}
+        onToggle={() => sectionToggle(key)}
+        bodyId={`wv-section-body-${key}`}
+      />
+      <div
+        className={`wv-section-body ${openSections[key] ? "open" : ""}`}
+        id={`wv-section-body-${key}`}
+        role="region"
+        aria-labelledby={`wv-section-header-${key}`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+
   const checkbox = (label: string, key: keyof Settings) => (
     <div className="wv-setting-row">
-      <label className="wv-setting-label">{label}</label>
+      <label className="wv-setting-label" htmlFor={`wv-setting-${key}`}>
+        {label}
+      </label>
       <input
+        id={`wv-setting-${key}`}
         type="checkbox"
         checked={settings[key] as boolean}
         onChange={(e) => update(key, e.target.checked)}
@@ -93,33 +117,29 @@ export function SettingsWidget({ globe }: WidgetProps) {
   return (
     <>
       {/* UI Elements */}
-      <div className="wv-section">
-        <div className={`wv-section-header ${openSections.ui ? "open" : ""}`} onClick={() => sectionToggle("ui")}>
-          <span>UI Elements</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.ui ? "open" : ""}`}>
+      {section(
+        "ui",
+        "UI Elements",
+        <>
           {checkbox("Compass", "showCompass")}
           {checkbox("Status Bar", "showStatusBar")}
           {checkbox("Coord Panel", "showCoordPanel")}
           {checkbox("Orbit Presets", "showOrbitPresets")}
           {checkbox("Zoom Controls", "showZoomControls")}
-        </div>
-      </div>
+        </>,
+      )}
 
       {/* Performance */}
-      <div className="wv-section">
-        <div
-          className={`wv-section-header ${openSections.performance ? "open" : ""}`}
-          onClick={() => sectionToggle("performance")}
-        >
-          <span>Performance</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.performance ? "open" : ""}`}>
+      {section(
+        "performance",
+        "Performance",
+        <>
           <div className="wv-setting-row">
-            <label className="wv-setting-label">Entity Cap</label>
+            <label className="wv-setting-label" htmlFor="wv-setting-entityCap">
+              Entity Cap
+            </label>
             <input
+              id="wv-setting-entityCap"
               type="number"
               min={100}
               max={50000}
@@ -140,65 +160,57 @@ export function SettingsWidget({ globe }: WidgetProps) {
             />
           </div>
           {checkbox("Flight Contrails", "contrails")}
-        </div>
-      </div>
+        </>,
+      )}
 
       {/* Coordinate Format */}
-      <div className="wv-section">
-        <div
-          className={`wv-section-header ${openSections.coords ? "open" : ""}`}
-          onClick={() => sectionToggle("coords")}
-        >
-          <span>Coordinates</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.coords ? "open" : ""}`}>
-          <div className="wv-setting-row">
-            <label className="wv-setting-label">Format</label>
-            <select
-              value={settings.coordFormat}
-              onChange={(e) => update("coordFormat", e.target.value)}
-              style={{
-                background: "#1a1a1a",
-                border: "1px solid #333",
-                borderRadius: 4,
-                padding: "2px 6px",
-                color: "#ccc",
-                fontSize: "11px",
-                outline: "none",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              {COORD_FORMATS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
+      {section(
+        "coords",
+        "Coordinates",
+        <div className="wv-setting-row">
+          <label className="wv-setting-label" htmlFor="wv-setting-coordFormat">
+            Format
+          </label>
+          <select
+            id="wv-setting-coordFormat"
+            value={settings.coordFormat}
+            onChange={(e) => update("coordFormat", e.target.value)}
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 4,
+              padding: "2px 6px",
+              color: "#ccc",
+              fontSize: "11px",
+              outline: "none",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {COORD_FORMATS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>,
+      )}
 
       {/* Theme */}
-      <div className="wv-section">
-        <div className={`wv-section-header ${openSections.theme ? "open" : ""}`} onClick={() => sectionToggle("theme")}>
-          <span>Theme</span>
-          <span className="arrow">&#9654;</span>
-        </div>
-        <div className={`wv-section-body ${openSections.theme ? "open" : ""}`}>
-          <div className="wv-bm-grid">
-            {Object.entries(THEMES).map(([k, v]) => (
-              <button
-                key={k}
-                className={`wv-bm-btn ${globe.state.theme === k ? "active" : ""}`}
-                onClick={() => globe.switchTheme(k)}
-              >
-                {v.icon} {v.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      {section(
+        "theme",
+        "Theme",
+        <div className="wv-bm-grid">
+          {Object.entries(THEMES).map(([k, v]) => (
+            <button
+              key={k}
+              className={`wv-bm-btn ${globe.state.theme === k ? "active" : ""}`}
+              onClick={() => globe.switchTheme(k)}
+            >
+              {v.icon} {v.label}
+            </button>
+          ))}
+        </div>,
+      )}
     </>
   );
 }

@@ -21,8 +21,8 @@ export const SURVEILLANCE_THEME = {
   blue: "#3b82f6",
   /** Primary text */
   text: "#e2e8f0",
-  /** Secondary/muted text */
-  textMuted: "#64748b",
+  /** Secondary/muted text — 7.5:1 on `bg`, passes WCAG AAA (7:1) */
+  textMuted: "#94a3b8",
   /** Monospace font for data readouts */
   fontMono: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
   /** Sans-serif font for UI labels */

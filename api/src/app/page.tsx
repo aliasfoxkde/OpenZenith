@@ -130,7 +130,7 @@ export default function Home() {
   const cardBg = dark ? "#161616" : "#ffffff";
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-  const textSecondary = dark ? "#9CA3AF" : "#6B7280";
+  const textSecondary = dark ? "#9CA3AF" : "#4B5563"; // both AA/AAA on their bg
   const accent = "#22c55e";
   const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
   const inputBg = dark ? "#111" : "#fff";
@@ -1147,31 +1147,38 @@ export default function Home() {
                   }}
                 >
                   {s.label}
-                  <span
-                    onMouseEnter={(e) => {
-                      setTooltip(s.tip);
-                      (e.target as HTMLElement).style.cursor = "help";
-                    }}
+                  <button
+                    type="button"
+                    aria-label={`What does "${s.label}" mean?`}
+                    aria-expanded={tooltip === s.tip}
+                    onMouseEnter={() => setTooltip(s.tip)}
                     onMouseLeave={() => setTooltip(null)}
+                    onFocus={() => setTooltip(s.tip)}
+                    onBlur={() => setTooltip(null)}
+                    onClick={() => setTooltip(tooltip === s.tip ? null : s.tip)}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: 14,
-                      height: 14,
+                      width: 18,
+                      height: 18,
                       borderRadius: "50%",
                       border: `1px solid ${border}`,
                       fontSize: "0.6rem",
                       color: textSecondary,
                       lineHeight: 1,
                       flexShrink: 0,
+                      background: "transparent",
+                      padding: 0,
+                      cursor: "help",
                     }}
                   >
                     &#63;
-                  </span>
+                  </button>
                 </div>
                 {tooltip === s.tip && (
                   <div
+                    role="tooltip"
                     style={{
                       position: "absolute",
                       bottom: "calc(100% + 8px)",

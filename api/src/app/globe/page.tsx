@@ -1318,13 +1318,13 @@ export default function Globe() {
       </ErrorBoundary>
 
       {/* Compass */}
-      <div className="wv-compass" onClick={compassNorth} title="Reset north">
+      <button type="button" className="wv-compass" onClick={compassNorth} title="Reset north" aria-label="Reset north">
         <div className="wv-compass-inner" style={{ transform: `rotate(${compassHeading.toFixed(1)}deg)` }}>
           <div className="wv-compass-n">N</div>
           <div className="wv-compass-needle" />
           <div className="wv-compass-s">S</div>
         </div>
-      </div>
+      </button>
 
       {/* Zoom controls */}
       <div className="wv-zoom-controls">

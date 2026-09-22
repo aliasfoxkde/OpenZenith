@@ -107,7 +107,7 @@ export const THEMES: Record<string, { label: string; icon: string; css: string }
   default: {
     label: "Default",
     icon: "◇",
-    css: `--bg:rgba(10,14,23,0.95);--bg-solid:#0a0e17;--bg-nav:rgba(10,14,23,0.92);--bg-hover:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.08);--border-hover:rgba(255,255,255,0.15);--text:#e0e0e0;--text-dim:#aab;--text-muted:#666;--text-muted2:#555;--text-darker:#444;--accent:#4a9eff;--accent-glow:rgba(74,158,255,0.2);--accent-active:#4a9eff;--brand:#22c55e;--ok:#22c55e;--err:#ef4444;--warn:#eab308;--font-ui:system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;--scanlines:none;--corner-size:0;--ticker-display:none;--classification-display:none;--grid-display:none;--glow-intensity:0`,
+    css: `--bg:rgba(10,14,23,0.95);--bg-solid:#0a0e17;--bg-nav:rgba(10,14,23,0.92);--bg-hover:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.08);--border-hover:rgba(255,255,255,0.15);--text:#e0e0e0;--text-dim:#aab;--text-muted:#9CA3AF;--text-muted2:#7E8794;--text-darker:#444;--accent:#4a9eff;--accent-glow:rgba(74,158,255,0.2);--accent-active:#4a9eff;--brand:#22c55e;--ok:#22c55e;--err:#ef4444;--warn:#eab308;--font-ui:system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;--scanlines:none;--corner-size:0;--ticker-display:none;--classification-display:none;--grid-display:none;--glow-intensity:0`,
   },
   classified: {
     label: "Classified Intel",

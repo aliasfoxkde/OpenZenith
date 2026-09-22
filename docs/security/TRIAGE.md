@@ -32,6 +32,53 @@ The volume is dominated by a small number of pattern classes that are
 structurally false positives for a geospatial platform. Each class below has
 been manually verified (not assumed).
 
+## Re-triage 2026-09-22 (post-refactor, 1,855 → 0 new)
+
+The Python `terrain`/`hydrology` package split, the studio WCAG AAA color
+pass, and the globe a11y landmark edits shifted flagged lines across the
+tree; the gate surfaced 1,855 findings not in the then-current baseline
+(`api/src` 1,227, `openzenith/` 625, `scripts/` 3). Per the re-triage
+checklist, every high/critical class in the delta was spot-checked at its
+new location before regenerating the baseline:
+
+**One true positive — FIXED, not baselined.** The globe hover-tooltip
+builder (`api/src/app/globe/page.tsx`, `setHoverTooltip`) interpolated
+entity names, quake `place` strings, flight callsigns, vessel names and
+EONET event titles — all third-party feed content (USGS, OpenSky, AIS,
+EONET) — directly into HTML rendered via `dangerouslySetInnerHTML`
+(`HudOverlays.tsx`). A hostile upstream feed could inject markup into the
+globe page. Fixed by adding a local `escapeHtml()` helper and escaping
+every feed-derived interpolation in the tooltip branches. This is the only
+data-fed `innerHTML` sink in `api/src` (the map page's elevation-pin
+marker interpolates only numbers and theme constants; the remaining
+`stored-xss` hits are static `<style>` constants).
+
+Spot-checked delta findings confirmed false positives at their new
+locations:
+
+- `crypto-low-pbkdf2-iterations` (streams route) — a flow-accumulation
+  `while (changed && iterations < maxIter)` counter; no crypto.
+- `git-credential-leak` (proxy-tile test) — the `https://example.com`
+  fixture URL already dispositioned above, at a shifted line.
+- `hipaa-phi` (space-scene) — the Greek letter variable `phi` for latitude.
+- `pci-cardholder-data` (waterways layer) — `setInterval` grammar overlap.
+- `env-credential-assignment` (bookmarks/widgets/basemaps/map-state…) —
+  localStorage `*_KEY = "…"` constants; the pattern reacts to the `_KEY`
+  suffix. No credential material.
+- `event-listener-leak` (explore:670) — the flagged `addEventListener` has
+  its paired `removeEventListener` in the same effect's cleanup three lines
+  below; the scanner does not model effect returns.
+- `azure-aks-cluster` (map:2671) — a hex color literal in a contour ramp;
+  grammar overlap only.
+- `commit-ampersand` — JSX copy containing "&" (e.g. "Maps & Data"); not a
+  commit message.
+
+`scripts/aegis_scan.sh` itself contributes 3 permanent findings (2
+`print-statement`, 1 `terraform-count`): the inline Python heredoc inside
+the gate script trips the Python-print and Terraform heuristics. The
+scanner harness flagging itself is accepted; the script prints scan
+summaries by design and contains no Terraform.
+
 ## Critical (2) — verified false positives
 
 | Location | Pattern | Disposition |
@@ -116,7 +163,8 @@ dedicated linters already govern more precisely:
 
 ## Low / info
 
-5,269 low + 4 info findings are overwhelmingly `zip-code` (digit sequences in
+5,770 low + 5 info findings (post-refactor baseline: 7,488 total — 1
+critical, 664 high, 1,048 medium) are overwhelmingly `zip-code` (digit sequences in
 coordinate arrays and float grids — a geospatial corpus is adversarial input
 for a US-ZIP regex), `street-address`, and style-level patterns. Individually
 reviewed samples from each pattern class confirmed no true positives; the

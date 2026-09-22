@@ -69,7 +69,7 @@ describe("Hurricanes API", () => {
 
   it("handles CORS preflight OPTIONS", async () => {
     const { OPTIONS } = await import("@/app/api/hurricanes/route");
-    const resp = await OPTIONS();
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
   });
 });

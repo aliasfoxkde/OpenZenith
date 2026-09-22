@@ -174,7 +174,11 @@ async function tryPNGTile(Cesium: CesiumType, level: number, x: number, y: numbe
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext("2d")!;
+    // A 2D context is always available for a canvas that was just created; the
+    // explicit check replaces a non-null assertion and falls through to the
+    // catch's flat-terrain fallback if the platform ever refuses one.
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas 2D context unavailable");
     ctx.drawImage(response, 0, 0);
     const imageData = ctx.getImageData(0, 0, w, h);
     const pixels = imageData.data;

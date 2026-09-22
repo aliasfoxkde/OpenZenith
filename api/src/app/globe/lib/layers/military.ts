@@ -112,7 +112,8 @@ export function loadMilitaryFlights(
     } catch (err) {
       warnLayerError("militaryFlights", err);
       updateStatus("militaryFlights", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

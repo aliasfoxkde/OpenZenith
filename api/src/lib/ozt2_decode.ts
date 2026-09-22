@@ -183,6 +183,22 @@ function dequantize(
 // ─── Main decode function ──────────────────────────────────────────────────────
 
 /**
+ * Infer tile dimensions from the residual count: square when the count is a
+ * perfect square, else one of the known tile widths. `what` lets the two decode
+ * paths keep their distinct error messages.
+ */
+function inferDimensions(nPixels: number, what: string): { width: number; height: number } {
+  const side = Math.sqrt(nPixels);
+  if (Number.isInteger(side)) return { width: side, height: side };
+
+  // Try common tile sizes in order of likelihood
+  for (const w of [256, 3601, 512, 1024, 128, 64]) {
+    if (nPixels % w === 0) return { width: w, height: nPixels / w };
+  }
+  throw new Error(`Cannot infer ${what} from ${nPixels} pixels`);
+}
+
+/**
  * Decode an OZT2 tile from an ArrayBuffer.
  *
  * @param tileBytes - The complete OZT2 binary tile data
@@ -228,33 +244,14 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
 
   // Infer tile dimensions from residual count
   const nPixels = residuals.length;
-  let height: number, width: number;
-
-  const side = Math.sqrt(nPixels);
-  if (Number.isInteger(side)) {
-    height = width = side;
-  } else {
-    // Try common tile sizes in order of likelihood
-    let found = false;
-    for (const w of [256, 3601, 512, 1024, 128, 64]) {
-      if (nPixels % w === 0) {
-        height = nPixels / w;
-        width = w;
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      throw new Error(`Cannot infer tile dimensions from ${nPixels} pixels`);
-    }
-  }
+  const { width, height } = inferDimensions(nPixels, "tile dimensions");
 
   // Reconstruct from prediction
   let quantized: Int16Array;
   if (predictor === PRED_GRADIENT) {
-    quantized = gradientReconstruct(residuals, height!, width!);
+    quantized = gradientReconstruct(residuals, height, width);
   } else if (predictor === PRED_LEFT) {
-    quantized = leftReconstruct(residuals, height!, width!);
+    quantized = leftReconstruct(residuals, height, width);
   } else {
     quantized = residuals;
   }
@@ -262,7 +259,7 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
   // Dequantize
   let elevation: Int16Array;
   if (bits < 16 && elevRange > 0) {
-    elevation = dequantize(quantized, vmin, bits, elevRange, height!, width!);
+    elevation = dequantize(quantized, vmin, bits, elevRange, height, width);
   } else if (bits >= 16) {
     // Lossless: add vmin offset
     elevation = new Int16Array(nPixels);
@@ -284,11 +281,11 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
     bitsPerPixel: bits,
     predictor: predictorNames[predictor] ?? "none",
     compressor: compressorNames[compressor] ?? "brotli",
-    width: width!,
-    height: height!,
+    width,
+    height,
   };
 
-  return { elevation, width: width!, height: height!, metadata };
+  return { elevation, width, height, metadata };
 }
 
 // ─── Synchronous decode (for workers) ────────────────────────────────────────
@@ -344,29 +341,14 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
 
   // Infer dimensions
   const nPixels = residuals.length;
-  let height: number, width: number;
-  const side = Math.sqrt(nPixels);
-  if (Number.isInteger(side)) {
-    height = width = side;
-  } else {
-    let found = false;
-    for (const w of [256, 3601, 512, 1024, 128, 64]) {
-      if (nPixels % w === 0) {
-        height = nPixels / w;
-        width = w;
-        found = true;
-        break;
-      }
-    }
-    if (!found) throw new Error(`Cannot infer dimensions from ${nPixels} pixels`);
-  }
+  const { width, height } = inferDimensions(nPixels, "dimensions");
 
   // Reconstruct
   let quantized: Int16Array;
   if (predictor === PRED_GRADIENT) {
-    quantized = gradientReconstruct(residuals, height!, width!);
+    quantized = gradientReconstruct(residuals, height, width);
   } else if (predictor === PRED_LEFT) {
-    quantized = leftReconstruct(residuals, height!, width!);
+    quantized = leftReconstruct(residuals, height, width);
   } else {
     quantized = residuals;
   }
@@ -374,7 +356,7 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
   // Dequantize
   let elevation: Int16Array;
   if (bits < 16 && elevRange > 0) {
-    elevation = dequantize(quantized, vminVal, bits, elevRange, height!, width!);
+    elevation = dequantize(quantized, vminVal, bits, elevRange, height, width);
   } else if (bits >= 16) {
     elevation = new Int16Array(nPixels);
     for (let i = 0; i < nPixels; i++) elevation[i] = quantized[i] + vminVal;
@@ -388,8 +370,8 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
 
   return {
     elevation,
-    width: width!,
-    height: height!,
+    width,
+    height,
     metadata: {
       minElevation: vminVal,
       elevationRange: elevRange,
@@ -397,8 +379,8 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
       bitsPerPixel: bits,
       predictor: predictorNames[predictor] ?? "none",
       compressor: compressorNames[compressor] ?? "brotli",
-      width: width!,
-      height: height!,
+      width,
+      height,
     },
   };
 }

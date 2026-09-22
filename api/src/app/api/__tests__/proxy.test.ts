@@ -17,7 +17,7 @@ describe("Proxy endpoint", () => {
 
   it("returns CORS headers on OPTIONS", async () => {
     const { OPTIONS } = await import("@/app/api/proxy/[...path]/route");
-    const resp = await OPTIONS();
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });

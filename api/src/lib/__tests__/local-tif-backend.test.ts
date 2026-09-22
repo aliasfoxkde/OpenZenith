@@ -56,7 +56,7 @@ function buildTiff(options: TiffOptions): Buffer {
   const payloads = options.rawTileData
     ? [options.rawTileData]
     : (options.planes ?? []).map((plane) => plane.buffer.slice(plane.byteOffset, plane.byteOffset + plane.byteLength));
-  const compressed: Buffer[] = options.rawTileData
+  const compressed = options.rawTileData
     ? [Buffer.from(options.rawTileData)]
     : payloads.map((payload) => deflateSync(new Uint8Array(payload as ArrayBuffer), { level: 6 }));
 
@@ -84,7 +84,7 @@ function buildTiff(options: TiffOptions): Buffer {
   }
 
   let cursor = dataStart;
-  const tileOffsets = compressed.map((chunk) => {
+  const tileOffsets = compressed.map((chunk: Buffer) => {
     const offset = cursor;
     cursor += chunk.length;
     return offset;

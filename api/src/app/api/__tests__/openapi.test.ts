@@ -4,7 +4,7 @@ import { mockRequest } from "./helpers";
 describe("OpenAPI spec endpoint", () => {
   it("returns valid OpenAPI 3.0.3 spec", async () => {
     const { GET } = await import("@/app/api/openapi.json/route");
-    const resp = await GET(mockRequest("/api/openapi.json"));
+    const resp = GET(mockRequest("/api/openapi.json"));
     expect(resp.status).toBe(200);
 
     const spec = await resp.json();
@@ -18,7 +18,7 @@ describe("OpenAPI spec endpoint", () => {
 
   it("includes all expected endpoints", async () => {
     const { GET } = await import("@/app/api/openapi.json/route");
-    const resp = await GET(mockRequest("/api/openapi.json"));
+    const resp = GET(mockRequest("/api/openapi.json"));
     const spec = await resp.json();
 
     const expectedPaths = ["/api/elevation", "/api/health", "/api/geoip", "/api/nlnog", "/api/bgp"];
@@ -30,7 +30,7 @@ describe("OpenAPI spec endpoint", () => {
 
   it("includes CORS headers", async () => {
     const { GET } = await import("@/app/api/openapi.json/route");
-    const resp = await GET(mockRequest("/api/openapi.json"));
+    const resp = GET(mockRequest("/api/openapi.json"));
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });
 });

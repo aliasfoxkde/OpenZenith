@@ -100,8 +100,11 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
 
       let count = 0;
 
-      for (const [, track] of Object.entries(storms)) {
-        if (track.length < 2) continue;
+      for (const track of Object.values(storms)) {
+        // The record value type is `| undefined` because index access on a
+        // Record is untyped at read time; every entry is assigned above, but
+        // the guard is what lets TS narrow track for the whole body.
+        if (!track || track.length < 2) continue;
         const positions = track.map((pt: StormTrackPoint) =>
           Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]),
         );

@@ -125,9 +125,10 @@ export const GLOBE_BASEMAP_KEYS: BasemapKey[] = ["dark", "satellite", "osm", "vo
 /** Look up a basemap by key, falling back to dark for unknown keys. */
 export function getBasemap(key: string): BasemapDef {
   // `key` is unvalidated user input, so the lookup can miss even though the
-  // `as BasemapKey` cast hides that from the index signature.
-  const found: BasemapDef | undefined = BASEMAPS[key as BasemapKey];
-  return found ?? BASEMAPS.dark;
+  // `as BasemapKey` cast hides that from the index signature. Viewing the
+  // registry as Partial makes that possible miss visible to the type system.
+  const registry = BASEMAPS as Partial<Record<BasemapKey, BasemapDef>>;
+  return registry[key as BasemapKey] ?? BASEMAPS.dark;
 }
 
 /**

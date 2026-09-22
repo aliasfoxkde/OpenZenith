@@ -126,12 +126,12 @@ describe("HuggingFaceChunkBackend", () => {
     cacheGetMock.mockResolvedValue(null);
     cachePutMock.mockResolvedValue(undefined);
     fetchMock.mockReset();
-    fetchMock.mockImplementation(async (input: string) => {
+    fetchMock.mockImplementation((input: string) => {
       requestedUrls.push(input);
       const route = routes.find((candidate) => input.includes(candidate.match));
-      if (!route) return new Response("not found", { status: 404 });
-      if (route.reject) throw route.reject;
-      return new Response(route.body ?? null, { status: route.status });
+      if (!route) return Promise.resolve(new Response("not found", { status: 404 }));
+      if (route.reject) return Promise.reject(route.reject);
+      return Promise.resolve(new Response(route.body ?? null, { status: route.status }));
     });
     vi.stubGlobal("fetch", fetchMock);
   });

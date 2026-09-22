@@ -66,7 +66,7 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
     } catch (err) {
       warnLayerError("spaceWeather", err);
       setStatus(handle, "spaceWeather", "error");
-      }
+    }
   };
 
   void doLoad();

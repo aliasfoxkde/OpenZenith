@@ -20,7 +20,7 @@ interface JammingHex {
 
 describe("GPS jamming API (/api/gps-jamming)", () => {
   it("returns a hex list with CORS and a 10-minute cache policy", async () => {
-    const resp = await GET();
+    const resp = GET();
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("GET");
@@ -32,7 +32,7 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
   });
 
   it("emits every documented field on each hex", async () => {
-    const resp = await GET();
+    const resp = GET();
     const body = (await resp.json()) as { hexes: JammingHex[] };
 
     for (const hex of body.hexes) {
@@ -51,7 +51,7 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
   });
 
   it("keeps coordinates and intensities in their valid ranges", async () => {
-    const resp = await GET();
+    const resp = GET();
     const body = (await resp.json()) as { hexes: JammingHex[] };
 
     for (const hex of body.hexes) {
@@ -65,7 +65,7 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
   });
 
   it("covers the documented interference zones", async () => {
-    const resp = await GET();
+    const resp = GET();
     const body = (await resp.json()) as { hexes: JammingHex[] };
 
     const zones = {
@@ -80,8 +80,8 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
     }
   });
 
-  it("exposes CORS preflight", async () => {
-    const resp = await OPTIONS();
+  it("exposes CORS preflight", () => {
+    const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(resp.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type");

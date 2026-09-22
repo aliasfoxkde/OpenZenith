@@ -1,6 +1,6 @@
 {
   "name": "openzenith",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "description": "OpenZenith - Free global elevation API and tiling service",
   "scripts": {

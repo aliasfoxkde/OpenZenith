@@ -5,11 +5,12 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { GetInTouch } from "@/components/GetInTouch";
 import { CodeBlock } from "@/components/CodeBlock";
-import { LOCATIONS, latLonToTile, pickRandomLocations } from "./landing/locations";
-import { useTheme, setThemeMode, getThemeMode, initTheme, isDarkNow } from "./landing/useTheme";
-import { waitForMapLibre } from "./landing/maplibre-loader";
+import { LOCATIONS, pickRandomLocations } from "./landing/locations";
+import { useTheme, setThemeMode, getThemeMode, initTheme } from "./landing/useTheme";
 import { FlipCard } from "./landing/FlipCard";
-import { addOrUpdatePin, flyToWithPadding } from "./landing/map-helpers";
+import { HeroMap, type FlyTarget } from "./landing/HeroMap";
+import { SearchBox } from "./landing/SearchBox";
+import { SnippetTabs, type SnippetResult } from "./landing/SnippetTabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Home() {
@@ -17,50 +18,19 @@ export default function Home() {
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [sampleLocations, setSampleLocations] = useState(() => LOCATIONS.slice(0, 5));
-  const [result, setResult] = useState<{
-    elevation: number | null;
-    unit: string;
-    srtmTile: string;
-    tile: string;
-    source: string;
-    resolution: number;
-    location: { lat: number; lon: number };
-  } | null>(null);
+  const [result, setResult] = useState<SnippetResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mapLoading, setMapLoading] = useState(true);
   const [showTop, setShowTop] = useState(false);
   const [tooltip, setTooltip] = useState<string | null>(null);
-  const [snippetTab, setSnippetTab] = useState<"url" | "tile" | "curl" | "js" | "python" | "result">("url");
-  const [snippetCopied, setSnippetCopied] = useState(false);
   const [userGeo, setUserGeo] = useState<{
     city: string | null;
     region: string | null;
     country: string | null;
   } | null>(null);
   const [placeName, setPlaceName] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: number; lon: number }>>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchError, setSearchError] = useState("");
-  const searchRef = useRef<HTMLDivElement>(null);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heroMapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const heroMapInstance = useRef<any>(null);
-  const heroMapFlyRef = useRef<{ lat: number; lon: number } | null>(null);
+  const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const geoInitDone = useRef(false);
-
-  // Close search dropdown on click outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   // Randomize sample locations on mount (client-only to avoid hydration mismatch)
   useEffect(() => {
@@ -106,8 +76,7 @@ export default function Home() {
         const eData = await eRes.json();
         if (!eData.error) {
           if (eData.elevation) setResult(eData.elevation);
-          setSnippetTab("result");
-          heroMapFlyRef.current = { lat: clampedLat, lon: clampedLon };
+          setFlyTarget({ lat: clampedLat, lon: clampedLon });
           if (eData.address) {
             const addr = eData.address.address;
             const parts = [
@@ -145,244 +114,9 @@ export default function Home() {
 
   const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: "smooth" }), []);
 
-  // Init hero map once on mount. The initial basemap is resolved from the
-  // theme store (initTheme() has already restored localStorage by effect
-  // ordering) rather than the `dark` prop: a light-preference visitor never
-  // triggers a `dark` change, so waiting for one would leave the map
-  // permanently uninitialized.
-  useEffect(() => {
-    if (!heroMapRef.current || heroMapInstance.current) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const mlgl = await waitForMapLibre();
-        if (cancelled || !heroMapRef.current) return;
-
-        const darkAtInit = isDarkNow();
-        const basemapUrl = darkAtInit
-          ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-          : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
-
-        const map = new mlgl.Map({
-          container: heroMapRef.current,
-          style: {
-            version: 8,
-            sources: {
-              osm: {
-                type: "raster",
-                tiles: [basemapUrl],
-                tileSize: 256,
-                attribution: "&copy; CartoDB",
-              },
-            },
-            layers: [{ id: "osm", type: "raster", source: "osm" }],
-            glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-          },
-          center: [0, 25],
-          zoom: 1.5,
-          interactive: false,
-          attributionControl: false,
-        });
-
-        map.on("load", () => {
-          if (cancelled) return;
-
-          // Add DEM terrain source (Terrarium PNG tiles from R2)
-          // Admin boundary glow layers
-          try {
-            map.addSource("boundaries", {
-              type: "vector",
-              tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
-              maxzoom: 6,
-            });
-            const boundaryColor = darkAtInit ? "0, 229, 255" : "0, 80, 180";
-            map.addLayer(
-              {
-                id: "boundary-glow",
-                type: "line",
-                source: "boundaries",
-                "source-layer": "boundary",
-                paint: {
-                  "line-color": `rgba(${boundaryColor}, 0.12)`,
-                  "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
-                  "line-blur": 2,
-                },
-              },
-              "osm",
-            );
-            map.addLayer(
-              {
-                id: "boundary-line",
-                type: "line",
-                source: "boundaries",
-                "source-layer": "boundary",
-                paint: {
-                  "line-color": `rgba(${boundaryColor}, 0.25)`,
-                  "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
-                  "line-opacity": 0.6,
-                },
-              },
-              "boundary-glow",
-            );
-          } catch {
-            // Boundary tiles unavailable — continue without
-          }
-
-          // Elevation accuracy overlay (shows data resolution)
-          try {
-            map.addSource("elevation-accuracy", {
-              type: "raster",
-              tiles: ["/api/elevation-accuracy/{z}/{x}/{y}"],
-              tileSize: 256,
-              maxzoom: 5,
-            });
-            map.addLayer(
-              {
-                id: "elevation-accuracy",
-                type: "raster",
-                source: "elevation-accuracy",
-                paint: {
-                  "raster-opacity": 0.4,
-                  "raster-fade-duration": 300,
-                },
-              },
-              "osm",
-            );
-          } catch {
-            // Accuracy layer unavailable
-          }
-
-          setMapLoading(false);
-        });
-
-        heroMapInstance.current = map;
-
-        // If GeoIP resolved before map loaded, fly now
-        if (heroMapFlyRef.current) {
-          const pending = heroMapFlyRef.current;
-          heroMapFlyRef.current = null;
-          setTimeout(() => {
-            if (!map || !map.getSource) return;
-            flyToWithPadding(map, pending.lon, pending.lat, 8);
-            addOrUpdatePin(map, pending.lon, pending.lat);
-          }, 500);
-        }
-      } catch {
-        setMapLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (heroMapInstance.current) {
-        heroMapInstance.current.remove();
-        heroMapInstance.current = null;
-      }
-    };
-  }, []); // init once; theme flips are handled by the setTiles effect below
-
-  // Update hero map basemap when theme changes
-  useEffect(() => {
-    const map = heroMapInstance.current;
-    if (!map) return;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getSource
-      const source = map.getSource("osm") as any;
-      if (source && source.setTiles) {
-        const url = dark
-          ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-          : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
-        // initTheme() notify can fire this right after init with no actual
-        // flip — skip the refetch when the basemap already matches
-        if (source.tiles?.[0] !== url) {
-          source.setTiles([url]);
-        }
-      }
-      // Update boundary colors
-      const bc = dark ? "0, 229, 255" : "0, 80, 180";
-      if (map.getLayer("boundary-glow")) {
-        map.setPaintProperty("boundary-glow", "line-color", `rgba(${bc}, 0.12)`);
-      }
-      if (map.getLayer("boundary-line")) {
-        map.setPaintProperty("boundary-line", "line-color", `rgba(${bc}, 0.25)`);
-      }
-    } catch {
-      // Map not ready or source unavailable
-    }
-  }, [dark]);
-
-  // Fly hero map to location after lookup
-  useEffect(() => {
-    const target = heroMapFlyRef.current;
-    if (!target || !heroMapInstance.current) return;
-    const map = heroMapInstance.current;
-    flyToWithPadding(map, target.lon, target.lat, 8);
-    addOrUpdatePin(map, target.lon, target.lat);
-    heroMapFlyRef.current = null;
-  }, [result]);
-
-  function handleSearch(query: string) {
-    setSearchQuery(query);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-
-    if (!query.trim()) {
-      setSearchResults([]);
-      setSearchOpen(false);
-      setSearchError("");
-      return;
-    }
-
-    // Check if query looks like coordinates (e.g., "40.7, -74.0" or "40.7,-74.0")
-    const coordMatch = query.trim().match(/^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/);
-    if (coordMatch) {
-      const parsedLat = parseFloat(coordMatch[1]);
-      const parsedLon = parseFloat(coordMatch[2]);
-      if (
-        !isNaN(parsedLat) &&
-        !isNaN(parsedLon) &&
-        parsedLat >= -90 &&
-        parsedLat <= 90 &&
-        parsedLon >= -180 &&
-        parsedLon <= 180
-      ) {
-        setLat(parsedLat.toString());
-        setLon(parsedLon.toString());
-        setSearchResults([]);
-        setSearchOpen(false);
-        setSearchError("");
-        return;
-      }
-    }
-
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=5`);
-        if (!res.ok) {
-          setSearchResults([]);
-          setSearchError("Address search is temporarily unavailable. Try again shortly.");
-          setSearchOpen(true);
-          return;
-        }
-        const data = await res.json();
-        if (data?.ok === false || data?.error) {
-          setSearchResults([]);
-          setSearchError(data.error?.message || data.error || "Address search is temporarily unavailable.");
-          setSearchOpen(true);
-          return;
-        }
-        setSearchError("");
-        setSearchResults(data.results || []);
-        setSearchOpen(true);
-      } catch {
-        setSearchResults([]);
-        setSearchError("Address search is temporarily unavailable. Check your connection and retry.");
-        setSearchOpen(true);
-      }
-    }, 300);
-  }
-
-  async function lookup() {
-    const la = parseFloat(lat);
-    const lo = parseFloat(lon);
+  async function lookup(latOverride?: number, lonOverride?: number) {
+    const la = latOverride ?? parseFloat(lat);
+    const lo = lonOverride ?? parseFloat(lon);
     if (isNaN(la) || isNaN(lo)) {
       setError("Enter valid coordinates");
       return;
@@ -401,13 +135,7 @@ export default function Home() {
         setResult(null);
       } else {
         // Extract elevation for backward compat
-        if (data.elevation) {
-          setResult(data.elevation);
-        } else {
-          setResult(null);
-        }
-        setSnippetTab("result");
-        heroMapFlyRef.current = { lat: la, lon: lo };
+        setResult(data.elevation ?? null);
         // Extract address from unified response
         if (data.address) {
           const addr = data.address.address;
@@ -515,51 +243,7 @@ export default function Home() {
           className="oz-hero"
           style={{ position: "relative", height: 660, overflow: "hidden", marginBottom: "2rem" }}
         >
-          {/* Map background */}
-          <div
-            id="hero-map"
-            ref={heroMapRef}
-            className="oz-hero-map"
-            style={{
-              position: "absolute",
-              inset: 0,
-              filter: dark ? "brightness(1.4) contrast(0.9) saturate(0.6)" : undefined,
-            }}
-          />
-          {/* Subtle overlay — lets map texture show through */}
-          <div
-            className="oz-hero-overlay"
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: dark
-                ? "linear-gradient(180deg, rgba(10,10,10,0.72) 0%, rgba(10,10,10,0.22) 40%, rgba(10,10,10,0.62) 100%)"
-                : "linear-gradient(180deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.40) 40%, rgba(255,255,255,0.80) 100%)",
-              pointerEvents: "none",
-              zIndex: 2,
-            }}
-          />
-          {/* Loading indicator */}
-          {mapLoading && (
-            <div
-              id="hero-loading"
-              className="oz-hero-loading"
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%,-50%)",
-                background: "rgba(0,0,0,0.7)",
-                color: "#22c55e",
-                padding: "0.5rem 1rem",
-                borderRadius: 6,
-                fontSize: "0.85rem",
-                zIndex: 4,
-              }}
-            >
-              Loading elevation map...
-            </div>
-          )}
+          <HeroMap dark={dark} flyTarget={flyTarget} />
           {/* Content overlay */}
           <div
             id="hero-content"
@@ -615,131 +299,22 @@ export default function Home() {
               </div>
             )}
 
-            {/* Address search */}
-            <div ref={searchRef} style={{ position: "relative", marginBottom: "0.6rem" }}>
-              <div style={{ position: "relative", display: "flex" }}>
-                <span
-                  style={{
-                    position: "absolute",
-                    left: "0.7rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: textSecondary,
-                    fontSize: "0.85rem",
-                    pointerEvents: "none",
-                    zIndex: 1,
-                  }}
-                >
-                  &#128269;
-                </span>
-                <input
-                  id="address-search"
-                  className="oz-input oz-input-search"
-                  placeholder="Search address or place..."
-                  aria-label="Search address or place"
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  onFocus={() => {
-                    if (searchResults.length > 0) setSearchOpen(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setSearchOpen(false);
-                  }}
-                  style={{
-                    ...inputStyle,
-                    paddingLeft: "2rem",
-                    paddingRight: searchQuery ? "2rem" : "0.75rem",
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    aria-label="Clear search"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSearchResults([]);
-                      setSearchOpen(false);
-                      setSearchError("");
-                    }}
-                    style={{
-                      position: "absolute",
-                      right: "0.5rem",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      color: textSecondary,
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
-                      padding: "0.1rem",
-                      lineHeight: 1,
-                    }}
-                  >
-                    &#x2715;
-                  </button>
-                )}
-              </div>
-              {searchOpen && (searchResults.length > 0 || searchError || searchQuery.trim()) && (
-                <div
-                  role="region"
-                  aria-live="polite"
-                  aria-label="Address search results"
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    right: 0,
-                    zIndex: 10,
-                    background: cardBg,
-                    border: `1px solid ${border}`,
-                    borderRadius: 6,
-                    maxHeight: "12rem",
-                    overflowY: "auto",
-                    marginTop: "0.2rem",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  {searchError ? (
-                    <div role="alert" style={{ padding: "0.65rem 0.75rem", color: textSecondary, fontSize: "0.82rem" }}>
-                      {searchError}
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    searchResults.map((r, i) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          setLat(r.lat.toString());
-                          setLon(r.lon.toString());
-                          setSearchQuery(r.display_name.split(",")[0]);
-                          setSearchOpen(false);
-                          lookup();
-                        }}
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "0.5rem 0.75rem",
-                          border: "none",
-                          background: "none",
-                          color: text,
-                          fontSize: "0.82rem",
-                          cursor: "pointer",
-                          borderBottom: i < searchResults.length - 1 ? `1px solid ${border}` : "none",
-                        }}
-                      >
-                        <div style={{ fontWeight: 500 }}>{r.display_name.split(",")[0]}</div>
-                        <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.1rem" }}>
-                          {r.display_name.split(",").slice(1).join(",").trim()}
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div style={{ padding: "0.65rem 0.75rem", color: textSecondary, fontSize: "0.82rem" }}>
-                      No matching places found.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <SearchBox
+              cardBg={cardBg}
+              border={border}
+              text={text}
+              textSecondary={textSecondary}
+              inputStyle={inputStyle}
+              onCoords={(la, lo) => {
+                setLat(la);
+                setLon(lo);
+              }}
+              onPick={(la, lo) => {
+                setLat(la.toString());
+                setLon(lo.toString());
+                lookup(la, lo);
+              }}
+            />
 
             {/* Lookup inputs */}
             <div
@@ -768,7 +343,7 @@ export default function Home() {
               <button
                 id="lookup-btn"
                 className="oz-lookup-btn"
-                onClick={lookup}
+                onClick={() => lookup()}
                 disabled={loading}
                 style={{
                   padding: "0 1rem",
@@ -838,222 +413,16 @@ export default function Home() {
               </div>
             )}
 
-            {/* Combined Result + Code Snippets panel */}
-            <div
-              id="snippets-panel"
-              className="oz-snippets"
-              aria-live="polite"
-              aria-label="Elevation result"
-              aria-busy={loading}
-            >
-              <div className="oz-snippet-bar">
-                <div className="oz-snippet-tabs">
-                  {result && (
-                    <button
-                      className={`oz-snippet-tab ${snippetTab === "result" ? "active" : ""}`}
-                      onClick={() => setSnippetTab("result")}
-                    >
-                      Result
-                    </button>
-                  )}
-                  <button
-                    className={`oz-snippet-tab ${snippetTab === "url" ? "active" : ""}`}
-                    onClick={() => setSnippetTab("url")}
-                  >
-                    API URL
-                  </button>
-                  <button
-                    className={`oz-snippet-tab ${snippetTab === "tile" ? "active" : ""}`}
-                    onClick={() => setSnippetTab("tile")}
-                  >
-                    Tile
-                  </button>
-                  <button
-                    className={`oz-snippet-tab ${snippetTab === "curl" ? "active" : ""}`}
-                    onClick={() => setSnippetTab("curl")}
-                  >
-                    cURL
-                  </button>
-                  <button
-                    className={`oz-snippet-tab ${snippetTab === "js" ? "active" : ""}`}
-                    onClick={() => setSnippetTab("js")}
-                  >
-                    JS
-                  </button>
-                  <button
-                    className={`oz-snippet-tab ${snippetTab === "python" ? "active" : ""}`}
-                    onClick={() => setSnippetTab("python")}
-                  >
-                    Python
-                  </button>
-                </div>
-                <button
-                  className="oz-snippet-copy"
-                  onClick={() => {
-                    const la = lat || "28.0";
-                    const lo = lon || "86.9";
-                    const t = latLonToTile(Number(la), Number(lo), 8);
-                    const snippetText =
-                      snippetTab === "result" && result
-                        ? `${result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data"}`
-                        : snippetTab === "url"
-                          ? `https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}`
-                          : snippetTab === "tile"
-                            ? `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`
-                            : snippetTab === "curl"
-                              ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${la}&lon=${lo}"`
-                              : snippetTab === "js"
-                                ? `const res = await fetch('/api/elevation?lat=${la}&lon=${lo}')\nconst { elevation } = await res.json()`
-                                : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${la}, "lon": ${lo}})\nprint(res.json()["elevation"])`;
-                    navigator.clipboard.writeText(snippetText);
-                    setSnippetCopied(true);
-                    setTimeout(() => setSnippetCopied(false), 1500);
-                  }}
-                >
-                  {snippetCopied ? "Copied" : "Copy"}
-                </button>
-              </div>
-              <CodeBlock
-                dark={dark}
-                code={
-                  snippetTab === "result" && result
-                    ? result.elevation !== null
-                      ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)`
-                      : "No data"
-                    : snippetTab === "url"
-                      ? `https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`
-                      : snippetTab === "tile"
-                        ? (() => {
-                            const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8);
-                            return `https://openzenith.cyopsys.com/api/tile/8/${t.x}/${t.y}`;
-                          })()
-                        : snippetTab === "curl"
-                          ? `curl "https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}"`
-                          : snippetTab === "js"
-                            ? `const res = await fetch('/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}')\nconst { elevation } = await res.json()`
-                            : `import requests\nres = requests.get("https://openzenith.cyopsys.com/api/elevation", params={"lat": ${lat || "28.0"}, "lon": ${lon || "86.9"}})\nprint(res.json()["elevation"])`
-                }
-              >
-                {snippetTab === "result" && result && (
-                  <div>
-                    <div className="oz-result-value">
-                      {result.elevation !== null ? `${result.elevation.toLocaleString()}m` : "No data"}
-                      {result.elevation !== null && (
-                        <span className="oz-result-ft">({(result.elevation * 3.28084).toFixed(2)} ft)</span>
-                      )}
-                    </div>
-                    <div className="oz-result-meta">
-                      {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot;{" "}
-                      {result.tile || result.srtmTile} &middot; {result.resolution}m
-                    </div>
-                    {placeName && (
-                      <div
-                        style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.15rem", fontStyle: "italic" }}
-                      >
-                        near {placeName}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {snippetTab === "url" && (
-                  <a
-                    id="snippet-api-url"
-                    className="oz-snippet-url"
-                    href={`https://openzenith.cyopsys.com/api/elevation?lat=${lat || "28.0"}&lon=${lon || "86.9"}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}
-                  </a>
-                )}
-                {snippetTab === "tile" &&
-                  (() => {
-                    const t = latLonToTile(Number(lat || "28.0"), Number(lon || "86.9"), 8);
-                    const tileUrl = `/api/tile/8/${t.x}/${t.y}`;
-                    const mapUrl = `/map#lng=${lat || "86.9"}&lat=${lat || "28.0"}&zoom=10`;
-                    return (
-                      <>
-                        <a
-                          className="oz-snippet-url"
-                          href={`https://openzenith.cyopsys.com${tileUrl}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          https://openzenith.cyopsys.com{tileUrl}
-                        </a>
-                        <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <a
-                            href={mapUrl}
-                            style={{
-                              fontSize: "0.68rem",
-                              color: "var(--oz-accent, #00e5ff)",
-                              textDecoration: "none",
-                              fontFamily: "var(--oz-font-mono, monospace)",
-                            }}
-                          >
-                            Open in Map &rarr;
-                          </a>
-                          <span
-                            style={{
-                              fontSize: "0.65rem",
-                              color: "var(--oz-text-secondary, #64748b)",
-                              fontFamily: "var(--oz-font-mono, monospace)",
-                            }}
-                          >
-                            z8 &middot; {t.x}/{t.y} &middot; 256&times;256 Int16
-                          </span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                {snippetTab === "curl" && (
-                  <div>
-                    <span className="oz-syn-method">curl</span>{" "}
-                    <span style={{ color: text }}>
-                      "https://openzenith.cyopsys.com/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}"
-                    </span>
-                  </div>
-                )}
-                {snippetTab === "js" && (
-                  <>
-                    <div>
-                      <span className="oz-syn-keyword">const</span> res ={" "}
-                      <span style={{ color: textSecondary }}>await</span> <span className="oz-syn-function">fetch</span>
-                      (
-                      <span className="oz-syn-string">
-                        &apos;/api/elevation?lat={lat || "28.0"}&amp;lon={lon || "86.9"}&apos;
-                      </span>
-                      )
-                    </div>
-                    <div>
-                      <span className="oz-syn-keyword">const</span> &#123; elevation &#125; ={" "}
-                      <span style={{ color: textSecondary }}>await</span> res.json()
-                    </div>
-                  </>
-                )}
-                {snippetTab === "python" && (
-                  <>
-                    <div>
-                      <span className="oz-syn-keyword">import</span> requests
-                    </div>
-                    <div>
-                      res = requests.<span className="oz-syn-function">get</span>(
-                      <span className="oz-syn-string">"https://openzenith.cyopsys.com/api/elevation"</span>,
-                    </div>
-                    <div>
-                      &nbsp;&nbsp;&nbsp;&nbsp;params=&#123;<span className="oz-syn-string">"lat"</span>:{" "}
-                      <span className="oz-syn-number">{lat || "28.0"}</span>,{" "}
-                      <span className="oz-syn-string">"lon"</span>:{" "}
-                      <span className="oz-syn-number">{lon || "86.9"}</span>&#125;)
-                    </div>
-                    <div>
-                      <span className="oz-syn-keyword">print</span>(res.json()[
-                      <span className="oz-syn-string">"elevation"</span>])
-                    </div>
-                  </>
-                )}
-              </CodeBlock>
-            </div>
+            <SnippetTabs
+              lat={lat}
+              lon={lon}
+              result={result}
+              placeName={placeName}
+              loading={loading}
+              dark={dark}
+              text={text}
+              textSecondary={textSecondary}
+            />
           </div>
 
           {/* Open Full Map button */}

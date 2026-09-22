@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import pkg from "../../../../package.json";
 
 export const runtime = "edge";
 
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     {
       requestId,
       status: "healthy",
-      version: "0.8.0",
+      version: pkg.version,
       storage: {
         backend,
         primary: "ozt2",

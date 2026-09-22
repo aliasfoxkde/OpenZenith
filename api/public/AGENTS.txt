@@ -7,7 +7,7 @@ OpenZenith is a free, open-source geospatial platform providing global elevation
 data (NASA SRTM 30m, Copernicus GLO-30), interactive mapping, weather data,
 flight tracking, earthquake monitoring, satellite data, bathymetry, and more.
 
-Production: https://openzenith.pages.dev
+Production: https://openzenith.cyopsys.com
 Repository: https://github.com/aliasfoxkde/OpenZenith
 License: Free and open. Elevation data sourced from NASA SRTM / Copernicus.
 
@@ -82,7 +82,7 @@ License: Free and open. Elevation data sourced from NASA SRTM / Copernicus.
 
 ### Health
 - GET /api/health
-  - Returns: {"status": "healthy", "version": "0.2.0", "storage": {...}, "coverage": {...}, "endpoints": {...}}
+  - Returns: {"status": "healthy", "version": "<pkg version>", "storage": {...}, "coverage": {...}, "endpoints": {...}}
 
 ### Documentation
 - GET /api/docs — Interactive OpenAPI 3.0 documentation with try-it panel
@@ -101,6 +101,8 @@ License: Free and open. Elevation data sourced from NASA SRTM / Copernicus.
 - /demo — API demonstration and testing interface
 - /about — Project information and data sources
 - /contribute — Data contribution guidelines
+- /studio — Geospatial studio: drawing, measurement, analysis tools
+- /wasm-demo — Browser WASM demo: D8 flow direction, viewshed, OZT2 decode
 
 ## Tile Format
 Tiles are raw 16-bit signed integers (Int16) in row-major order (top-to-bottom, left-to-right).

@@ -108,7 +108,7 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
   const needsFallback = validPct < 0.05 || validCount === 0 || hasBlacklisted;
 
   if (needsFallback) {
-    console.log(`[tile] HuggingFace sparse for ${z}/${x}/${y} (${(validPct * 100).toFixed(1)}% valid), trying AWS`);
+    console.debug(`[tile] HuggingFace sparse for ${z}/${x}/${y} (${(validPct * 100).toFixed(1)}% valid), trying AWS`);
     const awsData = await fetchAWSTerrainTile(z, x, y);
     if (awsData) {
       // If AWS has more valid data, use it
@@ -117,11 +117,11 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
         if (awsData[i] !== NODATA) awsValid++;
       }
       if (awsValid > validCount) {
-        console.log(`[tile] AWS fallback better (${awsValid} vs ${validCount} valid) for ${z}/${x}/${y}`);
+        console.debug(`[tile] AWS fallback better (${awsValid} vs ${validCount} valid) for ${z}/${x}/${y}`);
         return { data: awsData, width: TILE_SIZE, height: TILE_SIZE, zoom: z };
       }
     }
-    console.log(`[tile] AWS fallback not better for ${z}/${x}/${y}`);
+    console.debug(`[tile] AWS fallback not better for ${z}/${x}/${y}`);
   }
 
   return { data, width: TILE_SIZE, height: TILE_SIZE, zoom: z };

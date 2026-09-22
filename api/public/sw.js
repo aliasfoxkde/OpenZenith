@@ -1,8 +1,11 @@
 /// <reference lib="webworker" />
 
+// Plain JS only — this file is served verbatim from public/ and parsed by
+// browsers as a classic script (no TypeScript transpilation applies).
+
 const CACHE_NAME = "openzenith-v3";
 
-const PRECACHE_URLS = ["/", "/map", "/explore"];
+const PRECACHE_URLS = ["/", "/map", "/explore", "/offline.html"];
 
 // Tile domains to cache on-demand
 const TILE_CACHE_DOMAINS = [
@@ -21,7 +24,7 @@ const GEO_API_TTL = 24 * 60 * 60 * 1000; // 24h — geocoding rarely changes
 /**
  * Determine cache TTL based on URL path.
  */
-function getCacheTTL(url: URL): number {
+function getCacheTTL(url) {
   const p = url.pathname;
   // Terrain tile APIs (static elevation data)
   if (p.match(/^\/api\/(dem-tile|elevation-color|elevation-accuracy|contours|hillshade)\/\d+\/\d+\/\d+/)) {
@@ -40,34 +43,34 @@ function getCacheTTL(url: URL): number {
 }
 
 /** Check if a cached response is still fresh. */
-function isFresh(response: Response, maxAge: number): boolean {
+function isFresh(response, maxAge) {
   const cachedAt = parseInt(response.headers.get("x-sw-cached-at") || "0", 10);
   if (!cachedAt) return false;
-  return (Date.now() - cachedAt) < maxAge;
+  return Date.now() - cachedAt < maxAge;
 }
 
 /** Add timestamp header for TTL tracking. */
-function withTimestamp(response: Response): Response {
+function withTimestamp(response) {
   const headers = new Headers(response.headers);
   headers.set("x-sw-cached-at", String(Date.now()));
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
-self.addEventListener("install", (event: ExtendableEvent) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
-  (self as unknown as ServiceWorkerGlobalScope).skipWaiting();
+  self.skipWaiting();
 });
 
-self.addEventListener("activate", (event: ExtendableEvent) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))),
     ),
   );
-  (self as unknown as ServiceWorkerGlobalScope).clients.claim();
+  self.clients.claim();
 });
 
-self.addEventListener("fetch", (event: FetchEvent) => {
+self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
   // OpenZenith API routes — stale-while-revalidate with TTL
@@ -108,10 +111,14 @@ self.addEventListener("fetch", (event: FetchEvent) => {
     return;
   }
 
-  // Navigation requests — cache-first
+  // Navigation requests — cache-first with offline fallback page
   if (event.request.mode === "navigate") {
-    event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+    event.respondWith(
+      caches.match(event.request).then(
+        (cached) =>
+          cached ||
+          fetch(event.request).catch(() => caches.match("/offline.html").then((fallback) => fallback || Response.error())),
+      ),
+    );
   }
 });
-
-export {};

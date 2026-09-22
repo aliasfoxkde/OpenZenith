@@ -62,3 +62,11 @@ core/target/
 
 # HuggingFace cache (download at runtime)
 .hf_cache/
+
+# Debug/investigation screenshots and benchmark outputs (regenerable)
+output/
+tests/results/
+tests/results2/
+
+# Coverage reports (vitest --coverage)
+api/coverage/

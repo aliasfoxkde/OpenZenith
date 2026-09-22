@@ -22,7 +22,7 @@ Works entirely offline after installing the Python SDK and optional local data. 
 - **Offline-first**: Local SRTM .merged tiles — no network required for elevation queries
 - **Low-latency**: Rust/WASM compute kernels for D8 flow, viewshed, OZT2 decode — runs in-browser or subprocess
 - **Complete terrain analysis**: slope, aspect, hillshade, viewshed, TPI, roughness, curvature, watersheds, stream extraction, downstream tracing
-- **Production-ready**: Type hints, 255 unit tests, clippy-clean Rust, typed TypeScript API
+- **Production-ready**: Type hints, 688 pytest unit tests, clippy-clean Rust, typed TypeScript API
 
 ---
 
@@ -168,7 +168,7 @@ Python SDK (local compute) ←→ REST API (cloud, 80+ edge routes)
 | SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
 | API | Next.js 15, TypeScript, Cloudflare Edge |
 | Data | SRTM 30m (HuggingFace), GEBCO 2025 |
-| Tests | 255 pytest (Python), 17 cargo test (Rust), vitest (TypeScript) |
+| Tests | 688 pytest (Python), 17 cargo test (Rust), 419+ vitest (TypeScript) |
 
 ---
 

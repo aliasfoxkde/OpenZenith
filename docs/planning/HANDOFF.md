@@ -2,12 +2,15 @@
 
 **Evidence boundary:** branch `docs/register-openzenith-handoff-20260901`;
 base `main` at `f55f465` before this documentation-only change.
-**Status:** active; multi-surface elevation platform with runtime, offline,
-visual, and release qualification still required.
+**Status:** active; deployed to Cloudflare Pages
+(https://openzenith.cyopsys.com) and released through v0.8.3 with
+enforced quality gates (see the 2026-09-22 update below). Offline and
+visual-regression qualification remain unclaimed.
 **Role:** geospatial SDK/API/UI with Rust/WASM terrain kernels and optional MCP
 surface.
-**Rating:** 7/10 (advisory; current repository health is not a production
-deployment claim).
+**Rating:** 8/10 as of v0.8.3 (advisory; was 7/10 pre-gates — coverage
+floors, aegis security gate, and a WCAG AAA audit are now enforced; the
+MCP surface is still unqualified and app-page coverage is ungated).
 
 > **Current execution authority:** Use `/nas/Temp/repos/Platform-Architecture/docs/planning/HANDOFF_AUDIT_2026-08-13.md` for verified cross-repository findings and `/nas/Temp/repos/Platform-Architecture/docs/planning/CODEX_CLI_EXECUTION_PACKETS_2026-08-13.md` for bounded implementation sessions. This handoff records OpenZenith-specific evidence only.
 >

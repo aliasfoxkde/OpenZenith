@@ -101,8 +101,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-        <link rel="preload" href="https://unpkg.com/cesium@1.119/Build/Cesium/Widgets/widgets.css" as="style" />
-        <link rel="preconnect" href="https://unpkg.com" />
+        {/* Cesium assets are loaded by /globe's cesium-init.ts — a global
+            preload here fires a "preloaded but not used" console warning on
+            every other page. `preconnect` alone keeps the CDN handshake warm. */}
+        <link rel="preconnect" href="https://unpkg.com" crossOrigin="anonymous" />
       </head>
       <body
         style={{

@@ -27,6 +27,11 @@ function resolveDark(mode: ThemeMode): boolean {
   return typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
 }
 
+/** Read the effective dark/light state right now (must run client-side). */
+export function isDarkNow(): boolean {
+  return resolveDark(currentMode);
+}
+
 /** React hook — returns `true` if dark theme is active. */
 export function useTheme() {
   const subscribe = useCallback((callback: () => void) => {
@@ -64,6 +69,10 @@ export function initTheme(): ThemeMode {
     /* storage unavailable */
   }
   applyTheme(currentMode);
+  // Stored mode can differ from what the hook resolved pre-init (module
+  // default is "system"); notify so `useTheme()` consumers re-render with the
+  // restored value instead of staying on the stale one.
+  notifyAll();
   return currentMode;
 }
 

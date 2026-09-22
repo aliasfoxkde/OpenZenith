@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { GetInTouch } from "@/components/GetInTouch";
 import { CodeBlock } from "@/components/CodeBlock";
 import { LOCATIONS, latLonToTile, pickRandomLocations } from "./landing/locations";
-import { useTheme, setThemeMode, getThemeMode, initTheme } from "./landing/useTheme";
+import { useTheme, setThemeMode, getThemeMode, initTheme, isDarkNow } from "./landing/useTheme";
 import { waitForMapLibre } from "./landing/maplibre-loader";
 import { FlipCard } from "./landing/FlipCard";
 import { addOrUpdatePin, flyToWithPadding } from "./landing/map-helpers";
@@ -145,13 +145,12 @@ export default function Home() {
 
   const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: "smooth" }), []);
 
-  // Init hero map — deferred one tick so initTheme() sets correct dark state first
-  const heroMapReady = useRef(false);
+  // Init hero map once on mount. The initial basemap is resolved from the
+  // theme store (initTheme() has already restored localStorage by effect
+  // ordering) rather than the `dark` prop: a light-preference visitor never
+  // triggers a `dark` change, so waiting for one would leave the map
+  // permanently uninitialized.
   useEffect(() => {
-    if (!heroMapReady.current) {
-      heroMapReady.current = true;
-      return; // skip first render; initTheme() runs in parallel, next tick has correct dark
-    }
     if (!heroMapRef.current || heroMapInstance.current) return;
     let cancelled = false;
     (async () => {
@@ -159,7 +158,8 @@ export default function Home() {
         const mlgl = await waitForMapLibre();
         if (cancelled || !heroMapRef.current) return;
 
-        const basemapUrl = dark
+        const darkAtInit = isDarkNow();
+        const basemapUrl = darkAtInit
           ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
           : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
 
@@ -195,7 +195,7 @@ export default function Home() {
               tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
               maxzoom: 6,
             });
-            const boundaryColor = dark ? "0, 229, 255" : "0, 80, 180";
+            const boundaryColor = darkAtInit ? "0, 229, 255" : "0, 80, 180";
             map.addLayer(
               {
                 id: "boundary-glow",
@@ -278,7 +278,7 @@ export default function Home() {
         heroMapInstance.current = null;
       }
     };
-  }, [dark]); // depends on dark — deferred first render, then stable
+  }, []); // init once; theme flips are handled by the setTiles effect below
 
   // Update hero map basemap when theme changes
   useEffect(() => {
@@ -291,7 +291,11 @@ export default function Home() {
         const url = dark
           ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
           : "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png";
-        source.setTiles([url]);
+        // initTheme() notify can fire this right after init with no actual
+        // flip — skip the refetch when the basemap already matches
+        if (source.tiles?.[0] !== url) {
+          source.setTiles([url]);
+        }
       }
       // Update boundary colors
       const bc = dark ? "0, 229, 255" : "0, 80, 180";

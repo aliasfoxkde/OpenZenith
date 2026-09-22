@@ -64,11 +64,13 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  // Rate limiting (skip for static tile endpoints)
+  // Rate limiting (skip for tile endpoints — map views burst dozens of these
+  // per load, they are immutable and CDN-cached, and Cloudflare's own rate
+  // limiting rules are the right place to throttle abuse)
   if (
-    pathname.startsWith("/api/dem-tile/") ||
-    pathname.startsWith("/api/tile/") ||
-    pathname.startsWith("/api/gebco-tile/")
+    /^\/api\/(dem-tile|tile|gebco-tile|elevation-accuracy|elevation-color|floods-tile|contours)\//.test(
+      pathname,
+    )
   ) {
     return response;
   }

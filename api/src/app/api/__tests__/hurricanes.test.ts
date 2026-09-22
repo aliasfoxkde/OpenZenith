@@ -9,6 +9,19 @@ const MOCK_SHORT_CSV = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,W
 2024272N18284,2024,NA,NORTH_ATLANTIC,MILTON,2024-10-09 18:00:00,TS,22.8,-89.1,55,982,main`;
 
 describe("Hurricanes API", () => {
+  it("skips storms with a single track point (line geometry needs 2+)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(MOCK_SHORT_CSV, { status: 200, headers: { "Content-Type": "text/csv" } }),
+    );
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    expect(resp.status).toBe(200);
+    const data = await resp.json();
+    expect(data.type).toBe("FeatureCollection");
+    expect(data.features).toHaveLength(0);
+  });
+
   it("returns GeoJSON FeatureCollection", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(MOCK_IBTRACS, { status: 200, headers: { "Content-Type": "text/csv" } }),

@@ -373,3 +373,37 @@ spot-checked at its new location (method recorded in
   `scripts/aegis_scan.sh` gate now passes with zero new findings.
 - 3 permanent self-hits accepted and dispositioned: the gate script's own
   inline Python heredoc trips print-statement/terraform-count.
+
+### 2026-09-22 — v0.8.3 release + deploy evidence (final)
+
+**Validation.** Full E2E suite (chromium + firefox, `--workers=2`): 80
+passed / 0 failed / exit 0 against the local wrangler production
+artifact. Production-verify + OZT2-validate specs vs live prod: 43
+passed, exit 0. vitest 977 passed | 5 skipped (92 files) against raised
+thresholds; pytest 718 passed, 82.08% vs floor 81; ruff clean; Rust
+gate green (fmt/clippy/30 tests); aegis gate green (0 new findings).
+Parallel two-browser runs at default workers produced chromium
+`Target crashed` renderer OOM (box swap at 100%, an unrelated
+long-running session compounding); sequential-worker validation is the
+reliable evidence on this host.
+
+**E2E-found true positive (fixed):** Firefox axe flags the hero loading
+badge — `#22c55e` on `rgba(0,0,0,0.7)` composites against the light
+hero overlay mid-load, dropping below AAA; chromium passed only because
+the badge had usually detached by audit time. Badge made opaque
+(`#0a0a0a`, ~8.7:1) in `HeroMap.tsx` + `globals.css`.
+
+**Release/deploy.** 10 commits pushed to GitForge (first) and GitHub;
+tag `v0.8.3` both remotes; GitHub release published. Cloudflare Pages
+deployed from the validated artifact
+(https://616e2d09.openzenith.pages.dev); prod health reports
+`"version":"0.8.3"`, landing 200, elevation API serving.
+
+**HF z10 sync v3 (open, recorded honestly).** Hash-delta uploader
+listed 151,988 local tiles: 62,813 hash-current, 89,175 to upload in
+60 commits of ≤1,500. 26 commits landed ("0 files uploaded" =
+server-side hash dedup), then batches 27–28 entered persistent
+server-side read-timeout backoff (215 timeouts over ~7 h; 20→300 s).
+Process left running; no client-side fix — the bottleneck is HF's
+commit API. Next session: resume when HF recovers or split batches to
+≤500 files; expected remaining ≈ 34 commits.

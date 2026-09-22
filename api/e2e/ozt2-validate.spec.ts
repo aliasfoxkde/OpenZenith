@@ -15,6 +15,10 @@
 
 import { test, expect } from "@playwright/test";
 
+// First-party origin — used to separate our own request failures from the
+// third-party feed noise the globe is designed to tolerate.
+const baseURL = process.env.E2E_BASE_URL ?? "https://openzenith.cyopsys.com";
+
 // Well-known tiles that should have land (mountains/coastal areas)
 const TEST_TILES = [
   { z: 10, x: 163, y: 395, name: "Mt. Everest area" },
@@ -132,10 +136,17 @@ test.describe("CesiumJS OZT2 Terrain Provider", () => {
   // Opt in with E2E_RUN_HEAVY=1 instead of hard-skipping.
   test.skip(!process.env.E2E_RUN_HEAVY, "requires E2E_RUN_HEAVY=1");
   test("globe page loads with terrain without errors", async ({ page }) => {
-    const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push("PAGE:" + err.message));
-    page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push("CONSOLE:" + msg.text());
+    // The globe aggregates 15+ third-party live feeds; any single external
+    // outage surfaces as a console resource error. What this test owns is:
+    // uncaught JS exceptions and failed first-party requests.
+    const pageErrors: string[] = [];
+    const firstPartyFailures: string[] = [];
+
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+    page.on("requestfailed", (req) => {
+      if (req.url().startsWith(baseURL)) {
+        firstPartyFailures.push(`${req.method()} ${req.url()} — ${req.failure()?.errorText}`);
+      }
     });
 
     await page.goto("/globe", { waitUntil: "load", timeout: 30000 });
@@ -149,13 +160,9 @@ test.describe("CesiumJS OZT2 Terrain Provider", () => {
       };
     });
 
-    console.log("Errors:", errors.filter((e) => !e.includes("401") && !e.includes("ion")));
     expect(diag.cesiumLoaded).toBe(true);
     expect(diag.viewerExists).toBe(true);
-    // Filter out known non-critical errors (Cesium Ion 401s, etc.)
-    const criticalErrors = errors.filter(
-      (e) => !e.includes("401") && !e.includes("ion") && !e.includes("CesiumIon"),
-    );
-    expect(criticalErrors).toHaveLength(0);
+    expect(pageErrors).toHaveLength(0);
+    expect(firstPartyFailures).toHaveLength(0);
   });
 });

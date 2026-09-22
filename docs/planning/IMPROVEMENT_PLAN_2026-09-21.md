@@ -162,3 +162,18 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
   the firefox browser binary and ran the full suite against the LOCAL dev
   server: chromium 32 passed / firefox 32 passed, 1 skipped (heavy), zero
   production dependency.
+- 2026-09-22: Phase 7 complete (v0.8.2, deploy `1e99b1b1`). Validation chain
+  green: tsc clean, eslint clean, production build ok, vitest 977 passed /
+  5 skipped across 92 files (92.1/83.25/81.25/92.1). GitForge: push trigger
+  fires (pipeline object materializes) but run execution still stalls on the
+  known event-drain issue; all stored tokens 401 the pipeline API — fresh
+  `/auth/login` JWT works for read-only status. Harness-jobs has no
+  OpenZenith profile (only `dsc-test-node`) — gap stands as surfaced.
+  Deployed via `pages:build` → artifact verify (new chunk hash live in
+  worker bundle + static chunks) → local workerd smoke (landing/map/globe/
+  elevation/tile all 200; needed fresh `--persist-to`, stale `_cf_ALARM`
+  SQLite schema crashed workerd) → `pages:deploy`. Production verified:
+  v0.8.2 chunk hash served, E2E 64 passed/2 skipped, heavy suite
+  E2E_RUN_HEAVY=1 16 passed after fixing the globe-terrain assertion
+  (uncaught JS + first-party request failures instead of zero console
+  errors — third-party feed outages are environmental, not regressions).

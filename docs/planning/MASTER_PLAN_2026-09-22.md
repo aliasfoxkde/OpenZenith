@@ -422,3 +422,13 @@ executable CI-parity remains the local gate set (eslint 0 errors,
 tsc, vitest+coverage floors, pytest+coverage floor, cargo fmt/clippy/
 test, aegis gate, E2E). Re-test when GitForge ships both capabilities;
 tokens only via the user's interactive `gitforge auth --login`.
+
+### 2026-09-22 — Rust coverage baseline measured (cargo-llvm-cov)
+
+`cargo llvm-cov --all` in `core/`: **78.81% lines / 81.62% regions**
+(708 lines, 150 missed). Per file: `viewshed.rs` 99.12%,
+`ozt2.rs` 94.50%, `main.rs` 73.13% (function coverage only 35% — the
+CLI arg-parse/error paths), `d8.rs` 68.66% (89 missed lines — the
+depression-filling/edge branches). No gate added yet per policy: first
+ratchet target is main.rs CLI error paths + d8.rs branches, then add a
+cargo-llvm-cov floor near the measured baseline.

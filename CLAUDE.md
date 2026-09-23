@@ -22,6 +22,8 @@ npm run lint         # ESLint check
 npm run lint:fix     # ESLint fix
 npm run test         # Vitest (TypeScript tests)
 npm run test:watch   # Vitest watch mode
+npm run openapi:generate  # Regenerate src/app/api/openapi.json/spec.json (after routes/version change)
+npm run openapi:check     # Verify committed spec is current (also enforced in vitest)
 npx playwright test # E2E tests
 npx playwright test -- --workers=2   # reliable on this host (renderer OOM at higher parallelism)
 E2E_RUN_HEAVY=1 npx playwright test e2e/ozt2-validate.spec.ts   # opt-in: full Cesium terrain pipeline check

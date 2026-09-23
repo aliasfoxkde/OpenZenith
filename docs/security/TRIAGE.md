@@ -205,6 +205,33 @@ for a US-ZIP regex), `street-address`, and style-level patterns. Individually
 reviewed samples from each pattern class confirmed no true positives; the
 class-level disposition is false positive.
 
+## Re-triage 2026-09-22 (OpenAPI single-sourcing, 10 → 3 fixed at source)
+
+The spec route was replaced by a generated document
+(`api/scripts/gen-openapi.mjs` merging `api/src/lib/openapi/base.json` with
+the live route tree into `spec.json`). The gate surfaced 10 new findings:
+
+**Fixed at source (3):** three `sync-in-async` hits in the new
+`openapi-generation.test.ts` — the test now uses `node:fs/promises` and
+promisified `execFile`, so no baseline entries were needed. One
+`ai-generated-marker` hit on the route comment describing the generator
+command — the prose was reworded; the file is hand-maintained.
+
+**Baselined after review (6):**
+
+- `phone-number` ×2 (`spec.json`, `base.json`) — the GeoJSON example value
+  `"generated": 1234567890` is a unix-seconds timestamp mirroring the real
+  API response; the 10-digit number trips the phone heuristic. Changing the
+  example would make the docs wrong.
+- `missing-limit` ×2 — the word "rate limit" in the OpenSky token status
+  description; no SQL exists anywhere in the edge runtime.
+- `no-cache-headers` (`route.ts`) — the response sets
+  `Cache-Control: public, max-age=3600` via the headers object; the scanner
+  does not model `NextResponse.json(body, { headers })`.
+- `file-size-outlier` (`map/page.tsx`, info) — pre-existing monolith; the
+  statistic shifted because the file set changed. Module extraction is
+  tracked in the master plan (globe first, map adjacent).
+
 ## Re-triage checklist (when the gate fails)
 
 1. Read the finding — is it a true positive? Fix it in code if so; do not

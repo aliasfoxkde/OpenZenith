@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import nextPlugin from "@next/eslint-plugin-next";
+import globals from "globals";
 
 const eslintConfig = [
   js.configs.recommended,
@@ -67,6 +68,25 @@ const eslintConfig = [
       "public/pkg/",
       "public/sw.js",
     ],
+  },
+  {
+    // Build-time Node scripts (plain .mjs, untyped by design). They stay in
+    // the project so the parser and core rules apply, but the type-aware
+    // data-flow rules have nothing to chew on without declared types.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/restrict-template-expressions": "off",
+      "@typescript-eslint/restrict-plus-operands": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
+    },
   },
 ];
 

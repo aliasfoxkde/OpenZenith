@@ -13,6 +13,8 @@
     "format:check": "prettier --check src/",
     "test": "vitest run",
     "test:watch": "vitest",
+    "openapi:generate": "node scripts/gen-openapi.mjs",
+    "openapi:check": "node scripts/gen-openapi.mjs --check",
     "test:coverage": "vitest run --coverage",
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01 --port 9006 --ip 0.0.0.0",

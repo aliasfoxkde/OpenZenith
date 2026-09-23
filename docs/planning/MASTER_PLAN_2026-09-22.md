@@ -432,3 +432,38 @@ CLI arg-parse/error paths), `d8.rs` 68.66% (89 missed lines — the
 depression-filling/edge branches). No gate added yet per policy: first
 ratchet target is main.rs CLI error paths + d8.rs branches, then add a
 cargo-llvm-cov floor near the measured baseline.
+
+### 2026-09-22 — OpenAPI spec single-sourced from the route tree (#100)
+
+Ground truth that motivated this: the hand-built spec documented **43 of 80
+live routes** — 37 endpoints (the raster tile layers, terrain-analysis
+routes, STAC collections items, tiles/{tileMatrixSetId}, coverage,
+gps-jamming, space-weather…) were invisible to the published API docs, with
+no mechanism to catch the next gap.
+
+New architecture:
+
+- `api/src/lib/openapi/base.json` — hand-authored document (rich
+  descriptions/examples/schemas for the 43 originally documented routes),
+  extracted verbatim from the old 1,216-line route literal.
+- `api/scripts/gen-openapi.mjs` (`npm run openapi:generate` / `:check`) —
+  scans `src/app/api/**/route.ts` for exported handlers, derives path
+  templates (`[z]`→`{z}`, `[...path]`→`{path}`), stamps `info.version` from
+  package.json, and writes `src/app/api/openapi.json/spec.json`. Routes
+  missing from base.json get generated skeletons (summary + path params +
+  responses, tag mapped by segment); a base path with no implementing route
+  is a hard error. Deterministic output (sorted keys).
+- `api/src/app/api/openapi.json/route.ts` is now a 25-line thin server of
+  `spec.json` with request-origin substitution.
+- `openapi-generation.test.ts` runs the generator's `--check` inside the
+  vitest suite: adding a route or bumping the version without regenerating
+  fails CI, closing both drift modes (#93 fixed version drift; this fixes
+  route drift).
+- Result: **80/80 paths documented** (43 hand-written + 37 generated).
+
+Aegis re-triaged for the new files (10 findings: 4 fixed at source — async
+fs in the test, comment reword; 6 baselined after review — see
+`docs/security/TRIAGE.md`). Baseline shrank 1,456 → 1,427 despite the new
+files because the spec literal left `api/src`. Validation: full vitest suite
+93 files / 980 tests green, `tsc --noEmit` clean, changed files ESLint-clean
+(`scripts/**/*.mjs` override added for untyped build JS with rationale).

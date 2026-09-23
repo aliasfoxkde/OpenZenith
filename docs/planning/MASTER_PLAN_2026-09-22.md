@@ -1219,3 +1219,8 @@ Deployed via the standing pipeline:
 
 The dem-tile health redirect fix, weather-warnings cache contract, and
 docs-md GEBCO correction are now serving on openzenith.cyopsys.com.
+
+Deploy follow-through: the opt-in heavy CesiumJS OZT2 terrain suite
+(`E2E_RUN_HEAVY=1 ozt2-validate`) was run against the new production build:
+**8/8 passed** — globe loads terrain without first-party errors; measured
+OZT2/PNG size ratio 3.4x on the live tiles.

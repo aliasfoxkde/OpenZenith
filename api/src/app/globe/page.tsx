@@ -39,24 +39,8 @@ import type { GlobeContext } from "./lib/widgets/types";
 import { getClientElevation } from "@/lib/client-elevation";
 import { ContextMenu } from "./lib/components/ContextMenu";
 import { HudOverlays } from "./lib/components/HudOverlays";
-
-/**
- * Entity names, quake places, callsigns and event titles come from
- * third-party feeds (USGS, OpenSky, AIS, EONET) and are rendered through
- * `dangerouslySetInnerHTML` in the hover tooltip, so they must never be
- * trusted as HTML.
- */
-function escapeHtml(value: unknown): string {
-  return String(value).replace(/[&<>"']/g, (ch) => {
-    switch (ch) {
-      case "&": return "&amp;";
-      case "<": return "&lt;";
-      case ">": return "&gt;";
-      case '"': return "&quot;";
-      default: return "&#39;";
-    }
-  });
-}
+import { buildEntityTooltip } from "./lib/tooltip";
+import { classifyOrbit, orbitalVelocityKms } from "./lib/orbit";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -299,36 +283,7 @@ export default function Globe() {
           const picked = viewer.scene.pick(movement.endPosition);
           if (picked && picked.id) {
             const ent = picked.id;
-            const entType = ent.properties?.type?.getValue?.() || "";
-            const entName = ent.name || "";
-            const entId = ent.id || "";
-            let html = "";
-            if (entId.startsWith("eq-")) {
-              const mag = ent.properties?.mag?.getValue?.() || "";
-              const place = ent.properties?.place?.getValue?.() || "";
-              html = `<div style="font-weight:700;color:var(--err)">M${escapeHtml(mag)}</div><div>${escapeHtml(place)}</div>`;
-            } else if (entId.startsWith("flight-") || entId.startsWith("mil-")) {
-              const callsign = escapeHtml(entName);
-              const alt = ent.properties?.altitude?.getValue?.();
-              const speed = ent.properties?.velocity?.getValue?.();
-              html = `<div style="font-weight:700;color:var(--warn)">${callsign}</div>${alt != null ? `<div>Alt: ${Math.round(alt * 3.281)}ft</div>` : ""}${speed != null ? `<div>Spd: ${Math.round(speed * 1.944)}kts</div>` : ""}`;
-            } else if (entId.startsWith("vessel-")) {
-              const name = escapeHtml(entName);
-              const mmsi = escapeHtml(entId.replace("vessel-", ""));
-              html = `<div style="font-weight:700;color:#4488ff">${name}</div><div>MMSI: ${mmsi}</div>`;
-            } else if (entId.startsWith("sat-") || entType === "orbitalTrack") {
-              const name = escapeHtml(entName);
-              const alt = ent.properties?.altitude?.getValue?.();
-              html = `<div style="font-weight:700;color:#aa44ff">${name}</div>${alt != null ? `<div>Alt: ${(alt / 1000).toFixed(0)}km</div>` : ""}`;
-            } else if (entId.startsWith("storm-")) {
-              html = `<div style="font-weight:700;color:#ff00ff">${escapeHtml(entName || "Storm")}</div>`;
-            } else if (entId.startsWith("event-")) {
-              const cat = ent.properties?.category?.getValue?.() || "";
-              const title = ent.properties?.title?.getValue?.() || entName || "Event";
-              html = `<div style="font-weight:700">${escapeHtml(title)}</div><div style="color:var(--text-muted)">${escapeHtml(cat)}</div>`;
-            } else if (entName) {
-              html = `<div>${escapeHtml(entName)}</div>`;
-            }
+            const html = buildEntityTooltip(ent);
             if (html) {
               setHoverTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, html });
               viewer.scene.canvas.style.cursor = "pointer";
@@ -355,18 +310,13 @@ export default function Globe() {
                 const lat = +Cesium.Math.toDegrees(cg.latitude);
                 const lon = +Cesium.Math.toDegrees(cg.longitude);
                 const altKm = +(cg.height / 1000).toFixed(1);
-                let orbitType = "Unknown";
-                if (altKm < 2000) orbitType = "LEO";
-                else if (altKm > 30000) orbitType = "GEO";
-                else orbitType = "MEO";
-                const velKms = altKm > 30000 ? 3.07 : +(7.66 / Math.sqrt(1 + altKm / 6371)).toFixed(2);
                 setSelectedSat({
                   name,
                   alt: altKm,
-                  vel: velKms,
+                  vel: orbitalVelocityKms(altKm),
                   lat: +lat.toFixed(2),
                   lon: +lon.toFixed(2),
-                  orbit: orbitType,
+                  orbit: classifyOrbit(altKm),
                 });
                 setFollowSat(false);
               }

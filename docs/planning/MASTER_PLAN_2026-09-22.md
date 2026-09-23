@@ -558,3 +558,31 @@ Verified: gate **807 passed, 85.39%** (11,469 stmts, 1,676 miss) at
 `--cov-fail-under=85`; ruff clean; aegis gate green with no new findings.
 Weakest remaining modules: terrain/profiles 70%, terrain/gradients 72%,
 viz 67% (matplotlib-heavy), terrain/filters 84% — next ratchet: 87.
+
+### 2026-09-22 — globe/page.tsx extraction, slice 1: tooltip + orbit (#99, in progress)
+
+First two pure functions pulled out of the 4,000-line client component
+into testable modules under `src/app/globe/lib/`:
+
+- `lib/tooltip.ts` — `escapeHtml` (moved verbatim) and
+  `buildEntityTooltip`, the nine-branch picked-entity tooltip builder
+  (eq-/flight-/mil-/vessel-/sat-/orbitalTrack/storm-/event-/name
+  fallback). The third-party-feed values it interpolates are rendered
+  via `dangerouslySetInnerHTML`, so the module docblock pins the
+  escape-everything invariant. 13 tests, including an XSS case asserting
+  a hostile place string cannot inject markup.
+- `lib/orbit.ts` — `classifyOrbit` (LEO < 2000 km ≤ MEO ≤ 30000 < GEO)
+  and `orbitalVelocityKms` (GEO pinned at 3.07 km/s, else the app's
+  circular-velocity approximation 7.66/√(1+h/6371)). 6 tests pin the
+  regime boundaries and the extracted constant's actual outputs.
+
+Typing notes recorded for the remaining slices: the page previously
+flowed `any` through these paths (file-level `no-explicit-any`
+disable), so the extracted modules type Cesium property bags as
+`getValue?: () => unknown` — numeric reads cast to `number | undefined`
+at the arithmetic sites, preserving the original loose `!= null` checks.
+
+Verified: 19/19 vitest green, project-wide `tsc --noEmit` clean, eslint
+0 errors with **zero new warnings** across the four new files (all 413
+remaining in the changed-file set are pre-existing page.tsx unsafe-family
+load). Remaining slices: layer orchestration, entity/lifecycle wiring.

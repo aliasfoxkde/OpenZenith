@@ -38,9 +38,9 @@ describe("Reverse Geocode endpoint", () => {
 
     const data = (await resp.json()) as GeocodeBody;
     expect(data.place).toBeDefined();
-    expect(data.place.display_name).toContain("White House");
-    expect(data.location.lat).toBe(38.8977);
-    expect(data.location.lon).toBe(-77.0365);
+    expect(data.place?.display_name).toContain("White House");
+    expect(data.location?.lat).toBe(38.8977);
+    expect(data.location?.lon).toBe(-77.0365);
   });
 
   it("includes CORS headers", async () => {
@@ -113,7 +113,7 @@ describe("Reverse Geocode endpoint", () => {
     const { GET } = await import("@/app/api/reverse-geocode/route");
     const resp = await GET(mockRequest("/api/reverse-geocode?lat=0&lon=0"));
     const data = (await resp.json()) as GeocodeBody;
-    expect(data.place.name).toBe("A Road");
+    expect(data.place?.name).toBe("A Road");
   });
 
   it("returns a soft error when the upstream is unavailable", async () => {

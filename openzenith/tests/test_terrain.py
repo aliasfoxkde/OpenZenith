@@ -860,6 +860,30 @@ class TestAspectSlope:
         asp, _slp = aspect_slope(dem)
         assert np.isnan(asp[5, 5])
 
+    def test_north_rising_slope_faces_south(self):
+        """Compass regression: a north-rising plane must face south (180°).
+
+        aspect_slope's dz_dy is north-positive, so a stray negation mirrored
+        the compass N↔S here while aspect() stayed correct.
+
+        """
+        dem = np.zeros((10, 10), dtype=np.float32)
+        for r in range(10):
+            dem[r, :] = (9 - r) * 100.0  # row 0 (north) highest → faces S
+        asp, _slp = aspect_slope(dem)
+        center = asp[5, 5]
+        assert not np.isnan(center)
+        assert abs(center - 180.0) < 1.0, f"Expected ~180° (south), got {center:.1f}°"
+
+    def test_east_rising_slope_faces_west(self):
+        """East-rising plane faces west (270°), matching aspect()."""
+        dem = np.zeros((10, 10), dtype=np.float32)
+        for c in range(10):
+            dem[:, c] = c * 100.0
+        asp, _slp = aspect_slope(dem)
+        center = asp[5, 5]
+        assert abs(center - 270.0) < 1.0, f"Expected ~270° (west), got {center:.1f}°"
+
 
 class TestPercentileFunctions:
     """Tests for pct_above_thresh and pct_below_thresh."""

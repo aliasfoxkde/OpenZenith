@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       way${filter}(${minLat},${minLon},${maxLat},${maxLon});
       relation${filter}(${minLat},${minLon},${maxLat},${maxLon});
     );
-    out body;
+    out body geom;
     >;
     out skel qt;
   `;
@@ -77,8 +77,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Overpass API unavailable" }, { status: 200, headers: CORS_HEADERS });
     }
 
+    // `out body geom` makes Overpass attach per-way geometry as
+    // {lat, lon} objects — without it, ways carry only a node-id list and
+    // this endpoint could never emit a feature.
     const data = (await res.json()) as {
-      elements?: Array<{ type: string; geometry?: Array<Array<number>>; id: number; tags?: Record<string, string> }>;
+      elements?: Array<{
+        type: string;
+        geometry?: Array<{ lat: number; lon: number }>;
+        id: number;
+        tags?: Record<string, string>;
+      }>;
     };
 
     // Convert to GeoJSON FeatureCollection
@@ -89,7 +97,8 @@ export async function GET(request: NextRequest) {
       if (features.length >= limit) break;
 
       if (el.type === "way" && el.geometry) {
-        const coords = el.geometry.map((c) => [c[1], c[0]]);
+        // Overpass geometry is {lat, lon}; GeoJSON wants [lon, lat].
+        const coords = el.geometry.map((c) => [c.lon, c.lat]);
         if (coords.length < 2) continue;
 
         const isPolygon = el.tags?.natural === "water" && coords.length >= 3;

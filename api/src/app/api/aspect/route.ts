@@ -74,9 +74,11 @@ function computeAspect(dem: Float32Array, rows: number, cols: number, cellSizeM:
         continue;
       }
 
-      // atan2(-dzDy, dzDx) gives ascent direction in math coords
-      // Negate dzDy because grid y-axis is flipped (row 0 = north)
-      const aspectRad = Math.atan2(-dzDy, dzDx);
+      // dzDy is north-positive (row 0 = north, so +rows moves south) and
+      // dzDx is east-positive; atan2 over them is the gradient angle in
+      // math convention. (90 - angle + 180) % 360 converts to the compass
+      // downslope direction: a north-rising slope faces south (180).
+      const aspectRad = Math.atan2(dzDy, dzDx);
       // Convert to compass: (90 - math_deg + 180) % 360
       const aspectDeg = (90 - aspectRad * (180 / Math.PI) + 180) % 360;
       result[idx] = Math.round(aspectDeg * 10) / 10;

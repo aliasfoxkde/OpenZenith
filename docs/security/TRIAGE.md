@@ -477,3 +477,44 @@ introduced. Re-baselined via `scripts/aegis_scan.sh update`.
 
 Baseline: 1,447 → 1,485 findings (semantic +38 net across the wave;
 baseline regeneration also re-ordered all entries — known gate wart).
+
+## Re-triage 2026-09-23 — #113 route wave 2 + aspect/waterways/arcgis fixes
+
+API changes: +123 tests across 12 routes (trace, twi, aspect, geoip,
+geocode, nlnog, military, proxy/wms, waterways, overpass, arcgis,
+elevation) and six production fixes:
+
+- aspect/route.ts: atan2 double-negation mirrored the compass N↔S
+  (dzDy was recomputed north-positive AND negated). Same bug found and
+  fixed in openzenith/terrain/gradients.py aspect_slope (its dz_dy is
+  north-positive; aspect() itself was correct — south-positive dz_dy).
+- waterways/route.ts: Overpass query said `out body` — ways carry no
+  geometry, so the endpoint could only ever return an empty
+  FeatureCollection. Now `out body geom` with {lat,lon} object parsing.
+- arcgis/route.ts: allowlist used bare endsWith — evil-services9.arcgis.com
+  was proxied. Now exact-or-dot-bounded subdomain match.
+- geoip/route.ts: latitude/longitude used `||`, dropping legitimate 0
+  coordinates (equator/prime meridian). Now `??`.
+- military/route.ts: negative dist forwarded upstream; now falls back to
+  the documented default like non-numeric input.
+- proxy/wms/route.ts: URL fragment not stripped — appended WMS params
+  landed inside the fragment. Now stripped before composing.
+
+Gate reported 114 new findings; all in already-triaged classes:
+- Line-shift duplicates on the six edited routes (no-cache-headers,
+  try-catch-bulk, cors-misconfiguration, expensive-computation-loop at
+  their old statements' new lines; console-error in wms pre-existing).
+- Test-file noise from the new suites (cors assertions, localhost mock
+  URLs, double-type-assertion test idiom, magic numbers in fixtures).
+- `file-size-outlier` terrain-routes.test.ts (1,088 lines, info): all
+  seven terrain routes live in one file by design — same accepted class
+  as openzenith test_cli.py.
+- Pattern-text noise: `go-replace-directive` on gradients.py:579 ("Replace
+  zeros with small value…" comment), `azure-functions` on
+  test_terrain.py:888 (class TestPercentileFunctions).
+- `console-log` wms:144 is the pre-existing console.error at a shifted line.
+
+No real secrets, no new attack surface (the arcgis fix closes one).
+Re-baselined via `scripts/aegis_scan.sh update`.
+
+Baseline: 1,485 → 1,553 findings (+68 net; regeneration re-ordered all).

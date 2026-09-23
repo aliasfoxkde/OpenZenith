@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lat = parseCoord(searchParams.get("lat"), 30, -90, 90);
   const lon = parseCoord(searchParams.get("lon"), -90, -180, 180);
-  const dist = Math.min(Number(searchParams.get("dist")) || 500, 1000);
+  // Default 500, clamped to the documented max; non-positive or non-numeric
+  // radii fall back to the default rather than forwarding e.g. dist=-50.
+  const rawDist = Number(searchParams.get("dist"));
+  const dist = Number.isFinite(rawDist) && rawDist > 0 ? Math.min(rawDist, 1000) : 500;
 
   try {
     // Try R2 cache first (ADSB Exchange is paid-only, cache what we get)

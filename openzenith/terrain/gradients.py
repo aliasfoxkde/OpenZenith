@@ -198,7 +198,11 @@ def aspect_slope(
     slope_rad = np.arctan(np.sqrt(dz_dx**2 + dz_dy**2))
     slope_deg = np.degrees(slope_rad)
 
-    aspect_rad = np.arctan2(-dz_dy, dz_dx)
+    # NOTE: this function's dz_dy is north-positive (a..c rows are north),
+    # unlike aspect() whose dz_dy is south-positive — so no negation here.
+    # atan2 over (dz_dy, dz_dx) + the compass conversion yields the downslope
+    # direction: a north-rising slope faces south (180).
+    aspect_rad = np.arctan2(dz_dy, dz_dx)
     aspect_deg = (90 - np.degrees(aspect_rad) + 180) % 360
 
     flat = (np.abs(dz_dx) < 1e-10) & (np.abs(dz_dy) < 1e-10)

@@ -949,3 +949,37 @@ tests, all green; tsc --noEmit clean; eslint 0 errors):
   IBTrACS units row) recorded in test comments.
 - Scratch note: coverage-measurement scratch dirs (api/.tmp-cov-*) are
   now gitignored after their removal was declined.
+
+## #113 — TS route branch wave 2 + six production fixes (task 113, 2026-09-23)
+
+Second route-coverage wave over the 12 remaining sub-85%-branch routes
+(trace 55.6→97.1, twi 73.3→98.3, aspect →100, geoip 6.3→100, geocode
+76.9→100, nlnog 40→100, military 59.1→100, proxy/wms 62.5→100, waterways
+68.8→100, overpass/arcgis/elevation →100). +123 tests (98 files, 1,238,
+all green; tsc clean; eslint 0 errors; Python suite green; ruff clean).
+
+**Six production defects found by the new tests and fixed:**
+1. aspect N↔S compass mirror (atan2 double-negation) — api/src/app/api/
+   aspect/route.ts AND the same bug in openzenith/terrain/gradients.py
+   aspect_slope (aspect() itself was correct; the two functions disagreed
+   on dz_dy sign conventions). Compass regression tests added in both
+   languages.
+2. waterways could never return a feature: Overpass query lacked the
+   `geom` modifier, so ways carried only node-id lists; parser also
+   expected arrays instead of Overpass's {lat,lon} objects. Query is now
+   pinned by a regression test.
+3. arcgis proxy allowlist bypass: bare endsWith admitted
+   evil-services9.arcgis.com. Now exact-or-dot-bounded; both 403 and
+   legit-subdomain cases pinned.
+4. geoip dropped legitimate 0 coordinates (equator/prime meridian) via
+   `|| null` → `?? null`.
+5. military forwarded negative dist upstream → falls back to default.
+6. proxy/wms URL fragment swallowed appended WMS params → stripped.
+
+Floors ratcheted: **94/86/83/94 → 95/90/86/95** (measured 97.61 stmts /
+93.04 branches / 88.23 functions / 97.61 lines). Aegis re-triaged
+1,485 → 1,553 (TRIAGE.md #113).
+
+Remaining sub-90 branch areas (future waves, all others ≥95): tile/
+[tileRow]/[tileCol] ~82, lib/gibs-tile ~79, trace/twi residuals are
+documented-unreachable defensive branches.

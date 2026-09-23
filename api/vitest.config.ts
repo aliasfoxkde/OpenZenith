@@ -22,18 +22,20 @@ export default defineConfig({
       ],
       thresholds: {
         // Ratchets upward only. Floors are the measured baseline, rounded
-        // down ~2 points so ordinary variance does not flap the gate.
+        // down ~2-3 points so ordinary variance does not flap the gate.
         // 2026-09-22: 92.22/84.01/81.84/92.22 → 92/84/81/92.
         // 2026-09-23 (task #112 route-test wave, 98 files / 1115 tests):
-        // measured 95.99 stmts / 88.05 branches / 85.15 functions / 95.99
-        // lines after +83 route tests, watershed/streams geo-coordinate fix
-        // and removal of watershed dead code. Weakest areas today: api
-        // routes' branch coverage; globe/** is lint-managed (#98/#99) not
+        // measured 95.99/88.05/85.15/95.99 → 94/86/83/94.
+        // 2026-09-23 (task #113 wave 2, 98 files / 1238 tests): measured
+        // 97.61 stmts / 93.04 branches / 88.23 functions / 97.61 lines
+        // after +123 tests across 12 routes and the aspect/waterways/
+        // arcgis/geoip/military/wms fixes. Weakest areas today: api routes'
+        // remaining branch gaps; globe/** is lint-managed (#98/#99) not
         // coverage-counted.
-        statements: 94,
-        branches: 86,
-        functions: 83,
-        lines: 94,
+        statements: 95,
+        branches: 90,
+        functions: 86,
+        lines: 95,
       },
     },
   },

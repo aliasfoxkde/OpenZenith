@@ -81,6 +81,10 @@ export async function GET(request: NextRequest) {
     return corsError("Domain not allowed", 403);
   }
 
+  // A fragment would swallow every appended WMS parameter (#x?A=B is all
+  // fragment), so strip it before composing the proxy URL.
+  parsedUrl.hash = "";
+
   // Build proxy URL with allowed params
   const proxyParams = new URLSearchParams();
   proxyParams.set("SERVICE", "WMS");

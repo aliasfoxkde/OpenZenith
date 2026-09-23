@@ -41,7 +41,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const parsed = new URL(targetUrl);
-    if (!ALLOWED_HOSTS.some((h) => parsed.hostname.endsWith(h))) {
+    // Exact match or a subdomain boundary — a bare endsWith would admit
+    // attacker-controlled hosts like evil-services9.arcgis.com.
+    if (!ALLOWED_HOSTS.some((h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`))) {
       return NextResponse.json({ error: "Domain not allowed" }, { status: 403, headers: CORS_HEADERS });
     }
 

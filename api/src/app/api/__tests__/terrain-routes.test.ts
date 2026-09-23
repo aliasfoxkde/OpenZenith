@@ -37,10 +37,20 @@ vi.mock("@/lib/tile", () => {
 // before any hydrology: the OZT2 lookup (primary) and the merged-chunk point
 // lookup (fallback). Defaults keep every pre-existing test on the happy path.
 type StorageGateState = {
-  ozt2Elevation: number | null;
+  // An elevation payload whose valueOf throws is the only way to reach the
+  // routes' "gate itself failed" catch clauses: the gate's only unprotected
+  // statement is the `startElevVal <= NODATA` comparison.
+  ozt2Elevation: number | { valueOf(): number } | null;
   ozt2Rejects: boolean;
   pointElevation: "real" | "ok" | "null" | "throw";
 };
+
+// An elevation payload that explodes the moment the gate compares it.
+const explodingElevation = (): { valueOf(): number } => ({
+  valueOf(): number {
+    throw new Error("gate payload exploded");
+  },
+});
 
 const storageState = vi.hoisted<StorageGateState>(() => ({
   ozt2Elevation: 500,
@@ -84,8 +94,8 @@ vi.mock("@/lib/point-elevation", async (importOriginal) => {
 import { OPTIONS as SLOPE_OPTIONS, GET as slopeGET } from "@/app/api/slope/route";
 import { OPTIONS as ASPECT_OPTIONS, GET as aspectGET } from "@/app/api/aspect/route";
 import { POST as profilePOST } from "@/app/api/profile/route";
-import { POST as tracePOST } from "@/app/api/trace/route";
-import { POST as twiPOST } from "@/app/api/twi/route";
+import { POST as tracePOST, OPTIONS as traceOPTIONS } from "@/app/api/trace/route";
+import { POST as twiPOST, OPTIONS as twiOPTIONS } from "@/app/api/twi/route";
 import { POST as watershedPOST, OPTIONS as watershedOPTIONS } from "@/app/api/watershed/route";
 import { POST as streamsPOST, OPTIONS as streamsOPTIONS } from "@/app/api/streams/route";
 import { getTileData } from "@/lib/tile";
@@ -113,6 +123,94 @@ function buildTile(fill: (row: number, col: number) => number): Int16Array {
 }
 const rampTile = (): Int16Array => buildTile((_r, c) => 500 + (c % 64));
 const nodataTile = (): Int16Array => buildTile(() => -32768);
+
+// Slippy-tile pixel math mirrored from @/lib/srtm/zoom-math. The builders below
+// place gradients and nodata holes at exact tile pixels, so a suite needs to
+// know which tile — and which pixel inside it — a pour point resolves to.
+function pourPixel(lat: number, lon: number, zoom = 10): { tx: number; ty: number; lx: number; ly: number } {
+  const n = 2 ** zoom;
+  const latRad = (lat * Math.PI) / 180;
+  const worldX = ((lon + 180) / 360) * n * 256;
+  const worldY = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n * 256;
+  return { tx: Math.floor(worldX / 256), ty: Math.floor(worldY / 256), lx: worldX % 256, ly: worldY % 256 };
+}
+
+// Installs a per-tile getTileData: `build` returns a tile's DEM, or null to
+// reject it, so a suite can serve one tile and leave its neighbours missing.
+function serveTiles(build: (z: number, tx: number, ty: number) => Int16Array | null): void {
+  mockGetTileData.mockImplementation((z: number, tx: number, ty: number) => {
+    const data = build(z, tx, ty);
+    if (!data) return Promise.reject(new Error(`tile ${tx}/${ty} unavailable`));
+    return Promise.resolve({ data, width: 256, height: 256, zoom: z });
+  });
+}
+
+// Serves a single tile and rejects the rest — the isolation needed to watch a
+// flow walk run off the edge of the fetched window.
+function serveOneTile(tx: number, ty: number, fill: (row: number, col: number) => number): void {
+  serveTiles((_z, x, y) => (x === tx && y === ty ? buildTile(fill) : null));
+}
+
+// POST helper for the JSON-body terrain routes.
+function postJSON(handler: PostHandler, body: unknown): Promise<Response> {
+  return handler(
+    makeRequest(GET_URL, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
+}
+
+// Pour points picked for their tile-pixel position (see pourPixel):
+//  - 40.7 / -74.0     → tile 301/385, pixel (130.8, 13.4): away from tile edges.
+//  - 41.50775 / -74.0 → tile 301/382, pixel (130.8, 0.80): less than one D8
+//    cell below a tile's north edge, so a diagonal step's sampled point — which
+//    overshoots the one-cell neighbour D8 validated — leaves the served tile.
+//  - 39.0 / -74.1878  → tile 300/391, pixel (250.1, 90.0): a few pixels from a
+//    tile's east edge, so an eastward walk runs out of tile.
+//  - 40.0 / -74.0     → tile 301/387, pixel (130.8, 170.3): mid-tile, used for
+//    the isolated-live-pixel cases.
+//  - 40.3 / -73.95    → tile 301/386, pixel (167.3, 140.5): mid-tile, used for
+//    the sea-level halt.
+const POUR_NORTH_EDGE = { lat: 41.50775, lon: -74.0 };
+// 41.508269 / -74.0 → tile 301/382, pixel (130.8, 0.30): even closer to the
+// north edge than POUR_NORTH_EDGE — nearer than one D8 *probe* step (0.67 px),
+// so every northward neighbour lookup leaves the served tile outright.
+const POUR_NORTH_PROBE = { lat: 41.508269, lon: -74.0 };
+const POUR_EAST_EDGE = { lat: 39.0, lon: -74.1878 };
+const POUR_ISLAND = { lat: 40.0, lon: -74.0 };
+const POUR_MID_TILE = { lat: 40.3, lon: -73.95 };
+
+// A tile whose only live pixel is the far corner of POUR_ISLAND's bilinear
+// stencil — every other cell in the surrounding 2×2 neighbourhoods is nodata.
+function islandTile(): Int16Array {
+  const pour = pourPixel(POUR_ISLAND.lat, POUR_ISLAND.lon);
+  const tile = nodataTile();
+  tile[(Math.floor(pour.ly) + 1) * 256 + (Math.floor(pour.lx) + 1)] = 32767;
+  return tile;
+}
+
+// A DEM payload whose pixel reads throw a plain string. That is the only way to
+// reach the routes' `err instanceof Error ? err.message : "Unknown error"`
+// fallback, which must still answer 200 rather than a 5xx.
+function hostileTileData(): Int16Array {
+  return new Proxy(new Int16Array(256 * 256), {
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && /^\d+$/.test(prop)) {
+        // Intentionally a non-Error throw so the route's generic-message
+        // fallback branch is exercised.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw "tile payload exploded";
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
+function resolveTile(data: Int16Array): () => Promise<{ data: Int16Array; width: number; height: number; zoom: number }> {
+  return () => Promise.resolve({ data, width: 256, height: 256, zoom: 10 });
+}
 
 beforeEach(() => {
   mockGetTileData.mockClear();
@@ -566,5 +664,425 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
         expect(lat).toBeLessThan(40.8);
       }
     }
+  });
+});
+
+// ── trace ────────────────────────────────────────────────────────────────────
+// The trace walk is driven through single-tile DEMs so each termination branch
+// (neighbour tile missing, walk leaves the window, sea level, nodata) can be
+// reached deterministically.
+
+describe("Terrain routes — trace pour-point gate", () => {
+  it("returns 400 when no tile serves the pour point", async () => {
+    mockGetTileData.mockRejectedValue(new Error("chunk missing"));
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+
+  it("falls back to the merged-chunk lookup when OZT2 throws", async () => {
+    storageState.ozt2Rejects = true;
+    storageState.pointElevation = "ok";
+    mockGetTileData.mockImplementation(resolveTile(rampTile()));
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.geojson.type).toBe("Feature");
+    expect(body.steps).toBeGreaterThan(0);
+  });
+
+  it("returns 400 when neither OZT2 nor the merged fallback resolves the pour point", async () => {
+    storageState.ozt2Elevation = null;
+    storageState.pointElevation = "null";
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+
+  it("returns 400 when the merged-chunk fallback throws as well", async () => {
+    storageState.ozt2Elevation = null;
+    storageState.pointElevation = "throw";
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+
+  it("proceeds to tile assembly when the pour-point gate itself fails", async () => {
+    // The gate's only unprotected statement is the `startElevVal <= NODATA`
+    // comparison, so an elevation payload whose valueOf throws is the only way
+    // in. The documented contract is to keep going regardless.
+    storageState.ozt2Elevation = explodingElevation();
+    mockGetTileData.mockImplementation(resolveTile(rampTile()));
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.geojson.type).toBe("Feature");
+    expect(body.steps).toBeGreaterThan(0);
+  });
+
+  it("exposes CORS preflight OPTIONS", async () => {
+    const resp = await Promise.resolve(traceOPTIONS());
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
+describe("Terrain routes — trace flow-walk termination", () => {
+  it("stops when the walk steps off the served tile window", async () => {
+    const pour = pourPixel(POUR_NORTH_EDGE.lat, POUR_NORTH_EDGE.lon);
+    // The DEM rises southward, so all three northern neighbours drop equally
+    // and the first of them (north-east) wins. That diagonal step overshoots
+    // the one-cell neighbour D8 validated, so the sampled point falls in the
+    // unserved tile to the north and the move is discarded.
+    serveOneTile(pour.tx, pour.ty, (row) => 500 + row);
+    const resp = await postJSON(tracePOST, POUR_NORTH_EDGE);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    // No cell was recorded, but the abortive move still shows up in `end`.
+    expect(body.steps).toBe(0);
+    expect(body.path).toHaveLength(1);
+    expect(body.elevations).toHaveLength(1);
+    expect(body.end[0]).not.toBe(body.start[0]);
+    expect(body.end[1]).not.toBe(body.start[1]);
+    expect(body.geojson.geometry.coordinates).toHaveLength(1);
+  });
+
+  it("aborts before stepping when every downhill probe leaves the served tile", async () => {
+    const pour = pourPixel(POUR_NORTH_PROBE.lat, POUR_NORTH_PROBE.lon);
+    // Less than one probe step below the north edge: the three northern
+    // neighbour lookups land in the unserved tile and are skipped, while the
+    // five southern/sideways ones are flat or uphill against the southward
+    // rise. With no admissible descent the walk never takes a step at all.
+    serveOneTile(pour.tx, pour.ty, (row) => 500 + row);
+    const resp = await postJSON(tracePOST, POUR_NORTH_PROBE);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.start_elev).toBeGreaterThan(0);
+    expect(body.steps).toBe(0);
+    expect(body.path).toHaveLength(1);
+    expect(body.end).toEqual(body.start);
+  });
+
+  it("stops when the next downstream neighbour tile is missing", async () => {
+    const pour = pourPixel(POUR_EAST_EDGE.lat, POUR_EAST_EDGE.lon);
+    // The DEM falls eastward, so the walk heads due east until the next cell
+    // lies in the unserved tile to the east: the neighbour lookup misses, no
+    // descent remains and the walk stops well short of max_steps.
+    serveOneTile(pour.tx, pour.ty, (_row, col) => 500 - col);
+    const resp = await postJSON(tracePOST, POUR_EAST_EDGE);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.steps).toBeGreaterThan(3);
+    expect(body.steps).toBeLessThan(50);
+    const steps: number = body.steps;
+    expect(body.path).toHaveLength(steps + 1);
+    // It stopped at the tile edge, not in a nodata cell or at sea level.
+    expect(body.end_elev).toBeGreaterThan(0);
+  });
+
+  it("halts the walk when it reaches sea level", async () => {
+    const pour = pourPixel(POUR_MID_TILE.lat, POUR_MID_TILE.lon);
+    // 2 m per pixel eastward drop from 400 m: the walk runs due east from
+    // mid-tile and stops on the first cell at or below 0 m.
+    serveOneTile(pour.tx, pour.ty, (_row, col) => 400 - 2 * col);
+    const resp = await postJSON(tracePOST, POUR_MID_TILE);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.elevations[0]).toBeGreaterThan(0);
+    expect(body.steps).toBeGreaterThan(10);
+    expect(body.end_elev).toBeLessThanOrEqual(0);
+    expect(body.total_distance).toBeGreaterThan(0);
+    expect(body.geojson.properties.steps).toBe(body.steps);
+  });
+
+  it("cannot descend out of a tile with a single live pixel", async () => {
+    // One live pixel in an otherwise nodata tile: the pour point still reads
+    // (its stencil keeps that corner) but three quarters of its stencil is
+    // nodata, half the neighbour lookups are skipped wholesale, and the walk
+    // runs out of elevation within a couple of cells.
+    mockGetTileData.mockImplementation(resolveTile(islandTile()));
+    const resp = await postJSON(tracePOST, POUR_ISLAND);
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.start_elev).toBeGreaterThan(-32768);
+    expect(body.steps).toBeGreaterThanOrEqual(1);
+    expect(body.steps).toBeLessThanOrEqual(4);
+    expect(body.elevations).toHaveLength(body.path.length);
+  });
+
+  it("rejects a pour point whose sampled stencil is entirely nodata", async () => {
+    mockGetTileData.mockImplementation(resolveTile(nodataTile()));
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toBe("No elevation data at starting point");
+    // The silent-200 contract only covers internal failures; a client asking
+    // for a lake-less coordinate still gets a real 400.
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBeDefined();
+  });
+
+  it("returns a silent 200 error body for non-numeric tile data", async () => {
+    // A bigint tile payload explodes the first time it reaches the bilinear
+    // mix — that is the only route into the handler's catch, which must answer
+    // 200 with an error body rather than a 5xx.
+    mockGetTileData.mockResolvedValue({
+      data: new BigInt64Array(256 * 256) as unknown as Int16Array,
+      width: 256,
+      height: 256,
+      zoom: 10,
+    });
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
+    expect(body.geojson).toBeUndefined();
+  });
+
+  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+    mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
+    const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.error).toBe("Unknown error");
+    expect(body.geojson).toBeUndefined();
+  });
+});
+
+// ── twi ──────────────────────────────────────────────────────────────────────
+
+describe("Terrain routes — twi pour-point gate", () => {
+  it("falls back to the merged-chunk lookup when OZT2 throws", async () => {
+    storageState.ozt2Rejects = true;
+    storageState.pointElevation = "ok";
+    mockGetTileData.mockImplementation(resolveTile(rampTile()));
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.stats).not.toBeNull();
+    expect(body.units).toBe("ln(m)");
+  });
+
+  it("returns 400 when neither lookup resolves the pour point", async () => {
+    storageState.ozt2Elevation = null;
+    storageState.pointElevation = "throw";
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+
+  it("proceeds to grid assembly when the pour-point gate itself fails", async () => {
+    // See the trace equivalent: the gate's only unprotected statement is the
+    // NODATA comparison, so a throwing elevation payload is the way in.
+    storageState.ozt2Elevation = explodingElevation();
+    mockGetTileData.mockImplementation(resolveTile(rampTile()));
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.stats).not.toBeNull();
+  });
+
+  it("exposes CORS preflight OPTIONS", async () => {
+    const resp = await Promise.resolve(twiOPTIONS());
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
+describe("Terrain routes — twi grid emission", () => {
+  it("returns null stats and an all-nodata grid when every tile fails", async () => {
+    mockGetTileData.mockRejectedValue(new Error("network down"));
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    // Silent-200: an empty DEM is a valid answer with no wetness index anywhere.
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.stats).toBeNull();
+    expect(body.radius_cells).toBe(10);
+    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+  });
+
+  it("averages the two middle cells when an even number of cells are valid", async () => {
+    const pour = pourPixel(40.7, -74.0);
+    // Punch a full nodata column through the DEM window: the wetness index is
+    // dropped for that column and its two neighbours, which leaves an even
+    // count of valid cells and exercises the even-count median branch.
+    const holed = buildTile((_row, col) => 500 + col);
+    for (let row = 0; row < 256; row++) holed[row * 256 + Math.floor(pour.lx)] = -32768;
+    mockGetTileData.mockImplementation(resolveTile(holed));
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.stats).not.toBeNull();
+    expect(body.stats.count % 2).toBe(0);
+    expect(body.stats.count).toBeGreaterThan(0);
+    expect(typeof body.stats.median).toBe("number");
+    expect(body.stats.min).toBeLessThanOrEqual(body.stats.median);
+    expect(body.stats.median).toBeLessThanOrEqual(body.stats.max);
+  });
+
+  it("downsamples the emitted grid as the radius grows", async () => {
+    mockGetTileData.mockImplementation(resolveTile(rampTile()));
+    const mid = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 60 });
+    const wide = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 120 });
+    expect((await mid.json()).grid).toHaveLength(61); // 121 cells, step 2
+    expect((await wide.json()).grid).toHaveLength(61); // 241 cells, step 4
+  });
+
+  it("marks every cell nodata when the tile holds only nodata values", async () => {
+    mockGetTileData.mockImplementation(resolveTile(nodataTile()));
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.stats).toBeNull();
+    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+  });
+
+  it("returns a silent 200 error body for non-numeric tile data", async () => {
+    mockGetTileData.mockResolvedValue({
+      data: new BigInt64Array(256 * 256) as unknown as Int16Array,
+      width: 256,
+      height: 256,
+      zoom: 10,
+    });
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
+    expect(body.grid).toBeUndefined();
+  });
+
+  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+    mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.error).toBe("Unknown error");
+    expect(body.grid).toBeUndefined();
+  });
+});
+
+// ── aspect ───────────────────────────────────────────────────────────────────
+
+describe("Terrain routes — aspect direction bins", () => {
+  it("classifies every compass octant from a directional gradient", async () => {
+    // One request per planar gradient. Each 3×3 window resolves to a single
+    // aspect value, so the eight gradients must cover the eight compass bins —
+    // whichever way the route maps grid axes onto compass directions.
+    const gradients: Array<[number, number]> = [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ];
+    const seen = new Set<string>();
+    for (const [gx, gy] of gradients) {
+      const plane = buildTile((row, col) => 500 + gx * (col - 128) + gy * (row - 128));
+      mockGetTileData.mockImplementation(resolveTile(plane));
+      const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
+      expect(resp.status).toBe(200);
+      const body = await resp.json();
+      expect(body.valid_cells).toBe(1);
+      const hits = Object.entries(body.direction_bins as Record<string, number>)
+        .filter(([, pct]) => pct === 100)
+        .map(([dir]) => dir);
+      expect(hits).toHaveLength(1);
+      expect(hits[0]).not.toBe("flat");
+      seen.add(hits[0]);
+    }
+    expect([...seen].sort()).toEqual(["E", "N", "NE", "NW", "S", "SE", "SW", "W"]);
+  });
+
+  it("points a north-rising slope's aspect south, not north", async () => {
+    // Regression: atan2 negated the (already north-positive) dzDy a second
+    // time, mirroring the compass across the E-W axis (N↔S swapped).
+    // Rows run southward, so a value DEcreasing with row is a slope rising
+    // northward — its downslope aspect must be S (and an east-rising slope,
+    // value increasing with column, must face W).
+    const risingNorth = buildTile((row) => 500 - (row - 128));
+    mockGetTileData.mockImplementation(resolveTile(risingNorth));
+    const northResp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
+    expect((await northResp.json()).direction_bins.S).toBe(100);
+
+    const risingEast = buildTile((_row, col) => 500 + (col - 128));
+    mockGetTileData.mockImplementation(resolveTile(risingEast));
+    const eastResp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
+    expect((await eastResp.json()).direction_bins.W).toBe(100);
+  });
+
+  it("reports flat terrain under the flat bin instead of a compass direction", async () => {
+    mockGetTileData.mockImplementation(resolveTile(buildTile(() => 500)));
+    const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.valid_cells).toBe(9);
+    expect(body.direction_bins.flat).toBe(100);
+    // -1 reaches the emitted grid for interior cells, null for the border.
+    expect(body.grid[1][1]).toBe(-1);
+    expect(body.grid[0][0]).toBeNull();
+  });
+
+  it("downsamples the emitted grid as the radius grows", async () => {
+    mockGetTileData.mockImplementation(resolveTile(rampTile()));
+    const mid = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=60&zoom=10`));
+    const wide = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=120&zoom=10`));
+    expect((await mid.json()).grid).toHaveLength(61); // 121 cells, step 2
+    expect((await wide.json()).grid).toHaveLength(61); // 241 cells, step 4
+  });
+});
+
+describe("Terrain routes — aspect nodata handling", () => {
+  it("excludes cells with a nodata neighbour in their 3×3 window", async () => {
+    const pour = pourPixel(40.7, -74.0);
+    const holed = rampTile();
+    // The single computed cell of a radius=1 window is the pixel at the pour
+    // point; knock out its northern neighbour so the cell has no aspect.
+    holed[(Math.floor(pour.ly) - 1) * 256 + Math.floor(pour.lx)] = -32768;
+    mockGetTileData.mockImplementation(resolveTile(holed));
+    const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.valid_cells).toBe(0);
+    expect(body.direction_bins).toBeNull();
+    expect(body.grid[1][1]).toBeNull();
+  });
+
+  it("nulls cells whose four source pixels are all nodata", async () => {
+    mockGetTileData.mockImplementation(resolveTile(nodataTile()));
+    const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.valid_cells).toBe(0);
+    expect(body.direction_bins).toBeNull();
+    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+  });
+
+  it("returns a silent 200 error body for non-numeric tile data", async () => {
+    mockGetTileData.mockResolvedValue({
+      data: new BigInt64Array(256 * 256) as unknown as Int16Array,
+      width: 256,
+      height: 256,
+      zoom: 10,
+    });
+    const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
+    expect(body.grid).toBeUndefined();
+  });
+
+  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+    mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
+    const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.error).toBe("Unknown error");
+    expect(body.grid).toBeUndefined();
   });
 });

@@ -40,8 +40,10 @@ export function GET(request: NextRequest) {
       region: cf?.subdivision1Code || null,
       regionName: cf?.subdivision1Name || null,
       postalCode: cf?.postalCode || null,
-      latitude: cf?.latitude || null,
-      longitude: cf?.longitude || null,
+      // ?? so a legitimate 0 coordinate (equator / prime meridian) survives;
+      // every other field is a string where "" is genuinely absent.
+      latitude: cf?.latitude ?? null,
+      longitude: cf?.longitude ?? null,
       timezone: cf?.timezone || null,
       continent: cf?.continent || null,
       asn: cf?.asn || null,

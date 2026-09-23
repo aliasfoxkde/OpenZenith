@@ -32,6 +32,41 @@ The volume is dominated by a small number of pattern classes that are
 structurally false positives for a geospatial platform. Each class below has
 been manually verified (not assumed).
 
+## Baseline tuning (2026-09-22): repo-level profile filter
+
+The full-strength baseline was 7,493 findings, ~80% of them from a fixed
+set of structurally false-positive classes that re-flag thousands of
+shifted lines on every refactor, burying real signals in the delta. The
+gate (`scripts/aegis_scan.sh`) now drops every finding whose pattern is
+listed in `docs/security/aegis-profile.json` (`disabled_patterns`)
+**after** the scan, in both check and update modes. Aegis itself always
+runs at full strength; this is repo-level policy, so other projects'
+scans are unaffected. Sharpness is verified, not assumed: a probe file
+containing the AWS documentation example key is still caught
+(`aws-access-key`, critical, via the gate's own baseline path).
+
+Disabled classes and why (each previously verified in this document):
+
+| Group | Patterns | Rationale |
+|---|---|---|
+| Governed by stricter dedicated tooling | `typescript-explicit-any`, `typescript-any-alias`, `excess-line-length`, `function-name-verbose`, `generic-variable-names`, `magic-number`, `print-statement`, `commit-ampersand`, `event-listener-leak` | ESLint/tsc error-level or reviewed; `event-listener-leak` misses paired cleanups (see below); magic-number is meaningless in coordinate grids |
+| Geospatial corpus false positives | `zip-code`, `street-address`, `email-address`, `finance-tofixed-currency`, `hardcoded-ip`, `pii-output-marker` | Digit sequences in coordinate grids; lat/lon output is the product |
+| Domain mismatch (technology absent) | `terraform-*` (16), `azure-aks-cluster`, `hipaa-*` (3), `pci-cardholder-data`, `healthcare-phi-*` (2), `bitcoin-address`, `ethereum-address`, `finance-bitcoin-address` | No Terraform/Azure/healthcare/payments/crypto anywhere in the repo |
+| Test-grammar noise | `unit-test-marker`, `integration-test-marker`, `security-test-marker`, `interpretability-tool` | Flags test names and ML-adjacent grammar |
+| Superseded by the axe-core WCAG AAA gate | `missing-form-label`, `click-without-keyboard`, `chart-accessibility`, `target-blank-unlabeled` | axe audits the real rendered DOM, strictly better evidence |
+
+Kept deliberately sharp: all `secrets-*`, `git-credential-leak`, `ssrf`,
+`ssrf-localhost`, `stored-xss` / `dom-xss` / `angular-innerhtml-xss` /
+`xss-via-url`, `env-file-in-git`, `env-credential-assignment`,
+`hardcoded-credential`, `*-sql-injection`, `crypto-*` / `weak-crypto`,
+`code-injection-request`, `react-missing-key-prop`, `no-cache-headers`,
+`try-catch-bulk`, `hardcoded-internal-endpoint`, `autocomplete-missing`.
+
+Filtered baseline: **1,456 findings** (1 critical / 219 high / 407
+medium / 824 low / 5 info). Remaining top classes are real review
+queues, not noise: `try-catch-bulk` (148), `no-cache-headers` (113),
+`react-missing-key-prop` (101), `ssrf` (88), `ssrf-localhost` (79).
+
 ## Re-triage 2026-09-22 (post-refactor, 1,855 → 0 new)
 
 The Python `terrain`/`hydrology` package split, the studio WCAG AAA color

@@ -10,16 +10,41 @@
 #                                     AFTER triaging the diff; see
 #                                     docs/security/TRIAGE.md for the policy.
 #
+# Findings whose pattern appears in docs/security/aegis-profile.json
+# ("disabled_patterns") are suppressed by the gate itself — aegis always
+# scans at full strength; the repo-level denylist keeps its documented,
+# reviewed false-positive classes out of the baseline-diff arithmetic.
+# The interactive `aegis` binary is untouched, so other projects keep
+# their own policy.
+#
 # Scopes are explicit (never repo root) so 65GB under data/ is never crawled.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASELINE="$REPO_ROOT/docs/security/aegis-baseline.json"
+PROFILE="$REPO_ROOT/docs/security/aegis-profile.json"
 SCOPES=(api/src openzenith core/src core/tests scripts)
+
+# Load a findings array from a aegis JSON output file, dropping every
+# finding whose pattern is on the repo denylist. Used by both modes.
+filter_findings() {
+    python3 - "$1" "$PROFILE" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1]))
+# Accept both the aegis output document and a bare findings array.
+findings = doc["findings"] if isinstance(doc, dict) else doc
+deny = set(json.load(open(sys.argv[2])).get("disabled_patterns", []))
+kept = [f for f in findings if f["pattern"] not in deny]
+out = {"findings": kept} if isinstance(doc, dict) else kept
+json.dump(out, open(sys.argv[1], "w"), indent=2)
+print(len(kept))
+PY
+}
 
 if [[ "${1:-check}" == "update" ]]; then
     mkdir -p "$(dirname "$BASELINE")"
     tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT
     python3 - "$BASELINE" "$tmp" "${SCOPES[@]/#/$REPO_ROOT/}" <<'PY'
 import json, sys
 out_path, tmp_path, *scopes = sys.argv[1:]
@@ -36,8 +61,11 @@ for scope in scopes:
 with open(out_path, "w") as fh:
     json.dump({"findings": merged}, fh, indent=2)
     fh.write("\n")
-print(f"baseline written: {len(merged)} findings -> {out_path}")
+print(f"raw findings: {len(merged)}")
 PY
+    # Apply the repo denylist to the freshly written baseline in place.
+    count="$(filter_findings "$BASELINE")"
+    echo "baseline written: $count findings (after profile filter) -> $BASELINE"
     exit 0
 fi
 
@@ -62,7 +90,8 @@ for scope in "${SCOPES[@]}"; do
         echo "aegis failed on $scope (rc=$rc)" >&2
         exit "$rc"
     fi
-    count="$(python3 -c "import json;print(len(json.load(open('$tmp'))['findings']))")"
+    # Denylisted patterns are policy-suppressed, not "new findings".
+    count="$(filter_findings "$tmp")"
     if (( count > 0 )); then
         echo "NEW findings in $scope: $count"
         python3 - "$tmp" <<'PY'

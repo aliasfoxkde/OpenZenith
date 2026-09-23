@@ -32,7 +32,9 @@ Works entirely offline after installing the Python SDK and optional local data. 
 
 ```bash
 pip install openzenith              # Core SDK
-pip install openzenith[all]         # All extras: async, rasterio, numba
+pip install openzenith[all]         # All extras: compression, download,
+                                    # analysis (aiohttp/rasterio/numba), viz, dev
+pip install openzenith[viz]         # + matplotlib plotting helpers
 ```
 
 ### 2. Query Elevation (works offline if tiles cached)

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mockRequest } from "./helpers";
+import pkg from "../../../../package.json";
 
 describe("OpenAPI spec endpoint", () => {
   it("returns valid OpenAPI 3.0.3 spec", async () => {
@@ -14,6 +15,14 @@ describe("OpenAPI spec endpoint", () => {
     expect(spec.paths).toBeDefined();
     expect(spec.servers).toBeDefined();
     expect(spec.tags).toBeDefined();
+  });
+
+  it("reports the released version, not a stale literal", async () => {
+    // The spec version rotted at 0.7.0 through the whole 0.8.x line; this
+    // pins it to package.json so a bump without a regen fails here.
+    const { GET } = await import("@/app/api/openapi.json/route");
+    const spec = await GET(mockRequest("/api/openapi.json")).json();
+    expect(spec.info.version).toBe(pkg.version);
   });
 
   it("includes all expected endpoints", async () => {

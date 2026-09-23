@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import pkg from "../../../../package.json";
 
 export const runtime = "edge";
 
@@ -11,7 +12,9 @@ const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "OpenZenith API",
-    version: "0.7.0",
+    // Single-sourced from package.json so the published spec can never
+    // drift from the release (it rotted at 0.7.0 through v0.8.x).
+    version: pkg.version,
     description:
       "Free, fast, global elevation and geospatial API. Query any point on Earth for elevation data from NASA SRTM 30m, track flights, monitor weather, explore OpenStreetMap, and more. No API key required.",
     contact: {

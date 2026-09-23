@@ -30,12 +30,14 @@ interface TileMatrixSetDef {
   level0ScaleDenominator: number;
   level0MatrixWidth: number;
   level0MatrixHeight: number;
+  // Tile URL template path, in the coordinate order the TMS's clients use.
+  // OGC API - Tiles path order is {tileMatrix}/{tileRow}/{tileCol}; the WMTS
+  // ResourceURL convention spells it {TileMatrix}/{TileRow}/{TileCol}.
+  // The request origin is prepended when the layer XML is built.
+  resourcePath: string;
 }
 
 const TILE_MATRIX_SETS: TileMatrixSetDef[] = [
-  // Only WebMercatorQuad: the served tiles are EPSG:3857 and there is no
-  // EPSG:4326 resampling, so advertising WorldCRS84Quad would describe
-  // tiles we cannot serve conformantly.
   {
     id: "WebMercatorQuad",
     supportedCrs: "urn:ogc:def:crs:EPSG::3857",
@@ -44,6 +46,19 @@ const TILE_MATRIX_SETS: TileMatrixSetDef[] = [
     level0ScaleDenominator: WEB_MERCATOR_L0_SCALE,
     level0MatrixWidth: 1,
     level0MatrixHeight: 1,
+    resourcePath: "/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}",
+  },
+  {
+    // Served conformantly since #122: true EPSG:4326 assembly in
+    // lib/tile-crs84.ts (per-pixel lat/lon sampling of the same sources).
+    id: "WorldCRS84Quad",
+    supportedCrs: "urn:ogc:def:crs:OGC:1.3:CRS84",
+    wellKnownScaleSet: "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad",
+    topLeftCorner: "-180 90",
+    level0ScaleDenominator: WEB_MERCATOR_L0_SCALE,
+    level0MatrixWidth: 2,
+    level0MatrixHeight: 1,
+    resourcePath: "/api/tiles/WorldCRS84Quad/{TileMatrix}/{TileRow}/{TileCol}",
   },
 ];
 
@@ -91,23 +106,29 @@ function tileMatrixSetXml(tms: TileMatrixSetDef): string {
 export function wmtsCapabilitiesResponse(request: Request): Response {
   const baseUrl = new URL(request.url).origin;
 
-  const layers = TILE_MATRIX_SETS.map((tms) =>
-    [
-      "    <Layer>",
-      "      <ows:Title>OpenZenith Global Elevation (Terrarium PNG)</ows:Title>",
-      "      <ows:Abstract>SRTM 30m / GEBCO 2025 elevation encoded as Terrarium PNG tiles.</ows:Abstract>",
-      "      <ows:Identifier>elevation-terrarium</ows:Identifier>",
-      '      <Style isDefault="true">',
-      "        <ows:Identifier>default</ows:Identifier>",
-      "      </Style>",
-      "      <Format>image/png</Format>",
+  // One layer offered over both matrix sets: WMTS allows repeated
+  // TileMatrixSetLinks each paired with a ResourceURL in that set's own
+  // coordinate order, and clients pick the entry matching their tileMatrixSetID.
+  const layers = [
+    "    <Layer>",
+    "      <ows:Title>OpenZenith Global Elevation (Terrarium PNG)</ows:Title>",
+    "      <ows:Abstract>SRTM 30m / GEBCO 2025 elevation encoded as Terrarium PNG tiles.</ows:Abstract>",
+    "      <ows:Identifier>elevation-terrarium</ows:Identifier>",
+    '      <Style isDefault="true">',
+    "        <ows:Identifier>default</ows:Identifier>",
+    "      </Style>",
+    "      <Format>image/png</Format>",
+    ...TILE_MATRIX_SETS.flatMap((tms) => [
       "      <TileMatrixSetLink>",
       `        <TileMatrixSet>${tms.id}</TileMatrixSet>`,
       "      </TileMatrixSetLink>",
-      `      <ResourceURL format="image/png" resourceType="tile" template="${baseUrl}/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}" />`,
-      "    </Layer>",
-    ].join("\n"),
-  ).join("\n");
+    ]),
+    ...TILE_MATRIX_SETS.map(
+      (tms) =>
+        `      <ResourceURL format="image/png" resourceType="tile" template="${esc(`${baseUrl}${tms.resourcePath}`)}" />`,
+    ),
+    "    </Layer>",
+  ].join("\n");
 
   const capabilitiesUrl = `${esc(baseUrl)}/api/tiles/WMTSCapabilities.xml`;
   const xml = [

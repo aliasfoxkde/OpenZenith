@@ -6,7 +6,13 @@ vi.mock("@/lib/tile", async (importOriginal) => {
   return { ...actual, getTileData: vi.fn(actual.getTileData) };
 });
 
+vi.mock("@/lib/tile-crs84", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tile-crs84")>();
+  return { ...actual, getTileDataCRS84: vi.fn(actual.getTileDataCRS84) };
+});
+
 import { getTileData } from "@/lib/tile";
+import { getTileDataCRS84 } from "@/lib/tile-crs84";
 
 const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -18,12 +24,16 @@ function tileParams(z: string, row: string, col: string, setId = "WebMercatorQua
   };
 }
 
-/** Reset the getTileData seam to the real implementation between tests. */
+/** Reset the tile assembler seams to the real implementations between tests. */
 let realGetTileData: typeof getTileData | undefined;
+let realGetTileDataCRS84: typeof getTileDataCRS84 | undefined;
 function resetTileDataMock() {
   const mocked = vi.mocked(getTileData);
   realGetTileData ??= mocked.getMockImplementation() as typeof getTileData;
   mocked.mockReset().mockImplementation(realGetTileData);
+  const mockedCRS84 = vi.mocked(getTileDataCRS84);
+  realGetTileDataCRS84 ??= mockedCRS84.getMockImplementation() as typeof getTileDataCRS84;
+  mockedCRS84.mockReset().mockImplementation(realGetTileDataCRS84);
 }
 beforeEach(resetTileDataMock);
 afterEach(() => {
@@ -125,6 +135,22 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
     expect(data.code).toBe("TileOutOfRange");
     expect(data.description).toBe("Tile 14/16384/0 is out of range");
   });
+
+  it("applies the 2x1 WorldCRS84Quad root matrix to range checks", async () => {
+    vi.mocked(getTileDataCRS84).mockResolvedValue(TILE_100M);
+    const { GET } = await route();
+    // z0: 2 columns x 1 row — the east tile is valid
+    const ok = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/0/1"), tileParams("0", "0", "1", "WorldCRS84Quad"));
+    expect(ok.status).toBe(200);
+    // col 2 is past matrixWidth
+    const badCol = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/0/2"), tileParams("0", "0", "2", "WorldCRS84Quad"));
+    expect(badCol.status).toBe(404);
+    expect((await badCol.json()).code).toBe("TileOutOfRange");
+    // row 1 is past matrixHeight
+    const badRow = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/1/0"), tileParams("0", "1", "0", "WorldCRS84Quad"));
+    expect(badRow.status).toBe(404);
+    expect(vi.mocked(getTileDataCRS84)).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("OGC Tile Data API — tile assembly and fallback", () => {
@@ -155,20 +181,21 @@ describe("OGC Tile Data API — tile assembly and fallback", () => {
     expect(vi.mocked(getTileData).mock.calls[0]).toEqual([3, 6, 2, expect.anything()]);
   });
 
-  it("rejects WorldCRS84Quad instead of serving mis-projected tiles", async () => {
-    // The assembled tiles are EPSG:3857 and there is no EPSG:4326
-    // resampling, so the CRS84 set is refused rather than served with only
-    // a row flip (which handed conformant clients wrong geometry).
-    vi.mocked(getTileData).mockResolvedValue(TILE_100M);
+  it("dispatches WorldCRS84Quad to the EPSG:4326 assembler", async () => {
+    // #122: CRS84 tiles are assembled conformantly — per-pixel lat/lon
+    // sampling in lib/tile-crs84.ts — rather than served with only a row
+    // flip of the Mercator grid (which handed clients wrong geometry).
+    vi.mocked(getTileDataCRS84).mockResolvedValue(TILE_100M);
     const { GET } = await route();
 
     const resp = await GET(
       mockRequest("/api/tiles/WorldCRS84Quad/3/6/2"),
       tileParams("3", "2", "6", "WorldCRS84Quad"),
     );
-    expect(resp.status).toBe(400);
-    const data = await resp.json();
-    expect(data.code).toBe("InvalidParameterValue");
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Content-Type")).toBe("image/png");
+    // (z, col, row, backend) — the route passes tileCol before tileRow
+    expect(vi.mocked(getTileDataCRS84).mock.calls[0]).toEqual([3, 6, 2, expect.anything()]);
     expect(vi.mocked(getTileData)).not.toHaveBeenCalled();
   });
 

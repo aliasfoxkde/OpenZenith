@@ -42,6 +42,12 @@ export function GET(request: NextRequest) {
             title: "Google Web Mercator (EPSG:3857)",
           },
           {
+            rel: "tileMatrixSets",
+            type: "application/json",
+            href: `${baseUrl}/api/tiles/WorldCRS84Quad`,
+            title: "World CRS84 Quad (WGS 84 lat/lon)",
+          },
+          {
             rel: "service-desc",
             type: "application/vnd.oai.openapi+json;version=3.0",
             href: `${baseUrl}/api/openapi.json`,
@@ -52,6 +58,10 @@ export function GET(request: NextRequest) {
           {
             tileMatrixSet: "WebMercatorQuad",
             href: `${baseUrl}/api/tiles/WebMercatorQuad`,
+          },
+          {
+            tileMatrixSet: "WorldCRS84Quad",
+            href: `${baseUrl}/api/tiles/WorldCRS84Quad`,
           },
         ],
       },

@@ -18,16 +18,25 @@ describe("Tile Matrix Set API", () => {
     expect(data.links).toBeTruthy();
   });
 
-  it("rejects the deprecated WorldCRS84Quad set", async () => {
-    // No EPSG:4326 tile assembly exists; advertising CRS84 described tiles
-    // that could not be served conformantly.
+  it("returns WorldCRS84Quad metadata per the OGC 17-083r2 definition", async () => {
+    // #122: true EPSG:4326 assembly exists in lib/tile-crs84.ts, so the
+    // geographic set is served conformantly again.
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
     const resp = await GET(mockRequest("/api/tiles/WorldCRS84Quad"), {
       params: Promise.resolve({ tileMatrixSetId: "WorldCRS84Quad" }),
     });
-    expect(resp.status).toBe(400);
+    expect(resp.status).toBe(200);
     const data = await resp.json();
-    expect(data.code).toBe("InvalidParameterValue");
+    expect(data.id).toBe("WorldCRS84Quad");
+    expect(data.crs).toBe("http://www.opengis.net/def/crs/OGC/1.3/CRS84");
+    expect(data.wellKnownScaleSet).toBe("http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad");
+    expect(data.tileMatrices).toHaveLength(15); // z0-z14
+    expect(data.tileMatrices[0].pointOfOrigin).toEqual({ x: -180, y: 90 });
+    // Root matrix is 2x1; each level doubles both dimensions
+    expect(data.tileMatrices[0].matrixWidth).toBe(2);
+    expect(data.tileMatrices[0].matrixHeight).toBe(1);
+    expect(data.tileMatrices[14].matrixWidth).toBe(2 ** 15);
+    expect(data.tileMatrices[14].matrixHeight).toBe(2 ** 14);
   });
 
   it("returns 400 for unknown tile matrix set", async () => {

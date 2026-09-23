@@ -17,6 +17,17 @@ import { cacheGet, cachePut } from "./storage/cache";
 const TILE_SIZE = 256;
 const NODATA = -32768;
 
+// Lat/lon box the tile assemblers fill. Shared with the WorldCRS84Quad
+// assembler, whose tiles are natively lat/lon rectangles.
+export interface TileBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+export { TILE_SIZE, NODATA };
+
 // Known corrupted SRTM chunks in HuggingFace (aliasfox/srtm30m-merged).
 // These tiles have valid-looking but wildly incorrect elevation values.
 // Skip them during assembly so AWS fallback provides correct data.
@@ -26,6 +37,10 @@ const BLACKLISTED_SRTM_TILES = new Set([
   "S32W070", // Aconcagua: reports 2153m instead of 6961m
   "N19W155", // Hawaii: reports 0m instead of 4205m
 ]);
+
+export function isBlacklistedSrtmTile(name: string): boolean {
+  return BLACKLISTED_SRTM_TILES.has(name.replace(".tif", ""));
+}
 
 // AWS Terrain Tiles — same SRTM 30m data as pre-built Terrarium PNG
 const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
@@ -135,7 +150,7 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
 /**
  * Find all SRTM tile names that overlap with the given bounds.
  */
-function findOverlappingSrtmTiles(bounds: { north: number; south: number; east: number; west: number }): string[] {
+export function findOverlappingSrtmTiles(bounds: TileBounds): string[] {
   const tiles: Set<string> = new Set();
 
   const lats = [bounds.north - 0.001, (bounds.north + bounds.south) / 2, bounds.south + 0.001];
@@ -156,10 +171,10 @@ function findOverlappingSrtmTiles(bounds: { north: number; south: number; east: 
  * Fill the output tile array with elevation data from one SRTM tile.
  * Fetches pre-extracted chunks and samples pixels to the output grid.
  */
-async function fillTileFromSrtm(
+export async function fillTileFromSrtm(
   output: Int16Array,
   srtmName: string,
-  tileBounds: { north: number; south: number; east: number; west: number },
+  tileBounds: TileBounds,
   storage: ChunkBackend,
 ): Promise<void> {
   const srtmBounds = srtmNameToBounds(srtmName);
@@ -267,7 +282,7 @@ async function fillTileFromSrtm(
  *
  * @returns Decoded elevation Int16Array, or null on failure
  */
-async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int16Array | null> {
+export async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int16Array | null> {
   try {
     const url = AWS_TERRAIN_URL.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
     const resp = await fetch(url);

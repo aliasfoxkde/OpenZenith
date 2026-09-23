@@ -1266,3 +1266,53 @@ shared box-wide install; upgrading it from this session could disturb
 other concurrent sessions' deploy tooling. Revisit as a user action.
 
 Production posture unchanged: 0 production vulnerabilities (#120).
+
+### 2026-09-23 — Task #122: conformant WorldCRS84Quad (true EPSG:4326) tile assembly
+
+Until now the geographic tile set was a lie the API had to stop telling:
+#114 dropped WorldCRS84Quad from the capabilities documents because the
+assembler only produced EPSG:3857 XYZ tiles, so advertising CRS84 handed
+conformant clients wrong geometry (a row flip is not a reprojection).
+#122 closes the gap properly: `api/src/lib/tile-crs84.ts` assembles real
+CRS84 tiles per OGC 2D Tile Matrix Set 17-083r2 — root matrix 2x1,
+top-left (-180, 90), 2^(z+1) x 2^z per level, GoogleMapsCompatible scale
+sequence, 256px tiles.
+
+Assembly mirrors the Web Mercator source priority: z<=10 samples the AWS
+Terrain 3857 pyramid one level deeper than the requested CRS84 zoom
+(za = z+1 gives ~2x resolution, nearest-neighbour per pixel center, no
+blending needed); z>10 assembles from the HuggingFace SRTM 1-degree
+chunks, whose native lat/lon rectangles are seam-free here; each source
+backs the other on failure/sparsity, and the blacklisted-chunk guard
+(Death Valley et al.) carries over. Latitudes beyond the Mercator limit
+(+/-85.0511287798066) report NODATA — a source constraint, documented in
+code. tile.ts internals (TileBounds, fillTileFromSrtm, fetchAWSTerrainTile,
+blacklist) were exported rather than duplicated.
+
+Two real bugs were caught by the new tests before they shipped: the
+Mercator y formula initially consumed degrees without the radians
+conversion (southern pixels silently NODATA), and the 3857 cover fetch
+probed sample points (corners + center) instead of computing the clamped
+tile range — tiles spanning several 3857 tiles fetched only part of their
+cover (whole northern or southern halves went NODATA). Both fixed in
+tile-crs84.ts.
+
+Also in this task: the tiles landing page and both metadata routes
+advertise both sets; the WMTS capabilities document serves ONE elevation
+layer with two TileMatrixSetLinks and a per-set ResourceURL (path-only
+templates, origin interpolated at request time — the layer-level template
+is where WMTS coordinate order differs: dem-tile keeps
+{TileMatrix}/{TileCol}/{TileRow}, CRS84 uses {TileMatrix}/{TileRow}/
+{TileCol}). Range checks are per-set (CRS84 col bound is 2^(z+1)).
+
+Test infrastructure: Terrarium PNG + SRTM chunk fixtures extracted from
+tile.test.ts into tile-fixtures.ts (shared with tile-crs84.test.ts — no
+duplicate fixture implementations). New suites pin the matrix geometry
+(exact dyadic bounds), AWS primary, chunk primary, sparse-chunk AWS
+fallback, blacklist skip, pole NODATA, and 2x1 range checks; tiles-data
+and tiles-matrix tests inverted from "CRS84 rejected" to "CRS84 served
+conformantly". Gates: tsc clean, eslint 0 errors, vitest 100 files /
+1,324 passed + 5 skipped with floors 97/92/89/97 held, aegis re-triaged
+(64 findings: line-shift re-flags, OGC spec constants tripping PII
+patterns — one source comment reworded rather than triaged — and keyword
+noise; TRIAGE.md #122).

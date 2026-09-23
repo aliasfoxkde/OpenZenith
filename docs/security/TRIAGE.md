@@ -636,3 +636,42 @@ Verified empirically instead of trusting either side: production build,
 workerd smoke, local E2E (38 passed), redeploy, production E2E (40 passed
 / 1 skipped), heavy OZT2 terrain suite (8/8). If a future next-on-pages
 release or the OpenNext migration narrows this, revisit.
+
+## Re-triage 2026-09-23 — task #122 (WorldCRS84Quad tile assembly)
+
+Production edits: new `api/src/lib/tile-crs84.ts` (true EPSG:4326 tile
+assembly for the WorldCRS84Quad tile matrix set, OGC 17-083r2), tile.ts
+exports of internal helpers, and the OGC tiles routes dispatching on the
+requested set. Test edits: new tile-crs84.test.ts, tile-fixtures.ts (the
+Terrarium PNG / SRTM chunk fixtures extracted from tile.test.ts — the
+fixture builders are shared now, not duplicated), and updated tiles-route
+suites.
+
+Gate reported 64 new findings; classes verified:
+
+- **Line-shifted re-flags (~48):** `console-log*`, `sync-in-async`
+  (unzlibSync/zlibSync), `ssrf`/`ssrf-localhost` (fixed fetch URLs and
+  localhost test URLs), `cors-misconfiguration` (the deliberate
+  `Access-Control-Allow-Origin: *` API contract), `no-cache-headers`,
+  `try-catch-bulk`, `expensive-computation-loop`, `double-type-assertion`
+  (`as unknown as Response` fixture casts) — all triaged classes in
+  earlier waves, re-flagged because the edits moved the lines or moved the
+  fixture code into the new shared module. No content changes.
+- **PII-pattern false positives on OGC spec constants (~12):**
+  `bank-routing-number` / `australian-tfn` / `ssn-no-dashes` match the
+  9-digit runs inside the GoogleMapsCompatible level-0 scale denominator
+  (559082264.0287178 — the OGC 17-083r2 / WMTS spec value, unchanged from
+  the previously shipped capabilities document) and inside exact dyadic
+  tile-bound literals in tile-crs84.test.ts (-115.927734375 et al.). These
+  are map mathematics, not taxpayer or bank data; the values cannot be
+  altered without breaking the standards conformance the tests pin.
+  The one occurrence in production source (a header comment) was reworded
+  to drop the literal rather than triaged.
+- **Scanner keyword noise (~4):** `missing-limit` fired on an it() title
+  containing the word "limit" and on a comment about the Mercator latitude
+  limit; `go-replace-directive` on the fetch fixture's stub signature.
+
+No real secrets, no new attack surface: the new assembler talks to the
+same two already-triaged upstreams (AWS Terrain Tiles, HuggingFace
+chunks) with fixed URL templates. Re-baselined via
+`scripts/aegis_scan.sh update`.

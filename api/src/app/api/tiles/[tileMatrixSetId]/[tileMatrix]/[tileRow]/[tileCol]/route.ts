@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
+import { getTileDataCRS84, crs84MatrixSize } from "@/lib/tile-crs84";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
@@ -33,10 +34,11 @@ export async function GET(
 ) {
   const { tileMatrixSetId, tileMatrix, tileRow, tileCol } = await params;
 
-  // Validate tile matrix set. Only WebMercatorQuad is served: the tiles are
-  // EPSG:3857, and we have no EPSG:4326 resampling, so advertising
-  // WorldCRS84Quad would hand conformant clients mis-projected data.
-  const validSets = ["WebMercatorQuad"];
+  // Validate tile matrix set. Both advertised sets are assembled
+  // conformantly: WebMercatorQuad natively (the sources are 3857 XYZ grids)
+  // and WorldCRS84Quad by per-pixel sampling of the same sources into true
+  // lat/lon tiles (see lib/tile-crs84.ts).
+  const validSets = ["WebMercatorQuad", "WorldCRS84Quad"];
   if (!validSets.includes(tileMatrixSetId)) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: `Unknown tileMatrixSet: ${tileMatrixSetId}` },
@@ -63,9 +65,11 @@ export async function GET(
     );
   }
 
-  // Validate tile is within range for this zoom
-  const maxTile = Math.pow(2, z) - 1;
-  if (x > maxTile || y > maxTile) {
+  // Validate tile is within range for this zoom. WorldCRS84Quad's matrices
+  // are 2^(z+1) columns x 2^z rows; WebMercatorQuad's are square 2^z.
+  const { matrixWidth, matrixHeight } =
+    tileMatrixSetId === "WorldCRS84Quad" ? crs84MatrixSize(z) : { matrixWidth: 2 ** z, matrixHeight: 2 ** z };
+  if (x >= matrixWidth || y >= matrixHeight) {
     return NextResponse.json(
       { code: "TileOutOfRange", description: `Tile ${z}/${x}/${y} is out of range` },
       { status: 404, headers: CORS_HEADERS },
@@ -73,7 +77,10 @@ export async function GET(
   }
 
   try {
-    const tileData = await getTileData(z, x, y, HF_BACKEND);
+    const tileData =
+      tileMatrixSetId === "WorldCRS84Quad"
+        ? await getTileDataCRS84(z, x, y, HF_BACKEND)
+        : await getTileData(z, x, y, HF_BACKEND);
     const png = encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
 
     return new Response(png.buffer as ArrayBuffer, {

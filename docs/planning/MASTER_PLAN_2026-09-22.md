@@ -1250,3 +1250,19 @@ production: new chunk hash served, all routes 200, E2E 40 passed /
 
 Deploy note: `npx wrangler pages deploy` from `api/` resolves the Pages
 project; from elsewhere pass `--project-name openzenith` explicitly.
+
+### 2026-09-23 — Task #121: dev-tree audit floor (measured terminal state)
+
+`npm audit fix` (non-breaking) produced zero changes: the dev-tree
+residual (2 high: undici, ws; 5 moderate; 1 low) has NO available fixes —
+undici/ws sit in miniflare/playwright chains, vitest's suggested "fix" is
+a downgrade to 5.0.x, and esbuild 0.15.18 is @cloudflare/next-on-pages'
+own pin driving the production build (overriding across esbuild majors
+risks the build pipeline for a dev-only moderate). All of it is dev-only:
+nothing in this tree ships to the edge runtime.
+
+Deliberate skips: global wrangler 4.103 → 4.136 NOT applied — it is a
+shared box-wide install; upgrading it from this session could disturb
+other concurrent sessions' deploy tooling. Revisit as a user action.
+
+Production posture unchanged: 0 production vulnerabilities (#120).

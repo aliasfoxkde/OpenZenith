@@ -657,3 +657,30 @@ Misses that remain are documented (scipy/trimesh ImportError guards,
 defensive D8 guards). Aegis: +3 semantic findings, all triaged false
 positives (nested NumPy math ≠ callbacks; the word "functions" in
 docstrings ≠ Azure) — TRIAGE.md 2026-09-22c, baseline 1,445 → 1,449.
+
+### #94 — HF z10 OZT2 backfill: COMPLETE (task 94, 2026-09-22)
+
+Ground truth established through three independent channels after sync v4
+(48,481 committed) + v5 (verification pass):
+
+1. **Commit history** (authoritative): v4's "7,500 failed" were false —
+   timeouts hit *after* HF accepted the commits; batches 110/111 appear 3×
+   each in the dataset's 5,075-commit history (harmless duplicates).
+2. **Server-side dedup**: v5 recomputed the same 55,981 delta from the tree
+   listing, then every one of its 112 create_commits returned "no files
+   modified" — HF confirmed identical blobs already exist at every path.
+3. **Resolve URLs**: 25/25 sampled "missing" paths return HTTP 200/302, 0×404.
+
+**All 151,988 local z10 tiles are on the remote with identical content.**
+The residual "missing: 55,981" reported by the validator and both sync runs
+is a *stale tree-listing index*: after mass upload, `list_repo_tree` serves
+a ~96K-file snapshot while git/LFS state is current. Operational rule:
+never treat tree-listing absence as truth within hours of a mass upload —
+verify via resolve URL or commit-dedup. This rule feeds #108's
+verify-before-retry design.
+
+Tooling notes: the earlier ad-hoc ground-truth scan matched `10/`-prefixed
+paths against the repo's `tiles/z10/…` layout and counted nothing on either
+side — vacuous, discarded. v5 summary "55,981 files uploaded, 0 failed"
+is likewise misleading (nothing uploaded; all deduped) — #108 covers
+honest reporting.

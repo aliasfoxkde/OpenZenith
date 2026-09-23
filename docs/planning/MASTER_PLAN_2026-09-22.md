@@ -407,3 +407,18 @@ server-side read-timeout backoff (215 timeouts over ~7 h; 20→300 s).
 Process left running; no client-side fix — the bottleneck is HF's
 commit API. Next session: resume when HF recovers or split batches to
 ≤500 files; expected remaining ≈ 34 commits.
+
+### 2026-09-22 — GitForge CI status re-verified (still platform-blocked)
+
+Verified against the live GitForge instance with a fresh JWT: the
+OpenZenith repo is registered (id 814a4cde…), `.gitforce.yml` exists in
+the repo mirroring `ci.yml`, but (a) `gitforge pipeline --list` shows no
+pipeline registered for the repo, and (b) `gitforge pipeline --create`
+returns "Pipeline creation not yet implemented". Together with the
+previously surfaced event-drain defect (push trigger fires, run
+execution stalls), GitForge CI for this repo is blocked by two
+platform-side gaps: pipeline registration and run execution. The
+executable CI-parity remains the local gate set (eslint 0 errors,
+tsc, vitest+coverage floors, pytest+coverage floor, cargo fmt/clippy/
+test, aegis gate, E2E). Re-test when GitForge ships both capabilities;
+tokens only via the user's interactive `gitforge auth --login`.

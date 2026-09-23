@@ -80,6 +80,9 @@ declare namespace CesiumType {
     requestRender(): void;
     postRender: Event;
     pick(position: Cartesian2): { id?: Entity; primitive?: unknown } | undefined;
+    morphTo2D(duration?: number): void;
+    morphTo3D(duration?: number): void;
+    morphToColumbusView(duration?: number): void;
     [key: string]: unknown;
   }
 
@@ -111,11 +114,16 @@ declare namespace CesiumType {
     getHeading(): number;
     getPitch(): number;
     heading: number;
+    pitch: number;
+    roll: number;
     position: Cartesian3;
+    positionWC: Cartesian3;
     positionCartographic: Cartographic;
     frustum: { far: number };
     changed: Event;
     pickEllipsoid(position: Cartesian2, ellipsoid?: unknown): Cartesian3 | undefined;
+    zoomIn(amount?: number): void;
+    zoomOut(amount?: number): void;
     [key: string]: unknown;
   }
 
@@ -147,7 +155,7 @@ declare namespace CesiumType {
     id: string;
     name?: string;
     show?: boolean | CallbackProperty;
-    position?: Cartesian3 | CallbackProperty | SampledPositionProperty;
+    position?: PositionProperty;
     orientation?: unknown;
     point?: Record<string, unknown>;
     label?: Record<string, unknown>;
@@ -260,10 +268,16 @@ declare namespace CesiumType {
     getValue(time?: JulianDate): unknown;
   }
 
+  /** Time-dynamic position property — resolves to a world position. */
+  interface PositionProperty {
+    getValue(time?: JulianDate): Cartesian3;
+  }
+
   const CallbackProperty: new (callback: (time: JulianDate) => unknown, isConstant: boolean) => CallbackProperty;
 
   class SampledPositionProperty {
     constructor(referenceFrame?: number);
+    getValue(time?: JulianDate): Cartesian3;
     addSample(time: JulianDate, position: Cartesian3): void;
     setInterpolationOptions(options: { interpolationAlgorithm?: unknown; interpolationDegree?: number }): void;
   }

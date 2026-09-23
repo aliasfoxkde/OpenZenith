@@ -281,3 +281,27 @@ the master plan's follow-up list.
    line), verify the content still matches the class rationale.
 3. Run `scripts/aegis_scan.sh update`, review the baseline diff, commit both
    together with a message referencing this document.
+
+## Re-triage 2026-09-22b (globe page.tsx typing, slice 3)
+
+The `CesiumInitResult` typing pass shifted line numbers across
+`src/app/globe/page.tsx`, so the gate flagged 28 "new" findings that
+were line-shifted duplicates of baselined ones (fingerprint embeds the
+line). Semantic set-difference (pattern + file + content hash, line
+elided) against the committed baseline: **+6 real, −1 retired**:
+
+- `try-catch-bulk` page.tsx 90 → 75: same pre-existing legacy
+  try/catch, re-fingerprinted because the block content changed (the
+  dead `let viewer = null` was removed). Re-baselined.
+- `hardcoded-date` iss.test.ts ×2 (low): deterministic test epochs
+  (`2026-09-22T00:00:00Z`, `2027-01-01T12:00:00Z`) — pinning epochs is
+  the point of the propagation tests. Baselined.
+- `australian-tfn` / `bank-routing-number` / `ssn-no-dashes`
+  (high) tooltip.test.ts:61: all three fire on the synthetic 9-digit
+  MMSI fixture `vessel-123456789`. MMSIs are 9 digits by IMO spec, so
+  any realistic fixture trips these detectors; the value is obviously
+  synthetic and is never treated as PII — it only asserts tooltip
+  rendering. Baselined as fake-fixture false positive (same policy as
+  the env-credential fixture baseline above).
+
+Baseline: 1,437 → 1,445 findings.

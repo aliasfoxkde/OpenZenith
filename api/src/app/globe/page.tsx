@@ -260,18 +260,17 @@ export default function Globe() {
 
     const container = containerRef.current;
     const initViewer = async () => {
-      let viewer: any = null;
       try {
         const result = await initCesiumViewer(container, state);
         if (mount.destroyed) {
           result.viewer.destroy();
           return;
         }
-        viewer = result.viewer;
+        const viewer: CesiumType.Viewer = result.viewer;
         const { Cesium, addCloudOverlay } = result;
 
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-        handler.setInputAction((movement: any) => {
+        handler.setInputAction((movement: CesiumType.ScreenSpaceEvent) => {
           const cart = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
           if (cart) {
             const cg = Cesium.Cartographic.fromCartesian(cart);
@@ -298,18 +297,19 @@ export default function Globe() {
           }
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-        handler.setInputAction((click: any) => {
+        handler.setInputAction((click: CesiumType.ScreenSpaceEvent) => {
           const picked = viewer.scene.pick(click.position);
           if (picked && picked.id) {
             const entity = picked.id;
             const props = entity.properties;
             if (props && props.type?.getValue() === "orbitalTrack") {
-              const name = entity.name || props.group?.getValue() || "Satellite";
+              // `group` is a plain string property on the entity bag.
+              const name = entity.name || (props.group?.getValue() as string) || "Satellite";
               const pos = entity.position?.getValue(Cesium.JulianDate.now());
               if (pos) {
                 const cg = Cesium.Cartographic.fromCartesian(pos);
-                const lat = +Cesium.Math.toDegrees(cg.latitude);
-                const lon = +Cesium.Math.toDegrees(cg.longitude);
+                const lat = Cesium.Math.toDegrees(cg.latitude);
+                const lon = Cesium.Math.toDegrees(cg.longitude);
                 const altKm = +(cg.height / 1000).toFixed(1);
                 setSelectedSat({
                   name,
@@ -327,8 +327,8 @@ export default function Globe() {
           const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
           if (cart) {
             const cg = Cesium.Cartographic.fromCartesian(cart);
-            const lng = +Cesium.Math.toDegrees(cg.longitude);
-            const lat = +Cesium.Math.toDegrees(cg.latitude);
+            const lng = Cesium.Math.toDegrees(cg.longitude);
+            const lat = Cesium.Math.toDegrees(cg.latitude);
 
             // Handle measurement tool clicks
             if (toolManagerRef.current && toolManagerRef.current.state.mode !== "none") {
@@ -353,17 +353,17 @@ export default function Globe() {
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
         // Right-click context menu (entity-aware)
-        handler.setInputAction((click: any) => {
+        handler.setInputAction((click: CesiumType.ScreenSpaceEvent) => {
           const cart = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
           // Check for entity under cursor
           const picked = viewer.scene.pick(click.position);
           const entity = picked?.id;
           if (cart) {
             const cg = Cesium.Cartographic.fromCartesian(cart);
-            const lng = +Cesium.Math.toDegrees(cg.longitude);
-            const lat = +Cesium.Math.toDegrees(cg.latitude);
+            const lng = Cesium.Math.toDegrees(cg.longitude);
+            const lat = Cesium.Math.toDegrees(cg.latitude);
             const entityProps = entity?.properties;
-            const entityType = entityProps?.type?.getValue?.() || entityProps?.type;
+            const entityType = entityProps?.type?.getValue() || entityProps?.type;
             setCtxMenu({
               x: click.position.x,
               y: click.position.y,
@@ -380,7 +380,7 @@ export default function Globe() {
           setCtxMenu(null);
           // Check for annotation double-click
           const picked = viewer.scene.pick(e.position);
-          if (picked?.id?.id?.startsWith("ann-text-")) {
+          if (picked?.id?.id.startsWith("ann-text-")) {
             const annId = picked.id.id;
             setEditingAnnotation({ id: annId, x: e.position.x, y: e.position.y });
           }
@@ -397,14 +397,13 @@ export default function Globe() {
         document.addEventListener("click", handleDocumentClick);
 
         viewer.camera.changed.addEventListener(() => {
+          // positionCartographic is always defined on a live camera.
           const cg = viewer.camera.positionCartographic;
-          if (cg) {
-            const lng = +Cesium.Math.toDegrees(cg.longitude);
-            const lat = +Cesium.Math.toDegrees(cg.latitude);
-            const heightM = cg.height;
-            const zoomEst = Math.max(1, Math.log2(40075016 / heightM));
-            setState((prev) => ({ ...prev, center: [lng, lat], zoom: zoomEst }));
-          }
+          const lng = Cesium.Math.toDegrees(cg.longitude);
+          const lat = Cesium.Math.toDegrees(cg.latitude);
+          const heightM = cg.height;
+          const zoomEst = Math.max(1, Math.log2(40075016 / heightM));
+          setState((prev) => ({ ...prev, center: [lng, lat], zoom: zoomEst }));
         });
 
         viewerRef.current = viewer;
@@ -428,7 +427,7 @@ export default function Globe() {
           if (followEntity) {
             const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
             if (pos) {
-              const camH = viewer.camera.positionCartographic?.height || 2000000;
+              const camH = viewer.camera.positionCartographic.height || 2000000;
               viewer.camera.lookAt(
                 pos,
                 new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-45), camH > 500000 ? camH * 0.5 : 2000000),
@@ -441,7 +440,6 @@ export default function Globe() {
           if (now - lastUIUpdate < 250) return;
 
           const cg = viewer.camera.positionCartographic;
-          if (!cg) return;
           const heightM = cg.height;
 
           // Early return if altitude unchanged — skips LOD, atmosphere, React state

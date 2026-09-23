@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { switchBasemapOnViewer } from "./helpers";
 import { createOZTTerrainProvider } from "./terrain-ozt2";
 import type { DashboardState } from "./types";
@@ -12,8 +11,11 @@ const CESIUM_CDNS = [
  * Load CesiumJS from CDN with fallback support.
  * If primary CDN fails, tries secondary. If all fail, throws.
  */
-async function loadCesiumWithFallback(baseUrl: string, timeoutMs = 15000): Promise<any> {
-  const w = window as any;
+async function loadCesiumWithFallback(
+  baseUrl: string,
+  timeoutMs = 15000,
+): Promise<typeof CesiumType | undefined> {
+  const w = window;
   if (w.Cesium) return w.Cesium;
 
   // Load CSS
@@ -57,8 +59,11 @@ async function loadCesiumWithFallback(baseUrl: string, timeoutMs = 15000): Promi
  * Load CesiumJS and satellite.js from CDN.
  * Includes timeout and fallback CDN support.
  */
-async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {
-  const w = window as any;
+async function loadScripts(): Promise<{
+  Cesium: typeof CesiumType | undefined;
+  satJs: Window["satellite"];
+}> {
+  const w = window;
 
   // Load both scripts — Cesium with CDN fallback, satellite.js with timeout
   const cesiumPromise = loadCesiumWithFallback(CESIUM_CDNS[0]);
@@ -91,8 +96,8 @@ async function loadScripts(): Promise<{ Cesium: any; satJs: any }> {
 }
 
 export interface CesiumInitResult {
-  viewer: any;
-  Cesium: any;
+  viewer: CesiumType.Viewer;
+  Cesium: typeof CesiumType;
   destroy: () => void;
   addCloudOverlay: () => void;
 }
@@ -112,6 +117,10 @@ export async function initCesiumViewer(
   initialState: DashboardState,
 ): Promise<CesiumInitResult> {
   const { Cesium } = await loadScripts();
+  // loadCesiumWithFallback can hand back undefined if the script tag loaded
+  // but the global never appeared — fail with a clear message (the original
+  // code hit the same catch via a TypeError on `Cesium.Ion`).
+  if (!Cesium) throw new Error("Cesium failed to load from all CDN sources");
 
   // ─── Kill ALL Cesium Ion default asset loading ───
   // Without a token every Ion request 401s on api.cesium.com. CesiumJS 1.119
@@ -212,7 +221,9 @@ export async function initCesiumViewer(
   switchBasemapOnViewer(viewer, initialState.basemap);
 
   // Cloud overlay (semi-transparent, always on)
-  function addCloudOverlay() {
+  // Arrow (not a function declaration) so TS carries the non-undefined
+  // narrowing of `Cesium` from the guard above into the closure.
+  const addCloudOverlay = () => {
     const d = new Date();
     d.setDate(d.getDate() - 1); // Yesterday's date for MODIS Terra imagery
     const yesterday = d.toISOString().split("T")[0];
@@ -227,12 +238,14 @@ export async function initCesiumViewer(
     });
     const layer = viewer.imageryLayers.addImageryProvider(provider);
     layer.alpha = 0.25;
-  }
+  };
 
   return {
     viewer,
     Cesium,
-    destroy: () => viewer.destroy(),
+    destroy: () => {
+      viewer.destroy();
+    },
     addCloudOverlay,
   };
 }

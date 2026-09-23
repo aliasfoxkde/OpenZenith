@@ -598,3 +598,22 @@ passed a possibly-undefined line 2 into satellite.js and relied on its
 throw hitting the surrounding catch); (2) propagate and GMST share one
 epoch instead of two `new Date()` calls a millisecond apart. Page
 unsafe-family warnings: 413 → 389.
+
+Slice 3 — the structural one: `CesiumInitResult` is now typed against
+the `CesiumType` ambient namespace (`viewer: CesiumType.Viewer`,
+`Cesium: typeof CesiumType`), so the page's init-effect no longer
+floats `any` from the CDN boundary. The d.ts gained the members the
+page actually exercises (Camera.positionWC/pitch/roll/zoomIn/zoomOut,
+Scene.morphTo2D/3D/ColumbusView, PositionProperty, SampledPosition
+Property.getValue), handler params are `CesiumType.ScreenSpaceEvent`,
+and the dead `let viewer = null` became a non-null `const`. Typing
+surfaced real dead code the linter now rejects at error level: 10
+unary-`+` number conversions (two `.toFixed` sites kept — their `+`
+string-coerces), 3 dead optional chains on non-nullable members
+(`Property.getValue`, `Entity.id`, `camera.positionCartographic`), and
+2 dead null guards. Page unsafe-family warnings: 389 → 202 (−48%
+across the three slices; 5,789 repo-wide at #98 start → now well under
+5,000). `loadCesiumWithFallback` returning undefined for a
+loaded-but-not-global script now fails with an explicit error instead
+of a TypeError. Verified: 98 files / 1,027 passed vitest, production
+`next build` green, eslint 0 errors.

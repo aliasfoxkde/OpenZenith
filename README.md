@@ -22,7 +22,7 @@ Works entirely offline after installing the Python SDK and optional local data. 
 - **Offline-first**: Local SRTM .merged tiles — no network required for elevation queries
 - **Low-latency**: Rust/WASM compute kernels for D8 flow, viewshed, OZT2 decode — runs in-browser or subprocess
 - **Complete terrain analysis**: slope, aspect, hillshade, viewshed, TPI, roughness, curvature, watersheds, stream extraction, downstream tracing
-- **Production-ready**: Type hints, 688 pytest unit tests, clippy-clean Rust, typed TypeScript API
+- **Production-ready**: Type hints, 1,327 pytest unit tests (96.8% coverage), clippy-clean Rust, typed TypeScript API
 
 ---
 
@@ -110,11 +110,15 @@ export HF_TOKEN=your_token_here
 | fuse | FusedDEM | SRTM + GEBCO seamless |
 | viz | plot_*, terrain_to_3d_mesh, terrain_to_glb, terrain_to_png | Matplotlib + 3D export |
 | geotiff | export_geotiff, export_cog | GeoTIFF/COG export |
+| merged | read_elevation_from_merged, MergedFile | OZCHNK01 local dataset access |
+| async_client | ElevationClient, ElevationBatchProcessor | aiohttp batch concurrency |
+| tile_format_v2 | encode, decode | OZT2 tiles (gradient prediction + Zstd) |
+| converter | convert_tile, convert_directory | SRTM `.merged` → OZT2 pipeline |
 | backends | OZT2Backend, OZT2R2Backend, OZT2HFBackend | Chunk-based tile access |
 
 ---
 
-## CLI Commands
+## CLI Commands (31 total — highlights below)
 
 ```
 openzenith query --lat 40.7 --lon -74.0
@@ -152,7 +156,7 @@ Full API docs: https://openzenith.cyopsys.com/api/openapi.json
 ## Architecture
 
 ```
-Python SDK (local compute) ←→ REST API (cloud, 80+ edge routes)
+Python SDK (local compute) ←→ REST API (cloud, 80 edge routes)
                                      ↓
                               Cloudflare Pages
                                      ↓
@@ -168,11 +172,11 @@ Python SDK (local compute) ←→ REST API (cloud, 80+ edge routes)
 | SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
 | API | Next.js 15, TypeScript, Cloudflare Edge |
 | Data | SRTM 30m (HuggingFace), GEBCO 2025 |
-| Tests | 688 pytest (Python), 17 cargo test (Rust), 419+ vitest (TypeScript) |
+| Tests | 1,327 pytest @ 96.8% cov (Python), 51 cargo test @ 98.0% lines (Rust), 1,032 vitest @ 92.2% stmts (TypeScript) |
 
 ---
 
-## Data Layers (37 total, 33 on 2D map)
+## Data Layers (54 available on the 2D map, 27 curated in the layer registry — highlights below)
 
 ### Weather & Climate
 | Layer | Source | Details |

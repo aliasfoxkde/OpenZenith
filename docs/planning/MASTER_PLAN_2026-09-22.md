@@ -880,3 +880,31 @@ since the last baseline regeneration: `env-file-in-git` 29 → 2 on the
 identical tree; 3× consecutive scans byte-identical, so the gate is
 stable against the current scanner) — TRIAGE.md 2026-09-23 #110,
 baseline 1,456 → 1,447.
+
+## #111 — README/CLAUDE.md measured-metrics refresh (task 111, 2026-09-23)
+
+All headline claims replaced with command-measured numbers (Phase 2's
+"verify claims" item, re-run post-#107..#110):
+
+- Tests row: 688 pytest / 17 cargo / 419+ vitest → **1,327 pytest @ 96.8%
+  cov, 51 cargo test @ 98.0% lines, 1,032 vitest @ 92.2% stmts** (measured
+  2026-09-22/23; vitest floors 92/84/81/92 in vitest.config.ts, Python
+  floor 93, Rust floor 95 via scripts/core_coverage_gate.sh).
+- Data Layers heading: "37 total, 33 on 2D map" → **54 mountable on the
+  2D map (MAP_2D_LAYER_IDS = Object.keys(LAYER_HANDLERS)), 27 curated in
+  lib/layers/registry.ts**; tables re-labelled "highlights below" (they
+  enumerate 31 rows — a subset; a full content pass of the marketing
+  tables is a separate editorial task, not claimed done here).
+- Architecture: "80+ edge routes" → 80 (find api/src/app/api -name
+  route.ts = 80; CLAUDE.md already said 80).
+- SDK reference table: added the four undocumented user-facing modules —
+  merged (MergedFile, read_elevation_from_merged), async_client
+  (ElevationClient, ElevationBatchProcessor), tile_format_v2 (encode,
+  decode), converter (convert_tile, convert_directory). CLI commands
+  heading now states the measured 31-command surface (dispatch table is
+  the source of truth; README examples were a valid subset).
+- Verified-accurate, left alone: 2,000-point batch limit (enforced at
+  elevation/batch/route.ts:84), provider marketing stats (10,800+
+  aircraft etc.), 14,296 .merged files, ~152K HF tiles.
+- CLAUDE.md overview: "37 real-time data layers" → the measured 54/27
+  registry framing.

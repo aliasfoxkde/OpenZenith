@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OpenZenith is a global geospatial intelligence platform — an interactive 3D globe (CesiumJS) and 2D map (MapLibre) with 37 real-time data layers, a Python SDK for elevation/terrain analysis, and a REST API deployed on Cloudflare Pages (Edge Workers).
+OpenZenith is a global geospatial intelligence platform — an interactive 3D globe (CesiumJS) and 2D map (MapLibre) with 54 mountable data layers (27 curated in `src/lib/layers/registry.ts`), a Python SDK for elevation/terrain analysis, and a REST API deployed on Cloudflare Pages (Edge Workers).
 
 **Live:** https://openzenith.cyopsys.com · **Map:** https://openzenith.cyopsys.com/map · **Globe:** https://openzenith.cyopsys.com/globe
 

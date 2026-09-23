@@ -41,6 +41,7 @@ import { ContextMenu } from "./lib/components/ContextMenu";
 import { HudOverlays } from "./lib/components/HudOverlays";
 import { buildEntityTooltip } from "./lib/tooltip";
 import { classifyOrbit, orbitalVelocityKms } from "./lib/orbit";
+import { issEcfPosition, parseCelestrakTle, type SatelliteJsLike } from "./lib/iss";
 
 /* ═══════════════════════════════════════════════════════════════
    Component
@@ -651,18 +652,15 @@ export default function Globe() {
   const flyToISS = useCallback(async () => {
     const Cesium = cesiumRef.current;
     const viewer = viewerRef.current;
-    const satJs = (window as any).satellite;
+    const satJs = (window as { satellite?: SatelliteJsLike } | undefined)?.satellite;
     if (!Cesium || !viewer || !satJs) return;
     try {
       const r = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json");
-      const data = await r.json();
-      if (!Array.isArray(data) || !data[0]?.TLE_LINE1) return;
-      const tle = data[0];
-      const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
-      const pos = satJs.propagate(satrec, new Date());
-      if (!pos.position) return;
-      const gmst = satJs.gstime(new Date());
-      const ecf = satJs.eciToEcf(pos.position, gmst);
+      const data: unknown = await r.json();
+      const tle = parseCelestrakTle(data);
+      if (!tle) return;
+      const ecf = issEcfPosition(satJs, tle, new Date());
+      if (!ecf) return;
       const posM = new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000);
       viewer.camera.flyTo({
         destination: new Cesium.Cartesian3(posM.x * 1.1, posM.y * 1.1, posM.z * 1.1),

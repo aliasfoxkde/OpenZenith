@@ -586,3 +586,15 @@ Verified: 19/19 vitest green, project-wide `tsc --noEmit` clean, eslint
 0 errors with **zero new warnings** across the four new files (all 413
 remaining in the changed-file set are pre-existing page.tsx unsafe-family
 load). Remaining slices: layer orchestration, entity/lifecycle wiring.
+
+Slice 2 — `lib/iss.ts`: CelesTrak TLE payload validation
+(`parseCelestrakTle`) and the satellite.js propagation wiring
+(`issEcfPosition`, satellite.js accepted as a structural
+`SatelliteJsLike` interface instead of `(window as any)`). 8 tests pin
+the response-shape rejection matrix and the call threading. Two
+documented deltas from the original inline code, both strict
+improvements: (1) the parser requires *both* TLE lines (the original
+passed a possibly-undefined line 2 into satellite.js and relied on its
+throw hitting the surrounding catch); (2) propagate and GMST share one
+epoch instead of two `new Date()` calls a millisecond apart. Page
+unsafe-family warnings: 413 → 389.

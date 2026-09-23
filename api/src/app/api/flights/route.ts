@@ -98,10 +98,10 @@ export async function GET(request: NextRequest) {
     // `states` is omitted by OpenSky on some error/empty payloads
     const data = (await resp.json()) as { time: number; states?: OpenSkyState[] };
 
-    // If bbox provided, OpenSky already filtered — return as-is (slimmed)
-    // If no bbox, slim the response to reduce payload from ~6MB to ~1MB
+    // Slim the response to reduce payload from ~6MB to ~1MB (OpenSky has
+    // already bbox-filtered upstream when a bbox was requested)
     const states = data.states || [];
-    const slimmed = allValid ? states.map(slimState) : states.map(slimState);
+    const slimmed = states.map(slimState);
 
     const headers = new Headers(CORS_HEADERS);
     headers.set("Cache-Control", "public, max-age=60");

@@ -31,3 +31,6 @@ next-env.d.ts
 # python
 __pycache__/
 *.pyc
+
+# throwaway coverage-measurement scratch dirs (task #112 wave)
+.tmp-cov-*/

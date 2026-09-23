@@ -185,3 +185,188 @@ describe("OpenSky Token API", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("OpenSky Flights API auth, credits and failure paths", () => {
+  const TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
+
+  const statesResponse = (): Response => new Response(JSON.stringify({ time: 1, states: [] }), { status: 200 });
+
+  /** fetch's first argument is a union — normalise it to a URL string. */
+  const toUrl = (input: RequestInfo | URL): string =>
+    typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+
+  /** Route on the URL so one mock can serve both the token and states calls. */
+  const stubByRole = (tokenResponse: () => Response) =>
+    vi.spyOn(globalThis, "fetch").mockImplementation((input): Promise<Response> =>
+      Promise.resolve(toUrl(input) === TOKEN_URL ? tokenResponse() : statesResponse()),
+    );
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it("rejects a partial bbox with 400", async () => {
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const resp = await GET(mockRequest("/api/opensky/flights?lamin=91"));
+    expect(resp.status).toBe(400);
+    const data = await resp.json();
+    expect(data.error).toContain("Invalid bbox params");
+  });
+
+  it("exposes CORS preflight", async () => {
+    const { OPTIONS } = await import("@/app/api/opensky/flights/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("returns 200 with the thrown message when the upstream fetch rejects", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network unreachable"));
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const resp = await GET(mockRequest("/api/opensky/flights"));
+    expect(resp.status).toBe(200);
+    const data = await resp.json();
+    expect(data.error).toBe("network unreachable");
+  });
+
+  it("falls back to a generic message when the rejection is not an Error", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("timed out");
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const resp = await GET(mockRequest("/api/opensky/flights"));
+    const data = await resp.json();
+    expect(data.error).toBe("Flight data fetch failed");
+  });
+
+  it("sends a fresh bearer token and reuses the cached one on the next request", async () => {
+    vi.stubEnv("OPENSKY_CLIENT_ID", "client-id");
+    vi.stubEnv("OPENSKY_CLIENT_SECRET", "client-secret");
+    const spy = vi.spyOn(globalThis, "fetch");
+    spy.mockResolvedValueOnce(new Response(tokenBody("tok-1", 3600), { status: 200 }));
+    spy.mockResolvedValueOnce(statesResponse());
+    spy.mockResolvedValueOnce(statesResponse());
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const first = await GET(mockRequest("/api/opensky/flights"));
+    expect(first.headers.get("X-Authenticated")).toBe("true");
+    const second = await GET(mockRequest("/api/opensky/flights"));
+    expect(second.headers.get("X-Authenticated")).toBe("true");
+
+    // One token request total — the second flight call went out with the same
+    // bearer token and no trip to the auth server.
+    expect(spy).toHaveBeenCalledTimes(3);
+    expect(spy.mock.calls[0][0]).toBe(TOKEN_URL);
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe("POST");
+    expect(toUrl(spy.mock.calls[1][0])).toContain("opensky-network.org/api/states/all");
+    const firstFlightHeaders = (spy.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
+    const secondFlightHeaders = (spy.mock.calls[2][1] as RequestInit).headers as Record<string, string>;
+    expect(firstFlightHeaders["Authorization"]).toBe("Bearer tok-1");
+    expect(secondFlightHeaders["Authorization"]).toBe("Bearer tok-1");
+  });
+
+  it("drops the cached token after an upstream 401", async () => {
+    vi.stubEnv("OPENSKY_CLIENT_ID", "client-id");
+    vi.stubEnv("OPENSKY_CLIENT_SECRET", "client-secret");
+    // Credentials are still configured and the previous test left a valid
+    // cached token, so this request goes out authenticated.
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("unauthorized", { status: 401 }));
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const resp = await GET(mockRequest("/api/opensky/flights"));
+    expect(resp.status).toBe(200);
+    const data = await resp.json();
+    expect(data.error).toBe("OpenSky API returned 401");
+    expect(data.authenticated).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to anonymous when the token endpoint responds non-2xx", async () => {
+    vi.stubEnv("OPENSKY_CLIENT_ID", "client-id");
+    vi.stubEnv("OPENSKY_CLIENT_SECRET", "client-secret");
+    const spy = stubByRole(() => new Response("invalid_credentials", { status: 401 }));
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const resp = await GET(mockRequest("/api/opensky/flights"));
+    expect(resp.headers.get("X-Authenticated")).toBe("false");
+    expect(spy.mock.calls[0][0]).toBe(TOKEN_URL);
+    // The states request went out without credentials.
+    const flightHeaders = (spy.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
+    expect(flightHeaders["Authorization"]).toBeUndefined();
+  });
+
+  it("falls back to anonymous when the token request throws", async () => {
+    vi.stubEnv("OPENSKY_CLIENT_ID", "client-id");
+    vi.stubEnv("OPENSKY_CLIENT_SECRET", "client-secret");
+    const spy = stubByRole(() => {
+      throw new Error("auth server down");
+    });
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    const resp = await GET(mockRequest("/api/opensky/flights"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Authenticated")).toBe("false");
+    expect(spy.mock.calls[0][0]).toBe(TOKEN_URL);
+  });
+
+  it("charges credits by bbox area tier", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(statesResponse()));
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    // Global request costs the top tier (4) — used purely as the counter base.
+    const global = await GET(mockRequest("/api/opensky/flights"));
+    const before = Number(global.headers.get("X-Credits-Used"));
+
+    // 2° x 2° = 4 deg² -> tier 1.
+    const tiny = await GET(mockRequest("/api/opensky/flights?lamin=40&lamax=42&lomin=-74&lomax=-72"));
+    expect(Number(tiny.headers.get("X-Credits-Used"))).toBe(before + 1);
+
+    // 5° x 6° = 30 deg² -> tier 2.
+    const mid = await GET(mockRequest("/api/opensky/flights?lamin=40&lamax=45&lomin=-74&lomax=-68"));
+    expect(Number(mid.headers.get("X-Credits-Used"))).toBe(before + 3);
+
+    // 10° x 30° = 300 deg² -> tier 3 (the top non-global tier).
+    const large = await GET(mockRequest("/api/opensky/flights?lamin=0&lamax=10&lomin=0&lomax=30"));
+    expect(Number(large.headers.get("X-Credits-Used"))).toBe(before + 6);
+  });
+
+  it("resets the credit counter at date rollover", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(statesResponse()));
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    // Global (bbox-less) requests cost 4 credits each.
+    const first = await GET(mockRequest("/api/opensky/flights"));
+    const before = Number(first.headers.get("X-Credits-Used"));
+    const second = await GET(mockRequest("/api/opensky/flights"));
+    expect(Number(second.headers.get("X-Credits-Used"))).toBe(before + 4);
+
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+    const third = await GET(mockRequest("/api/opensky/flights"));
+    expect(third.headers.get("X-Credits-Used")).toBe("4");
+    expect(third.headers.get("X-Credits-Remaining")).toBe("3996");
+  });
+
+  it("returns 429 once the daily credit budget is exhausted and serves again next day", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(statesResponse()));
+
+    const { GET } = await import("@/app/api/opensky/flights/route");
+    // 4 credits per global request against a 4000/day budget — drive the
+    // counter over the line rather than reaching into module state.
+    let exhausted: { error?: string; credits_used?: number; budget?: number } | undefined;
+    for (let i = 0; i < 1400 && !exhausted; i += 1) {
+      const resp = await GET(mockRequest("/api/opensky/flights"));
+      if (resp.status === 429) exhausted = await resp.json();
+    }
+    expect(exhausted).toBeDefined();
+    expect(exhausted?.error).toBe("Daily credit budget exhausted");
+    expect(exhausted?.budget).toBe(4000);
+
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+    const nextDay = await GET(mockRequest("/api/opensky/flights"));
+    expect(nextDay.status).toBe(200);
+    expect(nextDay.headers.get("X-Credits-Used")).toBe("4");
+  });
+});

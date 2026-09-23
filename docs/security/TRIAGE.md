@@ -436,3 +436,44 @@ against the current binary; future drift of this kind means the scanner
 changed, not the code.
 
 Baseline: 1,456 → 1,447 findings (semantic +18, −27).
+
+## Re-triage 2026-09-23 — #112 TS route test wave + geo-coordinate fix
+
+API changes: +83 route/zoom-math tests (hurricanes, flights, opensky,
+satellites, terrain-routes, bathymetry, bgp, population, landcover, proxy,
+zoom-math), the watershed/streams pixel-to-latlon coordinate fix (new
+`pixelToLatLon` in api/src/lib/srtm/zoom-math.ts), proxy abort-timer
+try/finally, removal of watershed dead code (`_fillDepressions`,
+`_flowAccumulation`) and the flights dead ternary.
+
+Gate reported 74 new findings — every one in a file touched this session,
+and all in already-triaged classes:
+
+- `cors-misconfiguration` ×20 (test files): assertions on the documented
+  public-API contract `Access-Control-Allow-Origin: *` (lib/cors.ts);
+  tests verify the headers, they don't configure CORS.
+- `ssrf-localhost` / `ssrf` / `hardcoded-internal-endpoint` (test files):
+  `mockRequest("http://localhost/...")` URLs and stubbed fetch targets in
+  route tests; the proxy tests' external URLs exercise the allowlist
+  itself. No request leaves the process.
+- `bearer-token-url` ×4 opensky.test.ts: the literal fixture `Bearer
+  tok-1` asserted on outbound headers — not a credential.
+- `double-type-assertion` ×3: the repo-standard test idiom
+  `new Request(...) as unknown as NextRequest` for handlers that only
+  read url/method/body (same accepted class as terrain-routes.ts:93/100).
+- `try-catch-bulk`, `no-cache-headers` on watershed/streams/proxy/flights
+  route sources: pre-existing statements at shifted line numbers after the
+  fixes (silent-200 catch blocks; Cache-Control set via the options object
+  the pattern doesn't see). Line-shift duplicates, not new behaviour.
+- `expensive-computation-loop` ×2 watershed (DEM bilinear sampling, pour-
+  point relocation scan): inherent per-cell O(n) grid work on a 21×21
+  window; previously triaged for these loops at their old lines.
+- `missing-limit`/`nested-callbacks`/`debug-endpoint`/`timeout-configuration`
+  etc. (test files + vitest.config.ts): pattern noise on test fixtures and
+  the vitest `testTimeout` config; not application code.
+
+No real secrets, no new credential paths, no application-code defect
+introduced. Re-baselined via `scripts/aegis_scan.sh update`.
+
+Baseline: 1,447 → 1,485 findings (semantic +38 net across the wave;
+baseline regeneration also re-ordered all entries — known gate wart).

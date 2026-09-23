@@ -908,3 +908,44 @@ All headline claims replaced with command-measured numbers (Phase 2's
   aircraft etc.), 14,296 .merged files, ~152K HF tiles.
 - CLAUDE.md overview: "37 real-time data layers" → the measured 54/27
   registry framing.
+
+## #112 — TS route branch-coverage wave + vitest floor ratchet (task 112, 2026-09-23)
+
+Route-test wave across the API surface (+83 tests net; 98 files, 1,115
+tests, all green; tsc --noEmit clean; eslint 0 errors):
+
+- Suites extended (vitest, following the __tests__/ route-suite idiom):
+  hurricanes 6→11 (R2 HIT, fetch-rejection, Saffir ladder full-tracks,
+  messy CSV rows, 7-day recency filter), flights 11, opensky 22 (fake
+  timers for module-level token/credit state, 1400-request 429 loop),
+  satellites 12, terrain-routes 42 (watershed/streams degradation +
+  elevation gates), bathymetry 13, bgp 8, population 10, landcover 10,
+  proxy 9, zoom-math 14→17 (pixelToLatLon).
+- **Defect fixed (production): watershed/streams GeoJSON coordinates.**
+  Boundary and stream cell coordinates were built from tile-index math —
+  `((tileXMin * 256) / n) * 360 - 180` and full-tile-span lat/lon
+  interpolation — scaling the grid's pixel span by 256× and emitting
+  longitudes of ~25,000° (invalid GeoJSON in production). Replaced with
+  pixel-exact web-mercator mapping via the new shared helper
+  `pixelToLatLon(z, x, y)` in src/lib/srtm/zoom-math.ts (inverse of
+  latLonToTile at pixel granularity, round-trip unit-tested against
+  tileToLatLon edges to 1e-9). Regression tests now pin every boundary
+  and stream coordinate to a ±0.1° window around the pour point.
+- Defect fixed: proxy/[...path] abort-timer leak — clearTimeout now runs
+  in finally on the fetch rejection path (timer count pinned at 0 under
+  fake timers).
+- Dead code removed: watershed `_fillDepressions` (identity stub) and
+  `_flowAccumulation` (longest-chain relaxation, not flow accumulation;
+  zero call sites). flights:104 dead ternary (both arms identical)
+  collapsed; misleading comment fixed.
+- Floors ratcheted in vitest.config.ts with evidence comment:
+  **92/84/81/92 → 94/86/83/94** (measured 95.99 stmts / 88.05 branches /
+  85.15 functions / 95.99 lines). Weakest remaining area is still api
+  route branch coverage (trace 55.6%, weather/warnings 60%, profile,
+  tile/[tileRow]/[tileCol] 78-82%) — candidate material for a follow-up
+  wave.
+- Conventions honoured: silent-200 error contract is documented repo
+  behaviour (left as-is); parser-skips-first-two-lines fixtures (header +
+  IBTrACS units row) recorded in test comments.
+- Scratch note: coverage-measurement scratch dirs (api/.tmp-cov-*) are
+  now gitignored after their removal was declined.

@@ -62,16 +62,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const controller = new AbortController();
     const timeout = setTimeout(() => { controller.abort(); }, 30000);
-
-    const resp = await fetch(forwardUrl, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "OpenZenith/1.0",
-        Accept: "application/json,*/*",
-      },
-    });
-
-    clearTimeout(timeout);
+    // Clear the abort timer even when fetch rejects, so a failed request
+    // doesn't leave a 30s live timer holding the controller.
+    let resp: Response;
+    try {
+      resp = await fetch(forwardUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "OpenZenith/1.0",
+          Accept: "application/json,*/*",
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const data = await resp.arrayBuffer();
     const headers = new Headers(CORS_HEADERS);

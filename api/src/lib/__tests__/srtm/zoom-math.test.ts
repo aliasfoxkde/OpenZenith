@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { tileToLatLon, latLonToTile, srtmPixelsPerTilePixel, getResampleMode } from "../../srtm/zoom-math";
+import {
+  tileToLatLon,
+  latLonToTile,
+  pixelToLatLon,
+  srtmPixelsPerTilePixel,
+  getResampleMode,
+} from "../../srtm/zoom-math";
 
 describe("tileToLatLon", () => {
   it("zoom 0 covers the world", () => {
@@ -55,6 +61,51 @@ describe("latLonToTile", () => {
   it("positive longitude at tile boundary", () => {
     const { x } = latLonToTile(0, 179.9, 2);
     expect(x).toBe(3);
+  });
+});
+
+describe("pixelToLatLon", () => {
+  it("inverts latLonToTile at pixel granularity", () => {
+    for (const [lat, lon, z] of [
+      [40.7, -74.0, 10],
+      [0, 0, 5],
+      [28, 86, 10],
+      [-33.9, 151.2, 8],
+      [64.1, -21.9, 12],
+    ]) {
+      const { x, y } = latLonToTile(lat, lon, z);
+      // Center pixel of the containing tile's sub-cell: tile index * 256
+      // plus the fractional position, +0.5 for the pixel center.
+      const fx = ((lon + 180) / 360) * Math.pow(2, z) * 256;
+      const latRad = (lat * Math.PI) / 180;
+      const fy = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * Math.pow(2, z) * 256;
+      const { lat: outLat, lon: outLon } = pixelToLatLon(z, x * 256 + (fx % 256), y * 256 + (fy % 256));
+      expect(outLat).toBeCloseTo(lat, 6);
+      expect(outLon).toBeCloseTo(lon, 6);
+    }
+  });
+
+  it("world corners map to the expected bounds", () => {
+    const world = Math.pow(2, 10) * 256;
+    const topLeft = pixelToLatLon(10, 0, 0);
+    expect(topLeft.lon).toBe(-180);
+    expect(topLeft.lat).toBeCloseTo(85.05, 1);
+    const bottomRight = pixelToLatLon(10, world, world);
+    expect(bottomRight.lon).toBe(180);
+    expect(bottomRight.lat).toBeCloseTo(-85.05, 1);
+  });
+
+  it("matches tileToLatLon edges", () => {
+    const z = 9;
+    const x = 150;
+    const y = 190;
+    const b = tileToLatLon(z, x, y);
+    const nw = pixelToLatLon(z, x * 256, y * 256);
+    const se = pixelToLatLon(z, (x + 1) * 256, (y + 1) * 256);
+    expect(nw.lon).toBeCloseTo(b.west, 9);
+    expect(nw.lat).toBeCloseTo(b.north, 9);
+    expect(se.lon).toBeCloseTo(b.east, 9);
+    expect(se.lat).toBeCloseTo(b.south, 9);
   });
 });
 

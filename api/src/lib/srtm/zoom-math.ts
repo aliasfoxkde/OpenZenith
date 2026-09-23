@@ -36,6 +36,21 @@ function tileToLatLon_South(z: number, y: number): number {
 }
 
 /**
+ * Convert global pixel coordinates to lat/lon at a given zoom level.
+ *
+ * Pixel coordinates are continuous world-pixel space (256px tiles), i.e. the
+ * inverse of latLonToTile at pixel granularity: pixel x = tileX * 256 + frac.
+ * Use +0.5 offsets to address a pixel's center.
+ */
+export function pixelToLatLon(z: number, x: number, y: number): { lat: number; lon: number } {
+  const worldPixels = Math.pow(2, z) * 256;
+  const lon = (x / worldPixels) * 360 - 180;
+  const n = Math.PI * (1 - (2 * y) / worldPixels);
+  const lat = (180 / Math.PI) * Math.atan(Math.sinh(n));
+  return { lat, lon };
+}
+
+/**
  * Convert lat/lon to slippy tile coordinates at a given zoom level.
  */
 export function latLonToTile(lat: number, lon: number, z: number): { x: number; y: number } {

@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";
-import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
+import { latLonToTile, pixelToLatLon } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -30,12 +30,6 @@ const NODATA = -32768;
 // D8: 0=E, 1=SE, 2=S, 3=SW, 4=W, 5=NW, 6=N, 7=NE
 const D8_DR = [0, 1, 1, 1, 0, -1, -1, -1];
 const D8_DC = [1, 1, 0, -1, -1, -1, 0, 1];
-
-function _fillDepressions(dem: Float32Array, _rows: number, _cols: number, _nodata: number): Float32Array {
-  // Simple flat fill: for now just return dem as-is
-  // Full priority-flood would require a heap; keeping it fast for edge
-  return dem;
-}
 
 function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: number): Int8Array {
   const flowDir = new Int8Array(rows * cols).fill(-1);
@@ -65,33 +59,6 @@ function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: 
     }
   }
   return flowDir;
-}
-
-function _flowAccumulation(flowDir: Int8Array, rows: number, cols: number): Uint32Array {
-  const accum = new Uint32Array(rows * cols).fill(1);
-
-  // Process in topological order (cells with flow dirs before their targets)
-  // Simple iterative pass — converges in a few iterations for most grids
-  for (let iter = 0; iter < rows * cols; iter++) {
-    let changed = false;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const idx = r * cols + c;
-        const d = flowDir[idx];
-        if (d === -1) continue;
-        const nr = r + D8_DR[d];
-        const nc = c + D8_DC[d];
-        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-        const nIdx = nr * cols + nc;
-        if (accum[nIdx] < accum[idx] + 1) {
-          accum[nIdx] = accum[idx] + 1;
-          changed = true;
-        }
-      }
-    }
-    if (!changed) break;
-  }
-  return accum;
 }
 
 function delineateWatershed(
@@ -301,10 +268,8 @@ export async function POST(request: NextRequest) {
     const maxElev = validElevs.length > 0 ? Math.max(...validElevs) : null;
     const meanElev = validElevs.length > 0 ? validElevs.reduce((a, b) => a + b, 0) / validElevs.length : null;
 
-    const lonMin = ((tileXMin * 256) / n) * 360 - 180;
-    const lonMax = (((tileXMax + 1) * 256) / n) * 360 - 180;
-
-    // Build boundary GeoJSON
+    // Build boundary GeoJSON — cell centers mapped from global pixel space.
+    // Tile-index math here would mis-scale the grid's pixel span by 256x.
     const boundaryCoords: [number, number][] = [];
     for (let r = 0; r < gridRows; r++) {
       for (let c = 0; c < gridCols; c++) {
@@ -315,10 +280,7 @@ export async function POST(request: NextRequest) {
           return nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols || watershed[nr * gridCols + nc] !== 1;
         });
         if (isEdge) {
-          const latVal =
-            tileToLatLon(zoom, 0, tileYMin).north -
-            (r / gridRows) * (tileToLatLon(zoom, 0, tileYMin).north - tileToLatLon(zoom, 0, tileYMax + 1).south);
-          const lonVal = lonMin + (c / gridCols) * (lonMax - lonMin);
+          const { lat: latVal, lon: lonVal } = pixelToLatLon(zoom, minPixelX + c + 0.5, minPixelY + r + 0.5);
           boundaryCoords.push([lonVal, latVal]);
         }
       }

@@ -21,17 +21,19 @@ export default defineConfig({
         "src/lib/layers/types.ts",
       ],
       thresholds: {
-        // Ratchets upward only. Floors are the measured baseline
-        // (2026-09-22: 92.3 stmts / 83.15 branches / 81.28 functions),
-        // rounded down so ordinary variance does not flap the gate.
-        // Raised branches 83→84 the same day after vessels/reverse-geocode/
-        // sentinel2-zxy route tests re-measured 92.22/84.01/81.84/92.22
-        // (95 files, 1000 tests). Weakest areas today: api routes' branch
-        // coverage; globe/** is lint-managed (#98/#99) not coverage-counted.
-        statements: 92,
-        branches: 84,
-        functions: 81,
-        lines: 92,
+        // Ratchets upward only. Floors are the measured baseline, rounded
+        // down ~2 points so ordinary variance does not flap the gate.
+        // 2026-09-22: 92.22/84.01/81.84/92.22 → 92/84/81/92.
+        // 2026-09-23 (task #112 route-test wave, 98 files / 1115 tests):
+        // measured 95.99 stmts / 88.05 branches / 85.15 functions / 95.99
+        // lines after +83 route tests, watershed/streams geo-coordinate fix
+        // and removal of watershed dead code. Weakest areas today: api
+        // routes' branch coverage; globe/** is lint-managed (#98/#99) not
+        // coverage-counted.
+        statements: 94,
+        branches: 86,
+        functions: 83,
+        lines: 94,
       },
     },
   },

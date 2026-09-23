@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";
-import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
+import { latLonToTile, pixelToLatLon } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -237,13 +237,9 @@ export async function POST(request: NextRequest) {
           if (accum[cidx] < thresh || visited[cidx]) break;
           visited[cidx] = 1;
 
-          // Convert grid position to lat/lon
-          const tileNorth = tileToLatLon(zoom, 0, tileYMin).north;
-          const tileSouth = tileToLatLon(zoom, 0, tileYMax + 1).south;
-          const tileWest = ((tileXMin * 256) / n) * 360 - 180;
-          const tileEast = (((tileXMax + 1) * 256) / n) * 360 - 180;
-          const cellLat = tileNorth - (cr / gridRows) * (tileNorth - tileSouth);
-          const cellLon = tileWest + (cc / gridCols) * (tileEast - tileWest);
+          // Convert grid position to lat/lon via global pixel space —
+          // tile-index math here would mis-scale the pixel span by 256x.
+          const { lat: cellLat, lon: cellLon } = pixelToLatLon(zoom, minPixelX + cc + 0.5, minPixelY + cr + 0.5);
           coords.push([Math.round(cellLon * 1e6) / 1e6, Math.round(cellLat * 1e6) / 1e6]);
 
           const d = flowDir[cidx];

@@ -43,7 +43,14 @@ Why this enables updates:
 import struct
 
 import numpy as np
-import zstandard as zstd
+
+try:
+    import zstandard as zstd
+
+    HAS_ZSTD = True
+except ImportError:  # pragma: no cover - exercised via the ImportError guards
+    zstd = None
+    HAS_ZSTD = False
 
 MAGIC = b"OZT1"
 VERSION = 1
@@ -222,12 +229,21 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
     return arr, metadata
 
 
+_MISSING_ZSTD = (
+    "zstandard required for OZT1 tiles. Install with: pip install openzenith[compression]"
+)
+
+
 def _compress_zstd(data: bytes, level: int) -> bytes:
+    if not HAS_ZSTD:
+        raise ImportError(_MISSING_ZSTD)
     cctx = zstd.ZstdCompressor(level=level)
     return cctx.compress(data)
 
 
 def _decompress_zstd(data: bytes) -> bytes:
+    if not HAS_ZSTD:
+        raise ImportError(_MISSING_ZSTD)
     dctx = zstd.ZstdDecompressor()
     return dctx.decompress(data)
 

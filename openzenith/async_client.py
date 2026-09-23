@@ -33,7 +33,7 @@ Usage:
     asyncio.run(main())
 
 Installation:
-    pip install openzenith[async]   # installs aiohttp
+    pip install openzenith[analysis]   # installs aiohttp
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ class ElevationClient:
         except ImportError as err:
             raise ImportError(
                 "aiohttp required for async client. "
-                "Install with: pip install openzenith[async] or pip install aiohttp"
+                "Install with: pip install openzenith[analysis] or pip install aiohttp"
             ) from err
 
         self._base_url = base_url.rstrip("/")

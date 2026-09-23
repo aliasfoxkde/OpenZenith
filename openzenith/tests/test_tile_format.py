@@ -264,3 +264,27 @@ class TestEdgeCases:
         assert_array_equal(arr, decoded)
         assert meta["width"] == 200
         assert meta["height"] == 100
+
+
+class TestMissingZstandard:
+    """The module imports without the optional compression extra.
+
+    `import openzenith` pulls tile_format at package scope, so a bare
+    `import zstandard` made the whole SDK unusable on the documented
+    minimal install (caught by a clean-venv wheel-install probe). The
+    guards now live in the compress/decompress helpers.
+    """
+
+    def test_compress_reports_missing_extra(self, monkeypatch):
+        from openzenith.tile_format import _compress_zstd
+
+        monkeypatch.setattr("openzenith.tile_format.HAS_ZSTD", False)
+        with pytest.raises(ImportError, match=r"openzenith\[compression\]"):
+            _compress_zstd(b"data", level=3)
+
+    def test_decompress_reports_missing_extra(self, monkeypatch):
+        from openzenith.tile_format import _decompress_zstd
+
+        monkeypatch.setattr("openzenith.tile_format.HAS_ZSTD", False)
+        with pytest.raises(ImportError, match=r"openzenith\[compression\]"):
+            _decompress_zstd(b"data")

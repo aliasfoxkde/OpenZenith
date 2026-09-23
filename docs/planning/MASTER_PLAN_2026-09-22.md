@@ -1157,3 +1157,41 @@ project URLs; entry_points.txt declares `openzenith = openzenith.cli:main`;
 all subpackages (backends, terrain, hydrology, tests) present in the wheel.
 sdist metadata generation also completes. PyPI installs were unaffected
 (those wheels predate the breakage); dev/source installs were broken.
+
+### 2026-09-23 — Task #118: undeclared SDK dependencies (clean-env audit)
+
+The #117 clean-venv wheel-install probe kept paying out: the freshly
+installed CLI was STILL broken. Full third-party import audit of the
+package, then an every-module import probe in a venv holding only the
+declared core deps:
+
+**Undeclared module-scope imports found and fixed:**
+- `typing_extensions` (async_client.py:46) — broke `import openzenith`
+  itself. Declared `>=4.0` (kept rather than `typing.Self` because
+  requires-python is 3.10; stdlib Self is 3.11+).
+- `cachetools` (merged.py:42 LRU file cache) — declared `>=5.0`.
+- `scipy` (export.py:9 module scope; 7 more hydrology/terrain modules use
+  it function-lazily) — declared `>=1.10` core: `fill_depressions` is core
+  hydrology, not an optional accelerator.
+- `matplotlib` (viz.py:25 module scope, used ONLY in lazy annotations) —
+  moved under `TYPE_CHECKING`; the plotting helpers' existing friendly
+  ImportError guards are now actually reachable. Declared as a new `viz`
+  extra (`>=3.5`), included in `all`.
+- `zstandard` (tile_format.py:46 module scope) — made the documented
+  minimal install unimportable (`import openzenith` pulls tile_format).
+  Mirrored tile_format_v2's guarded idiom: try/except → HAS_ZSTD flag,
+  `_compress_zstd`/`_decompress_zstd` raise the friendly
+  `pip install openzenith[compression]` error. Pinned by
+  TestMissingZstandard (monkeypatched HAS_ZSTD).
+
+**Doc drift fixed en route:** async_client docstring + runtime guard
+referenced a nonexistent `[async]` extra → `[analysis]` (where aiohttp
+actually lives).
+
+**Verification:** wheel rebuilt; venv install with core deps only →
+all-module import probe reports **0 failures**; `openzenith info` and
+`__version__`/lazy-export surface work.
+
+**Gates:** Python 1,479 passed / 14 deselected, coverage **98.82%**
+(14,451 stmts, 171 miss — floor 97 held); ruff clean; aegis gate passed
+with no new findings (baseline unchanged at 1,646). TS untouched.

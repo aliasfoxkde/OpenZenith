@@ -22,7 +22,14 @@ Usage:
 
 from __future__ import annotations
 
-from matplotlib.figure import Figure
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Annotation-only (from __future__ import annotations keeps these lazy).
+    # A module-scope import here made `import openzenith.viz` crash in any
+    # environment without matplotlib; the plotting helpers below already
+    # raise a friendly ImportError with install instructions when missing.
+    from matplotlib.figure import Figure
 
 __all__ = [
     "DEFAULT_TERRAIN_PALETTE",

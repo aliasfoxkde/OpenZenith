@@ -85,21 +85,17 @@ server.tool(
     include: z.string()
       .default("elevation")
       .describe("Comma-separated data to include: elevation, address, weather, tides, waterways"),
-    dataset: z.enum(["auto", "srtm30m", "copernicus-glo30", "gebco2025"])
-      .default("auto")
-      .describe("Elevation dataset to use"),
     units: z.enum(["metric", "imperial"])
       .default("metric")
       .describe("Temperature/measurement units"),
     forecast_days: z.number().min(1).max(7).default(3)
       .describe("Weather forecast days (1-7)"),
   },
-  async ({ lat, lon, include, dataset, units, forecast_days }) => {
+  async ({ lat, lon, include, units, forecast_days }) => {
     const params = new URLSearchParams({
       lat: lat.toString(),
       lon: lon.toString(),
       include,
-      dataset,
       units,
       forecast_days: forecast_days.toString(),
     });
@@ -118,16 +114,13 @@ server.tool(
 
 server.tool(
   "elevation",
-  "Get elevation (positive) or ocean depth (negative) for a point on Earth. Uses SRTM 30m, Copernicus GLO-30, and GEBCO 2025 with automatic cascade.",
+  "Get elevation (positive) or ocean depth (negative) for a point on Earth. The server picks the best source automatically: OZT2 z10 tiles from SRTM 30m, falling back to merged SRTM chunks.",
   {
     lat: z.number().min(-90).max(90).describe("Latitude"),
     lon: z.number().min(-180).max(180).describe("Longitude"),
-    dataset: z.enum(["auto", "srtm30m", "copernicus-glo30", "gebco2025"])
-      .default("auto")
-      .describe("Elevation dataset"),
   },
-  async ({ lat, lon, dataset }) => {
-    const params = new URLSearchParams({ lat: lat.toString(), lon: lon.toString(), dataset });
+  async ({ lat, lon }) => {
+    const params = new URLSearchParams({ lat: lat.toString(), lon: lon.toString() });
     const cacheKey = `elev:${params.toString()}`;
     const cached = getCached(cacheKey);
     if (cached) return { content: [{ type: "text" as const, text: JSON.stringify(cached, null, 2) }] };
@@ -279,7 +272,20 @@ async function main() {
   await server.connect(transport);
 }
 
-main().catch((err) => {
-  console.error("OpenZenith MCP Server failed:", err);
-  process.exit(1);
-});
+// Only auto-start under direct execution (`node dist/index.js`); imports from
+// tests must get the server object without attaching a stdio transport.
+if (
+  process.argv[1] &&
+  import.meta.url === (await import("node:url")).pathToFileURL(process.argv[1]).href
+) {
+  main().catch((err) => {
+    console.error("OpenZenith MCP Server failed:", err);
+    process.exit(1);
+  });
+}
+
+export { server, apiFetch, getCached, setCache, clearCache };
+
+function clearCache(): void {
+  cache.clear();
+}

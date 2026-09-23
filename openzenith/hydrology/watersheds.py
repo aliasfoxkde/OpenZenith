@@ -479,7 +479,12 @@ def snap_pour_point(
 
     # Build upstream area for weighting
     accum = flow_accumulation_fast(flow_dir)
-    accum_norm = accum / (np.max(accum[valid]) + 1e-10)
+    if valid.any():
+        accum_norm = accum / (np.max(accum[valid]) + 1e-10)
+    else:
+        # All-nodata DEM: no candidate can pass the valid filter below, but
+        # np.max on an empty selection would warn and poison the weights.
+        accum_norm = np.zeros_like(accum, dtype=np.float64)
 
     snapped = []
     for lat, lon in pour_points:

@@ -16,13 +16,16 @@ export function OPTIONS() {
  * response from ~1.7MB to ~100KB while retaining all display-relevant data.
  */
 export async function GET(_request: NextRequest) {
-  const cacheKey = apiCacheKey("weather-warnings");
-  const cached = await r2GetJson(cacheKey);
-  if (cached) {
-    return NextResponse.json(cached, { headers: { "X-Cache": "HIT", ...CORS_HEADERS } });
-  }
-
+  // The cache read sits inside the try: a rejecting cache layer resolves to
+  // the route's 200-error payload instead of escaping as an unhandled edge
+  // 500. Matches earthquakes/route.ts.
   try {
+    const cacheKey = apiCacheKey("weather-warnings");
+    const cached = await r2GetJson(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { headers: { "X-Cache": "HIT", ...CORS_HEADERS } });
+    }
+
     const resp = await fetch("https://api.weather.gov/alerts/active", {
       signal: AbortSignal.timeout(10000),
       headers: {

@@ -553,3 +553,31 @@ No real secrets, no new attack surface; the wave *closed* defects
 (inverted-D8 upstream tracing, OZT2 compressor-flag mismatch, cycle
 hangs) rather than opening any.
 Re-baselined via `scripts/aegis_scan.sh update`.
+
+## Re-triage 2026-09-23 — #115 wave 4: sub-95 modules + defect fixes
+
+Production edits: openzenith hydrology/channels.py (cross-section clamp,
+two distance-transform inversions), hydrology/inundation.py (depth/volume
+sign), hydrology/watersheds.py (all-nodata snap_pour_point guard),
+terrain/profiles.py (true inverted-graph upslope flow length), vector.py
+(POLYLINEZ alias typo); api weather/warnings/route.ts (cache read moved
+inside try), docs-md/route.ts (GEBCO doc text corrected to the actual
+200-with-explanation behavior). ~120 new tests across both languages.
+
+Gate reported 86 new findings; all in already-triaged classes:
+
+- Test-file noise from the new suites: `ssrf-localhost` /
+  `hardcoded-internal-endpoint` (http://localhost mock URLs),
+  `cors-misconfiguration` (wildcard-origin assertions), `no-cache-headers`
+  (test Response objects), `nested-callbacks`, `sensitive-file-access`
+  (gebco-tile filename fixture), `n-plus-one-query` (dem-tile fixture
+  loop), `ssrf` (gebco-tile upstream URL strings).
+- `debug-endpoint` docs-md/route.ts:240 is the GEBCO docs text mentioning
+  the tile endpoint name at its new line (text-only edit).
+- `try-catch-bulk` warnings/route.ts:22 is the cache read moved INTO the
+  try block — the block grew; same accepted class, deliberate fix (a
+  rejecting cache read previously escaped the handler as an unhandled
+  edge 500).
+
+No real secrets, no new attack surface; the wave closed six defects.
+Re-baselined via `scripts/aegis_scan.sh update`.

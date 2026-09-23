@@ -36,10 +36,14 @@ export default defineConfig({
         // 97.89 stmts / 93.3 branches / 88.26 functions / 97.89 lines after
         // the OGC tiles route + gibs-tile reached 100% (CRS84 set dropped —
         // tiles are EPSG:3857 and cannot be served conformantly under it).
-        statements: 96,
-        branches: 91,
-        functions: 86,
-        lines: 96,
+        // 2026-09-23 (task #115 wave 4, 99 files / 1315 tests): measured
+        // 98.58 stmts / 93.77 branches / 90.78 functions / 98.58 lines after
+        // earthquakes/airquality/weather-warnings/dem-tile/stac/docs-md/
+        // gebco-tile/openapi.json routes all reached 100% branches.
+        statements: 97,
+        branches: 92,
+        functions: 89,
+        lines: 97,
       },
     },
   },

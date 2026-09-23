@@ -678,6 +678,22 @@ class TestSnapPourPoint:
         assert len(result) == 1
         assert isinstance(result[0], tuple)
 
+    def test_all_nodata_dem_does_not_warn_or_crash(self):
+        """An all-nodata DEM has no snap candidates; returns the seed cells.
+
+        Regression: normalization divided by ``np.max(accum[valid])`` on an
+        empty selection — a RuntimeWarning plus NaN-poisoned weights.
+        """
+        dem = np.full((10, 10), -32768.0)
+        flow = np.full((10, 10), -1, dtype=np.int8)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = snap_pour_point([(0.0, 0.0), (90.0, -180.0)], dem, flow)
+
+        # Grid-centre / top-left cells: no valid candidate could beat a seed.
+        assert result == [(5, 5), (0, 0)]
+
 
 class TestSubBasins:
     """Tests for sub_basins."""

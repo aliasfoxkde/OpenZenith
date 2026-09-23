@@ -39,4 +39,21 @@ describe("Tile Matrix Set API", () => {
     const data = await resp.json();
     expect(data.code).toBe("InvalidParameterValue");
   });
+
+  it("serves the WMTS capabilities document through the shadowed literal path", async () => {
+    const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
+    const resp = await GET(mockRequest("/api/tiles/WMTSCapabilities.xml"), {
+      params: Promise.resolve({ tileMatrixSetId: "WMTSCapabilities.xml" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Content-Type")).toContain("xml");
+  });
+
+  it("exposes CORS preflight", async () => {
+    const { OPTIONS } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
+    // This handler returns the preflight Response directly (no Promise wrapper).
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
 });

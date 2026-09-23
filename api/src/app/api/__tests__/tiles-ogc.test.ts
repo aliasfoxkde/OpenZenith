@@ -10,4 +10,23 @@ describe("Tiles OGC API", () => {
     expect(data.tileMatrixSetLinks).toBeTruthy();
     expect(data.links).toBeTruthy();
   });
+
+  it("reflects the request origin in its links", async () => {
+    const { GET } = await import("@/app/api/tiles/route");
+    const resp = await GET(mockRequest("/api/tiles?probe=1"));
+    const data = await resp.json();
+    const hrefs = data.links.map((link: { href: string }) => link.href);
+    expect(hrefs).toContain("http://localhost:8788/api/openapi.json");
+    expect(data.tileMatrixSetLinks[0].href).toBe("http://localhost:8788/api/tiles/WebMercatorQuad");
+    expect(data.links.find((link: { rel: string }) => link.rel === "self").href).toBe(
+      "http://localhost:8788/api/tiles",
+    );
+  });
+
+  it("exposes CORS preflight", async () => {
+    const { OPTIONS } = await import("@/app/api/tiles/route");
+    const resp = await OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
 });

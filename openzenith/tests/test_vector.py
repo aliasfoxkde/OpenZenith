@@ -5,7 +5,7 @@ import pytest
 # shapefile is pyshp
 import shapefile
 
-from openzenith.vector import shapefile_to_geojson
+from openzenith.vector import _shape_points_to_coords, shapefile_to_geojson
 
 
 class TestShapefileToGeojson:
@@ -201,6 +201,77 @@ class TestMultipartGeometry:
         coords = result["features"][0]["geometry"]["coordinates"]
         assert [list(c) for c in coords] == [[1.0, 2.0], [3.0, 4.0]]
 
+    def test_polygon_z_shape_becomes_multipolygon(self, tmp_path):
+        """A Z-type polygon shapefile wraps its rings one polygon deep."""
+        shp_path = tmp_path / "polygon_z.shp"
+        with shapefile.Writer(str(shp_path), shapeType=shapefile.POLYGONZ) as w:
+            w.field("id", "N")
+            w.shape(
+                shapefile.Shape(
+                    shapefile.POLYGONZ,
+                    points=[[0, 0], [1, 0], [1, 1], [0, 0]],
+                    parts=[0],
+                )
+            )
+            w.record(1)
+
+        geom = shapefile_to_geojson(str(shp_path))["features"][0]["geometry"]
+        assert geom["type"] == "MultiPolygon"
+        # One polygon holding one ring: GeoJSON MultiPolygon shape.
+        assert geom["coordinates"] == [[[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]]
+
+    def test_z_polyline_parts_nest_one_coordinate_list_per_part(self, tmp_path):
+        """The MultiLineString branch splits points at the part offsets."""
+        shp_path = tmp_path / "polyline_z.shp"
+        with shapefile.Writer(str(shp_path), shapeType=shapefile.POLYLINEZ) as w:
+            w.field("name", "C")
+            w.shape(
+                shapefile.Shape(
+                    shapefile.POLYLINEZ,
+                    points=[[0, 0], [1, 1], [5, 5], [6, 6]],
+                    parts=[0, 2],
+                )
+            )
+            w.record("fork")
+
+        reader = shapefile.Reader(str(shp_path))
+        try:
+            coords = _shape_points_to_coords(reader.shape(0), "MultiLineString")
+        finally:
+            reader.close()
+
+        assert coords == [
+            [[0.0, 0.0], [1.0, 1.0]],
+            [[5.0, 5.0], [6.0, 6.0]],
+        ]
+
+    def test_z_polyline_shapefile_is_a_multipoint_of_its_parts(self, tmp_path):
+        """A POLYLINEZ shapefile maps to "MultiLineString" via the Z alias.
+
+        Regression: vector.py looked the alias up as ``POLYLINZ`` (a typo for
+        POLYLINEZ), so no shape type ever registered as "MultiLineString" and
+        Z polylines dropped into the default branch with flattened
+        coordinates.
+        """
+        shp_path = tmp_path / "polyline_z_fallback.shp"
+        with shapefile.Writer(str(shp_path), shapeType=shapefile.POLYLINEZ) as w:
+            w.field("name", "C")
+            w.shape(
+                shapefile.Shape(
+                    shapefile.POLYLINEZ,
+                    points=[[0, 0], [1, 1], [5, 5], [6, 6]],
+                    parts=[0, 2],
+                )
+            )
+            w.record("fork")
+
+        geom = shapefile_to_geojson(str(shp_path))["features"][0]["geometry"]
+        assert geom["type"] == "MultiLineString"
+        assert geom["coordinates"] == [
+            [[0.0, 0.0], [1.0, 1.0]],
+            [[5.0, 5.0], [6.0, 6.0]],
+        ]
+
 
 class _FakeFionaOpen:
     """Records fiona.open() calls; yields recorded writes via the context."""
@@ -332,3 +403,21 @@ class TestGdbWithFakeFiona:
         }
         export_to_gdb(geojson, str(tmp_path / "o.gdb"))
         assert fake.calls[0]["schema"]["geometry"] == "Unknown"
+
+    def test_export_schema_maps_none_property_to_str(self, monkeypatch, tmp_path):
+        """A None-valued property on the first feature becomes a str field."""
+        from openzenith.vector import export_to_gdb
+
+        fake = _install_fake_fiona(monkeypatch)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
+                    "properties": {"note": None, "rank": 2},
+                }
+            ],
+        }
+        export_to_gdb(geojson, str(tmp_path / "out.gdb"))
+        assert fake.calls[0]["schema"]["properties"] == {"note": "str", "rank": "int"}

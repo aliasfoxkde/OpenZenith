@@ -110,8 +110,10 @@ def cross_section(
     # Max depth below bank
     max_depth = max(0.0, bank_elev - center_elev)
 
-    # Cross-section area (trapezoidal approximation below bank level)
-    active_elevs = [max(bank_elev, e) for e in elevations[bank_left_idx : bank_right_idx + 1]]
+    # Cross-section area (trapezoidal approximation below bank level).
+    # Depths are clipped per-cell below; clamping the elevations themselves
+    # up to bank level would zero every term (bank_elev - e <= 0 always).
+    active_elevs = elevations[bank_left_idx : bank_right_idx + 1]
     if len(active_elevs) >= 2:
         avg_depth = sum(max(0, bank_elev - e) for e in active_elevs) / len(active_elevs)
         cross_section_area = avg_depth * width_m
@@ -290,33 +292,18 @@ def elevation_above_stream(
     from scipy.ndimage import distance_transform_edt
 
     valid = dem > nodata
-    # Minimum stream elevation at each distance from stream
-    dist = distance_transform_edt(streams.astype(np.uint8))
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
+    if not streams.any():
+        return np.full(dem.shape, nodata, dtype=np.float32)
 
-    # For each unique distance, find min stream elevation among those cells
-    max_dist = int(np.max(dist[valid])) + 1
-    stream_min_elev = np.full(max_dist + 1, np.inf, dtype=np.float32)
-    for d in range(1, max_dist + 1):
-        mask = (dist == d) & streams
-        if mask.any():
-            stream_min_elev[d] = np.min(dem[mask])
+    # Distance from every cell TO the nearest stream, plus the index of that
+    # stream cell. (distance_transform_edt measures each True cell's distance
+    # to the nearest False cell, so the mask must be ~streams; passing the
+    # streams raster itself measures stream cells outward and leaves every
+    # other cell at 0.)
+    _, (ir, ic) = distance_transform_edt(~streams, return_indices=True)
+    nearest_stream_elev = dem[ir, ic].astype(np.float32)
 
-    # Fill forward: at distance d, use minimum stream elev seen at <= d
-    for d in range(2, max_dist + 1):
-        stream_min_elev[d] = min(stream_min_elev[d], stream_min_elev[d - 1])
-
-    for r in range(dem.shape[0]):
-        for c in range(dem.shape[1]):
-            if not valid[r, c]:
-                continue
-            d = int(dist[r, c])
-            if d < len(stream_min_elev) and stream_min_elev[d] < np.inf:
-                result[r, c] = dem[r, c] - stream_min_elev[d]
-            else:
-                result[r, c] = 0.0
-
-    result[~valid] = nodata
+    result = np.where(valid, dem.astype(np.float32) - nearest_stream_elev, np.float32(nodata))
     return result.astype(np.float32)
 
 
@@ -342,31 +329,13 @@ def depth_to_water(
     from scipy.ndimage import distance_transform_edt
 
     valid = dem > nodata
-    dist = distance_transform_edt(streams.astype(np.uint8))
+    if not streams.any():
+        return np.full(dem.shape, nodata, dtype=np.float32)
 
-    # Find stream elevations at each distance
-    max_d = int(np.max(dist[valid])) + 1
-    stream_elev_at_dist = np.full(max_d + 1, np.nan, dtype=np.float32)
-    for d in range(max_d + 1):
-        mask = (dist == d) & streams
-        if mask.any():
-            stream_elev_at_dist[d] = np.min(dem[mask])
+    # Water table is assumed to sit at the elevation of the nearest stream
+    # cell; depth to water is the surface minus that reference elevation.
+    _, (ir, ic) = distance_transform_edt(~streams, return_indices=True)
+    nearest_stream_elev = dem[ir, ic].astype(np.float32)
 
-    # Interpolate water table elevation at each distance
-    for d in range(1, max_d + 1):
-        if np.isnan(stream_elev_at_dist[d]):
-            stream_elev_at_dist[d] = stream_elev_at_dist[d - 1]
-
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    for r in range(dem.shape[0]):
-        for c in range(dem.shape[1]):
-            if not valid[r, c]:
-                continue
-            d = int(dist[r, c])
-            if 0 <= d <= max_d and not np.isnan(stream_elev_at_dist[d]):
-                result[r, c] = dem[r, c] - stream_elev_at_dist[d]
-            else:
-                result[r, c] = 0.0
-
-    result[~valid] = nodata
+    result = np.where(valid, dem.astype(np.float32) - nearest_stream_elev, np.float32(nodata))
     return result.astype(np.float32)

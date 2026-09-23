@@ -52,7 +52,7 @@ def shapefile_to_geojson(
         shapefile.POLYGON: "Polygon",
     }
     # Handle Z-suffix types in older pyshp versions
-    for _attr in ("POLYLINZ", "POLYGONZ"):
+    for _attr in ("POLYLINEZ", "POLYGONZ"):
         _val = getattr(shapefile, _attr, None)
         if _val:
             shape_type_map[_val] = "MultiLineString" if "LINE" in _attr else "MultiPolygon"

@@ -237,7 +237,7 @@ SRTM elevation tiles in Terrarium encoding (PNG).
 
 ### \`GET /api/gebco-tile/{name}\`
 
-GEBCO bathymetry COG tiles (local dev only, returns 501 in production). Use \`/api/dem-tile/{z}/{x}/{y}\` for terrain tiles.
+GEBCO bathymetry COG tiles (local dev only; in production the edge runtime answers 200 with a JSON explanation pointing at \`/api/dem-tile/{z}/{x}/{y}\`).
 
 ---
 

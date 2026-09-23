@@ -106,6 +106,21 @@ class TestExtractAtPoints:
         assert "c" in results[0]
         assert "b" not in results[0]
 
+    def test_point_with_empty_coordinates_skipped(self):
+        """A Point feature without coordinates is silently skipped."""
+        dem = np.zeros((3, 3), dtype=np.float32)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": []},
+                    "properties": {"id": 7},
+                }
+            ],
+        }
+        assert extract_at_points(geojson, dem) == []
+
 
 class TestZonalStats:
     def test_zonal_stats_basic(self):
@@ -201,6 +216,103 @@ class TestZonalStats:
         assert "dem_value_std" in results[0]
         assert "dem_value_max" not in results[0]
 
+    def test_default_transform_assumes_thousandth_degree_cells(self):
+        """Without a transform the grid starts at (0, 0) with 0.001 deg cells."""
+        dem = np.arange(25, dtype=np.float32).reshape(5, 5)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [0.0005, 0.0005],
+                                [0.0035, 0.0005],
+                                [0.0035, 0.0035],
+                                [0.0005, 0.0035],
+                                [0.0005, 0.0005],
+                            ]
+                        ],
+                    },
+                    "properties": {"z": 1},
+                }
+            ],
+        }
+        results = zonal_stats(geojson, dem)
+        # The polygon spans the 3x3 block of cell centers at 0.001 .. 0.003 deg.
+        inner = dem[1:4, 1:4]
+        assert results[0]["dem_value_mean"] == round(float(inner.mean()), 2)
+        assert results[0]["dem_value_max"] == 18.0
+        assert results[0]["dem_value_min"] == 6.0
+        assert results[0]["dem_value_sum"] == 108.0
+
+    def test_non_polygon_features_skipped(self):
+        """Non-Polygon geometries are silently skipped."""
+        dem = np.zeros((3, 3), dtype=np.float32)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [0.5, 0.5]},
+                    "properties": {"id": 1},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[0.0, 0.0], [2.0, 2.0]],
+                    },
+                    "properties": {"id": 2},
+                },
+            ],
+        }
+        assert zonal_stats(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0)) == []
+
+    def test_polygon_without_rings_skipped(self):
+        """A Polygon with an empty coordinate list is silently skipped."""
+        dem = np.zeros((3, 3), dtype=np.float32)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": []},
+                    "properties": {"id": 3},
+                }
+            ],
+        }
+        assert zonal_stats(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0)) == []
+
+    def test_polygon_with_no_cell_centers_returns_none_stats(self):
+        """A polygon whose bbox is in-grid but holds no cell center yields None stats."""
+        dem = np.arange(25, dtype=np.float32).reshape(5, 5)
+        # Bounding box is the single cell (0, 0), but the polygon sits strictly
+        # inside that cell, away from the cell center at (0.0, 0.0).
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[0.05, 0.05], [0.45, 0.05], [0.45, 0.45], [0.05, 0.45], [0.05, 0.05]]
+                        ],
+                    },
+                    "properties": {"z": 2},
+                }
+            ],
+        }
+        results = zonal_stats(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0))
+        assert results[0]["z"] == 2
+        assert results[0]["dem_value_mean"] is None
+        assert results[0]["dem_value_max"] is None
+        assert results[0]["dem_value_min"] is None
+        assert results[0]["dem_value_sum"] is None
+
 
 class TestRasterizeLines:
     def test_rasterize_single_line(self):
@@ -274,4 +386,28 @@ class TestRasterizeLines:
         dem = np.zeros((5, 5), dtype=np.float32)
         geojson = {"type": "FeatureCollection", "features": []}
         raster = rasterize_lines(geojson, dem)
+        assert raster.sum() == 0.0
+
+    def test_non_line_geometries_skipped(self):
+        """Geometries that are neither LineString nor MultiLineString are skipped."""
+        dem = np.zeros((3, 3), dtype=np.float32)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [0.5, 0.5]},
+                    "properties": {},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+                    },
+                    "properties": {},
+                },
+            ],
+        }
+        raster = rasterize_lines(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0))
         assert raster.sum() == 0.0

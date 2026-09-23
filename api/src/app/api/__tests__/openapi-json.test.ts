@@ -26,4 +26,22 @@ describe("OpenAPI Spec API", () => {
     const data = await GET(mockRequest("/api/openapi.json")).json();
     expect(data.paths["/api/health"]).toBeTruthy();
   });
+
+  it("substitutes the deployment origin into the servers entry", async () => {
+    const { GET } = await import("@/app/api/openapi.json/route");
+    const resp = GET(mockRequest("/api/openapi.json?probe=1"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600");
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    const data = await resp.json();
+    expect(data.servers).toEqual([{ url: "http://localhost:8788", description: "Current deployment" }]);
+  });
+
+  it("exposes CORS preflight", async () => {
+    const { OPTIONS } = await import("@/app/api/openapi.json/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("OPTIONS");
+  });
 });

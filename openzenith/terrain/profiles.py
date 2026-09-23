@@ -109,10 +109,11 @@ def flow_length(
     direction: str = "downslope",
     nodata: float = -32768.0,
 ) -> np.ndarray:
-    """Compute longest flow path length from each cell to grid edge.
+    """Compute D8 flow-path length for each cell.
 
-    For each cell, traces the flow path (using D8) and returns the total
-    path length in meters.
+    ``"downslope"`` traces each cell's flow path to the grid edge or a pit
+    and returns its total length. ``"upslope"`` walks the inverted graph and
+    returns the longest headwater-to-cell path draining into each cell.
 
     Equivalent to WhiteboxTools FlowLength.
 
@@ -177,24 +178,62 @@ def _upslope_flow_length(
     tc: int,
     nodata: float,
 ) -> float:
-    """Compute total upslope flow length for a target cell."""
+    """Compute the longest upslope flow-path length ending at (tr, tc).
+
+    Walks the INVERTED D8 graph — upstream neighbours are the cells P with
+    ``fd[P] == d`` that sit at ``(r, c) - offset(d)`` — and returns the
+    maximum path length out to a headwater. (Walking fd downstream from the
+    target computed the downslope answer under the upslope name.)
+    Iterative with a memo: longest-path needs max over all upstream
+    branches, and an explicit stack keeps deep ridgelines off the Python
+    recursion limit.
+    """
     rows, cols = dem.shape
     cell_m = 0.001 * 111320.0
+    dr_map = [0, 1, 1, 1, 0, -1, -1, -1]
+    dc_map = [1, 1, 0, -1, -1, -1, 0, 1]
+    dist_map = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)]
 
-    dr_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1}
-    dc_map = {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1}
+    memo: dict[tuple[int, int], float] = {}
+    on_path: set[tuple[int, int]] = set()
+    stack: list[tuple[int, int, bool]] = [(tr, tc, False)]
 
-    def trace(r, c, visited):
-        if (r, c) in visited or dem[r, c] <= nodata or fd[r, c] == -1:
-            return 0.0
-        visited.add((r, c))
-        d = int(fd[r, c])
-        dist = [1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2), 1.0, np.sqrt(2)][d]
-        nr = r + dr_map[d]
-        nc = c + dc_map[d]
-        if 0 <= nr < rows and 0 <= nc < cols:
-            return dist * cell_m + trace(nr, nc, visited)
-        return dist * cell_m
+    while stack:
+        r, c, expanded = stack.pop()
+        if expanded:
+            best = 0.0
+            for d in range(8):
+                pr = r - dr_map[d]
+                pc = c - dc_map[d]
+                if (
+                    0 <= pr < rows
+                    and 0 <= pc < cols
+                    and dem[pr, pc] > nodata
+                    and fd[pr, pc] == d
+                    and (pr, pc) in memo
+                ):
+                    # Neighbours still on the current path (a synthetic flow
+                    # cycle) are not memoized yet; their contribution through
+                    # this cell is cut, mirroring the downslope visited-set.
+                    best = max(best, dist_map[d] * cell_m + memo[(pr, pc)])
+            memo[(r, c)] = best
+            on_path.discard((r, c))
+            continue
+        if (r, c) in memo or (r, c) in on_path:
+            continue
+        on_path.add((r, c))
+        stack.append((r, c, True))
+        for d in range(8):
+            pr = r - dr_map[d]
+            pc = c - dc_map[d]
+            if (
+                0 <= pr < rows
+                and 0 <= pc < cols
+                and dem[pr, pc] > nodata
+                and fd[pr, pc] == d
+                and (pr, pc) not in memo
+                and (pr, pc) not in on_path
+            ):
+                stack.append((pr, pc, False))
 
-    visited = set()
-    return trace(tr, tc, visited)
+    return memo[(tr, tc)]

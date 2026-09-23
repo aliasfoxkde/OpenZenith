@@ -1040,3 +1040,63 @@ encoder-unreachable; watersheds snap_pour_point on an all-nodata grid
 divides by ~0 (guard candidate); WorldCRS84Quad true EPSG:4326 assembly;
 map/page.tsx monolith extraction (multi-session); GitForge event-drain
 stall (external).
+
+## #115 — Wave 4: last sub-95/sub-90 stragglers + six more defect fixes (task 115, 2026-09-23)
+
+Four parallel agents lifted every remaining weak surface to 100%, then an
+orchestrator verification pass fixed the defects the new tests exposed.
+
+**Coverage:** Python — channels 93→100 (new test_channels.py), inundation
+94→100 (new test_inundation.py), vector 93→100, profiles 95→100,
+overlay 95→100. TS — earthquakes 75→100 branches, airquality 75→100,
+weather/warnings 60→100, dem-tile 85.7→100, stac 92.9→100, docs-md /
+gebco-tile / openapi.json / tiles routes →100 lines. The only Python
+modules below 100% are now documented-defensive or mock-seam lines
+(elevation 97, depressions 97, export 98, tracing 98, and test-file
+self-coverage rows).
+
+**Six production defects found by the new tests and fixed:**
+1. channels cross_section_area/hydraulic_radius were identically 0.0 for
+   every section: active elevations were clamped with max(bank, e), so
+   bank - e <= 0 always zeroed the depth integral (clamp dropped; the
+   per-cell max(0, …) already guards).
+2. channels elevation_above_stream + depth_to_water measured the distance
+   transform FROM the stream mask instead of TO it — every off-stream cell
+   sat in the distance-0 band and read 0.0; both rewritten with
+   distance_transform_edt(~streams, return_indices=True) so each cell
+   references its actual nearest stream cell (+ empty-network guard).
+3. inundation depression_depth_stats depth/volume sign-inverted:
+   max(original) - min(filled) compares different cells and comes out
+   negative (pit floor minus spill rim); now per-cell (filled - dem),
+   volume = summed depths — and the "deepest first" sort finally sorts
+   deepest first.
+4. vector.py looked the Z-polyline alias up as "POLYLINZ" (typo), so
+   POLYLINEZ shapefiles mislabelled themselves GeometryCollection with
+   flattened coordinates; now MultiLineString with per-part nesting.
+5. profiles flow_length(direction="upslope") walked the downstream fd
+   chain under the upslope name — identical output to downslope.
+   Rewritten as the true inverted-graph longest headwater path
+   (iterative memo DP, cycle-safe via an on-path guard, verified by a
+   fan-in test and a synthetic-cycle test; monotone-ramp mirror property
+   pinned: upslope + downslope = total).
+6. api weather/warnings: the R2 cache read sat outside the try block, so
+   a rejecting cache layer escaped as an unhandled edge 500; moved inside
+   (matches earthquakes) and pinned by a rejection test. Also corrected
+   the docs-md text claiming gebco-tile "returns 501 in production" —
+   the route actually answers 200 with an explanation JSON.
+
+Also: watersheds.snap_pour_point no longer NaN-poisons its weights on an
+all-nodata DEM (np.max over an empty valid mask) — pinned with a
+warnings-as-errors test.
+
+**Gates:** Python 1,475 passed / 14 deselected, coverage **98.81%**
+(14,412 stmts, 171 miss) — floor 96 → 97; ruff clean. TS: 99 files,
+1,310 passed + 5 skipped, coverage **98.58 / 93.77 / 90.78 / 98.58** —
+floors 96/91/86/96 → 97/92/89/97; tsc clean; eslint 0 errors. Aegis
+re-baselined 1,564 → 1,640 (TRIAGE.md #115; all 86 new findings verified
+test-file noise or the deliberate try-block move).
+
+Known follow-ups: profiles nodata predicate uses `<= nodata` while
+hydrology/flow.py uses `!= nodata` (semantic divergence documented, both
+defensible); dem-tile health probe whitelists only 302 among redirects;
+overlay rasterize_lines(value=...) is dead (burn_value only).

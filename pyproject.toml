@@ -89,7 +89,7 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=96"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=97"
 markers = [
     "integration: marks tests that require network access",
 ]
@@ -181,4 +181,14 @@ markers = [
 # hang in reach walks, flowpath broadcast crashes, OZT2 zlib/brotli flag
 # mismatch, GeoTIFF NaN/dtype wrap). Measured 98.56% (14,028 stmts,
 # 202 miss), 1,431 passed, 0 failed.
+#
+# Raised to 97 (2026-09-23, task #115 wave 4) with the remaining sub-95
+# modules lifted to 100% — channels 93→100 (dedicated test_channels.py),
+# inundation 94→100 (test_inundation.py), vector 93→100, profiles 95→100,
+# overlay 95→100 — plus the snap_pour_point all-nodata guard and five more
+# defect fixes (channels cross-section clamp zeroing area + both distance
+# transforms measuring FROM streams instead of TO them, inundation
+# depth/volume sign inversion, vector POLYLINZ typo, profiles upslope
+# flow_length walking the downstream graph under the upslope name).
+# Measured 98.81% (14,412 stmts, 171 miss), 1,475 passed, 0 failed.
 # Raise --cov-fail-under only together with tests that cover the delta.

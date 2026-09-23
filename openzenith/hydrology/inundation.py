@@ -118,18 +118,20 @@ def depression_depth_stats(
         mask = labeled == label_id
         cells_r, cells_c = np.where(mask)
 
-        # Depression depth = max(filled) - min(filled) within the depression
-        fill_vals = filled[mask]
-        orig_vals = dem[mask]
-        max_orig = float(np.max(orig_vals))
-        min_filled = float(np.min(fill_vals))
-        depth = max_orig - min_filled
+        # Water depth after filling is (filled - dem) per cell; the
+        # depression's depth is its maximum and its volume the sum. (Taking
+        # max(original) - min(filled) compares different cells' elevations
+        # and comes out negative — the pit floor minus the spill rim.)
+        fill_vals = filled[mask].astype(np.float64)
+        orig_vals = dem[mask].astype(np.float64)
+        water_depths = fill_vals - orig_vals
+        depth = float(np.max(water_depths))
 
         # Spill elevation is the minimum filled value (spill point)
-        spill_elev = min_filled
+        spill_elev = float(np.min(fill_vals))
         cell_count = int(np.sum(mask))
         area = cell_count * cell_area_m2
-        volume = depth * cell_count * cell_area_m2
+        volume = float(np.sum(water_depths)) * cell_area_m2
 
         # Row/col of the spill point (first cell with min filled elevation)
         spill_idx = int(np.argmin(fill_vals))

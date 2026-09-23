@@ -1224,3 +1224,29 @@ Deploy follow-through: the opt-in heavy CesiumJS OZT2 terrain suite
 (`E2E_RUN_HEAVY=1 ozt2-validate`) was run against the new production build:
 **8/8 passed** — globe loads terrain without first-party errors; measured
 OZT2/PNG size ratio 3.4x on the live tiles.
+
+### 2026-09-23 — Task #120: dependency CVE remediation (all three surfaces)
+
+First dependency-level audit of the repo. npm production tree: **1 critical
++ 3 high → 0** (next 15.4.11 → 15.5.26; overrides pin postcss ^8.5.26 —
+next 15 pins 8.4.31 and the fix would require breaking next 16 — and
+sharp ^0.35.4). cargo audit: clean (58 crates). pip_audit: SDK runtime
+deps clean. The middleware-bypass / Edge-runtime Server Action advisories
+were the genuinely exposed classes; all closed by 15.5.26.
+
+**Accepted risk:** 15.5.26 is outside @cloudflare/next-on-pages' declared
+peer cap (<=15.5.2; maintenance-mode tooling). Verified empirically rather
+than staying on the vulnerable-but-declared line — details in
+TRIAGE.md #120.
+
+**Verification chain on the upgraded toolchain:** tsc clean; vitest 99
+files / 1,311 passed + 5 skipped; eslint 0 errors; `pages:build` ok;
+workerd smoke (/, /map, /globe, dem-tile health all 200); local E2E
+chromium 38 passed / 1 skipped; redeployed
+(`--project-name openzenith` — the first attempt ran from `core/` and
+failed on missing project context: cwd discipline matters for wrangler);
+production: new chunk hash served, all routes 200, E2E 40 passed /
+1 skipped, heavy OZT2 suite 8/8.
+
+Deploy note: `npx wrangler pages deploy` from `api/` resolves the Pages
+project; from elsewhere pass `--project-name openzenith` explicitly.

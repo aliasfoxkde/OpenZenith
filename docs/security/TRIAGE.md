@@ -604,3 +604,35 @@ Gate reported 6 new findings; all verified noise:
 
 No real secrets, no new attack surface. Re-baselined via
 `scripts/aegis_scan.sh update`.
+
+## Dependency CVE audit 2026-09-23 — task #120
+
+First dependency-level audit (aegis is static-only). Measured with
+`npm audit --omit=dev`, `cargo audit`, `pip_audit`:
+
+- **api (npm):** was 1 critical (Next.js advisory bundle: middleware
+  segment-prefetch bypass + incomplete-fix follow-up, dynamic-route
+  middleware bypass, Edge-runtime Server Action payload DoS, cache
+  poisoning, SSRF classes — middleware.ts + App Router make these the
+  genuinely exposed ones) + 3 high (nanoid, postcss, sharp). Remediated to
+  **0 production vulnerabilities**: next 15.4.11 → 15.5.26 (fix line for
+  every listed advisory), overrides pin postcss ^8.5.26 (next 15 pins
+  8.4.31; next 16 would be the unfixed upgrade — breaking, deferred),
+  sharp ^0.35.4 (inherited libvips/libheif CVEs; Node-side image
+  optimization is not used by the edge runtime anyway).
+- **core/ (Rust):** `cargo audit` clean — 0 vulnerabilities across 58
+  crates (RustSec advisory db, 1,266 entries).
+- **openzenith SDK (Python):** `pip_audit` clean on the runtime dependency
+  set (numpy, Pillow, pyshp, requests, scipy, cachetools,
+  typing_extensions); the only finding was the throwaway probe venv's own
+  pip version — build tooling, not shipped.
+
+**Accepted risk, documented:** next 15.5.26 sits outside
+@cloudflare/next-on-pages' declared peer range (>=14.3.0 && <=15.5.2;
+1.13.16 is latest and Cloudflare's next-on-pages is in maintenance). The
+peer cap is untested-newer, not proven-broken; staying inside it meant
+running with known middleware-bypass and Edge-runtime advisories — worse.
+Verified empirically instead of trusting either side: production build,
+workerd smoke, local E2E (38 passed), redeploy, production E2E (40 passed
+/ 1 skipped), heavy OZT2 terrain suite (8/8). If a future next-on-pages
+release or the OpenNext migration narrows this, revisit.

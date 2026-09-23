@@ -1530,3 +1530,12 @@ leaves ~2/3 of the tile NODATA — the value assertion fails).
 Gates: tsc clean; 1,337 passed / 5 skipped; eslint 0 errors at the 5,381
 baseline; aegis re-baselined 1659→1663 (21 findings, all line-shifts or the
 new diagnostic log — TRIAGE.md 2026-09-23 #126).
+
+Production verification (deployment db928787): 36 never-cached tiles across
+12 land regions × z9/z11/z13 fetched at ~1 req/s — **36/36 HTTP 200 on the
+first wave, zero 503s** (vs ~44/72 first-wave 503s in the #125 pre-fix
+sweep). Decoded sample (patagonia-z13, caledonia-z9, papua-z11, oregon-z9):
+terrain-plausible ranges, zero below-sea pixels, no constant-run artifacts.
+Caveat: single observation, different tiles/day — but 0/36 against 56% is a
+strong directional signal; the 2s slow-assembly probe now in the bundle will
+confirm via wrangler tail under real traffic.

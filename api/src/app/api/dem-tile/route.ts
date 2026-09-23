@@ -81,7 +81,11 @@ async function handleHealthCheck() {
     const url = "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N35/N35W120.merged";
     const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(15000) });
 
-    if (res.ok || res.status === 302) {
+    // HF /resolve/ answers with a redirect to the CDN; workers follow it, but
+    // a manually- or partially-followed redirect surfaces any of the standard
+    // redirect statuses, and every one of them proves reachability.
+    const redirectClasses = new Set([301, 302, 303, 307, 308]);
+    if (res.ok || redirectClasses.has(res.status)) {
       return NextResponse.json(
         {
           status: "ok",

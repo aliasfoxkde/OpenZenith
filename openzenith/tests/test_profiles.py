@@ -103,6 +103,31 @@ class TestHillslopeProfile:
         assert [p["elevation"] for p in out] == [50.0, 40.0, 30.0]
         assert out[-1]["distance_m"] == pytest.approx(2 * CELL_M)
 
+    def test_d8_deliberately_treats_below_sentinel_values_as_valid_data(self):
+        # Contract pin for the documented predicate divergence: terrain/
+        # profiles.py cuts its walks at `dem <= nodata` while hydrology/flow.py
+        # tests validity with `!= nodata`. At the default sentinel the two
+        # agree exactly; they only diverge for values *below* the caller's
+        # sentinel — there D8 keeps the cell as real terrain (a pit that
+        # captures flow) while the profile walk refuses to enter it. Both are
+        # deliberate: the `<=` predicate protects profile walks from voids,
+        # and harmonizing flow.py would silently change every downslope
+        # product (accumulation, watersheds, channels) and break Rust-core
+        # parity. Any change here must be a conscious cross-module decision.
+        dem = np.full((3, 3), 100.0, dtype=np.float32)
+        dem[1, 1] = NODATA - 1.0  # below the sentinel: the divergence zone
+        fd = d8_flow_direction(dem)  # default nodata=-32768
+
+        # The below-sentinel cell is valid terrain — neighbours drain INTO it:
+        assert fd[0, 1] == 2  # north neighbour flows south into the pit
+        assert fd[1, 0] == 0  # west neighbour flows east into the pit
+        assert fd[0, 0] == 1  # NW corner flows southeast into the pit
+        assert fd[1, 1] == -1  # the cell itself is a pit, not a void
+
+        # The profiles predicate would have called the same cell void, so the
+        # divergence is observable and pinned on both sides.
+        assert dem[1, 1] <= NODATA
+
 
 class TestFlowLength:
     """Longest flow path length per cell."""

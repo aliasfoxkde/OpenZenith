@@ -1100,3 +1100,40 @@ Known follow-ups: profiles nodata predicate uses `<= nodata` while
 hydrology/flow.py uses `!= nodata` (semantic divergence documented, both
 defensible); dem-tile health probe whitelists only 302 among redirects;
 overlay rasterize_lines(value=...) is dead (burn_value only).
+
+### 2026-09-23 — Task #116: documented follow-up burn-down
+
+All three follow-ups recorded in the #115 entry closed:
+
+1. **overlay.rasterize_lines `value` param removed.** It was never read —
+   every burn used `burn_value`, so callers passing `value=X` were silently
+   ignored. No caller or test passed it (grepped repo-wide). `burn_value` is
+   now the sole raster-value knob; test_overlay.py pins non-default burns
+   (7.5 / -2.0) land exactly on line cells and nowhere else. Removing the
+   dead twin converts a silent no-op into a loud TypeError for any future
+   caller who expected it to work.
+2. **dem-tile health probe accepts the full redirect class** (301/302/303/
+   307/308, was 302 only). HF `/resolve/` has moved targets between
+   permanent/temporary/preserve-method redirects; any of them proves
+   reachability. 304 deliberately stays degraded (no Location, proves
+   nothing). dem-tile.test.ts loops all five statuses + pins 304 → degraded.
+3. **Nodata predicate divergence pinned as a contract, not "fixed".**
+   profiles walks cut at `dem <= nodata`; flow.py D8 tests `!= nodata`. They
+   agree exactly at the default sentinel and diverge only for values below
+   it — there D8 keeps the cell as real terrain (a capturing pit) while the
+   profile walk refuses to enter. test_profiles.py now pins the D8 side
+   (`fd[0,1] == 2`, `fd[1,0] == 0`, `fd[0,0] == 1`, `fd[1,1] == -1` for a
+   below-sentinel pit) with the rationale: harmonizing flow.py would
+   silently change every downslope product and break Rust-core parity.
+
+**Gates:** Python 1,477 passed / 14 deselected, coverage **98.82%**
+(14,433 stmts, 171 miss) — floor 97 held; ruff clean. TS: 99 files,
+1,311 passed + 5 skipped, coverage **98.58 / 93.76 / 90.78 / 98.58** —
+floors 97/92/89/97 held; tsc clean; eslint 0 errors. Aegis re-baselined
+1,640 → 1,646 (TRIAGE.md #116; 6 findings all verified line-shift
+fingerprints of previously-triaged code plus one 0%-vs-0% scanner artifact).
+
+The documented follow-up backlog is now empty. Remaining known items are
+the two standing out-of-scope entries (map/page.tsx monolith extraction —
+multi-session; GitForge event-drain stall — external) and the WorldCRS84Quad
+true-EPSG:4326 assembly (resampled pyramid feature work).

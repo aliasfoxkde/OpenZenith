@@ -411,3 +411,38 @@ class TestRasterizeLines:
         }
         raster = rasterize_lines(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0))
         assert raster.sum() == 0.0
+
+    def test_burn_value_is_the_only_raster_value_knob(self):
+        """Lines burn burn_value everywhere; off-line cells stay exactly 0.0.
+
+        A `value` kwarg used to sit next to burn_value in the signature but
+        was never read — callers passing it got silently ignored. Removed;
+        this pins burn_value as the sole control so it cannot silently
+        regress into a dead twin.
+        """
+        dem = np.zeros((4, 4), dtype=np.float32)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[0.0, 1.5], [3.0, 1.5]],
+                    },
+                    "properties": {},
+                }
+            ],
+        }
+        raster = rasterize_lines(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0), burn_value=7.5)
+        # GeoJSON coordinates are (lon, lat), so lat 1.5 rasterizes to row 2.
+        assert (raster[2, :] == 7.5).all()
+        assert raster.sum() == 4 * 7.5
+        assert (raster[0, :] == 0.0).all()
+        assert (raster[1, :] == 0.0).all()
+        assert (raster[3, :] == 0.0).all()
+
+        # Partial burn: cells covered by the line take burn_value, the rest 0.
+        raster2 = rasterize_lines(geojson, dem, transform=(0.0, 0.0, 1.0, 1.0), burn_value=-2.0)
+        assert (raster2[raster2 != 0.0] == -2.0).all()
+        assert raster2.sum() == 4 * -2.0

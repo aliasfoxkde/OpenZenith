@@ -48,20 +48,41 @@ describe("DEM Tile Metadata API", () => {
     fetchSpy.mockRestore();
   });
 
-  it("treats a 302 redirect from HuggingFace as a healthy backend", async () => {
+  it("treats every standard redirect status from HuggingFace as a healthy backend", async () => {
     // res.ok is false for a redirect, so the explicit status check is what
-    // keeps an edge-redirected HEAD probe from being reported degraded.
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { Location: "https://cdn.example/N35W120.merged" } }));
+    // keeps an edge-redirected HEAD probe from being reported degraded. The
+    // probe accepts the full redirect class — HF has moved /resolve/ targets
+    // between permanent (301), temporary (302/307) and preserve-method (308)
+    // redirects before.
+    for (const redirectStatus of [301, 302, 303, 307, 308]) {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          new Response(null, { status: redirectStatus, headers: { Location: "https://cdn.example/N35W120.merged" } }),
+        );
+
+      const { GET } = await import("@/app/api/dem-tile/route");
+      const resp = await GET(mockRequest("/api/dem-tile?health=1"));
+      expect(resp.status).toBe(200);
+      const data = await resp.json();
+      expect(data.status).toBe("ok");
+      expect(data.http_status).toBe(redirectStatus);
+      expect(resp.headers.get("Cache-Control")).toBe("no-cache");
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("reports degraded for a non-redirect 3xx status", async () => {
+    // 304 Not Modified carries no Location and proves nothing about the
+    // chunk endpoint, so it stays outside the healthy redirect class.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(null, { status: 304 }));
 
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
     expect(resp.status).toBe(200);
     const data = await resp.json();
-    expect(data.status).toBe("ok");
-    expect(data.http_status).toBe(302);
-    expect(resp.headers.get("Cache-Control")).toBe("no-cache");
+    expect(data.status).toBe("degraded");
+    expect(data.message).toBe("HuggingFace returned status 304");
     fetchSpy.mockRestore();
   });
 

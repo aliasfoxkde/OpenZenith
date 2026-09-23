@@ -581,3 +581,26 @@ Gate reported 86 new findings; all in already-triaged classes:
 
 No real secrets, no new attack surface; the wave closed six defects.
 Re-baselined via `scripts/aegis_scan.sh update`.
+
+## Re-triage 2026-09-23 — #116 follow-up burn-down
+
+Production edits: openzenith/overlay.py (dead `value` param removed from
+rasterize_lines — it was never read; burn_value is the only raster-value
+knob), api dem-tile/route.ts (health probe accepts the full redirect class
+301/302/303/307/308 instead of 302 only). Tests: test_overlay.py burn-value
+pin, dem-tile.test.ts redirect-class loop + 304-stays-degraded case,
+test_profiles.py D8-vs-profiles nodata predicate contract pin.
+
+Gate reported 6 new findings; all verified noise:
+
+- 4× `no-cache-headers` + 1× `try-catch-bulk` in dem-tile/route.ts and its
+  test are line-shifted fingerprints of responses and the try block that
+  were triaged in earlier waves (the route edit added 3 lines above them;
+  every flagged response sets `Cache-Control: no-cache`).
+- `comment-ratio-outlier` test_profiles.py:1 is a scanner artifact (0% vs a
+  0% peer mean flagged as a z=3.3 outlier); the flagged comment block is the
+  deliberate contract documentation for the D8 `!=` vs profiles `<=`
+  predicate divergence.
+
+No real secrets, no new attack surface. Re-baselined via
+`scripts/aegis_scan.sh update`.

@@ -240,7 +240,6 @@ def rasterize_lines(
     geojson: dict,
     dem: np.ndarray,
     transform: tuple[float, float, float, float] | None = None,
-    value: float = 1.0,
     burn_value: float = 1.0,
 ) -> np.ndarray:
     """Rasterize LineString features onto a DEM-shaped grid.
@@ -251,7 +250,6 @@ def rasterize_lines(
         geojson: GeoJSON FeatureCollection with LineString features
         dem: Reference grid for shape/size
         transform: (origin_lat, origin_lon, cell_size_lat, cell_size_lon)
-        value: Value to use as the rasterized line value (default 1.0)
         burn_value: Which value to burn along lines (default 1.0)
 
     Returns:

@@ -525,3 +525,36 @@ terrain/viewshed 57%, terrain/indices 66%, viz 67%, terrain/gradients
 - Aegis re-triaged for the new test files: 2 fixed at source, 9 (+1
   shifted) baselined with rationale — see `docs/security/TRIAGE.md`;
   gate green across all 5 scopes.
+
+### 2026-09-22 — Python coverage floor ratcheted 83 → 85 (#96 complete)
+
+Three dedicated suites took the three weakest terrain modules head-on:
+
+- `test_flow_metrics.py` (20 tests) — **flow_metrics 54 → 99%**:
+  sediment_transport_index (validity, nodata pass-through, exponent
+  response), average_flow_truncation (gentle ramp 0, cliff > 0),
+  depth_in_sink, clean_dem (pit fill, flat-resolution loop with
+  `resolve_flats="steepest"/"weighted"`), and the Hack-integral edge
+  regressions (no streams, <10 samples, degenerate least-squares
+  denominator with identical accumulation values, real finite fit,
+  nodata chi).
+- `test_viewshed.py` (19 tests) — **viewshed 57 → 78%**: occlusion by a
+  ridge, max-distance clipping, observer-on-nodata, visibility_index
+  overlap, horizon_angle, directional_relief, fetch_analysis,
+  max_elevation_from_direction. Per-function azimuth conventions differ
+  and are now pinned as documented behavior (horizon_angle az 0 = west,
+  directional_relief az 90 = north, fetch az 0 traces west and stops at
+  the first `>=` cell, max_elevation az 0 = east). The remaining 22% is
+  the numba JIT kernel — an optional accelerator unreachable without
+  numba installed; recorded as the module's honest gap.
+- `test_indices.py` (22 tests) — **terrain/indices 66 → 97%**:
+  relative_elevation, elevation_relief_ratio, slope_leq,
+  greater_than_height, pct_above/below_thresh guards,
+  edge_contamination_check, curvature/mstp classification. Two flat-DEM
+  behaviors pinned: relative_elevation stays all-NaN when range is 0;
+  slope_leq's border cells are 0 because Horn slope is NaN there.
+
+Verified: gate **807 passed, 85.39%** (11,469 stmts, 1,676 miss) at
+`--cov-fail-under=85`; ruff clean; aegis gate green with no new findings.
+Weakest remaining modules: terrain/profiles 70%, terrain/gradients 72%,
+viz 67% (matplotlib-heavy), terrain/filters 84% — next ratchet: 87.

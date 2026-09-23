@@ -89,16 +89,22 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=83"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=85"
 markers = [
     "integration: marks tests that require network access",
 ]
 # Coverage floor ratchets upward only. Measured baseline 2026-09-22 is 81.95%
 # (10,867 stmts, 1,961 miss) — floor set to 81 because fail-under is a strict
-# >= check. Raised to 82 on 2026-09-22 after the terrain package split
-# re-measured at 82.08% (10,918 stmts, 1,956 miss), then to 83 the same day
-# once terrain/raster (36→100%) and vector (55→93%) gained dedicated tests
-# (measured 83.23%, 11,129 stmts, 1,866 miss). Weakest modules now:
-# terrain/viewshed 57%, terrain/indices 66%, viz 67%, terrain/gradients 72%.
-# Next ratchet: 85 with tests for those.
+# >= check. Raised to 82 (terrain split re-measured 82.08%), then 83 after
+# raster (36→100%) and vector (55→93%) gained dedicated tests (83.23%),
+# then 85 the same day once dedicated suites landed for the three weakest
+# terrain modules — flow_metrics 54→99% (test_flow_metrics.py: STI, flow
+# truncation, sink depth, DEM cleaning, Hack-integral edge regressions),
+# viewshed 57→78% (test_viewshed.py: occlusion, horizon, fetch, directional
+# relief — per-function azimuth conventions pinned; the numba JIT kernel is
+# an unreachable optional accelerator without numba installed), and
+# terrain/indices 66→97% (test_indices.py: relative elevation, relief ratio,
+# threshold helpers, edge contamination). Measured 85.39% (11,469 stmts,
+# 1,676 miss), 807 passed. Weakest remaining: terrain/profiles 70%,
+# terrain/gradients 72%, viz 67%, terrain/filters 84%.
 # Raise --cov-fail-under only together with tests that cover the delta.

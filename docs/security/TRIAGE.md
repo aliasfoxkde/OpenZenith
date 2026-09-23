@@ -327,3 +327,26 @@ test_viz.py) collapsed to already-baselined fingerprints after dedup and
 required no new entries.
 
 Baseline: 1,445 → 1,449 findings (semantic +3, −0).
+
+## Re-triage 2026-09-23 — #108 uploader hardening
+
+scripts/upload_ozt2_to_hf.py gained ~100 lines (probe_landed, dedup
+filter, honest counts), shifting all downstream line numbers. Gate
+reported 3 "new" findings; semantic set-difference (pattern + file +
+content hash, line elided) shows **+1, −0**:
+
+- `ssrf` upload_ozt2_to_hf.py:102 (high, NEW): fires on probe_landed's
+  `urllib.request.urlopen(Request(f"https://huggingface.co/…{repo_id}…"))`.
+  The host is a hard-coded literal — only path components are
+  interpolated, from the operator's `--repo_id` CLI argument and computed
+  tile paths. No attacker-controlled destination exists in an
+  operator-run upload tool; worst case a malformed CLI arg produces a 404
+  from huggingface.co. Not SSRF. Baselined.
+- `weak-crypto` :119 and `finance-float-equality` :395: line-shift
+  ghosts — identical content hashes (0c0a2054…, fc97f78f…) already
+  baselined at :58 and :313 before the edit. `git_blob_sha`'s SHA1 is
+  git's object-ID format used for content-equality delta (not a security
+  primitive); `total_local == 0` compares an integer tile count. No new
+  entries needed.
+
+Baseline: 1,449 → 1,450 findings (semantic +1, −0).

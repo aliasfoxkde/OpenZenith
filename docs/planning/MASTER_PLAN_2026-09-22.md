@@ -684,3 +684,36 @@ paths against the repo's `tiles/z10/…` layout and counted nothing on either
 side — vacuous, discarded. v5 summary "55,981 files uploaded, 0 failed"
 is likewise misleading (nothing uploaded; all deduped) — #108 covers
 honest reporting.
+
+### #108 — HF uploader: verify-before-retry + honest counts (task 108, 2026-09-23)
+
+`scripts/upload_ozt2_to_hf.py` hardened against the two failure modes #94
+exposed:
+
+1. **Timeout-after-success duplicates**: a create_commit whose *response*
+   timed out was retried blind, so HF landed the commit and the retry landed
+   it again (batches 110/111 ×3). Now any timeout-class failure probes one
+   file via `probe_landed()` (resolve-URL HEAD; 200/302 → present, 404 →
+   absent, else None). create_commit is atomic, so one file is conclusive
+   for the batch. Present → counted uploaded, no retry; absent/None →
+   backoff retry as before.
+2. **Dedup invisibility → false "uploaded"**: HF skips all-duplicate commits
+   with only a logged warning ("no files have been modified"), returning
+   normally. A thread-local `logging.Filter` on the huggingface_hub loggers
+   detects it (and the older raise-based behavior) so the batch is reported
+   `already_present`.
+
+`upload_batches` now returns `{"uploaded": n, "already_present": n,
+"failed": n}` and `upload_tiles` accumulates honest grand totals with a
+stale-index note when the dedup share is large. Exit code is nonzero only
+on real failures.
+
+Evidence: 9-case synthetic harness (`/tmp/test-uploader-108.py`) — fresh
+upload, dedup-via-log, dedup-via-exception, timeout+landed (probe 200, no
+retry), timeout+absent (retry succeeds), timeout+probe-flaky, timeout
+forever → failed, parallel mixed outcomes, live probe sanity
+(present=True/absent=False) — **9/9 pass**. Ruff: no new findings (9
+pre-existing in scripts/, outside the strict lint gate). Live dry-run smoke
+over the real repo: hashed 151,988 local tiles + single remote metadata
+call → delta 55,981 / 96,007 current, exit 0, zero commits — consistent
+with the stale-index state documented under #94.

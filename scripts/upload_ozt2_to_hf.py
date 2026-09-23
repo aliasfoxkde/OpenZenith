@@ -32,6 +32,7 @@ Usage:
 """
 
 import argparse
+import logging
 import os
 import re
 import sys
@@ -48,6 +49,66 @@ DEFAULT_REPO = "aliasfox/srtm30m-ozt2-v2"
 
 # HF hard-caps dataset commits at 128/hour; pace below it with margin.
 COMMIT_RATE_PER_HOUR = 100
+
+# HF logs this warning and returns normally when every operation in a
+# create_commit is already present server-side (content dedup) — no commit
+# is created. A logging filter is the only way to see it happen.
+_DEDUP_MARKER = "no files have been modified"
+_dedup_local = threading.local()
+
+
+class _DedupFilter(logging.Filter):
+    """Record, per thread, that HF reported an all-duplicate commit."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if _DEDUP_MARKER in record.getMessage().lower():
+            _dedup_local.hit = True
+        return True
+
+
+def _install_dedup_filter() -> None:
+    """Attach the dedup detector to the huggingface_hub loggers (idempotent)."""
+    for name in ("huggingface_hub", "huggingface_hub.hf_api"):
+        logger = logging.getLogger(name)
+        if not any(isinstance(f, _DedupFilter) for f in logger.filters):
+            logger.addFilter(_DedupFilter())
+
+
+def _reset_dedup_flag() -> None:
+    _dedup_local.hit = False
+
+
+def _dedup_detected() -> bool:
+    return bool(getattr(_dedup_local, "hit", False))
+
+
+def probe_landed(repo_id: str, path_in_repo: str, timeout: float = 20.0) -> bool | None:
+    """Whether a file is retrievable on the remote right now.
+
+    Used after a timeout-class create_commit failure: HF often lands the
+    commit server-side and only the *response* times out, so retrying blind
+    produces duplicate commits (verified on the z10 backfill: batches 110/111
+    committed three times each).
+
+    create_commit is atomic — one git commit for all operations — so probing
+    any single file of a batch is conclusive for the whole batch.
+
+    Returns True (present), False (absent), or None (probe itself failed).
+    Note: within hours of a mass upload the tree-listing API serves a stale
+    index, but resolve URLs hit live state — that is why this probes resolve
+    instead of re-listing.
+    """
+    url = f"https://huggingface.co/datasets/{repo_id}/resolve/main/{path_in_repo}"
+    req = urllib.request.Request(url, method="HEAD")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status in (200, 302)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        return None
+    except (urllib.error.URLError, OSError, TimeoutError):
+        return None
 
 
 def git_blob_sha(path: Path) -> str:
@@ -171,17 +232,24 @@ def upload_batches(
     batch_size: int,
     workers: int,
     commit_message: str | None,
-) -> tuple[int, int]:
+) -> dict[str, int]:
     """Upload the delta in large commits, optionally on parallel workers.
 
     HF caps dataset commits at 128 per hour, so commits are paced through a
     rolling one-hour window sized below the cap and 429 responses are waited
     out (the API reports an exact Retry-After) instead of failing the batch.
 
-    Returns (files uploaded, batches failed)."""
+    Timeout-class failures are verified through a resolve-URL probe before
+    any retry: HF frequently lands the commit and only the response times
+    out, and a blind retry creates a duplicate commit.
+
+    Returns per-outcome file counts, e.g.
+    {"uploaded": n, "already_present": n, "failed": n}.
+    """
     from huggingface_hub import CommitOperationAdd
 
     _relax_hf_timeouts()
+    _install_dedup_filter()
 
     batches = [delta[i:i + batch_size] for i in range(0, len(delta), batch_size)]
     print(f"  z{zoom}: {len(delta):,} files to upload in {len(batches)} commit(s) of <= {batch_size}")
@@ -203,7 +271,8 @@ def upload_batches(
             print(f"    commit pacing: hourly window full, sleeping {wait:.0f}s")
             _time.sleep(max(wait, 1))
 
-    def run_batch(bid: int) -> bool:
+    def run_batch(bid: int) -> str:
+        """One batch: 'uploaded', 'already_present', or 'failed'."""
         batch = batches[bid]
         operations = [
             CommitOperationAdd(path_in_repo=rel_of[id(t)], path_or_fileobj=str(t))
@@ -215,6 +284,7 @@ def upload_batches(
         )
         for attempt in range(8):
             commit_slot()
+            _reset_dedup_flag()
             try:
                 api.create_commit(
                     repo_id=repo_id,
@@ -222,11 +292,14 @@ def upload_batches(
                     operations=operations,
                     commit_message=msg,
                 )
-                return True
+                # HF dedups content and skips the commit entirely, logging a
+                # warning instead of raising — detect that and report it
+                # as already_present rather than uploaded.
+                return "already_present" if _dedup_detected() else "uploaded"
             except Exception as e:  # noqa: BLE001 - classify, then wait out or fail
                 err = str(e).lower()
-                if "no files have been modified" in err or "already up to date" in err:
-                    return True
+                if _DEDUP_MARKER in err or "already up to date" in err:
+                    return "already_present"
                 if "per hour" in err:
                     wait = 1800.0
                 else:
@@ -234,38 +307,47 @@ def upload_batches(
                     if m:
                         wait = float(m.group(1)) + 5
                     elif "timed out" in err or "timeout" in err or "connection" in err:
+                        # The commit may have landed before the response
+                        # timed out; probe one file (commits are atomic)
+                        # instead of duplicating it.
+                        landed = probe_landed(repo_id, rel_of[id(batch[0])])
+                        if landed is True:
+                            print(
+                                f"    batch {bid + 1}: landed despite"
+                                f" timeout (verified via resolve), not retrying"
+                            )
+                            return "uploaded"
                         wait = min(300.0, 20 * 2**attempt)
                     else:
                         print(f"    ERROR batch {bid + 1}: {e}")
-                        return False
+                        return "failed"
                 if attempt < 7:
                     print(f"    batch {bid + 1}: waiting {wait:.0f}s before retry ({str(e)[:80]}…)")
                     _time.sleep(wait)
                 else:
                     print(f"    ERROR batch {bid + 1}: {e}")
-                    return False
-        return False
+                    return "failed"
+        return "failed"
 
-    done = 0
-    failed = 0
+    counts = {"uploaded": 0, "already_present": 0, "failed": 0}
     if workers <= 1:
         for bid in range(len(batches)):
-            if run_batch(bid):
-                done += len(batches[bid])
-            else:
-                failed += len(batches[bid])
-            print(f"    batch {bid + 1}/{len(batches)} done ({done:,} files uploaded)")
+            counts[run_batch(bid)] += len(batches[bid])
+            print(
+                f"    batch {bid + 1}/{len(batches)} done"
+                f" ({counts['uploaded'] + counts['already_present']:,} files resolved)"
+            )
     else:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(run_batch, bid): bid for bid in range(len(batches))}
             for fut in as_completed(futures):
                 bid = futures[fut]
-                if fut.result():
-                    done += len(batches[bid])
-                else:
-                    failed += len(batches[bid])
-                print(f"    batch {futures[fut] + 1}/{len(batches)} done ({done:,} files uploaded)")
-    return done, failed
+                counts[fut.result()] += len(batches[bid])
+                print(
+                    f"    batch {bid + 1}/{len(batches)} done"
+                    f" ({counts['uploaded'] + counts['already_present']:,} files resolved)"
+                )
+    return counts
 
 
 def upload_tiles(
@@ -322,6 +404,7 @@ def upload_tiles(
 
     uploaded_zooms = []
     grand_uploaded = 0
+    grand_present = 0
     grand_failed = 0
     for zdir in get_zoom_subdirs(tile_dir, zoom_range):
         zoom = int(zdir.name[1:])
@@ -344,17 +427,30 @@ def upload_tiles(
 
         rel_of = {id(p): f"{path_in_repo}/z{zoom}/{p.parent.name}/{p.name}" for p in delta}
         xd_name_of = {id(p): p.parent.name for p in delta}
-        done, failed = upload_batches(
+        counts = upload_batches(
             api, repo_id, delta, rel_of, zoom, xd_name_of,
             batch_size, workers, commit_message,
         )
-        grand_uploaded += done
-        grand_failed += failed
-        if failed == 0:
+        grand_uploaded += counts["uploaded"]
+        grand_present += counts["already_present"]
+        grand_failed += counts["failed"]
+        if counts["failed"] == 0:
             uploaded_zooms.append(zoom)
 
     print(f"\n{'=' * 60}")
-    print(f"Upload complete: {grand_uploaded:,} files uploaded, {grand_failed:,} failed")
+    print(
+        f"Upload complete: {grand_uploaded:,} files uploaded,"
+        f" {grand_present:,} already present (dedup), {grand_failed:,} failed"
+    )
+    if grand_present:
+        # The tree listing HF serves can lag hours behind a mass upload, so
+        # a large dedup share usually means the listing was stale, not that
+        # this run duplicated anything.
+        print(
+            f"  note: {grand_present:,} files were confirmed present on the"
+            f" remote despite the listing — a stale remote index or an"
+            f" earlier landed commit"
+        )
     print(f"Zoom levels synced: {uploaded_zooms}")
     print(f"Repository: https://huggingface.co/datasets/{repo_id}")
     return 0 if grand_failed == 0 else 1

@@ -14,14 +14,22 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
+      exclude: [
+        "src/lib/**/__tests__/**",
+        // Type-only modules carry no runtime statements; counting them at 0%
+        // would make the floor reward artificial runtime imports.
+        "src/lib/layers/types.ts",
+      ],
       thresholds: {
         // Ratchets upward only. Floors are the measured baseline
         // (2026-09-22: 92.3 stmts / 83.15 branches / 81.28 functions),
         // rounded down so ordinary variance does not flap the gate.
-        // Weakest areas today: lib/storage/r2-binding.ts 60%, lib/layers
-        // types.ts 0%, api routes' branch coverage.
+        // Raised branches 83→84 the same day after vessels/reverse-geocode/
+        // sentinel2-zxy route tests re-measured 92.22/84.01/81.84/92.22
+        // (95 files, 1000 tests). Weakest areas today: api routes' branch
+        // coverage; globe/** is lint-managed (#98/#99) not coverage-counted.
         statements: 92,
-        branches: 83,
+        branches: 84,
         functions: 81,
         lines: 92,
       },

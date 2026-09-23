@@ -467,3 +467,61 @@ fs in the test, comment reword; 6 baselined after review — see
 files because the spec literal left `api/src`. Validation: full vitest suite
 93 files / 980 tests green, `tsc --noEmit` clean, changed files ESLint-clean
 (`scripts/**/*.mjs` override added for untyped build JS with rationale).
+
+### 2026-09-22 — Python coverage floor ratcheted 81 → 83 (#96)
+
+Two ratchet steps in one day, each backed by tests covering the delta:
+
+- **81 → 82**: terrain package split re-measured at 82.08%.
+- **82 → 83**: dedicated suites for the two weakest modules —
+  `test_raster.py` (18 tests: normalized_difference, integer division
+  incl. negative operands, modulo, image correlation/autocorrelation,
+  dem_where/clip/mask/reclassify — one behavior pinned: `dem_reclassify`
+  leaves NaN, not nodata, for excluded cells) and `test_vector.py`
+  (+13 tests: multipart polygon/polyline/multipoint mapping, GDB layer
+  selection via a module-shaped fake-fiona, schema type inference,
+  None-property cleaning, empty/unknown-geometry errors) lifted raster
+  36→100% and vector 55→93%.
+
+Verified: `pytest` gate **746 passed, 8 skipped, 83.23%** (11,129 stmts,
+1,866 miss) at `--cov-fail-under=83`. Weakest modules now:
+terrain/viewshed 57%, terrain/indices 66%, viz 67%, terrain/gradients
+72%. Next ratchet: **85** with tests for those four.
+
+### 2026-09-22 — TS coverage floors hold with margin; r2-binding 60 → 100% (#97)
+
+- `src/lib/__tests__/r2-binding.test.ts` (new, 7 tests) exercises both
+  DEM_TILES resolution paths via a controllable `@cloudflare/next-on-pages`
+  fake (the global alias stub can only throw): injected provider,
+  provider-clear restore, structural env resolution, unbound/undefined/
+  throwing context, throwing provider.
+- Route tests for the last uncovered config branches: `sentinel2-zxy`
+  (TiTiler success, GIBS fallback, all-upstreams-down notice),
+  `vessels` (configured + unconfigured), `reverse-geocode` (+6: missing/
+  invalid params 400, upstream 5xx soft error, fetch-throw catch,
+  display_name name-fallback).
+- Coverage re-measured **92.22 / 84.01 / 81.84 / 92.22** (95 files,
+  1,000 tests) — branches cleared 84, so that floor ratcheted 83 → 84.
+  (The 92/83/81/92 floors had silently drifted below water at 91.47 —
+  the new route tests brought them back above.)
+- Vitest gotcha recorded: `vi.restoreAllMocks()` in Vitest 3 resets
+  *module-level* `vi.fn()` mocks too (r2PutTile lost its
+  `mockResolvedValue`, fetch stubs lost implementations) — route tests
+  must rely on per-test `vi.stubGlobal` + `unstubAllGlobals` instead.
+
+### 2026-09-22 — ESLint warning census closed out for this cycle (#98)
+
+- Measured 5,789 warnings (209 files) → **5,183 (153 files)** after:
+  `.wrangler/tmp` parse-error artifacts excluded, `restrict-template-expressions`
+  tuned to `allowNumber` (≈600 eliminated — justified: `${z}/${x}/${y}`
+  geospatial path building is number interpolation by design), and the
+  `src/lib/storage/**` directory **graduated to error level** for the
+  whole unsafe-family (100% typed, dedicated binding tests).
+- `local-tif-backend.ts` typed properly (`node:zlib` awaited import
+  instead of the untyped `zlib`; Uint8Array instead of untyped Buffer).
+- Remaining concentration mapped: **67% of the unsafe-family lives in
+  `src/app/globe`** — the extraction in #99 is the lint-reduction path;
+  route-layer graduation is deferred to the typed-response-model phase.
+- Aegis re-triaged for the new test files: 2 fixed at source, 9 (+1
+  shifted) baselined with rationale — see `docs/security/TRIAGE.md`;
+  gate green across all 5 scopes.

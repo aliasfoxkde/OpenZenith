@@ -44,7 +44,11 @@ const eslintConfig = [
       "@typescript-eslint/no-unsafe-call": "warn",
       "@typescript-eslint/no-unsafe-argument": "warn",
       "@typescript-eslint/no-unsafe-return": "warn",
-      "@typescript-eslint/restrict-template-expressions": "warn",
+      // Numbers in template literals are type-safe and ubiquitous in a
+      // geospatial codebase (tile paths `${z}/${x}/${y}`, coordinate query
+      // strings). The strict default flags them; only allow that class —
+      // string/number/boolean interpolation stays judged.
+      "@typescript-eslint/restrict-template-expressions": ["warn", { allowNumber: true }],
       // React Hooks 7 enables React Compiler migration rules in its recommended
       // preset. These rules currently flag established imperative MapLibre,
       // Cesium, and WASM integrations that are intentionally ref-backed. Keep
@@ -58,10 +62,31 @@ const eslintConfig = [
     },
   },
   {
+    // Graduate src/lib/storage to error: the directory is fully typed and
+    // warning-free (2026-09-22), and it sits directly on the R2/HF data
+    // boundary where untyped flow is most dangerous. New violations here
+    // fail lint instead of joining the warning backlog. Same per-directory
+    // promotion is the template for retiring the route-layer warnings above.
+    files: ["src/lib/storage/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        { allowNumber: true },
+      ],
+    },
+  },
+  {
     ignores: [
       ".next/",
       ".vercel/",
       "node_modules/",
+      // Local dev/build scratch (next-on-pages bundles); never sources.
+      ".wrangler/",
       "eslint.config.mjs",
       "src/lib/wasm/",
       // Build outputs, not sources: WASM bundle and the generated service worker.

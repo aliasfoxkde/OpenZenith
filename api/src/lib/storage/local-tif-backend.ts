@@ -37,7 +37,7 @@ export class LocalTifBackend {
   async fetchChunk(srtmName: string, chunkRow: number, chunkCol: number): Promise<ArrayBuffer> {
     try {
       const { readFile } = await import("node:fs/promises");
-      const { deflateSync, inflateSync } = await import("zlib");
+      const { deflateSync, inflateSync } = await import("node:zlib");
 
       // Read entire file into memory (~750KB, well within stack limits)
       const buf = await readFile(`${this.dataDir}/${srtmName}`);
@@ -103,7 +103,7 @@ export class LocalTifBackend {
       const outCols = Math.min(256, tilePixelCols);
 
       // Extract pixel window into decoded output
-      const decoded = Buffer.alloc(outRows * outCols * 2);
+      const decoded = new Uint8Array(outRows * outCols * 2);
       for (let r = 0; r < outRows; r++) {
         for (let c = 0; c < outCols; c++) {
           const src = (r * tileW + c) * 2;

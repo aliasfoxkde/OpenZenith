@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest } from "./helpers";
 
+interface GeocodeBody {
+  place?: {
+    display_name?: string;
+    name?: string;
+    osm_id?: number;
+  } | null;
+  location?: { lat: number; lon: number };
+  error?: string;
+}
+
 const mockReverseResult = {
   display_name:
     "White House, 1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States",
@@ -26,7 +36,7 @@ describe("Reverse Geocode endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = (await resp.json()) as GeocodeBody;
     expect(data.place).toBeDefined();
     expect(data.place.display_name).toContain("White House");
     expect(data.location.lat).toBe(38.8977);
@@ -54,7 +64,7 @@ describe("Reverse Geocode endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = (await resp.json()) as GeocodeBody;
     expect(data.place).toBeNull();
     expect(data.location).toBeDefined();
   });
@@ -69,7 +79,62 @@ describe("Reverse Geocode endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = (await resp.json()) as GeocodeBody;
     expect(data.place).toBeDefined();
+  });
+
+  it("rejects missing lat/lon with 400", async () => {
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode"));
+    expect(resp.status).toBe(400);
+    const data = (await resp.json()) as GeocodeBody;
+    expect(data.error).toContain("Missing required parameters");
+  });
+
+  it("rejects out-of-range coordinates with 400", async () => {
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode?lat=95&lon=0"));
+    expect(resp.status).toBe(400);
+    const data = (await resp.json()) as GeocodeBody;
+    expect(data.error).toContain("Invalid coordinates");
+  });
+
+  it("rejects non-numeric coordinates with 400", async () => {
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode?lat=abc&lon=0"));
+    expect(resp.status).toBe(400);
+  });
+
+  it("derives the name from display_name when Nominatim omits it", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ display_name: "A Road, B Town, C Region" }), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode?lat=0&lon=0"));
+    const data = (await resp.json()) as GeocodeBody;
+    expect(data.place.name).toBe("A Road");
+  });
+
+  it("returns a soft error when the upstream is unavailable", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("down", { status: 503 }),
+    );
+
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode?lat=0&lon=0"));
+    expect(resp.status).toBe(200);
+    const data = (await resp.json()) as GeocodeBody;
+    expect(data.error).toContain("Upstream geocoding service unavailable");
+  });
+
+  it("returns a soft error when the upstream fetch throws", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network unreachable"));
+
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode?lat=0&lon=0"));
+    expect(resp.status).toBe(200);
+    const data = (await resp.json()) as GeocodeBody;
+    expect(data.error).toContain("Reverse geocoding request failed");
   });
 });

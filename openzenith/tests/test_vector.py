@@ -146,3 +146,185 @@ class TestExportToGdb:
                 {"type": "FeatureCollection", "features": []},
                 "/fake/output.gdb",
             )
+
+
+class TestMultipartGeometry:
+    def test_multipart_polygon_rings(self, tmp_path):
+        """Each polygon part becomes its own ring in the output coordinates."""
+        shp_path = tmp_path / "multipart.shp"
+        with shapefile.Writer(str(shp_path), shapefile.POLYGON) as w:
+            w.field("id", "N")
+            w.poly([
+                [[0, 0], [1, 0], [1, 1], [0, 0]],
+                [[10, 10], [11, 10], [11, 11], [10, 10]],
+            ])
+            w.record(7)
+        w.close()
+
+        result = shapefile_to_geojson(str(shp_path))
+        rings = result["features"][0]["geometry"]["coordinates"]
+        assert len(rings) == 2
+        assert rings[0][0] == [0.0, 0.0]
+        assert rings[1][0] == [10.0, 10.0]
+
+    def test_multiline_parts(self, tmp_path):
+        """A multi-part polyline maps to nested line coordinates."""
+        shp_path = tmp_path / "multiline.shp"
+        with shapefile.Writer(str(shp_path), shapefile.POLYLINE) as w:
+            w.field("name", "C")
+            w.line([
+                [[0, 0], [1, 1]],
+                [[5, 5], [6, 6]],
+            ])
+            w.record("fork")
+        w.close()
+
+        result = shapefile_to_geojson(str(shp_path))
+        geom = result["features"][0]["geometry"]
+        assert geom["type"] == "LineString"
+        assert len(geom["coordinates"]) == 4  # all parts' points, flattened
+
+    def test_multipoint_features(self, tmp_path):
+        """MultiPoint shapes pass their point list through as coordinates."""
+        shp_path = tmp_path / "multipoint.shp"
+        with shapefile.Writer(str(shp_path), shapefile.MULTIPOINT) as w:
+            w.field("id", "N")
+            w.multipoint([[1, 2], [3, 4]])
+            w.record(9)
+        w.close()
+
+        result = shapefile_to_geojson(str(shp_path))
+        coords = result["features"][0]["geometry"]["coordinates"]
+        assert [list(c) for c in coords] == [[1.0, 2.0], [3.0, 4.0]]
+
+
+class _FakeFionaOpen:
+    """Records fiona.open() calls; yields recorded writes via the context."""
+
+    def __init__(self):
+        self.calls = []
+        self.written = []
+
+    def __call__(self, path, layer=None, mode="r", **kwargs):
+        self.calls.append({"path": path, "layer": layer, "mode": mode, **kwargs})
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def __iter__(self):
+        return iter([{"fixture": True}])
+
+    def write(self, feature):
+        self.written.append(feature)
+
+
+def _install_fake_fiona(monkeypatch):
+    """Install a module-shaped fake: fiona.open(...) plus fiona.listlayers()."""
+    import sys
+    import types
+
+    opener = _FakeFionaOpen()
+    module = types.SimpleNamespace(
+        open=opener,
+        listlayers=lambda path: ["Rivers", "Lakes"],
+    )
+    monkeypatch.setitem(sys.modules, "fiona", module)
+    return opener
+
+
+class TestGdbWithFakeFiona:
+    def test_gdb_to_geojson_named_layer(self, monkeypatch):
+        from openzenith.vector import gdb_to_geojson
+
+        fake = _install_fake_fiona(monkeypatch)
+        result = gdb_to_geojson("data.gdb", layer="Rivers")
+        assert fake.calls[0]["layer"] == "Rivers"
+        assert result == {"type": "FeatureCollection", "features": [{"fixture": True}]}
+
+    def test_gdb_to_geojson_defaults_to_first_layer(self, monkeypatch):
+        from openzenith.vector import gdb_to_geojson
+
+        fake = _install_fake_fiona(monkeypatch)
+        gdb_to_geojson("data.gdb")
+        assert fake.calls[0]["layer"] == "Rivers"
+
+    def test_gdb_to_geojson_no_layers_raises(self, monkeypatch):
+        import sys
+
+        from openzenith.vector import gdb_to_geojson
+
+        _install_fake_fiona(monkeypatch)
+        sys.modules["fiona"].listlayers = lambda path: []
+        with pytest.raises(ValueError, match="No layers found"):
+            gdb_to_geojson("data.gdb")
+
+    def test_list_gdb_layers(self, monkeypatch):
+        from openzenith.vector import list_gdb_layers
+
+        _install_fake_fiona(monkeypatch)
+        assert list_gdb_layers("data.gdb") == ["Rivers", "Lakes"]
+
+    def test_export_autodetects_geometry_and_cleans_props(self, monkeypatch, tmp_path):
+        from openzenith.vector import export_to_gdb
+
+        fake = _install_fake_fiona(monkeypatch)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [1.0, 2.0]},
+                    "properties": {"name": "A", "rank": 3, "score": 1.5, "ok": True},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [3.0, 4.0]},
+                    "properties": {"name": None, "rank": None, "score": None, "ok": None},
+                },
+            ],
+        }
+        out = tmp_path / "out.gdb"
+        export_to_gdb(geojson, str(out), layer_name="Points")
+
+        call = fake.calls[0]
+        assert call["mode"] == "w"
+        assert call["driver"] == "FileGDB"
+        assert call["schema"]["geometry"] == "Point"
+        # Schema inferred from the first feature's value types.
+        assert call["schema"]["properties"] == {
+            "name": "str",
+            "rank": "int",
+            "score": "float",
+            "ok": "bool",
+        }
+        # None properties are blanked so fiona never receives None.
+        assert fake.written[1]["properties"]["name"] == ""
+        assert len(fake.written) == 2
+
+    def test_export_empty_features_raises(self, monkeypatch):
+        from openzenith.vector import export_to_gdb
+
+        _install_fake_fiona(monkeypatch)
+        with pytest.raises(ValueError, match="no features"):
+            export_to_gdb({"type": "FeatureCollection", "features": []}, "out.gdb")
+
+    def test_export_unknown_geometry_falls_back(self, monkeypatch, tmp_path):
+        from openzenith.vector import export_to_gdb
+
+        fake = _install_fake_fiona(monkeypatch)
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Tetrahedron", "coordinates": []},
+                    "properties": {},
+                }
+            ],
+        }
+        export_to_gdb(geojson, str(tmp_path / "o.gdb"))
+        assert fake.calls[0]["schema"]["geometry"] == "Unknown"

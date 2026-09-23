@@ -183,60 +183,15 @@ pub fn flow_accumulation(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i3
     accum
 }
 
-/// Parallel flow accumulation — parallel D8 + sequential Kahn's.
+/// Flow accumulation twin of [`flow_accumulation`] for call sites paired with
+/// `d8_flow_direction_par`.
 ///
+/// Kahn's topological pass is inherently sequential — a cell's total depends
+/// on all upstream totals being finalised first — so there is no parallel
+/// phase to run here. This delegates to [`flow_accumulation`] rather than
+/// duplicating its body.
 pub fn flow_accumulation_par(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i32> {
-    let rows = flow_dir.nrows();
-    let cols = flow_dir.ncols();
-
-    let mut in_degree = Array2::<i32>::zeros((rows, cols));
-    let mut accum = Array2::<i32>::ones((rows, cols));
-
-    // Sequential in-degree build (O(n), cheap)
-    for r in 0..rows {
-        for c in 0..cols {
-            let d = flow_dir[[r, c]];
-            if d == nodata_dir {
-                continue;
-            }
-            let d_usize = d as usize;
-            let tgt_r = (r as isize + DR[d_usize]).clamp(0, rows as isize - 1) as usize;
-            let tgt_c = (c as isize + DC[d_usize]).clamp(0, cols as isize - 1) as usize;
-            in_degree[[tgt_r, tgt_c]] += 1;
-        }
-    }
-
-    // Sequential Kahn's algorithm (order matters)
-    let mut queue: Vec<(usize, usize)> = Vec::with_capacity(rows * cols);
-    for r in 0..rows {
-        for c in 0..cols {
-            if in_degree[[r, c]] == 0 && flow_dir[[r, c]] != nodata_dir {
-                queue.push((r, c));
-            }
-        }
-    }
-
-    let mut head = 0;
-    while head < queue.len() {
-        let (r, c) = queue[head];
-        head += 1;
-
-        let d = flow_dir[[r, c]];
-        if d == nodata_dir {
-            continue;
-        }
-        let d_usize = d as usize;
-        let tgt_r = (r as isize + DR[d_usize]).clamp(0, rows as isize - 1) as usize;
-        let tgt_c = (c as isize + DC[d_usize]).clamp(0, cols as isize - 1) as usize;
-
-        accum[[tgt_r, tgt_c]] += accum[[r, c]];
-        in_degree[[tgt_r, tgt_c]] -= 1;
-        if in_degree[[tgt_r, tgt_c]] == 0 {
-            queue.push((tgt_r, tgt_c));
-        }
-    }
-
-    accum
+    flow_accumulation(flow_dir, nodata_dir)
 }
 
 /// Stream order from binary stream mask and D8 flow direction grid (Strahler order).
@@ -292,40 +247,42 @@ pub fn stream_order(
                     continue;
                 }
 
-                // Count inflowing stream neighbours of the same order
-                let my_order = order[[r, c]];
-                let mut same_order_count = 0;
+                // Strahler rule (mirrors openzenith.hydrology.streams.stream_order):
+                // the target takes the source's order, +1 when two or more
+                // same-order streams flow into it. The source itself is one of
+                // the counted inflows, so count >= 2 means a genuine merge.
+                let src_order = order[[r, c]];
+                let tgt_order = order[[nr, nc]];
+                if src_order < tgt_order {
+                    continue;
+                }
 
+                let mut inflow_count = 0;
                 for d in 0..8 {
-                    if d == fd as usize {
-                        continue;
-                    }
-                    let ir = r as isize + DR[d];
-                    let ic = c as isize + DC[d];
+                    // Upstream neighbour of the target flowing in from direction d
+                    let ir = nr as isize - DR[d];
+                    let ic = nc as isize - DC[d];
                     if ir < 0 || ir >= rows as isize || ic < 0 || ic >= cols as isize {
                         continue;
                     }
                     let ir = ir as usize;
                     let ic = ic as usize;
-                    if flow_dir[[ir, ic]] == (d as i8 + 4) % 8  // flows into current cell
+                    if flow_dir[[ir, ic]] == d as i8
                         && streams[[ir, ic]] != 0
-                        && order[[ir, ic]] == my_order
+                        && order[[ir, ic]] >= src_order
                     {
-                        same_order_count += 1;
+                        inflow_count += 1;
                     }
                 }
 
-                let tgt_order = order[[nr, nc]];
-                if my_order > tgt_order {
-                    let new_order = if same_order_count >= 2 {
-                        my_order + 1
-                    } else {
-                        my_order
-                    };
-                    if new_order > tgt_order {
-                        order[[nr, nc]] = new_order;
-                        changed = true;
-                    }
+                let new_order = if inflow_count >= 2 {
+                    src_order + 1
+                } else {
+                    src_order
+                };
+                if new_order > tgt_order {
+                    order[[nr, nc]] = new_order;
+                    changed = true;
                 }
             }
         }
@@ -446,19 +403,26 @@ mod tests {
 
     #[test]
     fn test_stream_order_confluence() {
-        // Two first-order streams meeting at a confluence
-        // (0,0) drains S to (1,0); (1,1) drains N to (1,0)
-        // Confluence at (1,0) should be order 2 (two order-1 streams meet)
+        // Two first-order streams meeting at a confluence:
+        // (0,0) drains S (2) to (1,0); (1,1) drains W (4) to (1,0).
+        // Confluence at (1,0) must become order 2 (two order-1 streams meet).
         let streams = arr2(&[[1i8, 0], [1, 1]]);
-        let flow_dir = arr2(&[
-            [2i8, -1], // (0,0) drains S to (1,0)
-            [6, -1],   // (1,1) drains N to (1,0); (1,0) drains off-grid
-        ]);
+        let flow_dir = arr2(&[[2i8, -1], [-1, 4]]);
         let order = stream_order(&streams.view(), &flow_dir.view(), -1);
         assert_eq!(order[[0, 0]], 1, "source should be order 1");
         assert_eq!(order[[1, 1]], 1, "source should be order 1");
-        // Confluence may or may not be order 2 depending on iteration order
-        assert!(order[[1, 0]] >= 1);
+        assert_eq!(order[[1, 0]], 2, "confluence of two order-1 streams");
+    }
+
+    #[test]
+    fn test_stream_order_no_merge_stays_order_1() {
+        // A single headwater flowing through a stream cell must NOT escalate
+        // the downstream cell — no confluence, no promotion.
+        let streams = arr2(&[[1i8, 0], [1, 0]]);
+        let flow_dir = arr2(&[[2i8, -1], [-1, -1]]);
+        let order = stream_order(&streams.view(), &flow_dir.view(), -1);
+        assert_eq!(order[[0, 0]], 1);
+        assert_eq!(order[[1, 0]], 1);
     }
 
     #[test]
@@ -468,6 +432,70 @@ mod tests {
         let order = stream_order(&streams.view(), &flow_dir.view(), -1);
         assert_eq!(order[[0, 0]], 0);
         assert_eq!(order[[1, 0]], 0);
+    }
+
+    #[test]
+    fn test_stream_order_offgrid_downstream() {
+        // A stream cell at the east edge whose flow direction points off-grid
+        // (a valid direction, not nodata_dir): the target clip must skip it
+        // without panicking or escalating anything.
+        let streams = arr2(&[[1i8, 1]]);
+        let flow_dir = arr2(&[[0i8, 0]]);
+        let order = stream_order(&streams.view(), &flow_dir.view(), -1);
+        assert_eq!(order[[0, 0]], 1);
+        assert_eq!(order[[0, 1]], 1);
+    }
+
+    // ── d8_flow_direction_par tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_d8_par_matches_sequential() {
+        // Deterministic mixed terrain (slopes, flats, an interior nodata hole,
+        // grid edges): the rayon row-parallel pass must agree with the
+        // sequential pass cell for cell.
+        let mut dem = Array2::<f32>::zeros((9, 9));
+        for r in 0..9 {
+            for c in 0..9 {
+                dem[[r, c]] = (3 * r + 7 * c) as f32 * 2.5;
+            }
+        }
+        dem[[4, 4]] = -32768.0; // interior nodata hole
+        let seq = d8_flow_direction(&dem.view(), -32768.0);
+        let par = d8_flow_direction_par(&dem.view(), -32768.0);
+        assert_eq!(seq, par, "parallel D8 must match sequential D8");
+    }
+
+    #[test]
+    fn test_d8_par_flat_and_nodata_are_pits() {
+        let dem = arr2(&[[-32768.0f32, 100.0], [50.0, 40.0]]);
+        let fd = d8_flow_direction_par(&dem.view(), -32768.0);
+        assert_eq!(fd[[0, 0]], -1, "nodata cell is a pit");
+        assert_eq!(fd[[1, 1]], -1, "lowest cell is a pit");
+        assert_eq!(fd[[1, 0]], 0, "(1,0)=50 drains E to 40");
+        assert_eq!(fd[[0, 1]], 2, "(0,1)=100 drains S to 40");
+    }
+
+    #[test]
+    fn test_d8_par_single_row() {
+        // Degenerate shape: no vertical neighbours exist, flow must go E.
+        let dem = arr2(&[[30.0f32, 20.0, 10.0]]);
+        let fd = d8_flow_direction_par(&dem.view(), -32768.0);
+        assert_eq!(fd[[0, 0]], 0);
+        assert_eq!(fd[[0, 1]], 0);
+        assert_eq!(fd[[0, 2]], -1);
+    }
+
+    // ── flow_accumulation_par tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_flow_accum_par_matches_sequential() {
+        // Delegates to flow_accumulation — must produce identical output.
+        let fd = arr2(&[[-1i8, 2, -1], [-1, 2, -1], [-1, -1, -1]]);
+        let seq = flow_accumulation(&fd.view(), -1);
+        let par = flow_accumulation_par(&fd.view(), -1);
+        assert_eq!(seq, par);
+        assert_eq!(par[[0, 1]], 1);
+        assert_eq!(par[[1, 1]], 2);
     }
 
     // ── viewshed tests (delegated to viewshed module) ────────────────────────

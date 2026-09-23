@@ -818,3 +818,65 @@ Aegis: 7 gate findings → +1 −6 ghosts; the +1 is the info-level
 file-size-outlier rotating to test_cli.py (2,076 lines, intentional
 per-command class layout) — TRIAGE.md 2026-09-23 #109, baseline 1,456 →
 1,456. Ruff strict gate + format: clean.
+
+## #110 — Rust core coverage ratchet + llvm-cov floor (task 110, 2026-09-23)
+
+Closed #104's deferred commitment ("first ratchet target is main.rs CLI
+error paths + d8.rs branches, then add a cargo-llvm-cov floor near the
+measured baseline"). Baseline was 78.81% lines / 81.62% regions
+(708 lines, 150 missed; main.rs function coverage 35%, d8.rs 68.66% with
+the two rayon `_par` variants entirely untested).
+
+**Result: 78.81% → 97.96% lines** (736 lines, 15 missed), regions
+96.94% → 98.03%, functions 77.78% (the 14 missed are serde-derive
+internals attributed to main.rs). Per file: d8.rs 68.66 → **100%**,
+ozt2.rs 94.50 → **100%**, viewshed.rs 99.12 → **100%**, main.rs
+73.13 → **92.54%**. Floor: `scripts/core_coverage_gate.sh` (new) runs
+`cargo llvm-cov --all --fail-under-lines 95` — measured 97.96 with ~3
+points of headroom, mirroring the Python floor discipline (measured
+96.83 / floor 93). Ratchet via `CORE_COV_FLOOR` env or editing the
+script default; raise only with tests covering the delta.
+
+- d8.rs (+8 unit tests): `d8_flow_direction_par` vs sequential equality
+  on 9×9 mixed terrain with an interior nodata hole, flat/nodata pits,
+  single-row degenerate shape; `flow_accumulation_par` ≡ sequential;
+  stream-order edge cases (off-grid downstream target clip, no-merge
+  stays order 1, and the confluence test's geometry corrected — its
+  flow_dir put dir 4 on the confluence cell and −1 on the headwater,
+  and its loose `>= 1` assertion had been masking the bug below).
+- **Real bug fixed — `stream_order` never emitted order ≥ 2.** The Rust
+  port transcribed Python's promotion gate as `my_order > tgt_order`,
+  but every stream cell initializes to order 1, so `1 > 1` never fired
+  and no cell could ever be promoted (promotion requires an already-
+  promoted upstream). It also counted same-order inflows at the source
+  instead of the target. Empirically confirmed via the CLI
+  (confluence JSON returned all-1s), then fixed to mirror
+  `hydrology/streams.py::stream_order`: gate `src >= tgt`, inflow count
+  at the target, source counts as one inflow. CLI regression test pins
+  the two-headwater confluence to `"data":[1,1,0,0,2,0,1,0,0]`.
+- **Duplicate removed — `flow_accumulation_par` was byte-identical to
+  `flow_accumulation`** ("parallel D8 + sequential Kahn's" comment
+  notwithstanding: Kahn's pass is inherently sequential). Now a
+  documented delegation; export surface unchanged (lib.rs re-exports
+  both names).
+- cli_integration_test.rs (+13 tests): per-command invalid-JSON and
+  data-length error paths for accum/reconstruct/viewshed/
+  gradient-predict, stream-order's two length checks (streams, flow_dir)
+  and the omitted-`nodata_dir` serde default, non-UTF-8 stdin
+  (`failed to read stdin`), plus the confluence regression above.
+- ozt2.rs (+2): `left_reconstruct` mid-row nodata resets the cumsum
+  baseline; `gradient_predict` nodata cells map to the nodata residual.
+- viewshed.rs (+1): observer on a nodata cell short-circuits to
+  all-hidden.
+- Genuinely-unreachable remainder (15 lines): main.rs stdout-write
+  failure (needs an unwritable stdout) and serde-derive error
+  construction internals.
+
+Tests: 26 lib + 25 integration, 0 failed. `cargo fmt`/`clippy -D
+warnings`: clean. Aegis: gate FAILED on first run with 20 findings →
++18 accepted (test unwraps under the file's documented allow) −27
+pruned after tool-version drift (aegis binary's detection rules changed
+since the last baseline regeneration: `env-file-in-git` 29 → 2 on the
+identical tree; 3× consecutive scans byte-identical, so the gate is
+stable against the current scanner) — TRIAGE.md 2026-09-23 #110,
+baseline 1,456 → 1,447.

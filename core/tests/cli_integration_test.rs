@@ -236,3 +236,190 @@ fn test_viewshed_with_max_distance() {
         .assert()
         .success();
 }
+
+// ─── Error paths (every command validates JSON and array length) ─────────────
+
+#[test]
+fn test_accum_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("accum")
+        .write_stdin("{\"rows\":3,")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+#[test]
+fn test_reconstruct_command_wrong_data_length() {
+    let input = json!({
+        "rows": 3,
+        "cols": 3,
+        "nodata": -32768,
+        "dequant_min": 0.0,
+        "dequant_scale": 0.1,
+        "data": [1i16, 2] // wrong length
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("reconstruct")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length"));
+}
+
+#[test]
+fn test_reconstruct_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("reconstruct")
+        .write_stdin("]}")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+#[test]
+fn test_viewshed_command_wrong_data_length() {
+    let input = json!({
+        "rows": 5,
+        "cols": 5,
+        "observer_row": 2,
+        "observer_col": 2,
+        "observer_height": 1.8,
+        "cell_size": 30.0,
+        "nodata": -32768.0,
+        "data": vec![100.0; 7] // wrong length
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("viewshed")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length"));
+}
+
+#[test]
+fn test_viewshed_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("viewshed")
+        .write_stdin("{broken")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+#[test]
+fn test_stream_order_command_streams_length_mismatch() {
+    let input = json!({
+        "rows": 3,
+        "cols": 3,
+        "streams": [0, 1], // wrong length
+        "flow_dir": [4, 0, 4, 4, 0, 4, 4, 4, 4]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("stream-order")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("streams length"));
+}
+
+#[test]
+fn test_stream_order_command_flow_dir_length_mismatch() {
+    let input = json!({
+        "rows": 3,
+        "cols": 3,
+        "streams": [0, 0, 0, 0, 1, 0, 0, 0, 0],
+        "flow_dir": [0, 0] // wrong length
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("stream-order")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("flow_dir length"));
+}
+
+#[test]
+fn test_stream_order_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("stream-order")
+        .write_stdin("nope{")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+#[test]
+fn test_stream_order_default_nodata_dir_confluence() {
+    // nodata_dir omitted → serde default (-1) applies and Strahler orders
+    // propagate: two order-1 headwaters ((0,0) via E then S, (2,0) via NE)
+    // converge on (1,1) → order 2. Expected row-major: [1,1,0,0,2,0,1,0,0].
+    let input = json!({
+        "rows": 3,
+        "cols": 3,
+        "streams": [1, 1, 0, 0, 1, 0, 1, 0, 0],
+        "flow_dir": [0, 2, -1, -1, -1, -1, 7, -1, -1]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("stream-order")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"data\":[1,1,0,0,2,0,1,0,0]"));
+}
+
+#[test]
+fn test_gradient_predict_command_wrong_data_length() {
+    let input = json!({
+        "rows": 3,
+        "cols": 3,
+        "nodata": -32768.0,
+        "data": [100.0] // wrong length
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("gradient-predict")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length"));
+}
+
+#[test]
+fn test_gradient_predict_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("gradient-predict")
+        .write_stdin("[[[")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+#[test]
+fn test_non_utf8_stdin_fails_cleanly() {
+    // stdin that is not valid UTF-8 must produce the JSON error shape, not a
+    // panic — read_to_string fails before any command dispatch.
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("d8")
+        .write_stdin(vec![0xff, 0xfe, 0x00])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("failed to read stdin"));
+}

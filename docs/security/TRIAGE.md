@@ -402,3 +402,37 @@ New finding — accepted:
 Baseline: 1,456 → 1,456 findings (semantic +1, −1: the scan tracks only
 the single most extreme size outlier, and the entry rotated from cli.py to
 the now-larger test_cli.py).
+
+## Re-triage 2026-09-23 — #110 Rust core coverage + llvm-cov floor
+
+Rust core changes: par-variant tests (d8.rs), per-command invalid-JSON and
+length-mismatch CLI error paths (cli_integration_test.rs), edge-branch tests
+(ozt2 left_reconstruct/gradient_predict nodata, viewshed observer-on-nodata),
+plus two source fixes — `stream_order` Strahler promotion (transcription bug:
+gate `my_order > tgt_order` never fires when every stream cell starts at 1, so
+order ≥ 2 was unreachable; now mirrors openzenith.hydrology.streams.stream_order:
+gate `>=`, inflow count at the target) and `flow_accumulation_par` deduplicated
+into a delegation to `flow_accumulation` (bodies were byte-identical).
+
+Gate reported 20 "new" findings; semantic set-difference shows **+18, −27**:
+
+New findings — accepted:
+- `rust-unwrap-usage` cli_integration_test.rs ×18: the file carries an
+  explicit `#![allow(clippy::unwrap_used, clippy::expect_used)]` — in
+  integration tests an unwrap failure IS the test failing. Same accepted
+  class as the 24 pre-existing test unwraps.
+
+Tool-version drift (not code change): re-baselining regenerated every
+fingerprint against the current aegis binary, whose detection rules differ
+from the one that wrote the previous baseline. `env-file-in-git` collapses
+29 → 2 on the identical tree (27 stale fingerprints pruned — comment/word
+mentions no longer flagged; only wildfires/route.ts:16 and
+r2-binding.ts:43 remain, both previously triaged false positives: a doc
+comment naming `.env.local` and the Cloudflare request-context `env`
+binding — neither commits an env file). `ssrf` 90 → 85 and
+`try-catch-bulk` 148 → 147 shifted the same way. Three consecutive scans
+of api/src produce byte-identical output, so the gate arithmetic is stable
+against the current binary; future drift of this kind means the scanner
+changed, not the code.
+
+Baseline: 1,456 → 1,447 findings (semantic +18, −27).

@@ -215,4 +215,17 @@ mod tests {
         let vis = viewshed(&dem.view(), 1, 1, 1.75, 0.001, -32768.0, None);
         assert!(vis[[1, 1]]); // observer visible
     }
+
+    #[test]
+    fn test_viewshed_observer_on_nodata_cell() {
+        // An observer standing in nodata has no meaningful viewpoint: the
+        // grid short-circuits to all-hidden before any ray marching.
+        let dem = arr2(&[[100.0f32, 100.0], [100.0, -32768.0]]);
+        let vis = viewshed(&dem.view(), 1, 1, 1.75, 0.001, -32768.0, None);
+        for r in 0..2 {
+            for c in 0..2 {
+                assert!(!vis[[r, c]], "cell ({r},{c}) should be hidden");
+            }
+        }
+    }
 }

@@ -171,4 +171,25 @@ mod tests {
         assert_eq!(out[[0, 1]], 15.0);
         assert_eq!(out[[0, 2]], 18.0);
     }
+
+    #[test]
+    fn test_left_reconstruct_nodata_resets_running() {
+        // Mid-row nodata passes through and resets the cumsum baseline: the
+        // cell after it restarts from its own residual, not 15 + 3.
+        let residuals = arr2(&[[10i16, 5, -32768, 3]]);
+        let out = left_reconstruct(&residuals.view(), -32768, 0.0, 1.0);
+        assert_eq!(out[[0, 0]], 10.0);
+        assert_eq!(out[[0, 1]], 15.0);
+        assert_eq!(out[[0, 2]], -32768.0);
+        assert_eq!(out[[0, 3]], 3.0);
+    }
+
+    #[test]
+    fn test_gradient_predict_nodata_cells() {
+        // Nodata elevation cells map straight to the nodata residual.
+        let elevation = arr2(&[[100.0f32, -32768.0], [50.0, 60.0]]);
+        let residuals = gradient_predict(&elevation.view(), -32768.0);
+        assert_eq!(residuals[[0, 1]], -32768i16);
+        assert_ne!(residuals[[1, 0]], -32768i16);
+    }
 }

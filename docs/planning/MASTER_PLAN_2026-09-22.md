@@ -1137,3 +1137,23 @@ The documented follow-up backlog is now empty. Remaining known items are
 the two standing out-of-scope entries (map/page.tsx monolith extraction —
 multi-session; GitForge event-drain stall — external) and the WorldCRS84Quad
 true-EPSG:4326 assembly (resampled pyramid feature work).
+
+### 2026-09-23 — Task #117: source builds were broken (packaging defect)
+
+**Defect:** `pyproject.toml` declared `dynamic = ["version"]` with no
+`[tool.hatch.version]` section. Hatchling raised `ValueError: Missing
+tool.hatch.version configuration` during metadata generation, so EVERY
+source build failed: `pip install .`, `pip install -e .`, sdist installs.
+Verified empirically with pip 26.0.1 before the fix (metadata-generation-
+failed, full traceback through hatchling/metadata/core.py).
+
+**Fix:** `[tool.hatch.version] path = "openzenith/__init__.py"` — the
+dynamic version now reads `__version__ = "0.8.3"` from the package root
+(the same literal the API package.json already mirrors).
+
+**Verification:** `pip wheel .` builds `openzenith-0.8.3-py3-none-any.whl`
+(275,784 bytes); extracted METADATA shows Version: 0.8.3 with intact
+project URLs; entry_points.txt declares `openzenith = openzenith.cli:main`;
+all subpackages (backends, terrain, hydrology, tests) present in the wheel.
+sdist metadata generation also completes. PyPI installs were unaffected
+(those wheels predate the breakage); dev/source installs were broken.

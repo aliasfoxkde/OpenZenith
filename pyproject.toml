@@ -63,6 +63,11 @@ Homepage = "https://openzenith.cyopsys.com"
 Documentation = "https://github.com/aliasfoxkde/OpenZenith"
 Repository = "https://github.com/aliasfoxkde/OpenZenith"
 
+[tool.hatch.version]
+# Dynamic-version source: hatchling reads __version__ from the package root.
+# Without this section every source build fails metadata generation.
+path = "openzenith/__init__.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["openzenith"]
 

@@ -181,8 +181,8 @@ def convert_directory(
 
     # Save conversion manifest
     manifest = {
-        "source_dir": src_dir,
-        "output_dir": dst_dir,
+        "source_dir": str(src_dir),
+        "output_dir": str(dst_dir),
         "compression": compression,
         "zstd_level": zstd_level,
         "quantize_bits": quantize_bits,

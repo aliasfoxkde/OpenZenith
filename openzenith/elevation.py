@@ -22,6 +22,7 @@ Usage:
     ])
 """
 
+import asyncio
 import logging
 import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -281,9 +282,7 @@ def load_elevation_grid(
     if base is None:
         raise ValueError("No tile directory. Call load_tiles() or pass cache_dir.")
 
-    # Cell size in degrees at this zoom level
     n = 2**zoom
-    180.0 / (n * 256)
 
     # Convert radius to tile coordinates
     cx, cy = latlon_to_tile(lat, lon, zoom)
@@ -759,7 +758,7 @@ def get_elevation_along_path(
     interpolated.append(points[-1])
 
     # Query elevation for all points
-    elevations = get_elevation_batch(interpolated, zoom_levels=zoom_levels, cache_dir=cache_dir)
+    elevations = get_elevation_batch(interpolated, zoom_levels=zoom_levels, tile_dir=cache_dir)
 
     # Compute cumulative distance and slope
     result = []
@@ -767,8 +766,7 @@ def get_elevation_along_path(
     prev_elev = None
 
     for i, (lat, lon) in enumerate(interpolated):
-        elev_data = elevations[i] if i < len(elevations) else {}
-        elev = elev_data.get("elevation")
+        elev = elevations[i] if i < len(elevations) else None
 
         if i > 0 and elev is not None and prev_elev is not None:
             dlat = lat - interpolated[i - 1][0]
@@ -807,10 +805,10 @@ async def get_elevation_along_path_async(
     zoom_levels: list[int] | None = None,
     cache_dir: str | Path | None = None,
 ) -> list[dict]:
-    """Async version of get_elevation_along_path using aiohttp for tile fetching.
+    """Async version of get_elevation_along_path.
 
-    Uses ElevationBatchProcessor for parallel async tile requests — significantly
-    faster for long paths with many interpolated points.
+    Point interpolation and distance/slope math run on the event loop; the
+    blocking local-tile queries are offloaded to a worker thread.
 
     Args:
         points: List of (lat, lon) waypoints defining the path
@@ -821,8 +819,6 @@ async def get_elevation_along_path_async(
         List of dicts with 'lat', 'lon', 'elevation', 'distance_m', 'slope_deg'
 
     """
-    from openzenith.async_client import ElevationBatchProcessor
-
     if len(points) < 2:
         return []
 
@@ -853,9 +849,8 @@ async def get_elevation_along_path_async(
 
     interpolated.append(points[-1])
 
-    # Async batch elevation query
-    processor = ElevationBatchProcessor(zoom_levels=zoom_levels, tile_dir=cache_dir)
-    elevations = await processor.process_batch(interpolated)
+    # Local-tile query offloaded to a thread (tile reads are blocking I/O)
+    elevations = await asyncio.to_thread(get_elevation_batch, interpolated, cache_dir, zoom_levels)
 
     # Compute cumulative distance and slope
     result = []
@@ -863,8 +858,7 @@ async def get_elevation_along_path_async(
     prev_elev = None
 
     for i, (lat, lon) in enumerate(interpolated):
-        elev_data = elevations[i] if i < len(elevations) else {}
-        elev = elev_data.get("elevation")
+        elev = elevations[i] if i < len(elevations) else None
 
         if i > 0 and elev is not None and prev_elev is not None:
             dlat = lat - interpolated[i - 1][0]

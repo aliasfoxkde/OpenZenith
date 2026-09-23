@@ -766,3 +766,197 @@ def test_latlon_to_tile_positive_lon():
 
     x, _ = latlon_to_tile(0.0, 1.0, 8)
     assert 0 <= x < 256
+
+
+# ─── Error/worker paths for get_elevation and get_elevation_batch ─────────────
+
+
+def test_get_elevation_skips_undecodable_tile(tmp_path):
+    """A corrupt PNG is logged and skipped, not raised."""
+    import openzenith.elevation as e
+
+    zoom = 10
+    x, y = latlon_to_tile(40.0, -74.0, zoom)
+    tile_dir = tmp_path / str(zoom) / str(x)
+    tile_dir.mkdir(parents=True)
+    (tile_dir / f"{y}.png").write_bytes(b"not a png")
+
+    with mock.patch.object(e._logger, "debug") as log:
+        elev = get_elevation(40.0, -74.0, tile_dir=tmp_path, zoom_levels=[zoom])
+    assert elev is None
+    # PIL's UnidentifiedImageError subclasses OSError, so this lands in the
+    # "read" branch; a mid-decode failure would log "decode" instead.
+    operations = {c.args[2] for c in log.call_args_list if len(c.args) >= 3}
+    assert operations & {"read", "decode"}
+
+
+def test_get_elevation_batch_worker_error_yields_none():
+    """A per-point worker exception maps to None, not a failed batch."""
+    import openzenith.elevation as e
+
+    def flaky(lat, lon, tile_dir=None, zoom_levels=None):
+        if lat > 40.5:
+            raise RuntimeError("worker blew up")
+        return 10.0
+
+    with mock.patch.object(e, "get_elevation", side_effect=flaky):
+        results = get_elevation_batch([(40.0, -74.0), (41.0, -73.0)])
+    assert set(results) == {10.0, None}
+
+
+# ─── OZT2 backend paths ────────────────────────────────────────────────────────
+
+
+def _make_ozt2_dir(base, zoom, x, y, grid):
+    """Write one OZT2 tile at z{zoom}/{x}/{y} and return the base dir."""
+    from openzenith.tile_format_v2 import encode
+
+    tile_dir = base / f"z{zoom}" / str(x)
+    tile_dir.mkdir(parents=True, exist_ok=True)
+    (tile_dir / f"{y}.ozt2").write_bytes(encode(grid))
+    return base
+
+
+def test_get_elevation_from_ozt2_internal(tmp_path):
+    """_get_elevation_from_ozt2 interpolates a synthetic OZT2 tile."""
+    grid = np.full((64, 64), 620, dtype=np.int16)
+    x, y = latlon_to_tile(40.0, -74.0, 10)
+    ozt2_dir = _make_ozt2_dir(tmp_path, 10, x, y, grid)
+    elev = _get_elevation_from_ozt2(40.0, -74.0, ozt2_dir, [10])
+    assert elev == 620.0
+
+
+def test_get_elevation_from_ozt2_default_zoom_levels(tmp_path):
+    """The default zoom ladder (12…7) finds a tile stored at z10."""
+    grid = np.full((64, 64), 620, dtype=np.int16)
+    x, y = latlon_to_tile(40.0, -74.0, 10)
+    ozt2_dir = _make_ozt2_dir(tmp_path, 10, x, y, grid)
+    elev = _get_elevation_from_ozt2(40.0, -74.0, ozt2_dir, None)
+    assert elev == 620.0
+
+
+def test_get_elevation_from_ozt2_all_nodata_moves_on(tmp_path):
+    """A tile that is entirely nodata is skipped rather than returned."""
+    grid = np.full((64, 64), -32768, dtype=np.int16)
+    x, y = latlon_to_tile(40.0, -74.0, 10)
+    ozt2_dir = _make_ozt2_dir(tmp_path, 10, x, y, grid)
+    assert _get_elevation_from_ozt2(40.0, -74.0, ozt2_dir, [10]) is None
+
+
+def test_get_elevation_from_ozt2_corrupt_tile_returns_none(tmp_path):
+    """An undecodable tile logs and continues instead of raising."""
+    x, y = latlon_to_tile(40.0, -74.0, 10)
+    tile_dir = tmp_path / "z10" / str(x)
+    tile_dir.mkdir(parents=True)
+    (tile_dir / f"{y}.ozt2").write_bytes(b"garbage")
+    assert _get_elevation_from_ozt2(40.0, -74.0, tmp_path, [10]) is None
+
+
+def test_get_elevation_uses_default_ozt2_dir(tmp_path, monkeypatch):
+    """use_ozt2=True reads from DEFAULT_OZT2_DIR before any PNG fallback."""
+    import openzenith.elevation as e
+
+    grid = np.full((64, 64), 620, dtype=np.int16)
+    x, y = latlon_to_tile(40.0, -74.0, 10)
+    _make_ozt2_dir(tmp_path, 10, x, y, grid)
+    monkeypatch.setattr(e, "DEFAULT_OZT2_DIR", tmp_path)
+    assert e.get_elevation(40.0, -74.0, use_ozt2=True) == 620.0
+
+
+# ─── load_elevation_grid multi-tile assembly ──────────────────────────────────
+
+
+def _make_tile_area(tile_dir, zoom, lat, lon, height, radius=300):
+    """Create every full-resolution tile the grid assembly will need.
+
+    Mirrors load_elevation_grid's pixel-span math so the block always covers
+    the requested radius regardless of where the point falls inside its tile.
+    Returns (tx0, ty0, tx1, ty1), the tile range written.
+    """
+    n = 2**zoom
+    cx, cy = latlon_to_tile(lat, lon, zoom)
+    x_frac = ((lon + 180) / 360) * n - cx
+    lat_rad = math.radians(lat)
+    y_frac = ((1 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2) * n - cy
+
+    tx0 = (cx * 256 - radius + int(x_frac * 256)) // 256
+    tx1 = (cx * 256 + radius + int(x_frac * 256)) // 256
+    ty0 = (cy * 256 - radius + int(y_frac * 256)) // 256
+    ty1 = (cy * 256 + radius + int(y_frac * 256)) // 256
+
+    for tx in range(tx0, tx1 + 1):
+        for ty in range(ty0, ty1 + 1):
+            if 0 <= tx < n and 0 <= ty < n:
+                p = tile_dir / str(zoom) / str(tx)
+                p.mkdir(parents=True, exist_ok=True)
+                (p / f"{ty}.png").write_bytes(_make_terrarium_png(height, size=256))
+    return tx0, ty0, tx1, ty1
+
+
+def test_load_elevation_grid_assembles_multiple_tiles(tmp_path):
+    """A 300-cell radius at z8 stitches a 3×3 tile block into one grid."""
+    import openzenith.elevation as e
+
+    zoom = 8
+    _make_tile_area(tmp_path, zoom, 40.0, -74.0, 750)
+    result = e.load_elevation_grid(40.0, -74.0, zoom=zoom, radius_cells=300, cache_dir=tmp_path)
+    grid = result["grid"]
+    assert grid.shape == (601, 601)
+    assert result["center_row"] == 300 and result["center_col"] == 300
+    assert result["center_lat"] == 40.0 and result["center_lon"] == -74.0
+    assert not np.isnan(grid).any()  # every cell covered by the tile block
+    assert grid[300, 300] == 750
+
+
+def test_load_elevation_grid_corrupt_tile_leaves_nan(tmp_path):
+    """A corrupt neighbour tile degrades to NaN there, center stays intact."""
+    import openzenith.elevation as e
+
+    zoom = 8
+    _tx0, _ty0, tx1, ty1 = _make_tile_area(tmp_path, zoom, 40.0, -74.0, 750)
+    bad = tmp_path / str(zoom) / str(tx1) / f"{ty1}.png"
+    bad.write_bytes(b"not a png")
+
+    result = e.load_elevation_grid(40.0, -74.0, zoom=zoom, radius_cells=300, cache_dir=tmp_path)
+    grid = result["grid"]
+    assert grid[300, 300] == 750
+    assert np.isnan(grid).any()
+
+
+# ─── Path profiles over synthetic tiles ────────────────────────────────────────
+
+
+def test_get_elevation_along_path_over_tiles(tmp_path):
+    """The profile reports elevations, distances, and flat-ground slope."""
+    zoom = 12
+    _make_tile_area(tmp_path, zoom, 40.0, -74.0, 500)
+    result = get_elevation_along_path(
+        [(40.0, -74.0), (40.001, -74.0)], zoom_levels=[zoom], cache_dir=tmp_path
+    )
+
+    assert len(result) >= 2
+    assert result[0]["elevation"] == 500.0
+    assert result[0]["distance_m"] == 0.0
+    assert result[-1]["elevation"] == 500.0
+    assert result[-1]["distance_m"] > 0
+    assert result[1]["slope_deg"] == 0.0  # flat path: atan2(0, 90)
+
+
+def test_get_elevation_along_path_async_over_tiles(tmp_path):
+    """Async profile matches the sync contract via the thread-offloaded query."""
+    import asyncio
+
+    from openzenith.elevation import get_elevation_along_path_async
+
+    zoom = 12
+    _make_tile_area(tmp_path, zoom, 40.0, -74.0, 500)
+    result = asyncio.run(
+        get_elevation_along_path_async(
+            [(40.0, -74.0), (40.001, -74.0)], zoom_levels=[zoom], cache_dir=tmp_path
+        )
+    )
+
+    assert len(result) >= 2
+    assert result[0]["elevation"] == 500.0
+    assert result[-1]["distance_m"] > 0
+    assert result[1]["slope_deg"] == 0.0

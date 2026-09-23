@@ -350,3 +350,31 @@ content hash, line elided) shows **+1, −0**:
   entries needed.
 
 Baseline: 1,449 → 1,450 findings (semantic +1, −0).
+
+## Re-triage 2026-09-23 — #107 coverage ratchet 87→90
+
+~1,700 new test lines across test_fuse/test_async_client/test_converter/
+test_elevation/test_backends, plus two latent-bug fixes in elevation.py and
+one in converter.py. Gate reported 14 "new" findings; semantic set-difference
+(pattern + file + content hash, line elided) shows **+6, −8 ghosts**:
+
+Line-shift ghosts (identical content hashes already baselined; no entries):
+`debug-endpoint` test_async_client.py:19,113 (integration-marker classes);
+`model-version-tracking` elevation.py:231,245,551,569,577 (snapshot_download
+imports/calls shifted by the `import asyncio` insertion); `nested-callbacks`
+elevation.py:441 (pre-existing snapshot_download nesting, shifted).
+
+New findings — all six are test-fixture false positives, baselined:
+- `ssl-verification-disabled` test_converter.py:102,107 (high): fires on
+  `verify=False` — the converter's OZT1 encode/decode roundtrip *data
+  verification* flag, not TLS. convert_tile performs no network I/O; the
+  tests exercise the honest-reporting path when verification is skipped.
+- `ssrf` test_async_client.py:381 (high): fires on `_FakeSession.request(
+  method, url, …)` — a scripted fake transport that records call tuples for
+  retry/ETag assertions. Constructs no requests; no real host is contacted.
+- `hardcoded-credential` test_backends.py:424,463,476 (high): literal
+  placeholder strings `"key"/"secret"/"k"/"s"` passed to the OZT2R2Backend
+  constructor in unit tests whose client is injected/mocked — the backend
+  never authenticates. No real credential exists in the tree.
+
+Baseline: 1,450 → 1,456 findings (semantic +6, −0).

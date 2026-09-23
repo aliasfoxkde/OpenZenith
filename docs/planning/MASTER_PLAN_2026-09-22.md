@@ -717,3 +717,60 @@ pre-existing in scripts/, outside the strict lint gate). Live dry-run smoke
 over the real repo: hashed 151,988 local tiles + single remote metadata
 call → delta 55,981 / 96,007 current, exit 0, zero commits — consistent
 with the stale-index state documented under #94.
+
+### #107 — Python coverage ratchet 87 → 90 (task 107, 2026-09-23)
+
+Four weakest I/O modules gained dedicated suites; total measured **92.84%
+(12,728 stmts, 911 miss), 991 passed / 0 failed / 14 deselected**, floor
+`--cov-fail-under` 87 → 90 with the evidence trail in pyproject.toml.
+
+- fuse 44→99%: `test_fuse.py` grown to 84 tests — FusedDEM srtm/gebco
+  blending with fake `.merged` indexes, nodata and merge-error
+  propagation, GEBCO quad via a real rasterio tiff plus the PIL `I;16`
+  fallback (`rasterio` blocked via sys.modules), sync `query` and async
+  `query_to_thread` (instance-patched readers work through to_thread),
+  `load_fused_tile` tile math pinned (lon span 360/1024, resolution from
+  lat span), session lifecycle + ETag/206 range paths with a scripted
+  aiohttp stand-in. Remaining miss (111-112) probe-verified unreachable.
+- async_client 55→100%: `test_async_client.py` scripted-transport tests —
+  ETag If-None-Match → 304 serves cache, retry-then-succeed on
+  500/429/ClientError, timeout exhaustion message, aiohttp ImportError
+  guard via sys.modules, session ownership (external session untouched by
+  close), batch id mapping incl. unmatched-drop, missing→error, and the
+  2500-point → [2000, 500] chunk split; BatchProcessor chunking/progress/
+  generator/dict-points paths.
+- converter 48→100%: `test_converter.py` rewritten with a module-level
+  synthetic-GeoTIFF helper (the old TestConvertDirectory called a helper
+  that did not exist on its class — AttributeError swallowed into a
+  rasterio skip, so the class never ran; importorskip now gates honestly).
+  **One real bug found and fixed:** `convert_directory`'s manifest put
+  PosixPath objects where json.dump needs strings — the manifest write
+  could never have succeeded; now `str()`-coerced and asserted via a real
+  manifest.json parse. Quantized-RMSE and lossless-mismatch (corrupt
+  decode probe) reporting pinned.
+- elevation 58→97%: `test_elevation.py` — undecodable-tile debug ops,
+  batch worker error isolation, the five OZT2 paths (internal,
+  default-zoom-ladder, all-nodata, corrupt, DEFAULT_OZT2_DIR), full-tile
+  grid assembly (fixtures derive the exact tile range from the same
+  pixel-span math as `load_elevation_grid`), corrupt-SE-tile NaN
+  isolation. **Two latent bugs found and fixed:** sync
+  `get_elevation_along_path` called the batch API with a `cache_dir`
+  kwarg (TypeError) then `.get("elevation")` on a float (AttributeError)
+  — it could never have returned; the async variant constructed
+  `ElevationBatchProcessor(zoom_levels=…, tile_dir=…)` and called a
+  nonexistent `process_batch` — now both route through `get_elevation_batch`
+  with the blocking I/O offloaded via `asyncio.to_thread`. Also removed a
+  dead `180.0 / (n * 256)` expression.
+- backends/ozt2 59→96%: `test_backends.py` — faked boto3 client
+  (get/head incl. botocore ClientError, client reuse), faked aiohttp
+  download/cache-write/prefetch with per-URL routing so concurrent
+  gathers stay deterministic, faked urllib bytes+HEAD (200/URLError),
+  boto3/aiohttp ImportError guards, prefetch no-cache-dir → 0 and the
+  sync wrapper.
+
+Aegis: 14 gate findings → semantic +6 −8 ghosts; all six are test-fixture
+false positives (converter's `verify=False` is roundtrip data
+verification, not TLS; the ssrf hit is a scripted fake transport; the
+"credentials" are literal `key`/`secret` placeholders into a mocked R2
+constructor) — TRIAGE.md 2026-09-23 #107, baseline 1,450 → 1,456. Ruff
+strict gate: clean; ruff format applied to all touched files.

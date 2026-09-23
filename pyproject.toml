@@ -89,7 +89,7 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=87"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=90"
 markers = [
     "integration: marks tests that require network access",
 ]
@@ -124,4 +124,26 @@ markers = [
 # the scipy ImportError guard; profiles misses (97,102,147,156,197) are
 # defensive D8 guards — probe-verified unreachable (d8_flow_direction never
 # cycles and never points off-grid across 500+ random DEMs).
+#
+# Raised to 90 (2026-09-23) with dedicated suites for the four weakest I/O
+# modules — fuse 44→99% (test_fuse.py: FusedDEM srtm/gebco blending, nodata
+# and merge-error propagation, gebco quad via real rasterio tiff + PIL
+# I;16 fallback, sync query + async query_to_thread, load_fused_tile tile
+# math pinned to 360/1024 lon span), async_client 55→100% (test_async_client.py:
+# scripted retry/ETag/304-cache sessions, aiohttp ImportError guard, batch
+# id mapping incl. unmatched-drop and 2500-point chunking, BatchProcessor
+# progress + generator + dict-points paths), converter 48→100%
+# (test_converter.py rewritten: module-level synthetic GeoTIFF helper,
+# quantized RMSE, lossless-mismatch corruption probe, directory filters,
+# manifest; also fixed a real bug — manifest crashed json.dump on PosixPath),
+# elevation 58→97% (test_elevation.py: undecodable-tile debug ops, batch
+# worker error isolation, OZT2 ladder incl. DEFAULT_OZT2_DIR, full-tile grid
+# assembly via exact pixel-span math, corrupt-SE-tile NaN isolation, and two
+# latent path-profile bugs fixed — sync get_elevation_along_path called
+# batch API with a cache_dir kwarg TypeError then .get() on float; the async
+# variant constructed ElevationBatchProcessor with a nonexistent
+# process_batch), backends/ozt2 59→96% (test_backends.py: faked boto3 client
+# get/head incl. ClientError, faked aiohttp download/cache-write/prefetch
+# with per-URL routing, faked urllib bytes+HEAD, ImportError guards).
+# Measured 92.84% (12,728 stmts, 911 miss), 991 passed, 0 failed.
 # Raise --cov-fail-under only together with tests that cover the delta.

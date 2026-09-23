@@ -1,5 +1,6 @@
 """Tests for OZT2 tile backends."""
 
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
@@ -301,3 +302,346 @@ class TestOZT2BackendGetElevationAtEdgeCases:
         backend = OZT2Backend(tmp_path)
         elev = backend.get_elevation_at(z=5, x=10, y=10, lat=0.0, lon=0.0)
         assert elev is None
+
+
+# ─── Fakes for R2 / HF transports ──────────────────────────────────────────────
+
+
+class _FakeS3Body:
+    def __init__(self, data):
+        self._data = data
+
+    def read(self):
+        return self._data
+
+
+class _FakeS3Client:
+    """boto3 client stand-in serving canned objects or raising canned errors."""
+
+    def __init__(self, objects=None, get_error=None, head_error=None):
+        self.objects = objects or {}
+        self.get_error = get_error
+        self.head_error = head_error
+        self.gets = []
+        self.heads = []
+
+    def get_object(self, Bucket, Key):
+        self.gets.append(Key)
+        if self.get_error is not None:
+            raise self.get_error
+        return {"Body": _FakeS3Body(self.objects[Key])}
+
+    def head_object(self, Bucket, Key):
+        self.heads.append(Key)
+        if self.head_error is not None:
+            raise self.head_error
+        return {}
+
+
+class _FakeAiohttpResponse:
+    def __init__(self, data):
+        self._data = data
+
+    async def read(self):
+        return self._data
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+class _FakeAiohttpSession:
+    def __init__(self, data):
+        self._data = data
+        self.urls = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+    def get(self, url, headers=None, timeout=None):
+        self.urls.append(url)
+        if isinstance(self._data, Exception):
+            raise self._data
+        return _FakeAiohttpResponse(self._data)
+
+
+class _FakeUrlResponse:
+    """urllib response stand-in: context manager with read()/status."""
+
+    def __init__(self, data=b"", status=200):
+        self._data = data
+        self.status = status
+
+    def read(self):
+        return self._data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+def _write_tile(tile_dir: Path, z: int, x: int, y: int, grid: np.ndarray) -> Path:
+    tile_path = tile_dir / f"z{z}" / str(x)
+    tile_path.mkdir(parents=True, exist_ok=True)
+    (tile_path / f"{y}.ozt2").write_bytes(auto_encode(grid)[0])
+    return tile_path
+
+
+class TestOZT2BackendFailurePaths:
+    """OZT2Backend decode failures and absent-tile branches."""
+
+    def test_corrupt_tile_returns_none(self, tmp_path: Path):
+        tile_path = tmp_path / "z10" / "163"
+        tile_path.mkdir(parents=True)
+        (tile_path / "395.ozt2").write_bytes(b"garbage")
+        backend = OZT2Backend(tmp_path)
+        assert backend.fetch_tile(z=10, x=163, y=395) is None
+
+    def test_fetch_tile_bytes_nonexistent(self, tmp_path: Path):
+        backend = OZT2Backend(tmp_path)
+        assert backend.fetch_tile_bytes(z=10, x=1, y=2) is None
+
+    def test_get_elevation_at_missing_tile_is_none(self, tmp_path: Path):
+        backend = OZT2Backend(tmp_path)
+        assert backend.get_elevation_at(z=10, x=1, y=2, lat=40.0, lon=-74.0) is None
+
+
+class TestOZT2R2BackendFetch:
+    """OZT2R2Backend against a faked boto3 client."""
+
+    def _backend(self, client):
+        backend = OZT2R2Backend(
+            bucket_name="test-bucket",
+            r2_account_id="acct",
+            r2_access_key_id="key",
+            r2_secret_access_key="secret",
+        )
+        backend._client = client
+        return backend
+
+    def test_fetch_tile_decodes_object(self):
+        grid = make_grid()
+        client = _FakeS3Client(objects={"ozt2/z10/163/395.ozt2": auto_encode(grid)[0]})
+        backend = self._backend(client)
+        result = backend.fetch_tile(z=10, x=163, y=395)
+        assert result is not None and result.shape == (TILE_SIZE, TILE_SIZE)
+        assert client.gets == ["ozt2/z10/163/395.ozt2"]
+
+    def test_fetch_tile_client_error_returns_none(self):
+        from botocore.exceptions import ClientError
+
+        err = ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+        backend = self._backend(_FakeS3Client(get_error=err))
+        assert backend.fetch_tile(z=10, x=163, y=395) is None
+
+    def test_fetch_tile_corrupt_object_returns_none(self):
+        backend = self._backend(_FakeS3Client(objects={"ozt2/z10/1/2.ozt2": b"garbage"}))
+        assert backend.fetch_tile(z=10, x=1, y=2) is None
+
+    def test_tile_exists_true_and_false(self):
+        from botocore.exceptions import ClientError
+
+        err = ClientError({"Error": {"Code": "404"}}, "HeadObject")
+        present = self._backend(_FakeS3Client(objects={"ozt2/z10/1/2.ozt2": b"x"}))
+        assert present.tile_exists(z=10, x=1, y=2) is True
+        absent = self._backend(_FakeS3Client(head_error=err))
+        assert absent.tile_exists(z=10, x=1, y=2) is False
+
+    def test_get_client_creates_and_reuses_boto3_client(self):
+        pytest.importorskip("boto3")
+        backend = OZT2R2Backend(
+            bucket_name="b",
+            r2_account_id="acct",
+            r2_access_key_id="k",
+            r2_secret_access_key="s",
+        )
+        first = backend._get_client()
+        assert first is not None
+        assert backend._get_client() is first  # cached, not rebuilt
+
+    def test_get_client_without_boto3_raises(self, monkeypatch):
+        import sys
+
+        backend = OZT2R2Backend(
+            bucket_name="b",
+            r2_account_id="acct",
+            r2_access_key_id="k",
+            r2_secret_access_key="s",
+        )
+        monkeypatch.setitem(sys.modules, "boto3", None)
+        with pytest.raises(ImportError, match="pip install boto3"):
+            backend._get_client()
+
+
+class TestOZT2HFBackendAsyncFetch:
+    """OZT2HFBackend.fetch_tile_async with a faked aiohttp layer."""
+
+    def test_cache_hit_skips_network(self, tmp_path: Path):
+        grid = make_grid()
+        _write_tile(tmp_path, 10, 163, 395, grid)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        result = asyncio.run(backend.fetch_tile_async(z=10, x=163, y=395))
+        assert result is not None and result.shape == (TILE_SIZE, TILE_SIZE)
+
+    def test_corrupt_cache_falls_through_to_download(self, tmp_path: Path, monkeypatch):
+        import aiohttp
+
+        grid = make_grid()
+        corrupt = tmp_path / "z10" / "163"
+        corrupt.mkdir(parents=True)
+        (corrupt / "395.ozt2").write_bytes(b"garbage")
+
+        session = _FakeAiohttpSession(auto_encode(grid)[0])
+        monkeypatch.setattr(aiohttp, "ClientSession", lambda *a, **k: session)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        result = asyncio.run(backend.fetch_tile_async(z=10, x=163, y=395))
+        assert result is not None
+        # The freshly downloaded bytes replaced the corrupt cache entry
+        assert (tmp_path / "z10" / "163" / "395.ozt2").read_bytes() == session._data
+
+    def test_download_success_writes_cache(self, tmp_path: Path, monkeypatch):
+        import aiohttp
+
+        grid = make_grid()
+        payload = auto_encode(grid)[0]
+        session = _FakeAiohttpSession(payload)
+        monkeypatch.setattr(aiohttp, "ClientSession", lambda *a, **k: session)
+
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        result = asyncio.run(backend.fetch_tile_async(z=10, x=163, y=395))
+        assert result is not None and result.shape == (TILE_SIZE, TILE_SIZE)
+        assert (tmp_path / "z10" / "163" / "395.ozt2").read_bytes() == payload
+
+    def test_download_client_error_returns_none(self, tmp_path: Path, monkeypatch):
+        import aiohttp
+
+        session = _FakeAiohttpSession(aiohttp.ClientError("offline"))
+        monkeypatch.setattr(aiohttp, "ClientSession", lambda *a, **k: session)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        assert asyncio.run(backend.fetch_tile_async(z=10, x=163, y=395)) is None
+
+    def test_download_corrupt_payload_returns_none(self, tmp_path: Path, monkeypatch):
+        import aiohttp
+
+        session = _FakeAiohttpSession(b"not a tile")
+        monkeypatch.setattr(aiohttp, "ClientSession", lambda *a, **k: session)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        assert asyncio.run(backend.fetch_tile_async(z=10, x=163, y=395)) is None
+
+    def test_missing_aiohttp_raises(self, tmp_path: Path, monkeypatch):
+        import sys
+
+        monkeypatch.setitem(sys.modules, "aiohttp", None)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        with pytest.raises(ImportError, match="pip install aiohttp"):
+            asyncio.run(backend.fetch_tile_async(z=10, x=163, y=395))
+
+
+class TestOZT2HFBackendBytesAndExists:
+    """fetch_tile_bytes / tile_exists over a faked urllib."""
+
+    def test_fetch_bytes_downloads_and_caches(self, tmp_path: Path, monkeypatch):
+        import urllib.request
+
+        payload = auto_encode(make_grid())[0]
+
+        def fake_urlopen(req, timeout=None):
+            return _FakeUrlResponse(payload)
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        data = backend.fetch_tile_bytes(z=10, x=163, y=395)
+        assert data == payload
+        assert (tmp_path / "z10" / "163" / "395.ozt2").read_bytes() == payload
+
+    def test_fetch_bytes_urlerror_returns_none(self, tmp_path: Path, monkeypatch):
+        import urllib.error
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.URLError("no dns")
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        assert backend.fetch_tile_bytes(z=10, x=163, y=395) is None
+
+    def test_tile_exists_head_200(self, monkeypatch):
+        import urllib.request
+
+        monkeypatch.setattr(
+            urllib.request, "urlopen", lambda req, timeout=None: _FakeUrlResponse(status=200)
+        )
+        backend = OZT2HFBackend()
+        assert backend.tile_exists(z=10, x=163, y=395) is True
+
+    def test_tile_exists_head_fails(self, monkeypatch):
+        import urllib.error
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.URLError("refused")
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        backend = OZT2HFBackend()
+        assert backend.tile_exists(z=10, x=163, y=395) is False
+
+
+class TestOZT2HFBackendPrefetch:
+    """prefetch_tiles_async counting across cached/fresh/failed tiles."""
+
+    def test_no_cache_dir_returns_zero(self):
+        backend = OZT2HFBackend()
+        assert asyncio.run(backend.prefetch_tiles_async([(10, 1, 2)])) == 0
+
+    def test_mixed_prefetch_counts(self, tmp_path: Path, monkeypatch):
+        import aiohttp
+
+        # One tile already cached, two to download (one succeeds, one fails).
+        # Prefetch caches raw bytes without decoding, so a stub payload is fine.
+        _write_tile(tmp_path, 10, 1, 1, make_grid())
+
+        class _RoutingSession:
+            """Serve per-URL canned bytes so concurrent fetches stay deterministic."""
+
+            def __init__(self, routes):
+                self._routes = routes
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc_info):
+                return False
+
+            def get(self, url, headers=None, timeout=None):
+                for suffix, data in self._routes.items():
+                    if url.endswith(suffix):
+                        if isinstance(data, Exception):
+                            raise data
+                        return _FakeAiohttpResponse(data)
+                raise AssertionError(f"unexpected prefetch url: {url}")
+
+        session = _RoutingSession(
+            {
+                "/1/2.ozt2": b"payload",
+                "/1/3.ozt2": aiohttp.ClientError("offline"),
+            }
+        )
+        monkeypatch.setattr(aiohttp, "ClientSession", lambda *a, **k: session)
+
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        count = asyncio.run(backend.prefetch_tiles_async([(10, 1, 1), (10, 1, 2), (10, 1, 3)]))
+        assert count == 2  # cached + first download
+        assert (tmp_path / "z10" / "1" / "2.ozt2").read_bytes() == b"payload"
+
+    def test_prefetch_sync_wrapper(self, tmp_path: Path):
+        _write_tile(tmp_path, 10, 1, 1, make_grid())
+        _write_tile(tmp_path, 10, 1, 2, make_grid())
+        backend = OZT2HFBackend(cache_dir=tmp_path)
+        assert backend.prefetch_tiles([(10, 1, 1), (10, 1, 2)]) == 2

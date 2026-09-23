@@ -617,3 +617,43 @@ across the three slices; 5,789 repo-wide at #98 start → now well under
 loaded-but-not-global script now fails with an explicit error instead
 of a TypeError. Verified: 98 files / 1,027 passed vitest, production
 `next build` green, eslint 0 errors.
+
+### #106 — Python coverage ratchet 85 → 87 (task 106, 2026-09-22)
+
+Four weakest modules gained dedicated suites; total measured **87.57%
+(11,772 stmts, 1,463 miss), 866 passed / 0 failed / 2 skipped**, floor
+`--cov-fail-under` 85 → 87 with the evidence trail in pyproject.toml.
+
+- terrain/profiles 70→95%: `test_profiles.py` (18 tests) pins the
+  hillslope walk's actual downstream trace, path-distance accumulation,
+  and both flow_length directions (incl. nodata skip and the
+  pit-start zero). Lines 97/102/147/156/197 are defensive D8 guards,
+  probe-verified unreachable: `d8_flow_direction` never cycles and
+  never points off-grid across 500+ random DEMs.
+- terrain/gradients 72→100%: `test_gradients.py` (11 tests) covers the
+  five untested derivatives via self-consistency formulas and nodata
+  fills.
+- terrain/filters 84→99%: `test_filters.py` (13 tests). **Two real bugs
+  found by probing, fixed:** (1) `feature_preserving_smooth`'s pad was
+  one cell short — every full-width window raised IndexError, and the
+  pre-existing tests in test_terrain.py had been *catching the crash*
+  (`except IndexError: pass  # Known edge case bug`); they now pin the
+  fixed behavior (broad ridge preserved, isolated spike smoothed by
+  design, nodata pass-through). (2) `sieve`'s replacement scan used
+  4-neighbours against 4-connected labels — the branch was dead; now
+  scans all 8. Also: `adaptive_filter` no longer NaN-poisons constant
+  terrain (k falls back to 0 on the 0/0 Lee weight).
+- viz 67→100%: installing trimesh activated six `importorskip`-gated
+  GLB tests and exposed that `terrain_to_glb` **had never once run
+  successfully** — four latent runtime bugs fixed: RGB palette
+  reshaped as 4-channel RGBA, `np.concatenate(..., dtype=uint32)` same-kind
+  cast failure, vertex indices built for a shared-grid layout
+  while vertices are stored per-quad consecutively, and
+  `Trimesh.to_glb()` (trimesh 5.x wants `export(file_type="glb")`).
+  GLB output now round-trips through trimesh with palette vertex
+  colors, decimation, and transform+scale verified.
+
+Misses that remain are documented (scipy/trimesh ImportError guards,
+defensive D8 guards). Aegis: +3 semantic findings, all triaged false
+positives (nested NumPy math ≠ callbacks; the word "functions" in
+docstrings ≠ Azure) — TRIAGE.md 2026-09-22c, baseline 1,445 → 1,449.

@@ -85,7 +85,6 @@ def hillslope_profile(
     profile = []
     cr, cc = outlet_row, outlet_col
     total_dist = 0.0
-    dem[cr, cc]
 
     while True:
         profile.append({"distance_m": total_dist, "elevation": float(dem[cr, cc])})

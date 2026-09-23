@@ -147,7 +147,7 @@ class TestHackIntegralEdges:
     def test_real_regression_produces_finite_fit(self):
         rows, cols = 40, 40
         ii, jj = np.meshgrid(np.arange(cols), np.arange(rows))
-        dem = (100.0 - ii.astype(np.float32) * 1.5 - jj.astype(np.float32) * 0.5)
+        dem = 100.0 - ii.astype(np.float32) * 1.5 - jj.astype(np.float32) * 0.5
         result = hack_integral(dem)
         assert np.isfinite(result["hack_exponent"])
         assert result["k_coefficient"] > 0

@@ -497,37 +497,47 @@ class TestDrainageDensity:
 
 
 class TestFeaturePreservingSmooth:
-    """Tests for feature_preserving_smooth (may have edge issues with small arrays)."""
+    """Tests for feature_preserving_smooth.
+
+    The window walk used to raise IndexError on any full-width window (pad
+    one cell short); these tests previously swallowed that crash with
+    ``except IndexError``. The bug is fixed, so the actual filtering
+    behaviour is pinned here instead.
+    """
 
     def test_returns_float32(self):
         """feature_preserving_smooth returns float32 array."""
         dem = np.random.randint(100, 500, size=(50, 50)).astype(np.float32)
-        try:
-            result = feature_preserving_smooth(dem)
-            assert result.dtype == np.float32
-            assert result.shape == dem.shape
-        except IndexError:
-            pass  # Known edge case bug
+        result = feature_preserving_smooth(dem)
+        assert result.dtype == np.float32
+        assert result.shape == dem.shape
 
-    def test_preserves_peaks(self):
-        """Sharp peaks should be preserved (not smoothed away)."""
+    def test_preserves_structured_relief(self):
+        """A broad ridge survives smoothing intact."""
+        ridge = np.ones((50, 50), dtype=np.float32) * 100.0
+        ridge[20:30, :] = 140.0
+        result = feature_preserving_smooth(ridge)
+        assert result[25, 25] == 140.0
+        assert result[25, 5] == 140.0
+        assert result[15, 25] == 100.0
+
+    def test_smooths_isolated_spike(self):
+        """A single-cell spike deviates past max_diff and is smoothed flat.
+
+        That is the design of this Lee-style filter: zero weight for window
+        points inconsistent with their own neighbourhood.
+        """
         dem = np.ones((50, 50), dtype=np.float32) * 100.0
         dem[25, 25] = 200.0
-        try:
-            result = feature_preserving_smooth(dem)
-            assert result[25, 25] > result[24, 24]
-        except IndexError:
-            pass
+        result = feature_preserving_smooth(dem)
+        assert result[25, 25] == 100.0
 
     def test_nodata_unchanged(self):
         """NODATA cells remain NODATA."""
         dem = np.ones((50, 50), dtype=np.float32) * 100.0
         dem[25, 25] = -32768.0
-        try:
-            result = feature_preserving_smooth(dem)
-            assert result[25, 25] == -32768.0
-        except IndexError:
-            pass
+        result = feature_preserving_smooth(dem)
+        assert result[25, 25] == -32768.0
 
 
 class TestMSTP:

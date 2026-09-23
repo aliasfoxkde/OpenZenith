@@ -190,7 +190,11 @@ def adaptive_filter(
     f_var = (f_sq - f_mean**2) / np.maximum(f_count, 1)
     global_var = np.var(dem[valid])
 
-    k = np.maximum(0, (global_var - f_var) / (global_var + f_var))
+    # Zero-variance terrain would make this 0/0; a constant neighbourhood is
+    # perfectly preserved by k=0, so fall back to that instead of NaN.
+    denom = global_var + f_var
+    with np.errstate(invalid="ignore", divide="ignore"):
+        k = np.where(denom > 0, np.maximum(0, (global_var - f_var) / denom), 0.0)
 
     result = dem.astype(np.float32).copy()
     result[valid] = f_mean[valid] + k[valid] * (dem[valid] - f_mean[valid])
@@ -346,9 +350,21 @@ def sieve(
     for feat_id in range(1, num_features + 1):
         mask = labeled == feat_id
         if np.sum(mask) < min_size:
-            # Find largest neighbor region
+            # Find an adjacent region — scan all 8 neighbours, since the
+            # 4-connected labelling above means a different valid feature can
+            # only ever touch this one diagonally.
             for r, c in zip(*np.where(mask), strict=False):
-                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                neighbours = [
+                    (-1, -1),
+                    (-1, 0),
+                    (-1, 1),
+                    (0, -1),
+                    (0, 1),
+                    (1, -1),
+                    (1, 0),
+                    (1, 1),
+                ]
+                for dr, dc in neighbours:
                     nr, nc = r + dr, c + dc
                     if 0 <= nr < dem.shape[0] and 0 <= nc < dem.shape[1]:
                         neighbor_label = labeled[nr, nc]
@@ -418,8 +434,9 @@ def feature_preserving_smooth(
     smoothed = dem.astype(np.float64).copy()
     half = filter_size // 2
 
-    # Pad the DEM
-    padded = np.pad(dem.astype(np.float64), half, mode="edge")
+    # Pad one cell beyond the window half so the local 3×3 range around the
+    # outermost window points still has valid neighbours to read.
+    padded = np.pad(dem.astype(np.float64), half + 1, mode="edge")
 
     for r in range(rows):
         for c in range(cols):
@@ -432,8 +449,8 @@ def feature_preserving_smooth(
 
             for wr in range(filter_size):
                 for wc in range(filter_size):
-                    pr = r + wr
-                    pc = c + wc
+                    pr = r + wr + 1
+                    pc = c + wc + 1
                     val = padded[pr, pc]
                     if val <= nodata:
                         continue

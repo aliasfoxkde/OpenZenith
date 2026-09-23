@@ -89,7 +89,7 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=85"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=87"
 markers = [
     "integration: marks tests that require network access",
 ]
@@ -107,4 +107,21 @@ markers = [
 # threshold helpers, edge contamination). Measured 85.39% (11,469 stmts,
 # 1,676 miss), 807 passed. Weakest remaining: terrain/profiles 70%,
 # terrain/gradients 72%, viz 67%, terrain/filters 84%.
+#
+# Raised to 87 (2026-09-22) with dedicated suites for those four modules —
+# profiles 70→95% (test_profiles.py: path/diagonal distances, hillslope walk
+# pinned to its actual downstream trace, flow_length both directions incl.
+# nodata skip), gradients 72→100% (test_gradients.py: gaussian/horizontal
+# curvature, convergence/edge/downslope indices, self-consistency + nodata
+# fills), filters 84→99% (test_filters.py: adaptive Lee filter incl. the
+# constant-terrain k=0 guard, morphology, sieve diagonal merge, the
+# feature_preserving_smooth pad-bug regression), viz 67→100% (test_viz.py:
+# matplotlib ImportError guards + show paths, PNG RGB mode, and GLB decode
+# regressions — installing trimesh exposed four latent runtime bugs in
+# terrain_to_glb: RGB/RGBA reshape, face dtype cast, vertex indexing, and
+# the trimesh 5.x export API — all fixed). Measured 87.57% (11,772 stmts,
+# 1,463 miss), 866 passed, 0 failed. Remaining filters misses (471,474) are
+# the scipy ImportError guard; profiles misses (97,102,147,156,197) are
+# defensive D8 guards — probe-verified unreachable (d8_flow_direction never
+# cycles and never points off-grid across 500+ random DEMs).
 # Raise --cov-fail-under only together with tests that cover the delta.

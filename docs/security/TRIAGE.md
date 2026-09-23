@@ -305,3 +305,25 @@ elided) against the committed baseline: **+6 real, −1 retired**:
   the env-credential fixture baseline above).
 
 Baseline: 1,437 → 1,445 findings.
+
+## Re-triage 2026-09-22c — #106 coverage-ratchet test suites
+
+New Python test files (test_profiles.py, test_gradients.py, test_filters.py
+additions, test_viz.py additions) introduced 6 gate findings that dedup to 3
+unique fingerprints. Semantic set-difference (pattern + file + content hash,
+line elided): **+3, −0**.
+
+- `nested-callbacks` test_gradients.py:105 (medium): fires on
+  `np.log(np.tan(np.deg2rad(np.maximum(...))))` — nested NumPy math calls,
+  not asynchronous callbacks. The JS-oriented detector has no Python
+  callback concept to match. Baselined.
+- `azure-functions` test_filters.py:3, test_gradients.py:4 (low): keyword
+  match on the literal word "functions" in test docstrings ("Targets the
+  functions the #106 ratchet found untested"). Nothing Azure anywhere in
+  the repository. Baselined.
+
+Two further gate-reported azure-functions hits (test_terrain.py,
+test_viz.py) collapsed to already-baselined fingerprints after dedup and
+required no new entries.
+
+Baseline: 1,445 → 1,449 findings (semantic +3, −0).

@@ -154,10 +154,12 @@ class TestMultipartGeometry:
         shp_path = tmp_path / "multipart.shp"
         with shapefile.Writer(str(shp_path), shapefile.POLYGON) as w:
             w.field("id", "N")
-            w.poly([
-                [[0, 0], [1, 0], [1, 1], [0, 0]],
-                [[10, 10], [11, 10], [11, 11], [10, 10]],
-            ])
+            w.poly(
+                [
+                    [[0, 0], [1, 0], [1, 1], [0, 0]],
+                    [[10, 10], [11, 10], [11, 11], [10, 10]],
+                ]
+            )
             w.record(7)
         w.close()
 
@@ -172,10 +174,12 @@ class TestMultipartGeometry:
         shp_path = tmp_path / "multiline.shp"
         with shapefile.Writer(str(shp_path), shapefile.POLYLINE) as w:
             w.field("name", "C")
-            w.line([
-                [[0, 0], [1, 1]],
-                [[5, 5], [6, 6]],
-            ])
+            w.line(
+                [
+                    [[0, 0], [1, 1]],
+                    [[5, 5], [6, 6]],
+                ]
+            )
             w.record("fork")
         w.close()
 

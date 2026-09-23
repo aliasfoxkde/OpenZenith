@@ -444,7 +444,7 @@ def terrain_to_glb(
     else:
         lat0, lon0, dlat, dlon = 0.0, 0.0, 0.001, 0.001
 
-    # Pre-compute RGBA colour for every grid cell using vectorized palette lookup
+    # Pre-compute RGB colour for every grid cell using vectorized palette lookup
     pal = palette or DEFAULT_TERRAIN_PALETTE
     stop_elevs = np.array([p[0] for p in pal], dtype=np.float64)
     stop_colors = np.array([p[1] for p in pal], dtype=np.uint8)
@@ -459,8 +459,8 @@ def terrain_to_glb(
     t = np.where(diff_e != 0, (flat - e0) / diff_e, 0.0)
     c0 = stop_colors[indices].astype(np.float64)
     c1 = stop_colors[indices + 1].astype(np.float64)
-    rgba_flat = np.round(c0 + t[:, np.newaxis] * (c1 - c0)).astype(np.uint8)
-    rgba = rgba_flat.reshape(rows, cols, 4)  # (rows, cols, 4) RGBA
+    rgb_flat = np.round(c0 + t[:, np.newaxis] * (c1 - c0)).astype(np.uint8)
+    rgb = rgb_flat.reshape(rows, cols, 3)  # (rows, cols, 3) RGB
 
     # ── First pass: collect valid quad (r, c) positions into arrays ──────────
     r_idx, c_idx = np.mgrid[0 : rows - 1 : step, 0 : cols - 1 : step]
@@ -482,30 +482,20 @@ def terrain_to_glb(
         mesh = trimesh.Trimesh(
             vertices=np.zeros((0, 3), dtype=np.float32), faces=np.zeros((0, 3), dtype=np.uint32)
         )
-        return mesh.to_glb()
-
-    # Pre-compute global vertex indices per quad (vertex layout: v0, v1, v2, v3)
-    # v0=(r,c), v1=(r,c+1), v2=(r+1,c), v3=(r+1,c+1)
-    # Adjacent quads share an edge: stride between vertex rows = 2 * cols_valid + 1
-    cols_valid = (cols - 1) // step + 1
-    cols_vertices = 2 * cols_valid + 1  # vertices per row in global vertex array
-    2 * ((rows - 1) // step + 1)  # vertices per column
-    global_v0 = cols_vertices * (valid_r // step) + (valid_c // step)  # (r,c) → cols_vertices*r + c
-    global_v = np.stack(
-        [global_v0, global_v0 + 1, global_v0 + cols_vertices, global_v0 + cols_vertices + 1], axis=1
-    )  # (n_quads, 4)
+        return mesh.export(file_type="glb")
 
     # ── Second pass: build faces using cumulative vertex counts ───────────────
-    # Each quad contributes 4 unique vertices, placed consecutively
+    # Each quad contributes 4 unique vertices, placed consecutively in the
+    # vertex array below (duplicates across quads are merged on load).
     per_quad_vertex_count = np.full(n_quads, 4, dtype=np.int32)
     vertex_offsets = np.concatenate([[0], np.cumsum(per_quad_vertex_count)[:-1]])  # (n_quads,)
 
-    # Vertex layout: [v0, v1, v2, v3] for each quad, placed consecutively
-    # Triangle 1: [v+0, v+1, v+2]  Triangle 2: [v+1, v+3, v+2]
-    base = vertex_offsets[:, np.newaxis] + global_v  # (n_quads, 4): global indices per quad
+    # Vertex layout within a quad: [v0, v1, v2, v3]
+    # Triangle 1: [v0, v1, v2]  Triangle 2: [v1, v3, v2]
+    base = vertex_offsets[:, np.newaxis] + np.arange(4)  # (n_quads, 4)
     tri1 = np.stack([base[:, 0], base[:, 1], base[:, 2]], axis=1)  # (n_quads, 3)
     tri2 = np.stack([base[:, 1], base[:, 3], base[:, 2]], axis=1)  # (n_quads, 3)
-    faces = np.concatenate([tri1, tri2], axis=0, dtype=np.uint32)  # (2*n_quads, 3)
+    faces = np.concatenate([tri1, tri2], axis=0).astype(np.uint32)  # (2*n_quads, 3)
 
     # Build vertices and colors in quad order
     vlons = lon0 + valid_c * dlon
@@ -533,20 +523,21 @@ def terrain_to_glb(
         r, c = valid_r[i], valid_c[i]
         colors_list.extend(
             [
-                rgba[r, c].tolist(),
-                rgba[r, c + 1].tolist(),
-                rgba[r + 1, c].tolist(),
-                rgba[r + 1, c + 1].tolist(),
+                rgb[r, c].tolist(),
+                rgb[r, c + 1].tolist(),
+                rgb[r + 1, c].tolist(),
+                rgb[r + 1, c + 1].tolist(),
             ]
         )
-    colors_arr = np.asarray(colors_list, dtype=np.float32)
+    # uint8: trimesh reads float colours as 0-1, uint8 as 0-255
+    colors_arr = np.asarray(colors_list, dtype=np.uint8)
 
     mesh = trimesh.Trimesh(
         vertices=vertices_arr,
         faces=faces,
         vertex_colors=colors_arr,
     )
-    return mesh.to_glb()
+    return mesh.export(file_type="glb")
 
 
 def _palette_color(

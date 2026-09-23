@@ -1,5 +1,7 @@
 """Tests for openzenith.viz visualization helpers."""
 
+import io
+
 import numpy as np
 import pytest
 
@@ -214,6 +216,60 @@ class TestTerrainToGLB:
         assert len(glb) > 0
 
 
+def _load_glb(glb_bytes):
+    """Decode GLB bytes to a trimesh mesh (trimesh 5.x wraps them in a Scene)."""
+    import trimesh
+
+    return trimesh.load(io.BytesIO(glb_bytes), file_type="glb").to_mesh()
+
+
+class TestTerrainToGLBRegressions:
+    """Regression guards for the GLB export path.
+
+    The GLB path shipped untestable (trimesh absent) and broken — RGB/RGBA
+    reshape, face dtype cast, vertex indexing, and the trimesh 5.x export API
+    all failed at runtime. These decode the output.
+    """
+
+    def test_glb_decodes_with_expected_geometry(self):
+        pytest.importorskip("trimesh")
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        mesh = _load_glb(terrain_to_glb(dem))
+        assert len(mesh.vertices) == 4  # one quad -> 4 vertices
+        assert len(mesh.faces) == 2  # one quad -> 2 triangles
+
+    def test_glb_vertex_colors_use_palette(self):
+        pytest.importorskip("trimesh")
+        dem = np.full((2, 2), 100.0, dtype=np.float32)
+        mesh = _load_glb(terrain_to_glb(dem))
+        colors = np.asarray(mesh.visual.vertex_colors)
+        assert colors.shape[1] in (3, 4)  # trimesh appends alpha
+        assert (colors[:, :3] > 0).all()  # 0-255 palette colours, not 0-1 floats
+
+    def test_glb_scale_and_transform_applied(self):
+        pytest.importorskip("trimesh")
+        dem = np.full((2, 2), 100.0, dtype=np.float32)
+        mesh = _load_glb(terrain_to_glb(dem, transform=(40.0, -74.0, 0.001, 0.001), scale=2.0))
+        assert mesh.vertices[:, 2].max() == pytest.approx(200.0)  # scale
+        assert mesh.vertices[:, 0].min() == pytest.approx(-74.0)  # lon origin
+
+    def test_glb_empty_mesh_decodes_to_zero_geometry(self):
+        pytest.importorskip("trimesh")
+        dem = np.full((4, 4), -32768.0, dtype=np.float32)
+        mesh = _load_glb(terrain_to_glb(dem))
+        assert len(mesh.vertices) == 0
+        assert len(mesh.faces) == 0
+
+    def test_missing_trimesh_raises_actionable_error(self, monkeypatch):
+        pytest.importorskip("trimesh")
+        import sys
+
+        monkeypatch.setitem(sys.modules, "trimesh", None)
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        with pytest.raises(ImportError, match="trimesh"):
+            terrain_to_glb(dem)
+
+
 class TestPlotTerrainAdvanced:
     """Advanced tests for plot_terrain."""
 
@@ -320,3 +376,59 @@ class TestPlotContoursAdvanced:
         _fig2, ax2 = plot_contours(dem, interval=10.0, ax=ax)
         assert ax2 is ax
         plt.close(fig)
+
+
+class TestPlotMissingMatplotlib:
+    """The ImportError guards fire when matplotlib.pyplot is unimportable."""
+
+    @pytest.mark.parametrize(
+        ("fn", "kwargs"),
+        [
+            (plot_terrain, {}),
+            (plot_hillshade, {}),
+            (plot_contours, {"interval": 10.0}),
+        ],
+    )
+    def test_missing_matplotlib_raises_actionable_error(self, monkeypatch, fn, kwargs):
+        import sys
+
+        monkeypatch.setitem(sys.modules, "matplotlib.pyplot", None)
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        with pytest.raises(ImportError, match="matplotlib"):
+            fn(dem, **kwargs)
+
+
+class TestPlotShow:
+    """show=True delegates to matplotlib.pyplot.show."""
+
+    @pytest.mark.parametrize(
+        ("fn", "kwargs"),
+        [
+            (plot_terrain, {}),
+            (plot_hillshade, {}),
+            (plot_contours, {"interval": 10.0}),
+        ],
+    )
+    def test_show_true_calls_plt_show(self, monkeypatch, fn, kwargs):
+        import matplotlib.pyplot as plt
+
+        calls = []
+        monkeypatch.setattr(plt, "show", lambda: calls.append(1))
+        dem = np.array([[100, 110], [105, 115]], dtype=np.float32)
+        fn(dem, show=True, **kwargs)
+        assert calls == [1]
+
+
+class TestTerrainToPngRGB:
+    """nodata_alpha=False renders an RGB image with black NODATA pixels."""
+
+    def test_rgb_mode_with_black_nodata(self):
+        from PIL import Image
+
+        dem = np.array([[100, -32768], [100, 100]], dtype=np.float32)
+        png = terrain_to_png(dem, nodata_alpha=False)
+        img = Image.open(io.BytesIO(png))
+        assert img.mode == "RGB"
+        px = img.load()
+        assert px[0, 0] != (0, 0, 0)  # valid cell keeps its palette colour
+        assert px[1, 0] == (0, 0, 0)  # NODATA cell is flattened to black

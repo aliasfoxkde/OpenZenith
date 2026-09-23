@@ -96,18 +96,20 @@ export class LocalTifBackend {
       const compressed = buf.subarray(tileOffset, nextTileOffset);
       const decompressed = inflateSync(compressed);
 
-      // Output dimensions (partial tile at edges: 3601 - 14*256 = 257)
+      // Output dimensions (real pixels at edges: 3601 - 14*256 = 17)
       const tilePixelRows = Math.min(tileH, height - chunkRow * tileH);
       const tilePixelCols = Math.min(tileW, width - chunkCol * tileW);
       const outRows = Math.min(256, tilePixelRows);
       const outCols = Math.min(256, tilePixelCols);
 
-      // Extract pixel window into decoded output
-      const decoded = new Uint8Array(outRows * outCols * 2);
+      // Extract the pixel window into the padded 256x256 layout every OZCHNK01
+      // consumer decodes at (edge chunks pad to the full square, so the
+      // predictor is undone at stride 256 — mirrors the HuggingFace files).
+      const decoded = new Uint8Array(256 * 256 * 2);
       for (let r = 0; r < outRows; r++) {
         for (let c = 0; c < outCols; c++) {
           const src = (r * tileW + c) * 2;
-          const dst = (r * outCols + c) * 2;
+          const dst = (r * 256 + c) * 2;
           decoded[dst] = decompressed[src];
           decoded[dst + 1] = decompressed[src + 1];
         }

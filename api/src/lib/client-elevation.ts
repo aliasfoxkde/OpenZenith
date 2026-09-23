@@ -10,12 +10,12 @@
  * No Node.js dependencies — pure browser JS + fflate.
  */
 
-import { unzlibSync } from "fflate";
 import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM } from "./srtm/tile-math";
 import { tileToLatLon } from "./srtm/zoom-math";
 import {
   parseMergedHeader,
   extractChunkFromMerged,
+  decodeMergedChunk,
   getLatDir,
   getTileBase,
   type MergedIndex,
@@ -128,26 +128,9 @@ async function getDecodedChunk(srtmName: string, chunkRow: number, chunkCol: num
 // --- Decode a raw deflate chunk to Int16Array ---
 
 function decodeChunk(rawChunk: Uint8Array, chunkRow: number, chunkCol: number): DecodedChunk | null {
-  try {
-    const rawBytes = unzlibSync(rawChunk);
-    const chunkWidth = chunkCol < 14 ? 256 : 3601 - 14 * 256;
-    const chunkHeight = chunkRow < 14 ? 256 : 3601 - 14 * 256;
-    const pixels = chunkWidth * chunkHeight;
-
-    const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
-    const data = new Int16Array(pixels);
-    for (let r = 0; r < chunkHeight; r++) {
-      const rowOff = r * chunkWidth;
-      data[rowOff] = rawData[rowOff];
-      for (let c = 1; c < chunkWidth; c++) {
-        data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
-      }
-    }
-
-    return { data, width: chunkWidth, height: chunkHeight };
-  } catch {
-    return null;
-  }
+  // Shared OZCHNK01 decode: stored 256x256 (padded edges), predictor undone
+  // at the stored stride, real extent returned.
+  return decodeMergedChunk(rawChunk, chunkRow, chunkCol);
 }
 
 // --- Read a single pixel from a decoded chunk ---

@@ -125,12 +125,16 @@ function decodeChunk(chunk: ArrayBuffer): Int16Array {
   return new Int16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2);
 }
 
-/** Mirror of the source's window extraction, used to compute expectations. */
+/**
+ * Mirror of the source's padded window extraction: real pixels are stored at
+ * stride 256; the region beyond the image edge stays zero, matching the
+ * padded OZCHNK01 layout so the decoder's predictor runs at stride 256.
+ */
 function expectedWindow(pixels: Int16Array, tileWidth: number, outRows: number, outCols: number): Int16Array {
-  const out = new Int16Array(outRows * outCols);
+  const out = new Int16Array(TILE_PIXELS);
   for (let row = 0; row < outRows; row++) {
     for (let col = 0; col < outCols; col++) {
-      out[row * outCols + col] = pixels[row * tileWidth + col];
+      out[row * TILE + col] = pixels[row * tileWidth + col];
     }
   }
   return out;
@@ -181,24 +185,32 @@ describe("LocalTifBackend.fetchChunk", () => {
     expectInt16Equal(decoded, expectedWindow(planes[3], TILE, TILE, TILE));
   });
 
-  it("clamps a partial edge tile to the image width", async () => {
+  it("pads a partial edge tile to the stored 256px width", async () => {
     const planes = [tilePlane(1), tilePlane(11), tilePlane(3), tilePlane(4)];
     await writeTiff("N47E008.tif", buildTiff({ littleEndian: true, width: 300, height: 300, tileWidth: TILE, tileHeight: TILE, planes }));
 
     const decoded = decodeChunk(await backend.fetchChunk("N47E008.tif", 0, 1));
 
-    expect(decoded.length).toBe(TILE * 44);
+    expect(decoded.length).toBe(TILE_PIXELS);
     expectInt16Equal(decoded, expectedWindow(planes[1], TILE, TILE, 300 - TILE));
+    // The 212 padded columns per row decode to zero, exactly as the
+    // HuggingFace merged files pad their edge chunks.
+    const realWidth = 300 - TILE;
+    const paddedCols = Array.from(decoded).filter((_, i) => i % TILE >= realWidth);
+    expect(paddedCols).toHaveLength(TILE * (TILE - realWidth));
+    expect(paddedCols.every((v) => v === 0)).toBe(true);
   });
 
-  it("clamps both axes on the bottom-right partial tile", async () => {
+  it("pads the bottom-right partial tile on both axes", async () => {
     const planes = [tilePlane(1), tilePlane(2), tilePlane(3), tilePlane(12)];
     await writeTiff("N47E008.tif", buildTiff({ littleEndian: true, width: 300, height: 300, tileWidth: TILE, tileHeight: TILE, planes }));
 
     const decoded = decodeChunk(await backend.fetchChunk("N47E008.tif", 1, 1));
 
-    expect(decoded.length).toBe(44 * 44);
+    expect(decoded.length).toBe(TILE_PIXELS);
     expectInt16Equal(decoded, expectedWindow(planes[3], TILE, 300 - TILE, 300 - TILE));
+    // Rows past the real 44 carry nothing but padding.
+    expect(Array.from(decoded.slice((300 - TILE) * TILE)).every((v) => v === 0)).toBe(true);
   });
 
   it("parses big-endian (MM) GeoTIFFs", async () => {

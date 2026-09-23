@@ -11,9 +11,9 @@
 
 import { decodeOZT2 } from "@/lib/ozt2_decode";
 import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
+import { decodeMergedChunk } from "@/lib/srtm/merged-parser";
 import { HuggingFaceChunkBackend } from "./huggingface-backend";
 import { cacheGet, cachePut } from "./cache";
-import { unzlibSync } from "fflate";
 
 export interface OZT2BackendOptions {
   /** HuggingFace dataset repo ID for OZT2 tiles */
@@ -144,25 +144,14 @@ export class OZT2HuggingFaceBackend {
         await cachePut(chunkCacheKey, compressedData).catch(() => {});
       }
 
-      const rawBytes = unzlibSync(new Uint8Array(compressedData));
-      const chunkWidth = chunkCol < 14 ? 256 : 3601 - 14 * 256;
-      const chunkHeight = chunkRow < 14 ? 256 : 3601 - 14 * 256;
-      const pixels = chunkWidth * chunkHeight;
-      const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
-      const data = new Int16Array(pixels);
-      data[0] = rawData[0];
-      for (let r = 0; r < chunkHeight; r++) {
-        const rowOff = r * chunkWidth;
-        data[rowOff] = rawData[rowOff];
-        for (let c = 1; c < chunkWidth; c++) {
-          data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
+      const decoded = decodeMergedChunk(new Uint8Array(compressedData), chunkRow, chunkCol);
+      if (decoded) {
+        const localRow = pixel.row - chunkRow * 256;
+        const localCol = pixel.col - chunkCol * 256;
+        if (localRow >= 0 && localRow < decoded.height && localCol >= 0 && localCol < decoded.width) {
+          const elev = decoded.data[localRow * decoded.width + localCol];
+          if (elev !== -32768) return elev;
         }
-      }
-      const localRow = pixel.row - chunkRow * 256;
-      const localCol = pixel.col - chunkCol * 256;
-      if (localRow >= 0 && localRow < chunkHeight && localCol >= 0 && localCol < chunkWidth) {
-        const elev = data[localRow * chunkWidth + localCol];
-        if (elev !== -32768) return elev;
       }
     } catch {
       // Fall through to null

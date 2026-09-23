@@ -147,15 +147,12 @@ function mergedWithLinearChunk0(): Uint8Array {
 /**
  * Chunks of one SRTM tile whose decoded value is 100 + tileRow + tileCol,
  * where tileRow/tileCol are pixel coordinates inside the whole 3601x3601 tile.
+ * Edge chunks are stored 256x256 with zero-delta padding, like the real files.
  */
 function linearTileChunks(coords: Array<[number, number]>): Array<{ slot: number; data: Uint8Array }> {
   return coords.map(([cr, cc]) => ({
     slot: slot(cr, cc),
-    data: chunkPayload(
-      (r, c) => 100 + cr * 256 + r + cc * 256 + c,
-      cc < 14 ? 256 : 17,
-      cr < 14 ? 256 : 17,
-    ),
+    data: chunkPayload((r, c) => 100 + cr * 256 + r + cc * 256 + c, 256, 256),
   }));
 }
 
@@ -523,7 +520,7 @@ describe("getClientElevationBatch", () => {
     const flatRow7 = mergedFile(
       Array.from({ length: 15 }, (_, cc) => ({
         slot: slot(7, cc),
-        data: chunkPayload(() => 500, cc < 14 ? 256 : 17, 256),
+        data: chunkPayload(() => 500, 256, 256),
       })),
       15,
       15,
@@ -583,9 +580,10 @@ describe("getClientTileData", () => {
   it("stitches two SRTM tiles across a one-degree boundary", async () => {
     installFixtures({
       merged: {
-        // west of -74: chunk (0,14) is the 17px remainder column, holding 500 + row + (14*17) + col
+        // west of -74: chunk (0,14) holds the remainder column (500 + row +
+        // 14*17 + col for its 17 real pixels; stored 256 wide, zero padded)
         N40W074: mergedFile(
-          [{ slot: slot(0, 14), data: chunkPayload((r, c) => 500 + r + 14 * 17 + c, 17, 256) }],
+          [{ slot: slot(0, 14), data: chunkPayload((r, c) => 500 + r + 14 * 17 + c, 256, 256) }],
           15,
           15,
         ),

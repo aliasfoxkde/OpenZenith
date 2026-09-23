@@ -40,6 +40,7 @@ vi.mock("@/lib/storage/huggingface-backend", () => {
 
 import { OZT2HuggingFaceBackend } from "@/lib/storage/ozt2-backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
+import { chunkRealExtent } from "@/lib/srtm/merged-parser";
 
 const REPO = "aliasfox/srtm30m-ozt2-v2";
 const BASE = "https://huggingface.co/datasets";
@@ -96,25 +97,24 @@ function chunkGeometry(lat: number, lon: number) {
   const col = Math.round((lon - lonMin) * 3600);
   const chunkRow = Math.floor(row / 256);
   const chunkCol = Math.floor(col / 256);
-  const width = chunkCol < 14 ? 256 : 3601 - 14 * 256;
-  const height = chunkRow < 14 ? 256 : 3601 - 14 * 256;
   return {
     srtmName,
     chunkRow,
     chunkCol,
-    width,
-    height,
     localRow: row - chunkRow * 256,
     localCol: col - chunkCol * 256,
     key: `oz:chunk:${srtmName}:${chunkRow}:${chunkCol}`,
   };
 }
 
-/** Delta-encoded chunk whose every reconstructed pixel equals `value`. */
-function buildZlibChunk(width: number, height: number, value: number): ArrayBuffer {
-  const deltas = new Int16Array(width * height);
+/** Delta-encoded chunk whose every reconstructed pixel equals `value`.
+ * Stored 256x256 with zero-delta padding, as real producers store edge chunks. */
+function buildZlibChunk(value: number, chunkRow = 0, chunkCol = 0): ArrayBuffer {
+  const stride = 256;
+  const deltas = new Int16Array(stride * stride);
+  const { height } = chunkRealExtent(chunkRow, chunkCol);
   for (let row = 0; row < height; row++) {
-    deltas[row * width] = value;
+    deltas[row * stride] = value;
   }
   const compressed = deflateSync(new Uint8Array(deltas.buffer, deltas.byteOffset, deltas.byteLength), {
     level: 6,
@@ -298,7 +298,7 @@ describe("OZT2HuggingFaceBackend", () => {
     const lat = 55.7558;
     const lon = 37.6173;
     const geometry = chunkGeometry(lat, lon);
-    fetchChunkMock.mockResolvedValue(buildZlibChunk(geometry.width, geometry.height, 500));
+    fetchChunkMock.mockResolvedValue(buildZlibChunk(500, geometry.chunkRow, geometry.chunkCol));
     const backend = new OZT2HuggingFaceBackend();
 
     const elevation = await backend.getElevation(lat, lon);
@@ -312,7 +312,7 @@ describe("OZT2HuggingFaceBackend", () => {
     const lat = 52.52;
     const lon = 13.405;
     const geometry = chunkGeometry(lat, lon);
-    const chunk = buildZlibChunk(geometry.width, geometry.height, 320);
+    const chunk = buildZlibChunk(320, geometry.chunkRow, geometry.chunkCol);
     fetchChunkMock.mockResolvedValue(chunk);
     const backend = new OZT2HuggingFaceBackend();
 
@@ -334,7 +334,7 @@ describe("OZT2HuggingFaceBackend", () => {
     const lon = 9.19;
     const geometry = chunkGeometry(lat, lon);
     serveTile(lat, lon, flatTile(NODATA));
-    fetchChunkMock.mockResolvedValue(buildZlibChunk(geometry.width, geometry.height, NODATA));
+    fetchChunkMock.mockResolvedValue(buildZlibChunk(NODATA, geometry.chunkRow, geometry.chunkCol));
     const backend = new OZT2HuggingFaceBackend();
 
     expect(await backend.getElevation(lat, lon)).toBeNull();

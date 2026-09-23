@@ -1369,3 +1369,75 @@ skipped, coverage floors held; aegis re-baselined 1652 -> 1661
 reworded; 15 PII false positives on OGC spec constants; 3 line-shift
 re-flags). Deployed to production twice (scale fix 6f1bcfdd, per-layer
 restructure b77667b1); local smoke all-200 before each deploy.
+### 2026-09-23 — Task #124: −6385m Himalaya stripes root-caused and fixed (OZCHNK01 edge-chunk decode)
+
+**Symptom.** Constant −6385m/−6411m vertical stripes in production tiles
+overlapping a SRTM cell's last ~17 pixel columns (lon within 0.0044deg
+below an integer boundary). Present in BOTH products (WebMercator
+dem-tile and WorldCRS84Quad), first seen at Everest.
+
+**Ruled out (shared-source artifact check).** GDAL overview reads at
+z<=10 via the AWS path were clean (5325-5662m); the Python
+`openzenith.merged` reader on the raw .merged file was clean
+(5941-6407m at exactly the artifact cells). Both products share the TS
+decode path -> the defect was ours.
+
+**Root cause.** OZCHNK01 stores each 1deg cell as a 15x15 chunk grid of
+256x256 chunks over 3601x3601 samples: edge chunks are ALWAYS STORED
+256x256 with zero-delta padding (verified on real file N28E086:
+`mf.get_chunk(13,14).shape == (256,256)`), so the predictor-undo
+cumulative sum must run at stride 256. The TS decoders decoded edge
+chunks at the real extent (3601-14x256 = 17), which misaligns every row
+after the first: each 17-wide row starts at a flat index that walks
+through the previous row's padding zeros and diffs, reconstructing
+constant garbage (-6385) for all sampled pixels beyond chunk row 0.
+
+**Why 1,324 tests missed it.** The test fixtures mirrored the
+implementation's wrong assumption: `buildChunk`/`chunkPayload` encoded
+edge chunks at 17-wide (no padding), so decode "worked". The one
+existing edge test covered only the chunk ROW edge (which decodes
+correctly at width 17 by geometry luck); the chunk COLUMN edge (cc=14)
+had no test. Same class as the #123 lesson: when test and emitter share
+an assumption, the pair passes while production breaks.
+
+**Fix.** One shared `decodeMergedChunk` in lib/srtm/merged-parser.ts
+(stride-256 predictor undo, pad-aware, rejects payloads shorter than
+the stored square, returns the cropped real extent) replaces four
+duplicated wrong inline decoders: tile.ts `fillTileFromSrtm`,
+point-elevation.ts, client-elevation.ts `decodeChunk`, and the
+ozt2-backend merged fallback. local-tif-backend.ts now re-emits the
+padded 256x256 layout (it previously emitted truncated windows, which
+the new decoder would rightly reject). All fixtures (tile-fixtures,
+point-elevation fixtures, client-elevation merged fixtures,
+ozt2-backend buildZlibChunk, local-tif-backend expectations) now
+mirror the real producer format.
+
+**Regression pins (proven discriminating).** New tests decode a padded
+edge-column chunk with a per-pixel ramp: point-elevation samples
+local pixel (8,9) of chunk (7,14) and asserts the exact ramp value;
+tile assembly asserts every non-NODATA output of a seam-overlapping
+z13 tile stays inside the ramp range; merged-parser unit tests pin
+stride/extent/edge/corner crops and reject truncated payloads. A
+scratch replay of the OLD 17-wide decode on the same fixture produces
+3,927 zeros + 272 out-of-range values of 4,352 -> the tests fail under
+the old code and pass under the new.
+
+**Gates.** tsc clean; eslint 0 errors / 5,381 warnings (unchanged
+baseline); vitest 100 files, 1,332 passed + 5 skipped, coverage floors
+held; aegis re-baselined 1,661 -> 1,658 (net -3: four baselined inline
+decode sites collapse into one; TRIAGE.md #124: 47 findings, all
+line-shift re-flags of previously-triaged classes).
+
+**Production verification (deploy 16c91d8f).** The two originally
+affected tiles re-rendered clean: CRS84 11/705/3037 min 5,248m max
+8,744m with zero below-sea pixels (was min -6,385m); Mercator
+11/1518/857 min 5,130m max 8,253m, zero below-sea (was -6,411m). A
+9-tile seam-zone sweep (Everest, Illimani corridor, Patagonia,
+Uruguay, Tanzania; z11-z13, both matrix sets) decoded artifact-free
+with terrain-plausible ranges. One R2-held render encountered
+(z9 Everest seam region) is clean (min 2,192m). Transient 503 on one
+WMTS fetch succeeded on retry; two 404s were my own row/col URL swap,
+not defects. Note: bytes served immediately after a deploy can lag the
+new deployment on the custom domain (old isolate/propagation), which
+briefly showed stale renders during verification; the deployment-hash
+URL served the fixed render from the first request.

@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { deflateSync, inflateSync } from "fflate";
-import { parseMergedHeader, extractChunkFromMerged, getLatDir, getTileBase } from "../../srtm/merged-parser";
+import {
+  MERGED_EDGE_EXTENT,
+  chunkRealExtent,
+  decodeMergedChunk,
+  extractChunkFromMerged,
+  getLatDir,
+  getTileBase,
+  parseMergedHeader,
+} from "../../srtm/merged-parser";
 import type { MergedIndex } from "../../srtm/merged-parser";
+import { buildChunk } from "../tile-fixtures";
 
 /**
  * OZCHNK01 fixtures are synthesised inline:
@@ -156,5 +165,70 @@ describe("srtm name helpers", () => {
   it("getTileBase strips the .tif extension", () => {
     expect(getTileBase("N28E086.tif")).toBe("N28E086");
     expect(getTileBase("N28E086")).toBe("N28E086");
+  });
+});
+
+describe("chunkRealExtent", () => {
+  it("keeps the full stride except on the 15th row/column", () => {
+    expect(chunkRealExtent(0, 0)).toEqual({ width: 256, height: 256 });
+    expect(chunkRealExtent(6, 14)).toEqual({ width: MERGED_EDGE_EXTENT, height: 256 });
+    expect(chunkRealExtent(14, 6)).toEqual({ width: 256, height: MERGED_EDGE_EXTENT });
+    expect(chunkRealExtent(14, 14)).toEqual({ width: MERGED_EDGE_EXTENT, height: MERGED_EDGE_EXTENT });
+  });
+});
+
+describe("decodeMergedChunk", () => {
+  // Ramp keeps every delta non-trivial so a misaligned predictor pass cannot
+  // silently reconstruct plausible values.
+  const ramp = (r: number, c: number) => 1000 + r * 2 + c * 3;
+
+  it("undoes the stride-256 predictor on an interior chunk", () => {
+    const decoded = decodeMergedChunk(new Uint8Array(buildChunk(ramp, 3, 5)), 3, 5);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded?.width).toBe(256);
+    expect(decoded?.height).toBe(256);
+    expect(decoded?.data[0]).toBe(ramp(0, 0));
+    expect(decoded?.data[128 * 256 + 129]).toBe(ramp(128, 129));
+    expect(decoded?.data[255 * 256 + 255]).toBe(ramp(255, 255));
+  });
+
+  it("crops a padded edge-column chunk to its real 17px extent", () => {
+    // Edge chunks are STORED 256x256 with zero-delta padding; decoding at the
+    // stored stride is what keeps rows aligned (the production -6385m defect
+    // decoded them at 17 wide). Real pixels must match the ramp exactly,
+    // including the last column of the chunk.
+    const chunkCol = 14;
+    const decoded = decodeMergedChunk(new Uint8Array(buildChunk(ramp, 7, chunkCol)), 7, chunkCol);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded?.width).toBe(MERGED_EDGE_EXTENT);
+    expect(decoded?.height).toBe(256);
+    for (const [r, c] of [[0, 0], [1, 0], [0, 16], [7, 9], [200, 15], [255, 16]]) {
+      expect(decoded?.data[r * MERGED_EDGE_EXTENT + c]).toBe(ramp(r, c));
+    }
+    // No pixel past the real extent is exposed to callers.
+    expect(decoded?.data).toHaveLength(MERGED_EDGE_EXTENT * 256);
+  });
+
+  it("crops a padded corner chunk to its real 17x17 extent", () => {
+    const decoded = decodeMergedChunk(new Uint8Array(buildChunk(ramp, 14, 14)), 14, 14);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded?.width).toBe(MERGED_EDGE_EXTENT);
+    expect(decoded?.height).toBe(MERGED_EDGE_EXTENT);
+    expect(decoded?.data[16 * MERGED_EDGE_EXTENT + 16]).toBe(ramp(16, 16));
+  });
+
+  it("rejects a chunk truncated below the stored 256x256 square", () => {
+    // 17x17 real-extent storage (no padding): a valid zlib stream, but too
+    // short for the stride-256 predictor pass — callers must not decode it.
+    const short = new Int16Array(MERGED_EDGE_EXTENT * MERGED_EDGE_EXTENT).fill(400);
+    const compressed = deflateSync(new Uint8Array(short.buffer, short.byteOffset, short.byteLength));
+    expect(decodeMergedChunk(compressed, 14, 14)).toBeNull();
+  });
+
+  it("rejects a payload that is not valid zlib", () => {
+    expect(decodeMergedChunk(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]), 0, 0)).toBeNull();
   });
 });

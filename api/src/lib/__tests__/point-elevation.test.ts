@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { zlibSync } from "fflate";
 import type { ChunkBackend } from "../storage/backend";
+import { buildChunk } from "./tile-fixtures";
 
 // Chunk fixtures are 256x256 grids that are predictor-encoded and compressed on
 // the fly, which is slow enough to trip the default 5s timeout under coverage.
@@ -24,34 +25,16 @@ import { getPointElevation } from "../point-elevation";
 /* ─── synthetic SRTM chunk fixtures ─── */
 
 /**
- * Predictor-encode and zlib-compress a chunk exactly the way the SRTM
- * TIFF store does, so that decoding undoes horizontal differencing.
+ * Predictor-encode and zlib-compress one stored chunk. Edge chunks are stored
+ * as the full 256x256 square with zero-delta padding (the shared fixture in
+ * ./tile-fixtures encodes them that way), so the decoder's predictor runs at
+ * stride 256 for every chunk.
  */
-function encodeChunk(elevationAt: (row: number, col: number) => number, width: number, height: number): Uint8Array {
-  const raw = new Int16Array(width * height);
-  for (let r = 0; r < height; r++) {
-    let prev = 0;
-    for (let c = 0; c < width; c++) {
-      const decoded = elevationAt(r, c) | 0;
-      raw[r * width + c] = (decoded - prev) | 0;
-      prev = decoded;
-    }
-  }
-  // SRTM chunk payloads are zlib-wrapped deflate, which is what unzlibSync expects
-  return zlibSync(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
-}
-
-function chunkOf(elevationAt: (row: number, col: number) => number, width: number, height: number): ArrayBuffer {
-  const deflated = encodeChunk(elevationAt, width, height);
-  return deflated.buffer.slice(deflated.byteOffset, deflated.byteOffset + deflated.byteLength) as ArrayBuffer;
+function chunkOf(elevationAt: (row: number, col: number) => number, chunkRow: number, chunkCol: number): ArrayBuffer {
+  return buildChunk(elevationAt, chunkRow, chunkCol);
 }
 
 type ChunkTable = Map<string, ArrayBuffer>;
-
-/** 256x256 chunks keyed by "row:col"; chunk 14 is the 17px remainder row/col. */
-function chunkSize(row: number, col: number): { width: number; height: number } {
-  return { width: col < 14 ? 256 : 17, height: row < 14 ? 256 : 17 };
-}
 
 function buildChunks(build: (row: number, col: number) => ((r: number, c: number) => number) | null): ChunkTable {
   const table: ChunkTable = new Map();
@@ -59,8 +42,7 @@ function buildChunks(build: (row: number, col: number) => ((r: number, c: number
     for (let col = 0; col < 15; col++) {
       const elevationAt = build(row, col);
       if (!elevationAt) continue;
-      const { width, height } = chunkSize(row, col);
-      table.set(`${row}:${col}`, chunkOf(elevationAt, width, height));
+      table.set(`${row}:${col}`, chunkOf(elevationAt, row, col));
     }
   }
   return table;
@@ -168,7 +150,7 @@ describe("getPointElevation — SRTM chunk path", () => {
 
   it("serves a cached chunk without hitting the backend", async () => {
     const storage = backendFor(buildChunks(() => () => 500));
-    const cached = chunkOf(() => 777, 256, 256);
+    const cached = chunkOf(() => 777, 0, 0);
     cacheGetMock.mockResolvedValue(cached);
 
     const result = await getPointElevation(41.95, -73.95, storage);
@@ -179,7 +161,8 @@ describe("getPointElevation — SRTM chunk path", () => {
   });
 
   it("reads the 17px remainder chunk at the south-east corner of a tile", async () => {
-    // lat 41 / lon -73 is the last pixel of N41W073 -> chunk (14,14) is 17x17
+    // lat 41 / lon -73 is the last pixel of N41W073 -> chunk (14,14) holds
+    // only 17 real pixel rows/columns (stored 256x256 with zero padding).
     const storage = backendFor(buildChunks((row, col) => (r, c) => 100 + row * 17 + r + (col * 17 + c)));
 
     const result = await getPointElevation(41.0, -73.0, storage);
@@ -187,6 +170,23 @@ describe("getPointElevation — SRTM chunk path", () => {
     // local pixel (16,16) -> 100 + 14*17 + 16 + 14*17 + 16 = 608
     expect(result).toEqual({ elevation: 608, surfaceType: "land", source: "srtm", tile: "N41W073" });
     expect(storage.fetchChunk).toHaveBeenCalledWith("N41W073.tif", 14, 14);
+  });
+
+  it("samples the padded 15th chunk column without row misalignment", async () => {
+    // Regression (production -6385m stripes): lon -73.002 lands in the last
+    // 17 pixel columns of N41W073 (chunk col 14). The stored chunk is 256x256
+    // with zero-delta padding; decoding at the stored stride is what keeps the
+    // predictor aligned. The per-column ramp fails loudly if any row is read
+    // at the wrong width.
+    const storage = backendFor(buildChunks((row, col) => (r, c) => 100 + row + col * 10 + r * 2 + c * 3));
+
+    // pixel col 3593 -> chunk (7,14), local pixel (8, 9)
+    const result = await getPointElevation(41.5, -73.002, storage);
+
+    // 100 + 7 + 14*10 + 8*2 + 9*3 = 290
+    expect(result?.elevation).toBe(290);
+    expect(result?.tile).toBe("N41W073");
+    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W073.tif", 7, 14);
   });
 
   it("returns null when the target pixel is SRTM nodata", async () => {

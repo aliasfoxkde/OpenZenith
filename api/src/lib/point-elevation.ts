@@ -6,8 +6,8 @@
  * Dramatically reduces CPU time vs full tile assembly (~0.5ms vs ~5ms).
  */
 
-import { unzlibSync } from "fflate";
 import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM } from "./srtm/tile-math";
+import { decodeMergedChunk } from "./srtm/merged-parser";
 import type { ChunkBackend } from "./storage/backend";
 import { cacheGet, cachePut } from "./storage/cache";
 
@@ -66,29 +66,10 @@ export async function getPointElevation(
     }
   }
 
-  // Decompress
-  let rawBytes: Uint8Array;
-  try {
-    rawBytes = unzlibSync(new Uint8Array(compressedData));
-  } catch {
-    return null;
-  }
-
-  // Compute chunk dimensions
-  const chunkWidth = chunkCol < 14 ? 256 : 3601 - 14 * 256;
-  const chunkHeight = chunkRow < 14 ? 256 : 3601 - 14 * 256;
-  const pixels = chunkWidth * chunkHeight;
-
-  // Undo TIFF horizontal predictor
-  const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
-  const data = new Int16Array(pixels);
-  for (let r = 0; r < chunkHeight; r++) {
-    const rowOff = r * chunkWidth;
-    data[rowOff] = rawData[rowOff];
-    for (let c = 1; c < chunkWidth; c++) {
-      data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
-    }
-  }
+  // Decompress, undo the predictor at the stored 256 stride, crop padding
+  const decoded = decodeMergedChunk(new Uint8Array(compressedData), chunkRow, chunkCol);
+  if (!decoded) return null;
+  const { data, width: chunkWidth, height: chunkHeight } = decoded;
 
   // Get the pixel value
   const localRow = pixel.row - chunkRow * 256;

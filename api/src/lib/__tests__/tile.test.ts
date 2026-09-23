@@ -265,17 +265,37 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     expect(Array.from(result.data).every((v) => v === NODATA)).toBe(true);
   });
 
-  it("samples truncated edge chunks at the south of a SRTM cell", async () => {
+  it("samples padded edge chunks at the south of a SRTM cell", async () => {
     stubFetch(() => null);
     const storage = constantStorage(() => 777);
 
-    // z13 tile at ~36.02N: its northern rows fall in the 15th chunk row, which
-    // only carries 3601 - 14*256 = 17 pixel rows.
+    // z13 tile at ~36.02N: its northern rows fall in the 15th chunk row,
+    // which stores 256 rows with zero-delta padding beyond the 17 real rows.
     const result = await getTileData(13, 1458, 3216, storage);
 
     const chunkRows = new Set((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1]));
     expect(chunkRows).toContain(14);
     expect(Array.from(result.data).every((v) => v === 777)).toBe(true);
+  });
+
+  it("decodes padded edge-column chunks without row misalignment", async () => {
+    stubFetch(() => null);
+    // Per-local-pixel ramp: any predictor pass at the wrong width scrambles
+    // it into padding zeros / cumulative sums far outside [400, 1420].
+    const storage = constantStorage((name, r, c) => 400 + r + c * 3);
+
+    // z13 tile (~36.0-36.08N, lon -114.041..-113.997): columns west of -114.0
+    // land in the last 17 pixel columns of N36W114 (chunk col 14, stored 256
+    // wide with zero-delta padding beyond the 17 real columns).
+    const result = await getTileData(13, 1501, 3215, storage);
+
+    const calls = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.some((call) => call[0] === "N36W114.tif" && call[2] === 14)).toBe(true);
+    // Every sampled pixel decodes inside the ramp's range — under the broken
+    // 17-wide decode, padded regions decoded as 0 / NaN here.
+    const values = Array.from(result.data).filter((v) => v !== NODATA);
+    expect(values.length).toBeGreaterThan(0);
+    expect(values.every((v) => v >= 400 && v <= 1420)).toBe(true);
   });
 
   it("assembles across a SRTM latitude boundary", async () => {

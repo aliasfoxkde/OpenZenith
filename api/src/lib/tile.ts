@@ -11,6 +11,7 @@
 import { unzlibSync } from "fflate";
 import { latLonToSrtmName, srtmNameToBounds, latLonToPixel, isWithinSRTM, SRTM_BOUNDS } from "./srtm/tile-math";
 import { tileToLatLon } from "./srtm/zoom-math";
+import { decodeMergedChunk } from "./srtm/merged-parser";
 import type { ChunkBackend } from "./storage/backend";
 import { cacheGet, cachePut } from "./storage/cache";
 
@@ -215,27 +216,13 @@ export async function fillTileFromSrtm(
         await cachePut(chunkKey, compressedData);
       }
 
-      // Decompress
-      const rawBytes = unzlibSync(new Uint8Array(compressedData));
-
-      // Compute chunk dimensions (edge tiles may be smaller)
-      const chunkWidth = cc < 14 ? 256 : 3601 - 14 * 256;
-      const chunkHeight = cr < 14 ? 256 : 3601 - 14 * 256;
-      const pixels = chunkWidth * chunkHeight;
-
-      // Undo TIFF horizontal predictor (predictor=2).
-      // SRTM GeoTIFF tiles store horizontal differences; undo by cumulative sum per row.
-      const rawData = new Int16Array(rawBytes.buffer, rawBytes.byteOffset, pixels);
-      const data = new Int16Array(pixels);
-      for (let r = 0; r < chunkHeight; r++) {
-        const rowOff = r * chunkWidth;
-        data[rowOff] = rawData[rowOff]; // first pixel is the absolute value
-        for (let c = 1; c < chunkWidth; c++) {
-          data[rowOff + c] = data[rowOff + c - 1] + rawData[rowOff + c];
-        }
+      // Decompress, undo the predictor at the stored 256 stride, crop padding
+      const decoded = decodeMergedChunk(new Uint8Array(compressedData), cr, cc);
+      if (!decoded) {
+        throw new RangeError(`Undecodable merged chunk ${srtmName} ${cr}/${cc}`);
       }
 
-      chunkCache.set(cacheKey, { data, width: chunkWidth, height: chunkHeight, chunkRow: cr, chunkCol: cc });
+      chunkCache.set(cacheKey, { ...decoded, chunkRow: cr, chunkCol: cc });
     }
   }
 

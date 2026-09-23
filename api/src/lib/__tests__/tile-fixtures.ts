@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { zlibSync } from "fflate";
+import { chunkRealExtent, MERGED_CHUNK_STRIDE } from "../srtm/merged-parser";
 import type { ChunkBackend } from "../storage/backend";
 
 /**
@@ -155,30 +156,25 @@ export function awsResponse(png: ArrayBuffer): Response {
 
 // ─── SRTM chunk fixtures ──────────────────────────────────────────────────────
 
-/** Chunk dimensions used by the assembler: 15x15 grid, edge chunks truncated. */
-function chunkDimensions(chunkRow: number, chunkCol: number): { width: number; height: number } {
-  return {
-    width: chunkCol < 14 ? 256 : 3601 - 14 * 256,
-    height: chunkRow < 14 ? 256 : 3601 - 14 * 256,
-  };
-}
-
 /**
- * Build one 256x256 chunk as the assembler expects it: zlib-compressed int16
- * row differences (TIFF predictor 2), so a constant elevation is encoded as the
- * absolute value in column 0 followed by zeros.
+ * Build one stored chunk the way real producers store it: always 256x256
+ * (edge chunks pad with zero deltas), zlib-compressed int16 row differences
+ * (TIFF predictor 2), so a constant elevation is encoded as the absolute
+ * value in column 0 followed by zeros. `elevation` is only queried for the
+ * chunk's real (non-padding) extent.
  */
 export function buildChunk(
   elevation: (localRow: number, localCol: number) => number,
   chunkRow: number,
   chunkCol: number,
 ): ArrayBuffer {
-  const { width, height } = chunkDimensions(chunkRow, chunkCol);
-  const raw = new Int16Array(width * height);
+  const stride = MERGED_CHUNK_STRIDE;
+  const { width, height } = chunkRealExtent(chunkRow, chunkCol);
+  const raw = new Int16Array(stride * stride); // zero padding beyond the real extent
   for (let r = 0; r < height; r++) {
-    raw[r * width] = elevation(r, 0);
+    raw[r * stride] = elevation(r, 0);
     for (let c = 1; c < width; c++) {
-      raw[r * width + c] = elevation(r, c) - elevation(r, c - 1);
+      raw[r * stride + c] = elevation(r, c) - elevation(r, c - 1);
     }
   }
   return zlibSync(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength), { level: 1 }).slice().buffer;

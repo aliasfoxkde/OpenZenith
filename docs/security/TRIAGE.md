@@ -708,3 +708,43 @@ No new secrets, no new attack surface: the restructure only splits one
 capabilities Layer into two and halves an advertised constant; the
 served endpoints and upstreams are unchanged. Re-baselined via
 `scripts/aegis_scan.sh update`.
+
+## Re-triage 2026-09-23 — task #124 (merged-chunk decode fix)
+
+Root-causing the −6385m edge-column stripes consolidated four duplicated
+inline OZCHNK01 decoders into the shared `decodeMergedChunk`
+(api/src/lib/srtm/merged-parser.ts) and moved the fixture builders to the
+padded 256×256 storage layout. Gate reported 47 new findings; 0 fixed at
+source this wave, all verified line-shift re-flags of previously-triaged
+classes (fingerprints are pattern:file:line:content-hash, so moved code
+re-flags):
+
+- **sync-in-async (12):** the deliberate synchronous zlib decode
+  (`fflate` `unzlibSync` / `node:zlib` `inflateSync`) on ≤128 KB chunk
+  payloads. Now fires once in the shared decoder (merged-parser.ts) in
+  place of the four baselined inline copies it replaced, plus the same
+  fixture-encoder and LocalTifBackend lines at new offsets.
+- **PII-pattern false positives (6):** `ssn-no-dashes` /
+  `bank-routing-number` / `australian-tfn` / `phone-number` on the
+  merged-file byte-range assertion string
+  (`bytes=518622348-518665547`) in client-elevation.test.ts — test
+  fixture arithmetic for HTTP Range requests, not PII.
+- **ssrf (3):** `fetch(url)` on relative/fixture URLs in tile.ts,
+  point-elevation.ts, and the stubFetch helper — same false positives
+  baselined in earlier waves, shifted lines.
+- **expensive-computation-loop (6):** the per-pixel tile assembly and
+  elevation decode loops (256×256 fixed grids) — existing triage.
+- **console-log-production/-debug (9):** tile.ts assembly diagnostics
+  logging — existing triage, shifted lines.
+- **react-missing-key-prop (4):** matcher misfire on `.map()` over
+  elevation arrays in non-JSX TS — existing triage.
+- **double-type-assertion (2), go-replace-directive (1), return-await
+  (1), semicolon-everywhere (1), timeout-configuration (1):** cosmetic
+  matcher hits on `as unknown as Response` fixture casts, the
+  `URL -> Response` JSDoc arrow, and `vi.setConfig({ testTimeout })` —
+  all previously triaged classes at moved lines.
+
+No new secrets, no new attack surface: the change is decode-only (same
+upstreams, same endpoints, same cache keys); it repairs byte-offset
+math inside already-fetched payloads. Re-baselined via
+`scripts/aegis_scan.sh update`.

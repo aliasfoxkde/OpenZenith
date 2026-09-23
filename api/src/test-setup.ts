@@ -45,10 +45,15 @@ beforeEach(() => {
   globalThis.fetch = hermeticFetch;
 });
 
-vi.mock("@/lib/storage/r2-tile-cache", () => ({
-  r2GetTile: vi.fn().mockResolvedValue(null),
-  r2PutTile: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/r2-tile-cache")>();
+  return {
+    // Keep the real constant: routes derive their cache namespaces from it.
+    RENDER_SCHEMA_VERSION: actual.RENDER_SCHEMA_VERSION,
+    r2GetTile: vi.fn().mockResolvedValue(null),
+    r2PutTile: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 vi.mock("@/lib/storage/r2-json-cache", () => ({
   r2GetJson: vi.fn().mockResolvedValue(null),

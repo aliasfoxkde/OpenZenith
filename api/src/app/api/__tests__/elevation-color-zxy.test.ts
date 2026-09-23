@@ -22,10 +22,14 @@ vi.mock("@/lib/storage/backend", () => ({
   HuggingFaceChunkBackend: vi.fn(),
 }));
 
-vi.mock("@/lib/storage/r2-tile-cache", () => ({
-  r2GetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
-    Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
-  ),
+vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/r2-tile-cache")>();
+  return {
+    // Keep the real constant: the route derives its cache namespace from it.
+    RENDER_SCHEMA_VERSION: actual.RENDER_SCHEMA_VERSION,
+    r2GetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
+      Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
+    ),
   r2PutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
     const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
     r2Store.set(
@@ -34,7 +38,8 @@ vi.mock("@/lib/storage/r2-tile-cache", () => ({
     );
     return Promise.resolve();
   }),
-}));
+  };
+});
 
 import { GET, OPTIONS } from "@/app/api/elevation-color/[z]/[x]/[y]/route";
 import { getTileData } from "@/lib/tile";
@@ -204,12 +209,15 @@ describe("Elevation color API cache layers", () => {
     expect(mockGetTileData).not.toHaveBeenCalled();
   });
 
-  it("serves a Cloudflare Cache hit that carries no timestamp", async () => {
+  it("re-renders when a Cloudflare Cache entry carries no timestamp", async () => {
+    // Undated entries have unknown write age — serving them unconditionally
+    // allowed unbounded staleness. They must be treated as expired.
     stubCfCache({ entry: new Response(pngBytes(4), { headers: { "Content-Type": "image/png" } }) });
 
     const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
     expect(resp.status).toBe(200);
-    expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    expect(mockGetTileData).toHaveBeenCalled();
   });
 
   it("ignores a stale Cloudflare Cache entry and falls through to R2", async () => {

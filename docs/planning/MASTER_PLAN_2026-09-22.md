@@ -1441,3 +1441,57 @@ not defects. Note: bytes served immediately after a deploy can lag the
 new deployment on the custom domain (old isolate/propagation), which
 briefly showed stale renders during verification; the deployment-hash
 URL served the fixed render from the first request.
+
+### 2026-09-23 — Task #125: production residual-artifact sweep (0 survivors) + cache-staleness hardening
+
+**Part 1 — residual-artifact sweep.** 72 tiles across 12 land regions
+(Rockies, Alps, Himalaya, Andes, Japan, Ethiopia, Norway, NZ, Kamchatka,
+Colombia, Iran, Mississippi) × z9/z11/z13 × both dem-tile XYZ and
+WorldCRS84Quad, fetched from production and decoded (Terrarium PNG
+inflated + OZT2-as-PNG via the same filter/deflate path). Results:
+
+- 72/72 decoded; **zero −6385m-class artifact survivors**. Every tile's
+  minimum is terrain-plausible; the only deep negatives are legitimate
+  GEBCO bathymetry (Black Sea −1,260m; Brazil margin −3,588m — verified
+  by histogram: 103 distinct values, top value 2.9% share, i.e. smooth
+  signal, not a constant-run defect).
+- 3 tiles were served from R2 renders (everest-z9, sierra-z9, japan-z9,
+  `x-dem-tile-source: r2-cache`) — all clean; these were orphaned anyway
+  by the version-key change below.
+- Reliability finding (out of #125 scope, follow-up candidate): ~56% of
+  first-wave requests returned empty-body 503s, sticky ~15 min on
+  specific tiles, flapping (one truncated 200), then self-healing.
+  App errors return JSON/fallback-ocean (never bare 503), so these are
+  edge-level. Hypothesis: chained ~9.4MB merged-file downloads (8s
+  AbortController each) on multi-cell assemblies exceed edge wall-time.
+  Candidate task: retry/timeout ladder or streaming for HF assembly.
+
+**Part 2 — staleness hardening (the #124 follow-through).** Stored
+renders persist up to a year (`immutable` + 1y cacheExpiry in R2; 3600s
+TTL at the edge), so a decoder change previously had no way to orphan
+bad bytes — the exact gap that made #124's stripe reachable from cache.
+
+- `api/src/lib/storage/r2-tile-cache.ts`: new `RENDER_SCHEMA_VERSION = 2`.
+  Rendered types (`dem-tile`, `elevation-color`, `contours`, `dem-raw`)
+  now key as `{type}/v{RENDER_SCHEMA_VERSION}/{z}/{x}/{y}` — pre-#124
+  renders are orphaned by construction. Crucially, versioning is
+  **scoped to edge-rendered types only**: `ozt2` holds offline-generated
+  tiles (scripts/upload_ozt2_to_r2.py writes `{prefix}/{z}/{x}/{y}`) and
+  `landcover`/`population`/`sentinel2`/GIBS are upstream passthroughs —
+  none depend on the edge decoder, so versioning them would orphan valid
+  bytes for nothing. Pinned by test.
+- dem-tile + elevation-color routes: `getCfCacheTile`/`getEcCfCache`
+  served entries **without** `x-cached-at` unconditionally (unbounded
+  staleness). Undated entries are now treated as expired → re-render.
+  Shared `CACHE_TTL_SECONDS` constant replaces the duplicated 3600s.
+  Cache API namespaces derived from the version
+  (`dem-tiles-v${RENDER_SCHEMA_VERSION}`, `elevation-color-v${...}`)
+  so future schema bumps salt the edge cache too.
+- Tests: legacy-key isolation + unversioned-passthrough pin (r2-tile-cache),
+  undated-entry-must-reassemble inversions in both route suites (the old
+  tests pinned the bug). 100 files / 1,334 passed; tsc clean; eslint
+  0 errors (5,381-warning baseline); aegis re-baselined 1658→1659 (all
+  53 "new" findings were fingerprint shifts of baselined classes in the
+  edited files — see TRIAGE.md 2026-09-23 #125).
+- Effect at deploy: one-time global re-render of DEM color/terrain tiles
+  (v2 keys start cold); OZT2 and external-layer caches unaffected.

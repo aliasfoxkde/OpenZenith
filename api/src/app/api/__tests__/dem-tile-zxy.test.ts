@@ -249,7 +249,7 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
 
   it("serves an OZT2 entry from a format-specific edge cache key", async () => {
     const cachesMock = stubCaches({
-      "/api/dem-tile/10/163/395?fmt=ozt2": { body: asciiBuf("edge-ozt2") },
+      "/api/dem-tile/10/163/395?fmt=ozt2": { body: asciiBuf("edge-ozt2"), cachedAt: String(Date.now()) },
     });
 
     const { GET } = await route();
@@ -260,13 +260,15 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
     expect(cachesMock.match).toHaveBeenCalledWith("/api/dem-tile/10/163/395?fmt=ozt2");
   });
 
-  it("trusts an entry that carries no x-cached-at timestamp", async () => {
+  it("reassembles when an entry carries no x-cached-at timestamp", async () => {
+    // Undated entries have unknown write age — serving them unconditionally
+    // allowed unbounded staleness. They must be treated as expired.
     stubCaches({ "/api/dem-tile/4/8/5?fmt=png": { body: asciiBuf("undated-png") } });
 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
-    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("cf-cache");
-    expect(await resp.arrayBuffer()).toEqual(asciiBuf("undated-png"));
+    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
   });
 
   it("ignores an entry older than one hour and reassembles the tile", async () => {

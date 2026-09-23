@@ -748,3 +748,34 @@ No new secrets, no new attack surface: the change is decode-only (same
 upstreams, same endpoints, same cache keys); it repairs byte-offset
 math inside already-fetched payloads. Re-baselined via
 `scripts/aegis_scan.sh update`.
+
+## Re-triage 2026-09-23 — task #125 (cache-staleness hardening)
+
+53 new findings after editing `r2-tile-cache.ts` (RENDER_SCHEMA_VERSION key
+salt), the dem-tile + elevation-color routes (x-cached-at TTL fix, versioned
+Cache API namespaces), `test-setup.ts`, and three test files. Every finding
+re-maps to an already-baselined class in the same file; the edits shifted line
+numbers, breaking `pattern:file:line:content-hash` fingerprints.
+
+- ssrf / ssrf-localhost / hardcoded-internal-endpoint (27) — localhost test
+  URLs in `elevation-color-zxy.test.ts` and the `fetch(url, ...)` passthroughs
+  inside `test-setup.ts` cache mocks (same as #124 re-triage).
+- no-cache-headers (5) — heuristic fires on route constants/test responses;
+  `CACHE_HEADERS` is now a template literal over `CACHE_TTL_SECONDS` but the
+  value (3600) is unchanged.
+- namespace-declaration (3) — matcher greps the word "namespace"; all three
+  hits are comments ("Cache API namespace ..."), baselined at the same two
+  comment sites before the rewrite.
+- cors-misconfiguration (3) — wildcard origin on public tile endpoints,
+  deliberate.
+- sync-in-async (2) — test-file `unzlibSync` decode + elevation-color PNG
+  encode, baselined class.
+- console-log / react-console-log-dev / console-log-production /
+  console-log-debug (6) — dev-gated fallback log + error logging, unchanged.
+- expensive-computation-loop (1) — hypsometric ramp interpolation, baselined.
+- try-catch-bulk (2) — best-effort cache reads, baselined.
+- return-await (1) — `r2-tile-cache.ts` `return await object.arrayBuffer()`,
+  line-shift of baselined finding.
+- ai-generated-marker (3) — comment-wording misfire, baselined class.
+
+No new vulnerability classes. Baseline updated deliberately.

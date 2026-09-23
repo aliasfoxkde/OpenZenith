@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { r2GetTile, r2PutTile, RENDER_SCHEMA_VERSION } from "@/lib/storage/r2-tile-cache";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -54,14 +54,17 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 export const runtime = "edge";
 
 // Cache headers — tiles are deterministic, cache aggressively
+const CACHE_TTL_SECONDS = 3600;
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=3600, s-maxage=3600",
+  "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
 
-// Cache namespace for Cloudflare Cache API (edge-level caching)
-const DEM_CACHE_NAMESPACE = "dem-tiles-v1";
+// Cache namespace for Cloudflare Cache API (edge-level caching). Derived from
+// RENDER_SCHEMA_VERSION so a decode/render change orphans previously cached
+// edge renders instead of serving them (same salt as the R2 keys).
+const DEM_CACHE_NAMESPACE = `dem-tiles-v${RENDER_SCHEMA_VERSION}`;
 
 /**
  * Get cached tile from Cloudflare Cache API.
@@ -80,12 +83,12 @@ async function getCfCacheTile(z: number, x: number, y: number, format: Format): 
       const cachedTime = cached.headers.get("x-cached-at");
       if (cachedTime) {
         const age = (Date.now() - parseInt(cachedTime, 10)) / 1000;
-        if (age < 3600) {
+        if (age < CACHE_TTL_SECONDS) {
           return await cached.arrayBuffer();
         }
-      } else {
-        return await cached.arrayBuffer();
       }
+      // No timestamp → write age unknown → treat as expired and re-render
+      // rather than serve bytes of unbounded staleness.
     }
   } catch {
     // Cache API unavailable
@@ -104,7 +107,7 @@ async function putCfCacheTile(z: number, x: number, y: number, data: ArrayBuffer
     const key = `/api/dem-tile/${z}/${x}/${y}?fmt=${format}`;
     const headers = new Headers({
       "Content-Type": CONTENT_TYPE[format],
-      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
       "x-cached-at": String(Date.now()),
       "X-Cache": "HIT",
       "X-Dem-Tile-Format": format,

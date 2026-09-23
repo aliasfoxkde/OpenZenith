@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { r2GetTile, r2PutTile, RENDER_SCHEMA_VERSION } from "@/lib/storage/r2-tile-cache";
 import { zlibSync } from "fflate";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -26,8 +26,9 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 export const runtime = "edge";
 
+const CACHE_TTL_SECONDS = 3600;
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=3600, s-maxage=3600",
+  "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
@@ -79,8 +80,10 @@ function lerpColor(elevation: number): [number, number, number] {
   return [last[1], last[2], last[3]];
 }
 
-// Cloudflare Cache API namespace for elevation-color tiles
-const EC_CACHE_NAMESPACE = "elevation-color-v1";
+// Cloudflare Cache API namespace for elevation-color tiles. Derived from
+// RENDER_SCHEMA_VERSION so a decode/render change orphans previously cached
+// edge renders instead of serving them (same salt as the R2 keys).
+const EC_CACHE_NAMESPACE = `elevation-color-v${RENDER_SCHEMA_VERSION}`;
 
 /**
  * Get cached tile from Cloudflare Cache API.
@@ -97,12 +100,12 @@ async function getEcCfCache(z: number, x: number, y: number): Promise<ArrayBuffe
       const cachedTime = cached.headers.get("x-cached-at");
       if (cachedTime) {
         const age = (Date.now() - parseInt(cachedTime, 10)) / 1000;
-        if (age < 3600) {
+        if (age < CACHE_TTL_SECONDS) {
           return await cached.arrayBuffer();
         }
-      } else {
-        return await cached.arrayBuffer();
       }
+      // No timestamp → write age unknown → treat as expired and re-render
+      // rather than serve bytes of unbounded staleness.
     }
   } catch {
     // Cache API unavailable
@@ -121,7 +124,7 @@ async function putEcCfCache(z: number, x: number, y: number, data: ArrayBuffer):
     const key = `/api/elevation-color/${z}/${x}/${y}`;
     const headers = new Headers({
       "Content-Type": "image/png",
-      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
       "x-cached-at": String(Date.now()),
     });
     cache.put(key, new Response(data, { headers })).catch(() => {});

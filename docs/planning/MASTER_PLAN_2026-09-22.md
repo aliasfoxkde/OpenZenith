@@ -774,3 +774,47 @@ verification, not TLS; the ssrf hit is a scripted fake transport; the
 "credentials" are literal `key`/`secret` placeholders into a mocked R2
 constructor) — TRIAGE.md 2026-09-23 #107, baseline 1,450 → 1,456. Ruff
 strict gate: clean; ruff format applied to all touched files.
+
+### #109 — Python coverage ratchet 90 → 93 (task 109, 2026-09-23)
+
+Lazy-export surface and CLI pipelines; total measured **96.83% (13,103
+stmts, 415 miss), 1,327 passed / 0 failed / 14 deselected**, floor
+`--cov-fail-under` 90 → 93 with the evidence trail in pyproject.toml.
+
+- __init__ 36→100%: `test_lazy_exports.py` (new) parametrizes over all 142
+  lazy `__getattr__` names — each resolves to a callable, each is pinned in
+  `__all__`, unknown attrs raise, repeat access is cached. **Real API-drift
+  bug fixed:** 65 lazy exports were missing from `__all__` (a third of the
+  lazy surface — filters, indices, watershed, ls_factor…), so `import *`
+  and doc generation silently omitted them; `__all__` completed to 180.
+- cli 81→99%: `test_cli.py` extended with a synthetic OZCHNK01 writer that
+  drives `_load_merged` end-to-end (chunk placement, ocean-chunk nodata,
+  the 3840-canvas → 3601² crop), `_filename_to_bbox` (SRTM + Copernicus
+  naming incl. the `_00` segments), `_load_rawint16` square detection,
+  cmd_encode/cmd_ingest over real tmp bundles with manifest assertions,
+  main() dispatch and bare-help, per-command dependency guards
+  (sys.modules poisoning), and the PIL-less np.save fallbacks.
+  **Three latent bugs fixed:** (1) `cmd_drainage_density` imported
+  `drainage_density` from `openzenith.hydrology`, where it does not exist
+  (it lives in terrain/flow_metrics) — the command raised ImportError on
+  every invocation; (2) `_load_merged` allocated a 3601² canvas under
+  256-aligned chunks, so row 14 wrote `tile[3584:3840]` → broadcast
+  ValueError — plus two dead `min()` statements; now assembles on the
+  3840 canvas (ocean chunks skipped to nodata via the index size-0 check
+  that `get_chunk`'s zlib path needs) and crops; (3) the encode/ingest
+  per-file handlers caught only `OSError`, so one corrupt `.merged`
+  (ValueError "Invalid magic") crashed the entire batch instead of being
+  recorded — now `(OSError, ValueError, TileError)`. Also fixed
+  `_filename_to_bbox`'s Copernicus regex, which rejected the real
+  `…N22_00_E016_00_DEM` layout its own docstring cites.
+- hydrology/depressions 73→97%: `breach_least_cost_path` (carve-to-outlet,
+  unreachable outlets, max-cost gate, nodata), `breach_depressions` nodata
+  hole in the flood front, `breach_bridges` narrow-carve vs wide-keep.
+  Remaining misses probe-dead: `ndimage.label` never yields a zero-cell
+  label (263/304) and the nan/depth guards sit behind the valid-mask
+  pre-filter (211/218); cli 1596 is the `if __name__` main() call.
+
+Aegis: 7 gate findings → +1 −6 ghosts; the +1 is the info-level
+file-size-outlier rotating to test_cli.py (2,076 lines, intentional
+per-command class layout) — TRIAGE.md 2026-09-23 #109, baseline 1,456 →
+1,456. Ruff strict gate + format: clean.

@@ -750,7 +750,8 @@ def cmd_planform_curvature(args):
 def cmd_drainage_density(args):
     """Compute drainage density from flow accumulation."""
     from openzenith.elevation import load_elevation_grid
-    from openzenith.hydrology import d8_flow_direction, drainage_density, flow_accumulation
+    from openzenith.hydrology import d8_flow_direction, flow_accumulation
+    from openzenith.terrain import drainage_density
 
     print(f"💧 Computing drainage density around ({args.lat:.4f}, {args.lon:.4f})...")
     t0 = time.time()
@@ -835,25 +836,23 @@ def _load_geotiff(path: str) -> np.ndarray:
 def _load_merged(path: str) -> np.ndarray:
     """Load a .merged file (OZCHNK01) as a 3601x3601 int16 array.
 
-    Returns the full tile with horizontal-differencing undone.
+    Chunks are stored 256x256 (edge chunks padded past the valid
+    region); empty ocean chunks become nodata.
     """
     from openzenith.merged import MergedFile
 
     mf = MergedFile(path)
-    # Merge all 15x15 chunks into one 3601x3601 array
-    tile = np.empty((3601, 3601), dtype=np.int16)
+    # Chunks sit on a 256-aligned canvas larger than the valid 3601² region
+    tile = np.full((mf.rows * 256, mf.cols * 256), -32768, dtype=np.int16)
     for row in range(mf.rows):
         for col in range(mf.cols):
+            if mf.index[row * mf.cols + col]["size"] == 0:
+                continue  # ocean chunk — stays nodata
             chunk = mf.get_chunk(row, col)
             r0 = row * 256
             c0 = col * 256
-            min(r0 + 256, 3601)
-            min(c0 + 256, 3601)
-            # Chunks may be edge-adjusted
-            chunk_r = chunk.shape[0]
-            chunk_c = chunk.shape[1]
-            tile[r0 : r0 + chunk_r, c0 : c0 + chunk_c] = chunk
-    return tile
+            tile[r0 : r0 + chunk.shape[0], c0 : c0 + chunk.shape[1]] = chunk
+    return tile[:3601, :3601]
 
 
 def _load_rawint16(path: str) -> np.ndarray:
@@ -885,8 +884,8 @@ def _filename_to_bbox(filename: str) -> dict | None:
         lon_min = lon_d if lon_dir == "E" else -lon_d - 1
         return {"bbox": [lon_min, lat_min, lon_min + 1, lat_min + 1]}
 
-    # Copernicus DEM style: Copernicus_DSM_COG_10_N22_00_E016_DEM
-    m = re.match(r".*_N(\d{2})_E(\d{3})_DEM", filename, re.IGNORECASE)
+    # Copernicus DEM style: Copernicus_DSM_COG_10_N22_00_E016_00_DEM
+    m = re.match(r".*_N(\d{2})(?:_\d{2})?_E(\d{3})(?:_\d{2})?_DEM", filename, re.IGNORECASE)
     if m:
         lat_deg, lon_deg = int(m.group(1)), int(m.group(2))
         return {"bbox": [lon_deg, lat_deg, lon_deg + 1, lat_deg + 1]}
@@ -896,7 +895,15 @@ def _filename_to_bbox(filename: str) -> dict | None:
 
 def cmd_encode(args):
     """Encode a DEM file or directory of DEM files to OZT2 format."""
-    from openzenith.tile_format_v2 import PRED_GRADIENT, auto_encode, encode, validate_roundtrip
+    from openzenith.tile_format_v2 import (
+        PRED_GRADIENT,
+        auto_encode,
+        encode,
+        validate_roundtrip,
+    )
+    from openzenith.tile_format_v2 import (
+        TileError as TileErrorV2,
+    )
 
     predictor_map = {"none": 0, "left": 1, "gradient": 2}
     predictor = predictor_map.get(args.predictor, PRED_GRADIENT)
@@ -966,7 +973,7 @@ def cmd_encode(args):
                 "lossless": is_lossless,
             }
 
-        except OSError as e:
+        except (OSError, ValueError, TileErrorV2) as e:
             print(f"  💥 {src_path.name}: {e}")
             return None
 
@@ -1015,6 +1022,7 @@ def cmd_ingest(args):
     """Prepare a contributed dataset for submission to OpenZenith."""
     import json as _json
 
+    from openzenith.tile_format_v2 import TileError as TileErrorV2
     from openzenith.tile_format_v2 import auto_encode
 
     dataset_path = Path(args.dataset)
@@ -1079,7 +1087,7 @@ def cmd_ingest(args):
             )
             print(f"  ✅ {f.name} → {tile_name} ({len(encoded):,}B)")
 
-        except OSError as e:
+        except (OSError, ValueError, TileErrorV2) as e:
             errors.append({"file": str(f), "error": str(e)})
             print(f"  💥 {f.name}: {e}")
 

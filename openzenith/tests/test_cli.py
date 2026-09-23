@@ -2,8 +2,11 @@
 
 import contextlib
 import json
+import struct
 import sys
 import tempfile
+import types
+import zlib
 from pathlib import Path
 from typing import ClassVar
 from unittest.mock import MagicMock, patch
@@ -12,14 +15,18 @@ import numpy as np
 import pytest
 
 from openzenith.cli import (
+    _filename_to_bbox,
     _latlon_to_grid_coords,
     _latlon_to_tile,
+    _load_merged,
+    _load_rawint16,
     _parse_zoom_levels,
     cmd_aspect,
     cmd_color_relief,
     cmd_contour,
     cmd_curvature,
     cmd_download,
+    cmd_drainage_density,
     cmd_encode,
     cmd_export_cog,
     cmd_export_geotiff,
@@ -28,6 +35,7 @@ from openzenith.cli import (
     cmd_geojson,
     cmd_hillshade,
     cmd_info,
+    cmd_ingest,
     cmd_multi_hillshade,
     cmd_planform_curvature,
     cmd_profile,
@@ -41,10 +49,12 @@ from openzenith.cli import (
     cmd_trace,
     cmd_tri,
     cmd_twi,
+    cmd_validate,
     cmd_viewshed,
     cmd_watershed,
     main,
 )
+from openzenith.merged import MAGIC
 
 
 class TestParseZoomLevels:
@@ -1524,3 +1534,543 @@ class TestUnrecognizedCommand:
         ):
             main()
         assert exc_info.value.code == 2
+
+
+# ─── Loader helpers (encode/ingest paths) ─────────────────────────────────────
+
+NODATA = -32768
+
+
+def _write_merged(path: Path, fill_by_chunk: dict, ocean: set | None = None) -> None:
+    """Write a synthetic OZCHNK01 file.
+
+    Args:
+        path: Destination file.
+        fill_by_chunk: {(row, col): elevation} for populated chunks. Every
+            (row, col) in the grid must appear here or in ``ocean``.
+        ocean: Chunks stored empty (size 0) — decode as nodata.
+
+    """
+    rows = max(r for r, _c in fill_by_chunk) + 1
+    cols = max(c for _r, c in fill_by_chunk) + 1
+    ocean = ocean or set()
+
+    index = b""
+    body = b""
+    offset = 12 + rows * cols * 8
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) in ocean:
+                index += struct.pack("<II", offset, 0)
+                continue
+            # Horizontal differencing: first column absolute, rest zeros
+            raw = np.zeros((256, 256), dtype=np.int16)
+            raw[:, 0] = fill_by_chunk[(r, c)]
+            payload = zlib.compress(raw.tobytes())
+            index += struct.pack("<II", offset, len(payload))
+            body += payload
+            offset += len(payload)
+
+    header = MAGIC + struct.pack("<H", 1) + bytes([rows, cols])
+    path.write_bytes(header + index + body)
+
+
+class TestLoadRawInt16:
+    """_load_rawint16 square-dimension detection."""
+
+    def test_square_file_loads(self, tmp_path: Path):
+        p = tmp_path / "dem.raw"
+        data = np.arange(16, dtype=np.int16)
+        p.write_bytes(data.tobytes())
+        grid = _load_rawint16(str(p))
+        assert grid.shape == (4, 4)
+        assert grid.ravel().tolist() == data.tolist()
+
+    def test_non_square_size_raises(self, tmp_path: Path):
+        p = tmp_path / "dem.raw"
+        p.write_bytes(np.arange(17, dtype=np.int16).tobytes())
+        with pytest.raises(ValueError, match="not a perfect square"):
+            _load_rawint16(str(p))
+
+
+class TestFilenameToBbox:
+    """SRTM and Copernicus filename parsing."""
+
+    def test_srtm_north_east(self):
+        assert _filename_to_bbox("N40W075.tif") == {"bbox": [-76, 40, -75, 41]}
+
+    def test_srtm_south_west_offsets_by_one(self):
+        assert _filename_to_bbox("S10W170.tif") == {"bbox": [-171, -11, -170, -10]}
+
+    def test_copernicus_style(self):
+        name = "Copernicus_DSM_COG_10_N22_00_E016_00_DEM.tif"
+        assert _filename_to_bbox(name) == {"bbox": [16, 22, 17, 23]}
+
+    def test_unrecognized_returns_none(self):
+        assert _filename_to_bbox("readme.txt") is None
+
+
+class TestLoadMerged:
+    """_load_merged assembles 256x256 chunks; ocean chunks stay nodata."""
+
+    def test_assembles_chunks_and_crops(self, tmp_path: Path):
+        p = tmp_path / "N00E000.merged"
+        _write_merged(p, {(0, 0): 100, (0, 1): 110, (1, 0): 120, (1, 1): 130})
+        tile = _load_merged(str(p))
+        assert tile.shape == (512, 512)
+        assert tile[0, 0] == 100
+        assert tile[5, 300] == 110  # chunk (0, 1)
+        assert tile[300, 5] == 120  # chunk (1, 0)
+        assert tile[300, 300] == 130
+
+    def test_ocean_chunks_become_nodata(self, tmp_path: Path):
+        p = tmp_path / "N00E000.merged"
+        _write_merged(p, {(0, 0): 100, (0, 1): 110, (1, 0): 120, (1, 1): 130}, ocean={(1, 1)})
+        tile = _load_merged(str(p))
+        assert tile[300, 300] == NODATA
+        assert tile[0, 0] == 100
+
+    def test_full_size_tile_crops_to_3601(self, tmp_path: Path):
+        """15x15 chunks assemble on the 3840 canvas and crop to 3601²."""
+        p = tmp_path / "N00E000.merged"
+        fills = {(r, c): 10 * r + c for r in range(15) for c in range(15)}
+        _write_merged(p, fills)
+        tile = _load_merged(str(p))
+        assert tile.shape == (3601, 3601)
+        assert tile[3600, 3600] == 10 * 14 + 14  # last valid pixel, chunk (14, 14)
+
+
+# ─── Terrain commands missing output paths ────────────────────────────────────
+
+
+class TestCmdDrainageDensity:
+    """cmd_drainage_density: flow-accumulation density pipeline."""
+
+    def test_computes_and_saves(self, tmp_path: Path):
+        out = tmp_path / "density.npy"
+        args = _mock_args(output=str(out))
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.hydrology.d8_flow_direction", return_value=np.zeros((20, 20))),
+            patch("openzenith.hydrology.flow_accumulation", return_value=np.ones((20, 20))),
+            patch("openzenith.terrain.drainage_density", return_value=np.full((20, 20), 2.5)),
+        ):
+            cmd_drainage_density(args)
+        assert out.exists()
+
+    def test_missing_grid_dependency_exits(self):
+        args = _mock_args(output=None)
+        with (
+            patch("openzenith.elevation.load_elevation_grid", side_effect=ImportError("no hub")),
+            pytest.raises(ImportError),
+        ):
+            cmd_drainage_density(args)
+
+
+class TestImageOutputFallbacks:
+    """PIL-less environments fall back to np.save for image outputs."""
+
+    def test_multi_hillshade_falls_back_without_pillow(self, tmp_path: Path):
+        out = tmp_path / "hs.npy"
+        args = _mock_args(output=str(out), z_factor=1.0)
+        shade = np.full((20, 20), 128, dtype=np.uint8)
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.terrain.multi_hillshade", return_value=shade),
+            patch.dict(sys.modules, {"PIL": None}),
+        ):
+            cmd_multi_hillshade(args)
+        assert np.load(out).shape == (20, 20)
+
+    def test_color_relief_falls_back_without_pillow(self, tmp_path: Path):
+        out = tmp_path / "relief.npy"
+        args = _mock_args(output=str(out))
+        rgba = np.zeros((20, 20, 4), dtype=np.uint8)
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.terrain.color_relief", return_value=rgba),
+            patch.dict(sys.modules, {"PIL": None}),
+        ):
+            cmd_color_relief(args)
+        assert np.load(out).shape == (20, 20, 4)
+
+    def test_streams_falls_back_without_pillow(self, tmp_path: Path):
+        out = tmp_path / "streams.npy"
+        args = _mock_args(output=str(out), lat=40.0, lon=-74.0)
+        streams = np.zeros((20, 20), dtype=bool)
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.hydrology.d8_flow_direction", return_value=np.zeros((20, 20))),
+            patch("openzenith.hydrology.flow_accumulation", return_value=np.ones((20, 20))),
+            patch("openzenith.hydrology.extract_streams", return_value=streams),
+            patch.dict(sys.modules, {"PIL": None}),
+        ):
+            cmd_streams(args)
+        assert np.load(out).shape == (20, 20)
+
+    def test_color_relief_saves_png_with_pillow(self, tmp_path: Path):
+        out = tmp_path / "relief.png"
+        args = _mock_args(output=str(out))
+        rgba = np.zeros((20, 20, 4), dtype=np.uint8)
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.terrain.color_relief", return_value=rgba),
+        ):
+            cmd_color_relief(args)
+        assert out.exists()
+
+
+# ─── encode ───────────────────────────────────────────────────────────────────
+
+
+class TestCmdEncodePaths:
+    """cmd_encode format detection, options, and directory mode."""
+
+    def _raw(self, tmp_path: Path, name="dem.raw", side=4):
+        p = tmp_path / name
+        p.write_bytes((np.arange(side * side, dtype=np.int16) % 300).tobytes())
+        return p
+
+    def test_missing_input_exits(self, tmp_path: Path):
+        args = _mock_args(
+            input=str(tmp_path / "nope.raw"),
+            output=str(tmp_path),
+            predictor="gradient",
+            bits=None,
+            max_rmse=1.0,
+            validate=False,
+            quiet=True,
+        )
+        with pytest.raises(SystemExit) as exc:
+            cmd_encode(args)
+        assert exc.value.code == 1
+
+    def test_unknown_extension_skipped_in_directory_mode(self, tmp_path: Path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "notes.txt").write_text("not a dem")
+        args = _mock_args(
+            input=str(tmp_path / "src"),
+            output=str(tmp_path / "out"),
+            predictor="gradient",
+            bits=None,
+            max_rmse=1.0,
+            validate=False,
+            quiet=True,
+        )
+        with pytest.raises(SystemExit) as exc:
+            cmd_encode(args)
+        assert exc.value.code == 1  # no DEM files found
+
+    def test_single_raw_with_fixed_bits(self, tmp_path: Path):
+        src = self._raw(tmp_path)
+        out = tmp_path / "dem.ozt2"
+        args = _mock_args(
+            input=str(src),
+            output=str(out),
+            predictor="gradient",
+            bits=12,
+            max_rmse=1.0,
+            validate=True,
+            quiet=False,
+        )
+        cmd_encode(args)
+        assert out.exists()
+
+    def test_single_raw_auto_encode(self, tmp_path: Path):
+        src = self._raw(tmp_path)
+        out = tmp_path / "dem.ozt2"
+        args = _mock_args(
+            input=str(src),
+            output=str(out),
+            predictor="none",
+            bits=None,
+            max_rmse=1.0,
+            validate=True,
+            quiet=False,
+        )
+        cmd_encode(args)
+        assert out.exists()
+
+    def test_directory_mode_writes_summary(self, tmp_path: Path, capsys):
+        src = tmp_path / "src"
+        src.mkdir()
+        self._raw(src, "a.raw")
+        self._raw(src, "b.raw", side=8)
+        args = _mock_args(
+            input=str(src),
+            output=str(tmp_path / "out"),
+            predictor="gradient",
+            bits=None,
+            max_rmse=1.0,
+            validate=False,
+            quiet=False,
+        )
+        cmd_encode(args)
+        outdir = tmp_path / "out"
+        assert (outdir / "a.ozt2").exists()
+        assert (outdir / "b.ozt2").exists()
+        captured = capsys.readouterr().out
+        assert "Encoded 2/2" in captured
+
+    def test_directory_all_failures_exit(self, tmp_path: Path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "bad.merged").write_bytes(b"garbage" * 4)
+        args = _mock_args(
+            input=str(src),
+            output=str(tmp_path / "out"),
+            predictor="gradient",
+            bits=None,
+            max_rmse=1.0,
+            validate=False,
+            quiet=True,
+        )
+        with pytest.raises(SystemExit) as exc:
+            cmd_encode(args)
+        assert exc.value.code == 1
+
+    def test_merged_input_encoded(self, tmp_path: Path):
+        src = tmp_path / "tile.merged"
+        _write_merged(src, {(0, 0): 100, (0, 1): 110, (1, 0): 120, (1, 1): 130})
+        out = tmp_path / "tile.ozt2"
+        args = _mock_args(
+            input=str(src),
+            output=str(out),
+            predictor="gradient",
+            bits=None,
+            max_rmse=1.0,
+            validate=False,
+            quiet=True,
+        )
+        cmd_encode(args)
+        assert out.exists()
+
+
+# ─── ingest ───────────────────────────────────────────────────────────────────
+
+
+class TestCmdIngest:
+    """cmd_ingest builds a contribution bundle with manifest."""
+
+    def _ingest_args(self, tmp_path: Path, dataset: Path, **kw):
+        defaults = {
+            "dataset": str(dataset),
+            "name": "test-tiles",
+            "license": "CC-BY-4.0",
+            "description": "test dataset",
+            "source_url": "https://example.com",
+            "contributor": "tester",
+            "output": str(tmp_path / "bundles"),
+        }
+        defaults.update(kw)
+        args = _mock_args(**defaults)
+        args.name = defaults["name"]  # MagicMock(**name=...) is special-cased
+        return args
+
+    def test_missing_dataset_exits(self, tmp_path: Path):
+        args = self._ingest_args(tmp_path, tmp_path / "missing")
+        with pytest.raises(SystemExit) as exc:
+            cmd_ingest(args)
+        assert exc.value.code == 1
+
+    def test_dataset_with_no_dem_files_exits(self, tmp_path: Path):
+        dataset = tmp_path / "dataset"
+        dataset.mkdir()
+        (dataset / "README.md").write_text("no tifs here")
+        args = self._ingest_args(tmp_path, dataset)
+        with pytest.raises(SystemExit) as exc:
+            cmd_ingest(args)
+        assert exc.value.code == 1
+
+    def test_builds_bundle_and_manifest(self, tmp_path: Path):
+        dataset = tmp_path / "dataset"
+        dataset.mkdir()
+        _write_merged(
+            dataset / "N00E000.merged", {(0, 0): 100, (0, 1): 110, (1, 0): 120, (1, 1): 130}
+        )
+        args = self._ingest_args(tmp_path, dataset)
+        cmd_ingest(args)
+
+        bundle = tmp_path / "bundles" / "test-tiles"
+        assert (bundle / "tiles" / "N00E000.ozt2").exists()
+        manifest = json.loads((bundle / "manifest.json").read_text())
+        assert manifest["name"] == "test-tiles"
+        assert manifest["license"] == "CC-BY-4.0"
+        assert manifest["total_tiles"] == 1
+        assert manifest["errors"] == 0
+        tile = manifest["tiles"][0]
+        assert tile["file"] == "N00E000.ozt2"
+        assert tile["coverage"] == {"bbox": [0, 0, 1, 1]}
+        assert tile["bits"] > 0
+
+    def test_corrupt_file_recorded_as_error(self, tmp_path: Path):
+        dataset = tmp_path / "dataset"
+        dataset.mkdir()
+        (dataset / "bad.merged").write_bytes(b"garbage" * 4)
+        args = self._ingest_args(tmp_path, dataset)
+        cmd_ingest(args)
+
+        bundle = tmp_path / "bundles" / "test-tiles"
+        manifest = json.loads((bundle / "manifest.json").read_text())
+        assert manifest["total_tiles"] == 0
+        assert manifest["errors"] == 1
+
+
+# ─── main() dispatch ─────────────────────────────────────────────────────────
+
+
+class TestMainDispatch:
+    """main() builds the parser, dispatches commands, prints help bare."""
+
+    def test_no_command_prints_help(self, capsys, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["openzenith"])
+        main()
+        assert "usage: openzenith" in capsys.readouterr().out
+
+    def test_dispatches_info_command(self, monkeypatch):
+        called = {}
+        monkeypatch.setattr(sys, "argv", ["openzenith", "info"])
+        with patch("openzenith.cli.cmd_info", side_effect=lambda a: called.update(hit=True)):
+            main()
+        assert called.get("hit") is True
+
+
+# ─── Import guards, fallbacks, and remaining output paths (#109) ──────────────
+
+
+class TestImportGuards:
+    """Optional-dependency guards degrade to a clear exit(1)."""
+
+    def test_download_without_elevation_module_exits(self):
+        args = _mock_args(region="europe", bbox=None, zoom_levels=None, cache_dir=None)
+        with (
+            patch.dict(sys.modules, {"openzenith.elevation": None}),
+            pytest.raises(SystemExit) as exc,
+        ):
+            cmd_download(args)
+        assert exc.value.code == 1
+
+    def test_trace_without_tracing_module_exits(self):
+        with (
+            patch.dict(sys.modules, {"openzenith.tracing": None}),
+            pytest.raises(SystemExit) as exc,
+        ):
+            cmd_trace(_mock_args())
+        assert exc.value.code == 1
+
+    def test_watershed_without_hydrology_module_exits(self):
+        with (
+            patch.dict(sys.modules, {"openzenith.hydrology": None}),
+            pytest.raises(SystemExit) as exc,
+        ):
+            cmd_watershed(_mock_args())
+        assert exc.value.code == 1
+
+    def test_download_rejects_wrong_part_count_bbox(self):
+        args = _mock_args(region=None, bbox="1,2,3", zoom_levels=None, cache_dir=None)
+        with pytest.raises(SystemExit) as exc:
+            cmd_download(args)
+        assert exc.value.code == 1
+
+    def test_tiles_rejects_wrong_part_count_bbox(self):
+        args = _mock_args(bbox="1,2,3", region=None, lat=None, lon=None, zoom=None)
+        with pytest.raises(SystemExit) as exc:
+            cmd_tiles(args)
+        assert exc.value.code == 1
+
+
+class TestCmdInfoAndValidate:
+    """info cache-error path; validate delegates to the script."""
+
+    def test_info_reports_unreadable_cache(self, tmp_path: Path, capsys, monkeypatch):
+        cache = tmp_path / ".cache" / "openzenith-dem"
+        cache.mkdir(parents=True)
+        monkeypatch.setattr("pathlib.Path.home", classmethod(lambda cls: tmp_path), raising=False)
+        with (
+            patch("openzenith.elevation.get_tile_count", side_effect=OSError("busy")),
+            patch("requests.get", side_effect=OSError("offline")),
+        ):
+            cmd_info(_mock_args())
+        assert "could not count tiles" in capsys.readouterr().out
+
+    def test_validate_delegates_to_script(self):
+        fake = types.ModuleType("scripts.validate_elevation")
+        fake.main = MagicMock()
+        with patch.dict(sys.modules, {"scripts.validate_elevation": fake}):
+            cmd_validate(_mock_args())
+        fake.main.assert_called_once_with()
+
+
+class TestImageOutputFallbacks2:
+    """Remaining PIL fallbacks and array outputs."""
+
+    def test_hillshade_falls_back_without_pillow(self, tmp_path: Path):
+        out = tmp_path / "hs.npy"
+        args = _mock_args(output=str(out))
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.terrain.hillshade", return_value=np.full((20, 20), 9, np.uint8)),
+            patch.dict(sys.modules, {"PIL": None}),
+        ):
+            cmd_hillshade(args)
+        assert np.load(out).shape == (20, 20)
+
+    def test_viewshed_falls_back_without_pillow(self, tmp_path: Path):
+        out = tmp_path / "vs.npy"
+        args = _mock_args(output=str(out), lat=40.0, lon=-74.0)
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.terrain.viewshed", return_value=np.ones((20, 20), dtype=bool)),
+            patch.dict(sys.modules, {"PIL": None}),
+        ):
+            cmd_viewshed(args)
+        assert np.load(out).shape == (20, 20)
+
+    def test_profile_json_output(self, tmp_path: Path):
+        out = tmp_path / "profile.json"
+        args = _mock_args(
+            lat1=40.0, lon1=-74.0, lat2=40.01, lon2=-74.01, radius=10, samples=5, output=str(out)
+        )
+        profile = [{"distance_m": 0.0, "elevation": 10.0}, {"distance_m": 5.0, "elevation": 12.0}]
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch("openzenith.terrain.profile", return_value=profile),
+        ):
+            cmd_profile(args)
+        assert json.loads(out.read_text())[0]["elevation"] == 10.0
+
+    @pytest.mark.parametrize("cmd", ["profile_curvature", "planform_curvature"])
+    def test_curvature_commands_save_output(self, tmp_path: Path, cmd: str):
+        out = tmp_path / "curv.npy"
+        args = _mock_args(output=str(out))
+        fn = {
+            "profile_curvature": cmd_profile_curvature,
+            "planform_curvature": cmd_planform_curvature,
+        }[cmd]
+        terrain_fn = f"openzenith.terrain.{cmd}"
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()),
+            patch(terrain_fn, return_value=np.zeros((20, 20))),
+        ):
+            fn(args)
+        assert np.load(out).shape == (20, 20)
+
+
+class TestCmdEncodeUnknownSingleFile:
+    """Single-file encode of an unknown format is skipped, not fatal."""
+
+    def test_unknown_extension_single_file(self, tmp_path: Path, capsys):
+        src = tmp_path / "data.txt"
+        src.write_text("not a dem")
+        args = _mock_args(
+            input=str(src),
+            output=str(tmp_path / "out.ozt2"),
+            predictor="gradient",
+            bits=None,
+            max_rmse=1.0,
+            validate=False,
+            quiet=False,
+        )
+        cmd_encode(args)
+        assert "Unknown format" in capsys.readouterr().out
+        assert not (tmp_path / "out.ozt2").exists()

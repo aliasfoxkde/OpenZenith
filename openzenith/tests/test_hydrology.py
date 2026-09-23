@@ -9,6 +9,7 @@ from openzenith.hydrology import (
     basin_id,
     breach_bridges,
     breach_depressions,
+    breach_least_cost_path,
     cost_distance,
     cross_section,
     cross_section_area,
@@ -955,3 +956,73 @@ class TestStreamLinkClass:
             assert result.shape == dem.shape
         except ImportError:
             pass
+
+
+# ─── Depressions: least-cost breaching + edge branches (#109) ─────────────────
+
+
+class TestBreachLeastCostPath:
+    """breach_least_cost_path lowers ridge cells toward the outlet."""
+
+    def test_lowered_to_outlet_elevation(self):
+        dem = np.ones((10, 10), dtype=np.float32) * 100.0
+        dem[7, 7] = 90.0  # outlet — the lowest point
+        result = breach_least_cost_path(dem, outlets=[(7, 7)], max_cost=1e9)
+        # Every valid cell above the outlet is carved down to 90
+        assert result[0, 0] == 90.0
+        assert result[7, 7] == 90.0  # outlet itself unchanged
+
+    def test_no_reachable_outlets_returns_unchanged(self):
+        dem = np.ones((6, 6), dtype=np.float32) * 50.0
+        dem[2, 2] = 10.0
+        for outlets in ([], [(-1, 0)], [(99, 99)]):
+            result = breach_least_cost_path(dem, outlets=outlets)
+            np.testing.assert_array_equal(result, dem)
+
+    def test_max_cost_blocks_carving(self):
+        dem = np.ones((6, 6), dtype=np.float32) * 100.0
+        dem[3, 3] = 5.0  # outlet
+        result = breach_least_cost_path(dem, outlets=[(3, 3)], max_cost=0.0)
+        # Cost of every other cell exceeds 0 → nothing lowered
+        np.testing.assert_array_equal(result, dem)
+
+    def test_nodata_cells_untouched(self):
+        dem = np.ones((6, 6), dtype=np.float32) * 100.0
+        dem[3, 3] = 50.0  # outlet
+        dem[0, 0] = -32768.0
+        result = breach_least_cost_path(dem, outlets=[(3, 3)], max_cost=1e9)
+        assert result[0, 0] == -32768.0
+
+
+class TestBreachDepressionsNodata:
+    """Nodata cells inside the flood front are skipped, not raised."""
+
+    def test_nodata_hole_untouched(self):
+        dem = np.ones((8, 8), dtype=np.float32) * 100.0
+        dem[4, 4] = -32768.0
+        dem[4, 5] = 50.0  # pit beside the nodata hole
+        result = breach_depressions(dem)
+        assert result[4, 4] == -32768.0
+        assert result[4, 5] < 100.0
+
+
+class TestBreachBridgesCarve:
+    """Narrow bridge bumps are carved to the stream bed; wide ones are kept."""
+
+    def test_narrow_bridge_carved(self):
+        dem = np.ones((7, 15), dtype=np.float32) * 50.0
+        streams = np.zeros((7, 15), dtype=bool)
+        streams[3, 3:12] = True
+        dem[3, 3:12] = 40.0  # stream bed
+        dem[3, 7] = 60.0  # bridge crossing the stream
+        result = breach_bridges(dem, streams, max_width=10)
+        assert result[3, 7] == 40.0
+
+    def test_wide_bridge_left_alone(self):
+        dem = np.ones((7, 15), dtype=np.float32) * 50.0
+        streams = np.zeros((7, 15), dtype=bool)
+        streams[3, :] = True  # full-width water body, not a bridge
+        dem[3, :] = 40.0
+        dem[3, 7] = 60.0
+        result = breach_bridges(dem, streams, max_width=10)
+        assert result[3, 7] == 60.0

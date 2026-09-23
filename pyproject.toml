@@ -89,7 +89,7 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=90"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=93"
 markers = [
     "integration: marks tests that require network access",
 ]
@@ -146,4 +146,27 @@ markers = [
 # get/head incl. ClientError, faked aiohttp download/cache-write/prefetch
 # with per-URL routing, faked urllib bytes+HEAD, ImportError guards).
 # Measured 92.84% (12,728 stmts, 911 miss), 991 passed, 0 failed.
+#
+# Raised to 93 (2026-09-23) with the lazy-export surface and CLI pipelines —
+# __init__ 36→100% (test_lazy_exports.py: all 142 lazy __getattr__ names
+# resolve, each pinned in __all__, unknown attrs raise; also fixed API drift —
+# 65 lazy exports were missing from __all__, including drainage_density,
+# watershed, and the filters/indices families), cli 81→99% (test_cli.py:
+# synthetic OZCHNK01 writer drives _load_merged round-trips incl. ocean-chunk
+# nodata and the 3601² crop, _filename_to_bbox SRTM+Copernicus,
+# _load_rawint16, encode/ingest end-to-end over tmp bundles with manifest
+# assertions, main() dispatch, per-command dependency guards, PIL-less
+# np.save fallbacks; three latent bugs fixed — cmd_drainage_density imported
+# drainage_density from openzenith.hydrology where it does not exist, so the
+# command could never run; _load_merged allocated a 3601² canvas under
+# 256-aligned chunks, crashing on row 14 with a broadcast error and holding
+# two dead min() statements; per-file error handlers caught only OSError so
+# one corrupt .merged file (ValueError) crashed the whole encode/ingest run),
+# hydrology/depressions 73→97% (breach_least_cost_path incl. unreachable-
+# outlet and max-cost gates, breach nodata-hole skip, breach_bridges
+# narrow-carve/wide-keep cross-sections). Measured 96.83% (13,103 stmts,
+# 415 miss), 1,327 passed, 0 failed. Known dead lines: depressions 263/304
+# (ndimage.label never yields a zero-cell label), 211/218 (guard branches
+# unreachable given the valid-mask pre-filter); cli 1596 is the
+# `if __name__` main() call.
 # Raise --cov-fail-under only together with tests that cover the delta.

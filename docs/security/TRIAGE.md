@@ -378,3 +378,27 @@ New findings — all six are test-fixture false positives, baselined:
   never authenticates. No real credential exists in the tree.
 
 Baseline: 1,450 → 1,456 findings (semantic +6, −0).
+
+## Re-triage 2026-09-23 — #109 lazy exports + CLI coverage
+
+~1,400 new test lines (test_lazy_exports.py new; test_cli.py/test_hydrology.py
+extended), three latent-bug fixes in cli.py, `__all__` completion in
+__init__.py. Gate reported 7 "new" findings; semantic set-difference shows
+**+1, −6 ghosts**:
+
+Line-shift ghosts (identical content hashes already baselined): the two
+`debug-endpoint` and one `cloudformation-outputs` hits in pre-existing
+cmd_info/help tests, both `azure-functions` hits (the word "functions" in
+docstrings/comments — same false-positive class as #106), and
+`human-approval-required` cli.py:1441 (argparse `required=True` on the
+ingest command, not an approval gate).
+
+New finding — accepted:
+- `file-size-outlier` test_cli.py:1 (info): the CLI test module is now
+  2,076 lines (one class per command). Intentional single-domain
+  organization, not a generated dump; revisit a split (encode/ingest into
+  their own module) if it grows past the next command batch.
+
+Baseline: 1,456 → 1,456 findings (semantic +1, −1: the scan tracks only
+the single most extreme size outlier, and the entry rotated from cli.py to
+the now-larger test_cli.py).

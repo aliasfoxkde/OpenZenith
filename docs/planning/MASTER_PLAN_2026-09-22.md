@@ -1495,3 +1495,38 @@ bad bytes — the exact gap that made #124's stripe reachable from cache.
   edited files — see TRIAGE.md 2026-09-23 #125).
 - Effect at deploy: one-time global re-render of DEM color/terrain tiles
   (v2 keys start cold); OZT2 and external-layer caches unaffected.
+
+### 2026-09-23 — Task #126: tile-assembly resilience (sticky empty-body 503s)
+
+Root-cause work for the #125 sweep's reliability finding (~56% of first-wave
+requests returned empty-body 503s — sticky ~15 min per tile, then self-
+healing; app-level errors never produce bare 503s, so these are edge-level).
+
+Fixes, all in the assembly hot path:
+
+- `api/src/lib/tile.ts` — overlapping SRTM cells now assemble
+  **concurrently** (`Promise.all` over cells), and each cell fetches all its
+  needed chunks concurrently instead of serially. A cold multi-cell tile
+  previously serialised N × ~9.4MB merged downloads; wall-time is now bounded
+  by the slowest single cell rather than the sum.
+- `api/src/lib/storage/huggingface-backend.ts` — **single-flight** merged
+  downloads: concurrent chunk requests for the same cell share one in-flight
+  download (Map<cell, Promise>) instead of stampeding HuggingFace with N
+  concurrent 9.4MB fetches. A failed download releases its slot (retry on
+  next request) — pinned by test.
+- `api/src/lib/tile.ts` — `fetchAWSTerrainTile` now carries the same 8s
+  AbortController bound as the HF backend (it was the only unbounded fetch
+  left in the assembly path).
+- Slow-assembly probe: assemblies over 2s log cell count + wall-time at
+  debug level, correlating production 503s against cold multi-cell renders
+  via `wrangler tail`.
+
+Tests: single-flight sharing (3 concurrent chunk reads → 1 merged URL, with
+a gate proving the requests overlapped), failed-download slot release, and a
+watchdog-based tile test proving the straddling cells are requested
+concurrently (a sequential assembler loses the gated cell to the watchdog and
+leaves ~2/3 of the tile NODATA — the value assertion fails).
+
+Gates: tsc clean; 1,337 passed / 5 skipped; eslint 0 errors at the 5,381
+baseline; aegis re-baselined 1659→1663 (21 findings, all line-shifts or the
+new diagnostic log — TRIAGE.md 2026-09-23 #126).

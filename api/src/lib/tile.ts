@@ -46,6 +46,10 @@ export function isBlacklistedSrtmTile(name: string): boolean {
 // AWS Terrain Tiles — same SRTM 30m data as pre-built Terrarium PNG
 const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
+// Assemblies slower than this are logged (with cell count) so cold multi-cell
+// renders that risk the edge wall-time budget show up in production tails.
+const SLOW_ASSEMBLY_LOG_MS = 2000;
+
 export interface TileResult {
   data: Int16Array;
   width: number;
@@ -98,6 +102,7 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
   // Find all SRTM tiles that overlap
   const srtmTiles = findOverlappingSrtmTiles(bounds);
   const data = new Int16Array(TILE_SIZE * TILE_SIZE).fill(NODATA);
+  const assemblyStartedAt = Date.now();
 
   // latLonToSrtmName emits extension-bearing names ("N36W116.tif") while the
   // blacklist stores bare names — strip before comparing, else the blacklist
@@ -107,14 +112,26 @@ export async function getTileData(z: number, x: number, y: number, storage: Chun
   // Check if any overlapping SRTM tile is blacklisted (corrupted data)
   const hasBlacklisted = srtmTiles.some(isBlacklisted);
 
-  // Process each SRTM tile (skip blacklisted ones)
-  for (const srtmName of srtmTiles) {
-    if (isBlacklisted(srtmName)) continue;
-    try {
-      await fillTileFromSrtm(data, srtmName, bounds, storage);
-    } catch {
-      // Skip tiles that fail (not all 1° tiles have data)
-    }
+  // Assemble all overlapping cells concurrently — each writes only its own
+  // overlap region, and a cold multi-cell tile otherwise serialises several
+  // ~9.4MB merged downloads, which is how assemblies run past the edge
+  // wall-time budget and come back as sticky empty-body 503s.
+  await Promise.all(
+    srtmTiles
+      .filter((srtmName) => !isBlacklisted(srtmName))
+      .map((srtmName) =>
+        fillTileFromSrtm(data, srtmName, bounds, storage).catch(() => {
+          // Skip tiles that fail (not all 1° tiles have data)
+        }),
+      ),
+  );
+
+  // Slow-assembly probe: cold multi-cell assemblies dominate the edge 503s,
+  // so log outliers with their cell count to correlate wall-time against
+  // HuggingFace download counts in production (wrangler tail).
+  const assemblyMs = Date.now() - assemblyStartedAt;
+  if (assemblyMs > SLOW_ASSEMBLY_LOG_MS) {
+    console.debug(`[tile] slow assembly ${z}/${x}/${y}: ${assemblyMs}ms across ${srtmTiles.length} cells`);
   }
 
   // Check if HuggingFace assembly produced useful data
@@ -198,17 +215,23 @@ export async function fillTileFromSrtm(
   const endChunkRow = Math.floor(endPixel.row / 256);
   const endChunkCol = Math.floor(endPixel.col / 256);
 
-  // Fetch and decompress needed chunks
-  const chunkCache = new Map<
-    string,
-    { data: Int16Array; width: number; height: number; chunkRow: number; chunkCol: number }
-  >();
-
+  // Fetch and decode all needed chunks concurrently. Each chunk is an
+  // independent cache-or-network read; the merged download underneath is
+  // single-flight per SRTM cell (see huggingface-backend), so concurrency
+  // here collapses to one file download plus cache reads.
+  const jobs: Array<{ cr: number; cc: number; cacheKey: string }> = [];
+  const seen = new Set<string>();
   for (let cr = startChunkRow; cr <= endChunkRow; cr++) {
     for (let cc = startChunkCol; cc <= endChunkCol; cc++) {
       const cacheKey = `${cr}:${cc}`;
-      if (chunkCache.has(cacheKey)) continue;
+      if (seen.has(cacheKey)) continue;
+      seen.add(cacheKey);
+      jobs.push({ cr, cc, cacheKey });
+    }
+  }
 
+  const entries = await Promise.all(
+    jobs.map(async ({ cr, cc, cacheKey }) => {
       const chunkKey = `oz:chunk:${srtmName}:${cr}:${cc}`;
       let compressedData = await cacheGet(chunkKey);
       if (!compressedData) {
@@ -221,10 +244,14 @@ export async function fillTileFromSrtm(
       if (!decoded) {
         throw new RangeError(`Undecodable merged chunk ${srtmName} ${cr}/${cc}`);
       }
+      return [cacheKey, { ...decoded, chunkRow: cr, chunkCol: cc }] as const;
+    }),
+  );
 
-      chunkCache.set(cacheKey, { ...decoded, chunkRow: cr, chunkCol: cc });
-    }
-  }
+  const chunkCache = new Map<
+    string,
+    { data: Int16Array; width: number; height: number; chunkRow: number; chunkCol: number }
+  >(entries);
 
   // Sample SRTM pixels and map to output grid
   const latStep = (tileBounds.north - tileBounds.south) / TILE_SIZE;
@@ -272,7 +299,12 @@ export async function fillTileFromSrtm(
 export async function fetchAWSTerrainTile(z: number, x: number, y: number): Promise<Int16Array | null> {
   try {
     const url = AWS_TERRAIN_URL.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
-    const resp = await fetch(url);
+    // Same per-fetch bound as the HuggingFace backend — an unbounded fallback
+    // fetch would defeat the wall-time budget the rest of the assembler keeps.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => { controller.abort(); }, 8000);
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!resp.ok) return null;
 
     const buf = await resp.arrayBuffer();

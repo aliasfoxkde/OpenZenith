@@ -212,8 +212,10 @@ describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
     expect(names).toContain("N36W117.tif");
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
     // The blacklist triggered the AWS attempt even though chunks produced data
+    const abortSignal = expect.any(AbortSignal) as AbortSignal;
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/elevation-tiles-prod/terrarium/12/"),
+      { signal: abortSignal },
     );
     // Valid neighbours assemble; the corrupt-source share stays nodata
     const values = Array.from(result.data);

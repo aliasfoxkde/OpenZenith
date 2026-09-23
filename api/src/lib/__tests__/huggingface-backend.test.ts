@@ -210,6 +210,73 @@ describe("HuggingFaceChunkBackend", () => {
     expect(Array.from(new Uint8Array(b))).toEqual(Array.from(new Uint8Array(second)));
   });
 
+  it("shares one in-flight merged download across concurrent chunk requests", async () => {
+    // Tile assembly fetches chunks concurrently — three parallel chunk reads
+    // from the same cold cell must produce ONE merged download, not three.
+    const tile = nextTile();
+    const first = payload([1, 1, 1]);
+    const second = payload([2, 2, 2]);
+    const third = payload([3, 3, 3]);
+    const merged = buildMergedFile(
+      2,
+      2,
+      new Map([
+        [0, first],
+        [1, second],
+        [2, third],
+      ]),
+    );
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    fetchMock.mockImplementation((input: string) => {
+      requestedUrls.push(input);
+      return gate.then(() => new Response(merged, { status: 200 }));
+    });
+
+    const backend = makeBackend(true);
+    const pending = Promise.all([
+      backend.fetchChunk(tile.name, 0, 0),
+      backend.fetchChunk(tile.name, 0, 1),
+      backend.fetchChunk(tile.name, 1, 0),
+    ]);
+    // All three requests are now parked on the same in-flight download.
+    release();
+    const [a, b, c] = await pending;
+
+    expect(requestedUrls).toEqual([tile.mergedUrl]);
+    expect(Array.from(new Uint8Array(a))).toEqual(Array.from(new Uint8Array(first)));
+    expect(Array.from(new Uint8Array(b))).toEqual(Array.from(new Uint8Array(second)));
+    expect(Array.from(new Uint8Array(c))).toEqual(Array.from(new Uint8Array(third)));
+  });
+
+  it("does not leave the in-flight slot occupied after a failed download", async () => {
+    // A failed merged download must not poison the single-flight slot — the
+    // next request must retry the download rather than await a settled promise.
+    const tile = nextTile();
+    const chunkBytes = payload([4, 4]);
+    routes = [
+      { match: `${tile.base}.merged`, status: 404 },
+      { match: `${tile.base}_00_00.deflate`, status: 200, body: chunkBytes },
+    ];
+    const backend = makeBackend(true);
+
+    await backend.fetchChunk(tile.name, 0, 0);
+
+    const merged = buildMergedFile(1, 1, new Map([[0, payload([5])]]));
+    fetchMock.mockImplementation((input: string) => {
+      requestedUrls.push(input);
+      return Promise.resolve(input.includes(`${tile.base}.merged`)
+        ? new Response(merged, { status: 200 })
+        : new Response("not found", { status: 404 }));
+    });
+
+    const chunk = await backend.fetchChunk(tile.name, 0, 0);
+
+    expect(requestedUrls.filter((url) => url === tile.mergedUrl)).toHaveLength(2);
+    expect(Array.from(new Uint8Array(chunk))).toEqual(Array.from(new Uint8Array(payload([5]))));
+  });
+
   it("expires the in-memory merged cache after 30 minutes", async () => {
     const tile = nextTile();
     vi.useFakeTimers({ now: Date.now() });

@@ -228,6 +228,41 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     expect(result.data[nodataColumns]).toBe(4321); // first column served by N40W115
   });
 
+  it("requests the straddling cells concurrently during assembly", async () => {
+    // Cold multi-cell tiles must not serialise their per-cell downloads: the
+    // first cell's first chunk only resolves once the second cell's first
+    // chunk is ALSO requested (with a watchdog so a sequential assembler
+    // fails the value assertions instead of hanging the test).
+    stubFetch(() => null);
+    const calls: string[] = [];
+    let releaseFirst!: () => void;
+    const secondCellArrived = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const storage: ChunkBackend = {
+      fetchChunk: (srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
+        calls.push(srtmName);
+        if (calls.length === 1) {
+          return Promise.race([
+            secondCellArrived.then(() => buildChunk(() => 4321, row, col)),
+            new Promise<ArrayBuffer>((_, reject) =>
+              setTimeout(() => { reject(new Error("second cell never requested — assembly is sequential")); }, 200),
+            ),
+          ]);
+        }
+        releaseFirst();
+        return Promise.resolve(buildChunk(() => 4321, row, col));
+      },
+    };
+
+    const result = await getTileData(STRADDLE_TILE.z, STRADDLE_TILE.x, STRADDLE_TILE.y, storage);
+
+    expect(calls.some((name) => name === "N40W115.tif")).toBe(true);
+    expect(calls.some((name) => name === "N40W116.tif")).toBe(true);
+    // Both cells contributed: a sequential assembler loses the gated cell to
+    // the watchdog and leaves its ~2/3 of the tile as NODATA.
+    const nodata = Array.from(result.data).filter((v) => v === NODATA).length;
+    expect(nodata).toBeLessThan(TILE_SIZE * TILE_SIZE * 0.4);
+  });
+
   it("falls back to AWS when HuggingFace produces no valid pixels", async () => {
     stubFetch(() =>
       awsResponse(
@@ -330,8 +365,10 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0]);
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
     // AWS fallback was attempted because a blacklisted tile overlaps
+    const abortSignal = expect.any(AbortSignal) as AbortSignal;
     expect(fetchMock).toHaveBeenCalledWith(
       `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${BLACKLIST_TILE.z}/${BLACKLIST_TILE.x}/${BLACKLIST_TILE.y}.png`,
+      { signal: abortSignal },
     );
     // Corrupt-source cells stay NODATA; valid neighbors still assemble
     const values = Array.from(result.data);

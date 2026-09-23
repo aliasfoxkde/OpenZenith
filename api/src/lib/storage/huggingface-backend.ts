@@ -21,6 +21,12 @@ export interface ChunkBackend {
 const mergedFileCache = new Map<string, { data: Uint8Array; index: MergedIndex; timestamp: number }>();
 const MERGED_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (SRTM data is static)
 
+// In-flight merged downloads, keyed by SRTM tile name. Tile assembly fetches
+// chunks concurrently, and a multi-cell tile can need many chunks from the
+// same cell — without this, each chunk request would start its own ~9.4MB
+// merged download for the same file.
+const inflightMerged = new Map<string, Promise<{ data: Uint8Array; index: MergedIndex } | null>>();
+
 // --- Implementation ---
 
 abstract class BaseChunkBackend implements ChunkBackend {
@@ -49,6 +55,21 @@ abstract class BaseChunkBackend implements ChunkBackend {
       return { data: memCached.data, index: memCached.index };
     }
 
+    // Single-flight: join an already-running download of this cell.
+    const pending = inflightMerged.get(srtmName);
+    if (pending) return pending;
+
+    const download = this.downloadMergedFile(srtmName, cacheKey).finally(() => {
+      inflightMerged.delete(srtmName);
+    });
+    inflightMerged.set(srtmName, download);
+    return download;
+  }
+
+  private async downloadMergedFile(
+    srtmName: string,
+    cacheKey: string,
+  ): Promise<{ data: Uint8Array; index: MergedIndex } | null> {
     const latDir = getLatDir(srtmName);
     const base = getTileBase(srtmName);
     const url = this.buildUrl(`${latDir}/${base}.merged`);

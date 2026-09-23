@@ -779,3 +779,22 @@ numbers, breaking `pattern:file:line:content-hash` fingerprints.
 - ai-generated-marker (3) — comment-wording misfire, baselined class.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-23 — task #126 (tile-assembly resilience)
+
+21 new findings after parallelizing tile assembly (tile.ts), adding the
+single-flight merged download (huggingface-backend.ts), and two new tests.
+All are line-shifts of baselined classes in the same files, plus one new
+console.debug that matches the module's existing diagnostic-log class:
+
+- console-log / -debug / -production (12) — tile.ts AWS-fallback debug logs
+  (shifted) + the new `slow assembly` probe log (intentional diagnostic for
+  the edge 503 investigation, same dev-verbose class as its neighbours).
+- ssrf (3) — fetch() on constructed AWS/HF template URLs; baselined false
+  positive (one hit is a test variable literally named `url`).
+- expensive-computation-loop (2), sync-in-async (1), nested-callbacks (1),
+  missing-limit (1) — pixel sampling loops, deliberate unzlibSync decode
+  (comment in code), PNG unfilter loops; all baselined.
+- double-type-assertion (1) — pre-existing test cast, line-shifted into range.
+
+No new vulnerability classes. Baseline updated deliberately.

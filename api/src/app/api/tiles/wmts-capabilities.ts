@@ -20,6 +20,12 @@ const MAX_MATRIX_LEVEL = 12; // matches the terrain provider's MAX_TERRAIN_ZOOM
 // Scale denominator per the OGC GoogleMapsCompatible Well-Known Scale Set
 // for 256px tiles; each level halves it.
 const WEB_MERCATOR_L0_SCALE = 559082264.0287178;
+// WorldCRS84Quad (17-083r2) tiles the same 360deg with a 2x1 root matrix, so
+// its level-0 pixel spans 0.703125deg — half the Mercator pixel's 1.40625deg
+// — and the scale denominator halves with it. Clients derive resolution from
+// this number; using the Mercator value here makes GDAL read the set at half
+// resolution and with a doubled (out-of-crs) extent.
+const WORLD_CRS84_QUAD_L0_SCALE = WEB_MERCATOR_L0_SCALE / 2;
 
 interface TileMatrixSetDef {
   id: string;
@@ -55,7 +61,7 @@ const TILE_MATRIX_SETS: TileMatrixSetDef[] = [
     supportedCrs: "urn:ogc:def:crs:OGC:1.3:CRS84",
     wellKnownScaleSet: "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad",
     topLeftCorner: "-180 90",
-    level0ScaleDenominator: WEB_MERCATOR_L0_SCALE,
+    level0ScaleDenominator: WORLD_CRS84_QUAD_L0_SCALE,
     level0MatrixWidth: 2,
     level0MatrixHeight: 1,
     resourcePath: "/api/tiles/WorldCRS84Quad/{TileMatrix}/{TileRow}/{TileCol}",
@@ -64,6 +70,12 @@ const TILE_MATRIX_SETS: TileMatrixSetDef[] = [
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function layerIdentifier(tms: TileMatrixSetDef): string {
+  // The Mercator layer keeps the identifier consumers already know; each
+  // other set appends its name so Layer identifiers stay unique per WMTS.
+  return tms.id === "WebMercatorQuad" ? "elevation-terrarium" : `elevation-terrarium-${tms.id}`;
 }
 
 function tileMatrixSetXml(tms: TileMatrixSetDef): string {
@@ -106,29 +118,28 @@ function tileMatrixSetXml(tms: TileMatrixSetDef): string {
 export function wmtsCapabilitiesResponse(request: Request): Response {
   const baseUrl = new URL(request.url).origin;
 
-  // One layer offered over both matrix sets: WMTS allows repeated
-  // TileMatrixSetLinks each paired with a ResourceURL in that set's own
-  // coordinate order, and clients pick the entry matching their tileMatrixSetID.
-  const layers = [
-    "    <Layer>",
-    "      <ows:Title>OpenZenith Global Elevation (Terrarium PNG)</ows:Title>",
-    "      <ows:Abstract>SRTM 30m / GEBCO 2025 elevation encoded as Terrarium PNG tiles.</ows:Abstract>",
-    "      <ows:Identifier>elevation-terrarium</ows:Identifier>",
-    '      <Style isDefault="true">',
-    "        <ows:Identifier>default</ows:Identifier>",
-    "      </Style>",
-    "      <Format>image/png</Format>",
-    ...TILE_MATRIX_SETS.flatMap((tms) => [
+  // One Layer per TileMatrixSet (the NASA GIBS / MapServer convention).
+  // A ResourceURL element carries no tileMatrixSet attribute, so a single
+  // layer offering both sets leaves clients to guess which template belongs
+  // to which set — GDAL resolves that guess wrong (it applied the Mercator
+  // template to the CRS84 matrices), so the pairing must be structural.
+  const layers = TILE_MATRIX_SETS.map((tms) =>
+    [
+      "    <Layer>",
+      `      <ows:Title>OpenZenith Global Elevation (Terrarium PNG, ${tms.id})</ows:Title>`,
+      "      <ows:Abstract>SRTM 30m / GEBCO 2025 elevation encoded as Terrarium PNG tiles.</ows:Abstract>",
+      `      <ows:Identifier>${layerIdentifier(tms)}</ows:Identifier>`,
+      '      <Style isDefault="true">',
+      "        <ows:Identifier>default</ows:Identifier>",
+      "      </Style>",
+      "      <Format>image/png</Format>",
       "      <TileMatrixSetLink>",
       `        <TileMatrixSet>${tms.id}</TileMatrixSet>`,
       "      </TileMatrixSetLink>",
-    ]),
-    ...TILE_MATRIX_SETS.map(
-      (tms) =>
-        `      <ResourceURL format="image/png" resourceType="tile" template="${esc(`${baseUrl}${tms.resourcePath}`)}" />`,
-    ),
-    "    </Layer>",
-  ].join("\n");
+      `      <ResourceURL format="image/png" resourceType="tile" template="${esc(`${baseUrl}${tms.resourcePath}`)}" />`,
+      "    </Layer>",
+    ].join("\n"),
+  ).join("\n");
 
   const capabilitiesUrl = `${esc(baseUrl)}/api/tiles/WMTSCapabilities.xml`;
   const xml = [

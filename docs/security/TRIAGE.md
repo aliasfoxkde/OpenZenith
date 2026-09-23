@@ -675,3 +675,36 @@ No real secrets, no new attack surface: the new assembler talks to the
 same two already-triaged upstreams (AWS Terrain Tiles, HuggingFace
 chunks) with fixed URL templates. Re-baselined via
 `scripts/aegis_scan.sh update`.
+
+## Re-triage 2026-09-23 — task #123 (GDAL conformance + scale-denominator fix)
+
+The independent GDAL client pass caught two real conformance defects
+(WorldCRS84Quad level-0 scale denominator 2x too large; one-layer/
+two-set ResourceURL ambiguity). Fixing them re-flagged the gate:
+
+Gate reported 19 new findings; 1 fixed at source, 18 verified classes:
+
+- **Fixed at source (1):** `loose-equality` on a test comment quoting
+  the constant relation (`/ 2 == Mercator level 1`) — reworded to "is
+  exactly" instead of triaging a lint-pattern hit.
+- **PII-pattern false positives on OGC spec constants (15):**
+  `bank-routing-number` / `australian-tfn` / `ssn-no-dashes` on the
+  per-set scale-denominator assertions in tiles-matrix.test.ts and
+  wmts-capabilities.test.ts (559082264.0287178, 279541132.0143589,
+  136494.69336638617, 68247.34668319309). Same class as the #122
+  triage: 9-digit runs inside OGC 17-083r2 well-known scale set values
+  and their per-level halves — map mathematics, not PII. The new CRS84
+  denominator (279541132.0143589) is the spec-derived half of the
+  previously-triaged Mercator value.
+- **Line-shifted re-flags (3):** `cors-misconfiguration` on the
+  tiles-matrix CORS preflight assertion (deliberate
+  `Access-Control-Allow-Origin: *` API contract, triaged in earlier
+  waves) and `no-cache-headers` on the two unchanged cache-bearing
+  Response constructors in route.ts / wmts-capabilities.ts, whose line
+  fingerprints moved with the inserted constants and the per-layer
+  restructure. No content changes.
+
+No new secrets, no new attack surface: the restructure only splits one
+capabilities Layer into two and halves an advertised constant; the
+served endpoints and upstreams are unchanged. Re-baselined via
+`scripts/aegis_scan.sh update`.

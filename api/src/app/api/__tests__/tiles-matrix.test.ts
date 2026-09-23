@@ -15,6 +15,7 @@ describe("Tile Matrix Set API", () => {
     expect(data.tileMatrices).toHaveLength(15); // z0-z14
     expect(data.tileMatrices[0].id).toBe("0");
     expect(data.tileMatrices[14].id).toBe("14");
+    expect(data.tileMatrices[0].scaleDenominator).toBeCloseTo(559082264.0287178, 4);
     expect(data.links).toBeTruthy();
   });
 
@@ -37,6 +38,10 @@ describe("Tile Matrix Set API", () => {
     expect(data.tileMatrices[0].matrixHeight).toBe(1);
     expect(data.tileMatrices[14].matrixWidth).toBe(2 ** 15);
     expect(data.tileMatrices[14].matrixHeight).toBe(2 ** 14);
+    // Level-0 pixel spans 0.703125deg (half the Mercator pixel's degrees),
+    // so the denominator is half GoogleMapsCompatible's — GDAL derives
+    // resolution from this number and mis-reads the set if it is doubled.
+    expect(data.tileMatrices[0].scaleDenominator).toBeCloseTo(279541132.0143589, 4);
   });
 
   it("returns 400 for unknown tile matrix set", async () => {

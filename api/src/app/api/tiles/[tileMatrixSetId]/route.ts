@@ -20,6 +20,9 @@ export function OPTIONS() {
  */
 
 const WEB_MERCATOR_L0_SCALE = 559082264.0287178;
+// WorldCRS84Quad tiles the same 360deg with a 2x1 root matrix, so its
+// level-0 pixel spans half the Mercator degrees and the denominator halves.
+const WORLD_CRS84_QUAD_L0_SCALE = WEB_MERCATOR_L0_SCALE / 2;
 
 interface AdvertisedSet {
   title: string;
@@ -47,7 +50,7 @@ const ADVERTISED_SETS: Record<string, AdvertisedSet> = {
     crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
     wellKnownScaleSet: "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad",
     pointOfOrigin: { x: -180, y: 90 },
-    l0ScaleDenominator: WEB_MERCATOR_L0_SCALE,
+    l0ScaleDenominator: WORLD_CRS84_QUAD_L0_SCALE,
     matrixSize: crs84MatrixSize,
   },
 };

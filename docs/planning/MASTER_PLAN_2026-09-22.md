@@ -1316,3 +1316,56 @@ conformantly". Gates: tsc clean, eslint 0 errors, vitest 100 files /
 (64 findings: line-shift re-flags, OGC spec constants tripping PII
 patterns — one source comment reworded rather than triaged — and keyword
 noise; TRIAGE.md #122).
+### 2026-09-23 — Task #123: independent GDAL conformance proof + two WMTS defects fixed
+
+The #122 tile set was verified only by our own tests and hand curl. This
+task pointed a genuinely independent OGC client (GDAL 3.12.1 via system
+rasterio, WMTS driver) at the production capabilities document. It
+parsed both matrix sets — and caught two real defects our own tests
+could not, because our emitter and our tests shared the same wrong
+assumptions:
+
+1. **WorldCRS84Quad level-0 scale denominator was 2x too large.** Both
+   emitters used the GoogleMapsCompatible value (559082264.0287178) for
+   the geographic set. Per 17-083r2 its 2x1 root matrix gives each
+   level-0 pixel 0.703125deg — half the Mercator pixel's degrees — so
+   the denominator is exactly half (279541132.0143589). GDAL derives
+   resolution from that number: with the Mercator value it computed a
+   720x360 degree extent and read the set at half resolution. The
+   earlier per-set test even "covered" this — a whole-document
+   toContain of 279541132.0143589 passed on the Mercator set's z1
+   matrix alone. Now asserted per-set via the tmsBlock helper.
+2. **One-layer-two-sets is structurally ambiguous.** A WMTS ResourceURL
+   element carries no tileMatrixSet attribute, so a single Layer with
+   both TileMatrixSetLinks let GDAL pair the Mercator template
+   (/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}) with the CRS84
+   matrices — it requested /api/dem-tile/12/4096/y (out of range) and
+   rendered NODATA. Capabilities now emit one Layer per set (the NASA
+   GIBS / MapServer convention): `elevation-terrarium`
+   (WebMercatorQuad, id unchanged) and `elevation-terrarium-WorldCRS84Quad`
+   (WorldCRS84Quad), each with exactly one TileMatrixSetLink and one
+   ResourceURL.
+
+**Independent-client verification (production, post-deploy):** GDAL
+reports the CRS84 raster at exactly -180/-90/180/90 with z12
+resolution 0.000171661 deg/px; Everest window 100% valid, 7706m-8748m;
+z12 open ocean 0m (SRTM convention — bathymetry enters at z<=10 via
+the AWS terrarium source, confirmed by an overview read of the Mariana
+region: -6228m); WebMercatorQuad layer unchanged (max 8744m). Full
+probe PASS across z12, ocean, overview, and Mercator paths.
+
+**Docs surfacing:** README REST API section gained an "OGC tile
+services" block; project CLAUDE.md gained an "OGC WMTS Tile Service"
+pattern section documenting the per-layer structure and the
+scale-denominator trap. The /demo page was considered and skipped: it
+is a MapLibre raster-dem demo and MapLibre dem sources are
+Mercator-only, so the CRS84 set has no consumer there.
+
+**Gates:** tsc clean; eslint 0 errors / 5381 warnings (+1 net: the new
+scaleDenominator member accesses join the file's pre-existing
+resp.json() no-unsafe class); vitest 100 files, 1,324 passed + 5
+skipped, coverage floors held; aegis re-baselined 1652 -> 1661
+(TRIAGE.md #123: 1 fixed at source — a test comment quoting "/ 2 =="
+reworded; 15 PII false positives on OGC spec constants; 3 line-shift
+re-flags). Deployed to production twice (scale fix 6f1bcfdd, per-layer
+restructure b77667b1); local smoke all-200 before each deploy.

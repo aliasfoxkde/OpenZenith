@@ -151,6 +151,22 @@ POST /trace  {"lat": 36.0, "lon": -118.0}
 GET /tile/{z}/{x}/{y}  (terrain tiles)
 ```
 
+### OGC tile services (WMTS)
+
+Terrarium PNG elevation tiles are also served as an OGC WMTS 1.0.0 service,
+validated with GDAL as an independent client:
+
+```
+GET /tiles/WMTSCapabilities.xml              (capabilities document)
+GET /tiles/{tileMatrixSetId}                 (OGC API - Tiles metadata)
+GET /dem-tile/{z}/{x}/{y}                    (WebMercatorQuad tiles)
+GET /tiles/WorldCRS84Quad/{z}/{row}/{col}    (true EPSG:4326 tiles)
+```
+
+Two tile matrix sets are advertised on separate layers:
+`WebMercatorQuad` (EPSG:3857) and `WorldCRS84Quad` (OGC 17-083r2, true
+lat/lon assembly — one layer per set, GDAL/QGIS-compatible).
+
 Full API docs: https://openzenith.cyopsys.com/api/openapi.json
 
 ---

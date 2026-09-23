@@ -168,6 +168,13 @@ API routes are in `api/src/app/api/` — each directory is a route segment. Rout
 ### Tile Caching
 Terrain tiles are cached in R2 with a `Cache-Control` strategy. See `api/src/lib/cache.ts` for caching utilities and `api/src/lib/tile.ts` for tile generation.
 
+### OGC WMTS Tile Service
+`/api/tiles/WMTSCapabilities.xml` serves a WMTS 1.0.0 capabilities document advertising the Terrarium PNG elevation layer over two tile matrix sets, one `<Layer>` per set:
+- **WebMercatorQuad** (EPSG:3857) — layer id `elevation-terrarium`, tiles at `/api/dem-tile/{z}/{x}/{y}`
+- **WorldCRS84Quad** (OGC 17-083r2, true EPSG:4326) — layer id `elevation-terrarium-WorldCRS84Quad`, tiles at `/api/tiles/WorldCRS84Quad/{z}/{row}/{col}`, assembled by `api/src/lib/tile-crs84.ts` (z≤10: AWS Terrain resampled per pixel center; z>10: HuggingFace SRTM chunk assembly — so ocean is 0m at z>10, GEBCO bathymetry only via the z≤10 AWS source)
+
+One layer per set is structural, not cosmetic: a WMTS `ResourceURL` carries no tileMatrixSet attribute, so a single layer offering both sets leaves clients to guess which template pairs with which set — GDAL guesses wrong. Also note the scale denominators: WorldCRS84Quad's level-0 denominator (279541132.0143589) is **half** the GoogleMapsCompatible one (559082264.0287178) because its 2×1 root matrix gives each pixel half the degrees; using the Mercator value makes clients derive a doubled extent. The surface is verified end-to-end with GDAL/rasterio as an independent client (`WMTS:<capabilities-url>,layer=...,tilematrixset=...`).
+
 ### Python SDK Elevation Queries
 The SDK calls the REST API (`/api/elevation`) for point queries. For batch operations, it uses `/api/elevation/batch`. Tile data can be requested as OZT1/OZT2 (custom binary) or Terrarium PNG.
 

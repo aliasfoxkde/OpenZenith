@@ -51,23 +51,42 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
   it("advertises the Terrarium elevation layer over both served tile matrix sets", async () => {
     const { xml } = await getDoc("https://tiles.example.com");
     expect(xml).toContain("<ows:Identifier>elevation-terrarium</ows:Identifier>");
+    expect(xml).toContain("<ows:Identifier>elevation-terrarium-WorldCRS84Quad</ows:Identifier>");
     expect(xml).toContain("<Format>image/png</Format>");
     expect(xml).toContain("<TileMatrixSet>WebMercatorQuad</TileMatrixSet>");
     // #122: WorldCRS84Quad is served conformantly again — true EPSG:4326
     // assembly in lib/tile-crs84.ts, no relabelled 3857 bytes.
     expect(xml).toContain("<TileMatrixSet>WorldCRS84Quad</TileMatrixSet>");
+    // One Layer per set: a ResourceURL carries no tileMatrixSet attribute,
+    // so merging both sets into one layer leaves clients guessing which
+    // template belongs to which set (GDAL guesses wrong).
+    expect((xml.match(/<Layer>/g) ?? []).length).toBe(2);
   });
 
-  it("builds per-set GetTile ResourceURL templates from the request origin", async () => {
+  it("pairs each Layer with exactly its own set link and ResourceURL template", async () => {
     const { xml } = await getDoc("https://tiles.example.com");
-    // One template per advertised set on the single shared layer
-    expect(xml.match(/<ResourceURL /g) ?? []).toHaveLength(2);
-    expect(xml).toContain(
+    // Layer identifiers are unique and each Layer block contains exactly one
+    // TileMatrixSetLink and one ResourceURL, so no client-side pairing guess
+    // is possible.
+    const layerBlocks = xml.split("<Layer>").slice(1).map((chunk) => chunk.split("</Layer>")[0]);
+    expect(layerBlocks).toHaveLength(2);
+    const merc = layerBlocks.find((b) => b.includes("<ows:Identifier>elevation-terrarium</ows:Identifier>"));
+    const crs84 = layerBlocks.find((b) =>
+      b.includes("<ows:Identifier>elevation-terrarium-WorldCRS84Quad</ows:Identifier>"),
+    );
+    if (!merc || !crs84) throw new Error("expected one Layer block per advertised set");
+    expect((merc.match(/<TileMatrixSetLink>/g) ?? []).length).toBe(1);
+    expect((merc.match(/<ResourceURL /g) ?? []).length).toBe(1);
+    expect((crs84.match(/<TileMatrixSetLink>/g) ?? []).length).toBe(1);
+    expect((crs84.match(/<ResourceURL /g) ?? []).length).toBe(1);
+    expect(merc).toContain("<TileMatrixSet>WebMercatorQuad</TileMatrixSet>");
+    expect(merc).toContain(
       'template="https://tiles.example.com/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}"',
     );
     // CRS84 serves through its own OGC API - Tiles path, in WMTS coordinate
     // order {TileMatrix}/{TileRow}/{TileCol}
-    expect(xml).toContain(
+    expect(crs84).toContain("<TileMatrixSet>WorldCRS84Quad</TileMatrixSet>");
+    expect(crs84).toContain(
       'template="https://tiles.example.com/api/tiles/WorldCRS84Quad/{TileMatrix}/{TileRow}/{TileCol}"',
     );
   });
@@ -83,11 +102,17 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
     const { xml } = await getDoc("https://tiles.example.com");
     // z0-z12 for each of the two advertised sets
     expect((xml.match(/<TileMatrix>/g) ?? []).length).toBe(26);
-    // Level 0 scale per the GoogleMapsCompatible well-known scale set
-    // (shared by WorldCRS84Quad per OGC 17-083r2), halving per level
-    expect(xml).toContain("<ScaleDenominator>559082264.0287178</ScaleDenominator>");
-    expect(xml).toContain("<ScaleDenominator>279541132.0143589</ScaleDenominator>");
-    expect(xml).toContain("<ScaleDenominator>136494.69336638617</ScaleDenominator>"); // z12
+    // Level 0 scale per each set's own well-known scale set, halving per
+    // level. WorldCRS84Quad's 2x1 root gives its level-0 pixel half the
+    // Mercator degrees, so its denominator is half — asserting per set,
+    // since a whole-document toContain would pass on the Mercator set's
+    // z1 matrix alone (559082264.0287178 / 2 is exactly Mercator level 1).
+    const merc = tmsBlock(xml, "WebMercatorQuad");
+    const crs84 = tmsBlock(xml, "WorldCRS84Quad");
+    expect(merc).toContain("<ScaleDenominator>559082264.0287178</ScaleDenominator>");
+    expect(crs84).toContain("<ScaleDenominator>279541132.0143589</ScaleDenominator>");
+    expect(merc).toContain("<ScaleDenominator>136494.69336638617</ScaleDenominator>"); // z12
+    expect(crs84).toContain("<ScaleDenominator>68247.34668319309</ScaleDenominator>"); // z12
     // Deepest matrix sizes: WebMercatorQuad 4096x4096, WorldCRS84Quad 8192x4096
     expect(xml).toContain("<MatrixWidth>4096</MatrixWidth>");
     expect(xml).toContain("<MatrixHeight>4096</MatrixHeight>");

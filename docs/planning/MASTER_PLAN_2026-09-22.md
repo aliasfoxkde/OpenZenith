@@ -1195,3 +1195,27 @@ all-module import probe reports **0 failures**; `openzenith info` and
 **Gates:** Python 1,479 passed / 14 deselected, coverage **98.82%**
 (14,451 stmts, 171 miss — floor 97 held); ruff clean; aegis gate passed
 with no new findings (baseline unchanged at 1,646). TS untouched.
+
+### 2026-09-23 — Task #119: production deploy of the accumulated fixes
+
+Production had been running v0.8.2 (deployed 2026-09-22); main carried the
+#114/#115 API waves and the #116 follow-up fixes — none of it live.
+
+Deployed via the standing pipeline:
+1. `pages:build` — fresh chunks (e.g. `1033.df23658cbc8f4f90.js`), worker
+   bundle references verified in the artifact.
+2. Local workerd smoke (`wrangler pages dev` with a FRESH `--persist-to`
+   dir): landing/map/globe 200; dem-tile TileJSON correct; health probe
+   `{"status":"ok",...,"http_status":200}` (the #116 redirect-class code
+   path live); elevation query answers via OZT2.
+3. `wrangler pages deploy` — complete (`337508e2.openzenith.pages.dev`).
+4. Production verify (browser UA; curl default UA is bot-shielded 403):
+   /, /map, /globe, dem-tile TileJSON + health, elevation API all 200; the
+   new chunk hash serves (fresh build confirmed live). One transient 500 on
+   /map immediately post-deploy that resolved on retry and was 200 on the
+   preview deployment — edge blip, not a build defect.
+5. Playwright suite against production: **40 passed / 1 skipped** (heavy
+   Cesium opt-in), including the WCAG 2.1 a11y specs.
+
+The dem-tile health redirect fix, weather-warnings cache contract, and
+docs-md GEBCO correction are now serving on openzenith.cyopsys.com.

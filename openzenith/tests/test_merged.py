@@ -1,7 +1,9 @@
 """Tests for OZCHNK01 .merged file reader (merged.py)."""
 
 import json
+import runpy
 import struct
+import sys
 import tempfile
 import zlib
 from pathlib import Path
@@ -9,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from openzenith import merged
 from openzenith.merged import (
     INDEX_ENTRY_SIZE,
     MAGIC,
@@ -301,3 +304,170 @@ class TestDiscoverSRTMTiles:
         corrupt.write_bytes(b"NOTAMAGIC" + b"\x00" * 100)
         result = discover_srtm_tiles(tmp_path)
         assert result == {}
+
+
+# ─── Low-level fixtures for paths the happy-path builder cannot reach ────────
+
+
+def chunk_payload(values: np.ndarray) -> bytes:
+    """Serialize a 256x256 Int16 chunk with the SRTM horizontal predictor."""
+    assert values.shape == (256, 256)
+    delta = np.zeros_like(values)
+    delta[:, 0] = values[:, 0]
+    delta[:, 1:] = np.diff(values, axis=1)
+    return delta.astype(np.int16).tobytes()
+
+
+def build_merged_bytes(
+    rows: int,
+    cols: int,
+    payloads: list[bytes],
+    *,
+    version: int = 1,
+    empty_chunks: set[int] | None = None,
+) -> bytes:
+    """Assemble a raw OZCHNK01 file, with optional zero-size (ocean) chunks."""
+    empty_chunks = empty_chunks or set()
+    assert len(payloads) == rows * cols
+
+    buf = bytearray(MAGIC)
+    buf += struct.pack("<H", version)
+    buf += bytes([rows, cols])
+    index_start = len(buf)
+    buf += b"\x00" * (rows * cols * INDEX_ENTRY_SIZE)
+
+    entries = []
+    for i, payload in enumerate(payloads):
+        if i in empty_chunks:
+            entries.append((0, 0))
+            continue
+        compressed = zlib.compress(payload, 1)
+        entries.append((len(buf), len(compressed)))
+        buf += compressed
+
+    for i, (offset, size) in enumerate(entries):
+        struct.pack_into("<I", buf, index_start + i * INDEX_ENTRY_SIZE, offset)
+        struct.pack_into("<I", buf, index_start + i * INDEX_ENTRY_SIZE + 4, size)
+
+    return bytes(buf)
+
+
+def write_tile(directory: Path, name: str, data: bytes) -> Path:
+    """Write a .merged payload into its ``N00/``-style subdirectory."""
+    lat_dir = name[:3]
+    tile_dir = directory / lat_dir
+    tile_dir.mkdir(parents=True, exist_ok=True)
+    path = tile_dir / f"{name}.merged"
+    path.write_bytes(data)
+    return path
+
+
+class TestChunkCache:
+    """The process-level chunk cache."""
+
+    def test_second_read_is_served_from_cache(self, tmp_path: Path):
+        path = write_merged([make_chunk(4242)])
+        mf = MergedFile(path)
+        first = mf.get_chunk(0, 0)
+        second = mf.get_chunk(0, 0)
+        assert second is first  # Same object, not a re-decompression
+        assert second[10, 10] == 4242
+
+
+class TestVersion2Float32:
+    """Version 2 (Copernicus Float32) chunks carry no predictor."""
+
+    def test_float32_chunk_decodes_verbatim(self, tmp_path: Path):
+        grid = np.arange(65536, dtype=np.float32).reshape(256, 256)
+        payload = grid.tobytes()
+        path = tmp_path / "V2.merged"
+        path.write_bytes(build_merged_bytes(1, 1, [payload], version=2))
+
+        mf = MergedFile(path)
+        assert mf.version == 2
+        chunk = mf.get_chunk(0, 0)
+        assert chunk.dtype == np.float32
+        assert chunk.shape == (256, 256)
+        # Raw values, no horizontal differencing to undo
+        assert float(chunk[0, 0]) == 0.0
+        assert float(chunk[0, 5]) == 5.0
+        assert float(chunk[255, 255]) == 65535.0
+
+
+class TestReadElevationNoDataPaths:
+    """read_elevation_from_merged returning None for missing data."""
+
+    @staticmethod
+    def _write_grid(tmp_path: Path, value: int, *, empty_chunks: set[int] | None = None) -> Path:
+        payloads = [chunk_payload(np.full((256, 256), value, dtype=np.int16)) for _ in range(225)]
+        data = build_merged_bytes(15, 15, payloads, empty_chunks=empty_chunks)
+        return write_tile(tmp_path, "N00E000", data)
+
+    def test_zero_size_chunk_is_ocean(self, tmp_path: Path):
+        """A chunk with a zero-size index entry is nodata for any point in it."""
+        self._write_grid(tmp_path, 1000, empty_chunks={7 * 15 + 7})
+        # (0.5, 0.5) falls in chunk (7, 7)
+        assert read_elevation_from_merged(0.5, 0.5, tmp_path) is None
+
+    def test_nodata_sentinel_pixel_returns_none(self, tmp_path: Path):
+        self._write_grid(tmp_path, -32768)
+        assert read_elevation_from_merged(0.5, 0.5, tmp_path) is None
+
+    def test_valid_pixel_returns_elevation(self, tmp_path: Path):
+        self._write_grid(tmp_path, 1234)
+        assert read_elevation_from_merged(0.5, 0.5, tmp_path) == 1234.0
+
+
+class TestDiscoverSRTMTilesCaching:
+    """Index cache reuse, sign handling and unwritable cache files."""
+
+    def test_index_is_cached_per_directory(self, tmp_path: Path):
+        write_tile(tmp_path, "N10E000", build_merged_bytes(1, 1, [chunk_payload(make_chunk(500))]))
+        first = discover_srtm_tiles(tmp_path)
+        second = discover_srtm_tiles(tmp_path)
+        assert first is second  # Served from the process-level cache
+        assert first == {(10, 0): {"has_data": True, "rows": 1, "cols": 1}}
+
+    def test_scans_southern_and_western_tiles(self, tmp_path: Path):
+        """S and W prefixes produce negative indices; N/E stay positive."""
+        payload = chunk_payload(make_chunk(500))
+        for name in ("N00E000", "S33E151", "N40W074", "S34W058"):
+            write_tile(tmp_path, name, build_merged_bytes(2, 3, [payload] * 6))
+
+        # Pre-seed an unwritable cache file: scanning must still succeed.
+        (tmp_path / "srtm_index.json").mkdir()
+
+        result = discover_srtm_tiles(tmp_path)
+        assert set(result) == {(0, 0), (-33, 151), (40, -74), (-34, -58)}
+        assert all(entry == {"has_data": True, "rows": 2, "cols": 3} for entry in result.values())
+        assert (tmp_path / "srtm_index.json").is_dir()  # Never overwritten
+
+    def test_unwritable_index_file_is_ignored(self, tmp_path: Path):
+        """A cache path that cannot be written must not break the scan."""
+        write_tile(tmp_path, "N10E000", build_merged_bytes(1, 1, [chunk_payload(make_chunk(500))]))
+        (tmp_path / "srtm_index.json").mkdir()  # exists() is True, read/write fail
+
+        result = discover_srtm_tiles(tmp_path)
+        assert result == {(10, 0): {"has_data": True, "rows": 1, "cols": 1}}
+        assert (tmp_path / "srtm_index.json").is_dir()
+
+
+class TestModuleSelfTest:
+    """The ``python -m openzenith.merged`` smoke-test entry point."""
+
+    def test_prints_grid_and_chunk_summary(self, tmp_path: Path, capsys, monkeypatch):
+        payload = chunk_payload(make_chunk(1234))
+        path = write_tile(tmp_path, "N01E001", build_merged_bytes(2, 2, [payload] * 4))
+        monkeypatch.setattr(sys, "argv", ["merged.py", str(path)])
+
+        runpy.run_path(str(merged.__file__), run_name="__main__")
+
+        out = capsys.readouterr().out
+        assert "Version: 1, Grid: 2x2" in out
+        assert "Chunk shape: (256, 256)" in out
+        assert "range: 1234 to 1234" in out
+
+    def test_without_argument_does_nothing(self, tmp_path: Path, capsys, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["merged.py"])
+        runpy.run_path(str(merged.__file__), run_name="__main__")
+        assert capsys.readouterr().out == ""

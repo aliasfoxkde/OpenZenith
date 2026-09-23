@@ -26,7 +26,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return wmtsCapabilitiesResponse(request);
   }
 
-  const validSets = ["WebMercatorQuad", "WorldCRS84Quad"];
+  // Only WebMercatorQuad is advertised: the served tiles are EPSG:3857 and
+  // there is no EPSG:4326 resampling, so a WorldCRS84Quad advertisement
+  // would describe tiles we cannot serve conformantly (its official root
+  // matrix is 2x1, and the data would need reprojection).
+  const validSets = ["WebMercatorQuad"];
   if (!validSets.includes(tileMatrixSetId)) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: `Unknown tileMatrixSet: ${tileMatrixSetId}` },
@@ -37,38 +41,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const maxZoom = 14;
   const tileWidth = 256;
   const tileHeight = 256;
-  const wellKnownScaleSet =
-    tileMatrixSetId === "WebMercatorQuad"
-      ? "http://www.opengis.net/def/wkss/OGC/1.0/GoogleMapsCompatible"
-      : "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad";
+  const wellKnownScaleSet = "http://www.opengis.net/def/wkss/OGC/1.0/GoogleMapsCompatible";
 
   const tileMatrices = [];
   for (let z = 0; z <= maxZoom; z++) {
-    const matrixWidth = Math.pow(2, z);
-    const matrixHeight = Math.pow(2, z);
-    const scaleDenominator =
-      tileMatrixSetId === "WebMercatorQuad" ? 559082264.0287178 / Math.pow(2, z) : 279541132.0143589 / Math.pow(2, z);
     tileMatrices.push({
       id: String(z),
       title: `Zoom level ${z}`,
-      scaleDenominator,
-      pointOfOrigin:
-        tileMatrixSetId === "WebMercatorQuad" ? { x: -20037508.3427892, y: 20037508.3427892 } : { x: -180, y: 90 },
+      scaleDenominator: 559082264.0287178 / Math.pow(2, z),
+      pointOfOrigin: { x: -20037508.3427892, y: 20037508.3427892 },
       tileWidth,
       tileHeight,
-      matrixWidth,
-      matrixHeight,
+      matrixWidth: Math.pow(2, z),
+      matrixHeight: Math.pow(2, z),
     });
   }
 
   return NextResponse.json(
     {
       id: tileMatrixSetId,
-      title: tileMatrixSetId === "WebMercatorQuad" ? "Google Web Mercator" : "WGS 84",
-      crs:
-        tileMatrixSetId === "WebMercatorQuad"
-          ? "http://www.opengis.net/def/crs/EPSG/0/3857"
-          : "http://www.opengis.net/def/crs/EPSG/0/4326",
+      title: "Google Web Mercator",
+      crs: "http://www.opengis.net/def/crs/EPSG/0/3857",
       wellKnownScaleSet,
       tileMatrices,
       links: [

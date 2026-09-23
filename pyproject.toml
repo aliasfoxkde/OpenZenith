@@ -89,7 +89,7 @@ allowed-confusables = ["×", "−"]
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=93"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=96"
 markers = [
     "integration: marks tests that require network access",
 ]
@@ -169,4 +169,16 @@ markers = [
 # (ndimage.label never yields a zero-cell label), 211/218 (guard branches
 # unreachable given the valid-mask pre-filter); cli 1596 is the
 # `if __name__` main() call.
+#
+# Raised to 96 (2026-09-23, task #114 wave 3) after the SDK hydrology fix
+# pass lifted the eight weakest modules and their tests — viewshed 78→100%
+# (nodata observer parity across backends, max_distance/rel_target clipping),
+# geo_utils 88→100%, merged 88→100%, geotiff 87→100% (dtype-override clip,
+# signed Pillow fallback), tile_format_v2 84→99% (fallback compressor now
+# recorded in the flags byte; encode rejects non-square arrays), streams
+# 86→98%, watersheds 80→94%, tracing 82→98%, flowpaths 92→99% — plus
+# 17 production defects fixed (inverted-D8 upstream tracing family, cycle
+# hang in reach walks, flowpath broadcast crashes, OZT2 zlib/brotli flag
+# mismatch, GeoTIFF NaN/dtype wrap). Measured 98.56% (14,028 stmts,
+# 202 miss), 1,431 passed, 0 failed.
 # Raise --cov-fail-under only together with tests that cover the delta.

@@ -122,21 +122,21 @@ def export_geotiff(
     output_path = Path(output_path)
     rows, cols = data.shape
 
+    # Fill NaN before casting — casting NaN to an int type is undefined and
+    # raises RuntimeWarning; the nodata sentinel replaces it cleanly.
+    if np.issubdtype(data.dtype, np.floating):
+        data = np.where(np.isnan(data), int(nodata), data)
+
     # Determine output dtype
     if dtype is None:
-        if np.issubdtype(data.dtype, np.floating):
-            # Convert float to int16, clip to reasonable range
-            out_data = np.clip(np.round(data), -32768, 32767).astype(np.int16)
-            out_data = np.where(data == -32768, nodata, out_data)
-        else:
-            out_data = data.astype(np.int16)
+        # Convert float to int16, clip to reasonable range
+        out_data = np.clip(np.round(data), -32768, 32767).astype(np.int16)
+    elif np.issubdtype(dtype, np.integer):
+        # Clip to the requested dtype's range instead of letting values wrap
+        info = np.iinfo(dtype)
+        out_data = np.clip(np.round(data), info.min, info.max).astype(dtype)
     else:
         out_data = data.astype(dtype)
-
-    # Handle nodata in float arrays
-    if np.issubdtype(data.dtype, np.floating):
-        nan_mask = np.isnan(data)
-        out_data = np.where(nan_mask, int(nodata), out_data)
 
     # Resolve compression
     if compress is None:
@@ -157,10 +157,12 @@ def export_geotiff(
         import rasterio
         from rasterio.transform import from_origin
     except ImportError:
-        # Fallback: write plain TIFF without georeferencing
+        # Fallback: write plain TIFF without georeferencing. Pillow's "I;16"
+        # mode is UNSIGNED — negative elevations would wrap (e.g. -100 ->
+        # 65436) — so use signed 32-bit, which preserves the int16 range.
         from PIL import Image
 
-        img = Image.fromarray(out_data.astype(np.int16), mode="I;16")
+        img = Image.fromarray(out_data.astype(np.int32), mode="I")
         img.save(output_path)
         return output_path
 
@@ -241,10 +243,10 @@ def export_cog(
 
     rows, cols = data.shape
 
-    # Ensure int16
+    # Ensure int16 (NaN filled before the cast — casting NaN is undefined)
     if np.issubdtype(data.dtype, np.floating):
-        out_data = np.clip(np.round(data), -32768, 32767).astype(np.int16)
-        out_data = np.where(np.isnan(data), int(nodata), out_data)
+        filled = np.where(np.isnan(data), int(nodata), data)
+        out_data = np.clip(np.round(filled), -32768, 32767).astype(np.int16)
     else:
         out_data = data.astype(np.int16)
 

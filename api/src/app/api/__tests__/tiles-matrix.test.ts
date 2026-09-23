@@ -18,17 +18,16 @@ describe("Tile Matrix Set API", () => {
     expect(data.links).toBeTruthy();
   });
 
-  it("returns WorldCRS84Quad metadata", async () => {
+  it("rejects the deprecated WorldCRS84Quad set", async () => {
+    // No EPSG:4326 tile assembly exists; advertising CRS84 described tiles
+    // that could not be served conformantly.
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/route");
     const resp = await GET(mockRequest("/api/tiles/WorldCRS84Quad"), {
       params: Promise.resolve({ tileMatrixSetId: "WorldCRS84Quad" }),
     });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(400);
     const data = await resp.json();
-    expect(data.id).toBe("WorldCRS84Quad");
-    expect(data.title).toBe("WGS 84");
-    expect(data.crs).toContain("4326");
-    expect(data.tileMatrices).toHaveLength(15);
+    expect(data.code).toBe("InvalidParameterValue");
   });
 
   it("returns 400 for unknown tile matrix set", async () => {

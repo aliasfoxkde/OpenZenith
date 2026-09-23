@@ -1,6 +1,7 @@
 """Tests for downstream tracing module."""
 
 import contextlib
+import sys
 from unittest.mock import patch
 
 import numpy as np
@@ -725,3 +726,295 @@ class TestTraceDownstreamIntegration:
         with contextlib.suppress(Exception):
             result = trace_downstream(30.0, -40.0, max_steps=100)
             assert isinstance(result, (dict, type(None)))
+
+
+# ---------------------------------------------------------------------------
+# Missing elevation backend
+# ---------------------------------------------------------------------------
+
+
+class TestTracingWithoutElevationModule:
+    """Both entry points degrade gracefully when the elevation backend is absent."""
+
+    def test_trace_downstream_reports_missing_backend(self, capsys):
+        """An import failure is reported and yields None instead of raising."""
+        with patch.dict(sys.modules, {"openzenith.elevation": None}):
+            result = trace_downstream(40.0, -105.0, max_steps=5)
+
+        assert result is None
+        assert "Tracing requires elevation" in capsys.readouterr().out
+
+    def test_load_grid_at_without_backend_returns_none(self):
+        """_load_grid_at returns None when load_elevation_grid is unavailable."""
+        with patch.dict(sys.modules, {"openzenith.elevation": None}):
+            result = _load_grid_at(40.0, -105.0, 10)
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Grid reload paths
+# ---------------------------------------------------------------------------
+
+
+def _east_slope_grid(center_row, center_col, center_lat, center_lon, zoom=10, size=201):
+    """Grid whose centre row descends east, reported as centred on the point.
+
+    The centre row falls 10 m per cell eastward; every other cell is a high rim,
+    so the steepest-descent choice from any centre-row cell is always due east.
+    ``lat_min``/``lon_min`` pin the raster origin at the start point, matching
+    the ``_make_grid`` convention above.
+    """
+    cell = 1.0 / (2**zoom)
+    grid = np.full((size, size), 10000.0, dtype=np.float32)
+    for c in range(size):
+        grid[center_row, c] = 500.0 - (c - center_col) * 10.0
+    return {
+        "grid": grid,
+        "center_row": center_row,
+        "center_col": center_col,
+        "lat_min": 40.0,
+        "lon_min": -105.0,
+        "cell_size_deg": cell,
+        "center_lat": center_lat,
+        "center_lon": center_lon,
+    }
+
+
+class TestTraceDownstreamGridReload:
+    """Paths through the "centre drifted too far" reload branch."""
+
+    def test_failed_reload_stops_the_trace(self):
+        """A reload that comes back empty ends the trace at the last fix."""
+        anchored = _east_slope_grid(100, 100, 40.0, -105.0)
+        loads = []
+
+        def flaky_load(lat, lon, zoom, cache_dir=None, radius=100):
+            loads.append((lat, lon))
+            return anchored if len(loads) == 1 else None
+
+        with (
+            patch("openzenith.tracing._load_grid_at", side_effect=flaky_load),
+            patch("openzenith.elevation.get_elevation", return_value=450.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=50, step_size_m=1000.0)
+
+        assert result is not None
+        # Initial load, then one reload attempt once the fix drifts >20 cells.
+        assert len(loads) == 2
+        assert result["steps"] == 3
+        assert result["total_distance"] > 0
+        # Nothing was appended after the failed reload.
+        assert result["end"] == result["path"][-1]
+
+    def test_reload_refetches_elevation_for_the_new_position(self):
+        """After a reload the current position is re-queried, then cached."""
+        # First grid is anchored 0.5° away so the very first step reloads.
+        offset = _east_slope_grid(100, 100, 40.5, -104.5)
+        loads = []
+        elevations = []
+
+        def load(lat, lon, zoom, cache_dir=None, radius=100):
+            loads.append((lat, lon))
+            if len(loads) == 1:
+                return offset
+            return _east_slope_grid(100, 100, lat, lon, zoom=zoom)
+
+        def get_elev(lat, lon, **kwargs):
+            elevations.append((round(lat, 6), round(lon, 6)))
+            if len(elevations) == 2:
+                return None  # prefetch at line 105 misses → nothing cached
+            return 450.0
+
+        with (
+            patch("openzenith.tracing._load_grid_at", side_effect=load),
+            patch("openzenith.elevation.get_elevation", side_effect=get_elev),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=6, step_size_m=1000.0)
+
+        assert result is not None
+        # Initial load, then a reload on the first step (the anchor grid sits
+        # 0.5° away) and one more once the 1 km steps drift past 20 cells again.
+        assert len(loads) == 3
+        assert loads[0] == loads[1] == (40.0, -105.0)
+        assert loads[2][0] == 40.0
+        assert loads[2][1] > -105.0
+        # The reload re-read the elevation at the same (uncached) position.
+        assert elevations[1] == (40.0, -105.0)
+        assert elevations[2] == (40.0, -105.0)
+        assert result["steps"] == 6
+        assert result["elevations"][-1] == 450.0
+
+
+# ---------------------------------------------------------------------------
+# Termination paths
+# ---------------------------------------------------------------------------
+
+
+class TestTraceDownstreamTermination:
+    """Termination branches that need specific grid/mock elevation values."""
+
+    def test_nodata_center_cell_stops_before_stepping(self):
+        """A centre cell at NODATA terminates with a single-point path."""
+        elevs = np.full((5, 5), 100.0)
+        grid = _make_grid(2, 2, elevs)
+        grid["grid"][2, 2] = -32768.0
+
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=120.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=10)
+
+        assert result is not None
+        assert result["steps"] == 0
+        assert len(result["path"]) == 1
+        assert result["start_elev"] == 120.0
+        assert result["end"] == result["start"]
+
+    def test_nodata_reading_is_recorded_then_stops(self):
+        """A step whose queried elevation is < -30000 m appends and stops."""
+        elevs = np.full((5, 5), 150.0)
+        grid = _make_grid(2, 2, elevs)
+        grid["grid"][2, 2] = 200.0
+        grid["grid"][2, 3] = 100.0  # steepest descent is due east
+        calls = []
+
+        def get_elev(*args, **kwargs):
+            calls.append(args[:2])
+            return -32000.0 if len(calls) >= 3 else 200.0
+
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", side_effect=get_elev),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=10)
+
+        assert result is not None
+        assert result["steps"] == 1
+        assert result["end_elev"] == -32000.0
+        # The terminal fix is still appended, so the arrays stay aligned.
+        assert len(result["path"]) == len(result["elevations"]) == len(result["distances"]) == 2
+        assert result["total_distance"] > 0
+        assert result["distances"][-1] == result["total_distance"]
+
+    def test_sea_level_reading_stops_after_the_step(self):
+        """A step onto a 0 m-or-below cell is recorded, then the trace ends."""
+        elevs = np.full((5, 5), 150.0)
+        grid = _make_grid(2, 2, elevs)
+        grid["grid"][2, 2] = 200.0
+        grid["grid"][2, 3] = 100.0
+        calls = []
+
+        def get_elev(*args, **kwargs):
+            calls.append(args[:2])
+            return -5.0 if len(calls) >= 3 else 200.0
+
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", side_effect=get_elev),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=10)
+
+        assert result is not None
+        assert result["steps"] == 1
+        assert result["end_elev"] == -5.0
+        assert len(result["path"]) == 2
+        assert result["total_distance"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Oscillation guard
+# ---------------------------------------------------------------------------
+
+
+class TestTraceDownstreamOscillation:
+    """The periodic-direction guard that clears the recent-direction window."""
+
+    def test_alternating_directions_break_the_trace(self):
+        """A SE/NE zig-zag channel is cut off once the window is periodic.
+
+        The channel alternates between two rows while descending eastward, so
+        the chosen direction sequence is exactly periodic with period 2 — the
+        pattern the oscillation check looks for once the window exceeds 8.
+        """
+        size = 31
+        elevs = np.full((size, size), 5000.0)
+        channel = [
+            (15, 15),
+            (16, 16),
+            (15, 17),
+            (16, 18),
+            (15, 19),
+            (16, 20),
+            (15, 21),
+            (16, 22),
+            (15, 23),
+            (16, 24),
+        ]
+        for k, (r, c) in enumerate(channel):
+            elevs[r, c] = 1000.0 - 10.0 * k
+
+        grid = _make_grid(15, 15, elevs)
+
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=900.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=50)
+
+        assert result is not None
+        # Stops on the oscillation guard, long before max_steps.
+        assert result["steps"] == 8
+        assert len(result["path"]) == 9
+        # Latitude alternates south/north — the SE/NE zig-zag itself.
+        lats = [p[0] for p in result["path"]]
+        deltas = [lats[i + 1] - lats[i] for i in range(len(lats) - 1)]
+        assert [1 if d > 0 else -1 for d in deltas] == [1, -1, 1, -1, 1, -1, 1, -1]
+        # The trace still moved east overall.
+        assert result["end"][1] > result["start"][1]
+
+    def test_aperiodic_directions_keep_the_trace_alive(self):
+        """A window that is not period-2 does not count as an oscillation.
+
+        The channel runs east, drops one row south-east, then runs east again,
+        so the recent-direction window is not periodic and the guard lets the
+        trace run on to its step cap.
+        """
+        size = 31
+        elevs = np.full((size, size), 5000.0)
+        channel = [
+            (15, 15),
+            (15, 16),
+            (15, 17),
+            (15, 18),
+            (15, 19),
+            (16, 20),  # the one diagonal step
+            (16, 21),
+            (16, 22),
+            (16, 23),
+            (16, 24),
+            (16, 25),
+            (16, 26),
+            (16, 27),
+            (16, 28),
+        ]
+        for k, (r, c) in enumerate(channel):
+            elevs[r, c] = 1000.0 - 10.0 * k
+
+        grid = _make_grid(15, 15, elevs)
+
+        with (
+            patch("openzenith.tracing._load_grid_at", return_value=grid),
+            patch("openzenith.elevation.get_elevation", return_value=900.0),
+        ):
+            result = trace_downstream(40.0, -105.0, zoom=10, max_steps=12)
+
+        assert result is not None
+        assert result["steps"] == 12
+        lats = [p[0] for p in result["path"]]
+        deltas = [lats[i + 1] - lats[i] for i in range(len(lats) - 1)]
+        # Exactly one southward (diagonal) step; everything else is due east.
+        assert all(d >= 0 for d in deltas)
+        assert sum(1 for d in deltas if d > 0) == 1
+        assert result["end"][1] > result["start"][1]

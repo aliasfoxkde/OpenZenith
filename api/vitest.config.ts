@@ -32,10 +32,14 @@ export default defineConfig({
         // arcgis/geoip/military/wms fixes. Weakest areas today: api routes'
         // remaining branch gaps; globe/** is lint-managed (#98/#99) not
         // coverage-counted.
-        statements: 95,
-        branches: 90,
+        // 2026-09-23 (task #114 wave 3, 99 files / 1261 tests): measured
+        // 97.89 stmts / 93.3 branches / 88.26 functions / 97.89 lines after
+        // the OGC tiles route + gibs-tile reached 100% (CRS84 set dropped —
+        // tiles are EPSG:3857 and cannot be served conformantly under it).
+        statements: 96,
+        branches: 91,
         functions: 86,
-        lines: 95,
+        lines: 96,
       },
     },
   },

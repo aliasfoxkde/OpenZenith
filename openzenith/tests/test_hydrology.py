@@ -1026,3 +1026,233 @@ class TestBreachBridgesCarve:
         dem[3, 7] = 60.0
         result = breach_bridges(dem, streams, max_width=10)
         assert result[3, 7] == 60.0
+
+
+class TestDelineateWatershedEdgeCases:
+    """delineate_watershed guard clauses: import failure and unusable centers."""
+
+    @staticmethod
+    def _grid(dem, center_row, center_col, lat_min=40.0, lon_min=-74.0, cell=0.001):
+        """Mock return value for load_elevation_grid."""
+        return {
+            "grid": dem.astype(np.float32),
+            "center_row": center_row,
+            "center_col": center_col,
+            "lat_min": lat_min,
+            "lon_min": lon_min,
+            "cell_size_deg": cell,
+        }
+
+    def test_missing_elevation_loader_reports_and_returns_none(self, capsys):
+        """No elevation backend at all degrades to a printed error, not a raise."""
+        import sys
+        import types
+        from unittest import mock
+
+        from openzenith.hydrology import delineate_watershed
+
+        stub = types.ModuleType("openzenith.elevation")  # lacks load_elevation_grid
+        with mock.patch.dict(sys.modules, {"openzenith.elevation": stub}):
+            result = delineate_watershed(40.0, -74.0, zoom=10)
+        assert result is None
+        assert "elevation" in capsys.readouterr().out.lower()
+
+    def test_all_nodata_grid_reports_no_valid_data(self, capsys):
+        """A grid with no valid elevation anywhere cannot host a pour point."""
+        import unittest.mock
+
+        from openzenith.hydrology import delineate_watershed
+
+        dem = np.full((5, 5), np.nan, dtype=np.float32)
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid",
+            return_value=self._grid(dem, 2, 2),
+        ):
+            result = delineate_watershed(40.0, -74.0)
+        assert result is None
+        assert "no valid elevation" in capsys.readouterr().out.lower()
+
+    def test_center_nodata_falls_back_to_nearest_valid_cell(self):
+        """A NODATA pour point is relocated to the nearest valid cell."""
+        import unittest.mock
+
+        from openzenith.hydrology import delineate_watershed
+
+        dem = np.full((6, 6), np.nan, dtype=np.float32)
+        dem[4, 1] = 250.0  # the only valid cell
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid",
+            return_value=self._grid(dem, 4, 4),
+        ):
+            result = delineate_watershed(40.0, -74.0)
+
+        assert result is not None
+        assert result["pixels"] == 1  # a lone valid cell has no upstream inflow
+        assert result["min_elev"] == result["max_elev"] == result["mean_elev"] == 250.0
+        # Boundary coordinate is the valid cell, not the requested center.
+        assert result["boundary"] == [[40.0 + 4 * 0.001, -74.0 + 1 * 0.001]]
+        assert result["grid_shape"] == [6, 6]
+
+    def test_westward_slope_reports_consistent_summary(self):
+        """Contract check on the upstream trace: summary matches the pixel count."""
+        import unittest.mock
+
+        from openzenith.hydrology import delineate_watershed
+
+        dem = np.tile(100.0 + 10.0 * np.arange(8, dtype=np.float32), (8, 1))
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid",
+            return_value=self._grid(dem, 3, 5),
+        ):
+            result = delineate_watershed(40.0, -74.0)
+
+        assert result is not None
+        pixels = result["pixels"]
+        assert pixels >= 1
+        cell_m = 0.001 * 111320
+        assert result["area_km2"] == round(pixels * cell_m**2 / 1e6, 2)
+        assert result["min_elev"] >= dem.min()
+        assert result["max_elev"] <= dem.max()
+        assert result["min_elev"] <= result["mean_elev"] <= result["max_elev"]
+        for lat, lon in result["boundary"]:
+            assert 40.0 <= lat <= 40.0 + 8 * 0.001
+            assert -74.0 <= lon <= -74.0 + 8 * 0.001
+        assert result["center"] == [40.0, -74.0]
+        assert result["zoom"] == 10
+        assert result["cell_size_deg"] == 0.001
+
+    def test_pour_point_on_grid_corner_with_invalid_neighbours(self):
+        """Corner pour point: out-of-bounds and NODATA neighbours are skipped."""
+        import unittest.mock
+
+        from openzenith.hydrology import delineate_watershed
+
+        dem = np.full((6, 6), np.nan, dtype=np.float32)
+        for r in range(6):
+            for c in range(6):
+                if (r, c) not in ((0, 1), (1, 0)):
+                    dem[r, c] = 900.0 - 10.0 * (r + c)
+        with unittest.mock.patch(
+            "openzenith.elevation.load_elevation_grid",
+            return_value=self._grid(dem, 0, 0),
+        ):
+            result = delineate_watershed(40.0, -74.0)
+
+        assert result is not None
+        assert result["pixels"] >= 1
+        assert result["boundary"]  # the pour point itself is on the boundary
+        assert result["max_elev"] == 900.0
+
+
+class TestGageWatershedGuards:
+    """gage_watershed skips pour points it cannot trace."""
+
+    def test_out_of_bounds_pour_point_is_skipped(self):
+        dem = make_slope_dem(10, 10)
+        flow = d8_flow_direction(dem)
+        result = gage_watershed(flow, [(-3, 4), (5, 5)])
+        assert result.dtype == np.int32
+        assert (result == 1).sum() == 0  # first point is off-grid
+        assert result[5, 5] == 2
+
+    def test_pour_point_without_flow_direction_is_skipped(self):
+        """A pit (no downhill neighbour) has no traceable flow direction."""
+        dem = np.ones((6, 6), dtype=np.float32) * 42.0  # flat -> every cell is a pit
+        flow = d8_flow_direction(dem)
+        assert (flow == -1).all()
+        result = gage_watershed(flow, [(3, 3)])
+        assert (result == 0).all()
+
+
+def _west_channel_flow(rows: int = 6, cols: int = 8) -> np.ndarray:
+    """Flow grid with everything undefined except channels draining due west.
+
+    Direction 4 is west in this package's D8 encoding (0=E..7=NE).
+    """
+    flow = np.full((rows, cols), -1, dtype=np.int8)
+    flow[2, 1:4] = 4
+    flow[4, 1:3] = 4
+    return flow
+
+
+class TestStreamBasinsEdgeCases:
+    """stream_basins on hand-built D8 grids with undefined flow directions."""
+
+    def test_basins_are_confined_to_the_stream_raster(self):
+        flow = _west_channel_flow()
+        streams = flow != -1
+        result = stream_basins(flow, streams)
+        assert result.dtype == np.int32
+        assert result.shape == flow.shape
+        assert (result[~streams] == 0).all()
+        assert (result > 0).sum() >= 1
+        assert set(np.unique(result)) <= {0, 1, 2}
+
+    def test_each_channel_becomes_one_basin(self):
+        flow = _west_channel_flow()
+        streams = flow != -1
+        result = stream_basins(flow, streams)
+        upper = np.unique(result[2, 1:4])
+        lower = np.unique(result[4, 1:3])
+        assert (upper > 0).any() and upper.size == 1
+        assert (lower > 0).any() and lower.size == 1
+        assert upper[0] != lower[0]
+
+    def test_undefined_flow_direction_blocks_the_basin(self):
+        """A stream cell that is a pit stops the upstream trace behind it.
+
+        The two candidate neighbours of the outlet both hold undefined flow
+        directions, so the trace ends at a pit whichever offset convention the
+        implementation uses for a westward-draining cell.
+        """
+        flow = np.full((6, 8), -1, dtype=np.int8)
+        flow[2, 3] = 4  # drains west, no stream cell flows into it -> traced
+        streams = np.zeros((6, 8), dtype=bool)
+        streams[2, 3] = True
+        streams[2, 4] = True  # east neighbour: undefined flow direction
+        streams[3, 4] = True  # south-east neighbour: undefined flow direction
+        result = stream_basins(flow, streams)
+        assert result[2, 3] == 1  # the outlet still gets its basin id
+        assert result[2, 4] == 0  # neither pit can be assigned to a basin
+        assert result[3, 4] == 0
+        assert (result[~streams] == 0).all()
+
+
+class TestSubBasinsLinkMapping:
+    """Each stream link is its own sub-basin for the stream cells it contains."""
+
+    def test_stream_cells_carry_their_link_id(self):
+        flow = _west_channel_flow()
+        streams = flow != -1
+        result = sub_basins(flow, streams)
+        assert result.dtype == np.int32
+        upper = np.unique(result[2, 1:4])
+        lower = np.unique(result[4, 1:3])
+        assert upper.size == 1 and upper[0] > 0
+        assert lower.size == 1 and lower[0] > 0
+        assert upper[0] != lower[0]
+
+
+class TestBasinIDEdgeCases:
+    """basin_id on hand-built D8 grids."""
+
+    def test_labels_are_confined_to_stream_cells(self):
+        flow = _west_channel_flow()
+        streams = flow != -1
+        result = basin_id(flow, streams)
+        assert result.dtype == np.int32
+        assert (result[~streams] == 0).all()
+        assert (result > 0).any()
+        assert set(np.unique(result)) <= {0, 1, 2}
+
+    def test_pit_stream_cell_has_no_basin(self):
+        """A stream cell without a defined flow direction drains nowhere."""
+        flow = np.full((5, 6), -1, dtype=np.int8)
+        flow[1, 1] = 4
+        streams = np.zeros((5, 6), dtype=bool)
+        streams[1, 1] = True
+        streams[3, 2] = True  # pit stream cell: its own component, no basin
+        result = basin_id(flow, streams)
+        assert result[3, 2] == 0
+        assert result[1, 1] == 1  # the westward component is still labelled
+        assert (result[~streams] == 0).all()

@@ -104,11 +104,12 @@ def delineate_watershed(
 
     while queue:
         r, c = queue.popleft()
-        flow_dir[r, c]
 
         for d in range(8):
-            # Check if neighbor (nr, nc) flows in direction d towards (r, c)
-            # That means flow_dir[nr, nc] should be opposite of d
+            # Candidate upstream neighbour: it sits at (r, c) - offset(d), so
+            # if it flows in direction d it lands exactly on (r, c).
+            # (Direction codes are 0=E..7=NE; the opposite code is (d+4)%8,
+            # which would mean the neighbour flows AWAY from (r, c).)
             nr = r - int(D8_DR[d])
             nc = c - int(D8_DC[d])
 
@@ -119,18 +120,14 @@ def delineate_watershed(
             if dem[nr, nc] <= -30000:  # NODATA
                 continue
 
-            # Check if this neighbor flows into (r, c)
-            # flow_dir[nr, nc] = (d + 4) % 8 would mean nr,nc flows to r,c
-            opposite_dir = (d + 4) % 8
-            if flow_dir[nr, nc] == opposite_dir:
+            if flow_dir[nr, nc] == d:
                 visited.add((nr, nc))
                 watershed[nr, nc] = True
                 queue.append((nr, nc))
 
-    # Compute stats
+    # Compute stats (the pour point is always labeled, so the watershed is
+    # never empty here)
     ws_pixels = watershed.sum()
-    if ws_pixels == 0:
-        return None
 
     cell_size_m = cell_size_deg * 111320  # approximate meters per degree at equator
     area_km2 = ws_pixels * (cell_size_m**2) / 1e6
@@ -140,8 +137,6 @@ def delineate_watershed(
 
     # Get boundary coordinates
     ws_rows, ws_cols = np.where(watershed)
-    if len(ws_rows) == 0:
-        return None
 
     boundary_coords = []
     for r, c in zip(ws_rows, ws_cols, strict=False):
@@ -202,7 +197,7 @@ def watershed(
     result = np.zeros((rows, cols), dtype=np.int32)
     for wid, (pr, pc) in enumerate(pour_points, start=1):
         if 0 <= pr < rows and 0 <= pc < cols and dem[pr, pc] > nodata:
-            _trace_watershed(result, fd, pr, pc, wid, -1)
+            _trace_watershed(result, fd, pr, pc, wid)
 
     return result
 
@@ -237,7 +232,7 @@ def gage_watershed(
             continue
 
         # Trace all cells that flow into this pour point
-        _trace_watershed(result, flow_dir, pr, pc, basin_id, nodata_dir)
+        _trace_watershed(result, flow_dir, pr, pc, basin_id)
 
     return result
 
@@ -248,27 +243,28 @@ def _trace_watershed(
     pr: int,
     pc: int,
     basin_id: int,
-    nodata_dir: int,
 ) -> None:
-    """Recursively trace all cells upstream of a pour point."""
+    """Mark every cell upstream of the pour point with basin_id.
+
+    Iterative (explicit stack) so deep upstream trees cannot hit the Python
+    recursion limit on large grids.
+    """
     rows, cols = result.shape
-
-    def trace_recursive(r: int, c: int) -> None:
-        if not (0 <= r < rows and 0 <= c < cols):
-            return
-        if result[r, c] == basin_id:
-            return
-        if flow_dir[r, c] == nodata_dir:
-            return
-        d = flow_dir[r, c]
-        nr = r + int(D8_DR[d])
-        nc = c + int(D8_DC[d])
-        result[r, c] = basin_id
-        if 0 <= nr < rows and 0 <= nc < cols:
-            trace_recursive(nr, nc)
-
     result[pr, pc] = basin_id
-    trace_recursive(pr, pc)
+    stack = [(pr, pc)]
+
+    while stack:
+        r, c = stack.pop()
+        for d in range(8):
+            # Upstream neighbour: sits at (r, c) - offset(d) and flows in
+            # direction d, landing exactly on (r, c). Cells already claimed
+            # by an earlier basin stay with that basin (first come, first
+            # served — a downstream gage must not swallow an upstream one).
+            nr = r - int(D8_DR[d])
+            nc = c - int(D8_DC[d])
+            if 0 <= nr < rows and 0 <= nc < cols and result[nr, nc] == 0 and flow_dir[nr, nc] == d:
+                result[nr, nc] = basin_id
+                stack.append((nr, nc))
 
 
 def stream_basins(
@@ -283,7 +279,7 @@ def stream_basins(
     Equivalent to WhiteboxTools StreamBasins.
 
     Args:
-        flow_dir: D8 flow direction grid (integers 1-8, or 0=flat)
+        flow_dir: D8 flow direction grid (0=E..7=NE, nodata_dir = pit)
         streams: Boolean or thresholded stream raster (True=stream)
         nodata_dir: NODATA direction value
 
@@ -294,12 +290,6 @@ def stream_basins(
     from scipy import ndimage
 
     rows, cols = flow_dir.shape
-    (flow_dir != nodata_dir) & streams
-
-    # Direction offsets: 1=E, 2=NE, 3=N, 4=NW, 5=W, 6=SW, 7=S, 8=SE
-    # D8: 1=East, 2=NE, 3=N, 4=NW, 5=W, 6=SW, 7=S, 8=SE
-    dr_map = {1: 0, 2: -1, 3: -1, 4: -1, 5: 0, 6: 1, 7: 1, 8: 1}
-    dc_map = {1: 1, 2: 1, 3: 0, 4: -1, 5: -1, 6: -1, 7: 0, 8: 1}
 
     # Label connected stream cells
     labeled_streams, n_streams = ndimage.label(streams)
@@ -307,32 +297,18 @@ def stream_basins(
 
     for basin_id in range(1, n_streams + 1):
         stream_mask = labeled_streams == basin_id
-        # Find outlet (stream cell with no upstream neighbor)
+        # Find the outlet: a stream cell whose downstream step leaves the
+        # stream network (or the grid). Pits (nodata flow) are never traced.
         for r in range(rows):
             for c in range(cols):
-                if not stream_mask[r, c]:
+                if not stream_mask[r, c] or flow_dir[r, c] == nodata_dir:
                     continue
-                d = flow_dir[r, c]
-                if d == nodata_dir:
-                    continue
-                # Check if any neighbor flows into (r,c)
-                has_upstream = False
-                for prev_d in [1, 2, 3, 4, 5, 6, 7, 8]:
-                    pr = r + dr_map[prev_d]
-                    pc = c + dc_map[prev_d]
-                    if (
-                        0 <= pr < rows
-                        and 0 <= pc < cols
-                        and flow_dir[pr, pc] == prev_d
-                        and stream_mask[pr, pc]
-                    ):
-                        has_upstream = True
-                        break
-                if not has_upstream:
-                    # This is the outlet — trace all cells flowing here
-                    _trace_basin(
-                        result, flow_dir, stream_mask, r, c, basin_id, dr_map, dc_map, nodata_dir
-                    )
+                d = int(flow_dir[r, c])
+                nr = r + int(D8_DR[d])
+                nc = c + int(D8_DC[d])
+                if 0 <= nr < rows and 0 <= nc < cols and stream_mask[nr, nc]:
+                    continue  # downstream continues within this basin
+                _trace_basin(result, flow_dir, stream_mask, r, c, basin_id, nodata_dir)
 
     return result
 
@@ -344,28 +320,33 @@ def _trace_basin(
     r: int,
     c: int,
     basin_id: int,
-    dr_map: dict,
-    dc_map: dict,
     nodata_dir: int,
 ) -> None:
-    """Recursively trace all cells draining to (r,c) within the stream mask."""
-    rows, cols = result.shape
-    if not (0 <= r < rows and 0 <= c < cols):
-        return
-    if result[r, c] == basin_id:
-        return
-    if not stream_mask[r, c]:
-        return
-    if flow_dir[r, c] == nodata_dir:
-        return
+    """Mark all upstream stream cells draining to (r,c) within the stream mask.
 
-    result[r, c] = basin_id
-    # Trace cells that flow into this one
-    d = flow_dir[r, c]
-    pr = r - dr_map[d]
-    pc = c - dc_map[d]
-    if 0 <= pr < rows and 0 <= pc < cols:
-        _trace_basin(result, flow_dir, stream_mask, pr, pc, basin_id, dr_map, dc_map, nodata_dir)
+    Iterative (explicit stack) so long stream chains cannot hit the Python
+    recursion limit.
+    """
+    rows, cols = result.shape
+    stack = [(r, c)]
+
+    while stack:
+        cr, cc = stack.pop()
+        if not (0 <= cr < rows and 0 <= cc < cols):
+            continue
+        if result[cr, cc] == basin_id or not stream_mask[cr, cc]:
+            continue
+        if flow_dir[cr, cc] == nodata_dir:
+            continue
+
+        result[cr, cc] = basin_id
+        for d in range(8):
+            # Upstream neighbour: sits at (cr, cc) - offset(d) and flows in
+            # direction d, landing exactly on (cr, cc).
+            pr = cr - int(D8_DR[d])
+            pc = cc - int(D8_DC[d])
+            if 0 <= pr < rows and 0 <= pc < cols and flow_dir[pr, pc] == d:
+                stack.append((pr, pc))
 
 
 def sub_basins(
@@ -451,42 +432,19 @@ def basin_id(
 
     for link_id in range(1, n_links + 1):
         stream_mask = labeled_streams == link_id
-        # Find the outlet of this stream link
+        # Find the outlet of this stream link: a stream cell whose downstream
+        # step leaves the link (or the grid). Pits are never traced.
         for r in range(rows):
             for c in range(cols):
-                if not stream_mask[r, c]:
+                if not stream_mask[r, c] or flow_dir[r, c] == nodata_dir:
                     continue
-                d = flow_dir[r, c]
-                if d == nodata_dir:
-                    continue
-                # Check if any neighbor flows into (r,c) but is not in the same link
-                dr_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1}
-                dc_map = {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1}
-                has_upstream = False
-                for prev_d in range(8):
-                    pr, pc = r + dr_map[prev_d], c + dc_map[prev_d]
-                    if (
-                        0 <= pr < rows
-                        and 0 <= pc < cols
-                        and flow_dir[pr, pc] == prev_d
-                        and stream_mask[pr, pc]
-                    ):
-                        has_upstream = True
-                        break
-                if not has_upstream:
-                    # This is the outlet of link_id — trace all upstream cells
-                    _trace_basin(
-                        result,
-                        flow_dir,
-                        labeled_streams == link_id,
-                        r,
-                        c,
-                        link_id,
-                        {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1},
-                        {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1},
-                        nodata_dir,
-                    )
-                    break
+                d = int(flow_dir[r, c])
+                nr = r + int(D8_DR[d])
+                nc = c + int(D8_DC[d])
+                if 0 <= nr < rows and 0 <= nc < cols and stream_mask[nr, nc]:
+                    continue  # downstream continues within this link
+                # This is the outlet of link_id — trace all upstream cells
+                _trace_basin(result, flow_dir, stream_mask, r, c, link_id, nodata_dir)
 
     return result
 

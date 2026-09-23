@@ -33,8 +33,10 @@ export async function GET(
 ) {
   const { tileMatrixSetId, tileMatrix, tileRow, tileCol } = await params;
 
-  // Validate tile matrix set
-  const validSets = ["WebMercatorQuad", "WorldCRS84Quad"];
+  // Validate tile matrix set. Only WebMercatorQuad is served: the tiles are
+  // EPSG:3857, and we have no EPSG:4326 resampling, so advertising
+  // WorldCRS84Quad would hand conformant clients mis-projected data.
+  const validSets = ["WebMercatorQuad"];
   if (!validSets.includes(tileMatrixSetId)) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: `Unknown tileMatrixSet: ${tileMatrixSetId}` },
@@ -70,11 +72,8 @@ export async function GET(
     );
   }
 
-  // For CRS84, flip Y axis (TMS vs XYZ convention)
-  const tmsY = tileMatrixSetId === "WorldCRS84Quad" ? maxTile - y : y;
-
   try {
-    const tileData = await getTileData(z, x, tmsY, HF_BACKEND);
+    const tileData = await getTileData(z, x, y, HF_BACKEND);
     const png = encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
 
     return new Response(png.buffer as ArrayBuffer, {
@@ -86,7 +85,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error(`OGC Tiles assembly error: ${z}/${x}/${tmsY}`, error);
+    console.error(`OGC Tiles assembly error: ${z}/${x}/${y}`, error);
 
     // Return ocean tile for out-of-coverage or errors
     const oceanPng = encodeTerrariumPNG(new Int16Array(256 * 256), 256, 256);

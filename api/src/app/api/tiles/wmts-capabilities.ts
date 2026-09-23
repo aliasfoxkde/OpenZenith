@@ -17,11 +17,9 @@ const WMTS_XSD =
 
 const MAX_MATRIX_LEVEL = 12; // matches the terrain provider's MAX_TERRAIN_ZOOM
 
-// Scale denominators per OGC Well-Known Scale Set definitions for 256px
-// tiles. WebMercatorQuad level 0 = 559082264.0287178; WorldCRS84Quad level 0
-// = 279541132.01435894 (2x1 root matrix). Each level halves both.
+// Scale denominator per the OGC GoogleMapsCompatible Well-Known Scale Set
+// for 256px tiles; each level halves it.
 const WEB_MERCATOR_L0_SCALE = 559082264.0287178;
-const WORLD_CRS84_L0_SCALE = 279541132.01435894;
 
 interface TileMatrixSetDef {
   id: string;
@@ -35,6 +33,9 @@ interface TileMatrixSetDef {
 }
 
 const TILE_MATRIX_SETS: TileMatrixSetDef[] = [
+  // Only WebMercatorQuad: the served tiles are EPSG:3857 and there is no
+  // EPSG:4326 resampling, so advertising WorldCRS84Quad would describe
+  // tiles we cannot serve conformantly.
   {
     id: "WebMercatorQuad",
     supportedCrs: "urn:ogc:def:crs:EPSG::3857",
@@ -42,15 +43,6 @@ const TILE_MATRIX_SETS: TileMatrixSetDef[] = [
     topLeftCorner: "-20037508.34278925 20037508.34278925",
     level0ScaleDenominator: WEB_MERCATOR_L0_SCALE,
     level0MatrixWidth: 1,
-    level0MatrixHeight: 1,
-  },
-  {
-    id: "WorldCRS84Quad",
-    supportedCrs: "urn:ogc:def:crs:OGC:1.3:CRS84",
-    wellKnownScaleSet: "http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad",
-    topLeftCorner: "-180 90",
-    level0ScaleDenominator: WORLD_CRS84_L0_SCALE,
-    level0MatrixWidth: 2,
     level0MatrixHeight: 1,
   },
 ];

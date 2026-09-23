@@ -1,11 +1,34 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest } from "./helpers";
+
+vi.mock("@/lib/tile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tile")>();
+  return { ...actual, getTileData: vi.fn(actual.getTileData) };
+});
+
+import { getTileData } from "@/lib/tile";
+
+const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+const TILE_100M = { data: new Int16Array(256 * 256).fill(100), width: 256, height: 256, zoom: 4 };
 
 function tileParams(z: string, row: string, col: string, setId = "WebMercatorQuad") {
   return {
     params: Promise.resolve({ tileMatrixSetId: setId, tileMatrix: z, tileRow: row, tileCol: col }),
   };
 }
+
+/** Reset the getTileData seam to the real implementation between tests. */
+let realGetTileData: typeof getTileData | undefined;
+function resetTileDataMock() {
+  const mocked = vi.mocked(getTileData);
+  realGetTileData ??= mocked.getMockImplementation() as typeof getTileData;
+  mocked.mockReset().mockImplementation(realGetTileData);
+}
+beforeEach(resetTileDataMock);
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("OGC Tile Data API", () => {
   it("returns 400 for unknown tile matrix set", async () => {
@@ -51,5 +74,123 @@ describe("OGC Tile Data API", () => {
     const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
+describe("OGC Tile Data API — coordinate validation and CRS axis handling", () => {
+  const route = () => import("@/app/api/tiles/[tileMatrixSetId]/[tileMatrix]/[tileRow]/[tileCol]/route");
+
+  it("returns 400 when the tile column is not numeric", async () => {
+    const { GET } = await route();
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/0/abc"), tileParams("4", "0", "abc"));
+    expect(resp.status).toBe(400);
+    const data = await resp.json();
+    expect(data.code).toBe("InvalidParameterValue");
+    expect(data.description).toBe("Invalid tile coordinates");
+  });
+
+  it("returns 400 when the tile row is not numeric", async () => {
+    const { GET } = await route();
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/abc/0"), tileParams("4", "abc", "0"));
+    expect(resp.status).toBe(400);
+    expect((await resp.json()).description).toBe("Invalid tile coordinates");
+  });
+
+  it("returns 400 for negative tile coordinates before any range check", async () => {
+    const { GET } = await route();
+    const negativeRow = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/0/-1"), tileParams("4", "-1", "0"));
+    const negativeCol = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/-1/0"), tileParams("4", "0", "-1"));
+    expect(negativeRow.status).toBe(400);
+    expect(negativeCol.status).toBe(400);
+    expect((await negativeRow.json()).description).toBe("Invalid tile coordinates");
+    expect((await negativeCol.json()).description).toBe("Invalid tile coordinates");
+  });
+
+  it("accepts the full coordinate range at the highest zoom (z=14, maxTile=16383)", async () => {
+    vi.mocked(getTileData).mockResolvedValue(TILE_100M);
+    const { GET } = await route();
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/14/16383/16383"), tileParams("14", "16383", "16383"));
+    expect(resp.status).toBe(200);
+    expect(vi.mocked(getTileData).mock.calls[0]).toEqual([14, 16383, 16383, expect.anything()]);
+  });
+
+  it("returns 404 one past the range at the highest zoom", async () => {
+    const { GET } = await route();
+    const resp = await GET(
+      mockRequest("/api/tiles/WebMercatorQuad/14/16384/0"),
+      tileParams("14", "0", "16384"),
+    );
+    expect(resp.status).toBe(404);
+    const data = await resp.json();
+    expect(data.code).toBe("TileOutOfRange");
+    expect(data.description).toBe("Tile 14/16384/0 is out of range");
+  });
+});
+
+describe("OGC Tile Data API — tile assembly and fallback", () => {
+  const route = () => import("@/app/api/tiles/[tileMatrixSetId]/[tileMatrix]/[tileRow]/[tileCol]/route");
+
+  it("serves an assembled PNG with terrarium encoding headers", async () => {
+    vi.mocked(getTileData).mockResolvedValue(TILE_100M);
+    const { GET } = await route();
+
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/8/5"), tileParams("4", "5", "8"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Content-Type")).toBe("image/png");
+    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600, s-maxage=2592000");
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+
+    const body = new Uint8Array(await resp.arrayBuffer());
+    expect(resp.headers.get("Content-Length")).toBe(String(body.byteLength));
+    expect(body.slice(0, 8)).toEqual(PNG_SIGNATURE);
+  });
+
+  it("passes the XYZ row through for WebMercatorQuad", async () => {
+    vi.mocked(getTileData).mockResolvedValue(TILE_100M);
+    const { GET } = await route();
+
+    await GET(mockRequest("/api/tiles/WebMercatorQuad/3/6/2"), tileParams("3", "2", "6"));
+    // z=3 → maxTile 7; no flip: row 2 requested as-is
+    expect(vi.mocked(getTileData).mock.calls[0]).toEqual([3, 6, 2, expect.anything()]);
+  });
+
+  it("rejects WorldCRS84Quad instead of serving mis-projected tiles", async () => {
+    // The assembled tiles are EPSG:3857 and there is no EPSG:4326
+    // resampling, so the CRS84 set is refused rather than served with only
+    // a row flip (which handed conformant clients wrong geometry).
+    vi.mocked(getTileData).mockResolvedValue(TILE_100M);
+    const { GET } = await route();
+
+    const resp = await GET(
+      mockRequest("/api/tiles/WorldCRS84Quad/3/6/2"),
+      tileParams("3", "2", "6", "WorldCRS84Quad"),
+    );
+    expect(resp.status).toBe(400);
+    const data = await resp.json();
+    expect(data.code).toBe("InvalidParameterValue");
+    expect(vi.mocked(getTileData)).not.toHaveBeenCalled();
+  });
+
+  it("returns an ocean PNG with status 200 when tile assembly fails", async () => {
+    vi.mocked(getTileData).mockRejectedValue(new Error("chunk not found"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { GET } = await route();
+
+    try {
+      const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/8/5"), tileParams("4", "5", "8"));
+      expect(resp.status).toBe(200);
+      expect(resp.headers.get("Content-Type")).toBe("image/png");
+      expect(resp.headers.get("X-Dem-Tile-Source")).toBe("fallback-ocean");
+      expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600, s-maxage=2592000");
+
+      const ocean = new Uint8Array(await resp.arrayBuffer());
+      expect(ocean.byteLength).toBeGreaterThan(0);
+      expect(ocean.slice(0, 8)).toEqual(PNG_SIGNATURE);
+
+      expect(errorSpy).toHaveBeenCalledWith("OGC Tiles assembly error: 4/8/5", expect.any(Error));
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

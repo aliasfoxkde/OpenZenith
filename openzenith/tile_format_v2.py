@@ -164,16 +164,20 @@ def _left_reconstruct(residuals: np.ndarray, height: int, width: int) -> np.ndar
 # ─── Compression ───
 
 
-def _compress(data: bytes, compressor: int = COMP_BROTLI, level: int = 11) -> bytes:
-    """Compress data with the specified compressor."""
+def _compress(data: bytes, compressor: int = COMP_BROTLI, level: int = 11) -> tuple[bytes, int]:
+    """Compress data, returning the bytes and the compressor actually used.
+
+    Falls back to zlib when the requested library is unavailable so the
+    caller can record the true compressor in the tile header — writing the
+    requested one would produce a tile no other host can decode.
+    """
     if compressor == COMP_BROTLI and HAS_BROTLI:
-        return brotli.compress(data, quality=level)
-    elif compressor == COMP_ZSTD and HAS_ZSTD:
-        return zstd.ZstdCompressor(level=level).compress(data)
-    elif HAS_ZLIB:
-        return zlib.compress(data, min(level, 9))
-    else:
-        raise TileError("No compressor available (need brotli, zstd, or zlib)")
+        return brotli.compress(data, quality=level), COMP_BROTLI
+    if compressor == COMP_ZSTD and HAS_ZSTD:
+        return zstd.ZstdCompressor(level=level).compress(data), COMP_ZSTD
+    if HAS_ZLIB:
+        return zlib.compress(data, min(level, 9)), COMP_ZLIB
+    raise TileError("No compressor available (need brotli, zstd, or zlib)")
 
 
 def _decompress(data: bytes, compressor: int = COMP_BROTLI) -> bytes:
@@ -256,7 +260,14 @@ def encode(
     if elevation.ndim != 2:
         raise TileError(f"Expected 2D array, got {elevation.ndim}D")
 
-    _height, _width = elevation.shape
+    if elevation.shape[0] != elevation.shape[1]:
+        # The header stores no dimensions — decode infers them from the byte
+        # count and can only guess non-square shapes, silently mis-shaping
+        # the grid (e.g. 64x512 decodes as 128x256).
+        raise TileError(
+            f"OZT2 requires square arrays; got {elevation.shape[0]}x{elevation.shape[1]}"
+        )
+
     arr = elevation.astype(np.int16)
 
     # Determine valid data range
@@ -296,10 +307,12 @@ def encode(
     raw_data = residuals.astype(np.int16).tobytes()
 
     # Compress
-    compressed = _compress(raw_data, compressor, compress_level)
+    compressed, used_compressor = _compress(raw_data, compressor, compress_level)
 
-    # Build header (6 bytes)
-    flags = ((predictor & 0x03) | ((compressor & 0x03) << 2)).to_bytes(1, "little")
+    # Build header (6 bytes) — flags must record the compressor actually
+    # used, not the one requested (a zlib payload labelled brotli fails to
+    # decode on hosts that have brotli).
+    flags = ((predictor & 0x03) | ((used_compressor & 0x03) << 2)).to_bytes(1, "little")
     header = (
         struct.pack("<h", vmin)
         + struct.pack("<H", max(0, elev_range))

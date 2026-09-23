@@ -39,9 +39,8 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
 
         for d in range(8):
             dr, dc = int(D8_DR[d]), int(D8_DC[d])
-            # Cells flowing into current cell from direction (d+4)%8
-            in_dir = (d + 4) % 8
-            mask = flow_dir == in_dir
+            # Cells flowing in direction d land on (src + offset(d))
+            mask = flow_dir == d
             if not mask.any():
                 continue
 
@@ -115,33 +114,15 @@ def stream_link_identifier(
     links = np.zeros((rows, cols), dtype=np.int32)
     next_link_id = 1
 
-    # Find stream cells that don't have a stream cell upstream of them
-    # (these are the "heads" of stream links)
-    stream_mask = streams
-
-    for d in range(8):
-        dr, dc = int(D8_DR[d]), int(D8_DC[d])
-        # Cells flowing TO direction (d+4)%8
-        src_r, src_c = np.where(stream_mask)
-        tgt_r = src_r - dr
-        tgt_c = src_c - dc
-
-        valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols)
-        src_r = src_r[valid]
-        src_c = src_c[valid]
-        tgt_r = tgt_r[valid]
-        tgt_c = tgt_c[valid]
-
-        # Mark targets as having an upstream stream neighbor
-        # We'll use this to find stream heads
-
     # Find stream heads: stream cells with no upstream stream neighbor
+    stream_mask = streams
     has_upstream = np.zeros_like(stream_mask)
     for d in range(8):
         dr, dc = int(D8_DR[d]), int(D8_DC[d])
-        src_r, src_c = np.where(stream_mask)
-        tgt_r = src_r - dr
-        tgt_c = src_c - dc
+        # Cells flowing in direction d land on (src + offset(d))
+        src_r, src_c = np.where(stream_mask & (flow_dir == d))
+        tgt_r = src_r + dr
+        tgt_c = src_c + dc
         valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols)
         if valid.any():
             has_upstream[tgt_r[valid], tgt_c[valid]] = True
@@ -200,11 +181,15 @@ def stream_reach_identifier(
         for d in range(8):
             nr = r - int(D8_DR[d])
             nc = c - int(D8_DC[d])
-            if 0 <= nr < rows and 0 <= nc < cols and streams[nr, nc]:
-                # Check if this neighbor actually flows toward (r,c)
-                opposite = (d + 4) % 8
-                if flow_dir[nr, nc] == opposite:
-                    count += 1
+            if (
+                0 <= nr < rows
+                and 0 <= nc < cols
+                and streams[nr, nc]
+                # The neighbour flows toward (r,c) iff its direction is d
+                # (it sits at (r,c) - offset(d))
+                and flow_dir[nr, nc] == d
+            ):
+                count += 1
         return count
 
     # Find all junctions and outlets
@@ -235,21 +220,28 @@ def stream_reach_identifier(
 
         # Trace upstream to find the head
         head_r, head_c = start_r, start_c
+        walked = {(head_r, head_c)}
         while True:
             up_count = count_upstream_streams(head_r, head_c)
             if up_count >= 2:
                 break  # Hit a junction
-            # Move to upstream neighbor
+            # Move to upstream neighbor (never revisit a cell: hand-built
+            # flow grids may contain cycles)
             moved = False
             for d in range(8):
                 nr = head_r - int(D8_DR[d])
                 nc = head_c - int(D8_DC[d])
-                if 0 <= nr < rows and 0 <= nc < cols and streams[nr, nc]:
-                    opposite = (d + 4) % 8
-                    if flow_dir[nr, nc] == opposite:
-                        head_r, head_c = nr, nc
-                        moved = True
-                        break
+                if (
+                    0 <= nr < rows
+                    and 0 <= nc < cols
+                    and streams[nr, nc]
+                    and flow_dir[nr, nc] == d
+                    and (nr, nc) not in walked
+                ):
+                    walked.add((nr, nc))
+                    head_r, head_c = nr, nc
+                    moved = True
+                    break
             if not moved:
                 break
 
@@ -308,39 +300,45 @@ def stream_link_class(
     for link_id in range(1, n_links + 1):
         result[labeled == link_id] = 1
 
-    # Compute stream order (Strahler)
+    # Compute stream order (Strahler) over the link graph. A junction inside
+    # a link raises that link's order when two upstream cells from *other*
+    # links share the max upstream order. Same-link neighbours never count —
+    # a link cannot be its own tributary (counting them made order grow
+    # without bound). Each pass only ever raises orders, and an order is
+    # bounded by the longest chain of distinct upstream links, so the pass
+    # cap below is a backstop rather than the termination argument.
     order = np.ones(n_links + 1, dtype=np.int32)
-    changed = True
-    while changed:
+    n_rows, n_cols = streams.shape
+    for _ in range(2 * (n_links + 1)):
         changed = False
-        for r in range(streams.shape[0]):
-            for c in range(streams.shape[1]):
+        for r in range(n_rows):
+            for c in range(n_cols):
                 if not streams[r, c]:
                     continue
                 link_id = labeled[r, c]
                 d = flow_dir[r, c]
                 if d == nodata_dir:
                     continue
-                # Check if any upstream neighbor has higher order
-                dr_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 0, 5: -1, 6: -1, 7: -1}
-                dc_map = {0: 1, 1: 1, 2: 0, 3: -1, 4: -1, 5: -1, 6: 0, 7: 1}
+                # Upstream neighbours: sit at (r, c) - offset(prev_d) and
+                # flow in direction prev_d onto (r, c).
                 upstream_orders = []
                 for prev_d in range(8):
-                    pr, pc = r + dr_map[prev_d], c + dc_map[prev_d]
+                    pr, pc = r - int(D8_DR[prev_d]), c - int(D8_DC[prev_d])
                     if (
-                        0 <= pr < streams.shape[0]
-                        and 0 <= pc < streams.shape[1]
+                        0 <= pr < n_rows
+                        and 0 <= pc < n_cols
                         and flow_dir[pr, pc] == prev_d
                         and streams[pr, pc]
+                        and labeled[pr, pc] != link_id
                     ):
                         upstream_orders.append(order[labeled[pr, pc]])
                 if len(upstream_orders) >= 2:
                     max_up = max(upstream_orders)
-                    if upstream_orders.count(max_up) >= 2:
-                        new_order = max_up + 1
-                        if new_order > order[link_id]:
-                            order[link_id] = new_order
-                            changed = True
+                    if upstream_orders.count(max_up) >= 2 and max_up + 1 > order[link_id]:
+                        order[link_id] = max_up + 1
+                        changed = True
+        if not changed:
+            break
 
     for link_id in range(1, n_links + 1):
         result[labeled == link_id] = order[link_id]

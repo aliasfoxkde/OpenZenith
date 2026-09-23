@@ -1,5 +1,9 @@
 """Tests for openzenith.terrain.viewshed — visibility and directional exposure."""
 
+import sys
+import types
+from unittest import mock
+
 import numpy as np
 
 from openzenith.terrain.viewshed import (
@@ -18,16 +22,35 @@ def _plateau(rows: int = 10, cols: int = 10, elev: float = 100.0) -> np.ndarray:
     return np.full((rows, cols), elev, dtype=np.float32)
 
 
+def _fake_numba() -> types.ModuleType:
+    """Return a numba stand-in whose @jit is the identity.
+
+    numba is an optional accelerator (not installed in this environment); the
+    stub lets the tests execute the real ``_viewshed_core`` kernel body instead
+    of silently falling back to the vectorized NumPy path.
+    """
+    module = types.ModuleType("numba")
+    module.jit = lambda **_kwargs: lambda fn: fn
+    module.prange = range
+    return module
+
+
+def _run_with_numba(dem, *args, **kwargs) -> np.ndarray:
+    with mock.patch.dict(sys.modules, {"numba": _fake_numba()}):
+        return viewshed(dem, *args, **kwargs)
+
+
 class TestViewshedEdges:
-    def test_observer_on_nodata_sees_only_itself(self):
-        # The observer cell is pre-marked visible before the nodata check
-        # short-circuits, so the result is the single-cell grid.
+    def test_observer_on_nodata_sees_nothing(self):
+        # A NODATA observer has no eye level; both backends return an empty
+        # grid (the NumPy path used to pre-mark the observer visible before
+        # its nodata short-circuit, diverging from the kernel).
         dem = _plateau()
         dem[4, 4] = NODATA
         vs = viewshed(dem, observer_row=4, observer_col=4)
         assert vs.dtype == np.bool_
-        assert vs.sum() == 1
-        assert vs[4, 4]
+        assert vs.sum() == 0
+        assert not vs[4, 4]
 
     def test_all_other_cells_nodata_early_return(self):
         dem = _plateau()
@@ -97,6 +120,20 @@ class TestHorizonAngle:
         angles = horizon_angle(dem, azimuth=0, max_distance=3)
         assert (angles[0, :] == NODATA).all()
 
+    def test_nodata_barrier_shields_the_horizon(self):
+        # Azimuth 0 traces west; a NODATA cell due west of the origin ends the
+        # search, so a tall peak hidden behind the gap must not raise the angle.
+        dem = _plateau(6, 6)
+        dem[:, 2] = NODATA  # gap in the data between the origin and the peak
+        dem[:, 0] = 900.0  # tall wall west of the gap
+        angles = horizon_angle(dem, azimuth=0, max_distance=5)
+        # Columns 3-4 look west and stop at the gap: flat horizon.
+        assert (angles[:, 3:5] == 0).all()
+        # Same terrain without the gap does see the wall.
+        open_dem = _plateau(6, 6)
+        open_dem[:, 0] = 900.0
+        assert (horizon_angle(open_dem, azimuth=0, max_distance=5)[:, 3:5] > 0).all()
+
 
 class TestDirectionalRelief:
     def test_open_toward_lower_ground_is_fully_visible(self):
@@ -149,6 +186,19 @@ class TestFetchAnalysis:
         fetch = fetch_analysis(dem, wind_direction=270, max_distance=10)
         assert (fetch[:, 0] == NODATA).all()
 
+    def test_nodata_upwind_stops_the_trace(self):
+        # Azimuth 0 traces west along an eastward-rising ramp, so the upwind
+        # path is downhill all the way to the edge. A NODATA cell truncates the
+        # run at the gap instead of the grid boundary.
+        dem = np.tile(100.0 + 10.0 * np.arange(8, dtype=np.float32), (8, 1))
+        dem[:, 3] = NODATA
+        fetch = fetch_analysis(dem, wind_direction=0, max_distance=20)
+        # Column 7 runs into the gap after 4 downhill cells (not the 8-cell edge run).
+        assert fetch[0, 7] == 4.0
+        assert fetch[0, 4] == 1.0
+        # The gap itself is reported as NODATA, not as a fetch distance.
+        assert (fetch[:, 3] == NODATA).all()
+
 
 class TestMaxElevationFromDirection:
     def test_finds_peak_in_direction(self):
@@ -166,3 +216,63 @@ class TestMaxElevationFromDirection:
         dem[5, :] = NODATA
         result = max_elevation_from_direction(dem, azimuth=0, max_distance=4)
         assert (result[5, :] == NODATA).all()
+
+
+class TestViewshedNumbaKernel:
+    """The optional Numba kernel, executed through a pure-Python @jit stub.
+
+    numba is an optional dependency; without it ``viewshed`` silently uses the
+    vectorized NumPy path. These tests install a stub whose ``jit`` decorator is
+    the identity, which runs the real kernel body so its occlusion, nodata and
+    max-distance logic is exercised instead of being skipped.
+    """
+
+    def test_flat_plateau_matches_numpy_fallback(self):
+        dem = _plateau(12, 12)
+        jitted = _run_with_numba(dem, 4, 4)
+        fallback = viewshed(dem, 4, 4)  # no numba installed -> NumPy path
+        assert jitted.dtype == np.bool_
+        assert np.array_equal(jitted, fallback)
+        assert jitted.all()
+
+    def test_ridge_blocks_behind_it(self):
+        dem = _plateau(12, 12)
+        dem[6, :] = 500.0
+        vs = _run_with_numba(dem, 2, 6)
+        assert not vs[10, 6]  # far side of the ridge is occluded
+        assert vs[6, 6]  # the crest itself is visible
+        assert vs[:6, :].all()  # everything above the ridge is open
+
+    def test_max_distance_cells_matches_numpy_fallback(self):
+        dem = _plateau(12, 12)
+        jitted = _run_with_numba(dem, 4, 4, max_distance_cells=3)
+        fallback = viewshed(dem, 4, 4, max_distance_cells=3)
+        assert np.array_equal(jitted, fallback)
+        rr, cc = np.mgrid[0:12, 0:12]
+        assert not jitted[np.sqrt((rr - 4) ** 2 + (cc - 4) ** 2) > 3].any()
+
+    def test_nodata_cells_are_never_visible(self):
+        dem = _plateau(12, 12)
+        dem[3:5, 3:6] = NODATA
+        vs = _run_with_numba(dem, 8, 8, max_distance_cells=30)
+        assert not vs[3:5, 3:6].any()
+        assert vs.sum() > 0  # the surrounding valid terrain is still reachable
+
+    def test_observer_on_nodata_is_empty_in_both_backends(self):
+        dem = _plateau()
+        dem[4, 4] = NODATA
+        vs = _run_with_numba(dem, 4, 4)
+        assert not vs.any()
+        # The NumPy fallback now short-circuits before marking the observer,
+        # so both backends agree on the empty result.
+        assert viewshed(dem, 4, 4).sum() == 0
+
+    def test_degenerate_cell_size_stays_valid(self):
+        # A cell size this small pushes every interpolated sample below the
+        # 1e-6 m horizontal-distance floor; the kernel must skip those samples
+        # instead of dividing by ~0 and emitting inf/NaN slopes.
+        dem = _plateau(8, 8)
+        vs = _run_with_numba(dem, 3, 3, cell_size_deg=1e-12)
+        assert vs.dtype == np.bool_
+        assert vs.shape == dem.shape
+        assert vs[3, 3]

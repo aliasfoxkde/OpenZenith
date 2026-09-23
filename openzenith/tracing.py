@@ -200,11 +200,14 @@ def trace_downstream(
         prev_dirs.append(best_dir)
         if len(prev_dirs) > 8:
             prev_dirs.pop(0)
-            # Check for oscillation
+            # Check for oscillation: a true ping-pong repeats a period-2
+            # pattern of two DIFFERENT directions (d[i] == d[i-2] and
+            # d[i] != d[i-1]). A constant direction is a straight descent,
+            # not oscillation.
             if len(prev_dirs) >= 4:
                 is_oscillating = True
-                for i in range(1, len(prev_dirs)):
-                    if prev_dirs[i] != prev_dirs[i - 2 if i >= 2 else i]:
+                for i in range(2, len(prev_dirs)):
+                    if prev_dirs[i] != prev_dirs[i - 2] or prev_dirs[i] == prev_dirs[i - 1]:
                         is_oscillating = False
                         break
                 if is_oscillating:

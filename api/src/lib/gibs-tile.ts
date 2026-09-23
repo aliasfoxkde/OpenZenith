@@ -42,11 +42,18 @@ export interface GIBSLayerConfig {
 export function createGIBSHandler(config: GIBSLayerConfig) {
   const { layer, cachePrefix, minZoom, maxZoom, cacheTtl } = config;
 
+  // Strict integer parsing: parseInt("3abc") yields 3, which would let
+  // malformed coordinates slip through as a truncated value. A leading minus
+  // still parses so negatives reach the range check and get a 404 rather
+  // than being lumped in with unparseable garbage (400).
+  const parseTileInt = (value: string): number =>
+    /^-?[0-9]+$/.test(value) ? Number.parseInt(value, 10) : Number.NaN;
+
   return async function GET(_request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
     const { z, x, y } = await params;
-    const zoom = parseInt(z, 10);
-    const tileX = parseInt(x, 10);
-    const tileY = parseInt(y, 10);
+    const zoom = parseTileInt(z);
+    const tileX = parseTileInt(x);
+    const tileY = parseTileInt(y);
 
     if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY) || zoom < minZoom || zoom > maxZoom) {
       return new Response("Invalid tile coordinates", { status: 400, headers: CORS_HEADERS });

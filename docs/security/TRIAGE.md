@@ -518,3 +518,38 @@ No real secrets, no new attack surface (the arcgis fix closes one).
 Re-baselined via `scripts/aegis_scan.sh update`.
 
 Baseline: 1,485 → 1,553 findings (+68 net; regeneration re-ordered all).
+
+## Re-triage 2026-09-23 — #114 wave 3: SDK hydrology fix pass + CRS84 deprecation
+
+Production edits: seven Python modules (hydrology/streams.py,
+hydrology/watersheds.py, hydrology/flowpaths.py, tracing.py,
+terrain/viewshed.py, tile_format_v2.py, geotiff.py) and the TS OGC tile
+routes (tiles/[tileMatrixSetId]/route.ts, tiles/[tileMatrixSetId]/.../route.ts,
+tiles/route.ts, wmts-capabilities.ts, lib/gibs-tile.ts), plus new/expanded
+test suites across both languages.
+
+Gate reported 47 new findings; all in already-triaged classes:
+
+- The OGC GoogleMapsCompatible well-known scale denominator
+  `559082264.0287178` (and its z1 half `279541132.0143589`) re-flagged at
+  its new/edited lines as `ssn-no-dashes`, `bank-routing-number`, and
+  `australian-tfn` (route.ts:51, wmts-capabilities.ts:22 + the two
+  capability assertions in the test). Numeric coordinate-scale constant,
+  not PII — same literal was triaged in earlier waves at its old lines.
+- Test-file noise from the new suites: `cors-misconfiguration` (wildcard-
+  origin assertions) and `ssrf-localhost` (`http://localhost` mock URLs)
+  in gibs-tile.test.ts and tiles-data.test.ts — the standard accepted
+  test-noise class.
+- Pattern-text noise: `code-injection-request` on test_merged.py
+  ("Write a .merged payload…" docstring + write_bytes/write_tile lines),
+  `missing-limit` on watersheds.py:165 ("# Limit to prevent huge JSON")
+  and :250 ("recursion limit" in a docstring), `go-replace-directive` on
+  tracing.py:284 ("# Replace NaN with NODATA…" comment).
+- Low-class comment/grammar noise: `trivy-config` + `openai-format`
+  (test_tracing.py), `model-version-tracking` (test_tile_format_v2.py
+  format-version strings).
+
+No real secrets, no new attack surface; the wave *closed* defects
+(inverted-D8 upstream tracing, OZT2 compressor-flag mismatch, cycle
+hangs) rather than opening any.
+Re-baselined via `scripts/aegis_scan.sh update`.

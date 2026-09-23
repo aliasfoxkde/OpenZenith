@@ -39,17 +39,19 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
     expect(xml).toContain('version="1.0.0"');
   });
 
-  it("advertises the Terrarium elevation layer for both tile matrix sets", async () => {
+  it("advertises the Terrarium elevation layer for the served tile matrix set", async () => {
     const { xml } = await getDoc("https://tiles.example.com");
     expect(xml).toContain("<ows:Identifier>elevation-terrarium</ows:Identifier>");
     expect(xml).toContain("<Format>image/png</Format>");
     expect(xml).toContain("<TileMatrixSet>WebMercatorQuad</TileMatrixSet>");
-    expect(xml).toContain("<TileMatrixSet>WorldCRS84Quad</TileMatrixSet>");
+    // CRS84 was dropped: the tiles are EPSG:3857 and cannot be served
+    // conformantly under that set.
+    expect(xml).not.toContain("<TileMatrixSet>WorldCRS84Quad</TileMatrixSet>");
   });
 
   it("builds the GetTile ResourceURL templates from the request origin", async () => {
     const { xml } = await getDoc("https://tiles.example.com");
-    expect(xml.match(/<ResourceURL /g) ?? []).toHaveLength(2);
+    expect(xml.match(/<ResourceURL /g) ?? []).toHaveLength(1);
     expect(xml).toContain(
       'template="https://tiles.example.com/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}"',
     );
@@ -62,13 +64,16 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
     expect(xml).toContain('xlink:href="https://tiles.example.com/api/tiles/WMTSCapabilities.xml"');
   });
 
-  it("defines 13 tile matrices per set with the correct scale progression", async () => {
+  it("defines 13 tile matrices for the single served set with the correct scale progression", async () => {
     const { xml } = await getDoc("https://tiles.example.com");
-    expect((xml.match(/<TileMatrix>/g) ?? []).length).toBe(26); // z0-z12 × 2 sets
-    // Level 0 scales per the OGC well-known scale sets, halving per level
+    // z0-z12, one set — CRS84 was dropped (the tiles are EPSG:3857 and
+    // cannot be served conformantly under that label).
+    expect((xml.match(/<TileMatrix>/g) ?? []).length).toBe(13);
+    // Level 0 scale per the GoogleMapsCompatible well-known scale set,
+    // halving per level
     expect(xml).toContain("<ScaleDenominator>559082264.0287178</ScaleDenominator>");
-    expect(xml).toContain("<ScaleDenominator>279541132.01435894</ScaleDenominator>");
-    expect(xml).toContain("<ScaleDenominator>136494.69336638617</ScaleDenominator>"); // WebMercatorQuad z12
+    expect(xml).toContain("<ScaleDenominator>279541132.0143589</ScaleDenominator>");
+    expect(xml).toContain("<ScaleDenominator>136494.69336638617</ScaleDenominator>"); // z12
     // Deepest matrix size: 1<<12 = 4096
     expect(xml).toContain("<MatrixWidth>4096</MatrixWidth>");
     expect(xml).toContain("<MatrixHeight>4096</MatrixHeight>");
@@ -76,10 +81,11 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
     expect(xml).toContain("<TileHeight>256</TileHeight>");
   });
 
-  it("uses CRS-correct TopLeftCorner values", async () => {
+  it("uses the WebMercatorQuad TopLeftCorner", async () => {
     const { xml } = await getDoc("https://tiles.example.com");
     expect(xml).toContain("<TopLeftCorner>-20037508.34278925 20037508.34278925</TopLeftCorner>");
-    expect(xml).toContain("<TopLeftCorner>-180 90</TopLeftCorner>");
+    // The geographic corner belonged to the dropped WorldCRS84Quad set.
+    expect(xml).not.toContain("<TopLeftCorner>-180 90</TopLeftCorner>");
   });
 
   it("embeds the request origin verbatim in every URL", async () => {

@@ -983,3 +983,60 @@ Floors ratcheted: **94/86/83/94 → 95/90/86/95** (measured 97.61 stmts /
 Remaining sub-90 branch areas (future waves, all others ≥95): tile/
 [tileRow]/[tileCol] ~82, lib/gibs-tile ~79, trace/twi residuals are
 documented-unreachable defensive branches.
+
+## #114 — Wave 3: TS tile/gibs stragglers + SDK hydrology fix pass (task 114, 2026-09-23)
+
+Two-agent wave closing the remaining sub-90% surfaces in both languages,
+then an orchestrator verification pass that fixed every defect the new
+tests surfaced.
+
+**TS side** (agent): OGC tiles routes + gibs-tile brought to ~100%
+branch coverage (+30 tests). Orchestrator decisions on top:
+- **WorldCRS84Quad deprecated across the tile surface.** The set served
+  EPSG:3857 bytes with only a row-flip under an EPSG:4326 label —
+  non-conformant output under a conformant label is worse than no set.
+  Removed from tiles/route.ts links, tileMatrixSetId route (400
+  InvalidParameterValue), and WMTSCapabilities.xml. True EPSG:4326
+  assembly (resampled pyramid) recorded as a follow-up candidate. (The
+  `CRS84` strings in the collections routes are the OGC API - Collections
+  mandatory spatial CRS — unrelated, untouched.)
+- gibs-tile parsing hardened: `parseInt` accepted "3abc" as 3; now strict
+  integer grammar (`/^-?[0-9]+$/`), so garbage → 400 while negative
+  literals still reach the range check → 404.
+- Also fixed in the agent's tests: self-contradictory gibs fixture (same
+  input pinned to both 400 and 404) and a stale z1 scale-denominator
+  literal from the old CRS84 path.
+
+**Python side** (3 agents, 8 modules): viewshed 78→100, watersheds
+80→94, streams 86→98, flowpaths 92→99, tracing 82→98, geo_utils 88→100,
+geotiff 87→100, merged 88→100, tile_format_v2 84→99. Orchestrator
+verification then fixed **17+ reported defects plus 3 found during
+verification** across 7 modules — the whole inverted-D8 family (upstream
+tracing in delineate/_trace_watershed/stream_basins/basin_id,
+stream_order, link heads, reach junctions, link-class tributaries used
+the opposite-of-d geometry or P=cell+offset), a cycle hang in the reach
+upstream walk (exposed by the direction fix), an unbounded-pass hang in
+stream_link_class (same-link self-count), flowpaths broadcast crashes +
+reversed upslope propagation (all non-ridge cells NaN), tracing
+oscillation false positive on straight descents, viewshed NumPy/kernel
+nodata-observer divergence, OZT2 zlib-fallback tiles labelled brotli in
+the flags byte (interop break vs brotli hosts) + encode now rejects
+non-square arrays (decode guesses dimensions — 64x512 came back silently
+as 128x256), GeoTIFF NaN-cast warnings + dtype-override wrap + unsigned
+Pillow fallback mangling negatives.
+
+**Gates:** Python 1,431 passed / 14 deselected, coverage **98.56%**
+(14,028 stmts, 202 miss) — floor ratcheted **93 → 96**; ruff clean.
+TS: 99 files, 1,256 passed + 5 skipped, coverage **97.89 / 93.3 /
+88.26 / 97.89** — floors ratcheted **95/90/86/95 → 96/91/86/96**;
+tsc clean; eslint 0 errors. Aegis re-triaged 1,553 → 1,564 (TRIAGE.md
+#114; all 47 new findings verified FPs: scale-denominator literals as
+PII, test CORS/localhost noise, "Limit"/"Replace"/"Write a" comment
+grammar).
+
+Remaining known gaps (all documented, none silent): tile_format_v2
+`_quantize`/`_dequantize` zero-range branches are format-legal but
+encoder-unreachable; watersheds snap_pour_point on an all-nodata grid
+divides by ~0 (guard candidate); WorldCRS84Quad true EPSG:4326 assembly;
+map/page.tsx monolith extraction (multi-session); GitForge event-drain
+stall (external).

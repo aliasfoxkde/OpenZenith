@@ -83,7 +83,7 @@ def downslope_flowpath_length(
             tgt_c = src_c + dc
 
             valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols)
-            valid &= np.isfinite(dist[src_r[valid], src_c[valid]])
+            valid &= np.isfinite(dist[src_r, src_c])
 
             if not valid.any():
                 continue
@@ -134,21 +134,23 @@ def upslope_flowpath_length(
     cell_size_deg = 0.001
     cell_m = cell_size_deg * 111320.0
 
-    # Find source cells (cells no other cell flows into)
+    # Find source cells (cells no other cell flows into) — ridges
     in_degree = np.zeros((rows, cols), dtype=np.int32)
     for d in range(8):
         dr, dc = int(D8_DR[d]), int(D8_DC[d])
         src_r, src_c = np.where(flow_dir == d)
-        tgt_r = np.clip(src_r + dr, 0, rows - 1)
-        tgt_c = np.clip(src_c + dc, 0, cols - 1)
-        np.add.at(in_degree, (tgt_r, tgt_c), 1)
+        tgt_r = src_r + dr
+        tgt_c = src_c + dc
+        valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols)
+        np.add.at(in_degree, (tgt_r[valid], tgt_c[valid]), 1)
 
     # Sources have in_degree == 0
     sources = in_degree == 0
     dist = np.where(sources, 0.0, np.inf).astype(np.float64)
 
-    # Reverse propagation: from sources, go UP the flow path
-    # (i.e., follow reverse of flow_dir)
+    # Propagate from ridge seeds DOWNSTREAM along flow edges, accumulating
+    # path length: dist[downstream] = dist[upstream] + edge. This yields,
+    # for every cell, the flow-path distance up to its nearest ridge.
     max_iter = rows * cols * 4
     for _ in range(max_iter):
         changed = False
@@ -165,7 +167,7 @@ def upslope_flowpath_length(
             tgt_c = src_c + dc
 
             valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols)
-            valid &= np.isfinite(dist[tgt_r[valid], tgt_c[valid]])
+            valid &= np.isfinite(dist[src_r, src_c])
 
             if not valid.any():
                 continue
@@ -175,10 +177,10 @@ def upslope_flowpath_length(
             tr = tgt_r[valid]
             tc = tgt_c[valid]
 
-            new_dist = dist[tr, tc] + dist_e
-            mask = new_dist < dist[sr, sc]
+            new_dist = dist[sr, sc] + dist_e
+            mask = new_dist < dist[tr, tc]
             if mask.any():
-                dist[sr[mask], sc[mask]] = new_dist[mask]
+                dist[tr[mask], tc[mask]] = new_dist[mask]
                 changed = True
 
         if not changed:

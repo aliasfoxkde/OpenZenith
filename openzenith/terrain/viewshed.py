@@ -80,10 +80,13 @@ def _viewshed_numpy(
     """
     rows, cols = dem.shape
     visible = np.zeros((rows, cols), dtype=bool)
-    visible[observer_row, observer_col] = True
 
+    # An observer on NODATA has no usable elevation: nothing is visible.
+    # (Matches the numba kernel below so both backends agree.)
     if dem[observer_row, observer_col] <= nodata:
         return visible
+
+    visible[observer_row, observer_col] = True
 
     observer_elev = float(dem[observer_row, observer_col]) + observer_height
     cell_m = cell_size_deg * 111320.0

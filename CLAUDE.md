@@ -23,6 +23,9 @@ npm run lint:fix     # ESLint fix
 npm run test         # Vitest (TypeScript tests)
 npm run test:watch   # Vitest watch mode
 npx playwright test # E2E tests
+npx playwright test -- --workers=2   # reliable on this host (renderer OOM at higher parallelism)
+E2E_RUN_HEAVY=1 npx playwright test e2e/ozt2-validate.spec.ts   # opt-in: full Cesium terrain pipeline check
+E2E_BASE_URL=http://localhost:9006 npx playwright test          # retarget (wrangler pages dev)
 ```
 
 ### Python SDK

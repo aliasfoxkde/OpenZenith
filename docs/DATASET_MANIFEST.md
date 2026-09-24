@@ -63,6 +63,7 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 > plus vestigial z0/z1/z5 test tiles) and in Cloudflare R2 (z11, 595,149
 > tiles, via `scripts/upload_ozt2_to_r2.py`). The HF copy of z11 is a
 > partial legacy generation (403,483 tiles) that nothing consumes.
+> Early upload-test stubs have been removed from the dataset.
 > The planned dataset ID `openzenith/elevation-v2-ozt2` was never
 > created. Section kept as the original design record.
 

@@ -272,3 +272,14 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
   equals local for every probed lagged file (SDK reads via resolve, so
   consumers get correct bytes). Samples 24/24 hash-matched per zoom, all
   landmarks pass with hash MATCH.
+- 2026-09-24: #130 complete — HF test artifacts cleaned. The two z10
+  stubs (`tiles/z10/0/test338{,c}.ozt2`, 32-byte all-zero tiles from the
+  first uploader test) deleted via an explicit-path `create_commit`
+  (delete_files with patterns re-lists the whole 150K-file repo and hits
+  the same read-timeout hang #127 fixed — do not use it here). The 8
+  "extra" z7 paths (`999-test`, `batch_*`, `seq_*`) are tree-index
+  ghosts: they 404 on resolve, i.e. already absent from live content —
+  nothing to delete. Deletion verified via resolve 404 + z10/0 dir
+  listing. Dataset now contains exactly: z7–z10 current generation,
+  vestigial z0/z1/z5 tiles (1/4/12), and the partial legacy z11 copy
+  (unconsumed; R2 is authoritative).

@@ -1602,3 +1602,14 @@ hash pass is the wrong cost for a 600K-tile audit). Gates: py_compile
 clean; aegis re-triaged (4 line-shifts, TRIAGE.md 2026-09-24 #128/#129).
 No api/ source change → no deploy. Parked: HF z11 backfill (~595K files,
 ≈4 h at the 128 commits/hour cap, zero consumers) — not scheduled.
+
+## Task #130: HF test-artifact cleanup (2026-09-24)
+
+Deleted `tiles/z10/0/test338{,c}.ozt2` (32-byte all-zero stubs from the
+first uploader test) via explicit-path `create_commit` — `delete_files`
+with patterns must NOT be used on this repo: it re-lists all 150K files
+through hf_hub's default timeouts and hangs exactly the way #127 fixed
+for the validator. The 8 "extra" z7 paths from the audit turned out to
+be tree-index ghosts (404 on resolve — absent from live content), so
+nothing to delete there. Verified: resolve 404 on both stubs + z10/0
+directory listing clean. No repo code change (docs only) → no deploy.

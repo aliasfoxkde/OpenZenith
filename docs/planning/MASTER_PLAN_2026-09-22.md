@@ -1856,3 +1856,17 @@ button gained an aria-label (matching the hurricane control). Gates: tsc
 clean; eslint 5,381/0; vitest 1,447+5; pages:build ok; aegis re-triaged
 (23 findings, all relocation/line-shift FPs — TRIAGE.md). Deployed
 (d3783f73); map specs 4/4 green incl. the axe audit.
+
+### Task #136 wave 3 (2026-09-24, ece6e7a)
+
+BasemapSelector (button grid + AUTO THEME row; the mapRef-based OS-theme
+lookup became an onMatchOsTheme callback) and LayerControls (hillshade row
++ category accordion with status badges and opacity sliders) extracted into
+new map/controls.tsx; RASTER_LAYERS and LayerStatusEntry moved with their
+only consumer. page.tsx 2,399 → 2,199 lines (cumulative 3,053 → 2,199,
+−28%). Gates: tsc clean; eslint 5,381/0; vitest 1,447+5; aegis re-triaged
+(16 findings, all relocation/line-shift FPs — TRIAGE.md). Deployed
+(712a6e9d); map specs 4/4 green incl. the axe audit. Remaining for later
+waves: status indicators, measure/draw toolbars, view controls +
+bookmarks, coordinate info, elevation profile, context menu, toasts;
+then globe/page.tsx and explore.

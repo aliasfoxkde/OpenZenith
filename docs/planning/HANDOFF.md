@@ -68,17 +68,26 @@ The API's Playwright and Cloudflare Pages paths need separate browser/runtime
 evidence. The README's claims about offline data, terrain algorithms, and
 WASM must be tested with fixtures rather than inferred from source presence.
 
+> **Update (2026-09-24, v0.8.4):** release cut covering the whole
+> #110–#134 range (inverted-D8 hydrology family, channels/inundation/vector,
+> tile decode + render-schema fixes, WMTS conformant set, single-source
+> OpenAPI, zero production CVEs, SDK packaging). Coverage goals met: TS
+> functions 100% (375/375), floors 95/90/86/95; Python 98.8% (floor 97);
+> Rust core 98%. Map page monolith extraction underway: waves 1-3 took
+> map/page.tsx 3,053 → 2,199 lines (view-state/boundaries/map-setup libs,
+> panels.tsx, controls.tsx), deployed and E2E-verified per wave.
+
 ## Open work
 
-1. Globe/map page monolith extraction (multi-session; landing-page pattern
-   already established in `globe/lib/{widgets,tools,layers}`).
+1. Map page monolith extraction, remaining waves (from 2,199 lines):
+   status-indicator block (~230 lines), measure/draw toolbars, view
+   controls + bookmarks, coordinate info, elevation profile, context
+   menu, toasts; then globe/page.tsx (1,503) and explore (1,641).
 2. GitForge CI verification needs the user's interactive
    `gitforge auth --login`; the push path itself works (transient
    server-side stalls self-heal — retry or re-fetch).
-3. Coverage climb toward 95/90 and openapi.json single-sourcing (phased in
-   MASTER_PLAN).
-4. HF z11 backfill is NOT scheduled: ~595K files ≈ 4h+ under the
+3. HF z11 backfill is NOT scheduled: ~595K files ≈ 4h+ under the
    128-commits/hour cap, and nothing consumes the HF z11 copy (R2 is
    authoritative). Revisit only if the SDK gains an HF z11 consumer.
-5. Decide whether the MCP server is in the Platform execution graph and add a
+4. Decide whether the MCP server is in the Platform execution graph and add a
    versioned contract only after its tests pass.

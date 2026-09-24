@@ -1752,3 +1752,29 @@ stmts / 97.30% branch / 100% funcs / 99.64% lines; aegis re-triaged 23
 findings (9 CORS-wildcard assertions + 12 point-elevation line shifts + 2
 flow-path line shifts; TRIAGE.md 2026-09-24 #133), baseline 1704 → 1713.
 Production source changed (flow-path dead getter) → deploy required.
+
+## Task #134: Post-deploy E2E against production (Phase 6.4) + AAA contrast fix (2026-09-24)
+
+Ran the Playwright suite against production per Phase 6.4. First full run:
+75 passed, 5 failed — no product violations; three failure classes:
+
+1. **Real product defect (fixed)**: axe found `color-contrast-enhanced`
+   (serious, AAA) on the globe's active basemap preview label — deterministic
+   across both attempts. Computed by hand: accent `#4a9eff` on the accent-glow
+   background blends to ~5.19:1 against the 7:1 floor for 10px text. The
+   label now reads in the theme's `--text` ink (10.8:1 default theme) while
+   border + glow keep the accent identity. Committed 8374db6, deployed
+   (9da65d3e), verified live: all 16 a11y tests green, zero flaky.
+2. **Audit-budget timeouts (fixed)**: landing/map/globe/studio exceeded the
+   30 s default inside `builder.analyze()` — the live site streams layers
+   forever and axe waits for DOM stability. The a11y suite now sets a 120 s
+   per-test budget; the follow-up suite ran in 2.1 m with no retries.
+3. **Firefox hydration-scan flake**: first-attempt scans occasionally caught
+   pre-hydration trees (violations on `html`), green on retry — playwright
+   retries are the designed cover; noted, not patched.
+
+Final full-suite state against production: **0 failed / 76 passed / 2
+skipped / 4 flaky-retry** (network-dependent elevation lookups), exit 0.
+Gates for the fix: tsc clean; ESLint 0 errors / exactly the 5,381-warning
+baseline; vitest 100/100 files, 1,434 passed / 5 skipped; aegis gate passed
+(no new findings). Production changed → deployed + verified.

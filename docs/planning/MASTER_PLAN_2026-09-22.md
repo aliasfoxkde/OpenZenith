@@ -1565,3 +1565,40 @@ Validator hardening (the reason this re-run was needed at all):
   tile counts.
 
 No api/ source change → no deploy. Gates: py_compile clean; aegis triaged.
+
+## Tasks #128/#129: non-z10 HF levels audited; z7–z9 refreshed (2026-09-24)
+
+**Audit (#128).** Scoped validator runs over every HF zoom level vs the
+local tile tree:
+
+| Level | Remote | Local | Missing | Byte-identical | Verdict |
+|-------|--------|-------|---------|----------------|---------|
+| z0/z1/z5 | 1/4/12 | — | — | — | vestigial test tiles |
+| z7 | 2,991 (+8 test) | 3,027 | 44 | 0 | old generation, ≤4 m divergence |
+| z8 | 10,558 | 10,735 | 177 | 0 | old generation, ≤2 m divergence |
+| z9 | 39,682 | 39,803 | 121 | 0 | old generation, decode-equivalent |
+| z10 | 151,990 | 151,988 | 0 | 151,988 | complete (task #127) |
+| z11 | 403,483 | 595,149 | 191,666 | n/a | partial legacy; R2 is authoritative |
+
+"z7–z9 local-only" in the docs was false; all sample errors were old-
+quantizer divergences (2–4 m, nodata masks identical) — staleness, not
+corruption. Docs corrected with measured counts.
+
+**Refresh (#129).** First delta pass reported 53,565 uploaded / 0 failed
+but landed only partially: the timeout landing probe (HEAD on resolve)
+got 200 + cached OLD bytes for overwrite batches, so failed commits were
+never retried. `probe_landed` now verifies CONTENT — tree-API git blob
+ids vs local shas over 3 sampled files per batch — and every non-True
+outcome retries (safe: HF's dedup marker reports an already-landed
+commit as already_present). Second pass: 17,303 uploaded + 36,262
+dedup-confirmed = the full 53,565 set. Final state: 0 missing at z7–z9;
+byte-diff clean except 227(z7)/1(z8) tree-index oids that lag — resolve
+probes prove served bytes equal local for every lagged file checked, and
+the SDK consumes resolve URLs. z9 (walked last) showed 39,803/39,803
+identical — consistent with index catch-up.
+
+Validator: new `--no-byte-diff` flag (completeness-only mode; the local
+hash pass is the wrong cost for a 600K-tile audit). Gates: py_compile
+clean; aegis re-triaged (4 line-shifts, TRIAGE.md 2026-09-24 #128/#129).
+No api/ source change → no deploy. Parked: HF z11 backfill (~595K files,
+≈4 h at the 128 commits/hour cap, zero consumers) — not scheduled.

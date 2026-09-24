@@ -240,3 +240,35 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
   unverified). File `oid` from the plain listing IS the git blob sha1, so
   the no-download byte-diff works unchanged. Report gains per-zoom counts.
   No api/ source change → no deploy.
+- 2026-09-24: #128 complete — non-z10 HF levels audited (scoped validator
+  runs). Ground truth vs CLAUDE.md's claims: z7 remote 2,991 / local 3,027
+  (44 missing, 100% old-generation bytes, sample divergence ≤4 m); z8
+  10,558/10,735 (177 missing, 100% stale, ≤2 m); z9 39,682/39,803 (121
+  missing, 100% stale, 24/24 decode-equivalent); z11 403,483 remote vs
+  595,149 local — 191,666 missing (32%); z0/z1/z5 = 1/4/12 vestigial test
+  tiles with no local counterpart; 8 legacy test files under z7, 0 strays.
+  All sample "errors" were 2–4 m decoder divergences from the old
+  quantizer with identical nodata masks — staleness, not corruption.
+  Verdict: "z7–z9 local-only" was false (an old incomplete generation
+  existed on HF); z11-on-R2 is the only complete z11. CLAUDE.md +
+  DATASET_MANIFEST corrected with measured counts (53,823→53,565;
+  602,554→595,149). Validator gained `--no-byte-diff` (completeness-only
+  audits of a ~600K-tile zoom must not trigger a full local hash pass).
+- 2026-09-24: #129 complete — z7–z9 refreshed to the current generation.
+  First delta pass uploaded 53,565 files "0 failed" but post-upload walks
+  showed ~half of each zoom still stale/missing — root cause: the
+  uploader's timeout landing probe was a HEAD on the resolve URL, and the
+  CDN answers 200 with the cached OLD bytes for overwrite batches, so
+  failed commits were marked landed and never retried. probe_landed
+  rewritten content-exact: compare tree-API git blob ids of 3 sampled
+  batch files against local shas (atomic commits make one file
+  conclusive); every non-True outcome now retries, which is safe because
+  HF's "no files have been modified" dedup filter reports an
+  already-landed commit as already_present (both paths exercised live).
+  Second pass: 17,303 uploaded + 36,262 dedup-confirmed = exactly the
+  53,565 set, 0 failed. Final validation: z9 39,803/39,803 byte-identical;
+  z8 10,734 identical + 1; z7 2,800 identical + 227 — the residuals are
+  PROVEN tree-index lag, not content: resolve serves bytes whose sha
+  equals local for every probed lagged file (SDK reads via resolve, so
+  consumers get correct bytes). Samples 24/24 hash-matched per zoom, all
+  landmarks pass with hash MATCH.

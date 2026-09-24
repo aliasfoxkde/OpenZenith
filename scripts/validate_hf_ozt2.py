@@ -277,6 +277,11 @@ def main() -> int:
         action="store_true",
         help="Walk every zoom level in tiles/ (the default walks tiles/z<zoom> only)",
     )
+    ap.add_argument(
+        "--no-byte-diff",
+        action="store_true",
+        help="Completeness only: skip the local hash pass (a full read of the zoom tree)",
+    )
     args = ap.parse_args()
 
     report: dict = {"repo": args.repo, "zoom": args.zoom, "checks": {}}
@@ -310,8 +315,10 @@ def main() -> int:
         print(f"  strays identified as local duplicates: {identified}/{len(stray_hashes)}")
         report["checks"]["strays"] = {"count": len(strays), "identified_local_duplicates": identified}
 
-    # Completeness + exhaustive byte-diff vs local (remote blob/LFS ids are
-    # comparable to locally computed object hashes — no downloads needed).
+    # Completeness + (unless --no-byte-diff) exhaustive byte-diff vs local.
+    # Remote blob ids are comparable to locally computed object hashes — no
+    # downloads needed — but the local hash pass is a full read of the zoom's
+    # tree, which is the wrong cost for a large-zoom completeness audit.
     missing: list[str] = []
     if args.local:
         local = local_tile_files(args.local, args.zoom)
@@ -330,6 +337,7 @@ def main() -> int:
             args.emit_missing.write_text("\n".join("tiles/" + m for m in missing) + "\n")
             print(f"  missing list -> {args.emit_missing}")
 
+    if args.local and not args.no_byte_diff:
         hashable = {t: remote_hashes.get(t) for t in remote_z}
         comparable = {t: h for t, h in hashable.items() if h}
         print(f"  byte-diff vs local ({len(comparable):,} comparable remote hashes) ...")

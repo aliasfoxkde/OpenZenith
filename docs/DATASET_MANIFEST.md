@@ -56,11 +56,13 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 
 ### 3. OZT2 Elevation Tiles (openzenith/elevation-v2-ozt2) — Partially shipped
 
-> **Status update (2026-09-22):** the plan below was written before the
+> **Status update (2026-09-24):** the plan below was written before the
 > actual build. Real state: tiles live at
-> `aliasfox/srtm30m-ozt2-v2` on HuggingFace (z10, 151,988 tiles) and in
-> Cloudflare R2 (z11, 602,554 tiles, via
-> `scripts/upload_ozt2_to_r2.py`); z7–z9 (53,823 tiles) are local-only.
+> `aliasfox/srtm30m-ozt2-v2` on HuggingFace (z10: 151,988 tiles and
+> z7–z9: 53,565 tiles, both complete and byte-validated against local;
+> plus vestigial z0/z1/z5 test tiles) and in Cloudflare R2 (z11, 595,149
+> tiles, via `scripts/upload_ozt2_to_r2.py`). The HF copy of z11 is a
+> partial legacy generation (403,483 tiles) that nothing consumes.
 > The planned dataset ID `openzenith/elevation-v2-ozt2` was never
 > created. Section kept as the original design record.
 
@@ -74,7 +76,7 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 | Zoom levels | z0–z14 |
 | Tile size | 256 × 256 pixels |
 | Compression | ~93% smaller than Terrarium PNG |
-| Status | **Partially shipped** — z10 on HF, z11 on R2, z7–z9 local-only |
+| Status | **Partially shipped** — z7–z10 on HF (current generation, validated), z11 on R2 |
 
 **Build pipeline:** `scripts/convert_to_ozt2.py`
 **Target:** HuggingFace `openzenith/elevation-v2-ozt2`
@@ -144,8 +146,8 @@ OpenZenith uses a unified surface type taxonomy across all elevation sources:
 - [x] Surface type taxonomy with `seafloor` distinction
 - [x] Typed elevation result contract across all API routes
 - [x] NODATA policy: preserve -32768 via `noDataValue` in Cesium HeightmapTerrainData
-- [x] OZT2 tiles generated for z7–z11 on local machine (z10: 151,988; z11: 602,554; z7–z9: 53,823)
-- [x] OZT2 z10 uploaded to HuggingFace (`aliasfox/srtm30m-ozt2-v2` — planned ID was never created; z11 went to Cloudflare R2 instead; z7–z9 upload pending)
+- [x] OZT2 tiles generated for z7–z11 on local machine (z10: 151,988; z11: 595,149; z7–z9: 53,565)
+- [x] OZT2 z7–z10 uploaded to HuggingFace (`aliasfox/srtm30m-ozt2-v2` — planned ID was never created; z11 went to Cloudflare R2 instead; z7–z10 validated 2026-09-24)
 - [ ] OZT2 bathymetry tiles generated via `convert_gebco_to_ozt2.py`
 - [ ] OZT2 bathymetry uploaded to HuggingFace `openzenith/bathymetry-v2-ozt2`
 - [ ] API switched to v2 dataset as primary, v1 as fallback

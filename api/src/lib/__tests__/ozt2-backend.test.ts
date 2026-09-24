@@ -357,6 +357,31 @@ describe("OZT2HuggingFaceBackend", () => {
 
     expect(await backend.getElevation(lat, lon)).toBeNull();
   });
+
+  it("proceeds to the network when the CF cache read rejects", async () => {
+    const lat = 52.2297;
+    const lon = 21.0122; // Warsaw — tile untouched by the other tests
+    serveTile(lat, lon, flatTile(88));
+    cacheGetMock.mockRejectedValue(new Error("cf cache exploded"));
+    const backend = new OZT2HuggingFaceBackend();
+
+    expect(await backend.getElevation(lat, lon)).toBe(88);
+    expect(requestedUrlOf(fetchMock)).toBe(tileUrl(lat, lon, 10));
+  });
+
+  it("falls back to merged chunks for southern and western points", async () => {
+    // The S/W branches of the SRTM name and bounds helpers only run for
+    // negative latitudes and longitudes.
+    const lat = -33.8688;
+    const lon = -58.3816; // Buenos Aires
+    const geometry = chunkGeometry(lat, lon);
+    fetchChunkMock.mockResolvedValue(buildZlibChunk(27, geometry.chunkRow, geometry.chunkCol));
+    const backend = new OZT2HuggingFaceBackend();
+
+    expect(await backend.getElevation(lat, lon)).toBe(27);
+    expect(geometry.srtmName).toMatch(/^S\d{2}W\d{3}\.tif$/);
+    expect(fetchChunkMock).toHaveBeenCalledWith(geometry.srtmName, geometry.chunkRow, geometry.chunkCol);
+  });
 });
 
 function requestedUrlOf(fetchMock: { mock: { calls: Array<[string, RequestInit?]> } }): string | null {

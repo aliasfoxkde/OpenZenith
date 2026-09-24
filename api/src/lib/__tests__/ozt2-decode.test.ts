@@ -397,6 +397,28 @@ describe("decodeOZT2Sync", () => {
     const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_ZLIB, residuals });
     expect(() => decodeOZT2Sync(tile, unzlibSync)).toThrow("Cannot infer dimensions from 3 pixels");
   });
+
+  it("decodes a sync brotli tile through a provided passthrough inflater", () => {
+    // Brotli fixtures store the residuals uncompressed, so a passthrough
+    // inflater stands in for fflate's brotli decoder in worker builds.
+    const elev = Int16Array.from([7, 9, 11, 13]);
+    const tile = encodeTile(elev, 2, 2, { vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_BROTLI });
+
+    const result = decodeOZT2Sync(tile, (bytes) => bytes);
+
+    expect(Array.from(result.elevation)).toEqual([7, 9, 11, 13]);
+    expect(result.metadata).toMatchObject({ predictor: "none", compressor: "brotli", width: 2, height: 2 });
+  });
+
+  it("fills vmin across a sync tile when the range is zero at low bit depth", () => {
+    const residuals = Int16Array.from([1, 2, 3, 4]);
+    const tile = buildTile({ vmin: 9, range: 0, bits: 8, predictor: PRED_NONE, compressor: COMP_ZLIB, residuals });
+
+    const result = decodeOZT2Sync(tile, unzlibSync);
+
+    expect(Array.from(result.elevation)).toEqual([9, 9, 9, 9]);
+    expect(result.metadata).toMatchObject({ minElevation: 9, elevationRange: 0, bitsPerPixel: 8 });
+  });
 });
 
 describe("interpolateElevation", () => {
@@ -447,5 +469,16 @@ describe("interpolateElevation", () => {
     expect(interpolateElevation(blank, 0.5, 0.5, 2, 2, -9999)).toBe(-9999);
     const valid = Int16Array.from([100, 200, 300, 400]);
     expect(interpolateElevation(valid, 0.5, 0.5, 2, 2, -1)).toBe(250);
+  });
+
+  it("treats out-of-bounds corners as nodata and clamps the nearest-cell fallback", () => {
+    // x0 = 5 indexes past the 1×1 grid: the bounds guard substitutes the
+    // sentinel for the missing corners, then the nearest-valid fallback clamps
+    // back onto the only real cell.
+    const one = Int16Array.from([100]);
+    expect(interpolateElevation(one, 5, 0, 1, 1)).toBe(100);
+    // A fully out-of-range sample over a nodata grid has nothing valid anywhere.
+    const blank = new Int16Array(4).fill(-32768);
+    expect(interpolateElevation(blank, 9, 9, 2, 2)).toBe(-32768);
   });
 });

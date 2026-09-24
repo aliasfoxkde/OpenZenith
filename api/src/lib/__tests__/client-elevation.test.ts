@@ -94,8 +94,14 @@ interface Fixtures {
   merged?: Record<string, Uint8Array | number>;
   /** fallback for tile bases not listed in `merged` */
   mergedFor?: (tileBase: string) => Uint8Array | number | undefined;
+  /** tile bases whose fetch should reject outright (network failure) */
+  mergedThrows?: string[];
   /** quadrant file name -> strip bytes, or an HTTP status to fail with */
   strips?: Record<string, Uint8Array | number>;
+  /** quadrant file names served with status 200 (range ignored) instead of 206 */
+  stripsAt200?: Record<string, Uint8Array>;
+  /** quadrant file names whose fetch should reject outright */
+  stripsThrows?: string[];
   pointEndpoint?: (url: string) => Response;
   batchEndpoint?: (url: string) => Response;
 }
@@ -111,6 +117,7 @@ function installFixtures(fixtures: Fixtures = {}): { calls: RecordedCall[]; fetc
 
     const merged = url.match(HF_MERGED);
     if (merged) {
+      if (fixtures.mergedThrows?.includes(merged[1])) throw new Error("hf offline");
       const entry = fixtures.merged?.[merged[1]] ?? fixtures.mergedFor?.(merged[1]);
       if (entry instanceof Uint8Array) return new Response(entry as unknown as BodyInit, { status: 200 });
       return new Response(null, { status: typeof entry === "number" ? entry : 404 });
@@ -118,6 +125,9 @@ function installFixtures(fixtures: Fixtures = {}): { calls: RecordedCall[]; fetc
 
     const strip = url.match(CEDA_STRIP);
     if (strip) {
+      if (fixtures.stripsThrows?.includes(strip[1])) throw new Error("ceda offline");
+      const at200 = fixtures.stripsAt200?.[strip[1]];
+      if (at200) return new Response(at200 as unknown as BodyInit, { status: 200 });
       const entry = fixtures.strips?.[strip[1]];
       if (entry instanceof Uint8Array) return new Response(entry as unknown as BodyInit, { status: 206 });
       return new Response(null, { status: typeof entry === "number" ? entry : 404 });
@@ -266,6 +276,117 @@ describe("getClientElevation — GEBCO fallback", () => {
       status: "ok",
       source: undefined,
     });
+  });
+
+  it("credits GEBCO with a land surface type for positive elevations", async () => {
+    const nodataMerged = mergedFile(
+      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
+      15,
+      15,
+    );
+    installFixtures({
+      merged: { N39W073: nodataMerged },
+      strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, 150) },
+    });
+
+    const result = await getClientElevation(39.98, -73.99);
+    expect(result).toMatchObject({ elevation: 150, surfaceType: "land", source: "gebco2025" });
+  });
+
+  it("reuses a cached GEBCO strip for repeat lookups without refetching", async () => {
+    const nodataMerged = mergedFile(
+      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
+      15,
+      15,
+    );
+    const { calls } = installFixtures({
+      merged: { N39W073: nodataMerged },
+      strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -3000) },
+    });
+
+    await getClientElevation(39.95, -73.99);
+    await getClientElevation(39.95, -73.99);
+    expect(calls.filter((c) => CEDA_STRIP.test(c.url))).toHaveLength(1);
+  });
+
+  it("accepts a GEBCO strip served with status 200 when the range is ignored", async () => {
+    const nodataMerged = mergedFile(
+      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
+      15,
+      15,
+    );
+    installFixtures({
+      merged: { N39W073: nodataMerged },
+      stripsAt200: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -1200) },
+    });
+
+    const result = await getClientElevation(39.97, -73.99);
+    expect(result).toMatchObject({ elevation: -1200, surfaceType: "ocean", source: "gebco2025" });
+  });
+
+  it("treats a rejecting GEBCO strip fetch as unusable and asks the server", async () => {
+    const nodataMerged = mergedFile(
+      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
+      15,
+      15,
+    );
+    installFixtures({
+      merged: { N39W073: nodataMerged },
+      stripsThrows: ["gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif"],
+      pointEndpoint: () => jsonResponse({ elevation: 9, surface_type: "land", tile: "N39W073" }),
+    });
+
+    const result = await getClientElevation(39.96, -73.99);
+    expect(result).toMatchObject({ elevation: 9, status: "ok", source: undefined });
+  });
+
+  it("rejects a truncated GEBCO strip that cannot hold the sampled column", async () => {
+    const nodataMerged = mergedFile(
+      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
+      15,
+      15,
+    );
+    installFixtures({
+      merged: { N39W073: nodataMerged },
+      strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": new Uint8Array(10) },
+      pointEndpoint: () => jsonResponse({ elevation: 3, surface_type: "land", tile: "N39W073" }),
+    });
+
+    const result = await getClientElevation(39.94, -73.99);
+    expect(result).toMatchObject({ elevation: 3, status: "ok", source: undefined });
+  });
+});
+
+describe("getClientElevation — corrupt and failing merged files", () => {
+  it("treats a merged file with a bad magic number as absent and asks the server", async () => {
+    const garbage = new Uint8Array(64); // right size, wrong magic
+    installFixtures({
+      merged: { N40W073: garbage },
+      pointEndpoint: () => jsonResponse({ elevation: 7, surface_type: "land", tile: "N40W073" }),
+    });
+
+    const result = await getClientElevation(40.5, -73.5);
+    expect(result).toMatchObject({ elevation: 7, status: "ok", source: undefined });
+  });
+
+  it("falls through to the server when the merged fetch rejects outright", async () => {
+    installFixtures({
+      mergedThrows: ["N40W073"],
+      pointEndpoint: () => jsonResponse({ elevation: 8, surface_type: "land", tile: "N40W073" }),
+    });
+
+    const result = await getClientElevation(40.5, -73.5);
+    expect(result).toMatchObject({ elevation: 8, status: "ok", source: undefined });
+  });
+
+  it("defaults the surface type to unknown when the server omits it", async () => {
+    installFixtures({
+      merged: { N42W073: 404 },
+      pointEndpoint: () => jsonResponse({ elevation: 6 }),
+    });
+
+    const result = await getClientElevation(41.5, -73.5);
+    expect(result).toMatchObject({ elevation: 6, surfaceType: "unknown", status: "ok" });
   });
 });
 
@@ -499,6 +620,23 @@ describe("getClientElevationBatch", () => {
 
     const results = await getClientElevationBatch([{ lat: 45.5, lon: -73.5, id: "x" }]);
     expect(results).toEqual([{ lat: 45.5, lon: -73.5, id: "x", elevation: null }]);
+  });
+
+  it("never leaks caller ids when the server returns more results than points", async () => {
+    installFixtures({
+      merged: { N45W073: mergedFile([], 1, 1) },
+      batchEndpoint: () =>
+        jsonResponse({ results: [{ elevation: 11 }, { elevation: 22 }] }), // one extra result
+    });
+
+    const results = await getClientElevationBatch([{ lat: 45.5, lon: -73.5, id: "x" }]);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toEqual({ lat: 45.5, lon: -73.5, id: "x", elevation: 11 });
+    // The surplus result has no caller point; its lat/lon must be NaN, not a
+    // stale id or a fabricated coordinate.
+    expect(Number.isNaN(results[1].lat)).toBe(true);
+    expect(Number.isNaN(results[1].lon)).toBe(true);
+    expect(results[1].id).toBeUndefined();
   });
 
   it("falls back to GEBCO from inside a tile group when the SRTM pixel is nodata", async () => {

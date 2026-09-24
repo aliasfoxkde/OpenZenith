@@ -171,8 +171,11 @@ export async function POST(request: NextRequest) {
                   (_, i) => i > 0 && profile[i].elevation > NODATA && profile[i].elevation > profile[i - 1].elevation,
                 )
                 .reduce(
-                  (s, p, _, arr) =>
-                    s + (p.elevation - (arr[Math.max(0, profile.indexOf(p) - 1)]?.elevation ?? p.elevation)),
+                  // Rise against the previous profile point. The lookup must run
+                  // over `profile` — indexing the filtered array aliases the
+                  // point itself and nets every gain to zero.
+                  (s, p) =>
+                    s + (p.elevation - (profile[Math.max(0, profile.indexOf(p) - 1)]?.elevation ?? p.elevation)),
                   0,
                 ) *
                 10) /

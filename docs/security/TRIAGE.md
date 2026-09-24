@@ -872,3 +872,46 @@ every Polygon/LineString from bbox-filtered responses):
 
 No new vulnerability classes; two true-positive defects found by the new
 tests are FIXED, not baselined. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #132 (branch coverage on the remaining weak files)
+
+63 new findings after extending eight suites (hurricanes, sentinel2,
+client-elevation, elevation-color, terrain-routes slope/profile, ozt2-decode,
+ozt2-backend, storage-cache) and extracting the hypsometric ramp into
+`api/src/lib/hypsometric.ts`. One true-positive production defect surfaced by
+the new tests — profile/route.ts `total_gain` reduce indexed the FILTERED
+array instead of `profile`, aliasing each point to itself and netting every
+gain to zero (always 0) — is FIXED, not baselined.
+
+- ssrf-localhost (13, medium) + hardcoded-internal-endpoint (13, low) +
+  ssrf (6, high) — literal `http://localhost/api/...` NextRequest URL strings
+  in elevation-color-zxy.test.ts and the appended terrain-routes suites.
+  Inert literals; fetch is mocked at getTileData/R2. Benign.
+- double-type-assertion (4, medium) — BigInt64Array-as-Int16Array tile doubles
+  (the only route into the routes' outer catches) and Request-as-NextRequest
+  casts. Benign.
+- sync-in-async (3 test findings, medium) — unzlibSync in the test PNG
+  decoder and ozt2-decode fixtures; single-tile synchronous inflate in tests
+  is microseconds. Benign.
+- cors-misconfiguration (2, medium) — test assertions on the deliberate
+  wildcard CORS policy. Benign.
+- Numeric-literal misfires in client-elevation.test.ts: ssn-no-dashes (2,
+  high), bank-routing-number (2, high), australian-tfn (2, high),
+  phone-number (1, low) — SRTM coordinate/elevation digit runs; no PII.
+  Benign. react-missing-key-prop (1, low) — `.map()` over test fixture data.
+- Production line-shift re-flags of already-triaged patterns (the hypsometric
+  extraction + total_gain fix moved lines below them): console-log
+  (route.ts:167 — console.error in the never-hit fallback catch),
+  cors-misconfiguration (route.ts:33 CACHE_HEADERS wildcard),
+  namespace-declaration (route.ts:40 — the EC_CACHE_NAMESPACE const name),
+  no-cache-headers (route.ts:32/84, profile/route.ts:198), sync-in-async
+  (route.ts:207 zlibSync PNG encode), return-await (route.ts:61),
+  try-catch-bulk (route.ts:51, profile/route.ts:34). Same code, new lines;
+  dispositions unchanged from the 2026-09-22 baseline entries.
+- expensive-computation-loop (1, medium) — hypsometric.ts:45, the new
+  lerpColor stop-interpolation loop: at most 20 stops per pixel, O(1) for
+  practical purposes; extracted verbatim from the route. Benign.
+- file-size-outlier (1, info) — terrain-routes.test.ts at 1,247 lines; it
+  covers seven terrain route handlers. Accepted.
+
+No new vulnerability classes. Baseline updated deliberately.

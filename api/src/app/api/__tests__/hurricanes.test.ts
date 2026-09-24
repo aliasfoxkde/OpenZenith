@@ -15,6 +15,14 @@ const MOCK_IBTRACS = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO
 2024272N18284,2024,NA,NORTH_ATLANTIC,MILTON,2024-10-09 18:00:00,TS,22.8,-89.1,55,982,main
 2024272N18284,2024,NA,NORTH_ATLANTIC,MILTON,2024-10-09 12:00:00,TS,23.0,-89.4,50,987,main`;
 
+/** Typed body reader keeps the later storm-row suites off the unsafe-any lint path. */
+interface HurricaneCollectionBody {
+  features?: Array<{ properties: Record<string, unknown> }>;
+}
+async function geoJsonBody(resp: Response): Promise<HurricaneCollectionBody> {
+  return (await resp.json()) as HurricaneCollectionBody;
+}
+
 const MOCK_SHORT_CSV = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO_WIND,WMO_PRES,TRACK_TYPE
 2024272N18284,2024,NA,NORTH_ATLANTIC,MILTON,2024-10-09 18:00:00,TS,22.8,-89.1,55,982,main`;
 
@@ -217,5 +225,75 @@ describe("Hurricanes API", () => {
     const resp = await GET(mockRequest("/api/hurricanes"));
     const data = await resp.json();
     expect(data.features).toHaveLength(0);
+  });
+
+  it("point mode skips short rows, repeated headers, blank sids and NaN fixes, and defaults blank fields", async () => {
+    const messy = [
+      HEADER,
+      UNITS,
+      "truncated,row", // too few columns
+      ",,,", // no SID
+      HEADER, // header repeat inside the data block
+      "bad1,2024,NA,NORTH_ATLANTIC,BAD,2024-10-09 18:00:00,TS,n/a,-89.1,50,982,main", // NaN lat
+      "ok1,,NA,NORTH_ATLANTIC,,,TS,22.8,-89.1,,,main", // blank name/season/time/wind/pressure
+      "ok2,2024,NA,NORTH_ATLANTIC,IVAN,2024-10-09 18:00:00,TS,24.8,-90.1,120,945,main",
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(messy, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    const data = await geoJsonBody(resp);
+
+    expect(data.features).toHaveLength(2);
+    const bySid = new Map<unknown, Record<string, unknown>>(
+      (data.features ?? []).map((f) => [f.properties.sid, f.properties] as const),
+    );
+    // Blank columns fall back to the documented defaults; zero wind and
+    // pressure normalise to null, season to 0, name to UNNAMED.
+    expect(bySid.get("ok1")).toMatchObject({
+      name: "UNNAMED",
+      season: 0,
+      wind: null,
+      pressure: null,
+      category: 0,
+      categoryLabel: "Tropical Depression",
+      isoTime: "",
+    });
+    expect(bySid.get("ok2")).toMatchObject({ name: "IVAN", wind: 120, category: 4, categoryLabel: "Cat 4" });
+  });
+
+  it("returns an empty collection when the SID column is missing from a 3+ line CSV", async () => {
+    const noSid = ["SEASON,BASIN", ",,", ",,"].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(noSid, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes"));
+    const data = await geoJsonBody(resp);
+    expect(data.features).toHaveLength(0);
+  });
+
+  it("track mode defaults blank wind/name/season and reports a null max wind", async () => {
+    const blanks = [
+      HEADER,
+      UNITS,
+      "ghost,,NA,NORTH_ATLANTIC,,,TS,22.8,-89.1,,,main", // every optional field blank
+      "ghost,,NA,NORTH_ATLANTIC,,,TS,23.0,-89.4,,,main",
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(blanks, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?track=full&active=false"));
+    const data = await geoJsonBody(resp);
+
+    expect(data.features).toHaveLength(1);
+    expect((data.features ?? [])[0]?.properties).toMatchObject({
+      sid: "ghost",
+      name: "UNNAMED",
+      season: 0,
+      wind: null, // maxWind 0 -> null
+      category: 0,
+      categoryLabel: "Tropical Depression",
+      isoTime: "",
+    });
   });
 });

@@ -42,6 +42,7 @@ vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
 });
 
 import { GET, OPTIONS } from "@/app/api/elevation-color/[z]/[x]/[y]/route";
+import { lerpColor } from "@/lib/hypsometric";
 import { getTileData } from "@/lib/tile";
 import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
 
@@ -316,5 +317,39 @@ describe("Elevation color API generation", () => {
     // The fallback grid is zero-filled → every pixel is the sea-level ocean blue
     expect(decodePng(bytes, 256, 256)[0]).toEqual([8, 48, 107]);
     expect(mockR2PutTile).not.toHaveBeenCalled();
+  });
+
+  it("renders and writes R2 without touching the edge cache when the Cache API is absent", async () => {
+    // Every other 200-path test stubs `caches`; this one pins the opposite arm
+    // so the local-dev early returns in both cache helpers stay covered.
+    vi.stubGlobal("caches", undefined);
+
+    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    expect(mockGetTileData).toHaveBeenCalled();
+    await vi.waitFor(() => { expect(mockR2PutTile).toHaveBeenCalled(); });
+  });
+});
+
+describe("lerpColor ramp", () => {
+  it("short-circuits NoData to pure black", () => {
+    expect(lerpColor(-32768)).toEqual([0, 0, 0]);
+  });
+
+  it("returns exact stop colors at ramp anchors", () => {
+    expect(lerpColor(-500)).toEqual([0, 0, 68]); // deep ocean floor
+    expect(lerpColor(0)).toEqual([8, 48, 107]); // sea level
+    expect(lerpColor(8849)).toEqual([255, 255, 255]); // Everest+
+  });
+
+  it("blends halfway between two stops", () => {
+    // Halfway between sea level (0 m) and the 10 m coastline stop.
+    expect(lerpColor(5)).toEqual([21, 81, 144]);
+  });
+
+  it("clamps elevations beyond either end of the ramp", () => {
+    expect(lerpColor(-12000)).toEqual([0, 0, 68]);
+    expect(lerpColor(12000)).toEqual([255, 255, 255]);
   });
 });

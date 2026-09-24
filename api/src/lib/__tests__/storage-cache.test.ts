@@ -194,4 +194,29 @@ describe("storage chunk cache (Cloudflare Cache API)", () => {
     await cachePut(KEY, bytes(4, 6));
     expect(caches.openCalls).toEqual([CACHE_NAME]);
   });
+
+  it("falls back to memory when the Cache API store cannot be opened for a write", async () => {
+    setCacheStorageProvider(() => ({
+      open: () => Promise.reject(new Error("quota service down")),
+    }));
+
+    await expect(cachePut(KEY, bytes(4, 8))).resolves.toBeUndefined();
+    const result = (await cacheGet(KEY)) as ArrayBuffer;
+    expect(new Uint8Array(result)[0]).toBe(8);
+  });
+
+  it("falls back to memory when a Cache API read rejects mid-flight", async () => {
+    await cachePut(KEY, bytes(4, 11)); // memory copy only — no provider yet
+
+    setCacheStorageProvider(() => ({
+      open: () =>
+        Promise.resolve({
+          match: () => Promise.reject(new Error("read exploded")),
+          put: () => Promise.resolve(),
+        }),
+    }));
+
+    const result = (await cacheGet(KEY)) as ArrayBuffer;
+    expect(new Uint8Array(result)[0]).toBe(11);
+  });
 });

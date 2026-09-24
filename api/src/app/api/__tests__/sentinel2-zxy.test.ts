@@ -82,6 +82,88 @@ describe("Sentinel-2 tile API", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS-GIBS");
   });
 
+  it("falls back to GIBS when the STAC search returns a non-OK status", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac")) return new Response("rate limited", { status: 429 });
+      if (url.includes("gibs.earthdata.nasa.gov")) return pngResponse(true);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await GET(new Request("https://oz/api/sentinel2/10/163/392"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "392" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS-GIBS");
+  });
+
+  it("falls back to GIBS when the STAC item has only TCI asset naming variants", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return new Response(
+          JSON.stringify({ features: [{ assets: { TCI: { href: "https://assets.example/tci.tif" } } }] }),
+          { status: 200 },
+        );
+      if (url.includes("titiler.planetarycomputer")) return pngResponse(true);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await GET(new Request("https://oz/api/sentinel2/10/163/391"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "391" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
+
+  it("uses the global search bbox below zoom 6", async () => {
+    // Cold module: earlier tests left the 1-hour asset-URL cache warm, which
+    // would skip the STAC search entirely.
+    vi.resetModules();
+    const { GET: getFresh } = await import("@/app/api/sentinel2/[z]/[x]/[y]/route");
+    let stacBody = "";
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac")) {
+        if (typeof init?.body === "string") stacBody = init.body;
+        return stacResponse("https://assets.example/visual.tif");
+      }
+      if (url.includes("titiler.planetarycomputer")) return pngResponse(true);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await getFresh(new Request("https://oz/api/sentinel2/5/10/12"), {
+      params: Promise.resolve({ z: "5", x: "10", y: "12" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    // z<6 swaps the tile bbox for a global search window.
+    const stacSearch = JSON.parse(stacBody) as { bbox?: number[] };
+    expect(stacSearch.bbox).toEqual([-180, -60, 180, 70]);
+  });
+
+  it("returns the unavailable notice when a STAC item carries no usable asset", async () => {
+    vi.resetModules();
+    const { GET: getFresh } = await import("@/app/api/sentinel2/[z]/[x]/[y]/route");
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return new Response(JSON.stringify({ features: [{ assets: {} }] }), { status: 200 });
+      if (url.includes("gibs.earthdata.nasa.gov")) return pngResponse(false);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await getFresh(new Request("https://oz/api/sentinel2/10/163/390"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "390" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(await resp.text()).toContain("temporarily unavailable");
+  });
+
   it("serves TiTiler imagery when the STAC search and TiTiler both succeed", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = urlOf(input);

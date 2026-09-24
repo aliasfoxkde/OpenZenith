@@ -1657,3 +1657,62 @@ the established benign `[vitest-worker] onTaskUpdate` RPC timeout, not a
 failure); aegis re-triaged 46 findings (test-literal misfires + line
 shifts; TRIAGE.md 2026-09-24 #131), baseline 1664 → 1690. Production
 source changed → deploy required.
+
+## Task #132: Branch coverage on the remaining weak files (2026-09-24)
+
+Per-file branch coverage, before → after (statement % now in parens):
+
+| File | Before | After |
+|---|---|---|
+| slope/route.ts | <95 | **100%** (100) |
+| storage/cache.ts | <95 | **100%** (100) |
+| storage/ozt2-backend.ts | <95 | **100%** (100) |
+| sentinel2/[z]/[x]/[y]/route.ts | <95 | **100%** (100) |
+| elevation-color/[z]/[x]/[y]/route.ts | <95 | **97.62%** (99.45) |
+| profile/route.ts | <95 | **97.87%** (100) |
+| ozt2_decode.ts | 87% | **93.33%** (98.03) |
+| client-elevation.ts | <95 | **94.16%** (98.90) |
+| hurricanes/route.ts | 61% | **86.72%** (98.17) |
+| lib/hypsometric.ts (new) | — | 71.43% (92.11) |
+
+Repo totals: 99.24/94.85/92.02/99.24 → **99.52% stmts / 97.31% branch /
+92.28% funcs / 99.52% lines**. Remaining untaken arms are documented
+dead-by-construction code: profile L178 `?? p.elevation` (indexOf of an
+array member is ≥ 0, so `Math.max(0, idx-1)` is always in range — the
+guard existed for the buggy version this task fixed), elevation-color L124
+outer catch (getEcCfCache catches internally and cannot throw), hypsometric
+`e1 === e0` divide-guard + loop-exhaust return (the stop table spans the
+full clamped range), ozt2_decode unsupported-compressor/degenerate-dequantize
+(validation rejects first; call sites guarantee > 0), hurricanes' IBTrACS
+parser row-skips, client-elevation's CEDA/network failure fallbacks.
+
+**Third find-by-tests production defect FIXED**: profile/route.ts
+`total_gain` reduced over the FILTERED array while indexing it with
+`profile.indexOf(p) - 1` — the index aliased the point itself (contributing
+p − p = 0) or missed (hitting the `?? p.elevation` fallback = 0), so
+total_gain was identically 0 for every profile request. The reduce now
+indexes `profile`; the band-plateau test pins [600, 300, 900] → gain 600.
+
+Refactor: the hypsometric ramp + lerpColor moved out of the elevation-color
+route into `src/lib/hypsometric.ts` — Next.js route modules may only export
+handlers + config (tsc's generated route types reject helper exports), and
+unit-testing the ramp required importing it.
+
+Tests added (38 net): hurricanes storm-row parser arms + typed GeoJSON
+readers, sentinel2 STAC-throw/GIBS/global-bbox paths, client-elevation GEBCO
+strip-cache + missing-chunk fallbacks, elevation-color Cache-API-absent
+path + lerpColor unit tests, terrain-routes slope nodata/downsampling +
+profile emission arms (incl. BigInt/hostile-tile outer catches), ozt2-decode
+sync-inflater passthrough + zero-range + OOB corners, ozt2-backend CF-cache
+rejection + southern/western merged-chunk fallback, storage-cache
+Cache-API open/read rejection fallbacks.
+
+Gates: tsc clean; ESLint 0 errors / exactly the 5,381-warning baseline
+(per-file deltas measured against HEAD via `git show | eslint --stdin`);
+full suite 100/100 files, 1,405 passed / 5 skipped under capped-worker
+coverage (the first full-coverage run collapsed under `[vitest-worker]`
+RPC timeouts — all 15 affected files re-ran green in isolation, 323/323;
+exit-1 remains the benign worker-RPC artifact); aegis re-triaged 63
+findings (test-literal misfires + line shifts; TRIAGE.md 2026-09-24 #132),
+baseline 1690 → 1704. Production source changed (profile fix, hypsometric
+extraction, elevation-color route) → deploy required.

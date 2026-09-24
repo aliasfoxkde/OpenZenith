@@ -46,13 +46,18 @@ export function OPTIONS() {
  * outer ring array as lon/lat and every comparison fails).
  */
 function firstPosition(geometry: GeoJSON.Geometry): [number, number] | null {
-  const coords: unknown = (geometry as GeoJSON.Point).coordinates;
-  if (!Array.isArray(coords)) return null;
-  if (typeof coords[0] === "number" && typeof coords[1] === "number") {
-    return [coords[0], coords[1]];
+  return firstPositionIn((geometry as GeoJSON.Point).coordinates);
+}
+
+/** Depth-first search of a coordinate tree for the first [lon, lat] position. */
+function firstPositionIn(node: unknown): [number, number] | null {
+  if (!Array.isArray(node)) return null;
+  const arr = node as unknown[];
+  if (typeof arr[0] === "number" && typeof arr[1] === "number") {
+    return [arr[0], arr[1]];
   }
-  for (const child of coords) {
-    const found = firstPosition(child as GeoJSON.Geometry);
+  for (const child of arr) {
+    const found = firstPositionIn(child);
     if (found) return found;
   }
   return null;

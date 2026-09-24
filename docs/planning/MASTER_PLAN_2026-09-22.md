@@ -1613,3 +1613,47 @@ for the validator. The 8 "extra" z7 paths from the audit turned out to
 be tree-index ghosts (404 on resolve — absent from live content), so
 nothing to delete there. Verified: resolve 404 on both stubs + z10/0
 directory listing clean. No repo code change (docs only) → no deploy.
+
+## Task #131: Coverage climb to 95/90 (2026-09-24)
+
+Global api/ vitest coverage: 98.59/93.81/91.2/98.59 → **99.24% stmts /
+94.85% branch / 92.02% funcs / 99.24% lines**. Every file in the repo is
+now ≥95% statements (worst remaining branches: hurricanes 61% branch,
+dem-tile/ozt2 87% — statements ≥97%). Floors unchanged (92/83/81/92).
+
+Two production defects surfaced by the new discriminating tests, both FIXED:
+
+1. **point-elevation.ts AWS terrarium fallback was dead code**: it imported
+   fflate's `inflateSync` (raw DEFLATE) to inflate zlib-wrapped (RFC 1950)
+   PNG IDAT data — fflate throws "unexpected EOF" on the zlib header, so
+   every lookup on a runtime without `DecompressionStream` returned null.
+   Now `unzlibSync`, verified byte-correct against `DecompressionStream`
+   output. Regression test stubs the global away and asserts a decoded
+   elevation.
+2. **stac/collections/[id]/items bbox filter silently dropped every
+   multi-part geometry**: `firstPosition(child)` recursed into raw
+   coordinate arrays as if they were Geometry objects, so
+   `child.coordinates` was undefined and Polygons/LineStrings never matched
+   any bbox — the exact failure the function's doc comment claims to
+   prevent. Rewritten as a depth-first search over the coordinate tree
+   (`firstPositionIn`); test keeps a Polygon inside a bbox and drops a
+   coordinate-less geometry.
+
+Tests added: point-elevation (Up/Paeth/unknown PNG row filters, fflate
+fallback, body-read throw → null), proxy/tile (preflight, per-param 400s,
+NaN coords, unparseable URL, non-HTTP scheme, upstream 503 propagation,
+fetch rejection → 502, header defaults, TMS reverse-y + percent-encoded
+templates), elevation/batch (preflight, same-tile grouping = one fetch,
+all-nodata → null, tile-load failure → per-point null, Error-message and
+Unknown-error catch branches), sentinel2 (cache HIT short-circuit, STAC
+throw → GIBS fallback), pmtiles OPTIONS, collections unparseable-URL → 500,
+stac items polygon recursion. Also removed a pure fixture waste in
+point-elevation's first SRTM test (built 225 chunks it never used — the
+load-flake source behind two full-suite runs' 30 s timeouts).
+
+Gates: tsc clean; ESLint 0 errors / exactly the 5,381-warning baseline;
+full coverage 100/100 files, 1,367 passed / 5 skipped (the lone exit-1 is
+the established benign `[vitest-worker] onTaskUpdate` RPC timeout, not a
+failure); aegis re-triaged 46 findings (test-literal misfires + line
+shifts; TRIAGE.md 2026-09-24 #131), baseline 1664 → 1690. Production
+source changed → deploy required.

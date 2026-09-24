@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { GET, OPTIONS } from "@/app/api/sentinel2/[z]/[x]/[y]/route";
+import { r2GetTile } from "@/lib/storage/r2-tile-cache";
 
 /**
  * Covers /api/sentinel2/[z]/[x]/[y] — the Sentinel-2 tile proxy with the
@@ -53,6 +54,32 @@ describe("Sentinel-2 tile API", () => {
       params: Promise.resolve({ z: "3", x: "9", y: "0" }),
     });
     expect(resp.status).toBe(404);
+  });
+
+  it("serves a cached tile without contacting any upstream", async () => {
+    vi.mocked(r2GetTile).mockResolvedValueOnce(PNG);
+
+    const resp = await GET(new Request("https://oz/api/sentinel2/10/163/394"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "394" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("HIT");
+  });
+
+  it("falls back to GIBS when the STAC search itself throws", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac")) throw new Error("stac unreachable");
+      if (url.includes("gibs.earthdata.nasa.gov")) return pngResponse(true);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await GET(new Request("https://oz/api/sentinel2/10/163/393"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "393" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS-GIBS");
   });
 
   it("serves TiTiler imagery when the STAC search and TiTiler both succeed", async () => {

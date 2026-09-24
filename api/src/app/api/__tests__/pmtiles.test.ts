@@ -18,4 +18,11 @@ describe("PMTiles API (deprecated)", () => {
     expect(urls).toContain("/api/dem-tile/{z}/{x}/{y}");
     expect(urls).toContain("/api/elevation?lat={lat}&lon={lon}");
   });
+
+  it("answers CORS preflight", async () => {
+    const { OPTIONS } = await import("@/app/api/pmtiles/[key]/route");
+    const resp = await OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
 });

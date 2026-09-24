@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { zlibSync } from "fflate";
 import type { ChunkBackend } from "../storage/backend";
-import { buildChunk } from "./tile-fixtures";
+import { buildChunk, buildTerrariumPNG } from "./tile-fixtures";
 
 // Chunk fixtures are 256x256 grids that are predictor-encoded and compressed on
 // the fly, which is slow enough to trip the default 5s timeout under coverage.
@@ -107,7 +107,9 @@ beforeEach(() => {
 
 describe("getPointElevation — SRTM chunk path", () => {
   it("returns null outside SRTM coverage without touching the backend", async () => {
-    const storage = backendFor(buildChunks(() => () => 100));
+    // No chunk fixtures needed: the points are outside coverage, so nothing
+    // is ever fetched (building 225 chunks here was pure fixture waste).
+    const storage = backendFor(new Map());
 
     expect(await getPointElevation(70, 0, storage)).toBeNull();
     expect(await getPointElevation(-70, 0, storage)).toBeNull();
@@ -299,6 +301,89 @@ describe("getPointElevation — AWS terrarium fallback", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.resolve(new Response(new Uint8Array(64).buffer, { status: 200 }))),
+    );
+
+    expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
+  });
+
+  it("decodes a PNG whose scanlines use the Up filter", async () => {
+    // Row 196 is Sub-filtered so the Up decode of row 197 must add a
+    // reconstructed (non-zero) previous row, not just the stored deltas.
+    const filters: number[] = [];
+    filters[196] = 1; // Sub
+    filters[197] = 2; // Up
+    const png = buildTerrariumPNG({
+      width: 256,
+      height: 256,
+      colorType: 2,
+      filters,
+      pixel: (x, y) => (y >= 196 && x === TARGET.x ? (y === 196 ? [1, 1, 0] : [129, 244, 0]) : [0, 0, 0]),
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(png, { status: 200 }))));
+
+    const result = await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()));
+
+    // 129 * 256 + 244 - 32768 = 500; skipping the prevRow add would yield 243
+    expect(result?.elevation).toBe(500);
+    expect(result?.source).toBe("aws");
+  });
+
+  it("decodes a PNG whose scanlines use the Paeth filter", async () => {
+    // The pixel above the target is non-zero, so the predictor must select the
+    // Up neighbour (b) for the decode to round-trip.
+    const filters: number[] = [];
+    filters[197] = 4; // Paeth
+    const png = buildTerrariumPNG({
+      width: 256,
+      height: 256,
+      colorType: 2,
+      filters,
+      pixel: (x, y) => (y === 196 && x === TARGET.x ? [50, 50, 50] : y === 197 && x === TARGET.x ? [129, 244, 0] : [0, 0, 0]),
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(png, { status: 200 }))));
+
+    const result = await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()));
+
+    expect(result?.elevation).toBe(500);
+  });
+
+  it("passes scanlines with an unrecognised filter type through unchanged", async () => {
+    // The fixture stores unknown filter types raw; the decoder's default case
+    // must treat the stored bytes as final pixel values.
+    const filters: number[] = [];
+    filters[197] = 7;
+    const png = buildTerrariumPNG({
+      width: 256,
+      height: 256,
+      colorType: 2,
+      filters,
+      pixel: (x, y) => (y === 197 && x === TARGET.x ? [129, 244, 0] : [0, 0, 0]),
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(png, { status: 200 }))));
+
+    const result = await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()));
+
+    expect(result?.elevation).toBe(500);
+  });
+
+  it("falls back to fflate's zlib inflate when DecompressionStream is unavailable", async () => {
+    // Regression: the fallback imported inflateSync (raw DEFLATE), which throws
+    // "unexpected EOF" on the zlib-wrapped IDAT stream and returned null for
+    // every tile on runtimes without DecompressionStream.
+    vi.stubGlobal("DecompressionStream", undefined);
+    const png = terrariumPng(256, (x, y) => (x === TARGET.x && y === TARGET.y ? [129, 244, 0] : [0, 0, 0]));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(png, { status: 200 }))));
+
+    const result = await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()));
+
+    expect(result?.elevation).toBe(500);
+    expect(result?.source).toBe("aws");
+  });
+
+  it("returns null when reading the response body throws", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve({ ok: true, arrayBuffer: () => Promise.reject(new Error("stream aborted")) } as unknown as Response)),
     );
 
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();

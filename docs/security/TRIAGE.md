@@ -831,3 +831,44 @@ exact tree-API check (scripts/upload_ozt2_to_hf.py):
   comprehension; shifted by the new per-zoom report lines, triaged before.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #131 (coverage climb to 95/90)
+
+46 new findings after adding discriminating tests (point-elevation PNG filters
+and fflate fallback, proxy/tile branches, elevation/batch error paths,
+sentinel2 cache-hit/STAC-throw, pmtiles OPTIONS, collections 500, STAC items
+polygon recursion) and fixing two production defects surfaced by those tests
+(point-elevation.ts: inflateSync → unzlibSync for zlib-wrapped IDAT;
+stac/collections/[id]/items/route.ts: firstPosition recursion descended into
+raw coordinate arrays as if they were Geometry objects, silently dropping
+every Polygon/LineString from bbox-filtered responses):
+
+- git-credential-leak (8, critical) + ssrf (9, high) — proxy-tile.test.ts
+  literal URL strings (`https://example.com/{z}/{x}/{y}.png`); the scanner's
+  URL/credential heuristic firing on inert string literals in tests where
+  fetch is stubbed. No network, no credentials. Benign.
+- nested-callbacks (9, medium) — per-pixel callbacks passed to the shared
+  buildTerrariumPNG fixture in point-elevation.test.ts; standard test-fixture
+  style. Benign.
+- sync-in-async (3, medium) — zlibSync in test fixtures (2) and the new
+  unzlibSync fallback in point-elevation.ts:186 (1). The fallback exists for
+  runtimes without DecompressionStream; fflate's sync inflate of one 256×256
+  tile is microseconds and the async variant needs worker plumbing that the
+  fallback path is trying to avoid. Deliberate.
+- expensive-computation-loop (1, medium) — the PNG row-filter loop at
+  point-elevation.ts:205; line-shift of the covered code caused by the new
+  fallback comment block. Pre-existing, triaged. Benign.
+- missing-limit (6, medium) — GeoJSON feature arrays and `.map(Number)` bbox
+  parsing misfiled as unbounded SQL queries. Benign.
+- double-type-assertion (2, medium) — test doubles cast through unknown
+  (`as unknown as NextRequest/Response`); the only way to hand malformed
+  inputs to route handlers in TS tests. Benign.
+- cors-misconfiguration (2, medium) — test assertions on the API's deliberate
+  wildcard CORS policy (baselined across routes). Benign.
+- try-catch-bulk (1, low), react-missing-key-prop (1, low — `.map()` in a
+  route handler, not React), no-cache-headers (3, low — test doubles without
+  header mocks), cloudformation-parameters (1, low — `{z}` tile templates).
+  All scanner misfires. Benign.
+
+No new vulnerability classes; two true-positive defects found by the new
+tests are FIXED, not baselined. Baseline updated deliberately.

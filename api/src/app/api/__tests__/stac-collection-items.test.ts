@@ -192,6 +192,29 @@ describe("STAC collection items — bbox filtering", () => {
     expect(body.features[0].id).toBe(2);
   });
 
+  it("recurses into multi-ring geometries when bbox filtering", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Polygon", coordinates: [[[10, 48], [11, 48], [11, 49], [10, 48]]] },
+            properties: {},
+          },
+          { type: "Feature", geometry: { type: "Point" }, properties: {} }, // no coordinate array
+        ],
+      }),
+    );
+
+    const resp = await items("earthquakes", "?bbox=5,40,20,55");
+    const body = (await resp.json()) as ItemsResponse;
+    // The polygon's first position ([10, 48]) is inside; the coordinate-less
+    // geometry has no position and is dropped.
+    expect(body.features).toHaveLength(1);
+    expect((body.features[0].geometry as { type: string }).type).toBe("Polygon");
+  });
+
   it("ignores a malformed bbox instead of filtering everything out", async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse({ type: "FeatureCollection", features: [pointFeature(-74, 40.7, 1), pointFeature(10, 48, 2)] }),

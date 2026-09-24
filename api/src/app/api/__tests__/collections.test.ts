@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import type { NextRequest } from "next/server";
 import { mockRequest } from "./helpers";
 
 describe("Collections API", () => {
@@ -10,6 +11,16 @@ describe("Collections API", () => {
     expect(data.collections).toBeTruthy();
     expect(data.collections.length).toBeGreaterThan(0);
     expect(data.links).toBeTruthy();
+  });
+
+  it("returns a 500 error payload when the request URL cannot be parsed", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { GET } = await import("@/app/api/collections/route");
+    const resp = GET({ url: "not-a-url" } as unknown as NextRequest);
+    expect(resp.status).toBe(500);
+    expect(await resp.json()).toEqual({ error: "Failed to fetch collections" });
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
 

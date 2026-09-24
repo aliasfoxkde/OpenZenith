@@ -181,8 +181,9 @@ async function getPointElevationFromAWS(
         off += c.length;
       }
     } else {
-      const { inflateSync } = await import("fflate");
-      raw = inflateSync(compressed);
+      // PNG IDAT is zlib-wrapped (RFC 1950): unzlibSync, not the raw-DEFLATE inflateSync
+      const { unzlibSync } = await import("fflate");
+      raw = unzlibSync(compressed);
     }
 
     // Compute pixel position within tile

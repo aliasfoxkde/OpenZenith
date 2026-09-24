@@ -973,3 +973,24 @@ class:
   detector does not join). Benign.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 wave 2 (map page eq/hurricane controls + legend extraction)
+
+23 new findings, same classes as wave 1, all caused by moving the earthquake
+timeline panel, hurricane animation panel, and map legend into map/panels.tsx
+(page.tsx 2,613 → 2,399 lines):
+
+- react-missing-key-prop (10, low) — every flagged map carries its key on
+  the element's following line (`key={f}`, `key={i}`, `key={layer.id}`);
+  the detector does not join multi-line JSX. Benign.
+- autocomplete-missing (4, low) — the eq/hurricane `<input type="range">`
+  sliders and pre-existing text inputs; range inputs have no autocomplete
+  axis. Benign.
+- australian-tfn / bank-routing-number / ssn-no-dashes (3, high) — the same
+  `Date.now() - 604800000` literal at its new line. Benign.
+- ssrf (1, high), xss-via-url (1, medium), mobile-optimization (1, medium),
+  console-log (1, low), try-catch-bulk (1, low), react-optimization (1, low),
+  expensive-computation-loop (1, medium) — line-shift re-flags of code
+  dispositioned in waves 1 and the 2026-09-22 baseline. Benign.
+
+No new vulnerability classes. Baseline updated deliberately.

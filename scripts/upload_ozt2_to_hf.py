@@ -32,6 +32,7 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -82,33 +83,48 @@ def _dedup_detected() -> bool:
     return bool(getattr(_dedup_local, "hit", False))
 
 
-def probe_landed(repo_id: str, path_in_repo: str, timeout: float = 20.0) -> bool | None:
-    """Whether a file is retrievable on the remote right now.
+def probe_landed(repo_id: str, sample: list[Path], rel_of: dict[int, str]) -> bool:
+    """Whether a timed-out batch's NEW bytes are actually on the remote.
 
     Used after a timeout-class create_commit failure: HF often lands the
     commit server-side and only the *response* times out, so retrying blind
-    produces duplicate commits (verified on the z10 backfill: batches 110/111
-    committed three times each).
+    used to produce duplicate commits (verified on the z10 backfill: batches
+    110/111 committed three times each).
 
-    create_commit is atomic — one git commit for all operations — so probing
-    any single file of a batch is conclusive for the whole batch.
-
-    Returns True (present), False (absent), or None (probe itself failed).
-    Note: within hours of a mass upload the tree-listing API serves a stale
-    index, but resolve URLs hit live state — that is why this probes resolve
-    instead of re-listing.
+    The check must be CONTENT-exact. The original existence probe (HEAD on
+    the resolve URL) reported every overwrite batch as landed: the CDN
+    answers 200 with the cached OLD bytes whether or not the commit landed —
+    the silently-half-landed z7-z9 refresh on 2026-09-24 traced back to
+    exactly that. Instead, compare git blob ids from the tree API: a file
+    whose remote oid equals the local sha proves the atomic commit landed
+    (create_commit is one git commit for all operations, so one file is
+    conclusive for the batch). Anything else — old oid, absent, or a probe
+    fetch error — returns False, and the retry is safe in every one of
+    those cases because the dedup filter reports an already-landed commit
+    as already_present instead of duplicating it.
     """
-    url = f"https://huggingface.co/datasets/{repo_id}/resolve/main/{path_in_repo}"
-    req = urllib.request.Request(url, method="HEAD")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status in (200, 302)
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
+    wanted: dict[str, str] = {}
+    for t in sample:
+        rel = rel_of[id(t)]
+        wanted[rel] = git_blob_sha(t)
+
+    remote_oids: dict[str, str] = {}
+    for rel in wanted:
+        x_dir = str(Path(rel).parent)
+        try:
+            url = (
+                f"https://huggingface.co/api/datasets/{repo_id}/tree/main/{x_dir}"
+                "?expand=false&limit=1000"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "openzenith-upload/1.0"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                for entry in json.loads(r.read().decode()):
+                    if entry.get("type") == "file":
+                        remote_oids[entry["path"]] = entry.get("oid", "")
+        except (urllib.error.URLError, OSError, TimeoutError, ValueError):
             return False
-        return None
-    except (urllib.error.URLError, OSError, TimeoutError):
-        return None
+
+    return any(remote_oids.get(rel) == sha for rel, sha in wanted.items())
 
 
 def git_blob_sha(path: Path) -> str:
@@ -239,9 +255,11 @@ def upload_batches(
     rolling one-hour window sized below the cap and 429 responses are waited
     out (the API reports an exact Retry-After) instead of failing the batch.
 
-    Timeout-class failures are verified through a resolve-URL probe before
-    any retry: HF frequently lands the commit and only the response times
-    out, and a blind retry creates a duplicate commit.
+    Timeout-class failures are verified by CONTENT (tree-API git blob ids)
+    before any retry: HF frequently lands the commit and only the response
+    times out, and a blind retry creates a duplicate commit. An existence
+    probe is not enough — the resolve CDN answers 200 with the OLD bytes
+    for overwrite batches whether or not the commit landed.
 
     Returns per-outcome file counts, e.g.
     {"uploaded": n, "already_present": n, "failed": n}.
@@ -308,13 +326,15 @@ def upload_batches(
                         wait = float(m.group(1)) + 5
                     elif "timed out" in err or "timeout" in err or "connection" in err:
                         # The commit may have landed before the response
-                        # timed out; probe one file (commits are atomic)
-                        # instead of duplicating it.
-                        landed = probe_landed(repo_id, rel_of[id(batch[0])])
-                        if landed is True:
+                        # timed out; verify content (commits are atomic)
+                        # before retrying. A False still retries safely —
+                        # the dedup filter absorbs an already-landed commit.
+                        third = max(1, len(batch) // 2)
+                        sample = [batch[0], batch[third], batch[-1]]
+                        if probe_landed(repo_id, sample, rel_of):
                             print(
                                 f"    batch {bid + 1}: landed despite"
-                                f" timeout (verified via resolve), not retrying"
+                                f" timeout (verified by content), not retrying"
                             )
                             return "uploaded"
                         wait = min(300.0, 20 * 2**attempt)

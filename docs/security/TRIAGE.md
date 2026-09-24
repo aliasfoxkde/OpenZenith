@@ -813,3 +813,21 @@ listing with manual tree-API pagination (scripts/validate_hf_ozt2.py):
   comprehension in `main()` flagged as callback hell; benign linear script style.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — tasks #128/#129 (HF level audit + z7-z9 refresh)
+
+4 new findings after the validator gained `--no-byte-diff` (listing/report
+line shifts) and the uploader's landing probe was rewritten to a content-
+exact tree-API check (scripts/upload_ozt2_to_hf.py):
+
+- ssrf (1) — the new probe's urllib fetch of the HF tree API for the
+  operator-supplied repo; same class as the resolve probe it replaces
+  (line-shift, offline CLI tool, no untrusted input).
+- weak-crypto (1) — `git_blob_sha` sha1; the git blob object-id format the
+  HF comparison requires (line-shift of baselined hit).
+- finance-float-equality (1) — `total_local == 0` guard misfiled as money
+  comparison; line-shift of baselined absurdity.
+- nested-callbacks (1) — validator `sorted(t for t in tiles if ...)`
+  comprehension; shifted by the new per-zoom report lines, triaged before.
+
+No new vulnerability classes. Baseline updated deliberately.

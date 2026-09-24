@@ -143,7 +143,7 @@ visible = viewshed(dem, observer_row=100, observer_col=100)
 | Data | Source | Storage |
 |------|--------|---------|
 | SRTM 30m Elevation | HuggingFace (aliasfox/srtm30m-merged, 14,296 .merged files) | Cloudflare R2 |
-| OZT2 Tiles (z10) | HuggingFace (aliasfox/srtm30m-ozt2-v2, 151,988 local tiles) | HuggingFace |
+| OZT2 Tiles (z10) | HuggingFace (aliasfox/srtm30m-ozt2-v2, 151,988 tiles, sync complete) | HuggingFace |
 | OZT2 Tiles (z11) | `scripts/upload_ozt2_to_r2.py --zoom 11` (602,554 tiles) | Cloudflare R2 |
 | OZT2 Tiles (z7-z9) | Not yet uploaded (53,823 local tiles) | Local |
 | GEBCO 2025 Bathymetry | Copernicus/GEBCO | Cloudflare R2 |
@@ -215,7 +215,7 @@ elev = get_elevation_from_ozt2(40.7128, -74.0060)  # Uses DEFAULT_OZT2_DIR
 - `OZT2Backend` — Local file system access (`fetch_tile(z, x, y)` → `Int16Array`)
 - `OZT2R2Backend` — Cloudflare R2 / S3-compatible storage
 
-**HuggingFace dataset**: https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2 — contains z10 tiles (151,988 local; delta uploads ongoing). z11 (602,554 tiles) is served from Cloudflare R2, not HuggingFace. z7–z9 (53,823 tiles) remain local-only pending upload.
+**HuggingFace dataset**: https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2 — z10 sync COMPLETE and byte-validated (2026-09-24): all 151,988 local tiles present and byte-identical on HF (validator: `scripts/validate_hf_ozt2.py`; 0 missing, 0 stale, 48/48 sample hash-matched). Two early test artifacts (`tiles/z10/0/test338{,c}.ozt2`) remain in the dataset — harmless, surfaced for cleanup. z11 (602,554 tiles) is served from Cloudflare R2, not HuggingFace; z7–z9 (53,823 tiles) remain local-only.
 
 ### WASM Demo
 Browser-based terrain analysis at `/wasm-demo` — D8 flow direction, flow accumulation, viewshed, and OZT2 decode running entirely in the browser via WASM.

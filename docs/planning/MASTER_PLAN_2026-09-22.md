@@ -1539,3 +1539,29 @@ terrain-plausible ranges, zero below-sea pixels, no constant-run artifacts.
 Caveat: single observation, different tiles/day — but 0/36 against 56% is a
 strong directional signal; the 2s slow-assembly probe now in the bundle will
 confirm via wrangler tail under real traffic.
+
+## Task #127: HF z10 sync end-state confirmed (2026-09-24)
+
+`scripts/validate_hf_ozt2.py` re-run against `aliasfox/srtm30m-ozt2-v2` with
+the rewritten listing layer. End-state: **z10 sync COMPLETE — 0 missing,
+0 stale.** All 151,988 local z10 tiles byte-identical on HF (git-blob-sha
+diff, no downloads); 48/48 download-sample hash-matched with clean decodes;
+all four landmark elevations pass with hash MATCH. Remote carries 2 extra
+files (`tiles/z10/0/test338{,c}.ozt2`, early upload-test artifacts —
+surfaced; harmless). The 2,980 #27-era root strays: 0 remain.
+
+Validator hardening (the reason this re-run was needed at all):
+- The single `dataset_info(files_metadata=True)` call never returns on a
+  150K+-file repo (tens-of-MB body vs hf_hub's 10 s default read timeout →
+  endless retry); replaced with manual cursor pagination over the tree REST
+  API (`/api/datasets/{repo}/tree/main/...?expand=false&limit=1000`), each
+  page retried independently (12 attempts, backoff capped at 60 s — sized to
+  survive the transient DNS outage that killed the first full walk).
+- `expand=true` caps pages at 100; plain listing allows 1,000 AND its file
+  entries carry `oid` = git blob sha1, so the exhaustive byte-diff works
+  without downloads. Listing scoped to `tiles/z<zoom>` by default
+  (`--all-zooms` to walk the whole repo — z0/z1/z5/z7/z8/z9/z11 dirs also
+  exist there; per-level counts unverified). Report now includes per-zoom
+  tile counts.
+
+No api/ source change → no deploy. Gates: py_compile clean; aegis triaged.

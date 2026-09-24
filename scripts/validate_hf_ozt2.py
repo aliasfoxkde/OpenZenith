@@ -33,6 +33,7 @@ import json
 import random
 import sys
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -69,32 +70,105 @@ def git_blob_sha(data: bytes) -> str:
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
-def list_repo_files(repo_id: str) -> tuple[set[str], list[str], dict[str, str]]:
-    """Return (tile files under tiles/, stray root tiles, path -> remote hash).
+def _tree_page(repo_id: str, path: str, recursive: bool, cursor: str | None) -> tuple[list[dict], str | None]:
+    """One page of the HF tree API, with retry. Returns (entries, next_cursor).
 
-    Remote hash is the LFS oid (sha256) when LFS-backed, else the git blob
-    id — either way comparable to a locally computed hash of the bytes.
+    Plain listing (expand=false) allows limit=1000; expand=true caps the page
+    at 100 — 10x the requests for metadata we don't need, because a plain
+    file entry already carries `oid`, the git blob sha1 that git_blob_sha
+    reproduces locally. The cursor is opaque and already URL-encoded inside
+    the Link header, so it is passed back verbatim (re-quoting breaks it).
     """
-    from huggingface_hub import HfApi
+    url = f"https://huggingface.co/api/datasets/{repo_id}/tree/main"
+    if path:
+        url += "/" + path
+    params = ["expand=false", "limit=1000"]
+    if recursive:
+        params.append("recursive=true")
+    if cursor:
+        params.append(f"cursor={cursor}")
+    # 12 attempts with backoff capped at 60s (~11 min of patience): a transient
+    # resolver outage must cost a pause, not the whole multi-hour listing.
+    for attempt in range(12):
+        try:
+            req = urllib.request.Request(
+                f"{url}?{'&'.join(params)}",
+                headers={"User-Agent": "openzenith-validate/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=120) as r:
+                entries = json.loads(r.read().decode())
+                next_cursor = None
+                for part in (r.headers.get("Link") or "").split(","):
+                    # Link: <...&cursor=<opaque>>; rel="next"
+                    if 'rel="next"' in part and "cursor=" in part:
+                        next_cursor = part.split("cursor=")[-1].split(">")[0]
+                return entries, next_cursor
+        except Exception as err:  # noqa: BLE001 - per-page retry
+            if attempt == 11:
+                raise
+            wait = min(60, 2 ** attempt)
+            print(f"    tree page under '{path or 'root'}' failed ({err}); retry {attempt + 1} in {wait}s")
+            time.sleep(wait)
+    return [], None  # unreachable
 
-    info = HfApi().dataset_info(repo_id, files_metadata=True)
+
+def list_repo_files(repo_id: str, zoom_prefix: str | None = None) -> tuple[set[str], list[str], dict[str, str], dict[str, str], dict[str, int]]:
+    """Return (tile files under tiles/, stray root tiles, path -> remote hash,
+    stray path -> hash, tiles per zoom level).
+
+    Remote hash is the git blob id of the stored file — directly comparable
+    to git_blob_sha of the local bytes (tiles are small non-LFS blobs).
+
+    zoom_prefix scopes the recursive walk (e.g. "tiles/z10"); the default
+    None walks every zoom — several times the requests for numbers this
+    script's completeness/byte-diff checks never use.
+
+    Listing walks the tree API page by page (1,000 entries each) instead of
+    a single dataset_info(files_metadata=True): a 150K+-file repo makes that
+    one response tens of MB, which reliably trips hf_hub's default read
+    timeout and retries forever (the same failure the #28 uploader hit).
+    Here each page is fetched and retried independently, so a hiccup costs
+    one page, not the whole listing.
+    """
     tiles: set[str] = set()
     strays: list[str] = []
-    stray_hashes: dict[str, str] = {}
     hashes: dict[str, str] = {}
-    for s in info.siblings or []:
-        fn = s.rfilename
-        if fn.startswith("tiles/") and fn.endswith(".ozt2"):
-            tiles.add(fn)
-            if s.lfs and s.lfs.get("oid"):
-                hashes[fn] = s.lfs["oid"]
-            elif s.blob_id:
-                hashes[fn] = s.blob_id
-        elif fn.endswith(".ozt2") and len(fn.split("/")) == 2 and fn.split("/")[0].isdigit():
-            strays.append(fn)
-            if s.blob_id:
-                stray_hashes[fn] = s.blob_id
-    return tiles, strays, hashes, stray_hashes
+    stray_hashes: dict[str, str] = {}
+    zoom_counts: dict[str, int] = {}
+
+    def ingest(entries: list[dict]) -> None:
+        for entry in entries:
+            if entry.get("type") != "file":
+                continue
+            fn = entry.get("path", "")
+            remote_id = entry.get("oid")
+            if fn.startswith("tiles/") and fn.endswith(".ozt2"):
+                tiles.add(fn)
+                zoom = fn.split("/")[1] if "/" in fn[len("tiles/"):] else "?"
+                zoom_counts[zoom] = zoom_counts.get(zoom, 0) + 1
+                if remote_id:
+                    hashes[fn] = remote_id
+            elif fn.endswith(".ozt2") and len(fn.split("/")) == 2 and fn.split("/")[0].isdigit():
+                strays.append(fn)
+                if remote_id:
+                    stray_hashes[fn] = remote_id
+
+    # Recursive walk over the tile scope (all x-dirs) for the completeness +
+    # byte-diff checks; repo root: non-recursive pass for stray {x}/{y}.ozt2.
+    walks = [(zoom_prefix or "tiles", True), ("", False)]
+    for prefix, recursive in walks:
+        cursor: str | None = None
+        pages = 0
+        while True:
+            entries, cursor = _tree_page(repo_id, prefix, recursive, cursor)
+            ingest(entries)
+            pages += 1
+            if pages % 50 == 0:
+                print(f"    {prefix or 'root'}: {pages} pages, {len(tiles):,} tiles so far")
+            if not cursor:
+                break
+
+    return tiles, strays, hashes, stray_hashes, zoom_counts
 
 
 def local_tile_files(tile_dir: Path, zoom: int) -> dict[str, Path]:
@@ -198,17 +272,27 @@ def main() -> int:
     ap.add_argument("--emit-missing", type=Path, default=None, help="Write missing tile list here")
     ap.add_argument("--report", type=Path, default=None, help="Write JSON report here")
     ap.add_argument("--skip-sample", action="store_true", help="Listing/completeness only")
+    ap.add_argument(
+        "--all-zooms",
+        action="store_true",
+        help="Walk every zoom level in tiles/ (the default walks tiles/z<zoom> only)",
+    )
     args = ap.parse_args()
 
     report: dict = {"repo": args.repo, "zoom": args.zoom, "checks": {}}
 
     print(f"Listing {args.repo} ...")
-    tiles, strays, remote_hashes, stray_hashes = list_repo_files(args.repo)
+    tiles, strays, remote_hashes, stray_hashes, zoom_counts = list_repo_files(
+        args.repo, None if args.all_zooms else f"tiles/z{args.zoom}"
+    )
     z_prefix = f"tiles/z{args.zoom}/"
     remote_z = sorted(t for t in tiles if t.startswith(z_prefix))
     print(f"  repo tile files: {len(tiles):,} | z{args.zoom}: {len(remote_z):,} | stray root tiles: {len(strays)}")
+    if zoom_counts:
+        print("  per zoom: " + ", ".join(f"{z}:{n:,}" for z, n in sorted(zoom_counts.items())))
     report["checks"]["repo_listing"] = {
         "total_tiles": len(tiles),
+        "tiles_per_zoom": dict(sorted(zoom_counts.items())),
         f"z{args.zoom}_tiles": len(remote_z),
         "stray_root_tiles": len(strays),
     }

@@ -798,3 +798,18 @@ console.debug that matches the module's existing diagnostic-log class:
 - double-type-assertion (1) — pre-existing test cast, line-shifted into range.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #127 (HF OZT2 validator rewrite)
+
+3 new findings after replacing the validator's `dataset_info(files_metadata=True)`
+listing with manual tree-API pagination (scripts/validate_hf_ozt2.py):
+
+- ssrf (1) — urllib fetch of HF resolve/tree URLs built from the operator-supplied
+  `--repo` arg and the listing's own paths; line-shift of the baselined finding
+  (offline CLI validation tool, no untrusted input source).
+- weak-crypto (1) — `git_blob_sha` sha1; sha1 IS the git blob object-id format the
+  HF comparison requires, not a security primitive (line-shift of baselined hit).
+- nested-callbacks (1) — NEW: `sorted(t for t in tiles if ...)` generator
+  comprehension in `main()` flagged as callback hell; benign linear script style.
+
+No new vulnerability classes. Baseline updated deliberately.

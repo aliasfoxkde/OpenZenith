@@ -217,3 +217,26 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
   root-level duplicate tiles remain unreachable by the SDK (surfaced, not
   deleted). Fix for the staleness/missing = the #28 z10 sync, which
   overwrites hash-stale tiles and fills missing ones.
+- 2026-09-24: #127 complete — HF z10 sync end-state CONFIRMED
+  (scripts/validate_hf_ozt2.py re-run, report /tmp/hf_validation_post.json):
+  remote z10 = 151,990 / local = 151,988 → **0 missing, 0 stale** — the
+  exhaustive byte-diff found all 151,988 local tiles byte-identical on HF
+  (vs the #27 baseline of 92,714 remote / 59,276 missing / 38-of-48 stale
+  hash-mismatch). 48-tile download sample: 48/48 ok, 48/48 hash-matched,
+  roundtrip RMSE within tolerance. Landmarks all OK with hash MATCH (Everest
+  3031–8740 m, Dead Sea −416 m, NYC −78..139 m, La Paz 2419–5506 m). The
+  2,980 root-level strays from #27 are gone (0 now); the only extras are two
+  early test artifacts (`tiles/z10/0/test338{,c}.ozt2`) — surfaced for a
+  future housekeeping pass, harmless to the SDK (valid tiles, never
+  requested by path).
+  Validator fixes that made the re-run possible: the one-call
+  `dataset_info(files_metadata=True)` listing hung forever on this
+  150K+-file repo (tens-of-MB response vs hf_hub's 10 s read timeout — the
+  #28 failure again). Replaced with manual pagination over the HF tree REST
+  API (1,000 entries/page, Link-header cursor, per-page retry with backoff
+  capped at 60 s after a transient DNS outage killed a full walk at page
+  ~510). Listing is scoped to `tiles/z<zoom>` by default (`--all-zooms` for
+  the full walk — the repo also holds z0/z1/z5/z7/z8/z9/z11 dirs; counts
+  unverified). File `oid` from the plain listing IS the git blob sha1, so
+  the no-download byte-diff works unchanged. Report gains per-zoom counts.
+  No api/ source change → no deploy.

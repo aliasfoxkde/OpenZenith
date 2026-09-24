@@ -1887,3 +1887,19 @@ view controls + bookmarks, coordinate info, elevation profile + result,
 elevation click flow, sidebar header, top bar; then globe/page.tsx and
 explore. These are progressively more entangled with refs/keydown
 effects — expect diminishing per-wave returns.
+
+### Task #136 wave 5 (2026-09-24, abd2866)
+
+ViewControls (view buttons + bookmarks sub-panel) and PositionPanel
+(center/zoom/bearing/pitch readout; page passes pre-formatted center text)
+extracted into map/panels.tsx; the Bookmark type moved to lib/view-state.ts
+where view-state types live; bookmark delete buttons gained aria-labels.
+page.tsx 2,003 → 1,900 lines (cumulative 3,053 → 1,900, −38%). Gates: tsc
+clean; eslint 5,381/0; vitest 1,447+5; pages:build ok; aegis re-triaged
+(15 findings incl. a doc-comment FP — TRIAGE.md). Deployed (cba0b1b9);
+map specs 4/4 green incl. the axe audit.
+
+The remaining ~1,900 lines are the entangled core: measure/draw toolbars
+and result (controller refs + keydown effects), elevation profile chart,
+elevation click flow, sidebar header, and top bar — diminishing returns
+per wave; resume when the page needs functional work anyway.

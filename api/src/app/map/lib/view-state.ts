@@ -139,3 +139,12 @@ export function buildHash(state: MapViewState): string {
   if (state.basemap !== getDefaultBasemap()) p.set("bm", state.basemap);
   return "#" + p.toString();
 }
+
+/** A named saved view: center/zoom plus the layer-visibility snapshot. */
+export interface Bookmark {
+  name: string;
+  center: [number, number];
+  zoom: number;
+  layers: Record<string, boolean>;
+  timestamp: number;
+}

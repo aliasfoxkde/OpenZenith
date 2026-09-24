@@ -11,7 +11,9 @@ import {
 } from "./controls";
 import {
   MapContextMenu,
+  PositionPanel,
   StatusBar,
+  ViewControls,
   type ContextMenuState,
 } from "./panels";
 import {
@@ -72,6 +74,7 @@ import {
   LAYER_STATE_KEY,
   buildHash,
   parseHash,
+  type Bookmark,
   type ElevationPin,
   type MapViewState,
 } from "./lib/view-state";
@@ -449,13 +452,6 @@ export default function MapPage() {
   }, []);
 
   // Bookmarks system
-  type Bookmark = {
-    name: string;
-    center: [number, number];
-    zoom: number;
-    layers: Record<string, boolean>;
-    timestamp: number;
-  };
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
     try {
       const saved = localStorage.getItem(BOOKMARKS_KEY);
@@ -1694,128 +1690,29 @@ export default function MapPage() {
               />
             )}
 
-            {/* View controls */}
-            <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>
-              <div style={{ display: "flex", gap: "0.35rem" }}>
-                <button onClick={resetView} style={{ ...btnStyle, flex: 1 }}>
-                  Reset View
-                </button>
-                <button onClick={clearPins} style={{ ...btnStyle, flex: 1 }}>
-                  Clear Pins
-                </button>
-              </div>
-              <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
-                <button onClick={handleExportGeoJSON} style={{ ...btnStyle, flex: 1 }}>
-                  Export GeoJSON
-                </button>
-                <button onClick={handleScreenshot} style={{ ...btnStyle, flex: 1 }}>
-                  Screenshot
-                </button>
-              </div>
-              <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
-                <button onClick={() => { setShowBookmarks((v) => !v); }} style={{ ...btnStyle, flex: 1 }}>
-                  {showBookmarks ? "▾" : "▸"} Bookmarks
-                </button>
-              </div>
-              {showBookmarks && (
-                <div style={{ marginTop: 6 }}>
-                  <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-                    <input
-                      value={bookmarkName}
-                      onChange={(e) => { setBookmarkName(e.target.value); }}
-                      placeholder="Bookmark name..."
-                      aria-label="Bookmark name"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveBookmark();
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "3px 6px",
-                        fontSize: "0.68rem",
-                        background: T.panel,
-                        border: `1px solid ${T.border}`,
-                        color: T.text,
-                        borderRadius: 3,
-                        fontFamily: T.fontMono,
-                      }}
-                    />
-                    <button onClick={saveBookmark} style={{ ...btnStyle }} aria-label="Save bookmark" title="Save bookmark">
-                      +
-                    </button>
-                  </div>
-                  {bookmarks.length === 0 && (
-                    <div style={{ fontSize: "0.62rem", color: T.textMuted, fontFamily: T.fontMono }}>
-                      No bookmarks yet
-                    </div>
-                  )}
-                  {bookmarks.map((bm, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "2px 0",
-                        fontSize: "0.65rem",
-                        fontFamily: T.fontMono,
-                      }}
-                    >
-                      <button
-                        onClick={() => { loadBookmark(bm); }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: T.accent,
-                          cursor: "pointer",
-                          fontSize: "0.65rem",
-                          padding: 0,
-                        }}
-                      >
-                        ◎ {bm.name}
-                      </button>
-                      <button
-                        onClick={() => { deleteBookmark(i); }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: T.red,
-                          cursor: "pointer",
-                          fontSize: "0.7rem",
-                          padding: 0,
-                          opacity: 0.6,
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </SurveillancePanel>
+            <ViewControls
+              bookmarks={bookmarks}
+              show={showBookmarks}
+              name={bookmarkName}
+              onToggleShow={() => { setShowBookmarks((v) => !v); }}
+              onNameChange={setBookmarkName}
+              onSave={saveBookmark}
+              onLoad={loadBookmark}
+              onDelete={deleteBookmark}
+              onResetView={resetView}
+              onClearPins={clearPins}
+              onExportGeoJSON={handleExportGeoJSON}
+              onScreenshot={handleScreenshot}
+            />
 
-            {/* Coordinate info */}
-            <SurveillancePanel title="Position" style={{ marginBottom: "0.75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
-                  Center: <span style={{ color: T.accent }}>{formatCoord(mapState.center[0], mapState.center[1])}</span>
-                </div>
-                <button
-                  onClick={() => { setCoordFormat((f) => (f === "dd" ? "dms" : "dd")); }}
-                  style={{ ...btnStyle, fontSize: "0.6rem", padding: "1px 6px" }}
-                >
-                  {coordFormat.toUpperCase()}
-                </button>
-              </div>
-              <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
-                <div>
-                  Zoom: <span style={{ color: T.accent }}>{mapState.zoom.toFixed(1)}</span>
-                  {" | Bearing: "}
-                  <span style={{ color: T.accent }}>{(mapState.bearing || 0).toFixed(0)}</span>&deg;
-                  {" | Pitch: "}
-                  <span style={{ color: T.accent }}>{(mapState.pitch || 0).toFixed(0)}</span>&deg;
-                </div>
-              </div>
-            </SurveillancePanel>
+            <PositionPanel
+              centerText={formatCoord(mapState.center[0], mapState.center[1])}
+              zoom={mapState.zoom}
+              bearing={mapState.bearing}
+              pitch={mapState.pitch}
+              format={coordFormat}
+              onToggleFormat={() => { setCoordFormat((f) => (f === "dd" ? "dms" : "dd")); }}
+            />
 
             {/* Elevation profile */}
             {profileData && profileData.length > 1 && (

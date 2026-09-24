@@ -7,7 +7,7 @@
 import { StatusIndicator, SurveillancePanel } from "@/components/SurveillanceUI";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import type { Annotation } from "./lib/layers/annotations";
-import type { ElevationPin } from "./lib/view-state";
+import type { Bookmark, ElevationPin } from "./lib/view-state";
 
 /** Legend entries rendered as click-to-toggle ramp cards. */
 const LEGEND_ENTRIES = [
@@ -621,5 +621,173 @@ export function StatusBar({ mapHealth, pinCount, annotationCount, drawMode, onEx
         </button>
       </SurveillancePanel>
     </div>
+  );
+}
+
+interface ViewControlsProps {
+  bookmarks: Bookmark[];
+  show: boolean;
+  name: string;
+  onToggleShow: () => void;
+  onNameChange: (name: string) => void;
+  onSave: () => void;
+  onLoad: (bookmark: Bookmark) => void;
+  onDelete: (index: number) => void;
+  onResetView: () => void;
+  onClearPins: () => void;
+  onExportGeoJSON: () => void;
+  onScreenshot: () => void;
+}
+
+export function ViewControls({
+  bookmarks,
+  show,
+  name,
+  onToggleShow,
+  onNameChange,
+  onSave,
+  onLoad,
+  onDelete,
+  onResetView,
+  onClearPins,
+  onExportGeoJSON,
+  onScreenshot,
+}: ViewControlsProps) {
+  return (
+    <SurveillancePanel title="View" style={{ marginBottom: "0.75rem" }}>
+      <div style={{ display: "flex", gap: "0.35rem" }}>
+        <button onClick={onResetView} style={{ ...btnStyle, flex: 1 }}>
+          Reset View
+        </button>
+        <button onClick={onClearPins} style={{ ...btnStyle, flex: 1 }}>
+          Clear Pins
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
+        <button onClick={onExportGeoJSON} style={{ ...btnStyle, flex: 1 }}>
+          Export GeoJSON
+        </button>
+        <button onClick={onScreenshot} style={{ ...btnStyle, flex: 1 }}>
+          Screenshot
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: "0.35rem", marginTop: 4 }}>
+        <button onClick={onToggleShow} style={{ ...btnStyle, flex: 1 }}>
+          {show ? "▾" : "▸"} Bookmarks
+        </button>
+      </div>
+      {show && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <input
+              value={name}
+              onChange={(e) => { onNameChange(e.target.value); }}
+              placeholder="Bookmark name..."
+              aria-label="Bookmark name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSave();
+              }}
+              style={{
+                flex: 1,
+                padding: "3px 6px",
+                fontSize: "0.68rem",
+                background: T.panel,
+                border: `1px solid ${T.border}`,
+                color: T.text,
+                borderRadius: 3,
+                fontFamily: T.fontMono,
+              }}
+            />
+            <button onClick={onSave} style={{ ...btnStyle }} aria-label="Save bookmark" title="Save bookmark">
+              +
+            </button>
+          </div>
+          {bookmarks.length === 0 && (
+            <div style={{ fontSize: "0.62rem", color: T.textMuted, fontFamily: T.fontMono }}>
+              No bookmarks yet
+            </div>
+          )}
+          {bookmarks.map((bm, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "2px 0",
+                fontSize: "0.65rem",
+                fontFamily: T.fontMono,
+              }}
+            >
+              <button
+                onClick={() => { onLoad(bm); }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: T.accent,
+                  cursor: "pointer",
+                  fontSize: "0.65rem",
+                  padding: 0,
+                }}
+              >
+                ◎ {bm.name}
+              </button>
+              <button
+                onClick={() => { onDelete(i); }}
+                aria-label={`Delete bookmark ${bm.name}`}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: T.red,
+                  cursor: "pointer",
+                  fontSize: "0.7rem",
+                  padding: 0,
+                  opacity: 0.6,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </SurveillancePanel>
+  );
+}
+
+interface PositionPanelProps {
+  /** Pre-formatted center coordinates (format owned by the page). */
+  centerText: string;
+  zoom: number;
+  bearing: number;
+  pitch: number;
+  format: "dd" | "dms";
+  onToggleFormat: () => void;
+}
+
+export function PositionPanel({ centerText, zoom, bearing, pitch, format, onToggleFormat }: PositionPanelProps) {
+  return (
+    <SurveillancePanel title="Position" style={{ marginBottom: "0.75rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
+          Center: <span style={{ color: T.accent }}>{centerText}</span>
+        </div>
+        <button
+          onClick={onToggleFormat}
+          style={{ ...btnStyle, fontSize: "0.6rem", padding: "1px 6px" }}
+        >
+          {format.toUpperCase()}
+        </button>
+      </div>
+      <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
+        <div>
+          Zoom: <span style={{ color: T.accent }}>{zoom.toFixed(1)}</span>
+          {" | Bearing: "}
+          <span style={{ color: T.accent }}>{(bearing || 0).toFixed(0)}</span>&deg;
+          {" | Pitch: "}
+          <span style={{ color: T.accent }}>{(pitch || 0).toFixed(0)}</span>&deg;
+        </div>
+      </div>
+    </SurveillancePanel>
   );
 }

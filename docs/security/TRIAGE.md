@@ -1027,3 +1027,20 @@ console-log, try-catch-bulk, react-optimization, expensive-computation-loop
 prior waves. Benign.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 wave 5 (map page view controls + bookmarks + position extraction)
+
+15 new findings, same relocation/line-shift classes as prior waves, caused by
+moving the View panel (buttons + bookmarks UI) and Position panel into
+map/panels.tsx and the Bookmark type into lib/view-state.ts (page.tsx 2,003 →
+1,900 lines): australian-tfn/bank-routing-number/ssn-no-dashes (3, high — the
+`Date.now() - 604800000` ms literal), ssrf (1, high — client-side fetch),
+xss-via-url (1, medium — React-escaped text), model-version-tracking (1, low —
+matches the new Bookmark doc comment's "saved view" phrasing; it is a comment,
+not a model reference), autocomplete-missing (2, low — bookmark name input
+carries an aria-label and no autocomplete axis; range slider), react-
+missing-key-prop (2, low — keys present on following lines), mobile-
+optimization, console-log, try-catch-bulk, react-optimization,
+expensive-computation-loop (1 each). Benign.
+
+No new vulnerability classes. Baseline updated deliberately.

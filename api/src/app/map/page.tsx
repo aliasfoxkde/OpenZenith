@@ -3,12 +3,17 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
-import { SurveillancePanel, CoordinateReadout, StatusIndicator } from "@/components/SurveillanceUI";
+import { SurveillancePanel, CoordinateReadout } from "@/components/SurveillanceUI";
 import {
   LayerControls,
   BasemapSelector,
   type LayerStatusEntry,
 } from "./controls";
+import {
+  MapContextMenu,
+  StatusBar,
+  type ContextMenuState,
+} from "./panels";
 import {
   AnnotationsListPanel,
   EarthquakeTimelinePanel,
@@ -139,7 +144,7 @@ export default function MapPage() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [fetchingElevation, setFetchingElevation] = useState(false);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
   const mlglRef = useRef<MapLibreGL | null>(null);
   const pinsRef = useRef<maplibregl.Marker[]>([]);
@@ -1529,225 +1534,24 @@ export default function MapPage() {
         </div>
 
         {/* Status indicators */}
-        <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
-          <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
-            <StatusIndicator
-              color={
-                mapHealth === "error"
-                  ? T.red
-                  : mapHealth === "degraded"
-                    ? T.amber
-                    : mapHealth === "loading"
-                      ? T.amber
-                      : T.green
-              }
-              label={
-                mapHealth === "error"
-                  ? "ERROR"
-                  : mapHealth === "degraded"
-                    ? "DEGRADED"
-                    : mapHealth === "loading"
-                      ? "LOADING"
-                      : "READY"
-              }
-              pulse={mapHealth === "loading"}
-            />
-            {pins.length > 0 && <StatusIndicator color={T.accent} label={`${pins.length} PINS`} />}
-            {annotations.length > 0 && <StatusIndicator color="#00ff88" label={`${annotations.length} ANNOT`} />}
-            {drawMode !== "none" && <StatusIndicator color="#00ff88" label={`DRAW: ${drawMode.toUpperCase()}`} />}
-            <button
-              onClick={() => {
-                const map = mapRef.current;
-                if (map) exportMapScreenshot(map, "openzenith-map");
-              }}
-              title="Export screenshot"
-              aria-label="Export map screenshot as PNG"
-              style={{
-                background: "none",
-                border: `1px solid ${T.border}`,
-                /* T.textMuted (#94a3b8) only reaches 5.46:1 on the panel
-                   composite; T.text (#e2e8f0) = 11.37:1 — WCAG AAA. */
-                color: T.text,
-                padding: "2px 8px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 12,
-                fontFamily: T.fontMono,
-                letterSpacing: "0.05em",
-              }}
-            >
-              EXPORT
-            </button>
-          </SurveillancePanel>
-        </div>
+        <StatusBar
+          mapHealth={mapHealth}
+          pinCount={pins.length}
+          annotationCount={annotations.length}
+          drawMode={drawMode}
+          onExport={() => {
+            const map = mapRef.current;
+            if (map) exportMapScreenshot(map, "openzenith-map");
+          }}
+        />
 
-        {ctxMenu && (
-          <div
-            className="map-ctx-menu"
-            style={{
-              position: "absolute",
-              top: ctxMenu.y,
-              left: ctxMenu.x,
-              zIndex: 30,
-              background: T.panel,
-              border: `1px solid ${T.border}`,
-              borderRadius: 6,
-              padding: "4px 0",
-              minWidth: 180,
-              boxShadow: T.glow,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)}, ${ctxMenu.lng.toFixed(6)}`).catch(() => {});
-                setCtxMenu(null);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.text,
-                fontSize: "0.78rem",
-                fontFamily: T.fontMono,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Copy coordinates
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lat.toFixed(6)},${ctxMenu.lng.toFixed(6)}`).catch(() => {});
-                setCtxMenu(null);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.text,
-                fontSize: "0.78rem",
-                fontFamily: T.fontMono,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Copy compact
-            </button>
-            <button
-              onClick={() => {
-                const toDms = (d: number, pos: string, neg: string) => {
-                  const dir = d >= 0 ? pos : neg;
-                  const a = Math.abs(d);
-                  const deg = Math.floor(a);
-                  const min = Math.floor((a - deg) * 60);
-                  const sec = ((a - deg - min / 60) * 3600).toFixed(2);
-                  return `${deg}\u00b0${min}'${sec}"${dir}`;
-                };
-                navigator.clipboard.writeText(`${toDms(ctxMenu.lat, "N", "S")} ${toDms(ctxMenu.lng, "E", "W")}`).catch(() => {});
-                setCtxMenu(null);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.text,
-                fontSize: "0.78rem",
-                fontFamily: T.fontMono,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Copy DMS
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)},${ctxMenu.lat.toFixed(6)}`).catch(() => {});
-                setCtxMenu(null);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.text,
-                fontSize: "0.78rem",
-                fontFamily: T.fontMono,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Copy lng,lat
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`${ctxMenu.lng.toFixed(6)}, ${ctxMenu.lat.toFixed(6)}`).catch(() => {});
-                setCtxMenu(null);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.text,
-                fontSize: "0.78rem",
-                fontFamily: T.fontMono,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Copy lat,lng
-            </button>
-            <button
-              onClick={() => {
-                window.open(
-                  `https://www.openstreetmap.org/?mlat=${ctxMenu.lat}&mlon=${ctxMenu.lng}#map=17/${ctxMenu.lat}/${ctxMenu.lng}`,
-                  "_blank",
-                );
-                setCtxMenu(null);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.accent,
-                fontSize: "0.8rem",
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Open in OSM
-            </button>
-            <button
-              onClick={() => {
-                void copyElevationAt(ctxMenu.lat, ctxMenu.lng);
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "6px 12px",
-                background: "none",
-                border: "none",
-                color: T.green,
-                fontSize: "0.8rem",
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Copy elevation
-            </button>
-          </div>
-        )}
+        <MapContextMenu
+          menu={ctxMenu}
+          onClose={() => { setCtxMenu(null); }}
+          onCopyElevation={(lat, lng) => {
+            void copyElevationAt(lat, lng);
+          }}
+        />
         <ErrorBoundary>
           <div
             ref={containerRef}

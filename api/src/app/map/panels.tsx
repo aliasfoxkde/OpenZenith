@@ -4,7 +4,7 @@
  * the map legend. Extracted from map/page.tsx with callback props so the
  * page keeps ownership of map interactions and persistence.
  */
-import { SurveillancePanel } from "@/components/SurveillanceUI";
+import { StatusIndicator, SurveillancePanel } from "@/components/SurveillanceUI";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import type { Annotation } from "./lib/layers/annotations";
 import type { ElevationPin } from "./lib/view-state";
@@ -431,6 +431,195 @@ export function MapLegend({ layers, onToggle, basemapLabel }: MapLegendProps) {
         <div style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, flexShrink: 0 }} />
         <span style={{ fontSize: "0.58rem", color: T.textMuted }}>{basemapLabel}</span>
       </div>
+    </div>
+  );
+}
+
+/** Position and coordinates of an open map context menu. */
+export interface ContextMenuState {
+  x: number;
+  y: number;
+  lng: number;
+  lat: number;
+}
+
+interface MapContextMenuProps {
+  menu: ContextMenuState | null;
+  /** Close the menu (every action dismisses it). */
+  onClose: () => void;
+  /** Copy the elevation at the menu's coordinates (async status handled by the page). */
+  onCopyElevation: (lat: number, lng: number) => void;
+}
+
+function menuItemStyle(color: string): React.CSSProperties {
+  return {
+    display: "block",
+    width: "100%",
+    padding: "6px 12px",
+    background: "none",
+    border: "none",
+    color,
+    fontSize: "0.78rem",
+    fontFamily: T.fontMono,
+    textAlign: "left",
+    cursor: "pointer",
+  };
+}
+
+export function MapContextMenu({ menu, onClose, onCopyElevation }: MapContextMenuProps) {
+  if (!menu) return null;
+  const toDms = (d: number, pos: string, neg: string) => {
+    const dir = d >= 0 ? pos : neg;
+    const a = Math.abs(d);
+    const deg = Math.floor(a);
+    const min = Math.floor((a - deg) * 60);
+    const sec = ((a - deg - min / 60) * 3600).toFixed(2);
+    return `${deg}°${min}'${sec}"${dir}`;
+  };
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    onClose();
+  };
+  return (
+    <div
+      className="map-ctx-menu"
+      style={{
+        position: "absolute",
+        top: menu.y,
+        left: menu.x,
+        zIndex: 30,
+        background: T.panel,
+        border: `1px solid ${T.border}`,
+        borderRadius: 6,
+        padding: "4px 0",
+        minWidth: 180,
+        boxShadow: T.glow,
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <button
+        onClick={() => {
+          copy(`${menu.lat.toFixed(6)}, ${menu.lng.toFixed(6)}`);
+        }}
+        style={menuItemStyle(T.text)}
+      >
+        Copy coordinates
+      </button>
+      <button
+        onClick={() => {
+          copy(`${menu.lat.toFixed(6)},${menu.lng.toFixed(6)}`);
+        }}
+        style={menuItemStyle(T.text)}
+      >
+        Copy compact
+      </button>
+      <button
+        onClick={() => {
+          copy(`${toDms(menu.lat, "N", "S")} ${toDms(menu.lng, "E", "W")}`);
+        }}
+        style={menuItemStyle(T.text)}
+      >
+        Copy DMS
+      </button>
+      <button
+        onClick={() => {
+          copy(`${menu.lng.toFixed(6)},${menu.lat.toFixed(6)}`);
+        }}
+        style={menuItemStyle(T.text)}
+      >
+        Copy lng,lat
+      </button>
+      <button
+        onClick={() => {
+          copy(`${menu.lng.toFixed(6)}, ${menu.lat.toFixed(6)}`);
+        }}
+        style={menuItemStyle(T.text)}
+      >
+        Copy lat,lng
+      </button>
+      <button
+        onClick={() => {
+          window.open(
+            `https://www.openstreetmap.org/?mlat=${menu.lat}&mlon=${menu.lng}#map=17/${menu.lat}/${menu.lng}`,
+            "_blank",
+          );
+          onClose();
+        }}
+        style={{ ...menuItemStyle(T.accent), fontSize: "0.8rem" }}
+      >
+        Open in OSM
+      </button>
+      <button
+        onClick={() => {
+          onCopyElevation(menu.lat, menu.lng);
+        }}
+        style={{ ...menuItemStyle(T.green), fontSize: "0.8rem" }}
+      >
+        Copy elevation
+      </button>
+    </div>
+  );
+}
+
+export type MapHealth = "ok" | "degraded" | "loading" | "error";
+
+interface StatusBarProps {
+  mapHealth: MapHealth;
+  pinCount: number;
+  annotationCount: number;
+  drawMode: string;
+  onExport: () => void;
+}
+
+export function StatusBar({ mapHealth, pinCount, annotationCount, drawMode, onExport }: StatusBarProps) {
+  return (
+    <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
+      <SurveillancePanel style={{ padding: "0.3rem 0.6rem", display: "flex", gap: 12, alignItems: "center" }}>
+        <StatusIndicator
+          color={
+            mapHealth === "error"
+              ? T.red
+              : mapHealth === "degraded"
+                ? T.amber
+                : mapHealth === "loading"
+                  ? T.amber
+                  : T.green
+          }
+          label={
+            mapHealth === "error"
+              ? "ERROR"
+              : mapHealth === "degraded"
+                ? "DEGRADED"
+                : mapHealth === "loading"
+                  ? "LOADING"
+                  : "READY"
+          }
+          pulse={mapHealth === "loading"}
+        />
+        {pinCount > 0 && <StatusIndicator color={T.accent} label={`${pinCount} PINS`} />}
+        {annotationCount > 0 && <StatusIndicator color="#00ff88" label={`${annotationCount} ANNOT`} />}
+        {drawMode !== "none" && <StatusIndicator color="#00ff88" label={`DRAW: ${drawMode.toUpperCase()}`} />}
+        <button
+          onClick={onExport}
+          title="Export screenshot"
+          aria-label="Export map screenshot as PNG"
+          style={{
+            background: "none",
+            border: `1px solid ${T.border}`,
+            /* T.textMuted (#94a3b8) only reaches 5.46:1 on the panel
+               composite; T.text (#e2e8f0) = 11.37:1 — WCAG AAA. */
+            color: T.text,
+            padding: "2px 8px",
+            borderRadius: 4,
+            cursor: "pointer",
+            fontSize: 12,
+            fontFamily: T.fontMono,
+            letterSpacing: "0.05em",
+          }}
+        >
+          EXPORT
+        </button>
+      </SurveillancePanel>
     </div>
   );
 }

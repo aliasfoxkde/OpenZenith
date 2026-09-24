@@ -1013,3 +1013,17 @@ accordion into map/controls.tsx (page.tsx 2,399 → 2,199 lines):
   dispositioned in prior waves/baselines. Benign.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 wave 4 (map page status bar + context menu extraction)
+
+14 new findings, all line-shift re-flags in page.tsx after moving the status
+bar and coordinate context menu into map/panels.tsx (page.tsx 2,199 → 2,003
+lines): australian-tfn/bank-routing-number/ssn-no-dashes (3, high — the
+`Date.now() - 604800000` literal), ssrf (1, high — client-side layer fetch),
+xss-via-url (1, medium — React-escaped share URL text), react-missing-key-prop
+(2, low), autocomplete-missing (2, low — range sliders), mobile-optimization,
+console-log, try-catch-bulk, react-optimization, expensive-computation-loop
+(1 each, low/medium). No new code introduced; dispositions unchanged from
+prior waves. Benign.
+
+No new vulnerability classes. Baseline updated deliberately.

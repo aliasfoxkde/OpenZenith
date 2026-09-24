@@ -29,6 +29,20 @@ MCP surface is still unqualified and app-page coverage is ungated).
 > [MASTER_PLAN_2026-09-22.md](MASTER_PLAN_2026-09-22.md). The v0.8.3
 > security fix (globe tooltip third-party XSS) is the one true-positive
 > finding that re-triage surfaced; it is fixed, not baselined.
+>
+> **Update (2026-09-24):** production reliability + dataset truth tasks
+> #124–#130 complete (see MASTER_PLAN progress log): render-schema
+> versioning with undated-cache staleness fix (#125), concurrent tile
+> assembly + single-flight merged downloads killing the sticky 503s —
+> 0/36 first-wave post-deploy (#126), and the HuggingFace OZT2 dataset
+> brought to verified truth (#127–#130): z10 151,988/151,988
+> byte-identical; z7–z9 refreshed to the current generation after
+> fixing the uploader's CDN-cached landing probe (resolve HEAD returns
+> 200 with OLD bytes — never trust it for overwrite batches); z11 stays
+> R2-authoritative, HF z11 copy is legacy and unconsumed. Validator
+> (`scripts/validate_hf_ozt2.py`) now paginates the tree API with
+> retry; never call `dataset_info(files_metadata=True)` or
+> `delete_files(patterns)` on this 150K+-file repo — both hang.
 
 ## Repository surfaces
 
@@ -56,12 +70,15 @@ WASM must be tested with fixtures rather than inferred from source presence.
 
 ## Open work
 
-1. Reproduce the core/API baseline on Fedora without provider credentials.
-2. Measure Python/Rust and UI test coverage; do not reuse the README's claims
-   as current coverage evidence.
-3. Add deterministic offline fixtures for elevation, terrain, hydrology, and
-   tile-cache failure behavior.
-4. Qualify browser accessibility, visual regression, and Cloudflare build
-   outputs before deployment claims.
+1. Globe/map page monolith extraction (multi-session; landing-page pattern
+   already established in `globe/lib/{widgets,tools,layers}`).
+2. GitForge CI verification needs the user's interactive
+   `gitforge auth --login`; the push path itself works (transient
+   server-side stalls self-heal — retry or re-fetch).
+3. Coverage climb toward 95/90 and openapi.json single-sourcing (phased in
+   MASTER_PLAN).
+4. HF z11 backfill is NOT scheduled: ~595K files ≈ 4h+ under the
+   128-commits/hour cap, and nothing consumes the HF z11 copy (R2 is
+   authoritative). Revisit only if the SDK gains an HF z11 consumer.
 5. Decide whether the MCP server is in the Platform execution graph and add a
    versioned contract only after its tests pass.

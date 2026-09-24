@@ -1845,3 +1845,14 @@ localStorage-key-name credential FPs, 3 PII-detector matches on the
 `604800000` ms literal, 19 line-shift re-flags — TRIAGE.md #136).
 Committed d6ba963; deployed (98bec3f7); verified: /map 200, axe map audit
 green, production-verify map specs green (4/4).
+
+### Task #136 wave 2 (2026-09-24, ba8f344)
+
+EarthquakeTimelinePanel, HurricaneAnimationPanel, and MapLegend extracted
+into map/panels.tsx (page.tsx 2,613 → 2,399 lines; the legend's inline
+entry array hoisted to a module-level const). The inline eq show-all
+handler became a named handleEqShowAll callback; the earthquake play/pause
+button gained an aria-label (matching the hurricane control). Gates: tsc
+clean; eslint 5,381/0; vitest 1,447+5; pages:build ok; aegis re-triaged
+(23 findings, all relocation/line-shift FPs — TRIAGE.md). Deployed
+(d3783f73); map specs 4/4 green incl. the axe audit.

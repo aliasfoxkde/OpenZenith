@@ -1813,3 +1813,35 @@ changelog had nothing for it. Cut v0.8.4 covering the full range:
   `/api/health` → `"version":"0.8.4"`, `/api/openapi.json` →
   info.version 0.8.4, POST `/api/profile` Sierra transect →
   total_gain 2345 m (nonzero; fix live).
+
+## Task #136: map/page.tsx monolith extraction — wave 1 (2026-09-24)
+
+Phase 5.3. `api/src/app/map/page.tsx` was the largest page in the repo at
+3,053 lines. Wave 1 extracted verbatim, no behavior change:
+
+- `map/lib/view-state.ts` — MapViewState/ElevationPin types, defaults
+  (basemap/layer sets), and the URL-hash codec. New: 13 unit tests
+  (tile-coordinate → Web Mercator center incl. the z1 (1,1)=0°N 0°E and
+  y=0=85.05°N edges, lng/lat/c forms, round-trip, bm-only-when-non-default,
+  boolean-only layer map, no-throw on garbage).
+- `map/lib/boundaries.ts` — lazy topojson-client script injection +
+  world-atlas fetch with module caches.
+- `map/lib/map-setup.ts` — DEM source, z-order enforcement, label/boundary
+  overlays, 3D terrain toggles, pin markers.
+- `map/panels.tsx` — PinHistoryPanel, AnnotationsListPanel, ShareUrlPanel
+  with callback props (the v0.8.2 landing pattern); `btnStyle` moved here.
+  One a11y strictness win: the annotation delete button (bare ✕) gained an
+  aria-label naming the annotation.
+
+page.tsx: 3,053 → 2,613 lines. Remaining for later waves: legend overlay,
+status-indicator block, measure/draw toolbars, earthquake/hurricane control
+cluster, layer accordion.
+
+Gates: tsc clean; ESLint 0 errors / exactly 5,381 warnings (refactor moved
+no lint burden); vitest 101 files, 1,447 passed + 5 skipped (+13);
+pages:build completed; aegis re-triaged 1,713 → 1,714 (30 findings: 2
+client-side-fetch SSRF FPs, 4 pin-marker innerHTML relocations, 2
+localStorage-key-name credential FPs, 3 PII-detector matches on the
+`604800000` ms literal, 19 line-shift re-flags — TRIAGE.md #136).
+Committed d6ba963; deployed (98bec3f7); verified: /map 200, axe map audit
+green, production-verify map specs green (4/4).

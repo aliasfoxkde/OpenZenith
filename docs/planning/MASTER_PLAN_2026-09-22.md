@@ -1870,3 +1870,20 @@ only consumer. page.tsx 2,399 → 2,199 lines (cumulative 3,053 → 2,199,
 waves: status indicators, measure/draw toolbars, view controls +
 bookmarks, coordinate info, elevation profile, context menu, toasts;
 then globe/page.tsx and explore.
+
+### Task #136 wave 4 (2026-09-24, 53c9b53)
+
+StatusBar (health/pin/annotation/draw indicators + EXPORT) and
+MapContextMenu (seven coordinate-copy/OSM/elevation actions) extracted into
+map/panels.tsx; ContextMenuState is now the exported type of the page's
+ctxMenu state, and the clipboard write + dismiss flow collapsed into one
+local `copy` helper. page.tsx 2,199 → 2,003 lines (cumulative 3,053 →
+2,003, −34%). Gates: tsc clean; eslint 5,381/0; vitest 1,447+5;
+pages:build ok; aegis re-triaged (14 line-shift re-flags — TRIAGE.md).
+Deployed (0d895ec6); map specs 4/4 green incl. the axe audit.
+
+Remaining in map/page.tsx (~2,000 lines): measure/draw toolbars + result,
+view controls + bookmarks, coordinate info, elevation profile + result,
+elevation click flow, sidebar header, top bar; then globe/page.tsx and
+explore. These are progressively more entangled with refs/keydown
+effects — expect diminishing per-wave returns.

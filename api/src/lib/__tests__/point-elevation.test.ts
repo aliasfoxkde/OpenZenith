@@ -133,9 +133,11 @@ describe("getPointElevation — SRTM chunk path", () => {
   });
 
   it("returns a constant elevation for a flat chunk", async () => {
+    // Each suite below queries a distinct lon (distinct oz:chunk key) so the
+    // tests cannot cross-contaminate through any shared cache layer.
     const storage = backendFor(buildChunks(() => () => 500));
 
-    const result = await getPointElevation(41.95, -73.95, storage);
+    const result = await getPointElevation(41.95, -73.94, storage);
     expect(result?.elevation).toBe(500);
     expect(result?.source).toBe("srtm");
   });
@@ -143,7 +145,7 @@ describe("getPointElevation — SRTM chunk path", () => {
   it("caches fetched chunks under the oz:chunk key", async () => {
     const storage = backendFor(buildChunks(() => () => 500));
 
-    await getPointElevation(41.95, -73.95, storage);
+    await getPointElevation(41.95, -73.93, storage);
 
     expect(cachePutMock).toHaveBeenCalledTimes(1);
     expect(cachePutMock.mock.calls[0][0]).toBe("oz:chunk:N41W073.tif:0:0");
@@ -155,7 +157,7 @@ describe("getPointElevation — SRTM chunk path", () => {
     const cached = chunkOf(() => 777, 0, 0);
     cacheGetMock.mockResolvedValue(cached);
 
-    const result = await getPointElevation(41.95, -73.95, storage);
+    const result = await getPointElevation(41.95, -73.92, storage);
 
     expect(result?.elevation).toBe(777);
     expect(storage.fetchChunk).not.toHaveBeenCalled();
@@ -194,7 +196,7 @@ describe("getPointElevation — SRTM chunk path", () => {
   it("returns null when the target pixel is SRTM nodata", async () => {
     const storage = backendFor(buildChunks(() => () => -32768));
 
-    expect(await getPointElevation(41.95, -73.95, storage)).toBeNull();
+    expect(await getPointElevation(41.95, -73.91, storage)).toBeNull();
   });
 
   it("returns null when the backend cannot fetch the chunk", async () => {
@@ -202,7 +204,7 @@ describe("getPointElevation — SRTM chunk path", () => {
       fetchChunk: vi.fn(() => Promise.reject(new Error("chunk not found"))),
     };
 
-    expect(await getPointElevation(41.95, -73.95, storage)).toBeNull();
+    expect(await getPointElevation(41.95, -73.90, storage)).toBeNull();
   });
 
   it("returns null when the chunk payload is not valid zlib", async () => {
@@ -210,7 +212,7 @@ describe("getPointElevation — SRTM chunk path", () => {
       fetchChunk: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer)),
     };
 
-    expect(await getPointElevation(41.95, -73.95, storage)).toBeNull();
+    expect(await getPointElevation(41.95, -73.89, storage)).toBeNull();
   });
 });
 

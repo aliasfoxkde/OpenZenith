@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   LAYERS,
+  getLayer,
   getLayersByCategory,
   getDefaultToggleState,
   CATEGORY_ORDER,
@@ -26,6 +27,12 @@ describe("Layer Registry", () => {
   it("all layer IDs are unique", () => {
     const ids = LAYERS.map((l) => l.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("getLayer resolves definitions by ID and undefined for unknown IDs", () => {
+    const sample = LAYERS[0];
+    expect(getLayer(sample.id)).toBe(sample);
+    expect(getLayer("no-such-layer-id")).toBeUndefined();
   });
 
   it("getLayersByCategory returns layers grouped by category", () => {

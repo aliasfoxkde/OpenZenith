@@ -915,3 +915,28 @@ gain to zero (always 0) — is FIXED, not baselined.
   covers seven terrain route handlers. Accepted.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #133 (OPTIONS preflight sweep + dead-code removal)
+
+11 new findings after exercising every untested OPTIONS preflight handler
+(26 routes) and removing flow-path.ts's never-called MinHeap `get size`:
+
+- cors-misconfiguration (9, medium) — the new preflight tests assert the
+  API's deliberate wildcard CORS policy; same class baselined across the
+  test suites since 2026-09-22. Benign.
+- semicolon-everywhere (2, low) — flow-path.ts:103/159, line shifts caused
+  by removing the dead getter above them. Same code, new lines. Benign.
+
+No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #133 follow-up (point-elevation test decoupling)
+
+12 new findings, all line-shift re-flags in point-elevation.test.ts caused by
+a 2-line explanatory comment added to the flat-chunk test (the decoupling that
+gives each SRTM test a distinct oz:chunk cache key after a flaky vi.mock
+bypass let tests cross-contaminate through the real cache module's in-memory
+Map): nested-callbacks (9) per-pixel fixture callbacks, sync-in-async (2)
+zlibSync fixtures, double-type-assertion (1) Request cast. Same code, new
+lines; dispositions unchanged from 2026-09-23 #131. Benign.
+
+No new vulnerability classes. Baseline updated deliberately.

@@ -137,4 +137,12 @@ describe("Reverse Geocode endpoint", () => {
     const data = (await resp.json()) as GeocodeBody;
     expect(data.error).toContain("Reverse geocoding request failed");
   });
+
+  it("exposes CORS preflight OPTIONS", async () => {
+    const { OPTIONS } = await import("@/app/api/reverse-geocode/route");
+    const resp = await OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("OPTIONS");
+  });
 });

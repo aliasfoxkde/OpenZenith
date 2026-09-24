@@ -85,10 +85,6 @@ class MinHeap {
     return this.heap.length === 0;
   }
 
-  get size(): number {
-    return this.heap.length;
-  }
-
   clear(): void {
     this.heap = [];
   }

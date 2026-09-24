@@ -22,6 +22,13 @@ describe("Collections API", () => {
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  it("exposes CORS preflight OPTIONS on the list route", async () => {
+    const { OPTIONS } = await import("@/app/api/collections/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
 });
 
 describe("Collection by ID API", () => {
@@ -43,6 +50,13 @@ describe("Collection by ID API", () => {
     });
     expect(resp.status).toBe(404);
   });
+
+  it("exposes CORS preflight OPTIONS on the collection detail route", async () => {
+    const { OPTIONS } = await import("@/app/api/collections/[id]/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
 });
 
 describe("Collection Items API", () => {
@@ -52,5 +66,12 @@ describe("Collection Items API", () => {
       params: Promise.resolve({ id: "nonexistent" }),
     });
     expect(resp.status).toBe(404);
+  });
+
+  it("exposes CORS preflight OPTIONS on the items route", async () => {
+    const { OPTIONS } = await import("@/app/api/collections/[id]/items/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });

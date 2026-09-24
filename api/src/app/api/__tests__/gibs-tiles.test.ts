@@ -74,5 +74,16 @@ for (const route of GIBS_ROUTES) {
       });
       expect(resp.status).toBe(200);
     });
+
+    it("exposes CORS preflight OPTIONS", async () => {
+      // Typed destructure keeps the dynamic-imported handler off the any path.
+      const { OPTIONS } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as {
+        OPTIONS: () => Response;
+      };
+      const resp = OPTIONS();
+      expect(resp.status).toBe(204);
+      expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("OPTIONS");
+    });
   });
 }

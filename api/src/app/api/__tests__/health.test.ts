@@ -22,4 +22,12 @@ describe("Health endpoint", () => {
     const resp = GET(mockRequest("/api/health"));
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });
+
+  it("exposes CORS preflight OPTIONS", async () => {
+    const { OPTIONS } = await import("@/app/api/health/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("OPTIONS");
+  });
 });

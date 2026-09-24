@@ -41,4 +41,12 @@ describe("SAR Backscatter Tile API", () => {
     });
     expect(resp.status).toBe(200);
   });
+
+  it("exposes CORS preflight OPTIONS", async () => {
+    const { OPTIONS } = await import("@/app/api/sar-backscatter/[z]/[x]/[y]/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("OPTIONS");
+  });
 });

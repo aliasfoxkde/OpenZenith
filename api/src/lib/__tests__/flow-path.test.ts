@@ -291,6 +291,20 @@ describe("traceUpstream", () => {
     expect(result.elevations).toEqual([-100]);
   });
 
+  it("clears the heap when a neighbour is sea level (stop-at-sea neighbour branch)", async () => {
+    // The start is land; its first expanded neighbour is the ocean. The
+    // neighbour-emission branch runs the same heap.clear() the downstream
+    // trace uses — MaxHeap's, on the upstream walk.
+    const SEA_LAT = 20 + 0.001;
+    terrain((lat, lon) => (lat === SEA_LAT ? -1 : lat === 20 && lon === 10 ? 300 : 500));
+
+    const result = await traceUpstream(20, 10);
+
+    expect(result.elevations[0]).toBe(300);
+    expect(result.elevations).toContain(-1); // the sea neighbour is emitted
+    expect(result.elevations[result.elevations.length - 1]).toBe(-1);
+  });
+
   it("ascends the terrain gradient until maxPoints", async () => {
     // terrain rises 100 m per 0.001 deg eastward, plateauing well above sea
     // level to the west so the sea-level stop can't fire mid-ascent.

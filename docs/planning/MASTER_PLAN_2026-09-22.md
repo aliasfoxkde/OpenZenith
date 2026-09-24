@@ -1716,3 +1716,39 @@ exit-1 remains the benign worker-RPC artifact); aegis re-triaged 63
 findings (test-literal misfires + line shifts; TRIAGE.md 2026-09-24 #132),
 baseline 1690 → 1704. Production source changed (profile fix, hypsometric
 extraction, elevation-color route) → deploy required.
+
+## Task #133: OPTIONS preflight sweep — functions to 100% (2026-09-24)
+
+Coverage-gap scan of the #132 report showed every remaining untested function
+was the same shape: 26 route modules export an OPTIONS preflight handler no
+test ever called (22 GIBS-style raster routes, health, reverse-geocode,
+collections list, collection by id) plus registry.getLayer and flow-path's
+MinHeap `get size`. Repo functions sat at 92.28% purely on these.
+
+Sweep: one parameterized preflight test in the GIBS route table (19 routes,
+204 + wildcard origin + Allow-Methods contains OPTIONS), the same assertion in
+the fire-temperature/floods-tile/sar-backscatter suites, and dedicated tests
+for health/reverse-geocode/collections/collection-by-id (+ the items route for
+symmetry), registry.getLayer (resolves by ID, undefined otherwise), and a
+traceUpstream test whose neighbour is sea level — reaching MaxHeap.clear, the
+one heap method the upstream walk had never executed.
+
+**Dead code removed**: MinHeap's `get size` was called by nothing — not the
+algorithms, not tests — and deleted rather than artificially covered.
+
+**Flake found and fixed en route**: point-elevation's SRTM tests all queried
+the same point, so a flaky vi.mock application (whole-file runs sometimes
+resolved point-elevation.ts to the REAL @/lib/storage/cache whose module-level
+in-memory Map then served the first test's chunk to every later test — every
+assertion got the first test's value, e.g. 460) cross-contaminated six tests.
+Each SRTM test now queries a distinct longitude — a distinct oz:chunk key — so
+no shared-cache layer can couple them; 3× consecutive green runs plus a full
+green coverage pass.
+
+Gates: tsc clean; ESLint 0 errors / exactly the 5,381-warning baseline;
+full coverage 100/100 files, 1,434 passed / 5 skipped; functions **92.28 →
+100.00%** (375/375, zero untested functions repo-wide); totals now 99.64%
+stmts / 97.30% branch / 100% funcs / 99.64% lines; aegis re-triaged 23
+findings (9 CORS-wildcard assertions + 12 point-elevation line shifts + 2
+flow-path line shifts; TRIAGE.md 2026-09-24 #133), baseline 1704 → 1713.
+Production source changed (flow-path dead getter) → deploy required.

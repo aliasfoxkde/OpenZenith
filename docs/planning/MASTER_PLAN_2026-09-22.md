@@ -1778,3 +1778,38 @@ skipped / 4 flaky-retry** (network-dependent elevation lookups), exit 0.
 Gates for the fix: tsc clean; ESLint 0 errors / exactly the 5,381-warning
 baseline; vitest 100/100 files, 1,434 passed / 5 skipped; aegis gate passed
 (no new findings). Production changed → deployed + verified.
+
+## Task #135: Release v0.8.4 (2026-09-24)
+
+The `v0.8.3` tag (69e0b0f) predated ~50 commits of shipped work; the
+changelog had nothing for it. Cut v0.8.4 covering the full range:
+
+- **Changelog** (`.github/CHANGELOG.md`): Security (next 15.5.26
+  zero-CVE bump, ArcGIS allowlist suffix-host bypass, GIBS strict
+  integer grammar); Fixed — SDK inverted-D8 hydrology family,
+  channels/inundation/vector, tile_format_v2 flags, geotiff, SDK
+  packaging (undeclared deps, hatchling source builds); API
+  OZCHNK01 edge-stride corruption, RENDER_SCHEMA_VERSION salt,
+  concurrent tile assembly (503 storm), AWS terrarium fallback,
+  STAC bbox, profile total_gain, aspect N↔S mirror, waterways,
+  WorldCRS84Quad deprecation + conformant set, globe AAA contrast;
+  Added — single-source OpenAPI (80 paths), MCP contract suite,
+  coverage campaign; Changed — HF uploader hardening, globe lib
+  extractions.
+- **Version bump**: api/package.json + package-lock.json +
+  openapi base.json + regenerated spec.json (the
+  openapi-generation test enforces spec/package sync) +
+  openzenith/__init__.py. All consumers are dynamic except the
+  committed spec; no test pins a literal version.
+- **Commit** b0f6371 `chore(release): v0.8.4`, tag v0.8.4 pushed
+  explicitly to both remotes (lightweight tags are not covered by
+  `push --follow-tags` — annotated only; first push silently
+  skipped it, `git ls-remote` caught the miss).
+- **Gates**: tsc clean; ESLint 0 errors / 5,381 warnings (baseline);
+  vitest 100/100 files, 1,434 passed / 5 skipped; pytest 1,479
+  passed, 98.82% (floor 97), SDK 0.8.4 imports clean; aegis gate
+  clean (spec/lockfile regen produced no new findings).
+- **Deployed** (33ca2185.openzenith.pages.dev) and verified:
+  `/api/health` → `"version":"0.8.4"`, `/api/openapi.json` →
+  info.version 0.8.4, POST `/api/profile` Sierra transect →
+  total_gain 2345 m (nonzero; fix live).

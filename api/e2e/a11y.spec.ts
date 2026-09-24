@@ -64,6 +64,11 @@ const PAGES = [
 const GLOBE_PATH = "/globe";
 
 test.describe("Accessibility (WCAG 2.1 A/AA + AAA-tagged rules)", () => {
+  // Auditing against the live site means CDN latency plus layers that stream
+  // forever — axe waits for DOM stability, so the heavy pages (landing, map,
+  // globe) legitimately exceed the 30 s default inside builder.analyze().
+  test.setTimeout(120_000);
+
   for (const { path, name } of PAGES) {
     test(`no axe violations on ${name} (${path})`, async ({ page }) => {
       const violations = await scan(page, path);

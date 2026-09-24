@@ -217,6 +217,11 @@ export const STYLES = `
 .wv-bm-preview-card.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
 .wv-bm-preview-thumb{width:100%;height:48px;border-radius:4px;background-size:cover;background-position:center}
 .wv-bm-preview-label{font-size:10px;font-family:var(--font-mono)}
+/* At 10px, AAA contrast needs 7:1 — the accent on the active card's glow
+   background measures ~5.2:1 (axe: color-contrast-enhanced, serious), so the
+   label reads in the theme's high-contrast ink while the border/glow carry
+   the accent identity. */
+.wv-bm-preview-card.active .wv-bm-preview-label{color:var(--text)}
 
 /* ── Settings rows ── */
 .wv-setting-group{border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:6px}

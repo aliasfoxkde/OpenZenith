@@ -994,3 +994,22 @@ timeline panel, hurricane animation panel, and map legend into map/panels.tsx
   dispositioned in waves 1 and the 2026-09-22 baseline. Benign.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 wave 3 (map page basemap selector + layer accordion extraction)
+
+16 new findings, same relocation/line-shift classes as waves 1-2, caused by
+moving the basemap selector, OS-theme match row, hillshade row, and layer
+accordion into map/controls.tsx (page.tsx 2,399 → 2,199 lines):
+
+- australian-tfn / bank-routing-number / ssn-no-dashes (3, high) — the
+  `Date.now() - 604800000` ms literal at its new line. Benign.
+- react-missing-key-prop (3, low) — basemap buttons (`key={key}`) and
+  accordion rows carry keys on the element's following line. Benign.
+- autocomplete-missing (3, low) — range sliders (no autocomplete axis) and
+  pre-existing text inputs. Benign.
+- ssrf (1, high), xss-via-url (1, medium), mobile-optimization (1, medium),
+  console-log (1, low), try-catch-bulk (1, low), react-optimization (1, low),
+  expensive-computation-loop (1, medium) — line-shift re-flags of code
+  dispositioned in prior waves/baselines. Benign.
+
+No new vulnerability classes. Baseline updated deliberately.

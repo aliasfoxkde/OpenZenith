@@ -940,3 +940,36 @@ zlibSync fixtures, double-type-assertion (1) Request cast. Same code, new
 lines; dispositions unchanged from 2026-09-23 #131. Benign.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 (map/page.tsx monolith extraction, wave 1)
+
+30 new findings after extracting view-state/boundaries/map-setup modules and
+the sidebar panels out of map/page.tsx (3,053 → 2,613 lines). Verification by
+class:
+
+- ssrf (2, high) — boundaries.ts:31 fetch of the unpkg world-atlas URL and
+  page.tsx:1105's layer fetch: both run in the browser, not on a server;
+  the SSRF class does not apply to client-side fetches. Same code, new
+  fingerprints. Benign.
+- innerHTML family (4, high/medium) — map-setup.ts:178, the elevation-pin
+  marker template relocated verbatim from page.tsx. Interpolations are
+  numbers (elevation, lat/lon toFixed), an enum status, and theme color
+  tokens — no user-controlled strings. Disposition unchanged from the
+  2026-09-22 baseline of this code. Benign.
+- env-credential-assignment (2, high) — view-state.ts:27-28 are
+  LAYER_STATE_KEY/BOOKMARKS_KEY, localStorage key-name literals, not
+  credentials. False positive on the key-name pattern. Benign.
+- australian-tfn / bank-routing-number / ssn-no-dashes (3, high) —
+  page.tsx:189 is `Date.now() - 604800000` (7 days in ms); the digit run
+  trips the PII detectors. No PII exists on a map page. Benign.
+- xss-via-url (1, medium) — page.tsx:2383 renders `origin + buildHash(...)`
+  as a React text node (escaped), not an href/innerHTML sink. Benign.
+- autocomplete-missing (5, low), react-missing-key-prop (8, low),
+  try-catch-bulk (1, low), mobile-optimization (1, medium),
+  console-log (1, low), react-optimization (1, low),
+  expensive-computation-loop (1, medium) — line-shift re-flags of code
+  triaged on 2026-09-22/23; the panels.tsx key-prop flags are on maps that
+  do carry keys (`key={i}` / `key={a.id}` on the following line, which the
+  detector does not join). Benign.
+
+No new vulnerability classes. Baseline updated deliberately.

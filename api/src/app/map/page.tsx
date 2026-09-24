@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
 import { SurveillancePanel, CoordinateReadout, LayerToggle, StatusIndicator } from "@/components/SurveillanceUI";
+import { AnnotationsListPanel, PinHistoryPanel, ShareUrlPanel, btnStyle } from "./panels";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import { LAYERS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/layers/registry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -37,183 +38,28 @@ import {
   formatDistance,
   formatArea,
 } from "./lib/measure";
+import {
+  addElevationSource,
+  addPinMarker,
+  addBoundaryLayers,
+  addLabelLayer,
+  disable3DTerrain,
+  enable3DTerrain,
+  removeBoundaryLayers,
+  reorderMapLayers,
+} from "./lib/map-setup";
+import {
+  BOOKMARKS_KEY,
+  DEFAULT_STATE,
+  LAYER_STATE_KEY,
+  buildHash,
+  parseHash,
+  type ElevationPin,
+  type MapViewState,
+} from "./lib/view-state";
 import { exportMapScreenshot } from "@/lib/map-export";
 import { getClientElevation } from "@/lib/client-elevation";
 import { BASEMAPS, BASEMAP_ORDER, getBasemap } from "@/lib/basemaps";
-
-/* ─── Types ─── */
-
-interface ElevationPin {
-  lat: number;
-  lon: number;
-  elevation: number | null;
-  status: "ok" | "no_data" | "unavailable";
-  surfaceType: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
-}
-
-interface MapViewState {
-  center: [number, number];
-  zoom: number;
-  bearing: number;
-  pitch: number;
-  basemap: string;
-  layers: Record<string, boolean>;
-}
-
-/* ─── Constants ─── */
-
-const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
-
-function getDefaultBasemap(): string {
-  if (typeof window === "undefined") return "dark";
-  try {
-    const saved = localStorage.getItem("openzenith-theme");
-    if (saved === "light") return "voyager";
-    if (saved === "dark") return "dark";
-  } catch {}
-  // system mode: follow OS preference
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "voyager";
-}
-
-const DEFAULT_STATE: MapViewState = {
-  center: [0, 0],
-  zoom: 2.5,
-  bearing: 0,
-  pitch: 0,
-  basemap: "satellite",
-  layers: buildDefaultLayers(),
-};
-
-const LAYER_STATE_KEY = "openzenith-map-layers";
-const BOOKMARKS_KEY = "openzenith-bookmarks";
-
-function buildDefaultLayers(): Record<string, boolean> {
-  const layers: Record<string, boolean> = {
-    // Map-specific layers
-    hillshade: true,
-    contour: false,
-    terrain3d: false,
-    boundaries: false,
-  };
-  // Registry defaults for 2D-compatible layers
-  for (const layer of LAYERS) {
-    if (MAP_2D_LAYER_IDS.has(layer.id)) {
-      layers[layer.id] = layer.defaultEnabled;
-    }
-  }
-  // Restore saved layer preferences from localStorage
-  if (typeof window !== "undefined") {
-    try {
-      const saved = localStorage.getItem(LAYER_STATE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        for (const key of Object.keys(parsed)) {
-          if (key in layers) layers[key] = parsed[key];
-        }
-      }
-    } catch {}
-  }
-  return layers;
-}
-
-/* ─── Boundary data ─── */
-
-let topojsonLib: TopoJSONClient | null = null;
-let boundariesGeoJSON: GeoJSON.FeatureCollection | null = null;
-
-async function loadTopojsonLib(): Promise<TopoJSONClient> {
-  if (topojsonLib) return topojsonLib;
-  if (window.topojson) return (topojsonLib = window.topojson);
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://unpkg.com/topojson-client@3/dist/topojson-client.min.js";
-    s.onload = () => {
-      topojsonLib = window.topojson ?? null;
-      if (topojsonLib) resolve(topojsonLib);
-      else reject(new Error("topojson-client failed to load"));
-    };
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-async function loadBoundariesData(): Promise<GeoJSON.FeatureCollection | null> {
-  if (boundariesGeoJSON) return boundariesGeoJSON;
-  try {
-    const topo = await loadTopojsonLib();
-    const res = await fetch(BOUNDARIES_URL);
-    if (!res.ok) return null;
-    const world = await res.json();
-    boundariesGeoJSON = topo.feature(world, world.objects.countries);
-    return boundariesGeoJSON;
-  } catch {
-    return null;
-  }
-}
-
-function parseHash(hash: string): Partial<MapViewState> {
-  try {
-    const h = hash.replace(/^#/, "");
-    if (!h) return {};
-    const params = new URLSearchParams(h);
-    // x/y/z = tile coordinates → compute center from tile
-    const tx = params.get("x");
-    const ty = params.get("y");
-    const tz = params.get("z");
-    if (tx && ty && tz) {
-      const x = Number(tx),
-        y = Number(ty),
-        z = Number(tz);
-      if (!isNaN(x) && !isNaN(y) && !isNaN(z) && z >= 0 && z <= 22) {
-        const n = Math.pow(2, z);
-        const lng = (x / n) * 360 - 180;
-        const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
-        const lat = (latRad * 180) / Math.PI;
-        return {
-          center: [lng, lat],
-          zoom: z,
-          bearing: params.has("b") ? Number(params.get("b")) : undefined,
-          pitch: params.has("p") ? Number(params.get("p")) : undefined,
-          basemap: params.get("bm") || undefined,
-        };
-      }
-    }
-    // lng/lat/zoom = center coordinates
-    const c = params.get("c");
-    const lng = params.get("lng");
-    const lat = params.get("lat");
-    let center: [number, number] | undefined;
-    if (c) {
-      const parts = c.split(",").map(Number);
-      if (parts.length === 2 && parts.every((n) => !isNaN(n))) center = parts as [number, number];
-    } else if (lng && lat) {
-      const ln = Number(lng);
-      const lt = Number(lat);
-      if (!isNaN(ln) && !isNaN(lt)) center = [ln, lt];
-    }
-    const zoomVal = params.get("zoom");
-    return {
-      center,
-      zoom: zoomVal ? Number(zoomVal) : undefined,
-      bearing: params.has("b") ? Number(params.get("b")) : undefined,
-      pitch: params.has("p") ? Number(params.get("p")) : undefined,
-      basemap: params.get("bm") || undefined,
-    };
-  } catch {
-    return {};
-  }
-}
-
-function buildHash(state: MapViewState): string {
-  const p = new URLSearchParams();
-  p.set("lng", state.center[0].toFixed(4));
-  p.set("lat", state.center[1].toFixed(4));
-  p.set("zoom", state.zoom.toFixed(1));
-  if (state.bearing) p.set("b", state.bearing.toFixed(1));
-  if (state.pitch) p.set("p", state.pitch.toFixed(1));
-  if (state.basemap !== getDefaultBasemap()) p.set("bm", state.basemap);
-  return "#" + p.toString();
-}
 
 /* ─── Component ─── */
 
@@ -2514,110 +2360,27 @@ export default function MapPage() {
 
             {/* Pin history */}
             {pins.length > 0 && (
-              <SurveillancePanel title={`Pins (${pins.length})`} style={{ marginBottom: "0.75rem" }}>
-                <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                  {[...pins]
-                    .reverse()
-                    .slice(0, 20)
-                    .map((p, i) => (
-                      <div
-                        key={i}
-                        onClick={() => {
-                          const map = mapRef.current;
-                          if (map) map.flyTo({ center: [p.lon, p.lat], zoom: 12, duration: 1000 });
-                          setActivePin(p);
-                        }}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          padding: "0.25rem 0",
-                          borderBottom: `1px solid ${T.border}`,
-                          cursor: "pointer",
-                          fontSize: "0.72rem",
-                          fontFamily: T.fontMono,
-                        }}
-                      >
-                        <span style={{ color: T.green }}>{p.elevation !== null ? `${p.elevation}m` : "---"}</span>
-                        <span style={{ color: T.textMuted }}>
-                          {p.lat.toFixed(3)}, {p.lon.toFixed(3)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </SurveillancePanel>
+              <PinHistoryPanel
+                pins={pins}
+                onSelect={(p) => {
+                  const map = mapRef.current;
+                  if (map) map.flyTo({ center: [p.lon, p.lat], zoom: 12, duration: 1000 });
+                  setActivePin(p);
+                }}
+              />
             )}
 
             {/* Annotations list */}
             {annotations.length > 0 && (
-              <SurveillancePanel title={`Annotations (${annotations.length})`} style={{ marginBottom: "0.75rem" }}>
-                <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                  {annotations.map((a) => (
-                    <div
-                      key={a.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "2px 0",
-                        borderBottom: `1px solid ${T.border}`,
-                        fontSize: "0.65rem",
-                        fontFamily: T.fontMono,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ color: a.color }}>
-                          {a.type === "point" ? "◎" : a.type === "line" ? "━" : "△"}
-                        </span>
-                        <span style={{ color: T.text }}>{a.name}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <span style={{ color: T.textMuted, fontSize: "0.58rem" }}>
-                          {new Date(a.timestamp).toLocaleDateString()}
-                        </span>
-                        <button
-                          onClick={() => { deleteAnnotation(a.id); }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: T.red,
-                            cursor: "pointer",
-                            fontSize: "0.7rem",
-                            padding: 0,
-                            opacity: 0.6,
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={clearAnnotations}
-                  style={{ ...btnStyle, marginTop: 4, fontSize: "0.6rem", width: "100%" }}
-                >
-                  Clear All Annotations
-                </button>
-              </SurveillancePanel>
+              <AnnotationsListPanel
+                annotations={annotations}
+                onDelete={deleteAnnotation}
+                onClear={clearAnnotations}
+              />
             )}
 
             {/* Share URL */}
-            <SurveillancePanel title="Share">
-              <div
-                style={{
-                  background: "rgba(0,0,0,0.3)",
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 3,
-                  padding: "0.35rem 0.5rem",
-                  fontSize: "0.65rem",
-                  color: T.textMuted,
-                  wordBreak: "break-all",
-                  fontFamily: T.fontMono,
-                }}
-              >
-                {window.location.origin + buildHash(mapState)}
-              </div>
-            </SurveillancePanel>
+            <ShareUrlPanel url={window.location.origin + buildHash(mapState)} />
           </div>
         )}
 
@@ -2846,208 +2609,5 @@ export default function MapPage() {
   );
 }
 
-/* ─── Map helpers ─── */
-
-function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
-  // Only add if not already present
-  if (map.getSource("elevation")) return;
-
-  map.addSource("elevation", {
-    type: "raster-dem",
-    tiles: ["/api/dem-tile/{z}/{x}/{y}"],
-    tileSize: 256,
-    demTileSize: 512,
-    maxzoom: 10,
-    encoding: "terrarium",
-  });
-}
-
-/** Enforce correct z-order (bottom to top). */
-function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>): void {
-  // Definitive bottom-to-top order.
-  // moveLayer(id) without beforeId moves the layer to the top of the stack.
-  // By iterating bottom-to-top, each successive moveLayer places the next
-  // layer on top, building the correct visual stack.
-  const Z_ORDER = [
-    // Terrain
-    "bathymetry",
-    "elevation-color-layer",
-    "elevation-accuracy-layer",
-    "elevation-accuracy-edges",
-    "accuracy-zones-line",
-    "accuracy-coastline-line",
-    "contours-minor",
-    "contours-major",
-    // Data layers
-    "ocean-currents-lines",
-    // Reference
-    "equator-line",
-    // Labels — always on top
-    "labels-raster",
-  ];
-
-  for (const id of Z_ORDER) {
-    if (map.getLayer(id)) {
-      try {
-        // maplibregl.Map.moveLayer is not in the public types but exists at runtime
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).moveLayer(id);
-      } catch {
-        /* skip */
-      }
-    }
-  }
-
-  // Hillshade — always move to the very top (above all data layers)
-  // Must happen after the Z_ORDER loop so it sits above everything moved there,
-  // then labels are moved back to the absolute top.
-  if (map.getLayer("hillshade-base")) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- maplibregl.Map.moveLayer not in public types
-      (map as any).moveLayer("hillshade-base");
-    } catch {
-      /* skip */
-    }
-  }
-  // Labels — always on absolute top (above hillshade)
-  if (map.getLayer("labels-raster")) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- maplibregl.Map.moveLayer not in public types
-      (map as any).moveLayer("labels-raster");
-    } catch {
-      /* skip */
-    }
-  }
-}
-
-/** Add transparent label tiles on top of everything. */
-function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
-  if (map.getLayer("labels-raster")) return;
-  // Only add labels for basemaps that don't render their own (registry flag)
-  const def = getBasemap(basemapKey);
-  if (def.hasLabels || !def.labelUrl) return;
-  try {
-    if (!map.getSource("labels")) {
-      map.addSource("labels", { type: "raster", tiles: [def.labelUrl], tileSize: 256 });
-    }
-    map.addLayer({
-      id: "labels-raster",
-      type: "raster",
-      source: "labels",
-      paint: { "raster-opacity": 0.9 },
-    });
-  } catch {
-    /* layer may already exist */
-  }
-}
-
-function addBoundaryLayers(map: maplibregl.Map) {
-  if (map.getLayer("boundaries-glow")) return;
-  void loadBoundariesData().then((data) => {
-    if (!data) return;
-    try {
-      if (!map.getSource("boundaries")) {
-        map.addSource("boundaries", { type: "geojson", data });
-      }
-      if (!map.getLayer("boundaries-glow")) {
-        map.addLayer({
-          id: "boundaries-glow",
-          type: "line",
-          source: "boundaries",
-          paint: { "line-color": "rgba(0, 229, 255, 0.12)", "line-width": 8, "line-blur": 5 },
-        });
-      }
-      if (!map.getLayer("boundaries-glow-inner")) {
-        map.addLayer({
-          id: "boundaries-glow-inner",
-          type: "line",
-          source: "boundaries",
-          paint: { "line-color": "rgba(0, 229, 255, 0.4)", "line-width": 2.5, "line-blur": 1.5 },
-        });
-      }
-      if (!map.getLayer("boundaries-core")) {
-        map.addLayer({
-          id: "boundaries-core",
-          type: "line",
-          source: "boundaries",
-          paint: { "line-color": "#00e5ff", "line-width": 1, "line-opacity": 0.8 },
-        });
-      }
-    } catch {
-      /* map may have been removed */
-    }
-  });
-}
-
-function removeBoundaryLayers(map: maplibregl.Map) {
-  ["boundaries-core", "boundaries-glow-inner", "boundaries-glow"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
-  });
-  try {
-    map.removeSource("boundaries");
-  } catch {}
-}
-
-function enable3DTerrain(map: maplibregl.Map) {
-  if (!map.getSource("elevation")) return;
-  try {
-    map.setTerrain({ source: "elevation", exaggeration: 1.5 });
-  } catch {}
-}
-
-function disable3DTerrain(map: maplibregl.Map) {
-  try {
-    map.setTerrain(undefined);
-  } catch {}
-}
-
-function addPinMarker(
-  map: maplibregl.Map,
-  mlgl: MapLibreGL,
-  pin: ElevationPin,
-  pinsStore: React.RefObject<maplibregl.Marker[]>,
-) {
-  const el = document.createElement("div");
-  el.style.cssText = `
-    display: flex; flex-direction: column; align-items: center; cursor: pointer;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
-  `;
-  el.innerHTML = `
-    <div style="
-      background: rgba(10,15,26,0.9); color: ${T.green}; padding: 2px 8px; border-radius: 4px;
-      font-size: 11px; font-weight: 600; font-family: ${T.fontMono}; white-space: nowrap;
-      border: 1px solid ${T.border}; box-shadow: 0 0 8px rgba(34,197,94,0.3);
-      letter-spacing: 0.03em;
-      text-shadow: 0 0 8px rgba(34,197,94,0.4);
-    ">${pin.elevation !== null ? pin.elevation.toLocaleString() + "m" : pin.status === "unavailable" ? "Service unavailable" : "No data"}</div>
-    <div style="
-      color: #94a3b8; font-size: 9px; font-family: ${T.fontMono}; white-space: nowrap;
-      letter-spacing: 0.02em; margin-top: -1px;
-    ">${pin.lat.toFixed(4)}, ${pin.lon.toFixed(4)}</div>
-    <svg width="12" height="8" viewBox="0 0 12 8"><path d="M6 8L0 0h12z" fill="rgba(10,15,26,0.9)"/></svg>
-    <div style="width: 8px; height: 8px; border-radius: 50%; background: ${T.green}; border: 2px solid ${T.bg}; margin-top: -2px; box-shadow: 0 0 6px ${T.green};"></div>
-  `;
-
-  const marker = new mlgl.Marker({ element: el, anchor: "bottom" }).setLngLat([pin.lon, pin.lat]).addTo(map);
-
-  pinsStore.current.push(marker);
-  // Keep only last 50 markers
-  while (pinsStore.current.length > 50) {
-    pinsStore.current.shift()?.remove();
-  }
-}
-
 /* ─── Styles ─── */
 
-const btnStyle: React.CSSProperties = {
-  padding: "0.35rem 0.5rem",
-  borderRadius: 3,
-  border: `1px solid ${T.border}`,
-  background: "transparent",
-  color: T.textMuted,
-  cursor: "pointer",
-  fontSize: "0.72rem",
-  fontFamily: T.fontMono,
-};

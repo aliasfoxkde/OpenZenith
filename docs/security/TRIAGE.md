@@ -1113,3 +1113,25 @@ double-type-assertion, model-version-tracking, inefficient-css (1 each).
 No new code introduced; dispositions unchanged.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-25 — task #138 wave 2 (explore tab component extraction)
+
+40 new findings, all verbatim moves from explore/page.tsx into
+explore/data.ts consumers: seven tab components under explore/tabs/
+(NoaaTab, FlightsTab, EarthquakesTab, SatellitesTab, MarineTab,
+OverpassTab, OvertureTab) plus the page's remaining fetch handlers
+(page.tsx 1,391 → 594 lines). 23 land in the new tab files:
+react-missing-key-prop (11 — key attributes on the line following the
+map call), autocomplete-missing (8 — bbox/lat/lon/search filter inputs
+with no autocomplete axis), double-type-assertion (1 — the EONET
+`(c[0] as unknown as number[][])` geometry narrowing, runtime-guarded
+by Array.isArray/typeof checks on both sides), model-version-tracking
+(1 — the Overpass `osm3s.timestamp_osm_base` snapshot display, not ML
+version tracking), timeout-configuration (1 — the literal
+`[timeout:25]` Overpass QL placeholder). 17 are line-shift re-flags in
+page.tsx: ssrf (4 — client-side proxyFetch calls), stored-xss +
+inner-html-assignment (2 — the static S CSS string), try-catch-bulk
+(9 — the per-tab fetch handlers), react-missing-key-prop (1 — the
+TABS tablist map), inefficient-css (1). Dispositions unchanged.
+
+No new vulnerability classes. Baseline updated deliberately.

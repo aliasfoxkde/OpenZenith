@@ -1965,3 +1965,32 @@ keyboard handlers sharing a dozen refs — already covered by the globe
 E2E suite. Globe was already the more componentized page (widgets,
 HUD, tools, layers extracted in earlier releases); this pass completed
 the JSX surface.
+
+### Task #138 waves 1-2 + closure (2026-09-25, ddda8e7 + 49e56ed)
+
+Explore page extraction, two waves. Wave 1 moved the module-level
+surface verbatim into explore/data.ts: all 13 exported types, TabId,
+TABS, OVERTURE_THEMES, OVERPASS_QUERIES, NOAA_DATASETS,
+SATELLITE_GROUPS, proxyFetch, magColor/magBg (1,641 → 1,391 lines).
+Wave 2 extracted the seven tab JSX blocks verbatim into explore/tabs/
+with callback props — NoaaTab, FlightsTab, EarthquakesTab,
+SatellitesTab, MarineTab, OverpassTab, OvertureTab — keeping fetch and
+filter state in the page so filters survive tab switches (page.tsx
+1,391 → 594 lines; cumulative 1,641 → 594, −64%). One splice defect
+caught and fixed before commit: the tabpanel wrapper div was consumed
+by the block replacement, caught via tsc TS17008/TS17002 and restored.
+
+Gates: tsc clean; eslint 5,381 warnings / 0 errors (baseline); vitest
+1,447 passed / 5 skipped (101 files); aegis re-triaged (40 verbatim-move
+findings, baseline steady 1,716 — TRIAGE.md). Deployed (07f022b1);
+explore specs 2/2 green incl. the axe audit.
+
+**#138 closed.** The remainder is the irreducible stateful core: 30+
+useState hooks (one filter/fetch-state cluster per tab, deliberately
+page-owned), the seven per-tab fetch handlers sharing proxyFetch and
+error/loading patterns, and the page shell (ErrorBoundary → Navbar →
+tablist → conditional tab render → static CSS). Extracting state
+upward into the tabs would reset filters on every tab switch — an
+observable behavior change — and the handlers are already covered by
+the explore E2E suite. All three page monoliths (#136 map −52%,
+#137 globe JSX surface, #138 explore −64%) are now closed.

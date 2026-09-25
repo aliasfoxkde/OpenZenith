@@ -1943,3 +1943,25 @@ helper — is fully extracted across 7 waves: lib/{view-state,boundaries,
 map-setup} + panels.tsx + controls.tsx + toolbars.tsx, +13 unit tests,
 4 a11y strictness wins. Next monoliths: globe (task #137), explore
 (task #138).
+
+### Task #137 waves 1-2 + closure (2026-09-24, 6278c3d)
+
+Globe page chrome and overlay extraction: ViewToggle, ThemeSwitcher,
+Compass, ZoomControls, and OrbitPresets into lib/components/chrome.tsx;
+AnnotationEdit (AnnotationEditState type exported and reused by the
+page state), ElevationProfilePanel (chart ref passed as prop),
+CoordinateFormatsPanel, and GlobeStatusBar into lib/components/
+panels.tsx. page.tsx 1,503 → 1,323 lines (−12%); the JSX return block
+is now pure composition — every rendered region is an extracted
+component. Gates: tsc clean; eslint 5,381/0; vitest 1,447+5; aegis
+re-triaged (20 relocations, baseline 1,716 — TRIAGE.md). Deployed
+(9566b872); globe specs 3 passed / 1 skipped (opt-in heavy check) incl.
+the first-party axe audit.
+
+**#137 closed.** As with the map page, the remaining body is the
+irreducible stateful core: the mount-once Cesium init, the layer-
+toggling switch over 10+ loaders, ISS/satellite tracking, and mouse/
+keyboard handlers sharing a dozen refs — already covered by the globe
+E2E suite. Globe was already the more componentized page (widgets,
+HUD, tools, layers extracted in earlier releases); this pass completed
+the JSX surface.

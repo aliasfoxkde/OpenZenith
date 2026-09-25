@@ -1903,3 +1903,21 @@ The remaining ~1,900 lines are the entangled core: measure/draw toolbars
 and result (controller refs + keydown effects), elevation profile chart,
 elevation click flow, sidebar header, and top bar — diminishing returns
 per wave; resume when the page needs functional work anyway.
+
+### Task #136 wave 6 (2026-09-24, 76b9984)
+
+MeasureTools, DrawTools, and MeasureResult extracted into a new
+map/toolbars.tsx (DrawMode type hoisted there from the component body);
+ElevationProfileChart (the SVG profile panel, IIFE inlined to plain
+props) extracted into map/panels.tsx. The measure controller, draw
+refs, and both keydown effects stay in the page, which wires callbacks
+(setDrawTool keeps the state+ref pairing). page.tsx 1,900 → 1,622
+lines (cumulative 3,053 → 1,622, −47%). Gates: tsc clean; eslint
+5,381/0; vitest 1,447+5; aegis re-triaged (12 relocations, baseline
+steady 1,715 — TRIAGE.md). Deployed (77b5f0d3); map specs 4/4 green
+incl. the axe audit.
+
+Remaining in page.tsx: the entangled core — top bar elevation result,
+toolbar overlay wiring, coordinate readout, sidebar header, toasts,
+click hint, and the init/click/moveend handlers. Candidate for a final
+tidy wave; the page is now majority extracted.

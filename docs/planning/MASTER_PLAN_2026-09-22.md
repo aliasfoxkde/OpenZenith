@@ -1921,3 +1921,25 @@ Remaining in page.tsx: the entangled core — top bar elevation result,
 toolbar overlay wiring, coordinate readout, sidebar header, toasts,
 click hint, and the init/click/moveend handlers. Candidate for a final
 tidy wave; the page is now majority extracted.
+
+### Task #136 waves 7 + closure (2026-09-24, 4fd40ea)
+
+ElevationResultBadge (top bar), CursorReadout (+ shortcut hint),
+SidebarHeader, ToastStack (Toast type exported), Terrain3dHint, and
+MobileBackdrop extracted into map/panels.tsx. page.tsx 1,622 → 1,457
+lines (cumulative 3,053 → 1,457, −52%). Gates: tsc clean; eslint
+5,381/0; vitest 1,447+5; aegis re-triaged (10 relocations, baseline
+steady 1,715 — TRIAGE.md). Deployed (52681663); map specs 4/4 green
+incl. the axe audit.
+
+**#136 closed.** The remainder is the irreducible stateful core: the
+mount-once init effect, map click/moveend/mousemove/contextmenu
+handlers, the two keydown effects, and the basemap-switch/toggle logic
+— all sharing a dozen refs and setters across closures. Extracting
+those means threading the entire state web through props for no
+testability gain (they are already covered by the 4/4 E2E suite).
+The extraction surface — every self-contained JSX block and pure
+helper — is fully extracted across 7 waves: lib/{view-state,boundaries,
+map-setup} + panels.tsx + controls.tsx + toolbars.tsx, +13 unit tests,
+4 a11y strictness wins. Next monoliths: globe (task #137), explore
+(task #138).

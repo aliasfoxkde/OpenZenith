@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
-import { SurveillancePanel, CoordinateReadout } from "@/components/SurveillanceUI";
 import {
   LayerControls,
   BasemapSelector,
@@ -18,12 +17,19 @@ import {
 } from "./panels";
 import {
   AnnotationsListPanel,
+  CursorReadout,
   EarthquakeTimelinePanel,
   ElevationProfileChart,
+  ElevationResultBadge,
   HurricaneAnimationPanel,
   MapLegend,
+  MobileBackdrop,
   PinHistoryPanel,
   ShareUrlPanel,
+  SidebarHeader,
+  Terrain3dHint,
+  ToastStack,
+  type Toast,
 } from "./panels";
 import { DrawTools, MeasureResult, MeasureTools, type DrawMode } from "./toolbars";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
@@ -128,7 +134,7 @@ export default function MapPage() {
   }, []);
 
   // Toast notifications for layer errors
-  const [toasts, setToasts] = useState<{ id: number; msg: string; type: "error" | "info" }[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const toastIdRef = useRef(0);
   const showToast = useCallback((msg: string, type: "error" | "info" = "error") => {
     const id = ++toastIdRef.current;
@@ -1178,52 +1184,7 @@ export default function MapPage() {
         extra={
           <>
             {/* Elevation result */}
-            {activePin && (
-              <div
-                style={{
-                  background: T.panel,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 4,
-                  padding: "0.2rem 0.6rem",
-                  fontFamily: T.fontMono,
-                  fontSize: "0.78rem",
-                  color: T.text,
-                  boxShadow: T.glowSubtle,
-                }}
-              >
-                {activePin.elevation !== null ? (
-                  <span>
-                    <span
-                      style={{
-                        color: T.green,
-                        fontWeight: 600,
-                        letterSpacing: "0.03em",
-                        textShadow: "0 0 8px rgba(34, 197, 94, 0.4)",
-                      }}
-                    >
-                      {activePin.elevation.toLocaleString()}m
-                    </span>
-                    <span style={{ color: T.textMuted, marginLeft: "0.5rem", letterSpacing: "0.02em" }}>
-                      {activePin.lat.toFixed(4)}, {activePin.lon.toFixed(4)}
-                    </span>
-                  </span>
-                ) : (
-                  <span style={{ color: activePin.status === "unavailable" ? T.red : T.textMuted }}>
-                    {activePin.status === "unavailable"
-                      ? "Elevation service unavailable"
-                      : activePin.surfaceType === "seafloor" || activePin.surfaceType === "ocean"
-                        ? "No bathymetry data"
-                        : activePin.surfaceType === "inland_water"
-                          ? "No inland water data"
-                          : "No elevation data"}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {fetchingElevation && (
-              <span style={{ color: T.accent, fontSize: "0.75rem", fontFamily: T.fontMono }}>querying...</span>
-            )}
+            <ElevationResultBadge pin={activePin} fetching={fetchingElevation} />
 
             <button
               onClick={() => { setSidebarOpen(!sidebarOpen); }}
@@ -1304,35 +1265,7 @@ export default function MapPage() {
         <MeasureResult mode={measureMode} points={measurePoints} />
 
         {/* Coordinate readout */}
-        <div style={{ position: "absolute", bottom: 8, left: 8, zIndex: 10 }}>
-          <SurveillancePanel style={{ padding: "0.3rem 0.6rem" }}>
-            {cursorPos ? (
-              <CoordinateReadout lat={cursorPos.lat} lon={cursorPos.lon} zoom={mapState.zoom} />
-            ) : (
-              <span
-                style={{ fontFamily: T.fontMono, fontSize: "0.75rem", color: T.textMuted, letterSpacing: "0.05em" }}
-              >
-                LAT ----.----- | LON ----.-----
-              </span>
-            )}
-          </SurveillancePanel>
-          {sidebarOpen && !isMobile && (
-            <div
-              style={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                fontSize: "0.6rem",
-                color: T.textMuted,
-                fontFamily: T.fontMono,
-                opacity: 0.6,
-                pointerEvents: "none",
-              }}
-            >
-              H hillshade · R radar · G quakes · 3 sat · P measure · B boundaries
-            </div>
-          )}
-        </div>
+        <CursorReadout pos={cursorPos} zoom={mapState.zoom} showHints={sidebarOpen && !isMobile} />
 
         {/* Status indicators */}
         <StatusBar
@@ -1371,22 +1304,7 @@ export default function MapPage() {
         {loading && !loadError && <MapLoading dark message="Initializing map..." />}
 
         {/* Mobile backdrop overlay */}
-        {sidebarOpen && isMobile && (
-          <div
-            onClick={() => { setSidebarOpen(false); }}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              background: "rgba(0,0,0,0.5)",
-              zIndex: 49,
-              cursor: "pointer",
-            }}
-            aria-hidden="true"
-          />
-        )}
+        {sidebarOpen && isMobile && <MobileBackdrop onClose={() => { setSidebarOpen(false); }} />}
 
         {/* Sidebar */}
         {sidebarOpen && (
@@ -1411,44 +1329,11 @@ export default function MapPage() {
             role="region"
             aria-label="Map controls panel"
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.75rem",
-              }}
-            >
-              <span
-                style={{
-                  fontWeight: 700,
-                  color: T.text,
-                  fontSize: "0.85rem",
-                  fontFamily: T.fontMono,
-                  letterSpacing: "0.05em",
-                }}
-              >
-                MAP CONTROLS
-                {Object.values(mapState.layers).filter(Boolean).length > 0 && (
-                  <span style={{ color: T.accent, fontWeight: 400, fontSize: "0.7rem", marginLeft: "0.5rem" }}>
-                    {Object.values(mapState.layers).filter(Boolean).length}/{Object.keys(mapState.layers).length} active
-                  </span>
-                )}
-              </span>
-              <button
-                aria-label="Close sidebar"
-                onClick={() => { setSidebarOpen(false); }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: T.textMuted,
-                  cursor: "pointer",
-                  fontSize: "1.2rem",
-                }}
-              >
-                &times;
-              </button>
-            </div>
+            <SidebarHeader
+              activeCount={Object.values(mapState.layers).filter(Boolean).length}
+              totalCount={Object.keys(mapState.layers).length}
+              onClose={() => { setSidebarOpen(false); }}
+            />
 
             <BasemapSelector
               current={mapState.basemap}
@@ -1558,62 +1443,11 @@ export default function MapPage() {
         />
 
         {/* Click hint */}
-        {mapState.layers.terrain3d && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "2rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: T.panel,
-              border: `1px solid ${T.border}`,
-              color: T.textMuted,
-              padding: "0.35rem 0.75rem",
-              borderRadius: 4,
-              fontSize: "0.72rem",
-              fontFamily: T.fontMono,
-              pointerEvents: "none",
-              zIndex: 5,
-              boxShadow: T.glowSubtle,
-            }}
-          >
-            Right-click + drag to rotate terrain &middot; Scroll to zoom &middot; Click to query elevation
-          </div>
-        )}
+        {mapState.layers.terrain3d && <Terrain3dHint />}
       </main>
 
       {/* Toast notifications */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 16,
-          right: 16,
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-          pointerEvents: "none",
-        }}
-      >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            style={{
-              background: t.type === "error" ? "#dc2626" : "#2563eb",
-              color: "#fff",
-              padding: "6px 14px",
-              borderRadius: 4,
-              fontSize: "0.78rem",
-              fontFamily: T.fontMono,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              animation: "fadeIn 0.2s ease-in",
-            }}
-          >
-            {t.type === "error" ? "✕ " : "ℹ "}
-            {t.msg}
-          </div>
-        ))}
-      </div>
+      <ToastStack toasts={toasts} />
     </div>
   );
 }

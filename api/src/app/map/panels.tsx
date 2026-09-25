@@ -4,7 +4,7 @@
  * the map legend. Extracted from map/page.tsx with callback props so the
  * page keeps ownership of map interactions and persistence.
  */
-import { StatusIndicator, SurveillancePanel } from "@/components/SurveillanceUI";
+import { CoordinateReadout, StatusIndicator, SurveillancePanel } from "@/components/SurveillanceUI";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import type { Annotation } from "./lib/layers/annotations";
 import type { Bookmark, ElevationPin } from "./lib/view-state";
@@ -871,5 +871,241 @@ export function ElevationProfileChart({ data, loading }: ElevationProfileChartPr
         <span>Δ{Math.abs(data[0].elevation - data[data.length - 1].elevation).toFixed(0)}m</span>
       </div>
     </SurveillancePanel>
+  );
+}
+
+interface ElevationResultBadgeProps {
+  pin: ElevationPin | null;
+  fetching: boolean;
+}
+
+/** Top-bar elevation readout for the active pin, plus the querying indicator. */
+export function ElevationResultBadge({ pin, fetching }: ElevationResultBadgeProps) {
+  return (
+    <>
+      {pin && (
+        <div
+          style={{
+            background: T.panel,
+            border: `1px solid ${T.border}`,
+            borderRadius: 4,
+            padding: "0.2rem 0.6rem",
+            fontFamily: T.fontMono,
+            fontSize: "0.78rem",
+            color: T.text,
+            boxShadow: T.glowSubtle,
+          }}
+        >
+          {pin.elevation !== null ? (
+            <span>
+              <span
+                style={{
+                  color: T.green,
+                  fontWeight: 600,
+                  letterSpacing: "0.03em",
+                  textShadow: "0 0 8px rgba(34, 197, 94, 0.4)",
+                }}
+              >
+                {pin.elevation.toLocaleString()}m
+              </span>
+              <span style={{ color: T.textMuted, marginLeft: "0.5rem", letterSpacing: "0.02em" }}>
+                {pin.lat.toFixed(4)}, {pin.lon.toFixed(4)}
+              </span>
+            </span>
+          ) : (
+            <span style={{ color: pin.status === "unavailable" ? T.red : T.textMuted }}>
+              {pin.status === "unavailable"
+                ? "Elevation service unavailable"
+                : pin.surfaceType === "seafloor" || pin.surfaceType === "ocean"
+                  ? "No bathymetry data"
+                  : pin.surfaceType === "inland_water"
+                    ? "No inland water data"
+                    : "No elevation data"}
+            </span>
+          )}
+        </div>
+      )}
+
+      {fetching && (
+        <span style={{ color: T.accent, fontSize: "0.75rem", fontFamily: T.fontMono }}>querying...</span>
+      )}
+    </>
+  );
+}
+
+interface CursorReadoutProps {
+  pos: { lat: number; lon: number } | null;
+  zoom: number;
+  /** Show the keyboard-shortcut hint (desktop sidebar open). */
+  showHints: boolean;
+}
+
+/** Bottom-left live cursor readout with the shortcut hint. */
+export function CursorReadout({ pos, zoom, showHints }: CursorReadoutProps) {
+  return (
+    <div style={{ position: "absolute", bottom: 8, left: 8, zIndex: 10 }}>
+      <SurveillancePanel style={{ padding: "0.3rem 0.6rem" }}>
+        {pos ? (
+          <CoordinateReadout lat={pos.lat} lon={pos.lon} zoom={zoom} />
+        ) : (
+          <span style={{ fontFamily: T.fontMono, fontSize: "0.75rem", color: T.textMuted, letterSpacing: "0.05em" }}>
+            LAT ----.----- | LON ----.-----
+          </span>
+        )}
+      </SurveillancePanel>
+      {showHints && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            fontSize: "0.6rem",
+            color: T.textMuted,
+            fontFamily: T.fontMono,
+            opacity: 0.6,
+            pointerEvents: "none",
+          }}
+        >
+          H hillshade · R radar · G quakes · 3 sat · P measure · B boundaries
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface SidebarHeaderProps {
+  activeCount: number;
+  totalCount: number;
+  onClose: () => void;
+}
+
+export function SidebarHeader({ activeCount, totalCount, onClose }: SidebarHeaderProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "0.75rem",
+      }}
+    >
+      <span
+        style={{
+          fontWeight: 700,
+          color: T.text,
+          fontSize: "0.85rem",
+          fontFamily: T.fontMono,
+          letterSpacing: "0.05em",
+        }}
+      >
+        MAP CONTROLS
+        {activeCount > 0 && (
+          <span style={{ color: T.accent, fontWeight: 400, fontSize: "0.7rem", marginLeft: "0.5rem" }}>
+            {activeCount}/{totalCount} active
+          </span>
+        )}
+      </span>
+      <button
+        aria-label="Close sidebar"
+        onClick={onClose}
+        style={{
+          background: "none",
+          border: "none",
+          color: T.textMuted,
+          cursor: "pointer",
+          fontSize: "1.2rem",
+        }}
+      >
+        &times;
+      </button>
+    </div>
+  );
+}
+
+export interface Toast {
+  id: number;
+  msg: string;
+  type: "error" | "info";
+}
+
+export function ToastStack({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 16,
+        right: 16,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        pointerEvents: "none",
+      }}
+    >
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          style={{
+            background: t.type === "error" ? "#dc2626" : "#2563eb",
+            color: "#fff",
+            padding: "6px 14px",
+            borderRadius: 4,
+            fontSize: "0.78rem",
+            fontFamily: T.fontMono,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            animation: "fadeIn 0.2s ease-in",
+          }}
+        >
+          {t.type === "error" ? "✕ " : "ℹ "}
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Hint shown while 3D terrain is enabled. */
+export function Terrain3dHint() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: "2rem",
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: T.panel,
+        border: `1px solid ${T.border}`,
+        color: T.textMuted,
+        padding: "0.35rem 0.75rem",
+        borderRadius: 4,
+        fontSize: "0.72rem",
+        fontFamily: T.fontMono,
+        pointerEvents: "none",
+        zIndex: 5,
+        boxShadow: T.glowSubtle,
+      }}
+    >
+      Right-click + drag to rotate terrain &middot; Scroll to zoom &middot; Click to query elevation
+    </div>
+  );
+}
+
+/** Dimmed tap-catcher behind the mobile sidebar. */
+export function MobileBackdrop({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        background: "rgba(0,0,0,0.5)",
+        zIndex: 49,
+        cursor: "pointer",
+      }}
+      aria-hidden="true"
+    />
   );
 }

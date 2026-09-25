@@ -1097,3 +1097,19 @@ annotation, try-catch-bulk, console-log (1 each). Dispositions
 unchanged from prior triage of this page.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-25 — task #138 wave 1 (explore data module move)
+
+52 new findings, all line-shift re-flags after moving the explore page's
+module-level types, catalogs, and helpers verbatim into explore/data.ts
+(page.tsx 1,641 → 1,391 lines): try-catch-bulk (10 — the per-tab fetch
+handlers), ssrf (7 — client-side proxyFetch/browser fetches, not server
+request forgery), react-missing-key-prop (13 — key attributes on the
+line following the map call), autocomplete-missing (10 — bbox/lat/lon
+filter inputs with no autocomplete axis), timeout-configuration (11 —
+the literal `[timeout:25]` Overpass QL strings, not JS timeouts),
+stored-xss + inner-html-assignment (2 — the static S CSS string),
+double-type-assertion, model-version-tracking, inefficient-css (1 each).
+No new code introduced; dispositions unchanged.
+
+No new vulnerability classes. Baseline updated deliberately.

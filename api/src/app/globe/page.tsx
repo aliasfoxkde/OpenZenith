@@ -10,7 +10,6 @@ import { DEFAULT_LAYERS, DEFAULT_STATE, THEMES } from "./lib/constants";
 import {
   parseHash,
   buildHash,
-  fmtTime,
   removeEntities as removeEntitiesHelper,
   toggleImageryOverlay as toggleImageryOverlayHelper,
   switchBasemapOnViewer,
@@ -39,6 +38,14 @@ import type { GlobeContext } from "./lib/widgets/types";
 import { getClientElevation } from "@/lib/client-elevation";
 import { ContextMenu } from "./lib/components/ContextMenu";
 import { HudOverlays } from "./lib/components/HudOverlays";
+import { Compass, OrbitPresets, ThemeSwitcher, ViewToggle, ZoomControls } from "./lib/components/chrome";
+import {
+  AnnotationEdit,
+  CoordinateFormatsPanel,
+  ElevationProfilePanel,
+  GlobeStatusBar,
+  type AnnotationEditState,
+} from "./lib/components/panels";
 import { buildEntityTooltip } from "./lib/tooltip";
 import { classifyOrbit, orbitalVelocityKms } from "./lib/orbit";
 import { issEcfPosition, parseCelestrakTle, type SatelliteJsLike } from "./lib/iss";
@@ -145,11 +152,7 @@ export default function Globe() {
     orbit: string;
   } | null>(null);
   const [followSat, setFollowSat] = useState(false);
-  const [editingAnnotation, setEditingAnnotation] = useState<{
-    id: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [editingAnnotation, setEditingAnnotation] = useState<AnnotationEditState | null>(null);
 
   // UTC clock for HUD themes
   useEffect(() => {
@@ -1209,47 +1212,7 @@ export default function Globe() {
 
       {/* Annotation inline edit */}
       {editingAnnotation && (
-        <div
-          className="wv-annotation-edit"
-          style={{
-            position: "absolute",
-            left: editingAnnotation.x + 16,
-            top: editingAnnotation.y - 10,
-            zIndex: 200,
-          }}
-        >
-          <input
-            autoFocus
-            defaultValue="Double-click to edit"
-            className="wv-annotation-input"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const text = (e.target as HTMLInputElement).value.trim();
-                const viewer = viewerRef.current;
-                if (viewer && text) {
-                  const entity = viewer.entities.getById(editingAnnotation.id);
-                  if (entity?.label) {
-                    entity.label.text = text;
-                  }
-                }
-                setEditingAnnotation(null);
-              } else if (e.key === "Escape") {
-                setEditingAnnotation(null);
-              }
-            }}
-            onBlur={(e) => {
-              const text = (e.target).value.trim();
-              const viewer = viewerRef.current;
-              if (viewer && text && text !== "Double-click to edit") {
-                const entity = viewer.entities.getById(editingAnnotation.id);
-                if (entity?.label) {
-                  entity.label.text = text;
-                }
-              }
-              setEditingAnnotation(null);
-            }}
-          />
-        </div>
+        <AnnotationEdit editing={editingAnnotation} viewerRef={viewerRef} onClose={() => { setEditingAnnotation(null); }} />
       )}
 
       {/* Nav */}
@@ -1258,55 +1221,14 @@ export default function Globe() {
         breadcrumb="Globe"
         extra={
           <>
-            <div className="wv-view-toggle">
-              {(["3d", "columbus", "2d"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  className={`wv-view-btn ${state.viewMode === mode ? "active" : ""}`}
-                  onClick={() => { switchViewMode(mode); }}
-                >
-                  {mode === "3d" ? "3D" : mode === "columbus" ? "CB" : "2D"}
-                </button>
-              ))}
-            </div>
+            <ViewToggle viewMode={state.viewMode} onSwitch={switchViewMode} />
             {isHud && <span className="wv-nav-time">{clock}</span>}
-            <div className="wv-theme-switcher">
-              <button
-                className="wv-theme-btn"
-                onClick={() => { setThemeDropdownOpen(!themeDropdownOpen); }}
-                title="Change theme"
-              >
-                {currentTheme.icon}
-              </button>
-              {themeDropdownOpen && (
-                <div className="wv-theme-dropdown">
-                  {Object.entries(THEMES).map(([k, v]) => (
-                    <button
-                      key={k}
-                      className={`wv-theme-option ${state.theme === k ? "active" : ""}`}
-                      onClick={() => { switchTheme(k); }}
-                    >
-                      <span
-                        className="swatch"
-                        style={{
-                          background:
-                            k === "default"
-                              ? "#4a9eff"
-                              : k === "classified"
-                                ? "#00ff41"
-                                : k === "amber"
-                                  ? "#ffb000"
-                                  : k === "arctic"
-                                    ? "#00ccff"
-                                    : "#ff2222",
-                        }}
-                      />
-                      {v.icon} {v.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ThemeSwitcher
+              theme={state.theme}
+              open={themeDropdownOpen}
+              onToggleOpen={() => { setThemeDropdownOpen(!themeDropdownOpen); }}
+              onSelect={switchTheme}
+            />
           </>
         }
       />
@@ -1316,118 +1238,38 @@ export default function Globe() {
       </ErrorBoundary>
 
       {/* Compass */}
-      <button type="button" className="wv-compass" onClick={compassNorth} title="Reset north" aria-label="Reset north">
-        <div className="wv-compass-inner" style={{ transform: `rotate(${compassHeading.toFixed(1)}deg)` }}>
-          <div className="wv-compass-n">N</div>
-          <div className="wv-compass-needle" />
-          <div className="wv-compass-s">S</div>
-        </div>
-      </button>
+      <Compass heading={compassHeading} onNorth={compassNorth} />
 
       {/* Zoom controls */}
-      <div className="wv-zoom-controls">
-        <button className="wv-zoom-btn" onClick={zoomIn} title="Zoom in (+)" aria-label="Zoom in">
-          +
-        </button>
-        <button className="wv-zoom-btn" onClick={zoomOut} title="Zoom out (-)" aria-label="Zoom out">
-          &minus;
-        </button>
-        <button
-          className="wv-zoom-btn"
-          onClick={resetView}
-          title="Reset view (R)"
-          aria-label="Reset view"
-          style={{ fontSize: "12px" }}
-        >
-          &#8962;
-        </button>
-        <button
-          className="wv-zoom-btn"
-          onClick={() => { void flyToISS(); }}
-          title="Fly to ISS"
-          aria-label="Fly to ISS"
-          style={{ fontSize: "10px", color: "var(--accent)" }}
-        >
-          &#9741;
-        </button>
-        <button
-          className="wv-zoom-btn"
-          onClick={toggleFullscreen}
-          title="Fullscreen (F)"
-          aria-label="Toggle fullscreen"
-          style={{ fontSize: "12px" }}
-        >
-          {isFullscreen ? "\u29C9" : "\u26F6"}
-        </button>
-      </div>
+      <ZoomControls
+        isFullscreen={isFullscreen}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onReset={resetView}
+        onFlyISS={() => { void flyToISS(); }}
+        onToggleFullscreen={toggleFullscreen}
+      />
 
       {/* Elevation profile chart */}
       {activeTool === "elevation-profile" && (
-        <div className="wv-profile-panel">
-          <div className="wv-profile-header">
-            <span className="wv-profile-title">Elevation Profile</span>
-            <button
-              className="wv-profile-close"
-              aria-label="Close elevation profile"
-              onClick={() => {
-                setActiveTool("none");
-                elevationProfileRef.current?.clear();
-                setProfileData(null);
-              }}
-            >
-              &times;
-            </button>
-          </div>
-          <div ref={profileCanvasRef} className="wv-profile-chart" />
-          {!profileData && (
-            <div className="wv-profile-hint">Click 2+ points on the globe to create a terrain cross-section</div>
-          )}
-        </div>
+        <ElevationProfilePanel
+          chartRef={profileCanvasRef}
+          hasData={profileData !== null}
+          onClose={() => {
+            setActiveTool("none");
+            elevationProfileRef.current?.clear();
+            setProfileData(null);
+          }}
+        />
       )}
 
       {/* Coordinate formats panel */}
       {coordFormats && showCoordPanel && (
-        <div className="wv-coord-panel">
-          <button className="wv-coord-close" aria-label="Close coordinate panel" onClick={() => { setShowCoordPanel(false); }} title="Close (C)">
-            &times;
-          </button>
-          {Object.entries(coordFormats).map(([fmt, val]) => (
-            <div key={fmt} className="wv-coord-row">
-              <span className="wv-coord-label">{fmt}</span>
-              <span
-                className="wv-coord-val"
-                title="Click to copy"
-                onClick={() => {
-                  // Clipboard access is denied in insecure contexts; a copy
-                  // failure is not worth surfacing as an unhandled rejection.
-                  navigator.clipboard.writeText(val).catch(() => {});
-                }}
-              >
-                {val}
-              </span>
-            </div>
-          ))}
-        </div>
+        <CoordinateFormatsPanel formats={coordFormats} onClose={() => { setShowCoordPanel(false); }} />
       )}
 
       {/* Orbital altitude presets */}
-      <div className="wv-orbit-presets">
-        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(408, "ISS"); }}>
-          ISS<span className="alt">408 km</span>
-        </button>
-        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(2000, "LEO"); }}>
-          LEO<span className="alt">2,000 km</span>
-        </button>
-        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(20200, "MEO"); }}>
-          MEO<span className="alt">20,200 km</span>
-        </button>
-        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(35786, "GEO"); }}>
-          GEO<span className="alt">35,786 km</span>
-        </button>
-        <button className="wv-orbit-btn" onClick={() => { flyToOrbit(45000, "Moon"); }}>
-          Moon<span className="alt">384,400 km</span>
-        </button>
-      </div>
+      <OrbitPresets onFlyToOrbit={flyToOrbit} />
 
       {/* Widget bar */}
       <WidgetBar widgets={widgets} onToggle={toggleWidget} onResetLayout={resetLayout} />
@@ -1469,35 +1311,13 @@ export default function Globe() {
       )}
 
       {/* Status bar */}
-      <div className="wv-status">
-        {dataStatus.map((ds) => {
-          const isActive = state.layers[ds.key as keyof LayerState];
-          // Only show active layers or layers with errors
-          if (!isActive && !ds.error) return null;
-          const indicatorClass = ds.error ? "err" : ds.lastUpdate ? "ok" : "loading";
-          return (
-            <div key={ds.key} className="wv-status-item">
-              <span className={`indicator ${indicatorClass}`} />
-              <span>{ds.label}</span>
-              {ds.error && <span style={{ color: "var(--error, #ff4444)" }}>({ds.error})</span>}
-              {isActive && !ds.error && ds.count > 0 && <span style={{ color: "#555" }}>({ds.count})</span>}
-              {isActive && !ds.error && ds.lastUpdate && (
-                <span style={{ color: "#444" }}>{fmtTime(ds.lastUpdate)}</span>
-              )}
-            </div>
-          );
-        })}
-        <span className="wv-status-sep" />
-        <span className="wv-coords">{cursorPos ? `${cursorPos[0]}, ${cursorPos[1]}` : "--"}</span>
-        <span className="wv-status-sep" />
-        <span className="wv-coords" style={{ color: isSpaceMode ? "var(--accent)" : "var(--text-muted)" }}>
-          {isSpaceMode
-            ? `${(cameraAlt / 1000).toFixed(0)} km`
-            : cameraAlt > 1000
-              ? `${(cameraAlt / 1000).toFixed(1)} km`
-              : `${cameraAlt.toFixed(0)} m`}
-        </span>
-      </div>
+      <GlobeStatusBar
+        dataStatus={dataStatus}
+        layers={state.layers}
+        cursorPos={cursorPos}
+        isSpaceMode={isSpaceMode}
+        cameraAlt={cameraAlt}
+      />
     </main>
   );
 }

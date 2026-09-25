@@ -1044,3 +1044,20 @@ optimization, console-log, try-catch-bulk, react-optimization,
 expensive-computation-loop (1 each). Benign.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 wave 6 (map page measure/draw toolbars + profile chart extraction)
+
+12 new findings: 10 line-shift re-flags in page.tsx after moving the measure
+toolbar, draw toolbar, measure readout, and elevation-profile chart into
+map/toolbars.tsx and map/panels.tsx (page.tsx 1,900 → 1,622 lines) —
+australian-tfn/bank-routing-number/ssn-no-dashes (3, high — the
+`Date.now() - 604800000` ms literal), ssrf (1, high — client-side geocode
+fetch), xss-via-url (1, medium — React-escaped share URL text),
+expensive-computation-loop (1, medium — profile distance accumulation),
+react-missing-key-prop, console-log, try-catch-bulk, react-optimization
+(1 each, low). The remaining 2 moved verbatim with their code:
+autocomplete-missing (toolbars.tsx:147 — annotation-name input, aria-labelled,
+no autocomplete axis) and mobile-optimization (panels.tsx:819 — the SVG
+elevation-profile chart). No new code introduced; dispositions unchanged.
+
+No new vulnerability classes. Baseline updated deliberately.

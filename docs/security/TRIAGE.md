@@ -1077,3 +1077,23 @@ try-catch-bulk, react-optimization (1 each, low). Dispositions
 unchanged from prior waves.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #137 waves 1-2 (globe chrome controls + overlay panels extraction)
+
+20 new findings after moving the view toggle, theme switcher, compass,
+zoom controls, orbit presets, annotation inline-edit, elevation-profile
+panel, coordinate-formats panel, and status bar into globe/lib/
+components/{chrome,panels}.tsx (page.tsx 1,503 → 1,323 lines). 5 moved
+verbatim with their code: react-missing-key-prop (4 — key attributes
+present on the line following the map call, in ViewToggle,
+ThemeSwitcher, OrbitPresets, CoordinateFormatsPanel) and
+autocomplete-missing (1 — the annotation rename input, no autocomplete
+axis). 15 are line-shift re-flags in page.tsx: stored-xss/
+angular-innerhtml-xss/inner-html-assignment (3 around the two known
+innerHTML sites — the static STYLES string and the numeric/enum-
+interpolated entity tooltip), double-type-assertion (2), react-
+missing-key-prop (3), react-optimization (2), superfluous-type-
+annotation, try-catch-bulk, console-log (1 each). Dispositions
+unchanged from prior triage of this page.
+
+No new vulnerability classes. Baseline updated deliberately.

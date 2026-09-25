@@ -1061,3 +1061,19 @@ no autocomplete axis) and mobile-optimization (panels.tsx:819 — the SVG
 elevation-profile chart). No new code introduced; dispositions unchanged.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-24 — task #136 wave 7 (map page overlays extraction)
+
+10 new findings, all relocation/line-shift re-flags after moving the
+top-bar elevation badge, cursor readout, sidebar header, toast stack,
+terrain-3D hint, and mobile backdrop into map/panels.tsx (page.tsx
+1,622 → 1,457 lines): australian-tfn/bank-routing-number/ssn-no-dashes
+(3, high — the `Date.now() - 604800000` ms literal), ssrf (1, high —
+client-side geocode fetch), xss-via-url (1, medium — React-escaped
+share URL text), expensive-computation-loop (1, medium — profile
+distance accumulation), react-missing-key-prop (1, low — ToastStack
+key on the line following the map call, moved code), console-log,
+try-catch-bulk, react-optimization (1 each, low). Dispositions
+unchanged from prior waves.
+
+No new vulnerability classes. Baseline updated deliberately.

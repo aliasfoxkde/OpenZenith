@@ -791,3 +791,85 @@ export function PositionPanel({ centerText, zoom, bearing, pitch, format, onTogg
     </SurveillancePanel>
   );
 }
+
+interface ElevationProfileChartProps {
+  data: { distance: number; elevation: number }[];
+  loading: boolean;
+}
+
+export function ElevationProfileChart({ data, loading }: ElevationProfileChartProps) {
+  const elevs = data.map((p) => p.elevation);
+  const minE = Math.min(...elevs);
+  const maxE = Math.max(...elevs);
+  const range = maxE - minE || 1;
+  const points = data.map((p, i) => `${i * 4},${60 - ((p.elevation - minE) / range) * 55 - 2}`).join(" ");
+  return (
+    <SurveillancePanel title="Elevation Profile" style={{ marginBottom: "0.75rem" }}>
+      {loading && <div style={{ fontSize: "0.65rem", color: T.amber, fontFamily: T.fontMono }}>⟳ Loading...</div>}
+      <div
+        style={{
+          position: "relative",
+          height: 60,
+          background: "rgba(0,0,0,0.2)",
+          borderRadius: 3,
+          overflow: "hidden",
+          marginTop: 4,
+        }}
+      >
+        <svg viewBox={`0 0 ${data.length * 4} 60`} preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+          <polyline points={points} fill="none" stroke={T.green} strokeWidth="1.5" />
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            top: 2,
+            left: 4,
+            fontSize: "0.55rem",
+            fontFamily: T.fontMono,
+            color: T.textMuted,
+          }}
+        >
+          {maxE}m
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 2,
+            left: 4,
+            fontSize: "0.55rem",
+            fontFamily: T.fontMono,
+            color: T.textMuted,
+          }}
+        >
+          {minE}m
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 2,
+            right: 4,
+            fontSize: "0.55rem",
+            fontFamily: T.fontMono,
+            color: T.textMuted,
+          }}
+        >
+          {(data[data.length - 1].distance / 1000).toFixed(1)}km
+        </div>
+      </div>
+      <div
+        style={{
+          fontSize: "0.58rem",
+          fontFamily: T.fontMono,
+          color: T.textMuted,
+          marginTop: 2,
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>Start: {data[0].elevation}m</span>
+        <span>End: {data[data.length - 1].elevation}m</span>
+        <span>Δ{Math.abs(data[0].elevation - data[data.length - 1].elevation).toFixed(0)}m</span>
+      </div>
+    </SurveillancePanel>
+  );
+}

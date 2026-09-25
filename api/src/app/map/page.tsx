@@ -19,12 +19,13 @@ import {
 import {
   AnnotationsListPanel,
   EarthquakeTimelinePanel,
+  ElevationProfileChart,
   HurricaneAnimationPanel,
   MapLegend,
   PinHistoryPanel,
   ShareUrlPanel,
-  btnStyle,
 } from "./panels";
+import { DrawTools, MeasureResult, MeasureTools, type DrawMode } from "./toolbars";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import { LAYERS } from "@/lib/layers/registry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -50,14 +51,7 @@ import {
   randomColor,
   uid,
 } from "./lib/layers/annotations";
-import {
-  createMeasureController,
-  type MeasureMode,
-  pathDistance,
-  sphericalPolygonArea,
-  formatDistance,
-  formatArea,
-} from "./lib/measure";
+import { createMeasureController, type MeasureMode } from "./lib/measure";
 import {
   addElevationSource,
   addPinMarker,
@@ -287,7 +281,6 @@ export default function MapPage() {
   const [profileLoading, setProfileLoading] = useState(false);
 
   // Annotation drawing state
-  type DrawMode = "none" | "point" | "line" | "polygon";
   const [drawMode, setDrawMode] = useState<DrawMode>("none");
   const drawModeRef = useRef<DrawMode>("none");
   const cursorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -394,6 +387,11 @@ export default function MapPage() {
         map.removeSource("draw-preview");
       } catch {}
     }
+  }, []);
+
+  const setDrawTool = useCallback((mode: DrawMode) => {
+    setDrawMode(mode);
+    drawModeRef.current = mode;
   }, []);
 
   const deleteAnnotation = useCallback(
@@ -1290,213 +1288,20 @@ export default function MapPage() {
         </div>
 
         {/* Measure tools */}
-        <div style={{ position: "absolute", top: 52, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
-          <button
-            onClick={() => { toggleMeasureMode("distance"); }}
-            title="Measure distance (Esc to cancel)"
-            aria-label="Measure distance"
-            aria-pressed={measureMode === "distance"}
-            style={{
-              background: measureMode === "distance" ? T.accent : T.panel,
-              border: `1px solid ${measureMode === "distance" ? T.accent : T.border}`,
-              borderRadius: 4,
-              color: measureMode === "distance" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px",
-              cursor: "pointer",
-              fontSize: "0.72rem",
-              fontFamily: T.fontMono,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            RULER
-          </button>
-          <button
-            onClick={() => { toggleMeasureMode("area"); }}
-            title="Measure area (Esc to cancel)"
-            aria-label="Measure area"
-            aria-pressed={measureMode === "area"}
-            style={{
-              background: measureMode === "area" ? T.accent : T.panel,
-              border: `1px solid ${measureMode === "area" ? T.accent : T.border}`,
-              borderRadius: 4,
-              color: measureMode === "area" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px",
-              cursor: "pointer",
-              fontSize: "0.72rem",
-              fontFamily: T.fontMono,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            AREA
-          </button>
-          {measureMode !== "none" && (
-            <button
-              onClick={clearMeasure}
-              title="Clear measurement"
-              aria-label="Clear measurement"
-              style={{
-                background: "transparent",
-                border: `1px solid ${T.border}`,
-                borderRadius: 4,
-                color: T.red,
-                padding: "4px 8px",
-                cursor: "pointer",
-                fontSize: "0.72rem",
-                fontFamily: T.fontMono,
-              }}
-            >
-              CLR
-            </button>
-          )}
-        </div>
+        <MeasureTools mode={measureMode} onToggleMode={toggleMeasureMode} onClear={clearMeasure} />
 
         {/* Draw tools */}
-        <div style={{ position: "absolute", top: 82, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
-          <button
-            onClick={() => {
-              if (drawMode === "point") {
-                cancelDrawing();
-              } else {
-                cancelDrawing();
-                setDrawMode("point");
-                drawModeRef.current = "point";
-              }
-            }}
-            title="Draw point annotation"
-            aria-label="Draw point annotation"
-            aria-pressed={drawMode === "point"}
-            style={{
-              background: drawMode === "point" ? "#00ff88" : T.panel,
-              border: `1px solid ${drawMode === "point" ? "#00ff88" : T.border}`,
-              borderRadius: 4,
-              color: drawMode === "point" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px",
-              cursor: "pointer",
-              fontSize: "0.72rem",
-              fontFamily: T.fontMono,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            ◎
-          </button>
-          <button
-            onClick={() => {
-              if (drawMode === "line") {
-                cancelDrawing();
-              } else {
-                cancelDrawing();
-                setDrawMode("line");
-                drawModeRef.current = "line";
-              }
-            }}
-            title="Draw line annotation (click points, Enter to finish)"
-            aria-label="Draw line annotation"
-            aria-pressed={drawMode === "line"}
-            style={{
-              background: drawMode === "line" ? "#00ff88" : T.panel,
-              border: `1px solid ${drawMode === "line" ? "#00ff88" : T.border}`,
-              borderRadius: 4,
-              color: drawMode === "line" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px",
-              cursor: "pointer",
-              fontSize: "0.72rem",
-              fontFamily: T.fontMono,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            ━
-          </button>
-          <button
-            onClick={() => {
-              if (drawMode === "polygon") {
-                cancelDrawing();
-              } else {
-                cancelDrawing();
-                setDrawMode("polygon");
-                drawModeRef.current = "polygon";
-              }
-            }}
-            title="Draw polygon annotation (click points, Enter to finish)"
-            aria-label="Draw polygon annotation"
-            aria-pressed={drawMode === "polygon"}
-            style={{
-              background: drawMode === "polygon" ? "#00ff88" : T.panel,
-              border: `1px solid ${drawMode === "polygon" ? "#00ff88" : T.border}`,
-              borderRadius: 4,
-              color: drawMode === "polygon" ? "#0a0f1a" : T.textMuted,
-              padding: "4px 8px",
-              cursor: "pointer",
-              fontSize: "0.72rem",
-              fontFamily: T.fontMono,
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            △
-          </button>
-          {drawMode !== "none" && (
-            <>
-              <input
-                value={annotationName}
-                onChange={(e) => { setAnnotationName(e.target.value); }}
-                placeholder="Name..."
-                aria-label="Annotation name"
-                style={{
-                  background: T.panel,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 3,
-                  color: T.text,
-                  padding: "3px 6px",
-                  fontSize: "0.68rem",
-                  fontFamily: T.fontMono,
-                  width: 100,
-                  outline: "none",
-                }}
-              />
-              <button onClick={finishDrawing} aria-label="Finish drawing" title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>
-                ✓
-              </button>
-              <button onClick={cancelDrawing} aria-label="Cancel drawing" title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>
-                ✕
-              </button>
-            </>
-          )}
-        </div>
+        <DrawTools
+          mode={drawMode}
+          name={annotationName}
+          onSetMode={setDrawTool}
+          onNameChange={setAnnotationName}
+          onFinish={finishDrawing}
+          onCancel={cancelDrawing}
+        />
 
         {/* Measure result */}
-        {measureMode !== "none" && measurePoints.length >= 2 && (
-          <div
-            style={{
-              position: "absolute",
-              top: 86,
-              left: 8,
-              zIndex: 10,
-              background: T.panel,
-              border: `1px solid ${T.border}`,
-              borderRadius: 4,
-              padding: "6px 10px",
-              fontFamily: T.fontMono,
-              fontSize: "0.75rem",
-              color: T.accent,
-              backdropFilter: "blur(8px)",
-              boxShadow: T.glowSubtle,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            <div>
-              {measureMode === "distance"
-                ? `Distance: ${formatDistance(pathDistance(measurePoints))}`
-                : `Area: ${formatArea(sphericalPolygonArea(measurePoints))}`}
-            </div>
-            {measureMode === "distance" && measurePoints.length >= 2 && (
-              <div style={{ fontSize: "0.65rem", color: T.textMuted }}>Segments: {measurePoints.length - 1}</div>
-            )}
-            <div style={{ fontSize: "0.65rem", color: T.textMuted }}>
-              {measurePoints.length} point{measurePoints.length > 1 ? "s" : ""} | Esc to cancel | Ctrl+Z undo
-            </div>
-          </div>
-        )}
+        <MeasureResult mode={measureMode} points={measurePoints} />
 
         {/* Coordinate readout */}
         <div style={{ position: "absolute", bottom: 8, left: 8, zIndex: 10 }}>
@@ -1716,90 +1521,7 @@ export default function MapPage() {
 
             {/* Elevation profile */}
             {profileData && profileData.length > 1 && (
-              <SurveillancePanel title="Elevation Profile" style={{ marginBottom: "0.75rem" }}>
-                {profileLoading && (
-                  <div style={{ fontSize: "0.65rem", color: T.amber, fontFamily: T.fontMono }}>⟳ Loading...</div>
-                )}
-                <div
-                  style={{
-                    position: "relative",
-                    height: 60,
-                    background: "rgba(0,0,0,0.2)",
-                    borderRadius: 3,
-                    overflow: "hidden",
-                    marginTop: 4,
-                  }}
-                >
-                  <svg
-                    viewBox={`0 0 ${profileData.length * 4} 60`}
-                    preserveAspectRatio="none"
-                    style={{ width: "100%", height: "100%" }}
-                  >
-                    {(() => {
-                      const elevs = profileData.map((p) => p.elevation);
-                      const minE = Math.min(...elevs);
-                      const maxE = Math.max(...elevs);
-                      const range = maxE - minE || 1;
-                      const points = profileData
-                        .map((p, i) => `${i * 4},${60 - ((p.elevation - minE) / range) * 55 - 2}`)
-                        .join(" ");
-                      return <polyline points={points} fill="none" stroke={T.green} strokeWidth="1.5" />;
-                    })()}
-                  </svg>
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 2,
-                      left: 4,
-                      fontSize: "0.55rem",
-                      fontFamily: T.fontMono,
-                      color: T.textMuted,
-                    }}
-                  >
-                    {Math.max(...profileData.map((p) => p.elevation))}m
-                  </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 2,
-                      left: 4,
-                      fontSize: "0.55rem",
-                      fontFamily: T.fontMono,
-                      color: T.textMuted,
-                    }}
-                  >
-                    {Math.min(...profileData.map((p) => p.elevation))}m
-                  </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 2,
-                      right: 4,
-                      fontSize: "0.55rem",
-                      fontFamily: T.fontMono,
-                      color: T.textMuted,
-                    }}
-                  >
-                    {(profileData[profileData.length - 1].distance / 1000).toFixed(1)}km
-                  </div>
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.58rem",
-                    fontFamily: T.fontMono,
-                    color: T.textMuted,
-                    marginTop: 2,
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span>Start: {profileData[0].elevation}m</span>
-                  <span>End: {profileData[profileData.length - 1].elevation}m</span>
-                  <span>
-                    Δ{Math.abs(profileData[0].elevation - profileData[profileData.length - 1].elevation).toFixed(0)}m
-                  </span>
-                </div>
-              </SurveillancePanel>
+              <ElevationProfileChart data={profileData} loading={profileLoading} />
             )}
 
             {/* Pin history */}

@@ -79,10 +79,12 @@ WASM must be tested with fixtures rather than inferred from source presence.
 
 ## Open work
 
-1. Map page monolith extraction, remaining waves (from 2,199 lines):
-   status-indicator block (~230 lines), measure/draw toolbars, view
-   controls + bookmarks, coordinate info, elevation profile, context
-   menu, toasts; then globe/page.tsx (1,503) and explore (1,641).
+1. ~~Map/globe/explore monolith extraction~~ — **complete** (tasks
+   #136–#138, closed 2026-09-24/25): map/page.tsx 3,053 → 1,457
+   (−52%, 7 waves), globe JSX surface fully composed from extracted
+   components, explore/page.tsx 1,641 → 594 (−64%, data.ts + 7 tab
+   components). Remaining bodies are the stateful cores (refs, fetch
+   handlers, event effects) documented in MASTER_PLAN_2026-09-22.md.
 2. GitForge CI verification needs the user's interactive
    `gitforge auth --login`; the push path itself works (transient
    server-side stalls self-heal — retry or re-fetch).

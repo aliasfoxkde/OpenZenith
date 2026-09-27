@@ -37,7 +37,7 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
         if (cancelled || !mapDivRef.current) return;
 
         const darkAtInit = isDarkNow();
-        const basemapUrl = darkAtInit ? BASEMAPS.dark.url : BASEMAPS.voyager.url;
+        const basemapDef = darkAtInit ? BASEMAPS.dark : BASEMAPS.voyager;
 
         const map = new mlgl.Map({
           container: mapDivRef.current,
@@ -46,9 +46,10 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
             sources: {
               osm: {
                 type: "raster",
-                tiles: [basemapUrl],
+                tiles: [basemapDef.url],
                 tileSize: 256,
-                attribution: "&copy; CartoDB",
+                attribution: basemapDef.attribution,
+                maxzoom: basemapDef.maxzoom,
               },
             },
             layers: [{ id: "osm", type: "raster", source: "osm" }],

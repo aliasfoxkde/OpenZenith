@@ -56,8 +56,11 @@ export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof La
  * Globe basemap picker entries — derived from the shared registry
  * (src/lib/basemaps.ts) so the map and globe can never drift apart.
  */
-export const BASEMAPS: Record<string, { label: string; url: string }> = Object.fromEntries(
-  GLOBE_BASEMAP_KEYS.map((key) => [key, { label: BASEMAP_REGISTRY[key].label, url: BASEMAP_REGISTRY[key].url }]),
+export const BASEMAPS: Record<string, { label: string; url: string; maxzoom: number }> = Object.fromEntries(
+  GLOBE_BASEMAP_KEYS.map((key) => [
+    key,
+    { label: BASEMAP_REGISTRY[key].label, url: BASEMAP_REGISTRY[key].url, maxzoom: BASEMAP_REGISTRY[key].maxzoom },
+  ]),
 );
 
 export const DEFAULT_LAYERS: LayerState = {

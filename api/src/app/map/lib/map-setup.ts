@@ -4,10 +4,19 @@
  * Extracted verbatim from map/page.tsx.
  */
 import type { RefObject } from "react";
-import { getBasemap } from "@/lib/basemaps";
+import { getBasemap, type BasemapDef } from "@/lib/basemaps";
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
 import { loadBoundariesData } from "./boundaries";
 import type { ElevationPin } from "./view-state";
+
+/**
+ * Raster source spec for a registry basemap — shared by the map init and
+ * basemap-switch style builders so both carry the provider's maxzoom
+ * (clients overzoom the last level instead of requesting 404 tiles).
+ */
+export function basemapRasterSource(def: BasemapDef) {
+  return { type: "raster" as const, tiles: [def.url], tileSize: 256, attribution: def.attribution, maxzoom: def.maxzoom };
+};
 
 export function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
   // Only add if not already present
@@ -89,7 +98,7 @@ export function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
   if (def.hasLabels || !def.labelUrl) return;
   try {
     if (!map.getSource("labels")) {
-      map.addSource("labels", { type: "raster", tiles: [def.labelUrl], tileSize: 256 });
+      map.addSource("labels", { type: "raster", tiles: [def.labelUrl], tileSize: 256, maxzoom: def.maxzoom });
     }
     map.addLayer({
       id: "labels-raster",

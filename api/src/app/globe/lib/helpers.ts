@@ -154,7 +154,7 @@ export function elevationColor(elev: number): string {
 export function switchBasemapOnViewer(viewer: any, key: string) {
   const Cesium = (window as any).Cesium;
   // key comes from user state, so it may not be in the registry
-  const bm = BASEMAPS[key] as { label: string; url: string } | undefined;
+  const bm = BASEMAPS[key] as { label: string; url: string; maxzoom: number } | undefined;
   const imageryLayers = viewer.imageryLayers;
 
   while (imageryLayers.length > 0) {
@@ -166,7 +166,7 @@ export function switchBasemapOnViewer(viewer: any, key: string) {
       new Cesium.UrlTemplateImageryProvider({
         url: bm.url,
         credit: "",
-        maximumLevel: 18,
+        maximumLevel: bm.maxzoom,
       }),
     );
   }

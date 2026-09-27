@@ -1,11 +1,19 @@
 /**
  * Basemap registry — the single source of truth for raster basemap tile URLs
- * across the Map (MapLibre) and Globe (CesiumJS) clients.
+ * across the Map (MapLibre), Globe (CesiumJS), Studio, and landing-hero
+ * clients.
  *
  * Every tile URL, attribution string, and label behavior lives here so the
- * two clients can never drift apart (they previously kept separate literal
+ * clients can never drift apart (they previously kept separate literal
  * tables that had already diverged: the globe lacked light/terrain and the
  * map carried a second copy of the dark URLs in theme.ts).
+ *
+ * Provider note (2026-09): CARTO's raster basemaps began serving
+ * "API KEY REQUIRED" watermark tiles to unauthenticated clients, and Stamen
+ * tiles moved behind Stadia keys (401). Every watermarked entry was swapped
+ * to Esri's keyless hosted services, probed live before the switch. If a
+ * basemap ever renders as repeated provider text instead of geography,
+ * check here first.
  */
 
 export interface BasemapDef {
@@ -21,56 +29,75 @@ export interface BasemapDef {
   labelUrl?: string;
   /** Dark basemap — receives the land-contrast overlay and dark UI treatment. */
   isDark: boolean;
+  /**
+   * Native maximum tile zoom of the provider. Sources pass this so clients
+   * overzoom the last level instead of requesting 404 tiles past the end.
+   */
+  maxzoom: number;
 }
 
-const CARTO_ATTRIBUTION = "&copy; CartoDB &copy; OSM";
-const CARTO = "https://basemaps.cartocdn.com";
+const ESRI_ATTRIBUTION = "&copy; Esri";
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
+const ESRI_DARK_BASE = `${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`;
+const ESRI_DARK_LABELS = `${ESRI}/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`;
+const ESRI_LIGHT_BASE = `${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`;
+const ESRI_LIGHT_LABELS = `${ESRI}/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`;
 
 export const BASEMAPS = {
   dark: {
     label: "Dark",
-    url: `${CARTO}/dark_all/{z}/{x}/{y}@2x.png`,
-    attribution: CARTO_ATTRIBUTION,
-    hasLabels: true,
+    url: ESRI_DARK_BASE,
+    attribution: ESRI_ATTRIBUTION,
+    hasLabels: false,
+    labelUrl: ESRI_DARK_LABELS,
     isDark: true,
+    maxzoom: 16,
   },
   // High-contrast dark variant with elevated land visibility
   dark_contrast: {
     label: "Dark+",
-    url: `${CARTO}/dark_all/{z}/{x}/{y}@2x.png`,
-    attribution: CARTO_ATTRIBUTION,
-    hasLabels: true,
+    url: ESRI_DARK_BASE,
+    attribution: ESRI_ATTRIBUTION,
+    hasLabels: false,
+    labelUrl: ESRI_DARK_LABELS,
     isDark: true,
+    maxzoom: 16,
   },
   dark_nolabel: {
     label: "Dark (no labels)",
-    url: `${CARTO}/dark_nolabels/{z}/{x}/{y}@2x.png`,
-    attribution: CARTO_ATTRIBUTION,
+    url: ESRI_DARK_BASE,
+    attribution: ESRI_ATTRIBUTION,
+    // Deliberately labelless: no baked labels and no overlay — the map's
+    // addLabelLayer skips the overlay when labelUrl is absent.
     hasLabels: false,
-    labelUrl: `${CARTO}/dark_only_labels/{z}/{x}/{y}@2x.png`,
     isDark: true,
+    maxzoom: 16,
   },
   voyager: {
-    label: "Voyager",
-    url: `${CARTO}/rastertiles/voyager/{z}/{x}/{y}@2x.png`,
-    attribution: CARTO_ATTRIBUTION,
+    label: "Streets",
+    url: `${ESRI}/World_Street_Map/MapServer/tile/{z}/{y}/{x}`,
+    attribution: ESRI_ATTRIBUTION,
     hasLabels: true,
     isDark: false,
+    maxzoom: 19,
   },
   light: {
     label: "Light",
-    url: `${CARTO}/light_all/{z}/{x}/{y}@2x.png`,
-    attribution: CARTO_ATTRIBUTION,
-    hasLabels: true,
+    url: ESRI_LIGHT_BASE,
+    attribution: ESRI_ATTRIBUTION,
+    hasLabels: false,
+    labelUrl: ESRI_LIGHT_LABELS,
     isDark: false,
+    maxzoom: 16,
   },
   positron: {
     label: "Positron",
-    url: `${CARTO}/light_nolabels/{z}/{x}/{y}@2x.png`,
-    attribution: CARTO_ATTRIBUTION,
+    url: ESRI_LIGHT_BASE,
+    attribution: ESRI_ATTRIBUTION,
     hasLabels: false,
-    labelUrl: `${CARTO}/light_only_labels/{z}/{x}/{y}@2x.png`,
+    labelUrl: ESRI_LIGHT_LABELS,
     isDark: false,
+    maxzoom: 16,
   },
   osm: {
     label: "OpenStreetMap",
@@ -78,14 +105,16 @@ export const BASEMAPS = {
     attribution: "&copy; OpenStreetMap contributors",
     hasLabels: true,
     isDark: false,
+    maxzoom: 19,
   },
   satellite: {
     label: "Satellite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "&copy; Esri",
+    url: `${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,
+    attribution: ESRI_ATTRIBUTION,
     hasLabels: false,
-    labelUrl: `${CARTO}/dark_only_labels/{z}/{x}/{y}@2x.png`,
+    labelUrl: ESRI_DARK_LABELS,
     isDark: false,
+    maxzoom: 19,
   },
   topo: {
     label: "Topographic",
@@ -93,13 +122,15 @@ export const BASEMAPS = {
     attribution: "&copy; OpenTopoMap",
     hasLabels: true,
     isDark: false,
+    maxzoom: 17,
   },
   terrain: {
-    label: "Terrain (Stamen)",
-    url: "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; Stamen Design &copy; Stadia Maps",
+    label: "Terrain",
+    url: `${ESRI}/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}`,
+    attribution: ESRI_ATTRIBUTION,
     hasLabels: true,
     isDark: false,
+    maxzoom: 13,
   },
 } satisfies Record<string, BasemapDef>;
 

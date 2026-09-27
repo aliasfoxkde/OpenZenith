@@ -1,35 +1,18 @@
-export const BASEMAPS: Record<string, { label: string; url: string; attribution: string }> = {
-  dark: {
-    label: "Dark",
-    url: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-    attribution: "\u00a9 CartoDB \u00a9 OSM",
-  },
-  voyager: {
-    label: "Voyager",
-    url: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-    attribution: "\u00a9 CartoDB \u00a9 OSM",
-  },
-  light: {
-    label: "Light",
-    url: "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-    attribution: "\u00a9 CartoDB \u00a9 OSM",
-  },
-  osm: {
-    label: "OpenStreetMap",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "\u00a9 OpenStreetMap contributors",
-  },
-  satellite: {
-    label: "Satellite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "\u00a9 Esri",
-  },
-  topo: {
-    label: "Topographic",
-    url: "https://tile.opentopomap.org/{z}/{x}/{y}.png",
-    attribution: "\u00a9 OpenTopoMap",
-  },
-};
+/**
+ * Studio basemap picker - derived from the shared registry (src/lib/basemaps.ts)
+ * rather than a private copy, so provider changes land here by construction.
+ * The studio caps view zoom at 15, below every included provider's maxzoom.
+ */
+import { BASEMAPS as BASEMAP_REGISTRY } from "@/lib/basemaps";
+
+const STUDIO_BASEMAP_KEYS = ["dark", "voyager", "light", "osm", "satellite", "topo"] as const;
+
+export const BASEMAPS: Record<string, { label: string; url: string; attribution: string }> = Object.fromEntries(
+  STUDIO_BASEMAP_KEYS.map((key) => {
+    const def = BASEMAP_REGISTRY[key];
+    return [key, { label: def.label, url: def.url, attribution: def.attribution }];
+  }),
+);
 
 export const DEFAULT_CENTER: [number, number] = [0, 20];
 export const DEFAULT_ZOOM = 2;

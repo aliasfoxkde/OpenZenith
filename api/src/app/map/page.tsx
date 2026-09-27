@@ -63,6 +63,7 @@ import {
   addPinMarker,
   addBoundaryLayers,
   addLabelLayer,
+  basemapRasterSource,
   disable3DTerrain,
   enable3DTerrain,
   removeBoundaryLayers,
@@ -732,7 +733,7 @@ export default function MapPage() {
           style: {
             version: 8,
             sources: {
-              basemap: { type: "raster", tiles: [basemap.url], tileSize: 256, attribution: basemap.attribution },
+              basemap: basemapRasterSource(basemap),
               ...(isDark
                 ? {
                     land: {
@@ -976,7 +977,7 @@ export default function MapPage() {
       map.setStyle({
         version: 8,
         sources: {
-          basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution },
+          basemap: basemapRasterSource(bm),
           ...(isDark
             ? {
                 land: {

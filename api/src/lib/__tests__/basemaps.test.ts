@@ -30,12 +30,36 @@ describe("basemap registry", () => {
     }
   });
 
-  it("provides a label overlay URL exactly when the basemap lacks its own labels", () => {
+  it("provides a label overlay URL exactly for entries that want one", () => {
     for (const [key, def] of Object.entries(ALL)) {
       if (def.hasLabels) {
         expect(def.labelUrl, `${key} has its own labels`).toBeUndefined();
+      } else if (key === "dark_nolabel") {
+        // The one deliberately labelless entry: no baked labels, no overlay
+        expect(def.labelUrl, `${key} opts out of labels entirely`).toBeUndefined();
       } else {
-        expect(def.labelUrl, `${key} needs a label overlay`).toMatch(/only_labels/);
+        expect(def.labelUrl, `${key} needs a label overlay`).toBeTruthy();
+      }
+    }
+  });
+
+  it("keeps every maxzoom within the XYZ range the clients can request", () => {
+    for (const [key, def] of Object.entries(ALL)) {
+      expect(def.maxzoom, key).toBeGreaterThanOrEqual(0);
+      expect(def.maxzoom, key).toBeLessThanOrEqual(22);
+      expect(Number.isInteger(def.maxzoom), key).toBe(true);
+    }
+  });
+
+  it("never points at a provider that keywalls or watermarks anonymous tiles", () => {
+    // CARTO serves "API KEY REQUIRED" watermark tiles and Stadia/Stamen
+    // returns 401 without a key (2026-09); a registry entry there means the
+    // map renders provider error text as geography.
+    const dead = [/basemaps\.cartocdn\.com/, /tiles\.stadiamaps\.com/];
+    for (const [key, def] of Object.entries(ALL)) {
+      for (const re of dead) {
+        expect(def.url.match(re), `${key} url`).toBeNull();
+        expect(def.labelUrl?.match(re) ?? null, `${key} labelUrl`).toBeNull();
       }
     }
   });

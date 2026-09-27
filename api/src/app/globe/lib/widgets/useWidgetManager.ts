@@ -11,6 +11,13 @@ export interface WidgetEntry {
   component: ComponentType<any>;
 }
 
+/* Default positions stack the left column with no overlap. Basemaps opens
+   expanded: 5 preview cards in a 2-column grid ≈ 285px tall, so it ends near
+   y≈341 and everything below starts under it. Layers also opens expanded is
+   impossible on a 900px viewport (its 60vh body would bury Tools and
+   Settings), so it starts collapsed — one click on its header, or the widget
+   bar above, expands it over the collapsed widgets (bring-to-front on
+   pointer-down keeps that usable). Saved layouts in localStorage win. */
 const WIDGET_CONFIGS: WidgetConfig[] = [
   {
     id: "basemaps",
@@ -24,15 +31,15 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
     id: "layers",
     title: "Layers",
     icon: "📊",
-    defaultPosition: { x: 12, y: 290 },
-    defaultCollapsed: false,
+    defaultPosition: { x: 12, y: 356 },
+    defaultCollapsed: true,
     minWidth: 230,
   },
   {
     id: "tools",
     title: "Tools",
     icon: "🔧",
-    defaultPosition: { x: 12, y: 540 },
+    defaultPosition: { x: 12, y: 398 },
     defaultCollapsed: true,
     minWidth: 230,
   },
@@ -40,7 +47,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
     id: "settings",
     title: "Settings",
     icon: "⚙",
-    defaultPosition: { x: 12, y: 720 },
+    defaultPosition: { x: 12, y: 440 },
     defaultCollapsed: true,
     minWidth: 230,
   },
@@ -118,6 +125,22 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
     });
   }, []);
 
+  // Raise a widget above every sibling. A bare +1 only clears one sibling
+  // (Layers under Settings stayed buried after expand), and incrementing on
+  // every mousedown inflated saved z-indexes without bound.
+  const focusWidget = useCallback((id: string) => {
+    setWidgets((prev) => {
+      const entry = prev[id] as WidgetEntry | undefined;
+      if (!entry) return prev;
+      const top = Math.max(...Object.values(prev).map((w) => w.state.zIndex || 100));
+      if ((entry.state.zIndex || 100) === top) return prev;
+      return {
+        ...prev,
+        [id]: { ...entry, state: { ...entry.state, zIndex: top + 1 } },
+      };
+    });
+  }, []);
+
   const toggleWidget = useCallback(
     (id: string) => {
       // ids can be absent from the map even though Record indexing types as present
@@ -159,5 +182,5 @@ export function useWidgetManager(components: Record<string, ComponentType<any>>)
     }
   }, [components]);
 
-  return { widgets, updateWidget, toggleWidget, showWidget, resetLayout };
+  return { widgets, updateWidget, toggleWidget, showWidget, focusWidget, resetLayout };
 }

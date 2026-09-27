@@ -7,19 +7,15 @@ interface WidgetShellProps {
   config: WidgetConfig;
   state: WidgetState;
   onStateChange: (patch: Partial<WidgetState>) => void;
+  /** Raise this widget above all siblings (computed by the widget manager). */
+  onFocus: () => void;
   children: ReactNode;
 }
 
-export function WidgetShell({ config, state, onStateChange, children }: WidgetShellProps) {
+export function WidgetShell({ config, state, onStateChange, onFocus, children }: WidgetShellProps) {
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const headerRef = useRef<HTMLDivElement>(null);
-
-  const bringToFront = useCallback(() => {
-    // Increment z-index via a counter stored on the element
-    const current = state.zIndex || 100;
-    onStateChange({ zIndex: current + 1 });
-  }, [state.zIndex, onStateChange]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -30,12 +26,12 @@ export function WidgetShell({ config, state, onStateChange, children }: WidgetSh
         x: e.clientX - state.position.x,
         y: e.clientY - state.position.y,
       };
-      bringToFront();
+      onFocus();
       if (headerRef.current) {
         headerRef.current.setPointerCapture(e.pointerId);
       }
     },
-    [state.position, bringToFront],
+    [state.position, onFocus],
   );
 
   const onPointerMove = useCallback(
@@ -68,7 +64,7 @@ export function WidgetShell({ config, state, onStateChange, children }: WidgetSh
         zIndex: state.zIndex || 100,
         minWidth: config.minWidth || 220,
       }}
-      onMouseDown={bringToFront}
+      onMouseDown={onFocus}
     >
       <div
         ref={headerRef}

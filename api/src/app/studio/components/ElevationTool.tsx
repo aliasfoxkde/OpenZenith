@@ -113,6 +113,9 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
           onChange={(e) => { setManualLat(e.target.value); }}
           style={{
             flex: 1,
+            /* inputs refuse to shrink below their intrinsic width without this,
+               pushing the query button past the panel edge */
+            minWidth: 0,
             padding: "5px 8px",
             background: inputBg,
             border: `1px solid ${border}`,
@@ -127,6 +130,7 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
           onChange={(e) => { setManualLon(e.target.value); }}
           style={{
             flex: 1,
+            minWidth: 0,
             padding: "5px 8px",
             background: inputBg,
             border: `1px solid ${border}`,

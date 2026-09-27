@@ -11,6 +11,13 @@ import type { WidgetProps } from "./types";
 // Values stay nullable: a section can list a layer id that is not registered.
 const LAYER_MAP: Record<string, LayerDefinition | undefined> = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
 
+// Globe-native layers (wired through LayerState in the Cesium viewer, not the
+// shared registry) would otherwise render as their raw ids.
+const GLOBE_LAYER_LABELS: Record<string, string> = {
+  coverage: "DEM Coverage",
+  currents: "Ocean Currents",
+};
+
 export function LayersWidget({ globe }: WidgetProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     Object.fromEntries(SIDEBAR_SECTIONS.map((s) => [s.key, true])),
@@ -41,7 +48,7 @@ export function LayersWidget({ globe }: WidgetProps) {
                 <div className="wv-row" key={layerId}>
                   <label htmlFor={`wv-layer-toggle-${layerId}`}>
                     <span className="dot" style={{ background: layer?.accent || "var(--accent)" }} />
-                    {layer?.name || layerId}
+                    {layer?.name || GLOBE_LAYER_LABELS[layerId] || layerId}
                     {checked && (status?.count ?? 0) > 0 ? (
                       <span style={{ color: "var(--text-muted)", fontSize: "9px", marginLeft: 4 }}>
                         ({status?.count ?? 0})

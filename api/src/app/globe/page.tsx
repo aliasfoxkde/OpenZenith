@@ -1080,7 +1080,7 @@ export default function Globe() {
     [],
   );
 
-  const { widgets, updateWidget, toggleWidget, resetLayout } = useWidgetManager(widgetComponents);
+  const { widgets, updateWidget, toggleWidget, focusWidget, resetLayout } = useWidgetManager(widgetComponents);
 
   const globeContext: GlobeContext = useMemo(
     () => ({
@@ -1281,6 +1281,7 @@ export default function Globe() {
           config={entry.config}
           state={entry.state}
           onStateChange={(patch) => { updateWidget(id, patch); }}
+          onFocus={() => { focusWidget(id); }}
         >
           <entry.component globe={globeContext} />
         </WidgetShell>

@@ -1156,3 +1156,17 @@ after the pre-fetch empty-state hint insertion (react-missing-key-prop
 2, double-type-assertion 1 — the EONET geometry narrowing).
 Dispositions unchanged. No new vulnerability classes. Baseline updated
 deliberately.
+
+## Re-triage 2026-09-27 — task #141 (globe widget layout/labels + studio input fix)
+
+5 new findings, all line-shift re-flags of dispositioned classes after the
+widget default/layout edits (useWidgetManager.ts, LayersWidget.tsx,
+ElevationTool.tsx): react-missing-key-prop 2 (LayersWidget.tsx:28 —
+`key={layerId}` on the following line; ElevationTool.tsx:291 —
+`key={i}` on the following line), double-type-assertion 1
+(LayersWidget.tsx:45 — the pre-existing LayerState narrowing cast),
+env-credential-assignment 1 (useWidgetManager.ts:56 — the constant
+`STORAGE_KEY = "globe-widgets"` matching the credential-name heuristic
+on "KEY"; holds no secret), autocomplete-missing 1 (ElevationTool.tsx:127
+— lat/lon coordinate entry has no autocomplete axis). Dispositions
+unchanged. No new vulnerability classes. Baseline updated deliberately.

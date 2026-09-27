@@ -526,13 +526,13 @@ export default function Home() {
               },
               {
                 label: "API endpoints",
-                value: "47",
+                value: "80",
                 tip: "Elevation, DEM tiles, bathymetry, GEBCO, flights, vessels, military, weather warnings, geocoding, reverse geocoding, BGP, NLNOG, waterways, overpass, proxy, and more. OpenAPI 3.0 spec at /api/docs.",
               },
               {
                 label: "Data layers",
-                value: "37",
-                tip: "Map and globe integrate 37 data layers including earthquakes, flights, vessels, satellites, hurricanes, weather radar, wildfires, lightning, space weather, air quality, volcanoes, GDACS, and more.",
+                value: "62",
+                tip: "Map and globe integrate 62 data layers including earthquakes, flights, vessels, satellites, hurricanes, weather radar, wildfires, lightning, space weather, air quality, volcanoes, GDACS, and more.",
               },
             ].map((s) => (
               <div
@@ -660,7 +660,7 @@ export default function Home() {
               {
                 emoji: "\uD83D\uDDFA\uFE0F",
                 title: "Interactive Map",
-                desc: "MapLibre GL dark theme, 3D terrain, 9 basemaps, annotations, bookmarks, elevation profile, offline support.",
+                desc: "MapLibre GL dark theme, 3D terrain, 10 basemaps, annotations, bookmarks, elevation profile, offline support.",
                 back: "Click any point for elevation. Drag to draw profile. Right-click context menu with copy coordinates and tile info.",
                 href: "/map",
                 btn: "Open Map",
@@ -668,7 +668,7 @@ export default function Home() {
               {
                 emoji: "\uD83C\uDF0D",
                 title: "Globe 3D",
-                desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, terrain elevation, and 37 real-time data layers.",
+                desc: "CesiumJS 3D globe with 3D/Columbus/2D view modes, terrain elevation, and 62 real-time data layers.",
                 back: "Switch between 3D globe, Columbus 3D, and 2D map. Five built-in themes from Dark to Classified Intel HUD.",
                 href: "/globe",
                 btn: "Launch Globe",

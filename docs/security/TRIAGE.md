@@ -1148,3 +1148,11 @@ detector hit: env-credential-assignment at lib/basemaps.ts:154 — the
 registry constant `GLOBE_BASEMAP_KEYS` (an array of basemap id strings)
 matches the credential-name heuristic on "KEYS". It holds no secret.
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-27 — task #140 (landing polish + explore empty state)
+
+3 new findings, all line-shift re-flags in explore/tabs/NoaaTab.tsx
+after the pre-fetch empty-state hint insertion (react-missing-key-prop
+2, double-type-assertion 1 — the EONET geometry narrowing).
+Dispositions unchanged. No new vulnerability classes. Baseline updated
+deliberately.

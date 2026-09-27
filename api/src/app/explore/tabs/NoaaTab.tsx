@@ -93,6 +93,12 @@ export function NoaaTab({
         </div>
       )}
 
+      {!data && !error && !loading && (
+        <div className="ex-empty" style={{ marginTop: "1rem" }}>
+          Select a dataset above, then hit <strong>Fetch Data</strong> to pull live NOAA / USGS / NASA results.
+        </div>
+      )}
+
       {data && (
         <div style={{ marginTop: "1rem" }}>
           <h3>Results: {NOAA_DATASETS[selected].label}</h3>

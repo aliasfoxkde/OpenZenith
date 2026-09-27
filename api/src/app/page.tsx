@@ -13,6 +13,13 @@ import { SearchBox } from "./landing/SearchBox";
 import { SnippetTabs, type SnippetResult } from "./landing/SnippetTabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
+// Fallback coordinates for the lookup tool: the samples panel advertises the
+// same point, so a Go press with empty inputs still lands somewhere real
+// (GeoIP cannot resolve coordinates on many networks — VPNs, LANs, rate
+// limits — and an empty-input Go used to be a dead click).
+const SAMPLE_LAT = 28.0;
+const SAMPLE_LON = 86.9;
+
 export default function Home() {
   const dark = useTheme();
   const [lat, setLat] = useState("");
@@ -61,7 +68,14 @@ export default function Home() {
           country: geo?.countryName || null,
         });
 
-        if (typeof userLat !== "number" || typeof userLon !== "number") return;
+        if (typeof userLat !== "number" || typeof userLon !== "number") {
+          // GeoIP unresolved (VPN/LAN/rate-limit): keep the tool alive with
+          // the sample point instead of empty inputs and a dead Go press.
+          setLat(String(SAMPLE_LAT));
+          setLon(String(SAMPLE_LON));
+          void lookup(SAMPLE_LAT, SAMPLE_LON);
+          return;
+        }
 
         // Clamp to valid coordinate range
         const clampedLat = Math.max(-90, Math.min(90, userLat));
@@ -91,12 +105,19 @@ export default function Home() {
           }
         }
       } catch {
-        // GeoIP unavailable — silent fallback, user can type manually
+        // GeoIP unavailable (blocked fetch throws) — same sample fallback as
+        // the unresolved-response path so the tool is never a dead panel.
+        setLat(String(SAMPLE_LAT));
+        setLon(String(SAMPLE_LON));
+        void lookup(SAMPLE_LAT, SAMPLE_LON);
       }
     })();
     return () => {
       cancelFlag.cancelled = true;
     };
+    // Mount-only GeoIP bootstrap; lookup is stable enough via the geoInitDone
+    // guard — re-running this effect is always a no-op.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cardBg = dark ? "#161616" : "#ffffff";
@@ -150,8 +171,16 @@ export default function Home() {
   const scrollToTop = useCallback(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
   async function lookup(latOverride?: number, lonOverride?: number) {
-    const la = latOverride ?? parseFloat(lat);
-    const lo = lonOverride ?? parseFloat(lon);
+    let la = latOverride ?? parseFloat(lat);
+    let lo = lonOverride ?? parseFloat(lon);
+    // Empty inputs resolve to the sample point instead of scolding the user:
+    // pressing Go should always do something visible.
+    if (isNaN(la) && isNaN(lo)) {
+      la = SAMPLE_LAT;
+      lo = SAMPLE_LON;
+      setLat(String(SAMPLE_LAT));
+      setLon(String(SAMPLE_LON));
+    }
     if (isNaN(la) || isNaN(lo)) {
       setError("Enter valid coordinates");
       return;

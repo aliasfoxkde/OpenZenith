@@ -1170,3 +1170,28 @@ env-credential-assignment 1 (useWidgetManager.ts:56 — the constant
 on "KEY"; holds no secret), autocomplete-missing 1 (ElevationTool.tsx:127
 — lat/lon coordinate entry has no autocomplete axis). Dispositions
 unchanged. No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-27 — task #145 (landing Go dead-click fix)
+
+15 new findings, all line-shift re-flags in landing page.tsx after the
+sample-fallback insertions (react-missing-key-prop 7, azure-functions 2,
+autocomplete-missing 2 — the lat/lon coordinate inputs, model-version-tracking 1,
+react-optimization 1, debug-endpoint 1, pr-review-marker 1 — the contribute
+copy "send a pull request", not a review artifact). Dispositions unchanged.
+No new vulnerability classes. Baseline updated deliberately.
+
+## Security audit 2026-09-27 — task #146 (API keys)
+
+- Live HuggingFace token found COMMITTED as a fallback default in three
+  tracked upload scripts (api/scripts/upload_chunks_{batch,hf,sequential}.py).
+  Removed from HEAD (env-only reads now). The value remains in pushed git
+  history on both remotes — REVOCATION at HuggingFace by the account owner is
+  the only effective remediation; rotation requires the user's HF session.
+- No other credential values found in tracked files (OpenSky/AISstream/FIRMS/
+  ADSB/AccessToken/RSA sweep clean); api/.env.example carries empty values only.
+- ADSB_EXCHANGE_KEY is declared in wrangler.toml as a Pages secret but is not
+  consumed anywhere in api/src (military/route.ts calls the ADSB Exchange v2
+  API and surfaces a "subscription needed" error) — stale secret/doc pair.
+- Production side-finding: Cloudflare bot protection 403-blocks non-browser
+  user agents (curl default UA) on API paths while browser UAs pass — affects
+  scripted SDK consumers, not the site.

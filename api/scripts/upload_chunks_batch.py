@@ -8,7 +8,7 @@ import os
 import sys
 import time
 
-os.environ["HF_TOKEN"] = os.environ.get("HF_TOKEN", "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")
+os.environ["HF_TOKEN"] = os.environ.get("HF_TOKEN", "")
 
 from huggingface_hub import HfApi  # noqa: E402
 

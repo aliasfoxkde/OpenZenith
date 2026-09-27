@@ -1994,3 +1994,38 @@ upward into the tabs would reset filters on every tab switch — an
 observable behavior change — and the handlers are already covered by
 the explore E2E suite. All three page monoliths (#136 map −52%,
 #137 globe JSX surface, #138 explore −64%) are now closed.
+
+## Task #139: design-review pass — keywalled basemaps replaced (2026-09-27, 4780883 + 639748a)
+
+First finding of the design/vision audit (design-review skill loop:
+render → look → fix → re-render): the landing hero, map/globe dark and
+light basemaps, satellite's label overlay, and the studio picker were
+rendering "API KEY REQUIRED" watermark tiles on production — CARTO's
+raster endpoints now keywall anonymous clients, and Stamen (terrain)
+401s without a Stadia key. Screenshot of the live hero showed the
+provider's watermark tiles as the page backdrop.
+
+Fix: every dead registry entry swapped to live-probed keyless Esri
+services (World_Dark/Light_Gray_Base + Reference label overlays,
+World_Street_Map, World_Shaded_Relief — probed 200 across zooms 3-19
+and regions before the switch); BasemapDef gained required `maxzoom`
+metadata plumbed into every raster source builder (map init + switch
+via a shared basemapRasterSource helper, labels overlay, globe
+maximumLevel — clients overzoom the last level instead of 404ing);
+HeroMap attribution now derives from the registry (was hardcoded
+"© CartoDB" while serving Esri); the studio's private CARTO copy (the
+last competing basemap table from the Phase 5.1 consolidation) now
+derives from the registry; dark_nolabel became truly labelless (the
+overlay is unconditional when labelUrl is set, so the old shape
+rendered identical to dark). Tests: +2 invariants (maxzoom range;
+forbid known keywalled providers) and the label-overlay contract
+updated — 1,449 passed / 5 skipped.
+
+Gates: tsc clean; eslint 5,381/0; aegis re-triaged (14 line-shifts +
+1 FP: `GLOBE_BASEMAP_KEYS` matching the credential-name heuristic —
+TRIAGE.md; baseline steady 1,716). Deployed (04bf5bc1); production
+hero re-rendered clean in both themes; full chromium E2E 40 passed /
+1 skipped. Process note: a 2-day-old stale .git/index.lock (0 bytes,
+no owning git process) blocked the first commit; removed the single
+lock file, which split the change into 4780883 (docs/triage) +
+639748a (source).

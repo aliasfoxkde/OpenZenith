@@ -1135,3 +1135,16 @@ inner-html-assignment (2 — the static S CSS string), try-catch-bulk
 TABS tablist map), inefficient-css (1). Dispositions unchanged.
 
 No new vulnerability classes. Baseline updated deliberately.
+
+## Re-triage 2026-09-27 — task #139 (basemap registry Esri swap)
+
+14 new findings: 13 are line-shift re-flags of previously dispositioned
+classes in map/page.tsx and map/lib/map-setup.ts (the elevation-pin
+marker innerHTML template with theme-constant interpolation; the
+`Date.now() - 604800000` ms literal tripping ssn/routing/tfn; client
+fetch ssrf; React-escaped share URL; console-log, react-optimization,
+try-catch-bulk, expensive-computation-loop) plus one genuinely new
+detector hit: env-credential-assignment at lib/basemaps.ts:154 — the
+registry constant `GLOBE_BASEMAP_KEYS` (an array of basemap id strings)
+matches the credential-name heuristic on "KEYS". It holds no secret.
+No new vulnerability classes. Baseline updated deliberately.

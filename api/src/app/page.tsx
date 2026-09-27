@@ -22,8 +22,12 @@ const SAMPLE_LON = 86.9;
 
 export default function Home() {
   const dark = useTheme();
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
+  // The coordinate inputs are uncontrolled and refs are the single source of
+  // truth: a controlled input silently reverts values typed before React
+  // hydrates (the Go press would then read "" and fall back to the sample
+  // point — that was a real production bug).
+  const latInputRef = useRef<HTMLInputElement | null>(null);
+  const lonInputRef = useRef<HTMLInputElement | null>(null);
   const [sampleLocations, setSampleLocations] = useState(() => LOCATIONS.slice(0, 5));
   const [result, setResult] = useState<SnippetResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,7 +41,26 @@ export default function Home() {
   } | null>(null);
   const [placeName, setPlaceName] = useState<string | null>(null);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
+  // Coordinates of the last successful lookup — snippet tabs quote these.
+  const [queried, setQueried] = useState<{ la: string; lo: string } | null>(null);
   const geoInitDone = useRef(false);
+
+  // Single writer for the coordinate inputs.
+  function setCoords(la: string, lo: string) {
+    if (latInputRef.current) latInputRef.current.value = la;
+    if (lonInputRef.current) lonInputRef.current.value = lo;
+  }
+
+  // The GeoIP bootstrap must never override a user who has already typed
+  // coordinates — clobbering their input (or worse, hijacking the result panel
+  // with the sample lookup) is the same class of bug as the hydration race.
+  function coordsTouched(): boolean {
+    return (latInputRef.current?.value ?? "") !== "" || (lonInputRef.current?.value ?? "") !== "";
+  }
+
+  // Sequence number for lookups: only the most recently initiated one may
+  // apply its result, so a slow earlier fetch can't overwrite a newer answer.
+  const lookupSeq = useRef(0);
 
   // Randomize sample locations on mount (client-only to avoid hydration mismatch)
   useEffect(() => {
@@ -68,11 +91,14 @@ export default function Home() {
           country: geo?.countryName || null,
         });
 
+        // Whoever typed first wins: skip the whole pre-populate + auto-lookup
+        // when the visitor is already interacting with the tool.
+        if (coordsTouched()) return;
+
         if (typeof userLat !== "number" || typeof userLon !== "number") {
           // GeoIP unresolved (VPN/LAN/rate-limit): keep the tool alive with
           // the sample point instead of empty inputs and a dead Go press.
-          setLat(String(SAMPLE_LAT));
-          setLon(String(SAMPLE_LON));
+          setCoords(String(SAMPLE_LAT), String(SAMPLE_LON));
           void lookup(SAMPLE_LAT, SAMPLE_LON);
           return;
         }
@@ -84,12 +110,15 @@ export default function Home() {
         const lonStr = clampedLon.toFixed(4);
 
         if (isCancelled()) return;
-        setLat(latStr);
-        setLon(lonStr);
+        setCoords(latStr, lonStr);
 
         // Fetch elevation and address for user location
+        const bootstrapSeq = lookupSeq.current;
         const eRes = await fetch(`/api/query?lat=${clampedLat}&lon=${clampedLon}&include=elevation,address`);
         if (isCancelled()) return;
+        // A user-initiated lookup started while this fetch was in flight — its
+        // answer owns the result panel now.
+        if (bootstrapSeq !== lookupSeq.current) return;
         const eData = await eRes.json();
         if (!eData.error) {
           if (eData.elevation) setResult(eData.elevation);
@@ -107,8 +136,8 @@ export default function Home() {
       } catch {
         // GeoIP unavailable (blocked fetch throws) — same sample fallback as
         // the unresolved-response path so the tool is never a dead panel.
-        setLat(String(SAMPLE_LAT));
-        setLon(String(SAMPLE_LON));
+        if (coordsTouched()) return;
+        setCoords(String(SAMPLE_LAT), String(SAMPLE_LON));
         void lookup(SAMPLE_LAT, SAMPLE_LON);
       }
     })();
@@ -171,15 +200,15 @@ export default function Home() {
   const scrollToTop = useCallback(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
   async function lookup(latOverride?: number, lonOverride?: number) {
-    let la = latOverride ?? parseFloat(lat);
-    let lo = lonOverride ?? parseFloat(lon);
+    const seq = ++lookupSeq.current;
+    let la = latOverride ?? parseFloat(latInputRef.current?.value ?? "");
+    let lo = lonOverride ?? parseFloat(lonInputRef.current?.value ?? "");
     // Empty inputs resolve to the sample point instead of scolding the user:
     // pressing Go should always do something visible.
     if (isNaN(la) && isNaN(lo)) {
       la = SAMPLE_LAT;
       lo = SAMPLE_LON;
-      setLat(String(SAMPLE_LAT));
-      setLon(String(SAMPLE_LON));
+      setCoords(String(SAMPLE_LAT), String(SAMPLE_LON));
     }
     if (isNaN(la) || isNaN(lo)) {
       setError("Enter valid coordinates");
@@ -189,11 +218,15 @@ export default function Home() {
       setError("Invalid coordinates (-90 to 90 lat, -180 to 180 lon)");
       return;
     }
+    setQueried({ la: String(la), lo: String(lo) });
     setLoading(true);
     setError("");
     try {
       const res = await fetch(`/api/query?lat=${la}&lon=${lo}&include=elevation,address`);
       const data = await res.json();
+      // Superseded: a newer lookup (user pressed Go again, or the bootstrap
+      // ran after us) owns the result panel — drop this stale answer.
+      if (seq !== lookupSeq.current) return;
       if (data.error) {
         setError(data.error);
         setResult(null);
@@ -215,7 +248,8 @@ export default function Home() {
       setError("Failed to fetch data");
       setResult(null);
     } finally {
-      setLoading(false);
+      // A superseded lookup must not clear the spinner of the newer one.
+      if (seq === lookupSeq.current) setLoading(false);
     }
   }
 
@@ -378,12 +412,10 @@ export default function Home() {
               textSecondary={textSecondary}
               inputStyle={inputStyle}
               onCoords={(la, lo) => {
-                setLat(la);
-                setLon(lo);
+                setCoords(la, lo);
               }}
               onPick={(la, lo) => {
-                setLat(la.toString());
-                setLon(lo.toString());
+                setCoords(la.toString(), lo.toString());
                 void lookup(la, lo);
               }}
             />
@@ -399,8 +431,8 @@ export default function Home() {
                 className="oz-input oz-input-lat"
                 placeholder="Latitude"
                 aria-label="Latitude"
-                value={lat}
-                onChange={(e) => { setLat(e.target.value); }}
+                defaultValue=""
+                ref={latInputRef}
                 style={inputStyle}
               />
               <input
@@ -408,8 +440,8 @@ export default function Home() {
                 className="oz-input oz-input-lon"
                 placeholder="Longitude"
                 aria-label="Longitude"
-                value={lon}
-                onChange={(e) => { setLon(e.target.value); }}
+                defaultValue=""
+                ref={lonInputRef}
                 style={inputStyle}
               />
               <button
@@ -442,8 +474,7 @@ export default function Home() {
                   key={loc.name}
                   className="oz-sample-btn"
                   onClick={() => {
-                    setLat(loc.lat);
-                    setLon(loc.lon);
+                    setCoords(loc.lat, loc.lon);
                   }}
                   style={{
                     padding: "0.15rem 0.45rem",
@@ -486,8 +517,8 @@ export default function Home() {
             )}
 
             <SnippetTabs
-              lat={lat}
-              lon={lon}
+              lat={queried?.la ?? ""}
+              lon={queried?.lo ?? ""}
               result={result}
               placeName={placeName}
               loading={loading}

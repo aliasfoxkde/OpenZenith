@@ -526,12 +526,12 @@ export default function Home() {
               {
                 label: "Terrain tiles",
                 value: "33M+",
-                tip: "Multi-resolution pyramid: 87K tiles at z0\u20138, 1.1M at z10 on Cloudflare R2, plus 32M Quantized Mesh tiles at z13 (~1m precision) generated. Copernicus GLO-30 land + GEBCO 2025 ocean bathymetry.",
+                tip: "Multi-resolution pyramid: z7\u2013z11 OZT2 tiles (~800K) hosted free on HuggingFace, served through the edge runtime. NASA SRTM 30m land + GEBCO 2025 ocean bathymetry.",
               },
               {
                 label: "Storage",
-                value: "Cloudflare R2",
-                tip: "Tiles served from Cloudflare R2 object storage via edge runtime with cache-aside (130\u2013190ms TTFB). Full Cloudflare Pages deployment \u2014 no Node.js dependency.",
+                value: "HuggingFace + Edge",
+                tip: "Tiles hosted on free HuggingFace storage, served via edge runtime with cache-aside. Full Cloudflare Pages deployment \u2014 no Node.js dependency, no paid storage.",
               },
               {
                 label: "Resolution",
@@ -681,8 +681,8 @@ export default function Home() {
               {
                 emoji: "\uD83D\uDDFA\uFE0F",
                 title: "Tile Server",
-                desc: "Multi-resolution terrain tiles served from Cloudflare R2 via edge runtime. z0\u201310 Terrarium PNG + z13 Quantized Mesh.",
-                back: "Multi-resolution pyramid: z0\u20138 (1.7km) + z10 (156m) Terrarium PNG on R2. 32M z13 QM tiles (~1m) generated. Edge runtime with <50ms global latency.",
+                desc: "Multi-resolution terrain tiles served from HuggingFace-hosted OZT2 via edge runtime. z7\u2013z11 available, Terrarium PNG fallback.",
+                back: "Multi-resolution pyramid: z7 (~300m/px) to z11 (19m/px) OZT2 tiles, byte-validated on HuggingFace. Edge runtime with global low-latency delivery.",
                 href: "/map",
                 btn: "Open Map",
               },
@@ -1466,7 +1466,7 @@ export default function Home() {
               }}
             >
               OpenZenith runs on Cloudflare's free tier &mdash; no servers to maintain, minimal monthly costs. Elevation
-              tiles live in Cloudflare R2 (~1.7GB), API responses are cached at the edge, and everything else executes
+              tiles live in free HuggingFace dataset storage, API responses are cached at the edge, and everything else executes
               in your browser. That keeps it free for everyone, but it also means we're limited by what edge functions
               and client-side compute can do.
             </p>

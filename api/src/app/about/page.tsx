@@ -185,7 +185,7 @@ export default function AboutPage() {
             <span className="ab-tech-tag">Edge Runtime</span>
             <span className="ab-tech-tag">Python (OZT1)</span>
             <span className="ab-tech-tag">NASA SRTM</span>
-            <span className="ab-tech-tag">R2 Storage</span>
+            <span className="ab-tech-tag">HuggingFace Storage</span>
             <span className="ab-tech-tag">Vitest</span>
             <span className="ab-tech-tag">ESLint</span>
             <span className="ab-tech-tag">Prettier</span>
@@ -198,7 +198,7 @@ export default function AboutPage() {
             <a href="https://www.earthdata.nasa.gov/elevation" target="_blank" rel="noopener noreferrer">
               Shuttle Radar Topography Mission (SRTM)
             </a>{" "}
-            at 30-meter resolution, stored as OZT1-compressed tiles on Cloudflare R2. Additional real-time data is
+            at 30-meter resolution, hosted as OZT-compressed tiles on HuggingFace and served via the edge runtime. Additional real-time data is
             proxied from:
           </p>
           <div
@@ -299,8 +299,8 @@ export default function AboutPage() {
             <div className="ab-timeline-item">
               <h3>SRTM Data Processing</h3>
               <p>
-                Converted NASA SRTM HGT files into OZT1-compressed terrain tiles, optimized for edge delivery via
-                Cloudflare R2.
+                Converted NASA SRTM HGT files into OZT-compressed terrain tiles, hosted on HuggingFace and optimized
+                for edge delivery.
               </p>
             </div>
             <div className="ab-timeline-item">

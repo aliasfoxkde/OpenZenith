@@ -2029,3 +2029,25 @@ hero re-rendered clean in both themes; full chromium E2E 40 passed /
 no owning git process) blocked the first commit; removed the single
 lock file, which split the change into 4780883 (docs/triage) +
 639748a (source).
+
+## Task #140: design-audit polish — landing stats + explore empty state (2026-09-27, a0901d8)
+
+Continuing the design-review loop on the same renders: the landing
+stats strip undercounted the platform it advertises — 47 API endpoints
+(verified: 80 route.ts files) and 37 data layers (verified: 62 entries
+in the LAYERS registry), with the same stale 37 echoed in the Globe 3D
+flip card and a dataset tip; the Interactive Map card claimed 9
+basemaps against BASEMAP_ORDER's 10. All corrected to the measured
+numbers. The explore NOAA tab's pre-fetch dead region (~320px of blank
+below the Fetch button on desktop) now renders an empty-state hint.
+The offline-support claim on the map card was verified legitimate
+(sw.js:120 serves /offline.html on navigation failure) and left alone.
+
+The remaining landing observation — ~43 uniform cards make the mobile
+page a ~10,000px scroll — is a content-design judgment call (grouping
+the features/layers into semantic clusters), recorded here rather than
+acted on unilaterally.
+
+Gates: tsc clean; eslint 5,381/0; vitest 1,449 / 5; aegis green (3
+NoaaTab line-shifts triaged — TRIAGE.md; baseline steady 1,716).
+Deployed (699d3ef0); landing/explore/production E2E 26 passed.

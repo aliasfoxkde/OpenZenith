@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { mockRequest } from "./helpers";
 
-// Route tests run without an R2 binding, where the real r2GetJson resolves
+// Route tests run without an R2 binding, where the real edgeGetJson resolves
 // null. The mock mirrors that default but lets individual tests plant a
 // cache entry to drive the HIT path.
 const r2State = vi.hoisted<{ cached?: unknown }>(() => ({ cached: undefined }));
 
-vi.mock("@/lib/storage/r2-json-cache", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/storage/r2-json-cache")>();
-  return { ...actual, r2GetJson: () => Promise.resolve(r2State.cached) };
+vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
+  return { ...actual, edgeGetJson: () => Promise.resolve(r2State.cached) };
 });
 
 const MOCK_IBTRACS = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO_WIND,WMO_PRES,TRACK_TYPE

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
+import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -16,7 +16,7 @@ export async function GET() {
   try {
     // Try R2 cache first
     const cacheKey = apiCacheKey("nlnog");
-    const cached = await r2GetJson(cacheKey);
+    const cached = await edgeGetJson(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
         headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "HIT" },
@@ -60,7 +60,7 @@ export async function GET() {
       .filter((n: any) => n.lat !== null && n.lon !== null);
 
     const result = { nodes, count: nodes.length };
-    r2PutJson(cacheKey, result, 3600).catch(() => {});
+    edgePutJson(cacheKey, result, 3600).catch(() => {});
     return NextResponse.json(result, {
       headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "MISS" },
     });

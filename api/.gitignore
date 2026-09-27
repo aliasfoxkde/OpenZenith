@@ -34,3 +34,7 @@ __pycache__/
 
 # throwaway coverage-measurement scratch dirs (task #112 wave)
 .tmp-cov-*/
+
+# local wrangler dev persistence (miniflare smoke runs)
+.smoke-persist-*/
+.pkgprobe/

@@ -3,9 +3,9 @@ compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
-[[r2_buckets]]
-binding = "DEM_TILES"
-bucket_name = "openzenith-dem"
+# No R2 bindings: storage is free-only (HuggingFace datasets as origin, the
+# per-colo Cache API for cache-aside). The former openzenith-dem bucket is
+# retired.
 
 [vars]
 STORAGE_BACKEND = "huggingface"

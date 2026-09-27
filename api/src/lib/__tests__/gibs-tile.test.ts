@@ -1,29 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGIBSHandler, OPTIONS_HANDLER, CORS_HEADERS, type GIBSLayerConfig } from "../gibs-tile";
 import { tileToBboxString } from "../srtm/zoom-math";
-import { r2GetTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile } from "@/lib/storage/edge-cache";
 
 /**
  * Shared GIBS WMS proxy helper — exercised directly (the per-layer routes only
- * cover the happy path, leaving the 404 range guard, the R2 hit path, the
+ * cover the happy path, leaving the 404 range guard, the cache hit path, the
  * upstream-error path and the content-type fallback uncovered).
  */
 
-const r2State = vi.hoisted(() => ({
+const edgeState = vi.hoisted(() => ({
   /** undefined → delegate to the real cache behaviour (null without a binding). */
   cached: undefined as ArrayBuffer | undefined,
   puts: [] as Array<{ type: string; z: number; x: number; y: number; bytes: number; contentType: string }>,
   rejectPut: false,
 }));
 
-vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/storage/r2-tile-cache")>();
+vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
   return {
     ...actual,
-    r2GetTile: vi.fn((_type: string, _z: number, _x: number, _y: number) =>
-      Promise.resolve(r2State.cached === undefined ? null : r2State.cached),
+    edgeGetTile: vi.fn((_type: string, _z: number, _x: number, _y: number) =>
+      Promise.resolve(edgeState.cached === undefined ? null : edgeState.cached),
     ),
-    r2PutTile: vi.fn((
+    edgePutTile: vi.fn((
       type: string,
       z: number,
       x: number,
@@ -31,8 +31,8 @@ vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
       data: ArrayBuffer | Uint8Array,
       contentType: string,
     ): Promise<void> => {
-      if (r2State.rejectPut) return Promise.reject(new Error("R2 write failed"));
-      r2State.puts.push({ type, z, x, y, bytes: data.byteLength, contentType });
+      if (edgeState.rejectPut) return Promise.reject(new Error("cache write failed"));
+      edgeState.puts.push({ type, z, x, y, bytes: data.byteLength, contentType });
       return Promise.resolve();
     }),
   };
@@ -105,7 +105,7 @@ describe("createGIBSHandler — parameter validation", () => {
   });
 });
 
-describe("createGIBSHandler — R2 cache", () => {
+describe("createGIBSHandler — edge cache", () => {
   const GET = createGIBSHandler(CONFIG);
 
   const call = (z: number, x: number, y: number) =>
@@ -114,18 +114,18 @@ describe("createGIBSHandler — R2 cache", () => {
     });
 
   beforeEach(() => {
-    vi.mocked(r2GetTile).mockClear();
-    r2State.cached = undefined;
-    r2State.rejectPut = false;
-    r2State.puts = [];
+    vi.mocked(edgeGetTile).mockClear();
+    edgeState.cached = undefined;
+    edgeState.rejectPut = false;
+    edgeState.puts = [];
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("serves cached bytes from R2 without touching GIBS", async () => {
-    r2State.cached = asciiBuf("cached-tile-bytes");
+  it("serves cached bytes from the edge cache without touching GIBS", async () => {
+    edgeState.cached = asciiBuf("cached-tile-bytes");
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     const resp = await call(3, 5, 3);
@@ -136,10 +136,10 @@ describe("createGIBSHandler — R2 cache", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await resp.arrayBuffer()).toEqual(asciiBuf("cached-tile-bytes"));
 
-    const { r2GetTile: r2GetTileMock } = await import("@/lib/storage/r2-tile-cache");
-    expect(vi.mocked(r2GetTileMock).mock.calls[0]).toEqual(["gibs-test", 3, 5, 3]);
+    const { edgeGetTile: edgeGetTileMock } = await import("@/lib/storage/edge-cache");
+    expect(vi.mocked(edgeGetTileMock).mock.calls[0]).toEqual(["gibs-test", 3, 5, 3]);
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(r2State.puts).toHaveLength(0);
+    expect(edgeState.puts).toHaveLength(0);
   });
 
   it("propagates the configured cache TTL on a cache miss too", async () => {
@@ -164,9 +164,9 @@ describe("createGIBSHandler — WMS proxy", () => {
     `&TRANSPARENT=TRUE&WIDTH=256&HEIGHT=256&CRS=EPSG:3857&BBOX=${tileToBboxString(z, x, y)}`;
 
   beforeEach(() => {
-    r2State.cached = undefined;
-    r2State.rejectPut = false;
-    r2State.puts = [];
+    edgeState.cached = undefined;
+    edgeState.rejectPut = false;
+    edgeState.puts = [];
   });
 
   afterEach(() => {
@@ -187,9 +187,9 @@ describe("createGIBSHandler — WMS proxy", () => {
     expect(await resp.arrayBuffer()).toEqual(asciiBuf("png-bytes"));
 
     await vi.waitFor(() => {
-      expect(r2State.puts).toHaveLength(1);
+      expect(edgeState.puts).toHaveLength(1);
     });
-    expect(r2State.puts[0]).toEqual({
+    expect(edgeState.puts[0]).toEqual({
       type: "gibs-test",
       z: 2,
       x: 1,
@@ -205,9 +205,9 @@ describe("createGIBSHandler — WMS proxy", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toBe("image/png");
     await vi.waitFor(() => {
-      expect(r2State.puts).toHaveLength(1);
+      expect(edgeState.puts).toHaveLength(1);
     });
-    expect(r2State.puts[0].contentType).toBe("image/png");
+    expect(edgeState.puts[0].contentType).toBe("image/png");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -218,7 +218,7 @@ describe("createGIBSHandler — WMS proxy", () => {
     expect(resp.status).toBe(503);
     expect(await resp.text()).toBe("Tile not available");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(r2State.puts).toHaveLength(0);
+    expect(edgeState.puts).toHaveLength(0);
   });
 
   it("returns 200 with a diagnostic body when the WMS request fails (silent-200)", async () => {
@@ -229,11 +229,11 @@ describe("createGIBSHandler — WMS proxy", () => {
     expect(resp.headers.get("Content-Type")).toBe("text/plain;charset=UTF-8");
     expect(await resp.text()).toBe("Failed to fetch tile");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(r2State.puts).toHaveLength(0);
+    expect(edgeState.puts).toHaveLength(0);
   });
 
-  it("keeps serving the tile when the R2 write rejects", async () => {
-    r2State.rejectPut = true;
+  it("keeps serving the tile when the cache write rejects", async () => {
+    edgeState.rejectPut = true;
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(pngResponse());
 
     const resp = await call(3, 1, 1);

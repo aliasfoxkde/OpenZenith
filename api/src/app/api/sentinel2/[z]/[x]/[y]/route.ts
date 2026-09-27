@@ -9,7 +9,7 @@
  */
 
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -83,7 +83,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   const searchBbox = zoom < 6 ? "-180,-60,180,70" : bbox;
 
   // Check R2 cache first
-  const cached = await r2GetTile("sentinel2", zoom, tileX, tileY);
+  const cached = await edgeGetTile("sentinel2", zoom, tileX, tileY);
   if (cached) {
     return new Response(cached, {
       headers: {
@@ -114,7 +114,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
       });
       if (tileRes.ok) {
         const buffer = await tileRes.arrayBuffer();
-        r2PutTile("sentinel2", zoom, tileX, tileY, buffer, "image/png").catch(() => {});
+        edgePutTile("sentinel2", zoom, tileX, tileY, buffer, "image/png").catch(() => {});
         return new Response(buffer, {
           headers: {
             "Content-Type": "image/png",
@@ -132,7 +132,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   // Fallback: NASA GIBS MODIS True Color
   const gibsBuffer = await fetchGibsFallback(zoom, tileX, tileY);
   if (gibsBuffer) {
-    r2PutTile("sentinel2", zoom, tileX, tileY, gibsBuffer, "image/png").catch(() => {});
+    edgePutTile("sentinel2", zoom, tileX, tileY, gibsBuffer, "image/png").catch(() => {});
     return new Response(gibsBuffer, {
       headers: {
         "Content-Type": "image/png",

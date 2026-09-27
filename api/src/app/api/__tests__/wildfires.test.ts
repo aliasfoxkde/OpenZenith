@@ -72,7 +72,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
   };
 
   const getRoute = async () => (await import("@/app/api/wildfires/route")).GET;
-  const r2Json = async () => await import("@/lib/storage/r2-json-cache");
+  const r2Json = async () => await import("@/lib/storage/edge-cache");
 
   beforeEach(() => {
     vi.stubEnv("FIRMS_MAP_KEY", "");
@@ -98,8 +98,8 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
       ],
       count: 1,
     };
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockResolvedValueOnce(cached);
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockResolvedValueOnce(cached);
     stubFetch(vi.fn());
 
     const GET = await getRoute();
@@ -145,9 +145,9 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(second.properties.frp).toBe(0);
     expect(second.properties.daynight).toBe("D");
 
-    const { r2PutJson } = await r2Json();
-    expect(r2PutJson).toHaveBeenCalledTimes(1);
-    const [key, payload, ttl] = (r2PutJson as Mock).mock.calls[0];
+    const { edgePutJson } = await r2Json();
+    expect(edgePutJson).toHaveBeenCalledTimes(1);
+    const [key, payload, ttl] = (edgePutJson as Mock).mock.calls[0];
     expect(String(key)).toContain("wildfires");
     expect(payload.count).toBe(2);
     expect(ttl).toBe(3600);
@@ -267,8 +267,8 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
   it("returns a 200 error payload when the cache layer throws", async () => {
     stubKey();
     stubFetch(vi.fn());
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockRejectedValueOnce(new Error("R2 unavailable"));
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockRejectedValueOnce(new Error("R2 unavailable"));
 
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
@@ -283,8 +283,8 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
   it("falls back to a generic message when a non-Error is thrown", async () => {
     stubKey();
     stubFetch(vi.fn());
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockRejectedValueOnce("boom");
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockRejectedValueOnce("boom");
 
     const GET = await getRoute();
     const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();

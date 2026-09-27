@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
+import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   try {
     // Try R2 cache first (ADSB Exchange is paid-only, cache what we get)
     const cacheKey = apiCacheKey("military", { lat: String(lat), lon: String(lon), dist: String(dist) });
-    const cached = await r2GetJson(cacheKey);
+    const cached = await edgeGetJson(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
         headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=30", "X-Cache": "HIT" },
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       count: Array.isArray(aircraft) ? aircraft.length : 0,
       total: data?.totalCount ?? data?.total ?? null,
     };
-    r2PutJson(cacheKey, result, 60).catch(() => {});
+    edgePutJson(cacheKey, result, 60).catch(() => {});
     return NextResponse.json(result, {
       headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=30", "X-Cache": "MISS" },
     });

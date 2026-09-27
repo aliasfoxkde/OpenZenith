@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { staleWhileRevalidate } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
+import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   try {
     // Try R2 cache first (Celestrak is 8-15s from CF edge)
     const cacheKey = apiCacheKey("satellites", { group, limit: String(limit) });
-    const cached = await r2GetJson(cacheKey);
+    const cached = await edgeGetJson(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
         headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`, "X-Cache": "HIT" },
@@ -119,14 +119,14 @@ export async function GET(request: NextRequest) {
     if (Array.isArray(data) && data.length > limit) {
       const truncated = data.slice(0, limit);
       const result = { count: data.length, truncated: true, limit, satellites: truncated };
-      r2PutJson(cacheKey, result, CACHE_TTL_SATS).catch(() => {});
+      edgePutJson(cacheKey, result, CACHE_TTL_SATS).catch(() => {});
       return NextResponse.json(result, {
         headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`, "X-Cache": "MISS" },
       });
     }
 
     const result = Array.isArray(data) ? { count: data.length, truncated: false, satellites: data } : data;
-    r2PutJson(cacheKey, result, CACHE_TTL_SATS).catch(() => {});
+    edgePutJson(cacheKey, result, CACHE_TTL_SATS).catch(() => {});
     return NextResponse.json(result, {
       headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL_SATS}`, "X-Cache": "MISS" },
     });

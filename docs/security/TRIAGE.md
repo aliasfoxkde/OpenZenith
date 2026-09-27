@@ -1195,3 +1195,32 @@ No new vulnerability classes. Baseline updated deliberately.
 - Production side-finding: Cloudflare bot protection 403-blocks non-browser
   user agents (curl default UA) on API paths while browser UAs pass — affects
   scripted SDK consumers, not the site.
+
+## 2026-09-27 — R2 exit (#144): edge-cache migration re-flags (38)
+
+All 38 findings are known dispositioned classes re-flagged because files were
+renamed/edited (baseline is path+line sensitive), plus false positives on new
+synthetic identifiers:
+
+- **try-catch-bulk (11), console-log*/react-console-log-dev (5), cors-misconfiguration
+  (wildcard origin), no-cache-headers (3), return-await (3), namespace-declaration (2),
+  data-augmentation, debug-endpoint, ai-generated-marker** — identical patterns were
+  dispositioned across these same routes before the migration; the edge-cache rename
+  moved their lines. No behavioral change: the try/catch blocks are the deliberate
+  cache-failure-falls-through pattern; wildcard CORS is required for public tile/JSON
+  APIs; console.log in dem-tile is dev-gated.
+- **ssrf [high] dem-tile route:175 (`fetchOzt2Tile`)** — false positive. The URL is
+  `https://huggingface.co/datasets/<const repo>/resolve/main/tiles/z{z}/{x}/{y}.ozt2`
+  where z/x/y are validated integers (parseInt + range checks) before interpolation;
+  no attacker-controlled string reaches the host or path scheme. Same shape as the
+  existing HuggingFaceChunkBackend fetches.
+- **ssrf [high] test-setup.ts:63/69** — the hermetic-fetch net re-flagged on line shift;
+  previously dispositioned (test-only fetch guard, blocks external requests).
+- **hardcoded-internal-endpoint edge-cache.ts:31 / edge-cache.test.ts (4)** — the
+  synthetic `https://edge-cache.openzenith.internal` origin is the Cache API URL-key
+  namespace, not a network endpoint; nothing connects to it.
+- **no-cache-headers edge-cache.ts** — headers are built dynamically via `new Headers`
+  from the ttl parameter; the static scanner cannot see the literal string concat
+  result. Cache-Control is set on every stored response.
+
+Disposition: no code changes. Baseline updated via `aegis_scan.sh update`.

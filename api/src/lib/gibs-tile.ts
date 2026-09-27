@@ -11,7 +11,7 @@
  */
 
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 import { tileToBboxString } from "@/lib/srtm/zoom-math";
 
 const GIBS_WMS = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi";
@@ -64,7 +64,7 @@ export function createGIBSHandler(config: GIBSLayerConfig) {
     }
 
     // Try R2 cache first
-    const cached = await r2GetTile(cachePrefix, zoom, tileX, tileY);
+    const cached = await edgeGetTile(cachePrefix, zoom, tileX, tileY);
     if (cached) {
       return new Response(cached, {
         headers: {
@@ -92,7 +92,7 @@ export function createGIBSHandler(config: GIBSLayerConfig) {
 
       const contentType = res.headers.get("content-type") || "image/png";
       const buffer = await res.arrayBuffer();
-      r2PutTile(cachePrefix, zoom, tileX, tileY, buffer, contentType).catch(() => {});
+      edgePutTile(cachePrefix, zoom, tileX, tileY, buffer, contentType).catch(() => {});
 
       return new Response(buffer, {
         headers: {

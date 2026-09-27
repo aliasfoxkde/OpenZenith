@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // R2 cache-aside
   try {
-    const cached = await r2GetTile("dem-raw", zoom, tileX, tileY);
+    const cached = await edgeGetTile("dem-raw", zoom, tileX, tileY);
     if (cached) {
       return new NextResponse(cached, {
         headers: {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const buffer = result.data.buffer.slice(result.data.byteOffset, result.data.byteOffset + result.data.byteLength);
 
     // Store in R2
-    r2PutTile("dem-raw", zoom, tileX, tileY, buffer as ArrayBuffer, "application/octet-stream").catch(() => {});
+    edgePutTile("dem-raw", zoom, tileX, tileY, buffer as ArrayBuffer, "application/octet-stream").catch(() => {});
 
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {

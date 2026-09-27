@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
+import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   try {
     // Try R2 cache first (cross-isolate persistence)
     const cacheKey = apiCacheKey("earthquakes", { period });
-    const cached = await r2GetJson(cacheKey);
+    const cached = await edgeGetJson(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
         headers: {
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     const data = await resp.json();
 
     // Store in R2 for future requests (best-effort)
-    r2PutJson(cacheKey, data, CACHE_TTL.EARTHQUAKES).catch(() => {});
+    edgePutJson(cacheKey, data, CACHE_TTL.EARTHQUAKES).catch(() => {});
 
     return NextResponse.json(data, {
       headers: { ...CORS_HEADERS, "Cache-Control": `public, max-age=${CACHE_TTL.EARTHQUAKES}`, "X-Cache": "MISS" },

@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { GET, OPTIONS } from "@/app/api/sentinel2/[z]/[x]/[y]/route";
-import { r2GetTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile } from "@/lib/storage/edge-cache";
 
 /**
  * Covers /api/sentinel2/[z]/[x]/[y] — the Sentinel-2 tile proxy with the
@@ -57,7 +57,7 @@ describe("Sentinel-2 tile API", () => {
   });
 
   it("serves a cached tile without contacting any upstream", async () => {
-    vi.mocked(r2GetTile).mockResolvedValueOnce(PNG);
+    vi.mocked(edgeGetTile).mockResolvedValueOnce(PNG);
 
     const resp = await GET(new Request("https://oz/api/sentinel2/10/163/394"), {
       params: Promise.resolve({ z: "10", x: "163", y: "394" }),

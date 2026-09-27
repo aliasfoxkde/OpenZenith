@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 /**
@@ -60,7 +60,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   // R2 cache-aside: check R2 first
   try {
-    const cached = await r2GetTile("contours", zoom, tileX, tileY);
+    const cached = await edgeGetTile("contours", zoom, tileX, tileY);
     if (cached) {
       return new Response(cached, {
         headers: {
@@ -81,7 +81,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const body = JSON.stringify(geojson);
 
     // Store in R2
-    r2PutTile("contours", zoom, tileX, tileY, new TextEncoder().encode(body), "application/geojson").catch(() => {});
+    edgePutTile("contours", zoom, tileX, tileY, new TextEncoder().encode(body), "application/geojson").catch(() => {});
 
     return new Response(body, {
       headers: {

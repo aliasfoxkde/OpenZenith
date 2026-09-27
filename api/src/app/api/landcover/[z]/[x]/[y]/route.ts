@@ -7,7 +7,7 @@
  */
 
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
   }
 
   // Try R2 cache first
-  const cached = await r2GetTile("landcover", zoom, tileX, tileY);
+  const cached = await edgeGetTile("landcover", zoom, tileX, tileY);
   if (cached) {
     return new Response(cached, {
       headers: {
@@ -63,7 +63,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
 
     const contentType = res.headers.get("content-type") || "image/png";
     const buffer = await res.arrayBuffer();
-    r2PutTile("landcover", zoom, tileX, tileY, buffer, contentType).catch(() => {});
+    edgePutTile("landcover", zoom, tileX, tileY, buffer, contentType).catch(() => {});
 
     return new Response(buffer, {
       headers: {

@@ -22,15 +22,15 @@ vi.mock("@/lib/storage/backend", () => ({
   HuggingFaceChunkBackend: vi.fn(),
 }));
 
-vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/storage/r2-tile-cache")>();
+vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
   return {
     // Keep the real constant: the route derives its cache namespace from it.
     RENDER_SCHEMA_VERSION: actual.RENDER_SCHEMA_VERSION,
-    r2GetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
+    edgeGetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
       Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
     ),
-  r2PutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
+  edgePutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
     const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
     r2Store.set(
       `${z}/${x}/${y}`,
@@ -44,11 +44,11 @@ vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
 import { GET, OPTIONS } from "@/app/api/elevation-color/[z]/[x]/[y]/route";
 import { lerpColor } from "@/lib/hypsometric";
 import { getTileData } from "@/lib/tile";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
 const mockGetTileData = getTileData as ReturnType<typeof vi.fn>;
-const mockR2GetTile = r2GetTile as ReturnType<typeof vi.fn>;
-const mockR2PutTile = r2PutTile as ReturnType<typeof vi.fn>;
+const mockR2GetTile = edgeGetTile as ReturnType<typeof vi.fn>;
+const mockR2PutTile = edgePutTile as ReturnType<typeof vi.fn>;
 
 const routeCtx = (z: string, x: string, y: string) => ({ params: Promise.resolve({ z, x, y }) });
 

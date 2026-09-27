@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { r2GetTile, r2PutTile } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
 const route = () => import("@/app/api/population/[z]/[x]/[y]/route");
 
@@ -32,8 +32,8 @@ describe("Population Tile API", () => {
 describe("Population Tile API — param, cache and upstream branches", () => {
   beforeEach(() => {
     // Restore the setup-file baseline (cache miss, successful put).
-    vi.mocked(r2GetTile).mockReset().mockResolvedValue(null);
-    vi.mocked(r2PutTile).mockReset().mockResolvedValue(undefined);
+    vi.mocked(edgeGetTile).mockReset().mockResolvedValue(null);
+    vi.mocked(edgePutTile).mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -80,7 +80,7 @@ describe("Population Tile API — param, cache and upstream branches", () => {
     const fetchMock = vi.fn(() => Promise.resolve(new Response("upstream", { status: 200 })));
     vi.stubGlobal("fetch", fetchMock);
     const tile = bytes("cached-png");
-    vi.mocked(r2GetTile).mockResolvedValue(tile);
+    vi.mocked(edgeGetTile).mockResolvedValue(tile);
 
     const { GET } = await route();
     const resp = await GET(req("/api/population/3/4/5"), ctx("3", "4", "5"));
@@ -90,7 +90,7 @@ describe("Population Tile API — param, cache and upstream branches", () => {
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=86400");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await resp.arrayBuffer()).toEqual(tile);
-    expect(vi.mocked(r2GetTile).mock.calls[0]).toEqual(["population", 3, 4, 5]);
+    expect(vi.mocked(edgeGetTile).mock.calls[0]).toEqual(["population", 3, 4, 5]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -106,7 +106,7 @@ describe("Population Tile API — param, cache and upstream branches", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(resp.headers.get("Content-Type")).toBe("image/png");
     expect(await resp.arrayBuffer()).toEqual(tile);
-    expect(vi.mocked(r2PutTile).mock.calls[0]?.slice(0, 6)).toEqual([
+    expect(vi.mocked(edgePutTile).mock.calls[0]?.slice(0, 6)).toEqual([
       "population",
       3,
       4,
@@ -143,6 +143,6 @@ describe("Population Tile API — param, cache and upstream branches", () => {
     const resp = await GET(req("/api/population/3/4/5"), ctx("3", "4", "5"));
     expect(resp.status).toBe(200);
     expect(await resp.text()).toBe("Failed to fetch tile");
-    expect(vi.mocked(r2PutTile)).not.toHaveBeenCalled();
+    expect(vi.mocked(edgePutTile)).not.toHaveBeenCalled();
   });
 });

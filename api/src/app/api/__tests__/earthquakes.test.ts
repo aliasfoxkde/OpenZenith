@@ -37,19 +37,19 @@ describe("Earthquakes API", () => {
 
 /**
  * Branch coverage: R2 cache hit/miss, TTL forwarding, upstream failure
- * shapes and the fire-and-forget R2 write contract. r2GetJson/r2PutJson are
+ * shapes and the fire-and-forget R2 write contract. edgeGetJson/edgePutJson are
  * the file-level mocks installed by test-setup.ts, so reset them after each
  * test — a queued `Once` reply from a failing test would otherwise leak into
  * the next one.
  */
 describe("Earthquakes API — cache, error and validation branches", () => {
-  const r2Json = async () => await import("@/lib/storage/r2-json-cache");
+  const r2Json = async () => await import("@/lib/storage/edge-cache");
 
   afterEach(async () => {
     vi.unstubAllGlobals();
-    const { r2GetJson, r2PutJson } = await r2Json();
-    (r2GetJson as Mock).mockReset().mockResolvedValue(null);
-    (r2PutJson as Mock).mockReset().mockResolvedValue(undefined);
+    const { edgeGetJson, edgePutJson } = await r2Json();
+    (edgeGetJson as Mock).mockReset().mockResolvedValue(null);
+    (edgePutJson as Mock).mockReset().mockResolvedValue(undefined);
   });
 
   const getRoute = async () => (await import("@/app/api/earthquakes/route")).GET;
@@ -132,8 +132,8 @@ describe("Earthquakes API — cache, error and validation branches", () => {
       type: "FeatureCollection",
       features: [{ type: "Feature", geometry: { type: "Point", coordinates: [10, 20] }, properties: { mag: 4.2 } }],
     };
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockResolvedValueOnce(cached);
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockResolvedValueOnce(cached);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -164,8 +164,8 @@ describe("Earthquakes API — cache, error and validation branches", () => {
   });
 
   it("falls back to a generic message when the cache layer throws a non-Error", async () => {
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockRejectedValueOnce("boom");
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockRejectedValueOnce("boom");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -176,8 +176,8 @@ describe("Earthquakes API — cache, error and validation branches", () => {
   });
 
   it("keeps serving the fresh payload when the R2 write fails", async () => {
-    const { r2PutJson } = await r2Json();
-    (r2PutJson as Mock).mockRejectedValueOnce(new Error("r2 write failed"));
+    const { edgePutJson } = await r2Json();
+    (edgePutJson as Mock).mockRejectedValueOnce(new Error("r2 write failed"));
     const payload = { type: "FeatureCollection", features: [{ properties: { mag: 5.5 } }] };
     const fetchMock = vi.fn(() => new Response(JSON.stringify(payload), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -189,8 +189,8 @@ describe("Earthquakes API — cache, error and validation branches", () => {
 
     // Fire-and-forget write: the rejection must be swallowed, not surfaced.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(r2PutJson).toHaveBeenCalledTimes(1);
-    const [key, stored, ttl] = (r2PutJson as Mock).mock.calls[0] as [string, unknown, number];
+    expect(edgePutJson).toHaveBeenCalledTimes(1);
+    const [key, stored, ttl] = (edgePutJson as Mock).mock.calls[0] as [string, unknown, number];
     expect(key).toContain("earthquakes");
     expect(stored).toEqual(payload);
     expect(ttl).toBe(60);

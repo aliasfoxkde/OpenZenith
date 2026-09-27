@@ -10,7 +10,6 @@ vi.mock("@/lib/tile", () => ({
 }));
 
 const route = () => import("@/app/api/dem-tile/[z]/[x]/[y]/route");
-const r2Cache = () => import("@/lib/storage/r2-tile-cache");
 
 const ctx = (z: number | string, x: number | string, y: number | string) => ({
   params: Promise.resolve({ z: String(z), x: String(x), y: String(y) }),
@@ -74,10 +73,11 @@ describe("DEM Tile XYZ API", () => {
 });
 
 describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => {
-  beforeEach(async () => {
-    const { r2GetTile, r2PutTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockResolvedValue(null);
-    vi.mocked(r2PutTile).mockReset().mockResolvedValue(undefined);
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: RequestInfo | URL) => Promise.resolve(new Response(null, { status: 404 }))),
+    );
   });
 
   it("exposes CORS preflight", async () => {
@@ -121,42 +121,41 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     expect(resp.headers.get("Content-Length")).toBe(String((await resp.arrayBuffer()).byteLength));
   });
 
-  it("serves an OZT2 tile straight from R2", async () => {
-    const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockImplementation((prefix: string) =>
-      Promise.resolve(prefix === "ozt2" ? asciiBuf("ozt2-tile-bytes") : null),
+  it("serves an OZT2 tile straight from the HuggingFace dataset", async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL) =>
+      Promise.resolve(new Response(asciiBuf("ozt2-tile-bytes"), { status: 200 })),
     );
+    vi.stubGlobal("fetch", fetchMock);
 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/10/163/395?format=ozt2"), ctx(10, 163, 395));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toBe("application/octet-stream");
-    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("r2-cache");
+    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
     expect(resp.headers.get("X-Dem-Tile-Format")).toBe("ozt2");
-    expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(resp.headers.get("Content-Length")).toBe(String("ozt2-tile-bytes".length));
     expect(await resp.arrayBuffer()).toEqual(asciiBuf("ozt2-tile-bytes"));
-    expect(vi.mocked(r2GetTile).mock.calls[0][0]).toBe("ozt2");
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2/resolve/main/tiles/z10/163/395.ozt2",
+    );
   });
 
-  it("falls back to a PNG (and says so) when no OZT2 tile exists in R2", async () => {
+  it("falls back to a PNG (and says so) when no OZT2 tile exists upstream", async () => {
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/10/163/395?format=ozt2"), ctx(10, 163, 395));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Dem-Tile-Format-Fallback")).toBe("ozt2-to-png");
     expect(resp.headers.get("X-Dem-Tile-Format")).toBe("png");
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-
-    const { r2GetTile } = await r2Cache();
-    expect(vi.mocked(r2GetTile).mock.calls.map((call) => call[0])).toEqual(["ozt2", "dem-tile"]);
   });
 
-  it("still falls back to a PNG when the OZT2 R2 read fails, logging in development", async () => {
+  it("still falls back to a PNG when the OZT2 fetch fails, logging in development", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockImplementation((prefix: string) =>
-      prefix === "ozt2" ? Promise.reject(new Error("R2 unavailable")) : Promise.resolve(null),
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: RequestInfo | URL) => Promise.reject(new Error("HF unavailable"))),
     );
 
     try {
@@ -165,7 +164,7 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
       expect(resp.status).toBe(200);
       expect(resp.headers.get("X-Dem-Tile-Format-Fallback")).toBe("ozt2-to-png");
       expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("OZT2 tile not found in R2 for 10/163/395"));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("OZT2 tile not found for 10/163/395"));
     } finally {
       logSpy.mockRestore();
     }
@@ -184,30 +183,6 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     }
   });
 
-  it("serves a PNG tile from the R2 cache", async () => {
-    const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockImplementation((prefix: string) =>
-      Promise.resolve(prefix === "dem-tile" ? asciiBuf("png-tile-bytes") : null),
-    );
-
-    const { GET } = await route();
-    const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
-    expect(resp.headers.get("Content-Type")).toBe("image/png");
-    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("r2-cache");
-    expect(resp.headers.get("X-Cache")).toBe("HIT");
-  });
-
-  it("falls through to HuggingFace assembly when the R2 read fails", async () => {
-    const { r2GetTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockRejectedValue(new Error("R2 unavailable"));
-
-    const { GET } = await route();
-    const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-    expect(resp.headers.get("X-Cache")).toBe("MISS");
-  });
-
   it("writes assembled tiles back to the Cloudflare cache", async () => {
     const cachesMock = stubCaches();
     const { GET } = await route();
@@ -222,9 +197,6 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
 
 describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
   beforeEach(async () => {
-    const { r2GetTile, r2PutTile } = await r2Cache();
-    vi.mocked(r2GetTile).mockReset().mockResolvedValue(null);
-    vi.mocked(r2PutTile).mockReset().mockResolvedValue(undefined);
     vi.mocked(vi.mocked(await import("@/lib/tile")).getTileData).mockReset().mockResolvedValue({
       data: new Int16Array(256 * 256).fill(100),
       width: 256,

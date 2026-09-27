@@ -1,9 +1,9 @@
 /**
- * Global test setup — mock R2 storage modules for all API tests.
+ * Global test setup — mock the edge cache module for all API tests.
  *
- * R2 modules use environment bindings (process.env.DEM_TILES) that
- * aren't available in vitest's Node.js environment. Mocking them
- * globally avoids repeating mocks in every test file.
+ * The Cache API (`caches`) isn't available in vitest's Node.js environment,
+ * so the edge-cache module would no-op every call. Mocking it globally keeps
+ * route tests hermetic and avoids repeating mocks in every test file.
  */
 import { beforeEach, vi } from "vitest";
 
@@ -45,21 +45,18 @@ beforeEach(() => {
   globalThis.fetch = hermeticFetch;
 });
 
-vi.mock("@/lib/storage/r2-tile-cache", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/storage/r2-tile-cache")>();
+vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
   return {
     // Keep the real constant: routes derive their cache namespaces from it.
     RENDER_SCHEMA_VERSION: actual.RENDER_SCHEMA_VERSION,
-    r2GetTile: vi.fn().mockResolvedValue(null),
-    r2PutTile: vi.fn().mockResolvedValue(undefined),
+    edgeGetTile: vi.fn().mockResolvedValue(null),
+    edgePutTile: vi.fn().mockResolvedValue(undefined),
+    edgeGetJson: vi.fn().mockResolvedValue(null),
+    edgePutJson: vi.fn().mockResolvedValue(undefined),
+    apiCacheKey: vi.fn((...args: string[]) => args.join(":")),
   };
 });
-
-vi.mock("@/lib/storage/r2-json-cache", () => ({
-  r2GetJson: vi.fn().mockResolvedValue(null),
-  r2PutJson: vi.fn().mockResolvedValue(undefined),
-  apiCacheKey: vi.fn((...args: string[]) => args.join(":")),
-}));
 
 vi.mock("@/lib/storage/cache", () => ({
   staleWhileRevalidate: vi.fn(async (url: string, ...args: unknown[]) => {

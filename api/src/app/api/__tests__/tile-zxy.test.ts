@@ -24,14 +24,14 @@ vi.mock("@/lib/storage/backend", () => {
 
 const r2Store = new Map<string, ArrayBuffer>();
 
-// Promise-returning mocks: the route chains .catch() on r2PutTile and awaits
+// Promise-returning mocks: the route chains .catch() on edgePutTile and awaits
 // both, so the stubs must keep the real signatures' Promise results.
-vi.mock("@/lib/storage/r2-tile-cache", () => ({
-  r2GetTile: vi.fn(
+vi.mock("@/lib/storage/edge-cache", () => ({
+  edgeGetTile: vi.fn(
     (_prefix: string, z: number, x: number, y: number): Promise<ArrayBuffer | null> =>
       Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
   ),
-  r2PutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer): Promise<void> => {
+  edgePutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer): Promise<void> => {
     r2Store.set(`${z}/${x}/${y}`, buf);
     return Promise.resolve();
   }),
@@ -64,7 +64,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
 
   it("serves from R2 cache on second request", async () => {
     await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
-    // r2PutTile is fire-and-forget in the route — wait for the store write
+    // edgePutTile is fire-and-forget in the route — wait for the store write
     await vi.waitFor(() => { expect(r2Store.size).toBe(1); });
     const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     expect(resp.headers.get("X-Cache")).toBe("HIT");
@@ -101,8 +101,8 @@ describe("Raw DEM tile API (/api/tile)", () => {
   });
 
   it("falls through to assembly when R2 read fails", async () => {
-    const { r2GetTile } = await import("@/lib/storage/r2-tile-cache");
-    (r2GetTile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("R2 down"));
+    const { edgeGetTile } = await import("@/lib/storage/edge-cache");
+    (edgeGetTile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("R2 down"));
     const resp = await GET(req("http://localhost/api/tile/8/73/96"), routeCtx(8, 73, 96));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");

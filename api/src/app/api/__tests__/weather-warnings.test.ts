@@ -26,18 +26,18 @@ describe("Weather Warnings API", () => {
 
 /**
  * Branch coverage: R2 cache hit/miss, field trimming, the no-features payload
- * shape and both throw shapes out of the try block. r2GetJson/r2PutJson are
+ * shape and both throw shapes out of the try block. edgeGetJson/edgePutJson are
  * the file-level mocks from test-setup.ts, reset per test so a queued `Once`
  * reply cannot leak between tests.
  */
 describe("Weather Warnings API — cache, trimming and error branches", () => {
-  const r2Json = async () => await import("@/lib/storage/r2-json-cache");
+  const r2Json = async () => await import("@/lib/storage/edge-cache");
 
   afterEach(async () => {
     vi.unstubAllGlobals();
-    const { r2GetJson, r2PutJson } = await r2Json();
-    (r2GetJson as Mock).mockReset().mockResolvedValue(null);
-    (r2PutJson as Mock).mockReset().mockResolvedValue(undefined);
+    const { edgeGetJson, edgePutJson } = await r2Json();
+    (edgeGetJson as Mock).mockReset().mockResolvedValue(null);
+    (edgePutJson as Mock).mockReset().mockResolvedValue(undefined);
   });
 
   const getRoute = async () => (await import("@/app/api/weather/warnings/route")).GET;
@@ -55,8 +55,8 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
       type: "FeatureCollection",
       features: [{ type: "Feature", geometry: null, properties: { event: "Flood Warning" } }],
     };
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockResolvedValueOnce(cached);
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockResolvedValueOnce(cached);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -101,7 +101,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     };
     const fetchMock = vi.fn(() => new Response(JSON.stringify(upstream), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    const { r2PutJson } = await r2Json();
+    const { edgePutJson } = await r2Json();
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);
@@ -139,8 +139,8 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     expect(props).not.toHaveProperty("instruction");
     expect(props).not.toHaveProperty("parameters");
 
-    expect(r2PutJson).toHaveBeenCalledTimes(1);
-    const [key, stored, ttl] = (r2PutJson as Mock).mock.calls[0] as [string, unknown, number];
+    expect(edgePutJson).toHaveBeenCalledTimes(1);
+    const [key, stored, ttl] = (edgePutJson as Mock).mock.calls[0] as [string, unknown, number];
     expect(key).toContain("weather-warnings");
     expect(stored).toEqual(data);
     expect(ttl).toBe(120);
@@ -148,15 +148,15 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
 
   it("passes a payload without a features array through untrimmed", async () => {
     vi.stubGlobal("fetch", vi.fn(() => new Response(JSON.stringify({ status: "ok" }), { status: 200 })));
-    const { r2PutJson } = await r2Json();
+    const { edgePutJson } = await r2Json();
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     const data = await resp.json();
     expect(data).toEqual({ status: "ok" });
-    expect(r2PutJson).toHaveBeenCalledTimes(1);
-    const [, stored] = (r2PutJson as Mock).mock.calls[0] as [string, unknown];
+    expect(edgePutJson).toHaveBeenCalledTimes(1);
+    const [, stored] = (edgePutJson as Mock).mock.calls[0] as [string, unknown];
     expect(stored).toEqual({ status: "ok" });
   });
 
@@ -189,11 +189,11 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
   });
 
   it("resolves a rejecting cache read to the 200 error payload", async () => {
-    // Regression: the r2GetJson await used to sit outside the try block, so
+    // Regression: the edgeGetJson await used to sit outside the try block, so
     // a rejecting cache layer escaped the handler as an unhandled 500
     // instead of reaching the route's 200-error contract.
-    const { r2GetJson } = await r2Json();
-    (r2GetJson as Mock).mockRejectedValueOnce(new Error("cache offline"));
+    const { edgeGetJson } = await r2Json();
+    (edgeGetJson as Mock).mockRejectedValueOnce(new Error("cache offline"));
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -205,8 +205,8 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
   });
 
   it("keeps serving the fresh payload when the R2 write fails", async () => {
-    const { r2PutJson } = await r2Json();
-    (r2PutJson as Mock).mockRejectedValueOnce(new Error("r2 write failed"));
+    const { edgePutJson } = await r2Json();
+    (edgePutJson as Mock).mockRejectedValueOnce(new Error("r2 write failed"));
     vi.stubGlobal("fetch", vi.fn(() => new Response(JSON.stringify({ features: [] }), { status: 200 })));
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
@@ -215,6 +215,6 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     expect(await resp.json()).toEqual({ features: [] });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(r2PutJson).toHaveBeenCalledTimes(1);
+    expect(edgePutJson).toHaveBeenCalledTimes(1);
   });
 });

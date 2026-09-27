@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { r2GetJson, r2PutJson, apiCacheKey } from "@/lib/storage/r2-json-cache";
+import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -21,7 +21,7 @@ export async function GET(_request: NextRequest) {
   // 500. Matches earthquakes/route.ts.
   try {
     const cacheKey = apiCacheKey("weather-warnings");
-    const cached = await r2GetJson(cacheKey);
+    const cached = await edgeGetJson(cacheKey);
     if (cached) {
       return NextResponse.json(cached, { headers: { "X-Cache": "HIT", ...CORS_HEADERS } });
     }
@@ -69,7 +69,7 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    r2PutJson(cacheKey, data, 120).catch(() => {});
+    edgePutJson(cacheKey, data, 120).catch(() => {});
     return NextResponse.json(data, { headers: { "X-Cache": "MISS", ...CORS_HEADERS } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

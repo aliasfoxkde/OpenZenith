@@ -1,9 +1,6 @@
-// Cloudflare Pages environment bindings (R2, KV, D1, etc.)
-declare global {
-  interface CloudflareEnv {
-    DEM_TILES: R2Bucket;
-  }
-}
+// Cloudflare Pages environment bindings (KV, D1, etc.)
+// No R2 bindings: the platform runs on free storage only (HuggingFace origin
+// + the per-colo Cache API).
 
 // Augment Response.json() to return Promise<any> instead of Promise<unknown>
 // This avoids having to cast every res.json() call throughout the codebase.

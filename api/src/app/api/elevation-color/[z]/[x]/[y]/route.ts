@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { r2GetTile, r2PutTile, RENDER_SCHEMA_VERSION } from "@/lib/storage/r2-tile-cache";
+import { edgeGetTile, edgePutTile, RENDER_SCHEMA_VERSION } from "@/lib/storage/edge-cache";
 import { lerpColor } from "@/lib/hypsometric";
 import { zlibSync } from "fflate";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
@@ -127,7 +127,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   // Layer 2: R2 Storage (~300ms)
   try {
-    const cached = await r2GetTile("elevation-color", zoom, tileX, tileY);
+    const cached = await edgeGetTile("elevation-color", zoom, tileX, tileY);
     if (cached) {
       // Also store in CF Cache
       putEcCfCache(zoom, tileX, tileY, cached).catch(() => {});
@@ -151,7 +151,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const png = encodeColorPNG(tileData.data, tileData.width, tileData.height);
 
     // Store in R2 and CF Cache
-    r2PutTile("elevation-color", zoom, tileX, tileY, png.buffer as ArrayBuffer, "image/png").catch(() => {});
+    edgePutTile("elevation-color", zoom, tileX, tileY, png.buffer as ArrayBuffer, "image/png").catch(() => {});
     putEcCfCache(zoom, tileX, tileY, png.buffer as ArrayBuffer).catch(() => {});
 
     return new Response(png.buffer as ArrayBuffer, {

@@ -2102,3 +2102,31 @@ disposable cache. Migration shape: bulk-copy z11 R2→HF (128 commits/hr
 cap → batch ~1000+ files/commit), flip dem-tile OZT2 reads to HF,
 replace remaining R2 cache uses with the Cache API, drop the DEM_TILES
 binding, then empty the bucket.
+
+## 2026-09-27 (wave: R2 exit execution)
+
+**#144 — migration executed (deploy + bucket purge pending upload):**
+- HF path scheme resolved: remote layout is `tiles/z{z}/{x}/{y}.ozt2`
+  (`OZT2HFBackend._tile_url`, openzenith/backends/ozt2.py:272-277); uploader
+  `--path_in_repo tiles` matches. Live probe `tiles/z10/1/338.ozt2` → 200,
+  byte-identical with local. (Probe WITHOUT the `tiles/` prefix 404s — the
+  earlier "scheme unknown" scare was a bad probe URL.)
+- z11 upload running: 595,149 tiles → `aliasfox/srtm30m-ozt2-v2`, 239 commits
+  × 2,500 files, ~95-100 commits/hour (HF cap), ETA ~2.4h from commit start.
+- Code flip committed (107d583→f8e1452): `src/lib/storage/edge-cache.ts`
+  replaces r2-{binding,json-cache,tile-cache} (Cache API, explicit freshness
+  headers, per-colo accepted); dem-tile OZT2 layer 2 fetches HF directly
+  (`X-Dem-Tile-Source: huggingface`); PNG R2 layer dropped; `[[r2_buckets]]`
+  removed from wrangler.toml; DEM_TILES removed from CloudflareEnv.
+- Verified locally: vitest 99 files / 1,419 pass + 5 skip; tsc clean; eslint
+  5,355 warnings / 0 errors (baseline −26 from deleted R2 tests); aegis gate
+  green (baseline 1,718; 38 re-flags triaged in TRIAGE.md); Node dev server
+  OZT2 byte-identical; workerd (wrangler pages dev) OZT2 byte-identical,
+  edge-cache MISS→HIT for tiles (contours) and JSON (earthquakes); app boots
+  with NO R2 binding.
+- Landing/about copy updated to HuggingFace-hosted storage (d8adc7b).
+- Lesson: `npm run build` (next build) does NOT refresh `.vercel/output/static`
+  for wrangler pages dev — use `npm run pages:build`; stale bundles mask code
+  changes behind the old R2-fallback path.
+- Remaining: validate z11 on HF → deploy → prod E2E (?format=ozt2 vs local
+  bytes) → empty the bucket (lifecycle rule via CF API v4, or purge worker).

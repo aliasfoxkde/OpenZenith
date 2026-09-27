@@ -2051,3 +2051,54 @@ acted on unilaterally.
 Gates: tsc clean; eslint 5,381/0; vitest 1,449 / 5; aegis green (3
 NoaaTab line-shifts triaged — TRIAGE.md; baseline steady 1,716).
 Deployed (699d3ef0); landing/explore/production E2E 26 passed.
+
+## 2026-09-27 — #141 design audit wave 2 (globe + studio)
+
+Defects found by screenshot loop, fixed and re-verified headless:
+- Globe default widget layout overlapped on first load (Basemaps panel
+  ~287px tall vs Layers default y=290). Layers now starts collapsed at
+  y=356 with Tools/Settings below; saved localStorage layouts win.
+- Expanding a widget left it buried: focusWidget (manager-level) now
+  raises above ALL siblings; the old +1 bump also inflated saved
+  z-indexes without bound.
+- Globe-native layer ids coverage/currents rendered as raw lowercase
+  ids → "DEM Coverage"/"Ocean Currents".
+- Studio Elevation lat/lon inputs refused to shrink (flex min-width:auto)
+  and clipped the Query button past the panel edge → minWidth:0.
+- Verified locally + the widget expansion z-order via CDP screenshots
+  (Playwright page.screenshot flaky on /globe font stalls; CDP
+  Page.captureScreenshot bypasses the wait). Qwen critic pass skipped —
+  optional per the design-review skill; pixel fixes verified directly.
+
+## 2026-09-27 — #145 landing Go dead-click (user-reported)
+
+Root cause chain: /api/geoip returns all-null coords on VPN/LAN networks
+→ inputs stay empty → Go with empty inputs hit parseFloat("")=NaN → a
+0.8rem dim "Enter valid coordinates" line = perceptually "nothing
+happened". Typed-coordinate lookups were never broken (verified on prod:
+/api/query 200, Result tab renders). Fix: empty inputs resolve to the
+sample point (28.0/86.9) and run; GeoIP-unresolved/-failed paths
+populate the sample and auto-run the demo. Both flows verified on
+production post-deploy. Side finding: Cloudflare bot protection 403s
+non-browser UAs on API paths (curl/SDK consumers) while browser UAs pass.
+
+## 2026-09-27 — #146 API keys audit
+
+- Live HF token committed as env-fallback default in three upload
+  scripts — scrubbed from HEAD; still in pushed history on both
+  remotes. USER ACTION REQUIRED: revoke/rotate at HuggingFace.
+- No other embedded credentials tracked in git; .env.example clean.
+- ADSB_EXCHANGE_KEY declared in wrangler.toml but unconsumed (stale).
+- Full entry in docs/security/TRIAGE.md.
+
+## 2026-09-27 — R2 exit started (#142)
+
+User directive: only free storage (HuggingFace, VPS, Cyopsys webhost);
+empty openzenith-dem (599.45k objects / 21.16 GB). Code inventory done:
+R2 is ORIGIN only for the `ozt2/` prefix (z7–z11 pre-generated; z11 =
+595,149 tiles lives only in R2); every other consumer (7 JSON-cache
+routes, edge-rendered tile caches) has a live upstream and R2 is
+disposable cache. Migration shape: bulk-copy z11 R2→HF (128 commits/hr
+cap → batch ~1000+ files/commit), flip dem-tile OZT2 reads to HF,
+replace remaining R2 cache uses with the Cache API, drop the DEM_TILES
+binding, then empty the bucket.

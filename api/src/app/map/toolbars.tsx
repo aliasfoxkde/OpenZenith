@@ -25,7 +25,10 @@ interface MeasureToolsProps {
 
 export function MeasureTools({ mode, onToggleMode, onClear }: MeasureToolsProps) {
   return (
-    <div style={{ position: "absolute", top: 52, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
+    /* Static flow row: the page stacks toolbar rows in one absolute
+       container, so a wrapped (mobile) toolbar pushes these down instead of
+       the old fixed top-52 colliding with it. */
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       <button
         onClick={() => { onToggleMode("distance"); }}
         title="Measure distance (Esc to cancel)"
@@ -109,7 +112,8 @@ const DRAW_TOOLS: { mode: Exclude<DrawMode, "none">; glyph: string; title: strin
 
 export function DrawTools({ mode, name, onSetMode, onNameChange, onFinish, onCancel }: DrawToolsProps) {
   return (
-    <div style={{ position: "absolute", top: 82, left: 8, zIndex: 10, display: "flex", gap: 4 }}>
+    /* Static flow row — see MeasureTools above. */
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
       {DRAW_TOOLS.map((tool) => {
         const active = mode === tool.mode;
         return (
@@ -181,12 +185,10 @@ interface MeasureResultProps {
 export function MeasureResult({ mode, points }: MeasureResultProps) {
   if (mode === "none" || points.length < 2) return null;
   return (
+    /* Static flow block — stacks under the tool rows in the page's toolbar
+       container (the old absolute top-86 overlapped the draw-tools row). */
     <div
       style={{
-        position: "absolute",
-        top: 86,
-        left: 8,
-        zIndex: 10,
         background: T.panel,
         border: `1px solid ${T.border}`,
         borderRadius: 4,

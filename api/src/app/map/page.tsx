@@ -1214,56 +1214,76 @@ export default function MapPage() {
           hidden h1 gives the landmark document context (WCAG 2.4.6). */}
       <main style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
         <h1 className="oz-sr-only">OpenZenith Map</h1>
-        {/* Toolbar overlay */}
-        <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
-          {isMobile && (
-            <button
-              onClick={() => { setSidebarOpen(!sidebarOpen); }}
-              aria-label="Toggle layer panel"
-              aria-expanded={sidebarOpen}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 36,
-                height: 36,
-                background: sidebarOpen ? T.accent : T.panel,
-                border: `1px solid ${sidebarOpen ? T.accent : T.border}`,
-                borderRadius: 4,
-                color: sidebarOpen ? "#0a0f1a" : T.textMuted,
-                cursor: "pointer",
-                fontSize: "1.2rem",
-                backdropFilter: "blur(8px)",
-                marginRight: 4,
+        {/* Toolbar overlay — one flow container: the toolbar, measure/draw
+            rows and the measure readout stack vertically, so a wrapped
+            (mobile) toolbar pushes the rows down instead of colliding with
+            the old fixed top-52/82/86 offsets. `left`+`right` bound the
+            width; absolute elements shrink-wrap, so the map stays clickable
+            around each row. */}
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            right: 8,
+            zIndex: 10,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 6,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", maxWidth: "100%" }}>
+            {isMobile && (
+              <button
+                onClick={() => { setSidebarOpen(!sidebarOpen); }}
+                aria-label="Toggle layer panel"
+                aria-expanded={sidebarOpen}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 36,
+                  height: 36,
+                  flexShrink: 0,
+                  background: sidebarOpen ? T.accent : T.panel,
+                  border: `1px solid ${sidebarOpen ? T.accent : T.border}`,
+                  borderRadius: 4,
+                  color: sidebarOpen ? "#0a0f1a" : T.textMuted,
+                  cursor: "pointer",
+                  fontSize: "1.2rem",
+                  backdropFilter: "blur(8px)",
+                  marginRight: 4,
+                }}
+              >
+                {sidebarOpen ? "✕" : "☰"}
+              </button>
+            )}
+            <Toolbar
+              onSearch={(query) => {
+                void handleSearch(query);
               }}
-            >
-              {sidebarOpen ? "✕" : "☰"}
-            </button>
-          )}
-          <Toolbar
-            onSearch={(query) => {
-              void handleSearch(query);
-            }}
-            onJumpTo={handleJumpTo}
-            onScreenshot={handleScreenshot}
+              onJumpTo={handleJumpTo}
+              onScreenshot={handleScreenshot}
+            />
+          </div>
+
+          {/* Measure tools */}
+          <MeasureTools mode={measureMode} onToggleMode={toggleMeasureMode} onClear={clearMeasure} />
+
+          {/* Draw tools */}
+          <DrawTools
+            mode={drawMode}
+            name={annotationName}
+            onSetMode={setDrawTool}
+            onNameChange={setAnnotationName}
+            onFinish={finishDrawing}
+            onCancel={cancelDrawing}
           />
+
+          {/* Measure result */}
+          <MeasureResult mode={measureMode} points={measurePoints} />
         </div>
-
-        {/* Measure tools */}
-        <MeasureTools mode={measureMode} onToggleMode={toggleMeasureMode} onClear={clearMeasure} />
-
-        {/* Draw tools */}
-        <DrawTools
-          mode={drawMode}
-          name={annotationName}
-          onSetMode={setDrawTool}
-          onNameChange={setAnnotationName}
-          onFinish={finishDrawing}
-          onCancel={cancelDrawing}
-        />
-
-        {/* Measure result */}
-        <MeasureResult mode={measureMode} points={measurePoints} />
 
         {/* Coordinate readout */}
         <CursorReadout pos={cursorPos} zoom={mapState.zoom} showHints={sidebarOpen && !isMobile} />
@@ -1436,12 +1456,18 @@ export default function MapPage() {
           </div>
         )}
 
-        {/* Map Legend — always visible overlay */}
-        <MapLegend
-          layers={mapState.layers}
-          onToggle={toggleLayer}
-          basemapLabel={getBasemap(mapState.basemap).label}
-        />
+        {/* Map Legend — desktop-only overlay. On phones the 250×308 panel
+            blanketed a third of the map with pointerEvents:auto, so every
+            tap on the lower-left quadrant hit the legend instead of the map
+            (pins and measure taps silently died). The mobile sidebar owns
+            layer toggles there. */}
+        {!isMobile && (
+          <MapLegend
+            layers={mapState.layers}
+            onToggle={toggleLayer}
+            basemapLabel={getBasemap(mapState.basemap).label}
+          />
+        )}
 
         {/* Click hint */}
         {mapState.layers.terrain3d && <Terrain3dHint />}

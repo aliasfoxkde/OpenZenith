@@ -2130,3 +2130,32 @@ binding, then empty the bucket.
   changes behind the old R2-fallback path.
 - Remaining: validate z11 on HF → deploy → prod E2E (?format=ozt2 vs local
   bytes) → empty the bucket (lifecycle rule via CF API v4, or purge worker).
+
+## 2026-09-27 (wave: a11y fixes, map-mobile repair, production deploy)
+
+**#147 a11y wave (d8b453d):** axe first-party violations fixed and the audit
+made deterministic: `.oz-result-value` light-theme contrast (2.28:1 → 9.1:1),
+studio tool-button fills deepened to 700/800 shades (white text 5.0–8.7:1,
+was 2.15–3.68:1), accent-as-text theme-split tokens, OnboardingOverlay glyph
+color+aria-hidden, sr-only h1 on /studio and /demo, a11y.spec scan() now waits
+for the page h1 and freezes animations via injected CSS (16/16 stable; the
+old flake was axe sampling the loading pulse mid-animation).
+
+**Map mobile repair (dd0f5aa):** MapLegend (250×308, pointerEvents:auto) had
+been blanketing a third of a phone viewport — every tap in the lower-left
+quadrant hit the legend; elevation pins and measure never fired (verified
+identical on production before the fix). Legend is now desktop-only; toolbar
+rows moved from fixed absolute offsets into one flow container so a wrapped
+mobile toolbar pushes them down. Qwen critic pass on wave-3 renders: one
+real HIGH (the legend blocker, found independently), rest were dev-overlay
+noise/capture artifacts.
+
+**Production deployed (ae706096.openzenith.pages.dev):** deployed the
+storage migration + today's fixes rather than holding for z11 HF validation.
+Rationale: the dem-tile route degrades gracefully when a z11 OZT2 tile is
+not yet on HF (`X-Dem-Tile-Format-Fallback: ozt2-to-png`, chunk assembly is
+the documented z>10 path), while production was shipping a broken mobile map
+and the a11y defects today. Verified on prod: z10 OZT2 byte-identical vs
+local (`x-dem-tile-source: huggingface`), z11 PNG assembles, mobile measure
+works, landing typed-coords lookup returns 8,729m with inputs intact.
+Remaining: z11 upload → validate → bucket purge → CLAUDE.md storage rows.

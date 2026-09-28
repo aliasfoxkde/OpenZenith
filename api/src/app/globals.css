@@ -354,6 +354,12 @@
 [data-theme="light"] .oz-stat-value {
   color: #14532d;
 }
+/* Same failure shape as .oz-stat-value: accent green on a light surface is
+   2.3:1 (axe color-contrast, serious), so the elevation result switches to
+   green-900 in the light theme (#14532d = 9.1:1 on the #fafafa page). */
+[data-theme="light"] .oz-result-value {
+  color: #14532d;
+}
 .oz-stat-label {
   font-size: 0.75rem;
   color: var(--oz-text-secondary);

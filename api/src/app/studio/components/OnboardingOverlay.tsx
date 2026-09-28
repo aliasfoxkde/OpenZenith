@@ -106,7 +106,13 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
                 borderBottom: `1px solid ${border}`,
               }}
             >
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: "center" }}>{tip.icon}</span>
+              {/* Decorative glyph: explicit theme color so monochrome emoji
+                  fallbacks (hosts without a color-emoji font) can't render
+                  black-on-near-black; aria-hidden keeps it out of the a11y
+                  tree — the adjacent title carries the meaning. */}
+              <span aria-hidden="true" style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: "center", color: text }}>
+                {tip.icon}
+              </span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: text }}>{tip.title}</div>
                 <div style={{ fontSize: 12, color: textSec, marginTop: 2 }}>{tip.desc}</div>

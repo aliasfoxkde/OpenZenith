@@ -307,6 +307,11 @@ export function TileDownloadTool({ dark, map }: Props) {
   const textSec = dark ? "#a3a3a3" : "#525252";
   const accent = "#22c55e";
   const codeBg = dark ? "#0d1117" : "#f6f8fa";
+  /* Accent blue as TEXT on the code surface is theme-split for contrast
+     (blue-400 on the dark code bg ≈ 7:1, blue-700 on the light one ≈ 6.5:1);
+     blue-500 #3b82f6 fails AA on light. Fill buttons stay blue-700 in both
+     themes — white on #1d4ed8 is 6.70:1. */
+  const accentText = dark ? "#60a5fa" : "#1d4ed8";
 
   const ds = DATASETS.find((d) => d.id === dataset) || DATASETS[0];
 
@@ -703,7 +708,7 @@ export function TileDownloadTool({ dark, map }: Props) {
                 padding: "8px 12px",
                 borderRadius: 6,
                 border: "none",
-                background: "#3b82f6",
+                background: "#1d4ed8",
                 color: "#fff",
                 fontWeight: 600,
                 fontSize: 12,
@@ -827,7 +832,7 @@ export function TileDownloadTool({ dark, map }: Props) {
             { fn: "openzenith tiles --region europe", desc: "CLI: download by region" },
           ].map((fn) => (
             <div key={fn.fn} style={{ marginBottom: 2 }}>
-              <code style={{ color: "#3b82f6", fontSize: 10 }}>{fn.fn}</code>
+              <code style={{ color: accentText, fontSize: 10 }}>{fn.fn}</code>
               <span style={{ color: textSec, marginLeft: 6 }}>&mdash; {fn.desc}</span>
             </div>
           ))}

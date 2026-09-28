@@ -143,7 +143,9 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
           onClick={handleManualQuery}
           style={{
             padding: "5px 12px",
-            background: "#22c55e",
+            /* White on accent green #22c55e is 2.28:1 (axe color-contrast);
+               green-700 keeps the hue and clears AA at 12px (5.02:1). */
+            background: "#15803d",
             color: "#fff",
             border: "none",
             borderRadius: 4,
@@ -188,8 +190,10 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
           }}
           style={{
             padding: "4px 10px",
-            background: profileMode ? "#3b82f6" : "transparent",
-            border: `1px solid ${profileMode ? "#3b82f6" : border}`,
+            /* Active fill uses blue-700: white on blue-500 #3b82f6 is
+               3.68:1; on #1d4ed8 it is 6.70:1 (AA holds at 11px). */
+            background: profileMode ? "#1d4ed8" : "transparent",
+            border: `1px solid ${profileMode ? "#1d4ed8" : border}`,
             borderRadius: 4,
             cursor: "pointer",
             color: profileMode ? "#fff" : textSec,

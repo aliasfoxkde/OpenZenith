@@ -710,6 +710,10 @@ export default function StudioPage() {
           position: "relative",
         }}
       >
+        {/* App-shell page title (axe page-has-heading-one): the visible chrome
+            is a full-viewport map, so the h1 is announced but not rendered.
+            Sits inside <main> so axe's `region` rule stays satisfied. */}
+        <h1 className="oz-sr-only">OpenZenith Studio</h1>
       <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Map */}
         <div style={{ flex: 1, position: "relative" }}>

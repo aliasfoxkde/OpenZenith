@@ -65,6 +65,18 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
 // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const _inputBg = dark ? "#1a1a1a" : "#f5f5f5";
+  /* Accent blue as TEXT is theme-split for contrast: blue-400 on the dark
+     panel (7.25:1 on #141414), blue-700 on the light one (6.70:1 on #fff).
+     Blue-500 #3b82f6 sits at ~3.7:1 in both directions — fails AA. */
+  const accentText = dark ? "#60a5fa" : "#1d4ed8";
+  /* Same split for the amber elevation column: amber-400 on dark (11.04:1),
+     amber-800 on light (7.09:1). Amber-500 #f59e0b as a fill under white
+     text is 2.15:1, so the active fill deepens to amber-700 (5.02:1). */
+  const amberText = dark ? "#fbbf24" : "#92400e";
+  /* Active-button fills are theme-independent: white on blue-700 is 6.70:1
+     and white on amber-700 is 5.02:1 — the 500-shades sit at ~2-3.7:1. */
+  const activeFill = "#1d4ed8";
+  const activeFillAmber = "#b45309";
 
   /** Add or remove flow path GeoJSON layer on the map */
   const syncLayer = useCallback((features: FlowPathFeature[]) => {
@@ -338,8 +350,8 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           style={{
             flex: 1,
             padding: "8px 4px",
-            background: mode === "downstream" ? "#3b82f6" : bg,
-            border: `1px solid ${mode === "downstream" ? "#3b82f6" : border}`,
+            background: mode === "downstream" ? activeFill : bg,
+            border: `1px solid ${mode === "downstream" ? activeFill : border}`,
             borderRadius: 4,
             color: mode === "downstream" ? "#fff" : text,
             cursor: "pointer",
@@ -354,8 +366,8 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           style={{
             flex: 1,
             padding: "8px 4px",
-            background: mode === "upstream" ? "#f59e0b" : bg,
-            border: `1px solid ${mode === "upstream" ? "#f59e0b" : border}`,
+            background: mode === "upstream" ? activeFillAmber : bg,
+            border: `1px solid ${mode === "upstream" ? activeFillAmber : border}`,
             borderRadius: 4,
             color: mode === "upstream" ? "#fff" : text,
             cursor: "pointer",
@@ -539,10 +551,10 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
                     <td style={{ padding: "3px 6px", color: text, textAlign: "right", fontFamily: "monospace" }}>
                       {formatDist(p.geojson.properties.totalDistanceM)}
                     </td>
-                    <td style={{ padding: "3px 6px", color: "#3b82f6", textAlign: "right", fontFamily: "monospace" }}>
+                    <td style={{ padding: "3px 6px", color: accentText, textAlign: "right", fontFamily: "monospace" }}>
                       {p.geojson.properties.minElevM.toFixed(0)}m
                     </td>
-                    <td style={{ padding: "3px 6px", color: "#92400e", textAlign: "right", fontFamily: "monospace" }}>
+                    <td style={{ padding: "3px 6px", color: amberText, textAlign: "right", fontFamily: "monospace" }}>
                       {p.geojson.properties.maxElevM.toFixed(0)}m
                     </td>
                     <td style={{ padding: "3px 6px", color: textSec, textAlign: "right", fontFamily: "monospace" }}>

@@ -39,6 +39,25 @@ async function scan(page: Page, path: string): Promise<AxeViolation[]> {
     // Map layers stream indefinitely; the audit can proceed on what has
     // rendered — networkidle is a best-effort gate, not a correctness gate.
   });
+  // Hydration gate: every audited page renders an (sr-only where the chrome
+  // is a full-viewport map) h1 client-side. Auditing before it mounts reads
+  // late-mounted content as violations — a flaky first attempt, not a real
+  // defect. Every page carries one, so this wait is deterministic.
+  await page.waitForSelector("h1", { timeout: 15_000 }).catch(() => {
+    // A page that never mounts its h1 will fail the heading assertion below
+    // with the real finding — don't mask it with a scan-timeout error.
+  });
+  // Freeze animations/transitions for the audit: axe samples an animated
+  // element mid-pulse (e.g. the map-loading fade, which dips to opacity
+  // 0.4) and reads its transient state as a contrast failure — a false
+  // positive by construction. `@axe-core/playwright` 4.13 has no
+  // disableAnimations(), so neutralize animations with an injected
+  // stylesheet instead; every animated element's base style is what the
+  // audit then sees.
+  await page.addStyleTag({
+    content:
+      "*, *::before, *::after { animation: none !important; transition: none !important; }",
+  });
   const builder = new AxeBuilder({ page }).withTags([
     "wcag2a",
     "wcag2aa",

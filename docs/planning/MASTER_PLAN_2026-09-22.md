@@ -2177,3 +2177,31 @@ Storage end state: HuggingFace (datasets) + local NAS only — zero R2.
 Outstanding: z11 HF upload in flight (batch ~42/239, HF throttle waves) →
 `scripts/validate_hf_ozt2.py` for z11 → prod z11 OZT2 spot-check → flip the
 CLAUDE.md storage rows.
+
+## 2026-09-27 — prod E2E sweep, OZT2 ratio calibration, docs flip (#148-#151)
+
+**#151 full prod E2E (ae706096):** 78/82 passed, 2 skipped (heavy opt-ins).
+The 2 failures were both `ozt2-validate.spec.ts` "OZT2 tiles smaller than PNG"
+asserting ratio > 3 on tile z10/163/395. Measured truth on production across
+flat coast, Alps, and Everest tiles: the route's PNG encoder keeps OZT2/PNG at
+1.5-2.0x (33,179B vs 66,910B = 2.0x on the test tile) — the headline 67-93%
+compression figures are dataset averages against different baselines, not
+route-level guarantees. Test recalibrated to `> 1.5` with the measured band
+documented inline; stale "OZT2 not in R2" comment updated to HuggingFace.
+Spec re-run vs prod: 14 passed / 2 skipped. z10 OZT2 bytes remain verified
+faithful (33,179B matches the local NAS tile). Remote mirrors both at HEAD.
+
+**#150 docs flip:** CLAUDE.md storage rows now describe the post-R2 reality
+(HuggingFace origin + Workers Cache API, R2 decommissioned 2026-09-27, GEBCO
+restored to "external live upstream" — its R2 copy was disposable cache).
+Harness memory baselines updated: eslint 5,355w/0e, vitest 1,419+5 (99
+files), aegis 1,718.
+
+**Aegis:** 12 re-flags in FlowPathTool.tsx from e5a18e7 (a11y line shifts;
+the follow-up scan had been missed) — all in established dispositioned
+classes (MapLibre casts, style-expression `==`, range-slider autocomplete,
+keys on following line). Triage recorded; baseline steady at 1,718.
+
+**Open:** #148 z11 HF validation (upload in flight, ~batch 43/239; session
+cron checks twice hourly) → then `scripts/validate_hf_ozt2.py` for z11 and a
+prod z11 OZT2 spot-check.

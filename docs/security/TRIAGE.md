@@ -1233,3 +1233,28 @@ xss-via-url (previously dispositioned — origin + internally-built hash, no
 user-controlled URL), FlowPathTool double-type-assertions (MapLibre
 `getSource` casts, pre-existing), studio page mobile-optimization heuristic.
 No new patterns; no code changes. Baseline updated via `aegis_scan.sh update`.
+
+## 2026-09-27 — FlowPathTool re-flags from e5a18e7 (12)
+
+The a11y accent-shade commit shifted lines in FlowPathTool.tsx after the
+previous baseline update; the follow-up aegis run was missed. All 12 land in
+established dispositioned classes:
+
+- **double-type-assertion :90/:258** — MapLibre `getSource` narrowing through
+  `unknown` to the GeoJSON source interface; the typed API offers no narrower
+  overload. Same cast pattern dispositioned in earlier waves.
+- **try-catch-bulk :98** — defensive `removeLayer` cleanup; MapLibre throws if
+  the layer is already gone mid-teardown. Empty catch is deliberate.
+- **loose-equality :135** — `["==", ["get", "marker"], true]` is a MapLibre
+  style expression string, not a JS comparison.
+- **console-log :278** — `console.error("Flow path error:", err)` in a catch;
+  deliberate error surfacing.
+- **react-missing-key-prop :538/:647** — keys present (`key={p.id}`, `key={i}`)
+  on the JSX line following the `.map(` call (scanner line-shift FP).
+- **autocomplete-missing :388/:403/:416** — `type="range"` sliders
+  (Precision/Directions/MaxPoints); no autocomplete axis exists.
+- **expensive-computation-loop :676** — `computeTotalDist` haversine sum,
+  O(n) over ≤10k path points on demand, not in the render path.
+- **react-optimization :83** — `syncLayer` useCallback; standard memoization.
+
+Disposition: no code changes. Baseline updated via `aegis_scan.sh update`.

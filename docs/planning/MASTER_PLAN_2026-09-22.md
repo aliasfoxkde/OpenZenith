@@ -2159,3 +2159,21 @@ and the a11y defects today. Verified on prod: z10 OZT2 byte-identical vs
 local (`x-dem-tile-source: huggingface`), z11 PNG assembles, mobile measure
 works, landing typed-coords lookup returns 8,729m with inputs intact.
 Remaining: z11 upload → validate → bucket purge → CLAUDE.md storage rows.
+
+## 2026-09-27 — R2 decommission complete: bucket emptied and deleted
+
+`openzenith-dem` (599,474 objects, 21.16 GB) is gone. Pre-flight proof that
+nothing could read it: no R2 binding exists in `wrangler.toml` (Workers
+cannot touch R2 without one), a sweep of every worker in the account found
+zero bindings to the bucket, the only zone route is webmail, and the z11
+source of truth is the local NAS copy (595,149 tiles verified present) —
+the HF uploader reads local disk, so the purge could proceed before z11 HF
+validation completes. Purge mechanics: temporary `oz-r2-purge` worker with
+a direct R2 binding (the API-v4 object REST path throttles at ~5-16 obj/s;
+the worker sustained ~171 obj/s = 5,000 objects per invocation across 120
+invocations, 58 min), token-authed, deleted after use along with the bucket.
+
+Storage end state: HuggingFace (datasets) + local NAS only — zero R2.
+Outstanding: z11 HF upload in flight (batch ~42/239, HF throttle waves) →
+`scripts/validate_hf_ozt2.py` for z11 → prod z11 OZT2 spot-check → flip the
+CLAUDE.md storage rows.

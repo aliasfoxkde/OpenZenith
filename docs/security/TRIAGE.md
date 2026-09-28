@@ -1224,3 +1224,12 @@ synthetic identifiers:
   result. Cache-Control is set on every stored response.
 
 Disposition: no code changes. Baseline updated via `aegis_scan.sh update`.
+
+## 2026-09-27 — a11y + map-mobile wave re-flags (38)
+
+Line-shift re-flags from d8b453d (a11y color/heading edits) and dd0f5aa (map
+toolbar restructure): page.tsx azure-functions strings and ShareUrlPanel
+xss-via-url (previously dispositioned — origin + internally-built hash, no
+user-controlled URL), FlowPathTool double-type-assertions (MapLibre
+`getSource` casts, pre-existing), studio page mobile-optimization heuristic.
+No new patterns; no code changes. Baseline updated via `aegis_scan.sh update`.

@@ -144,8 +144,8 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
           style={{
             padding: "5px 12px",
             /* White on accent green #22c55e is 2.28:1 (axe color-contrast);
-               green-700 keeps the hue and clears AA at 12px (5.02:1). */
-            background: "#15803d",
+               green-800 clears the wcag2aaa 7:1 gate at 12px (7.13:1). */
+            background: "#166534",
             color: "#fff",
             border: "none",
             borderRadius: 4,
@@ -192,8 +192,8 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
             padding: "4px 10px",
             /* Active fill uses blue-700: white on blue-500 #3b82f6 is
                3.68:1; on #1d4ed8 it is 6.70:1 (AA holds at 11px). */
-            background: profileMode ? "#1d4ed8" : "transparent",
-            border: `1px solid ${profileMode ? "#1d4ed8" : border}`,
+            background: profileMode ? "#1e40af" : "transparent",
+            border: `1px solid ${profileMode ? "#1e40af" : border}`,
             borderRadius: 4,
             cursor: "pointer",
             color: profileMode ? "#fff" : textSec,

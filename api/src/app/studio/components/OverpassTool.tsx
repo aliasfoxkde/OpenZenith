@@ -157,7 +157,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
           padding: "8px 16px",
           /* Blue-700 fill: white on blue-500 #3b82f6 is 3.68:1 (fails AA at
              13px); on #1d4ed8 it is 6.70:1. */
-          background: loading ? "#555" : "#1d4ed8",
+          background: loading ? "#555" : "#1e40af",
           color: "#fff",
           border: "none",
           borderRadius: 6,

@@ -66,17 +66,18 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   const textSec = dark ? "#a3a3a3" : "#525252";
   const _inputBg = dark ? "#1a1a1a" : "#f5f5f5";
   /* Accent blue as TEXT is theme-split for contrast: blue-400 on the dark
-     panel (7.25:1 on #141414), blue-700 on the light one (6.70:1 on #fff).
+     panel (7.25:1 on #141414), blue-800 on the light one (8.72:1 on #fff).
      Blue-500 #3b82f6 sits at ~3.7:1 in both directions — fails AA. */
-  const accentText = dark ? "#60a5fa" : "#1d4ed8";
+  const accentText = dark ? "#60a5fa" : "#1e40af";
   /* Same split for the amber elevation column: amber-400 on dark (11.04:1),
-     amber-800 on light (7.09:1). Amber-500 #f59e0b as a fill under white
-     text is 2.15:1, so the active fill deepens to amber-700 (5.02:1). */
+     amber-800 on light (7.09:1). The 500/700 amber shades sit at 2.15-5.02:1
+     under white text — below the 7:1 the a11y gate enforces. */
   const amberText = dark ? "#fbbf24" : "#92400e";
-  /* Active-button fills are theme-independent: white on blue-700 is 6.70:1
-     and white on amber-700 is 5.02:1 — the 500-shades sit at ~2-3.7:1. */
-  const activeFill = "#1d4ed8";
-  const activeFillAmber = "#b45309";
+  /* Active-button fills are theme-independent: white on blue-800 is 8.72:1
+     and white on amber-800 is 7.09:1 — axe's wcag2aaa scan rejects anything
+     weaker for 12px text, and the 500-shades sit at ~2-3.7:1. */
+  const activeFill = "#1e40af";
+  const activeFillAmber = "#92400e";
 
   /** Add or remove flow path GeoJSON layer on the map */
   const syncLayer = useCallback((features: FlowPathFeature[]) => {

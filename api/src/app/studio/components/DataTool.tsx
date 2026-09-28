@@ -152,7 +152,7 @@ export function DataTool({
      dark ≈ 7:1, blue-700 on light ≈ 6.7:1); the 500-shade sits at ~3.7:1
      on light and fails AA. Active-button FILLS stay blue-700 in both
      themes — white on #1d4ed8 is 6.70:1 regardless of theme. */
-  const accentText = dark ? "#60a5fa" : "#1d4ed8";
+  const accentText = dark ? "#60a5fa" : "#1e40af";
 
   const selectStyle: React.CSSProperties = {
     background: inputBg,
@@ -319,8 +319,8 @@ export function DataTool({
                         style={{
                           padding: "2px 10px",
                           fontSize: 10,
-                          background: expandedPanel === "style" ? "#1d4ed8" : inputBg,
-                          border: `1px solid ${expandedPanel === "style" ? "#1d4ed8" : border}`,
+                          background: expandedPanel === "style" ? "#1e40af" : inputBg,
+                          border: `1px solid ${expandedPanel === "style" ? "#1e40af" : border}`,
                           borderRadius: 3,
                           color: expandedPanel === "style" ? "#fff" : text,
                           cursor: "pointer",
@@ -333,8 +333,8 @@ export function DataTool({
                         style={{
                           padding: "2px 10px",
                           fontSize: 10,
-                          background: expandedPanel === "table" ? "#1d4ed8" : inputBg,
-                          border: `1px solid ${expandedPanel === "table" ? "#1d4ed8" : border}`,
+                          background: expandedPanel === "table" ? "#1e40af" : inputBg,
+                          border: `1px solid ${expandedPanel === "table" ? "#1e40af" : border}`,
                           borderRadius: 3,
                           color: expandedPanel === "table" ? "#fff" : text,
                           cursor: "pointer",
@@ -360,8 +360,8 @@ export function DataTool({
                                   style={{
                                     padding: "2px 8px",
                                     fontSize: 10,
-                                    background: viz.mode === mode ? "#1d4ed8" : inputBg,
-                                    border: `1px solid ${viz.mode === mode ? "#1d4ed8" : border}`,
+                                    background: viz.mode === mode ? "#1e40af" : inputBg,
+                                    border: `1px solid ${viz.mode === mode ? "#1e40af" : border}`,
                                     borderRadius: 3,
                                     color: viz.mode === mode ? "#fff" : text,
                                     cursor: "pointer",
@@ -404,8 +404,8 @@ export function DataTool({
                                   style={{
                                     padding: "2px 8px",
                                     fontSize: 10,
-                                    background: viz.colorRamp === ramp ? "#1d4ed8" : inputBg,
-                                    border: `1px solid ${viz.colorRamp === ramp ? "#1d4ed8" : border}`,
+                                    background: viz.colorRamp === ramp ? "#1e40af" : inputBg,
+                                    border: `1px solid ${viz.colorRamp === ramp ? "#1e40af" : border}`,
                                     borderRadius: 3,
                                     color: viz.colorRamp === ramp ? "#fff" : text,
                                     cursor: "pointer",

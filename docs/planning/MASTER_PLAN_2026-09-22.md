@@ -2205,3 +2205,22 @@ keys on following line). Triage recorded; baseline steady at 1,718.
 **Open:** #148 z11 HF validation (upload in flight, ~batch 43/239; session
 cron checks twice hourly) → then `scripts/validate_hf_ozt2.py` for z11 and a
 prod z11 OZT2 spot-check.
+
+## 2026-09-27 — dependency vulnerability triage (#152)
+
+GitHub dependabot flagged 15 alerts; `npm audit` in api/ resolved to 8
+findings (2 high). Patched a4ce49f: npm overrides pin `ws ^8.21.0` (two
+highs — uninitialized memory disclosure, fragment DoS) and `cookie ^0.7.0`
+across the jsdom / miniflare / next-on-pages trees, plus an in-range esbuild
+bump via `npm audit fix`. Audit drops to 3 findings, all toolchain-only with
+no upstream fix available:
+- **undici ≤6.27.0 (high)** via `@cloudflare/next-on-pages` → miniflare 3 —
+  build-time only, never bundled into the deployed Worker. Watch for a
+  next-on-pages release on miniflare 4/5.
+- **esbuild 0.15 pin (moderate)** under next-on-pages — dev-server advisory,
+  build-time only.
+- **@vitest/mocker (moderate)** — fix requires the vitest 4 major; scheduled
+  as a planned upgrade, not forced.
+Verified: full vitest 99 files / 1,419 pass + 5 skip (baseline), and a clean
+`npm run pages:build` on the overridden tree (first attempt failed from host
+contention; clean retry — no toolchain fault).

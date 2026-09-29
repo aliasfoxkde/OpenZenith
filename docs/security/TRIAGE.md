@@ -1275,3 +1275,32 @@ Production gate unchanged: `npm audit --omit=dev` = **0 vulnerabilities**.
   wrangler's own miniflare is already 5.x. Watch item stands.
 - **esbuild@0.15.18 (moderate, via next-on-pages):** unchanged, no fix
   available; dev-server exposure class, not shipped code.
+
+## 2026-09-28 — vitest 5 upgrade re-flags + azure-functions FP (#154)
+
+The vitest 5 commit touched four `__tests__` files; the aegis re-run flagged
+105 findings. Diff-by-`stable_id` against the baseline (fingerprints embed the
+line number, so line shifts always look new; `stable_id` is the shift-stable
+key) shows 104 are pure line-shift re-flags inside already-baselined classes
+— every (file, pattern) pair count equal to baseline:
+
+- contours-zxy.test.ts: cors-misconfiguration 2, hardcoded-internal-endpoint
+  12, ssrf-localhost 13.
+- elevation-color-zxy.test.ts: cors-misconfiguration 1,
+  hardcoded-internal-endpoint 13, no-cache-headers 1, ssrf-localhost 13,
+  sync-in-async 1.
+- elevation.test.ts: cors-misconfiguration 2, hardcoded-internal-endpoint 1,
+  no-cache-headers 1, ssrf-localhost 1.
+- terrain-routes.test.ts: cors-misconfiguration 4, double-type-assertion 7,
+  ssrf 29, ssrf-localhost 1.
+
+The 2 genuinely-new hits were `azure-functions` (LOW) on the new
+"constructible regular functions" comments — the pattern matches the bare
+word "functions" (verified by probing single lines through `aegis scan`;
+singular "function" does not trigger). Test-comment FP on a loose
+detectors; fixed by rewording the comments to the singular rather than
+denylisting the pattern. Both files re-scan clean.
+
+Disposition: comment reword only; no production code changes. Baseline
+regenerated (`aegis_scan.sh update` → 1,718 findings, unchanged count);
+gate re-run green across all 5 scopes.

@@ -2258,3 +2258,23 @@ Operational notes for future bulk uploads: verify landing with `paths-info`
 sampling per commit (a 2xx from `create_commit` is not proof); sequential
 commits + immediate verification caught everything the concurrent workers
 silently dropped (~421 files across the main runs).
+
+## 2026-09-28 — vitest 5.0.2 upgrade complete (#154)
+
+vitest ^3.2.1 → ^5.0.2 + @vitest/coverage-v8 ^3.2.7 → ^5.0.2 (vite stays
+^6.4.3; vitest 5 peers accept ^6.4.0). Clears the @vitest/mocker audit
+residual. Two vitest 5 typing traps surfaced and are now encoded in the test
+suites: `vi.fn(arrow)` mocks are no longer constructible (storage-backend
+mocks became named `function` implementations), and
+`ReturnType<typeof vi.fn>` collapses to a void-returning mock so
+`mockImplementation(() => Promise…)` trips `no-misused-promises` — the two
+zxy route suites switched to `vi.mocked()` to keep real signatures.
+
+Gates: eslint 0 errors / 5,355 warnings; vitest 1,419 passed / 5 skipped
+(99 files); coverage thresholds 97/92/89/97 hold on coverage-v8 5
+(98.84/96.33/93.38/99.68); tsc clean; aegis baseline regenerated at 1,718
+(unchanged) with gate green — the 105 re-flags were 104 line shifts plus 2
+`azure-functions` LOW FPs on the word "functions" in new comments (reworded;
+see TRIAGE.md). npm audit 3 → 5 reconciled in TRIAGE.md: all dev-only
+(next-on-pages esbuild + undici-via-miniflare advisory-list growth);
+`--omit=dev` still 0; `audit fix --force` would downgrade wrangler, rejected.

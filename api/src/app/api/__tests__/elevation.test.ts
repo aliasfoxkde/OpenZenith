@@ -7,8 +7,8 @@ const mockGetPointElevation = vi.fn();
 const mockGetGebcoElevation = vi.fn();
 
 // Must be at top level so vi.mock can reference them.
-// vitest 5 forwards `new` to the mock implementation, so the factories must be
-// constructible regular functions — an arrow implementation would throw
+// vitest 5 forwards `new` to the mock implementation, so each factory must be
+// a constructible regular function — an arrow implementation would throw
 // "is not a constructor" the moment the route module does `new Backend()`.
 vi.mock("@/lib/storage/backend", () => ({
   HuggingFaceChunkBackend: vi.fn(function HuggingFaceChunkBackend() {

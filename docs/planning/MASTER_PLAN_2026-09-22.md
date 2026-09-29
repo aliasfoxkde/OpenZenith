@@ -2224,3 +2224,37 @@ no upstream fix available:
 Verified: full vitest 99 files / 1,419 pass + 5 skip (baseline), and a clean
 `npm run pages:build` on the overridden tree (first attempt failed from host
 contention; clean retry — no toolchain fault).
+
+## 2026-09-28 — z11 HF backfill completed and byte-validated (#148)
+
+The 595,149-tile z11 backfill (239 batches × 2,500) completed across three
+resumed runs (host memory pressure killed runs 1-2 around batch 195-196 with
+no traceback; delta mode made each restart idempotent). Run 3 finished all
+239 batches but classified 15 batches (37,500 files) as failed on exhausted
+read-timeout retries — 2,921 of those had actually landed ("landed despite
+timeout" verification).
+
+**Root cause of the long tail:** a hand-rolled retry driver built `rel_of`
+without the `tiles/` prefix, landing 34,579 files at a stray root `z11/`
+path. `create_commit` returned success for every batch, but the real
+destination was never written — proving that commit success ≠ landing.
+Meanwhile the sequential re-run of the corrected paths verified every batch
+immediately via `paths-info` (expand: true) — 35,000/35,000 landed clean.
+
+**Validation (task #148, complete):**
+- Exact git-blob-sha comparison of every `tiles/z11` path vs the local NAS
+  copy: **identical=595,149, missing=0, stale=0, extra=0**.
+- Stray root `z11/` (34,579 mis-pathed files) deleted in 14 batched commits;
+  tree `z11/` now 404s.
+- Prod `/api/dem-tile/11/...` spot-checks — incl. the previously-missing
+  `609/627` and previously-stale `1175/882` — return 200 with bytes
+  sha-identical to local; land tiles unchanged (1083/722 re-verified).
+- `validate_hf_ozt2.py` was superseded for this pass: HF's tree/listing APIs
+  were serving stale and rate-limited responses under load, so validation ran
+  as a purpose-built recursive tree walk with token auth and 429 backoff
+  (single walk, ~596 pages) compared against cached local blob shas.
+
+Operational notes for future bulk uploads: verify landing with `paths-info`
+sampling per commit (a 2xx from `create_commit` is not proof); sequential
+commits + immediate verification caught everything the concurrent workers
+silently dropped (~421 files across the main runs).

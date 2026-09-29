@@ -2278,3 +2278,32 @@ Gates: eslint 0 errors / 5,355 warnings; vitest 1,419 passed / 5 skipped
 see TRIAGE.md). npm audit 3 → 5 reconciled in TRIAGE.md: all dev-only
 (next-on-pages esbuild + undici-via-miniflare advisory-list growth);
 `--omit=dev` still 0; `audit fix --force` would downgrade wrangler, rejected.
+
+## 2026-09-29 — landing design polish: 3D flip cards + interactivity (#157)
+
+FlipCard rewritten as a true 3D flip: `perspective`/`preserve-3d` rotateY with
+a springy cubic-bezier, hover-flip on pointer devices (gated behind
+`@media (hover: hover) and (pointer: fine)`), click/Enter/Space activation,
+Escape to unflip, `aria-pressed` + `aria-label` for the accessible name, and
+a spinning flip-hint glyph so the affordance is visible at rest.
+`prefers-reduced-motion` degrades the whole mechanic to a crossfade.
+Colors come from the `[data-theme]` CSS variables — the component no longer
+takes `cardBg`/`border` props (all five call sites updated; feature cards
+pass `label={f.title}`). CTA links inside a flipped back no longer toggle the
+card on their way to navigating.
+
+Landing page cleanup: the duplicated second feature-card `.map()` block
+(No Ads Ever / OpenAPI Spec / Self-Hostable, byte-identical JSX) is merged
+into the single 14-card array; the Integrations back-face CTA moves off the
+off-palette `#6b21a8` to the system accent with a `#000` label (9.9:1 AAA,
+matching the Contribute CTA); stat and quick-start cards gain a
+`className="oz-lift"` hover (3px lift + accent ring via box-shadow, since
+their inline border shorthand would beat any hover border-color; no movement
+under reduced motion).
+
+Gates: eslint 0 errors / 5,108 warnings (unchanged); vitest 1,419 passed /
+5 skipped (99 files); tsc clean; aegis baseline regenerated at 1,716 — 8
+re-flags, all line shifts of baselined classes (page.tsx findings 15 → 14:
+one react-missing-key-prop vanished with the deleted duplicate map; see
+TRIAGE.md). Screenshot review (light+dark, desktop+mobile,
+rest/hover/flipped/focus) via the design-review loop.

@@ -1328,3 +1328,27 @@ loops were themselves pattern sources. Zero genuinely-new findings.
 
 Disposition: no security-relevant code changes; baseline regenerated at
 1,717 (was 1,718); gate green across all 5 scopes.
+
+## 2026-09-29 — landing design polish re-flags (#157)
+
+Touched: `api/src/app/page.tsx` (merged the duplicated second feature-card
+`.map()` block into the first array — net −45 lines for everything below the
+Features section; dropped the removed `cardBg`/`border` props from all
+FlipCard call sites; swapped the Integrations back-face CTA from the
+off-palette `#6b21a8` to the system accent with `#000` label, 9.9:1 AAA) and
+`api/src/app/landing/FlipCard.tsx` (3D flip mechanics: hover/click/keyboard
+activation, aria-pressed + aria-label, CTA clicks no longer toggle the card).
+
+Aegis re-run: 8 findings, all in page.tsx, all LOW, all re-flags of
+already-baselined classes at shifted line numbers (stable_id diff):
+react-missing-key-prop ×4 (the four surviving `.map()` call sites — every
+child carries a `key`; the checker wants it on the outermost JSX element),
+azure-functions ×2 (the bare word "functions" in the prose "edge functions",
+the documented false-positive class from 2026-09-28), pr-review-marker ×1
+("pull request" prose in the Contribute card), debug-endpoint ×1 (prose match
+in the roadmap copy). Content-level multiset diff of (kind, description):
+zero textually new findings; page.tsx findings 15 → 14 (one
+react-missing-key-prop finding disappeared with the deleted duplicate map).
+
+Disposition: no security-relevant code changes; baseline regenerated
+(1,717 → 1,716); gate green across all 5 scopes.

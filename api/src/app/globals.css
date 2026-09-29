@@ -598,6 +598,139 @@
   line-height: 1.45;
 }
 
+/* ─── 3D Flip Cards ───
+   Hover flips on pointer devices; touch taps; keyboard activates
+   (Enter/Space toggles, Escape unflips — see FlipCard.tsx). The .flipped
+   class pins the state set by click/keyboard so the back stays readable. */
+.oz-flip-card {
+  perspective: 1100px;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  border-radius: var(--oz-radius-xl);
+}
+.oz-flip-card:focus-visible {
+  outline: 2px solid var(--oz-accent);
+  outline-offset: 3px;
+}
+.oz-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.24, 0.7, 0.3, 1.05);
+}
+.oz-flip-card.flipped .oz-flip-inner,
+.oz-flip-card:focus-visible .oz-flip-inner {
+  transform: rotateY(180deg);
+}
+@media (hover: hover) and (pointer: fine) {
+  .oz-flip-card:hover .oz-flip-inner {
+    transform: rotateY(180deg);
+  }
+}
+.oz-flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  position: absolute;
+  inset: 0;
+  background: var(--oz-bg-card);
+  border: 1px solid var(--oz-border);
+  border-radius: var(--oz-radius-xl);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+.oz-flip-card:hover .oz-flip-face,
+.oz-flip-card.flipped .oz-flip-face,
+.oz-flip-card:focus-visible .oz-flip-face {
+  border-color: color-mix(in srgb, var(--oz-accent) 38%, var(--oz-border));
+  box-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.32);
+}
+.oz-flip-back {
+  transform: rotateY(180deg);
+}
+/* The rotate affordance in the front corner doubles as the interactivity
+   cue: it spins with the same duration as the card while hovered. */
+.oz-flip-hint {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: var(--oz-text-secondary);
+  opacity: 0.45;
+  transition: transform 0.55s cubic-bezier(0.24, 0.7, 0.3, 1.05), opacity 0.3s ease;
+}
+.oz-flip-card:hover .oz-flip-hint,
+.oz-flip-card.flipped .oz-flip-hint,
+.oz-flip-card:focus-visible .oz-flip-hint {
+  transform: rotate(-180deg);
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .oz-flip-inner,
+  .oz-flip-hint {
+    transition: opacity 0.25s ease;
+  }
+  .oz-flip-inner {
+    transform: none !important;
+  }
+  .oz-flip-face {
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+  }
+  /* Crossfade instead of rotate: the mirrored back must be un-rotated for
+     that to be legible. */
+  .oz-flip-back {
+    transform: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+  }
+  .oz-flip-card:hover .oz-flip-back,
+  .oz-flip-card.flipped .oz-flip-back,
+  .oz-flip-card:focus-visible .oz-flip-back {
+    opacity: 1;
+    visibility: visible;
+  }
+  .oz-flip-card:hover .oz-flip-front,
+  .oz-flip-card.flipped .oz-flip-front,
+  .oz-flip-card:focus-visible .oz-flip-front {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* ─── Hover Lift (non-flip cards) ───
+   Quiet depth for stat / quickstart cards (add className="oz-lift"). The
+   accent ring is a box-shadow, not border-color: these elements carry an
+   inline border shorthand that would win over any hover border-color. No
+   movement for reduced-motion users. */
+.oz-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .oz-lift:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--oz-accent) 45%, transparent),
+      0 12px 28px -16px rgba(0, 0, 0, 0.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oz-lift {
+    transition: none;
+  }
+  .oz-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
 /* ─── Disclaimer ─── */
 /* No `opacity` here: alpha-blending the AAA token over the page background
    drops the effective contrast below 7:1 (measured 2.86:1 at 0.6 opacity in

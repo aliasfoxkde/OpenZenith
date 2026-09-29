@@ -597,6 +597,7 @@ export default function Home() {
             ].map((s) => (
               <div
                 key={s.label}
+                className="oz-lift"
                 style={{
                   background: cardBg,
                   border: `1px solid ${border}`,
@@ -789,71 +790,7 @@ export default function Home() {
                 href: "https://github.com/aliasfoxkde/OpenZenith",
                 btn: "View Source",
               },
-            ].map((f) => (
-              <FlipCard
-                key={f.title}
-                cardBg={cardBg}
-                border={border}
-                height={150}
-                front={
-                  <>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.6rem",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      <div style={{ fontSize: "1.5rem" }}>{f.emoji}</div>
-                      <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, textAlign: "center" }}>
-                        {f.title}
-                      </h3>
-                    </div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "0.8rem",
-                        color: textSecondary,
-                        lineHeight: 1.45,
-                        textAlign: "center",
-                      }}
-                    >
-                      {f.desc}
-                    </p>
-                  </>
-                }
-                back={
-                  <div style={{ textAlign: "center" }}>
-                    <div
-                      style={{ fontSize: "0.82rem", color: textSecondary, lineHeight: 1.55, marginBottom: "0.85rem" }}
-                    >
-                      {f.back}
-                    </div>
-                    <a
-                      href={f.href}
-                      target={f.href.startsWith("http") ? "_blank" : undefined}
-                      rel={f.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                      style={{
-                        display: "inline-block",
-                        padding: "0.4rem 1rem",
-                        borderRadius: 6,
-                        background: accent,
-                        color: "#000",
-                        fontSize: "0.78rem",
-                        fontWeight: 600,
-                        textDecoration: "none",
-                      }}
-                    >
-                      {f.btn}
-                    </a>
-                  </div>
-                }
-              />
-            ))}
-            {/* No Ads, OpenAPI, Self-Hostable — same FlipCard pattern */}
-            {[
+            
               {
                 emoji: "\uD83D\uDEAB",
                 title: "No Ads Ever",
@@ -881,8 +818,7 @@ export default function Home() {
             ].map((f) => (
               <FlipCard
                 key={f.title}
-                cardBg={cardBg}
-                border={border}
+                label={f.title}
                 height={150}
                 front={
                   <>
@@ -1041,8 +977,7 @@ export default function Home() {
             ].map((d) => (
               <FlipCard
                 key={d.title}
-                cardBg={cardBg}
-                border={border}
+                label={d.title}
                 height={130}
                 front={
                   <>
@@ -1088,8 +1023,7 @@ export default function Home() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
             <FlipCard
               key="contribute"
-              cardBg={cardBg}
-              border={border}
+              label="Contribute Data"
               height={120}
               front={
                 <>
@@ -1130,8 +1064,7 @@ export default function Home() {
             />
             <FlipCard
               key="integrations"
-              cardBg={cardBg}
-              border={border}
+              label="Integrations &amp; Tools"
               height={120}
               front={
                 <>
@@ -1157,8 +1090,8 @@ export default function Home() {
                       display: "inline-block",
                       padding: "0.4rem 1rem",
                       borderRadius: 6,
-                      background: "#6b21a8", // white label = 8.7:1 (AAA)
-                      color: "#fff",
+                      background: accent, // #000 label = 9.9:1 (AAA)
+                      color: "#000",
                       fontSize: "0.78rem",
                       fontWeight: 600,
                       textDecoration: "none",
@@ -1336,6 +1269,7 @@ export default function Home() {
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             <div
+              className="oz-lift"
               style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem" }}
             >
               <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Elevation lookup</div>
@@ -1364,6 +1298,7 @@ export default function Home() {
               </CodeBlock>
             </div>
             <div
+              className="oz-lift"
               style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem" }}
             >
               <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>JavaScript</div>
@@ -1383,6 +1318,7 @@ export default function Home() {
               </CodeBlock>
             </div>
             <div
+              className="oz-lift"
               style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: "1.25rem 1.5rem" }}
             >
               <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Python</div>

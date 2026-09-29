@@ -125,10 +125,23 @@ export async function fetchWarnings(_signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchCelestrak(_signal?: AbortSignal): Promise<any> {
+/** CelesTrak GP (general perturbation) JSON record — the fields layers consume. */
+export interface TleRecord {
+  TLE_LINE1: string;
+  TLE_LINE2: string;
+  NAME?: string;
+  OBJECT_NAME?: string;
+  NORAD_CAT_ID?: string;
+  /** CelesTrak sends many more GP fields; unconsumed ones stay open. */
+  [key: string]: unknown;
+}
+
+export async function fetchCelestrak(_signal?: AbortSignal): Promise<TleRecord[]> {
   try {
     const r = await dedupFetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json");
-    return await r.json();
+    const body: unknown = await r.json();
+    // CelesTrak serves a JSON array; a proxy error page would be an object.
+    return Array.isArray(body) ? (body as TleRecord[]) : [];
   } catch (err) {
     warnLayerError("fetchCelestrak", err);
     return [];

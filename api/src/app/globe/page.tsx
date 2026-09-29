@@ -308,7 +308,14 @@ export default function Globe() {
             if (props && props.type?.getValue() === "orbitalTrack") {
               // `group` is a plain string property on the entity bag.
               const name = entity.name || (props.group?.getValue() as string) || "Satellite";
-              const pos = entity.position?.getValue(Cesium.JulianDate.now());
+              // position is a Property for tracked entities, or a raw
+              // Cartesian3 for statically-placed ones (Cesium wraps those on
+              // assignment, but the raw value never grows getValue).
+              const position = entity.position;
+              const pos =
+                position instanceof Cesium.Cartesian3
+                  ? position
+                  : position?.getValue(Cesium.JulianDate.now());
               if (pos) {
                 const cg = Cesium.Cartographic.fromCartesian(pos);
                 const lat = Cesium.Math.toDegrees(cg.latitude);

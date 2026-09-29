@@ -81,6 +81,24 @@ const eslintConfig = [
     },
   },
   {
+    // Graduate the satellites layer to error: fully typed against the
+    // CesiumType / SatelliteJsApi ambients and the TleRecord fetch boundary
+    // (2026-09-28, first file of the no-unsafe-* retirement). New violations
+    // here fail lint instead of joining the warning backlog.
+    files: ["src/app/globe/lib/layers/satellites.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        { allowNumber: true },
+      ],
+    },
+  },
+  {
     ignores: [
       ".next/",
       ".vercel/",

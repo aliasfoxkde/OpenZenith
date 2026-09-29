@@ -1304,3 +1304,27 @@ denylisting the pattern. Both files re-scan clean.
 Disposition: comment reword only; no production code changes. Baseline
 regenerated (`aegis_scan.sh update` → 1,718 findings, unchanged count);
 gate re-run green across all 5 scopes.
+
+## 2026-09-28 — satellites layer typing re-flags (#155 slice 1)
+
+The no-unsafe-* retirement started with the biggest offender:
+`globe/lib/layers/satellites.ts` (247 eslint warnings → 0; global warning
+baseline 5,355 → 5,108; the file is graduated to error in eslint.config.mjs
+like src/lib/storage before it). Supporting changes: `Window.satellite` in
+cesium-types.d.ts replaced with a correct `SatelliteJsApi` ambient (the old
+shape mis-declared propagate's result and missed twoline2satrec /
+eciToGeodetic / degreesLat / degreesLong), `fetchCelestrak` now returns
+`TleRecord[]` with the array invariant checked at the single untyped-JSON
+boundary, and `CesiumType.Entity.position` widened to
+`PositionProperty | Cartesian3` (page.tsx's pick handler now discriminates —
+raw Cartesian3 never grows getValue).
+
+Aegis re-run: 34 findings, all re-flags of already-baselined classes in the
+three touched files (stable_id diff: page.tsx inner-html/console-log/xss
+classes, data-fetchers return-await/try-catch-bulk, satellites
+expensive-computation-loop/try-catch-bulk). Several counts DROPPED
+(return-await 17→7, try-catch-bulk 19→10): the deleted any-dense propagation
+loops were themselves pattern sources. Zero genuinely-new findings.
+
+Disposition: no security-relevant code changes; baseline regenerated at
+1,717 (was 1,718); gate green across all 5 scopes.

@@ -155,7 +155,9 @@ declare namespace CesiumType {
     id: string;
     name?: string;
     show?: boolean | CallbackProperty;
-    position?: PositionProperty;
+    // A raw Cartesian3 is legal on assignment — Cesium's property descriptor
+    // wraps it in a ConstantPositionProperty.
+    position?: PositionProperty | Cartesian3;
     orientation?: unknown;
     point?: Record<string, unknown>;
     label?: Record<string, unknown>;
@@ -454,20 +456,44 @@ declare namespace CesiumType {
   function LagrangePolynomialApproximation(options: unknown): unknown;
 }
 
+/** satellite.js SGP4 propagator record (opaque; built from a TLE pair). */
+interface SatelliteJsSatrec {
+  error?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Minimal satellite.js surface the globe layers use (loaded via CDN).
+ * propagate() omits position/velocity for decayed or unpropagatable sats,
+ * so callers must guard both.
+ */
+interface SatelliteJsApi {
+  twoline2satrec(tleLine1: string, tleLine2: string): SatelliteJsSatrec;
+  /** Legacy alias for twoline2satrec kept for existing callers. */
+  satrec(tleLine1: string, tleLine2: string): SatelliteJsSatrec;
+  propagate(
+    satrec: SatelliteJsSatrec,
+    date: Date,
+  ): {
+    position?: { x: number; y: number; z: number };
+    velocity?: { x: number; y: number; z: number };
+  };
+  gstime(date: Date | number): number;
+  eciToGeodetic(
+    positionEci: { x: number; y: number; z: number },
+    gstime: number,
+  ): { longitude: number; latitude: number; height: number };
+  eciToEcf(
+    positionEci: { x: number; y: number; z: number },
+    gstime: number,
+  ): { x: number; y: number; z: number };
+  degreesLat(radians: number): number;
+  degreesLong(radians: number): number;
+}
+
 interface Window {
   Cesium?: typeof CesiumType;
   CESIUM_BASE_URL?: string;
-  satellite?: {
-    satrec: (tleLine1: string, tleLine2: string) => unknown;
-    propagate: (
-      satrec: unknown,
-      date: Date,
-    ) => {
-      position: { eci: { x: number; y: number; z: number } };
-      velocity: { eci: { x: number; y: number; z: number } };
-    };
-    gstime: (julianDate: number) => number;
-    eciToEcf: (positionEci: { x: number; y: number; z: number }, gstime: number) => { x: number; y: number; z: number };
-  };
+  satellite?: SatelliteJsApi;
   __ozSetFollowEntity?: (entity: CesiumType.Entity | null) => void;
 }

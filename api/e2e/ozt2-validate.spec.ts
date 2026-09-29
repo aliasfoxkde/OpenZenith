@@ -6,7 +6,7 @@
  * E2E_BASE_URL to retarget; production by default).
  *
  * Prerequisites:
- *   - OZT2 tiles must be generated (scripts/convert_to_ozt2.py) and uploaded to R2
+ *   - OZT2 tiles must be generated (scripts/convert_to_ozt2.py) and uploaded to HuggingFace
  *   - API must be deployed with terrain-ozt2.ts changes
  *
  * Run:
@@ -19,12 +19,15 @@ import { test, expect } from "@playwright/test";
 // third-party feed noise the globe is designed to tolerate.
 const baseURL = process.env.E2E_BASE_URL ?? "https://openzenith.cyopsys.com";
 
-// Well-known tiles that should have land (mountains/coastal areas)
+// Well-known tiles that should have land (mountains/coastal areas).
+// The z11 entry pins the 2026-09-28 backfill (595,149 tiles, byte-validated)
+// so a regression in z11 serving fails loudly instead of falling back to PNG.
 const TEST_TILES = [
   { z: 10, x: 163, y: 395, name: "Mt. Everest area" },
   { z: 8, x: 40, y: 98, name: "Alps area" },
   { z: 7, x: 20, y: 49, name: "Rocky Mountains" },
   { z: 9, x: 85, y: 176, name: "Himalayas" },
+  { z: 11, x: 1083, y: 722, name: "Alps z11 (backfill)" },
 ];
 
 test.describe("OZT2 Tile Format", () => {
@@ -44,12 +47,12 @@ test.describe("OZT2 Tile Format", () => {
         headers: { Accept: "application/octet-stream" },
       });
 
-      // If OZT2 tiles not yet in R2, server falls back to PNG
+      // If OZT2 tiles are missing on HuggingFace, server falls back to PNG
       const contentType = resp.headers()["content-type"] ?? "";
       const xFormatFallback = resp.headers()["x-dem-tile-format-fallback"] ?? "";
 
       if (xFormatFallback === "ozt2-to-png" || contentType.includes("png")) {
-        console.log(`⚠️  OZT2 not in R2 yet — server returned PNG fallback (expected before Phase 2 upload)`);
+        console.log(`⚠️  OZT2 not on HuggingFace yet — server returned PNG fallback`);
         // Check at least PNG is served
         expect(resp.ok()).toBe(true);
         return;

@@ -1258,3 +1258,20 @@ established dispositioned classes:
 - **react-optimization :83** — `syncLayer` useCallback; standard memoization.
 
 Disposition: no code changes. Baseline updated via `aegis_scan.sh update`.
+
+## Dependency re-triage 2026-09-28 — vitest 5 upgrade (#154)
+
+`npm audit` count moved 3 → 5 (4 moderate, 1 high) with no tree change in the
+affected packages — the advisory *list* for the installed undici grew.
+Production gate unchanged: `npm audit --omit=dev` = **0 vulnerabilities**.
+
+- **@vitest/mocker (moderate, the #154 target):** cleared by vitest
+  3.2.1 → 5.0.2 (`@vitest/mocker@5.0.2` has no advisory).
+- **undici@5.29.0 (1 high + 3 moderate), via miniflare 3 inside
+  @cloudflare/next-on-pages:** dev-only (build/preview toolchain; undici is
+  never bundled into the edge worker). No fix available in-place — the only
+  resolution is a next-on-pages release off miniflare 3. `npm audit fix
+  --force` would *downgrade* wrangler 4.137.0 → 4.101.0; rejected.
+  wrangler's own miniflare is already 5.x. Watch item stands.
+- **esbuild@0.15.18 (moderate, via next-on-pages):** unchanged, no fix
+  available; dev-server exposure class, not shipped code.

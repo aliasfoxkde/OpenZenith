@@ -46,9 +46,12 @@ import { lerpColor } from "@/lib/hypsometric";
 import { getTileData } from "@/lib/tile";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
-const mockGetTileData = getTileData as ReturnType<typeof vi.fn>;
-const mockR2GetTile = edgeGetTile as ReturnType<typeof vi.fn>;
-const mockR2PutTile = edgePutTile as ReturnType<typeof vi.fn>;
+// vi.mocked keeps the real signatures, so `mockImplementation(() => Promise...)`
+// stays type-valid — vitest 5's `ReturnType<typeof vi.fn>` collapses to a
+// void-returning mock and makes those arrows a no-misused-promises error.
+const mockGetTileData = vi.mocked(getTileData);
+const mockR2GetTile = vi.mocked(edgeGetTile);
+const mockR2PutTile = vi.mocked(edgePutTile);
 
 const routeCtx = (z: string, x: string, y: string) => ({ params: Promise.resolve({ z, x, y }) });
 

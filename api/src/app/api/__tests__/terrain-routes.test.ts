@@ -61,15 +61,19 @@ const storageState = vi.hoisted<StorageGateState>(() => ({
 vi.mock("@/lib/storage/backend", () => {
   // The routes under test construct this backend, but every tile read goes
   // through the mocked `getTileData` above — only the constructor runs.
+  // vitest 5 forwards `new` to the implementation, so these must be
+  // constructible regular functions, not arrows.
   const HuggingFaceChunkBackend = vi.fn();
   // trace/twi/watershed/streams gate on a known starting elevation before
   // running — satisfy the gate so the hydrologic paths execute.
-  const OZT2HuggingFaceBackend = vi.fn(() => ({
-    getElevation: () =>
-      storageState.ozt2Rejects
-        ? Promise.reject(new Error("hf ozt2 unavailable"))
-        : Promise.resolve(storageState.ozt2Elevation),
-  }));
+  const OZT2HuggingFaceBackend = vi.fn(function OZT2HuggingFaceBackend() {
+    return {
+      getElevation: () =>
+        storageState.ozt2Rejects
+          ? Promise.reject(new Error("hf ozt2 unavailable"))
+          : Promise.resolve(storageState.ozt2Elevation),
+    };
+  });
   return { HuggingFaceChunkBackend, OZT2HuggingFaceBackend };
 });
 

@@ -118,10 +118,21 @@ export async function fetchMilitaryFlights(lat = 30, lon = -90, dist = 500, _sig
   }
 }
 
-export async function fetchVessels(_signal?: AbortSignal): Promise<any> {
+/** AISstream.io connection config from /api/vessels — keyed or unconfigured. */
+export interface VesselsConfig {
+  wsUrl?: string | null;
+  apiKey?: string | null;
+  messageTypes?: string[];
+  configured?: boolean;
+  error?: string;
+  message?: string;
+}
+
+export async function fetchVessels(_signal?: AbortSignal): Promise<VesselsConfig> {
   try {
     const r = await dedupFetch("/api/vessels");
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as VesselsConfig;
   } catch (err) {
     warnLayerError("fetchVessels", err);
     return { error: "Vessels unavailable" };

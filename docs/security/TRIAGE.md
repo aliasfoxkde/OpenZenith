@@ -1418,3 +1418,27 @@ react-missing-key-prop, return-await ×2).
 
 Disposition: no security-relevant code changes; baseline regenerated
 (1,717 → 1,715); gate green across all 5 scopes.
+
+## 2026-09-30 — vessels no-unsafe-* graduation re-flags (#155)
+
+Raw gate: 22 new findings. Multiset diff of (pattern, description) per touched
+file with the profile denylist applied:
+
+- `data-fetchers.ts` −1 return-await: the fetchVessels rewrite replaced
+  `return await r.json()` with a typed cast; one fewer redundant await.
+- `vessels.ts` −1 try-catch-bulk: the onmessage rewrite shortened the handler
+  below the bulk threshold.
+- `vessels.ts` +1 global-variable (`window.__ozCleanupVessels = …`):
+  pre-existing behavior — the hook was always assigned to window — but the old
+  `(window as any)` cast matched the explicit-any denylist and suppressed the
+  flag. Ambient-typing the hook (`Window.__ozCleanupVessels` in
+  cesium-types.d.ts) is the improvement that surfaces it. TRIAGED AS
+  ACCEPTED FP: it is the documented layer-teardown hook, same class as the
+  baselined `__ozSetFollowEntity` assignment in globe/page.tsx. Baseline.
+- `eslint.config.mjs` +1 model-version-tracking: the word "snapshot" in the
+  09-30 cohort provenance comment ("entity snapshot"). REWORDED to "entity
+  capture" rather than baselined, consistent with the ContextMenu.tsx
+  treatment earlier the same day.
+- `cesium-types.d.ts`: net 0 (ambient declarations only).
+
+Baseline 1,715 → 1,715 (the accepted global-variable FP is offset by the removed return-await; net zero).

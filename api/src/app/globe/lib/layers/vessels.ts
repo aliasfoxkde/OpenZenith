@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
@@ -27,8 +26,44 @@ interface AISPositionReport {
   Timestamp: string;
 }
 
+/** Per-message vessel metadata sent alongside each AISstream position. */
+interface AISMetaData {
+  mmsi?: number;
+  imo?: string | null;
+  shipname?: string;
+  shiptype?: number;
+  width?: number;
+  length?: number;
+  flag?: string;
+  callsign?: string | null;
+  destination?: string | null;
+  time_utc?: string;
+}
+
+/** AISstream.io WebSocket message — the fields vessels.ts consumes. */
+interface AISStreamMessage {
+  MessageType?: string;
+  MetaData?: AISMetaData;
+  PositionReport?: Partial<
+    Pick<AISPositionReport, "Latitude" | "Longitude" | "SpeedOverGround" | "CourseOverGround" | "TrueHeading" | "NavigationalStatus">
+  >;
+}
+
+/** Runtime check that a parsed WebSocket message is a PositionReport we can
+ * key on (MMSI must be a real number — it indexes the position cache). */
+function asPositionReport(
+  raw: unknown,
+): { meta: AISMetaData & { mmsi: number }; pos: NonNullable<AISStreamMessage["PositionReport"]> } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const msg = raw as AISStreamMessage;
+  const meta = msg.MetaData;
+  if (msg.MessageType !== "PositionReport" || typeof meta?.mmsi !== "number") return null;
+  // Property narrowing doesn't survive re-reading the object, so pin mmsi.
+  return { meta: { ...meta, mmsi: meta.mmsi }, pos: msg.PositionReport ?? {} };
+}
+
 /** Vessel type color mapping */
-function vesselColor(shipType: number, Cesium: any): any {
+function vesselColor(shipType: number, Cesium: typeof CesiumType): CesiumType.Color {
   if (shipType >= 60 && shipType <= 69) return Cesium.Color.fromCssColorString("#ff4444"); // Passenger
   if (shipType >= 70 && shipType <= 79) return Cesium.Color.fromCssColorString("#ff8800"); // Cargo
   if (shipType >= 80 && shipType <= 89) return Cesium.Color.fromCssColorString("#ffcc00"); // Tanker
@@ -77,8 +112,8 @@ function vesselTypeLabel(shipType: number): string {
 }
 
 export function loadVessels(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
@@ -94,6 +129,7 @@ export function loadVessels(
   let batchTimer: ReturnType<typeof setTimeout> | null = null;
 
   const addVesselEntity = (v: AISPositionReport, i: number) => {
+    if (!viewer || !Cesium) return;
     const color = vesselColor(v.VesselType, Cesium);
     const hdg = v.TrueHeading || v.CourseOverGround || 0;
     const spd = v.SpeedOverGround || 0;
@@ -193,8 +229,8 @@ export function loadVessels(
   const connectWebSocket = async () => {
     try {
       const config = await fetchVessels();
-      if (config.error) {
-        updateStatus("vessels", { error: config.message || config.error });
+      if (!config.wsUrl || !config.apiKey) {
+        updateStatus("vessels", { error: config.message || config.error || "Vessel feed unavailable" });
         return;
       }
 
@@ -216,33 +252,30 @@ export function loadVessels(
 
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data);
-
-          if (msg.MessageType === "PositionReport") {
-            const meta = msg.MetaData;
-            const pos = (msg).PositionReport || {};
-            const report: AISPositionReport = {
-              MMSI: meta.mmsi,
-              Latitude: pos.Latitude ?? 0,
-              Longitude: pos.Longitude ?? 0,
-              SpeedOverGround: pos.SpeedOverGround ?? 0,
-              CourseOverGround: pos.CourseOverGround ?? 0,
-              TrueHeading: pos.TrueHeading ?? 0,
-              NavigationalStatus: pos.NavigationalStatus ?? 0,
-              IMO: meta.imo,
-              Name: meta.shipname || "",
-              VesselType: meta.shiptype ?? 0,
-              Width: meta.width ?? 0,
-              Length: meta.length ?? 0,
-              Flag: meta.flag || "",
-              CallSign: meta.callsign || null,
-              Destination: meta.destination || null,
-              ETA: null,
-              Timestamp: meta.time_utc,
-            };
-            positionCache.set(report.MMSI, report);
-            scheduleRebuild();
-          }
+          const parsed = asPositionReport(JSON.parse(String(event.data)));
+          if (!parsed) return;
+          const { meta, pos } = parsed;
+          const report: AISPositionReport = {
+            MMSI: meta.mmsi,
+            Latitude: pos.Latitude ?? 0,
+            Longitude: pos.Longitude ?? 0,
+            SpeedOverGround: pos.SpeedOverGround ?? 0,
+            CourseOverGround: pos.CourseOverGround ?? 0,
+            TrueHeading: pos.TrueHeading ?? 0,
+            NavigationalStatus: pos.NavigationalStatus ?? 0,
+            IMO: meta.imo ?? null,
+            Name: meta.shipname || "",
+            VesselType: meta.shiptype ?? 0,
+            Width: meta.width ?? 0,
+            Length: meta.length ?? 0,
+            Flag: meta.flag || "",
+            CallSign: meta.callsign || null,
+            Destination: meta.destination || null,
+            ETA: null,
+            Timestamp: meta.time_utc ?? "",
+          };
+          positionCache.set(report.MMSI, report);
+          scheduleRebuild();
         } catch {
           // Malformed message, skip
         }
@@ -287,7 +320,7 @@ export function loadVessels(
   intervalsRef.current.push(cleanupIv);
 
   // Store cleanup function on window for layer toggle
-  (window as any).__ozCleanupVessels = () => {
+  window.__ozCleanupVessels = () => {
     if (batchTimer) clearTimeout(batchTimer);
     if (ws) {
       ws.onclose = null; // prevent reconnect
@@ -300,5 +333,5 @@ export function loadVessels(
 
 /** Cleanup vessel WebSocket on layer disable */
 export function cleanupVessels() {
-  (window as any).__ozCleanupVessels?.();
+  window.__ozCleanupVessels?.();
 }

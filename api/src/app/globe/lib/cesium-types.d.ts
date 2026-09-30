@@ -496,4 +496,7 @@ interface Window {
   CESIUM_BASE_URL?: string;
   satellite?: SatelliteJsApi;
   __ozSetFollowEntity?: (entity: CesiumType.Entity | null) => void;
+  // Set by layers/vessels.ts so the layer can be torn down without a
+  // module-level singleton.
+  __ozCleanupVessels?: () => void;
 }

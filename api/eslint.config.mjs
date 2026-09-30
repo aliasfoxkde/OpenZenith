@@ -102,12 +102,15 @@ const eslintConfig = [
     // 2026-09-30 graduation cohort of the no-unsafe-* retirement — each file
     // fully typed (file-level no-explicit-any waivers removed) against the
     // CesiumType ambients and typed data-fetchers boundaries:
-    //   ContextMenu.tsx — viewer/cesium refs, entity snapshot, tool-manager
+    //   ContextMenu.tsx — viewer/cesium refs, entity capture, tool-manager
     //     surfaces (also fixed: unguarded requestRender, floating flyTo).
     //   flights.ts — OpenSkyResponse/OpenSkyState boundary, positional state
     //     vectors coerced at one edge (also fixed: dead cam/undefined guards).
     //   volcanoes.ts — VolcanoAlertCollection boundary from the RSS parser.
     //   hurricanes.ts — IBTrACS CSV boundary; columns ≥10 stay runtime-checked.
+    //   vessels.ts — VesselsConfig boundary and a runtime-checked AISstream
+    //     WebSocket message guard (also fixed: null wsUrl could reach the
+    //     WebSocket constructor; window cleanup hook now ambient-typed).
     // New violations in these files fail lint instead of joining the warning
     // backlog.
     files: [
@@ -115,6 +118,7 @@ const eslintConfig = [
       "src/app/globe/lib/layers/flights.ts",
       "src/app/globe/lib/layers/volcanoes.ts",
       "src/app/globe/lib/layers/hurricanes.ts",
+      "src/app/globe/lib/layers/vessels.ts",
     ],
     rules: {
       "@typescript-eslint/no-unsafe-member-access": "error",

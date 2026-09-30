@@ -2385,3 +2385,19 @@ addition (the comment-grep FP matching "snapshots" — reworded, not
 baselined), 12 FP classes evaporated; baseline 1,717 → 1,715, gate green.
 Vitest 1,419/5; tsc clean; eslint 0 errors. Remaining in #155: vessels
 (125), aviation-weather (107), earthquakes (98).
+
+## 2026-09-30 (later) — #155 batch 3: vessels typed
+
+vessels.ts retired its 125 no-unsafe-* warnings (project total 4,435 →
+4,310). The fetch boundary became VesselsConfig, the AISstream WebSocket
+message gets a runtime guard (asPositionReport — MMSI must be a real
+number since it keys the position cache) instead of any-chains, and the
+window teardown hook moved from an (window as any) cast to an
+ambient-typed Window.__ozCleanupVessels in cesium-types.d.ts. Typing
+fixed a latent crash path: an unconfigured feed used to fall through the
+error branch straight to `new WebSocket(config.wsUrl)` with a null URL;
+now the wsUrl/apiKey guard covers both. Aegis: the ambient-typed window
+assignment surfaces a global-variable flag the old any-cast had
+suppressed (accepted FP, documented in TRIAGE.md); baseline 1,715 →
+1,715 net. Vitest 1,419/5; tsc clean; eslint 0 errors. Remaining in
+#155: aviation-weather (107), earthquakes (98).

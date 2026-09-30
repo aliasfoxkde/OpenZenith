@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { getAircraftIcon } from "../constants";
 import { fetchFlights, fetchFlightsAnonymous } from "../data-fetchers";
+import type { OpenSkyResponse, OpenSkyState } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 
 /**
@@ -51,7 +51,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /** Enhanced altitude-based color bands (5 bands for better visual differentiation) */
-function altColor(alt: number, Cesium: any): any {
+function altColor(alt: number, Cesium: typeof CesiumType): CesiumType.Color {
   if (alt < 3000) return Cesium.Color.LIME; // Ground / low
   if (alt < 6000) return Cesium.Color.YELLOW; // Low altitude
   if (alt < 10000) return Cesium.Color.CYAN; // Mid altitude
@@ -70,13 +70,13 @@ function toKnots(ms: number): number {
 }
 
 export function loadFlights(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
   stateLayers: { flights: boolean },
-  _entitiesRef?: React.RefObject<Record<string, any>>,
+  _entitiesRef?: React.RefObject<Record<string, unknown>>,
 ) {
   updateStatus("flights", { error: null });
   const retry = createRetryGuard();
@@ -84,19 +84,24 @@ export function loadFlights(
   // Cache last bbox to avoid redundant requests
   let lastBboxKey = "";
 
-  const addFlightEntity = (s: any[], idx: number, showContrails = true) => {
-    const callsign = (s[SV.CALLSIGN] || "").trim();
-    const icao24 = s[SV.ICAO24] || "";
-    const alt = s[SV.BARO_ALTITUDE] || s[SV.GEO_ALTITUDE] || 0;
-    const spd = s[SV.VELOCITY] || 0;
-    const hdg = s[SV.TRUE_TRACK] || 0;
+  const addFlightEntity = (s: OpenSkyState, idx: number, showContrails = true) => {
+    if (!viewer || !Cesium) return;
+    // Positional fields arrive as string|number|boolean|null; coerce the
+    // numeric ones once (rows are pre-filtered for non-null LON/LAT).
+    const lon = Number(s[SV.LON]);
+    const lat = Number(s[SV.LAT]);
+    const callsign = String(s[SV.CALLSIGN] || "").trim();
+    const icao24 = String(s[SV.ICAO24] || "");
+    const alt = Number(s[SV.BARO_ALTITUDE] || s[SV.GEO_ALTITUDE] || 0);
+    const spd = Number(s[SV.VELOCITY] || 0);
+    const hdg = Number(s[SV.TRUE_TRACK] || 0);
     const cat = s[SV.CATEGORY] || 0;
-    const country = s[SV.ORIGIN_COUNTRY] || "";
-    const vRate = s[SV.VERTICAL_RATE] || 0;
+    const country = String(s[SV.ORIGIN_COUNTRY] || "");
+    const vRate = Number(s[SV.VERTICAL_RATE] || 0);
     const onGround = s[SV.ON_GROUND];
-    const squawk = s[SV.SQUAWK] || "";
+    const squawk = String(s[SV.SQUAWK] || "");
     const color = onGround ? Cesium.Color.GRAY : altColor(alt, Cesium);
-    const icon = getAircraftIcon(cat);
+    const icon = getAircraftIcon(String(cat));
 
     // ─── Enhanced tooltip description ───
     const catLabel = CATEGORY_LABELS[String(cat)] || "Unknown";
@@ -113,7 +118,7 @@ export function loadFlights(
     viewer.entities.add({
       id: `flight-${idx}`,
       name: callsign || `ICAO:${icao24}`,
-      position: Cesium.Cartesian3.fromDegrees(s[SV.LON], s[SV.LAT], Math.max(alt, 0)),
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, Math.max(alt, 0)),
       billboard: {
         image: icon,
         width: 22,
@@ -160,13 +165,13 @@ export function loadFlights(
       const vecLen = Math.min(spd * 0.15, 8000);
       const hdgRad = Cesium.Math.toRadians(hdg);
       const dLat = (vecLen * Math.cos(hdgRad)) / 111320;
-      const dLon = (vecLen * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
+      const dLon = (vecLen * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(lat)));
       viewer.entities.add({
         id: `flight-vec-${idx}`,
-        position: Cesium.Cartesian3.fromDegrees(s[SV.LON], s[SV.LAT], Math.max(alt, 0)),
+        position: Cesium.Cartesian3.fromDegrees(lon, lat, Math.max(alt, 0)),
         polyline: {
           positions: Cesium.Cartesian3.fromDegreesArray(
-            [Number(s[SV.LON]), Number(s[SV.LAT]), Number(s[SV.LON]) + dLon, Number(s[SV.LAT]) + dLat],
+            [lon, lat, lon + dLon, lat + dLat],
             Math.max(alt, 0),
             Math.max(alt, 0),
           ),
@@ -189,10 +194,10 @@ export function loadFlights(
         const alpha = 0.35 * (1 - t / segments);
         const segStart = trailLen * (t / segments);
         const segEnd = trailLen * ((t + 1) / segments);
-        const sLat0 = s[SV.LAT] - (segStart * Math.cos(hdgRad)) / 111320;
-        const sLon0 = s[SV.LON] - (segStart * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
-        const sLat1 = s[SV.LAT] - (segEnd * Math.cos(hdgRad)) / 111320;
-        const sLon1 = s[SV.LON] - (segEnd * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(s[SV.LAT])));
+        const sLat0 = lat - (segStart * Math.cos(hdgRad)) / 111320;
+        const sLon0 = lon - (segStart * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(lat)));
+        const sLat1 = lat - (segEnd * Math.cos(hdgRad)) / 111320;
+        const sLon1 = lon - (segEnd * Math.sin(hdgRad)) / (111320 * Math.cos(Cesium.Math.toRadians(lat)));
         viewer.entities.add({
           id: `flight-trail-${idx}-${t}`,
           polyline: {
@@ -214,31 +219,28 @@ export function loadFlights(
   const doLoad = async () => {
     try {
       // First load: try authenticated API with current camera view bbox
-      let data: any;
+      let data: OpenSkyResponse | undefined;
       let authenticated = false;
 
-      if (viewer) {
+      if (viewer && Cesium) {
         const cam = viewer.camera.positionCartographic;
-        if (cam) {
-          const camH = cam.height;
-          const span = Math.min(camH * 0.8, 5);
-          const spanDeg = span / 111320;
-          const camLng = Number(Cesium.Math.toDegrees(cam.longitude));
-          const camLat = Number(Cesium.Math.toDegrees(cam.latitude));
-          const bbox = {
-            lamin: +(camLat - spanDeg / 2).toFixed(2),
-            lamax: +(camLat + spanDeg / 2).toFixed(2),
-            lomin: +(camLng - spanDeg / 2).toFixed(2),
-            lomax: +(camLng + spanDeg / 2).toFixed(2),
-          };
-          lastBboxKey = `${bbox.lamin},${bbox.lamax},${bbox.lomin},${bbox.lomax}`;
+        const span = Math.min(cam.height * 0.8, 5);
+        const spanDeg = span / 111320;
+        const camLng = Cesium.Math.toDegrees(cam.longitude);
+        const camLat = Cesium.Math.toDegrees(cam.latitude);
+        const bbox = {
+          lamin: +(camLat - spanDeg / 2).toFixed(2),
+          lamax: +(camLat + spanDeg / 2).toFixed(2),
+          lomin: +(camLng - spanDeg / 2).toFixed(2),
+          lomax: +(camLng + spanDeg / 2).toFixed(2),
+        };
+        lastBboxKey = `${bbox.lamin},${bbox.lamax},${bbox.lomin},${bbox.lomax}`;
 
-          try {
-            data = await fetchFlights(bbox);
-            authenticated = !data.error;
-          } catch {
-            // Fall back to anonymous
-          }
+        try {
+          data = await fetchFlights(bbox);
+          authenticated = !data.error;
+        } catch {
+          // Fall back to anonymous
         }
       }
 
@@ -251,42 +253,39 @@ export function loadFlights(
 
       const MAX_FLIGHTS = 300;
       const states = data.states
-        .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
+        .filter((s) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
         .slice(0, MAX_FLIGHTS);
       updateStatus("flights", { lastUpdate: Date.now(), count: states.length });
-      states.forEach((s: any[], i: number) => { addFlightEntity(s, i, states.length <= 300); });
+      states.forEach((s, i) => { addFlightEntity(s, i, states.length <= 300); });
 
       // Refresh interval
       const refresh = async () => {
         if (!stateLayers.flights) return;
 
         try {
-          let newData: any;
-          if (viewer) {
-            const cam = viewer.camera.positionCartographic;
-            if (cam) {
-              const camH = cam.height;
-              const span = Math.min(camH * 0.8, 5);
-              const spanDeg = span / 111320;
-              const camLng = Number(Cesium.Math.toDegrees(cam.longitude));
-              const camLat = Number(Cesium.Math.toDegrees(cam.latitude));
-              const bboxKey = `${(camLat - spanDeg / 2).toFixed(2)},${(camLat + spanDeg / 2).toFixed(2)},${(camLng - spanDeg / 2).toFixed(2)},${(camLng + spanDeg / 2).toFixed(2)}`;
+          let newData: OpenSkyResponse | undefined;
+          // viewer/Cesium are narrowed by doLoad's guard before this closure
+          // is created (both are load-time captures, never re-read).
+          const cam = viewer.camera.positionCartographic;
+          const span = Math.min(cam.height * 0.8, 5);
+          const spanDeg = span / 111320;
+          const camLng = Cesium.Math.toDegrees(cam.longitude);
+          const camLat = Cesium.Math.toDegrees(cam.latitude);
+          const bboxKey = `${(camLat - spanDeg / 2).toFixed(2)},${(camLat + spanDeg / 2).toFixed(2)},${(camLng - spanDeg / 2).toFixed(2)},${(camLng + spanDeg / 2).toFixed(2)}`;
 
-              if (bboxKey !== lastBboxKey || authenticated) {
-                const bbox = {
-                  lamin: +(camLat - spanDeg / 2).toFixed(2),
-                  lamax: +(camLat + spanDeg / 2).toFixed(2),
-                  lomin: +(camLng - spanDeg / 2).toFixed(2),
-                  lomax: +(camLng + spanDeg / 2).toFixed(2),
-                };
-                lastBboxKey = bboxKey;
+          if (bboxKey !== lastBboxKey || authenticated) {
+            const bbox = {
+              lamin: +(camLat - spanDeg / 2).toFixed(2),
+              lamax: +(camLat + spanDeg / 2).toFixed(2),
+              lomin: +(camLng - spanDeg / 2).toFixed(2),
+              lomax: +(camLng + spanDeg / 2).toFixed(2),
+            };
+            lastBboxKey = bboxKey;
 
-                try {
-                  newData = await fetchFlights(bbox);
-                } catch {
-                  // Fall through to anonymous
-                }
-              }
+            try {
+              newData = await fetchFlights(bbox);
+            } catch {
+              // Fall through to anonymous
             }
           }
 
@@ -297,9 +296,9 @@ export function loadFlights(
           if (newData.states) {
             removeEntities("flight-");
             const filtered = newData.states
-              .filter((s: any[]) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
+              .filter((s) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
               .slice(0, MAX_FLIGHTS);
-            filtered.forEach((s: any[], i: number) => { addFlightEntity(s, i, filtered.length <= 300); });
+            filtered.forEach((s, i) => { addFlightEntity(s, i, filtered.length <= 300); });
             updateStatus("flights", {
               lastUpdate: Date.now(),
               count: filtered.length,

@@ -1394,3 +1394,27 @@ security content, baselined as triaged.
 
 Disposition: no security-relevant code changes; baseline regenerated
 (1,716 → 1,717); gate green across all 5 scopes.
+
+## 2026-09-30 — flights/volcanoes/hurricanes no-unsafe-* graduation re-flags (#155)
+
+Touched: `api/src/app/globe/lib/data-fetchers.ts` (fetch boundary typed:
+`OpenSkyResponse`/`OpenSkyState` for the two OpenSky flight endpoints,
+`VolcanoAlertCollection`/`VolcanoAlertFeature`/`VolcanoAlertProps` for the
+RSS parser, `fetchHurricaneTracks` → `Promise<string>`), the three layer
+files (CesiumType signatures, dead any-era guards dropped — cam checks,
+always-truthy conditionals, redundant `Number()` conversions that typing
+revealed; hurricanes' CallbackProperty now passes `isConstant: false`, which
+the real Cesium signature requires), and `api/eslint.config.mjs` (09-30
+cohort block: ContextMenu, flights, volcanoes, hurricanes — 460 warnings
+retired, 5,108 → 4,435 since the pass began).
+
+Aegis re-run: 32 gate flags from line shifts; content-level (kind,
+description) multiset diff shows **1 textual addition and 12 removals** —
+the addition was the `model-version-tracking` comment-grep matching the word
+"snapshots" in a new explanatory comment; reworded to "captures" rather than
+baselining it. The removals are false-positive classes that evaporated with
+the rewrites (loose-equality ×4, try-catch-bulk ×3, ssrf,
+react-missing-key-prop, return-await ×2).
+
+Disposition: no security-relevant code changes; baseline regenerated
+(1,717 → 1,715); gate green across all 5 scopes.

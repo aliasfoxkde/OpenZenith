@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchHurricaneTracks } from "../data-fetchers";
@@ -65,7 +64,11 @@ const CAT_WINDS: Partial<Record<string, { min: number; max: number; label: strin
   EX: { min: 0, max: 999, label: "Extratropical" },
 };
 
-export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
+export function loadHurricanes(
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
+  updateStatus: (key: string, u: Partial<DataStatus>) => void,
+) {
   updateStatus("hurricaneTracks", { error: null });
 
   const doLoad = async () => {
@@ -73,19 +76,21 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
       const csv = await fetchHurricaneTracks();
       if (!Cesium || !viewer) return;
       const lines = csv.split("\n").slice(1);
-      const storms: Record<string, StormTrackPoint[] | undefined> = {};
+      const storms: Record<string, StormTrackPoint[]> = {};
 
       for (const line of lines) {
         const p = line.split(",");
         if (p.length < 10) continue;
-        const sid = p[0]?.trim();
-        const name = p[8]?.trim();
+        // Columns ≥10 aren't covered by the length guard — short rows are a
+        // normal upstream case, so those stay runtime-checked.
+        const sid = p[0].trim();
+        const name = p[8].trim();
         const lat = parseFloat(p[6]);
         const lon = parseFloat(p[7]);
-        const cat = p[10]?.trim() || "TS";
-        const season = p[1]?.trim();
-        const wind = parseFloat(p[11]) || 0; // Wind speed in knots (column 11)
-        const pressure = parseFloat(p[12]) || 0; // Pressure (column 12)
+        const cat = (p.length > 10 ? p[10] : undefined)?.trim() || "TS";
+        const season = p[1].trim();
+        const wind = parseFloat(p.length > 11 ? p[11] : "") || 0; // Wind speed in knots (column 11)
+        const pressure = parseFloat(p.length > 12 ? p[12] : "") || 0; // Pressure (column 12)
         if (isNaN(lat) || isNaN(lon)) continue;
         (storms[sid] ??= []).push({
           coordinates: [lon, lat],
@@ -101,16 +106,13 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
       let count = 0;
 
       for (const track of Object.values(storms)) {
-        // The record value type is `| undefined` because index access on a
-        // Record is untyped at read time; every entry is assigned above, but
-        // the guard is what lets TS narrow track for the whole body.
-        if (!track || track.length < 2) continue;
-        const positions = track.map((pt: StormTrackPoint) =>
+        if (track.length < 2) continue;
+        const positions = track.map((pt) =>
           Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]),
         );
         const lastPt = track[track.length - 1];
         const maxCat = track.reduce(
-          (best: string, pt: StormTrackPoint) => ((CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best),
+          (best, pt) => ((CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best),
           track[0].cat,
         );
         const maxWind = track.reduce<number>((best, pt) => (pt.wind > best ? pt.wind : best), 0);
@@ -201,7 +203,7 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
           const steps = 40;
           const maxRadius = isCat3Plus ? 350000 : 200000;
 
-          const spiralPositions = new Cesium.CallbackProperty((time: any) => {
+          const spiralPositions = new Cesium.CallbackProperty((time: CesiumType.JulianDate) => {
             const rotation = Cesium.JulianDate.secondsDifference(time, Cesium.JulianDate.now());
             const rotAngle = rotation * 0.3;
 
@@ -216,7 +218,7 @@ export function loadHurricanes(viewer: any, Cesium: any, updateStatus: (key: str
               pts.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
             }
             return pts;
-          });
+          }, false);
 
           viewer.entities.add({
             id: `storm-spiral-${count}-${arm}`,

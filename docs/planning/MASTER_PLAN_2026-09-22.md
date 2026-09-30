@@ -2366,3 +2366,22 @@ the add-marker/add-annotation handlers — a null-viewer crash path hidden by
 `any` — and four floating `camera.flyTo()` promises, now `void`-marked).
 Next up in #155: flights.ts (169 warnings), then volcanoes/hurricanes/
 vessels/aviation-weather/earthquakes.
+
+## 2026-09-30 (later) — #155 batch 2: flights/volcanoes/hurricanes typed
+
+Three more layer files retired their no-unsafe-* debt (169 + 147 + 144 = 460
+warnings; project total now 4,435, down from 5,355 when the pass began).
+The work concentrated in data-fetchers.ts, which now exports typed
+boundaries — OpenSkyResponse/OpenSkyState (positional state vectors, coerced
+once at the entity-builder edge), VolcanoAlertCollection (the RSS parser's
+self-built GeoJSON), fetchHurricaneTracks → Promise<string> — so the layer
+files only handle real types. Each file joined the eslint.config.mjs error
+cohort (09-30 block, one shared entry instead of per-file rule duplication).
+Typing again surfaced dead code the any-era guards hid: cam null-checks on
+a non-optional Camera property, always-truthy conditionals, redundant
+Number() coercions, and hurricanes' CallbackProperty was missing its
+required isConstant argument (now false, same semantics). Aegis: 1 textual
+addition (the comment-grep FP matching "snapshots" — reworded, not
+baselined), 12 FP classes evaporated; baseline 1,717 → 1,715, gate green.
+Vitest 1,419/5; tsc clean; eslint 0 errors. Remaining in #155: vessels
+(125), aviation-weather (107), earthquakes (98).

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchVolcanoAlerts } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
@@ -34,8 +33,8 @@ function alertLabel(alert: string): string {
 }
 
 export function loadVolcanoes(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
@@ -48,13 +47,13 @@ export function loadVolcanoes(
     try {
       const data = await fetchVolcanoAlerts();
       if (!Cesium || !viewer) return;
-      const features = data.features || [];
+      const features = data.features;
       removeEntities("vol-");
       let count = 0;
 
       for (let i = 0; i < features.length; i++) {
         const f = features[i];
-        const props = f.properties || {};
+        const props = f.properties;
         const coords = f.geometry?.coordinates;
         if (!coords) continue;
 
@@ -102,7 +101,7 @@ export function loadVolcanoes(
             name,
             `Alert: ${alertLabel(alert)}`,
             props.url || null,
-            coords ? `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}` : null,
+            `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}`,
             `Source: USGS Volcano Hazards Program`,
           ]
             .filter(Boolean)
@@ -131,12 +130,12 @@ export function loadVolcanoes(
       const refresh = async () => {
         try {
           const d = await fetchVolcanoAlerts();
-          const feats = d.features || [];
+          const feats = d.features;
           removeEntities("vol-");
           let count = 0;
           for (let j = 0; j < feats.length; j++) {
             const f = feats[j];
-            const pr = f.properties || {};
+            const pr = f.properties;
             const co = f.geometry?.coordinates;
             if (!co) continue;
             const al = pr.alertLevel || pr.alert_level || "normal";

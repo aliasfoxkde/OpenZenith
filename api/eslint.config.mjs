@@ -99,12 +99,23 @@ const eslintConfig = [
     },
   },
   {
-    // Graduate the globe context menu to error: fully typed against the
-    // CesiumType ambients (viewer/cesium refs, entity snapshot, tool-manager
-    // surfaces) with the file-level no-explicit-any waiver removed
-    // (2026-09-30, second file of the no-unsafe-* retirement). New violations
-    // here fail lint instead of joining the warning backlog.
-    files: ["src/app/globe/lib/components/ContextMenu.tsx"],
+    // 2026-09-30 graduation cohort of the no-unsafe-* retirement — each file
+    // fully typed (file-level no-explicit-any waivers removed) against the
+    // CesiumType ambients and typed data-fetchers boundaries:
+    //   ContextMenu.tsx — viewer/cesium refs, entity snapshot, tool-manager
+    //     surfaces (also fixed: unguarded requestRender, floating flyTo).
+    //   flights.ts — OpenSkyResponse/OpenSkyState boundary, positional state
+    //     vectors coerced at one edge (also fixed: dead cam/undefined guards).
+    //   volcanoes.ts — VolcanoAlertCollection boundary from the RSS parser.
+    //   hurricanes.ts — IBTrACS CSV boundary; columns ≥10 stay runtime-checked.
+    // New violations in these files fail lint instead of joining the warning
+    // backlog.
+    files: [
+      "src/app/globe/lib/components/ContextMenu.tsx",
+      "src/app/globe/lib/layers/flights.ts",
+      "src/app/globe/lib/layers/volcanoes.ts",
+      "src/app/globe/lib/layers/hurricanes.ts",
+    ],
     rules: {
       "@typescript-eslint/no-unsafe-member-access": "error",
       "@typescript-eslint/no-unsafe-assignment": "error",

@@ -71,24 +71,37 @@ export async function fetchEONET(_signal?: AbortSignal): Promise<any> {
   }
 }
 
+/** OpenSky REST state-vector row — positional fields, indexed via the SV map
+ * in layers/flights.ts. Fields are string|number|boolean|null per the API. */
+export type OpenSkyState = (string | number | boolean | null)[];
+
+/** OpenSky REST response — the subset globe layers consume. */
+export interface OpenSkyResponse {
+  time?: number;
+  states?: OpenSkyState[] | null;
+  error?: string;
+}
+
 export async function fetchFlights(
   bbox?: { lamin: number; lamax: number; lomin: number; lomax: number },
   _signal?: AbortSignal,
-): Promise<any> {
+): Promise<OpenSkyResponse> {
   try {
     const params = bbox ? `?lamin=${bbox.lamin}&lamax=${bbox.lamax}&lomin=${bbox.lomin}&lomax=${bbox.lomax}` : "";
     const r = await dedupFetch(`/api/opensky/flights${params}`);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as OpenSkyResponse;
   } catch (err) {
     warnLayerError("fetchFlights", err);
     return { error: "Flights unavailable" };
   }
 }
 
-export async function fetchFlightsAnonymous(_signal?: AbortSignal): Promise<any> {
+export async function fetchFlightsAnonymous(_signal?: AbortSignal): Promise<OpenSkyResponse> {
   try {
     const r = await dedupFetch("/api/flights");
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as OpenSkyResponse;
   } catch (err) {
     warnLayerError("fetchFlightsAnonymous", err);
     return { error: "Flights unavailable" };
@@ -148,7 +161,7 @@ export async function fetchCelestrak(_signal?: AbortSignal): Promise<TleRecord[]
   }
 }
 
-export async function fetchHurricaneTracks(_signal?: AbortSignal): Promise<any> {
+export async function fetchHurricaneTracks(_signal?: AbortSignal): Promise<string> {
   try {
     const r = await dedupFetch(
       "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv",
@@ -212,12 +225,34 @@ export async function fetchAirmets(_signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<any> {
+/** Volcano alert feature properties parsed from the SI/USGS weekly RSS feed. */
+export interface VolcanoAlertProps {
+  title?: string;
+  name?: string;
+  alertLevel?: string;
+  alert_level?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+/** Point feature for one alerted volcano. */
+export interface VolcanoAlertFeature {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: number[] } | null;
+  properties: VolcanoAlertProps;
+}
+
+export interface VolcanoAlertCollection {
+  type: "FeatureCollection";
+  features: VolcanoAlertFeature[];
+}
+
+export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<VolcanoAlertCollection> {
   try {
     const r = await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml", { signal });
     const text = await r.text();
 
-    const features: GeoJSON.Feature[] = [];
+    const features: VolcanoAlertFeature[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match: RegExpExecArray | null;
 

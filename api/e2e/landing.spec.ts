@@ -89,4 +89,67 @@ test.describe("Landing page", () => {
     const scrollY = await page.evaluate(() => window.scrollY);
     expect(scrollY).toBeGreaterThan(500);
   });
+
+  test("flip card toggles on click and keyboard", async ({ page }) => {
+    await page.goto("/");
+
+    const card = page.locator(".oz-flip-card").first();
+    await card.scrollIntoViewIfNeeded();
+
+    // Resting state: front shown, not pressed.
+    await expect(card).toHaveAttribute("aria-pressed", "false");
+
+    // Click flips (state class pins it; hover-flip only drives CSS).
+    await card.click();
+    await expect(card).toHaveAttribute("aria-pressed", "true");
+    await expect(card).toHaveClass(/flipped/);
+
+    // Click again unflips.
+    await card.click();
+    await expect(card).toHaveAttribute("aria-pressed", "false");
+
+    // Enter toggles, Escape unflips.
+    await card.focus();
+    await page.keyboard.press("Enter");
+    await expect(card).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Escape");
+    await expect(card).toHaveAttribute("aria-pressed", "false");
+    await expect(card).not.toHaveClass(/flipped/);
+  });
+
+  test("CTA link inside a flipped card does not toggle the card", async ({ page }) => {
+    await page.goto("/");
+
+    // The Contribute card's back face carries an in-app CTA; clicking it must
+    // navigate without also flipping (cancel navigation here, keep the click).
+    const contributeCard = page.locator(".oz-flip-card", { hasText: "Contribute Data" });
+    await contributeCard.scrollIntoViewIfNeeded();
+
+    await page.evaluate(() => {
+      const anchor = document.querySelector<HTMLElement>('.oz-flip-card a[href="/contribute"]');
+      if (!anchor) throw new Error("contribute CTA not found");
+      anchor.addEventListener("click", (e) => e.preventDefault(), { once: true });
+      anchor.click();
+    });
+
+    await expect(contributeCard).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("loads and interacts without console errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(msg.text());
+    });
+    page.on("pageerror", (err) => errors.push(String(err)));
+
+    await page.goto("/");
+    await page.locator(".oz-flip-card").first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1500);
+
+    // Map tiles and third-party layers fail for network reasons; those are
+    // environmental, not app defects. Anything else fails the test.
+    const environmental = /net::|Failed to load resource|tile| ERR_/i;
+    const real = errors.filter((e) => !environmental.test(e));
+    expect(real).toEqual([]);
+  });
 });

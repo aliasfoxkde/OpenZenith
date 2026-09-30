@@ -71,7 +71,9 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
 
     const runSearch = async () => {
       try {
-        const res = await fetch(`/api/geocode?query=${encodeURIComponent(value)}&limit=5`);
+        const res = await fetch(`/api/geocode?query=${encodeURIComponent(value)}&limit=5`, {
+          signal: AbortSignal.timeout(6_000),
+        });
         if (!res.ok) {
           setResults([]);
           setError("Address search is temporarily unavailable. Try again shortly.");

@@ -2307,3 +2307,34 @@ re-flags, all line shifts of baselined classes (page.tsx findings 15 → 14:
 one react-missing-key-prop vanished with the deleted duplicate map; see
 TRIAGE.md). Screenshot review (light+dark, desktop+mobile,
 rest/hover/flipped/focus) via the design-review loop.
+
+## 2026-09-29 — reliability + cleanup pass (#158–#161)
+
+Trim: `globals.css` audited class-by-class against the tsx/ts tree — 29
+dead rules removed (the old pre-inline-style design system: stat card,
+quickstart, section, button, icon-grid, back-to-top, copy-btn classes and
+the `oz-syn-comment` variant), 827 → 558 lines (−31%). Only the
+runtime-injected MapLibre attribution selectors remain unused by design.
+Six orphaned custom properties removed with them (`--oz-accent-dim`,
+`--oz-accent-light`, `--oz-radius-2xl`, `--oz-max-width`, `--oz-border-light`
+×2 themes); `--oz-bg-code` kept (consumed by the about/contribute `<style>`
+blocks). Post-trim screenshots (light+dark) verified pixel-identical.
+`.pkgprobe/` (1.5MB extracted-wheel scratch from Sep 23) relocated out of
+the repo tree to `/nas/Temp/tmp/oz-trash/` rather than deleted.
+
+Reliability: all four landing client fetches now carry AbortSignal timeouts
+(geoip 5s, bootstrap /api/query 10s, user lookup 15s, geocode 6s) so a hung
+edge route degrades to the existing fallback paths instead of pinning the
+spinner; the globe layer's data-fetchers already had a deduplicated
+timeout'd fetch. E2E: landing.spec.ts gains flip-card interaction coverage
+(click/Enter/Escape toggling aria-pressed, CTA-click-doesn't-toggle) and a
+page-level console-error sweep — 12/12 pass against the local dev server
+(`E2E_BASE_URL=http://localhost:3000`, chromium). Two pre-existing tests
+("has correct title", "performs elevation lookup") flaked only under full
+--workers=2 NAS load and pass deterministically in isolation; same
+resolution flake hit one vitest file under 99-worker load (stac route
+import, passes alone in 4s).
+
+Gates: eslint 0 errors / 5,108 warnings; tsc clean; aegis baseline
+regenerated at 1,716 (15 line-shift re-flags, 0 textual new — see
+TRIAGE.md).

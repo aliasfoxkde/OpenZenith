@@ -78,7 +78,9 @@ export default function Home() {
     const isCancelled = () => cancelFlag.cancelled;
     void (async () => {
       try {
-        const geoRes = await fetch("/api/geoip");
+        // Every landing fetch carries an AbortSignal.timeout so a hung edge
+        // route degrades to the fallback path instead of pinning the spinner.
+        const geoRes = await fetch("/api/geoip", { signal: AbortSignal.timeout(5_000) });
         if (isCancelled()) return;
         const geo = await geoRes.json();
 
@@ -114,7 +116,9 @@ export default function Home() {
 
         // Fetch elevation and address for user location
         const bootstrapSeq = lookupSeq.current;
-        const eRes = await fetch(`/api/query?lat=${clampedLat}&lon=${clampedLon}&include=elevation,address`);
+        const eRes = await fetch(`/api/query?lat=${clampedLat}&lon=${clampedLon}&include=elevation,address`, {
+          signal: AbortSignal.timeout(10_000),
+        });
         if (isCancelled()) return;
         // A user-initiated lookup started while this fetch was in flight — its
         // answer owns the result panel now.
@@ -222,7 +226,9 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/query?lat=${la}&lon=${lo}&include=elevation,address`);
+      const res = await fetch(`/api/query?lat=${la}&lon=${lo}&include=elevation,address`, {
+        signal: AbortSignal.timeout(15_000),
+      });
       const data = await res.json();
       // Superseded: a newer lookup (user pressed Go again, or the bootstrap
       // ran after us) owns the result panel — drop this stale answer.

@@ -1352,3 +1352,23 @@ react-missing-key-prop finding disappeared with the deleted duplicate map).
 
 Disposition: no security-relevant code changes; baseline regenerated
 (1,717 → 1,716); gate green across all 5 scopes.
+
+## 2026-09-29 — reliability/cleanup pass re-flags (#158–#161)
+
+Touched: `api/src/app/globals.css` (dead-rule trim: 827 → 558 lines, 75 → 46
+classes — every removed class had zero tsx/ts references; the six orphaned
+custom-property declarations went with them), `api/src/app/page.tsx` +
+`api/src/app/landing/SearchBox.tsx` (AbortSignal.timeout on the four landing
+client fetches — geoip 5s, bootstrap query 10s, user lookup 15s, geocode 6s
+— so a hung edge route degrades to the existing fallback/error paths), and
+`api/e2e/landing.spec.ts` (flip-card interaction + console-error coverage;
+`api/e2e` is not an aegis scope).
+
+Aegis re-run: 15 findings, all LOW, all stable_id line-shifts of baselined
+classes in the two touched api/src files (content-level (kind, description)
+multiset diff: 0 textual new, 0 gone). Notably the checker's un-anchored
+grep of `--oz-*` patterns treats a leading `--` as a CLI flag — triage
+diffs must use `grep -e`.
+
+Disposition: no security-relevant code changes; baseline regenerated (still
+1,716); gate green across all 5 scopes.

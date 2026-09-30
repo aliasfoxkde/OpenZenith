@@ -1,9 +1,38 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { safeCopy } from "../helpers";
 import { getClientElevation } from "@/lib/client-elevation";
 import type { ToolMode as _ToolMode } from "../tools/tools";
+
+/** Plain entity snapshot the page hands the context menu (not a live Cesium Entity). */
+export interface CtxMenuEntityInfo {
+  id: string;
+  name?: string;
+  type?: unknown;
+  properties?: CesiumType.Entity["properties"];
+}
+
+/** Satellite summary rendered in the HUD panel. */
+interface SatSummary {
+  name: string;
+  alt: number;
+  vel: number;
+  lat: number;
+  lon: number;
+  orbit: string;
+}
+
+/** Measure-tool manager surface (createToolManager in ../tools/tools). */
+interface ToolManagerLike {
+  setMode(mode: _ToolMode): void;
+  handleClick(lng: number, lat: number): void;
+  clear(): void;
+}
+
+/** Elevation-profile panel surface. */
+interface ElevationProfileLike {
+  addPoint(lng: number, lat: number): void;
+}
 
 /* ─── Sub-components ───────────────────────────────────── */
 
@@ -147,7 +176,7 @@ interface CtxMenuState {
   lng: number;
   lat: number;
   elev?: number | null;
-  entity?: any;
+  entity?: CtxMenuEntityInfo;
 }
 
 interface ContextMenuProps {
@@ -155,13 +184,13 @@ interface ContextMenuProps {
   setCtxMenu: (m: CtxMenuState | null) => void;
   expandedGroup: string | null;
   setExpandedGroup: (g: string | null) => void;
-  viewerRef: React.RefObject<any>;
-  cesiumRef: React.RefObject<any>;
-  toolManagerRef: React.RefObject<any>;
-  elevationProfileRef: React.RefObject<any>;
+  viewerRef: React.RefObject<CesiumType.Viewer | null>;
+  cesiumRef: React.RefObject<typeof CesiumType | null>;
+  toolManagerRef: React.RefObject<ToolManagerLike | null>;
+  elevationProfileRef: React.RefObject<ElevationProfileLike | null>;
   activeTool: _ToolMode;
   setActiveTool: React.Dispatch<React.SetStateAction<_ToolMode>>;
-  setSelectedSat: (s: any) => void;
+  setSelectedSat: (s: SatSummary) => void;
   setFollowSat: (f: boolean) => void;
   flyToISS: () => void;
 }
@@ -181,9 +210,9 @@ export function ContextMenu({
   flyToISS,
 }: ContextMenuProps) {
   const { x, y, lng, lat, entity } = ctxMenu;
-  const entType = entity?.type as string | undefined;
-  const entName = entity?.name as string | undefined;
-  const entId = entity?.id as string | undefined;
+  const entType = typeof entity?.type === "string" ? entity.type : undefined;
+  const entName = entity?.name;
+  const entId = entity?.id;
   const isEq = entId?.startsWith("eq-");
   const isFlight = entId?.startsWith("flight-") || entId?.startsWith("mil-");
   const isVessel = entId?.startsWith("vessel-");
@@ -291,7 +320,7 @@ export function ContextMenu({
           accent
           onClick={() => {
             if (v && C)
-              v.camera.flyTo({
+              void v.camera.flyTo({
                 destination: C.Cartesian3.fromDegrees(lng, lat, 10000),
                 orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 },
                 duration: 1.5,
@@ -305,7 +334,7 @@ export function ContextMenu({
           accent
           onClick={() => {
             if (v && C)
-              v.camera.flyTo({
+              void v.camera.flyTo({
                 destination: C.Cartesian3.fromDegrees(lng, lat, 200000),
                 orientation: { heading: 0, pitch: C.Math.toRadians(-60), roll: 0 },
                 duration: 2,
@@ -319,7 +348,7 @@ export function ContextMenu({
           accent
           onClick={() => {
             if (v && C)
-              v.camera.flyTo({
+              void v.camera.flyTo({
                 destination: C.Cartesian3.fromDegrees(lng, lat, 5000000),
                 orientation: { heading: 0, pitch: C.Math.toRadians(-75), roll: 0 },
                 duration: 3,
@@ -348,22 +377,25 @@ export function ContextMenu({
           icon="&#x1F4CD;"
           color="var(--err)"
           onClick={() => {
-            if (v && C)
-              v.entities.add({
-                id: `marker-${Date.now()}`,
-                position: C.Cartesian3.fromDegrees(lng, lat),
-                point: { pixelSize: 10, color: C.Color.fromCssColorString("#ff4444") },
-                label: {
-                  text: "Marker",
-                  font: "11px sans-serif",
-                  fillColor: C.Color.WHITE,
-                  style: C.LabelStyle.FILL_AND_OUTLINE,
-                  outlineWidth: 2,
-                  outlineColor: C.Color.BLACK,
-                  verticalOrigin: C.VerticalOrigin.BOTTOM,
-                  pixelOffset: new C.Cartesian2(0, -12),
-                },
-              });
+            if (!v || !C) {
+              closeCtx();
+              return;
+            }
+            v.entities.add({
+              id: `marker-${Date.now()}`,
+              position: C.Cartesian3.fromDegrees(lng, lat),
+              point: { pixelSize: 10, color: C.Color.fromCssColorString("#ff4444") },
+              label: {
+                text: "Marker",
+                font: "11px sans-serif",
+                fillColor: C.Color.WHITE,
+                style: C.LabelStyle.FILL_AND_OUTLINE,
+                outlineWidth: 2,
+                outlineColor: C.Color.BLACK,
+                verticalOrigin: C.VerticalOrigin.BOTTOM,
+                pixelOffset: new C.Cartesian2(0, -12),
+              },
+            });
             v.scene.requestRender();
             closeCtx();
           }}
@@ -373,24 +405,27 @@ export function ContextMenu({
           icon="&#x270D;"
           color="#44aaff"
           onClick={() => {
-            if (v && C)
-              v.entities.add({
-                id: `ann-text-${Date.now()}`,
-                position: C.Cartesian3.fromDegrees(lng, lat),
-                label: {
-                  text: "Double-click to edit",
-                  font: "12px sans-serif",
-                  fillColor: C.Color.fromCssColorString("#44aaff"),
-                  style: C.LabelStyle.FILL_AND_OUTLINE,
-                  outlineWidth: 2,
-                  outlineColor: C.Color.BLACK,
-                  verticalOrigin: C.VerticalOrigin.BOTTOM,
-                  pixelOffset: new C.Cartesian2(0, -14),
-                  showBackground: true,
-                  backgroundColor: new C.Color(0, 0, 0, 0.7),
-                  backgroundPadding: new C.Cartesian2(6, 4),
-                },
-              });
+            if (!v || !C) {
+              closeCtx();
+              return;
+            }
+            v.entities.add({
+              id: `ann-text-${Date.now()}`,
+              position: C.Cartesian3.fromDegrees(lng, lat),
+              label: {
+                text: "Double-click to edit",
+                font: "12px sans-serif",
+                fillColor: C.Color.fromCssColorString("#44aaff"),
+                style: C.LabelStyle.FILL_AND_OUTLINE,
+                outlineWidth: 2,
+                outlineColor: C.Color.BLACK,
+                verticalOrigin: C.VerticalOrigin.BOTTOM,
+                pixelOffset: new C.Cartesian2(0, -14),
+                showBackground: true,
+                backgroundColor: new C.Color(0, 0, 0, 0.7),
+                backgroundPadding: new C.Cartesian2(6, 4),
+              },
+            });
             v.scene.requestRender();
             closeCtx();
           }}
@@ -444,8 +479,8 @@ export function ContextMenu({
               timestamp: Date.now(),
             };
             try {
-              const existing = JSON.parse(localStorage.getItem("globe-bookmarks") || "[]");
-              existing.push(bm);
+              const existing: unknown = JSON.parse(localStorage.getItem("globe-bookmarks") || "[]");
+              if (Array.isArray(existing)) existing.push(bm);
               localStorage.setItem("globe-bookmarks", JSON.stringify(existing));
             } catch {
               /* */
@@ -559,8 +594,8 @@ export function ContextMenu({
             color="var(--err)"
             onClick={() => {
               if (!v) return;
-              const toRemove: any[] = [];
-              v.entities.values.forEach((e: any) => {
+              const toRemove: CesiumType.Entity[] = [];
+              v.entities.values.forEach((e) => {
                 if (
                   e.id &&
                   (e.id.startsWith("marker-") ||
@@ -580,8 +615,8 @@ export function ContextMenu({
             color="var(--err)"
             onClick={() => {
               if (!v) return;
-              const toRemove: any[] = [];
-              v.entities.values.forEach((e: any) => {
+              const toRemove: CesiumType.Entity[] = [];
+              v.entities.values.forEach((e) => {
                 if (e.id && e.id.startsWith("ring-")) toRemove.push(e);
               });
               toRemove.forEach((e) => v.entities.remove(e));
@@ -594,8 +629,8 @@ export function ContextMenu({
             color="var(--err)"
             onClick={() => {
               if (!v) return;
-              const toRemove: any[] = [];
-              v.entities.values.forEach((e: any) => {
+              const toRemove: CesiumType.Entity[] = [];
+              v.entities.values.forEach((e) => {
                 if (
                   e.id &&
                   (e.id.startsWith("marker-") ||
@@ -694,14 +729,19 @@ export function ContextMenu({
             onClick={() => {
               if (v && C && entity) {
                 const found = v.entities.values.find(
-                  (e: any) => e.id === entId || (entName && e.name?.includes(entName)),
+                  (e) => e.id === entId || (entName !== undefined && e.name?.includes(entName) === true),
                 );
                 if (found) {
-                  const pos = found.position?.getValue(C.JulianDate.now());
+                  // A raw Cartesian3 is legal on assignment; resolve property
+                  // wrappers through getValue (same idiom as the page).
+                  const rawPos = found.position;
+                  const pos =
+                    rawPos instanceof C.Cartesian3 ? rawPos : rawPos?.getValue(C.JulianDate.now());
                   if (pos) {
                     const cg = C.Cartographic.fromCartesian(pos);
                     const altKm = +(cg.height / 1000).toFixed(1);
-                    const group = found.properties?.group?.getValue?.() || entName || "Unknown";
+                    const groupVal = found.properties?.group?.getValue();
+                    const group = typeof groupVal === "string" ? groupVal : entName || "Unknown";
                     let orbitType = "Unknown";
                     if (altKm < 2000) orbitType = "LEO";
                     else if (altKm > 30000) orbitType = "GEO";
@@ -727,9 +767,9 @@ export function ContextMenu({
             onClick={() => {
               if (v) {
                 const found = v.entities.values.find(
-                  (e: any) => e.id === entId || (entName && e.name?.includes(entName)),
+                  (e) => e.id === entId || (entName !== undefined && e.name?.includes(entName) === true),
                 );
-                (window as any).__ozSetFollowEntity?.(found || null);
+                window.__ozSetFollowEntity?.(found ?? null);
                 setFollowSat(true);
               }
               closeCtx();
@@ -753,7 +793,7 @@ export function ContextMenu({
             label="Zoom to track"
             onClick={() => {
               if (v && C)
-                v.camera.flyTo({
+                void v.camera.flyTo({
                   destination: C.Cartesian3.fromDegrees(lng, lat, 3000000),
                   orientation: { heading: 0, pitch: C.Math.toRadians(-70), roll: 0 },
                   duration: 2,

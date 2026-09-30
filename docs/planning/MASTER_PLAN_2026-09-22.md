@@ -2342,3 +2342,27 @@ import, passes alone in 4s).
 Gates: eslint 0 errors / 5,108 warnings; tsc clean; aegis baseline
 regenerated at 1,716 (15 line-shift re-flags, 0 textual new — see
 TRIAGE.md).
+
+## 2026-09-30 — timeout-sweep landed; ContextMenu no-unsafe-* graduation (#155)
+
+The fetch-timeout follow-up sweep committed as 52acb52 after a clean full
+vitest run (99 files, 1,419 passed | 5 skipped — the earlier 120-failure
+run reproduced only at box load 59–89 and the same 53-test failure set
+melted at 2 workers; an interim run that started from the repo root by
+mistake was killed and re-run from api/). Lesson reinforced: on this box a
+capped `--maxWorkers=2` pool is the reliable way to run the suite while
+other sessions are hammering the NAS.
+
+Second file of the no-unsafe-* retirement: ContextMenu.tsx 213 → 0
+warnings, graduated to error in eslint.config.mjs. Typed against the
+CesiumType ambients (viewer/cesium refs, the plain `{id, name, type,
+properties}` entity snapshot the page passes — now exported as
+`CtxMenuEntityInfo` and used for the page's ctxMenu state too — plus
+minimal tool-manager/elevation-profile surfaces and the SatSummary shape).
+The `no-explicit-any` file waiver is gone; `window.__ozSetFollowEntity` now
+uses the ambient declaration instead of `as any`. Typing paid for itself:
+two latent bugs surfaced and fixed (unguarded `v.scene.requestRender()` in
+the add-marker/add-annotation handlers — a null-viewer crash path hidden by
+`any` — and four floating `camera.flyTo()` promises, now `void`-marked).
+Next up in #155: flights.ts (169 warnings), then volcanoes/hurricanes/
+vessels/aviation-weather/earthquakes.

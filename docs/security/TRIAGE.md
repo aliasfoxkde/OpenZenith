@@ -1372,3 +1372,25 @@ diffs must use `grep -e`.
 
 Disposition: no security-relevant code changes; baseline regenerated (still
 1,716); gate green across all 5 scopes.
+
+## 2026-09-30 — ContextMenu no-unsafe-* graduation re-flags (#155)
+
+Touched: `api/src/app/globe/lib/components/ContextMenu.tsx` (second file of
+the no-unsafe-* retirement: viewer/cesium refs typed against the CesiumType
+ambients, entity snapshot + tool-manager + elevation-profile surfaces
+declared, the file-level `no-explicit-any` waiver removed, file graduated to
+no-unsafe-* = error — 213 warnings → 0; typing also surfaced and fixed two
+real latent bugs: unguarded `v.scene.requestRender()` in the add-marker/
+add-annotation handlers, and four floating `camera.flyTo()` promises),
+`api/src/app/globe/page.tsx` (ctxMenu state typed as `CtxMenuEntityInfo`),
+`api/eslint.config.mjs` (graduation block).
+
+Aegis re-run: 16 gate flags — 15 are stable_id line-shifts in page.tsx from
+the one-line type import (content-level (kind, description) multiset diff:
+identical, 0 textual new), plus one genuinely new LOW
+`model-version-tracking` match on a doc comment ("Plain entity snapshot the
+page hands the context menu") — a comment-grep false positive with no
+security content, baselined as triaged.
+
+Disposition: no security-relevant code changes; baseline regenerated
+(1,716 → 1,717); gate green across all 5 scopes.

@@ -37,6 +37,7 @@ import { createSpaceSceneManager } from "./lib/space-scene";
 import type { GlobeContext } from "./lib/widgets/types";
 import { getClientElevation } from "@/lib/client-elevation";
 import { ContextMenu } from "./lib/components/ContextMenu";
+import type { CtxMenuEntityInfo } from "./lib/components/ContextMenu";
 import { HudOverlays } from "./lib/components/HudOverlays";
 import { Compass, OrbitPresets, ThemeSwitcher, ViewToggle, ZoomControls } from "./lib/components/chrome";
 import {
@@ -120,7 +121,7 @@ export default function Globe() {
     lng: number;
     lat: number;
     elev?: number | null;
-    entity?: any;
+    entity?: CtxMenuEntityInfo;
   } | null>(null);
   const [elevPopup, setElevPopup] = useState<{
     x: number;

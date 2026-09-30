@@ -35,7 +35,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
     try {
-      const res = await fetch(`/api/geocode?query=${encodeURIComponent(searchQuery)}&limit=5`);
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(searchQuery)}&limit=5`, {
+        signal: AbortSignal.timeout(6_000),
+      });
       const data = await res.json();
       setSearchResults(data.results || []);
     } catch {

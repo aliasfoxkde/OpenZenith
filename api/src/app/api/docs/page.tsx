@@ -281,7 +281,7 @@ function EndpointCard({
       let url = serverUrl + path;
       if (!isPost && queryParams) url += "?" + queryParams;
 
-      const opts: RequestInit = { method: method.toUpperCase() };
+      const opts: RequestInit = { method: method.toUpperCase(), signal: AbortSignal.timeout(30_000) };
       if (isPost && endpoint.requestBody) {
         opts.headers = { "Content-Type": "application/json" };
         opts.body = bodyText || JSON.stringify(endpoint.requestBody.content["application/json"].example);

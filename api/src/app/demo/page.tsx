@@ -86,7 +86,9 @@ export default function Demo() {
         map.on("click", async (e: any) => {
           const { lat, lng } = e.lngLat;
           try {
-            const res = await fetch(`/api/elevation?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`);
+            const res = await fetch(`/api/elevation?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`, {
+              signal: AbortSignal.timeout(15_000),
+            });
             const data = (await res.json()) as { elevation: number | null };
             setElevation({ lat, lon: lng, elevation: data.elevation });
           } catch {

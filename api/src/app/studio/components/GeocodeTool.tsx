@@ -19,7 +19,9 @@ export function GeocodeTool({ map, dark }: Props) {
     if (!q.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/geocode?query=${encodeURIComponent(q)}&limit=5`);
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(q)}&limit=5`, {
+        signal: AbortSignal.timeout(6_000),
+      });
       const data = await res.json();
       setResults(data.results || []);
     } catch {

@@ -663,7 +663,9 @@ export default function Globe() {
     const satJs = (window as { satellite?: SatelliteJsLike } | undefined)?.satellite;
     if (!Cesium || !viewer || !satJs) return;
     try {
-      const r = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json");
+      const r = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json", {
+        signal: AbortSignal.timeout(10_000),
+      });
       const data: unknown = await r.json();
       const tle = parseCelestrakTle(data);
       if (!tle) return;

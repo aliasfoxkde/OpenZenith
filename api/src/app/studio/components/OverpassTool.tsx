@@ -40,6 +40,8 @@ export function OverpassTool({ map, dark, onResult }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: finalQuery }),
+        // Overpass upstream can stall; fail into the tool's error state.
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!res.ok) {

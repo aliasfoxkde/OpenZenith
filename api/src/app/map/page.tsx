@@ -438,6 +438,7 @@ export default function MapPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ points: lats.map((lat, i) => [lat, lons[i]]) }),
+        signal: AbortSignal.timeout(30_000),
       });
       const data = await res.json();
       const elevations = data?.elevations || data?.results || [];
@@ -1103,7 +1104,9 @@ export default function MapPage() {
   const handleSearch = useCallback(
     async (query: string) => {
       try {
-        const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=1`);
+        const res = await fetch(`/api/geocode?query=${encodeURIComponent(query)}&limit=1`, {
+          signal: AbortSignal.timeout(6_000),
+        });
         if (!res.ok) throw new Error("search unavailable");
         const data = await res.json();
         if (data?.ok === false || data?.error) throw new Error(data.error?.message || "search unavailable");

@@ -2322,11 +2322,15 @@ blocks). Post-trim screenshots (light+dark) verified pixel-identical.
 `.pkgprobe/` (1.5MB extracted-wheel scratch from Sep 23) relocated out of
 the repo tree to `/nas/Temp/tmp/oz-trash/` rather than deleted.
 
-Reliability: all four landing client fetches now carry AbortSignal timeouts
-(geoip 5s, bootstrap /api/query 10s, user lookup 15s, geocode 6s) so a hung
-edge route degrades to the existing fallback paths instead of pinning the
-spinner; the globe layer's data-fetchers already had a deduplicated
-timeout'd fetch. E2E: landing.spec.ts gains flip-card interaction coverage
+Reliability: every browser-side fetch now carries an AbortSignal timeout —
+the four landing fetches (geoip 5s, bootstrap /api/query 10s, user lookup
+15s, geocode 6s) plus, in the follow-up sweep, map geocode/elevation-batch,
+globe ISS-TLE + ToolsWidget geocode, studio Overpass/elevation-profile/
+geocode tools, explore Overpass/flights, demo elevation, and the API docs
+"Try It" panel (6–30s by workload) — so a hung edge route or upstream
+degrades to the existing fallback/error paths instead of pinning a spinner.
+The globe layer's data-fetchers already had a deduplicated timeout'd fetch.
+E2E: landing.spec.ts gains flip-card interaction coverage
 (click/Enter/Escape toggling aria-pressed, CTA-click-doesn't-toggle) and a
 page-level console-error sweep — 12/12 pass against the local dev server
 (`E2E_BASE_URL=http://localhost:3000`, chromium). Two pre-existing tests

@@ -64,6 +64,7 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ points: sampled.map((p) => ({ lat: p.lat, lon: p.lon })) }),
+          signal: AbortSignal.timeout(30_000),
         });
 
         if (!res.ok) throw new Error(`API error: ${res.status}`);

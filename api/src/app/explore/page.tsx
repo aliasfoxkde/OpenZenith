@@ -212,6 +212,7 @@ export default function ExplorePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: resolvedQuery }),
+        signal: AbortSignal.timeout(30_000),
       });
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
@@ -317,7 +318,7 @@ export default function ExplorePage() {
         params.set("lamax", String(lamax));
       }
       url += params.toString();
-      const resp = await fetch(url);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
       // Filter client-side

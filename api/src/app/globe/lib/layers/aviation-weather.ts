@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchSigmets, fetchAirmets } from "../data-fetchers";
@@ -38,9 +37,22 @@ interface SigmetFeature {
   valid_time_to?: string;
 }
 
+/** Normalize the aviationweather.gov response — a bare array today, but the
+ * shape has varied ({features}, {data}) — to a list of feature objects. */
+function asSigmetList(data: unknown): SigmetFeature[] {
+  let list: unknown = data;
+  if (!Array.isArray(data) && typeof data === "object" && data !== null) {
+    const wrapper = data as { features?: unknown; data?: unknown };
+    list = wrapper.features ?? wrapper.data;
+  }
+  return Array.isArray(list)
+    ? list.filter((x): x is SigmetFeature => typeof x === "object" && x !== null)
+    : [];
+}
+
 export function loadAviationWeather(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
@@ -50,6 +62,7 @@ export function loadAviationWeather(
   const retry = createRetryGuard();
 
   const addSigmet = (s: SigmetFeature, i: number) => {
+    if (!viewer || !Cesium) return;
     const raw = s.raw_text || s.hazard || "";
     const coords = parseCoordinates(raw);
     if (coords.length === 0) return;
@@ -117,6 +130,7 @@ export function loadAviationWeather(
   };
 
   const addAirmet = (a: SigmetFeature, i: number) => {
+    if (!viewer || !Cesium) return;
     const raw = a.raw_text || a.hazard || "";
     const coords = parseCoordinates(raw);
     if (coords.length === 0) return;
@@ -183,20 +197,18 @@ export function loadAviationWeather(
 
       // Fetch SIGMETs
       try {
-        const sigmetData = await fetchSigmets();
-        const sigmets = Array.isArray(sigmetData) ? sigmetData : sigmetData?.features || sigmetData?.data || [];
-        (Array.isArray(sigmets) ? sigmets : []).forEach((s: any, i: number) => { addSigmet(s, i); });
-        total += (Array.isArray(sigmets) ? sigmets : []).length;
+        const sigmets = asSigmetList(await fetchSigmets());
+        sigmets.forEach((s, i) => { addSigmet(s, i); });
+        total += sigmets.length;
       } catch {
         /* sigmets optional */
       }
 
       // Fetch AIRMETs
       try {
-        const airmetData = await fetchAirmets();
-        const airmets = Array.isArray(airmetData) ? airmetData : airmetData?.features || airmetData?.data || [];
-        (Array.isArray(airmets) ? airmets : []).forEach((a: any, i: number) => { addAirmet(a, i); });
-        total += (Array.isArray(airmets) ? airmets : []).length;
+        const airmets = asSigmetList(await fetchAirmets());
+        airmets.forEach((a, i) => { addAirmet(a, i); });
+        total += airmets.length;
       } catch {
         /* airmets optional */
       }
@@ -209,15 +221,16 @@ export function loadAviationWeather(
           try {
             removeEntities("sigmet-");
             removeEntities("airmet-");
-            if (!Cesium || !viewer) return;
-            const sd = await fetchSigmets();
-            const ad = await fetchAirmets();
+            // viewer/Cesium are narrowed by doLoad's guard before this
+            // closure is created (both are load-time captures, never re-read).
+            const sigmets = asSigmetList(await fetchSigmets());
+            const airmets = asSigmetList(await fetchAirmets());
             let t = 0;
-            (Array.isArray(sd) ? sd : []).forEach((s: any, i: number) => {
+            sigmets.forEach((s, i) => {
               addSigmet(s, i);
               t++;
             });
-            (Array.isArray(ad) ? ad : []).forEach((a: any, i: number) => {
+            airmets.forEach((a, i) => {
               addAirmet(a, i);
               t++;
             });

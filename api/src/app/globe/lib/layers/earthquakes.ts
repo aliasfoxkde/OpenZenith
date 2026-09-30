@@ -1,31 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchEarthquakes } from "../data-fetchers";
+import type { EarthquakeFeature } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 
-interface EarthquakeProperties {
-  mag?: number;
-  depth?: number;
-  time?: number;
-  place?: string;
-  felt?: number;
-  mmi?: number;
-  alert?: string;
-  tsunami?: number;
-  sig?: number;
-  type?: string;
-  [key: string]: unknown;
-}
-
-interface EarthquakeFeature {
-  geometry?: { coordinates?: [number, number, number] };
-  properties?: EarthquakeProperties;
-}
-
 export function loadEarthquakes(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
@@ -34,6 +15,7 @@ export function loadEarthquakes(
   updateStatus("earthquakes", { error: null });
 
   const addQuakeEntity = (f: EarthquakeFeature, i: number) => {
+    if (!viewer || !Cesium) return;
     const coords = f.geometry?.coordinates;
     if (!coords) return;
     const props = f.properties || {};
@@ -171,8 +153,8 @@ export function loadEarthquakes(
     try {
       const d = await fetchEarthquakes();
       removeEntities("eq-");
-      const fs = d.features || [];
-      fs.forEach((f: any, i: number) => { addQuakeEntity(f, i); });
+      const fs = d.features ?? [];
+      fs.forEach((f, i) => { addQuakeEntity(f, i); });
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
       retry.recordSuccess();
     } catch (err) {
@@ -190,9 +172,9 @@ export function loadEarthquakes(
     try {
       const data = await fetchEarthquakes();
       if (!Cesium || !viewer) return;
-      const features = data.features || [];
+      const features = data.features ?? [];
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f: any, i: number) => { addQuakeEntity(f, i); });
+      features.forEach((f, i) => { addQuakeEntity(f, i); });
 
       const iv = setInterval(() => {
         void refresh();

@@ -1442,3 +1442,23 @@ file with the profile denylist applied:
 - `cesium-types.d.ts`: net 0 (ambient declarations only).
 
 Baseline 1,715 → 1,715 (the accepted global-variable FP is offset by the removed return-await; net zero).
+
+## 2026-09-30 — aviation-weather/earthquakes no-unsafe-* graduation re-flags (#155)
+
+Raw gate: 31 new findings. Multiset diff of (pattern, description) per touched
+file with the profile denylist applied shows ZERO additions — every one of the
+31 is a line-shift artifact of the three edited files (fingerprints are
+line-based; the batch moved code below the edit points). Real deltas, all
+removals:
+
+- `data-fetchers.ts` −1 return-await: fetchEarthquakes now parses to a typed
+  cast instead of `return await r.json()`.
+- `aviation-weather.ts` −5 (try-catch-bulk ×1, loose-equality ×4): the
+  any-era response normalization (`Array.isArray(x) ? x : x?.features || …`
+  with `==`-style coercions) collapsed into the typed asSigmetList helper.
+- `earthquakes.ts` −2 (try-catch-bulk ×1, ssrf ×1): the direct USGS URL moved
+  behind the same dedupFetch/proxy shape as every other fetcher, and the
+  forEach callbacks lost their any annotations.
+- `eslint.config.mjs`: net 0 (provenance comment only).
+
+Baseline 1,715 → 1,714 as written by the full-scope update scan (per-file probes summarize −8; a few findings classify differently in per-file vs whole-scope scans — the full-scope number is authoritative). No new fingerprints accepted.

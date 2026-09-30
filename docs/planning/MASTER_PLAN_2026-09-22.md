@@ -2401,3 +2401,21 @@ assignment surfaces a global-variable flag the old any-cast had
 suppressed (accepted FP, documented in TRIAGE.md); baseline 1,715 →
 1,715 net. Vitest 1,419/5; tsc clean; eslint 0 errors. Remaining in
 #155: aviation-weather (107), earthquakes (98).
+
+## 2026-09-30 (later) — #155 slice 1 complete: aviation-weather + earthquakes
+
+Final two globe-layer files retired (107 + 98 warnings; project total
+4,310 → 4,111, down from 5,108 when the retirement began). The USGS feed
+boundary is now EarthquakeCollection (properties interface moved to
+data-fetchers.ts alongside the other boundary types); the
+aviationweather.gov sigmet/airmet responses — whose shape has varied
+historically (array, {features}, {data}) — are typed `unknown` at the
+fetcher and normalized by a runtime asSigmetList helper instead of
+any-chains. Both files joined the eslint.config.mjs error cohort, which
+now covers every globe data layer: satellites, flights, volcanoes,
+hurricanes, vessels, aviation-weather, earthquakes, plus ContextMenu.
+Aegis: zero new fingerprints — all 31 raw flags were line-shift
+artifacts, proven by (pattern, description) multiset diff showing only
+removals; baseline 1,715 → 1,714. Vitest 1,419/5; tsc clean; eslint 0
+errors. Slice 2 (route-layer response models, the ~4,100 remaining
+warnings) stays tracked as Phase D data-modeling work.

@@ -41,10 +41,38 @@ async function dedupFetch(url: string, timeoutMs = DEFAULT_TIMEOUT): Promise<Res
   }
 }
 
-export async function fetchEarthquakes(_signal?: AbortSignal): Promise<any> {
+/** USGS earthquake event properties — the fields globe layers consume. */
+export interface EarthquakeProperties {
+  mag?: number;
+  depth?: number;
+  time?: number;
+  place?: string;
+  felt?: number;
+  mmi?: number;
+  alert?: string;
+  tsunami?: number;
+  sig?: number;
+  type?: string;
+  [key: string]: unknown;
+}
+
+/** USGS GeoJSON point feature (third coordinate is depth in km). */
+export interface EarthquakeFeature {
+  geometry?: { coordinates?: [number, number, number] };
+  properties?: EarthquakeProperties;
+}
+
+/** USGS all_day GeoJSON feed — the subset globe layers consume. */
+export interface EarthquakeCollection {
+  type?: string;
+  features?: EarthquakeFeature[];
+}
+
+export async function fetchEarthquakes(_signal?: AbortSignal): Promise<EarthquakeCollection> {
   try {
     const r = await dedupFetch("/api/proxy/https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as EarthquakeCollection;
   } catch (err) {
     warnLayerError("fetchEarthquakes", err);
     return { type: "FeatureCollection", features: [] };
@@ -216,7 +244,9 @@ export async function fetchAirQuality(_signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchSigmets(_signal?: AbortSignal): Promise<any> {
+/** aviationweather.gov serves a bare array for sigmet/airmet, but the shape
+ * has varied historically — consumers normalize via unknown. */
+export async function fetchSigmets(_signal?: AbortSignal): Promise<unknown> {
   try {
     const r = await dedupFetch("/api/proxy/https://aviationweather.gov/api/data/sigmet?format=json");
     return await r.json();
@@ -226,7 +256,7 @@ export async function fetchSigmets(_signal?: AbortSignal): Promise<any> {
   }
 }
 
-export async function fetchAirmets(_signal?: AbortSignal): Promise<any> {
+export async function fetchAirmets(_signal?: AbortSignal): Promise<unknown> {
   try {
     const r = await dedupFetch("/api/proxy/https://aviationweather.gov/api/data/airmet?format=json");
     return await r.json();

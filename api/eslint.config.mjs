@@ -111,6 +111,9 @@ const eslintConfig = [
     //   vessels.ts — VesselsConfig boundary and a runtime-checked AISstream
     //     WebSocket message guard (also fixed: null wsUrl could reach the
     //     WebSocket constructor; window cleanup hook now ambient-typed).
+    //   aviation-weather.ts — sigmet/airmet responses normalize via unknown
+    //     (upstream shape has varied: array, {features}, {data}).
+    //   earthquakes.ts — EarthquakeCollection boundary from the USGS feed.
     // New violations in these files fail lint instead of joining the warning
     // backlog.
     files: [
@@ -119,6 +122,8 @@ const eslintConfig = [
       "src/app/globe/lib/layers/volcanoes.ts",
       "src/app/globe/lib/layers/hurricanes.ts",
       "src/app/globe/lib/layers/vessels.ts",
+      "src/app/globe/lib/layers/aviation-weather.ts",
+      "src/app/globe/lib/layers/earthquakes.ts",
     ],
     rules: {
       "@typescript-eslint/no-unsafe-member-access": "error",

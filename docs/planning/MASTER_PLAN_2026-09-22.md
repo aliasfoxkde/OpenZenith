@@ -2419,3 +2419,26 @@ artifacts, proven by (pattern, description) multiset diff showing only
 removals; baseline 1,715 → 1,714. Vitest 1,419/5; tsc clean; eslint 0
 errors. Slice 2 (route-layer response models, the ~4,100 remaining
 warnings) stays tracked as Phase D data-modeling work.
+
+## 2026-09-30 — #156: Next 16 + OpenNext Cloudflare migration scoped (decision doc)
+
+docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md. The forcing function:
+@cloudflare/next-on-pages is deprecated (repo archived 2025-09-29,
+read-only) and the installed adapter 1.13.16 caps peers at next <=15.5.2
+while the app runs next 15.5.26 — the current deploy already sits outside
+its adapter's supported matrix, masked by legacy-peer-deps=true. No
+upstream fix exists; @opennextjs/cloudflare (Workers, nodejs_compat —
+already set in wrangler.toml) supports all Next 16 minors and is the
+recommended successor. Repo-level Next 16 audit came back unusually
+small: exactly two required edits (webpack zstd-wasm browser alias →
+turbopack.resolveAlias; drop the removed eslint config block), zero
+sync-params usage across all page files, no next/image/AMP/PPR/runtime-
+config/parallel-routes surface, middleware.ts can stay (edge middleware
+remains supported; proxy rename deferred). Recommendation recorded in the
+doc: two staged phases (~1 focused day) — Phase 1 adapter swap on Next 15
+(Pages → Workers, rollback = point domain back at Pages), Phase 2 the 16
+upgrade through the new pipeline — each independently verifiable via the
+smoke checklist + Playwright. Side effect: the 5 dev-only npm audit
+findings (esbuild/undici via next-on-pages' miniflare 3) disappear with
+the adapter. The migration itself is NOT performed — it is an
+outward-facing infra change awaiting user sign-off on the decision point.

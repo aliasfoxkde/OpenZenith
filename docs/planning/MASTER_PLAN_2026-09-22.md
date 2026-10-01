@@ -2442,3 +2442,38 @@ smoke checklist + Playwright. Side effect: the 5 dev-only npm audit
 findings (esbuild/undici via next-on-pages' miniflare 3) disappear with
 the adapter. The migration itself is NOT performed — it is an
 outward-facing infra change awaiting user sign-off on the decision point.
+
+## 2026-10-01 — #162/#163: landing work deployed; banner search hydration bug fixed
+
+User reported the front-end improvements were invisible and the banner
+address search was broken. Root cause of the first: **commits are not
+deploys** — flip cards (789793b, Sep 29), banner fixes (4ca38bb, a41a20f)
+and the trim pass (9554bb1, Sep 30) all postdated the last pages build
+(Sep 27 21:18), so prod predated every one of them. The stale-bundle
+lesson from the a11y incident recurred at larger scale. Fixed by
+rebuild + deploy; flip cards, corrected stats, and the fixed lookup flow
+verified live via e2e/landing.spec.ts against production (7 tests green
+before the box-load flake truncated the run; elevation lookup + flip
+coverage confirmed passing).
+
+Root cause of the second: two compounding defects in SearchBox. (1) The
+controlled input reset any text typed before React hydration (SSR emits
+the input; listeners attach only at hydration; hydration then re-rendered
+value={query}="" over the DOM text). (2) fill()-style single-shot input —
+one input event landing pre-hydration — never reaches onChange at all, so
+the debounced geocode never starts. Fix: uncontrolled input (defaultValue
++ ref; DOM text survives hydration and the next keystroke carries the
+full string) plus a mount-effect heal that treats whatever text the DOM
+holds post-hydration as a fresh query (latest-callback ref keeps
+exhaustive-deps honest without re-running the effect). Verified on prod:
+type → dropdown (also proves /api/geocode → Nominatim works through the
+Worker) → pick → lookup inputs populated → elevation result renders
+(7.4s). New E2E "address search zooms to a picked place" covers the flow
+with an expect().toPass() re-fill guard for the hydration race.
+
+Ops facts learned: the Cloudflare zone challenges ALL curl traffic (403
+on static assets too) — prod verification must use a real browser
+(Playwright retargets with its prod baseURL default). next-on-pages
+builds fail under box load (Vercel worker EPIPE, page-data collection
+ENOENT) — retry after load clears; a crashed build leaves .next dirty
+(ENOENT on 500.html rename) — move .next aside before retrying.

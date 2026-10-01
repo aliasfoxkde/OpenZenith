@@ -50,6 +50,44 @@ test.describe("Landing page", () => {
     expect(errorText).toBeTruthy();
   });
 
+  test("address search zooms to a picked place", async ({ page }) => {
+    await page.goto("/");
+    const search = page.locator("#address-search");
+    await expect(search).toBeVisible({ timeout: 15000 });
+
+    // Debounced geocode — type a well-known place and wait for the dropdown.
+    // The landing hydrates late (hero map + particles), and React resets a
+    // controlled input filled before hydration — re-fill until the value sticks.
+    await expect(async () => {
+      await search.fill("Eiffel Tower");
+      await expect(search).toHaveValue("Eiffel Tower");
+    }).toPass({ timeout: 20000 });
+    const results = page.getByRole("region", { name: "Address search results" });
+    await expect(results).toBeVisible({ timeout: 15000 });
+    const firstResult = results.getByRole("button").first();
+    await expect(firstResult).toBeVisible({ timeout: 10000 });
+
+    // Committing a pick must drive the lookup form and the hero map fly
+    // target — the inputs get the picked coordinates and the elevation
+    // result panel renders.
+    const pickedLat = "48.8584";
+    await firstResult.click();
+
+    await expect(page.locator("#lookup-lat")).not.toHaveValue("", { timeout: 10000 });
+    await expect(page.locator("#lookup-lon")).not.toHaveValue("", { timeout: 10000 });
+    // Eiffel Tower is in Paris — sanity-bound the picked coordinates.
+    const lat = parseFloat(must(await page.inputValue("#lookup-lat")));
+    const lon = parseFloat(must(await page.inputValue("#lookup-lon")));
+    expect(lat).toBeGreaterThan(48);
+    expect(lat).toBeLessThan(49);
+    expect(lon).toBeGreaterThan(2);
+    expect(lon).toBeLessThan(3);
+    expect(Math.abs(lat - parseFloat(pickedLat))).toBeLessThan(0.1);
+
+    // The pick also triggers the elevation lookup for the same point.
+    await page.waitForSelector(".oz-result-value", { timeout: 15000 });
+  });
+
   test("hero map renders", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector("#hero-map canvas", { timeout: 15000 });

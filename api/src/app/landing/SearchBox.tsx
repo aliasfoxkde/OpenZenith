@@ -24,10 +24,22 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Close the dropdown on click outside
+  // Latest-callback ref: the mount effect below must not re-run when the
+  // component re-renders, but still needs the current handleSearch.
+  const handleSearchRef = useRef(handleSearch);
+  handleSearchRef.current = handleSearch;
+
+  // Mount effects: close the dropdown on click outside, and heal text typed
+  // before hydration — React attaches no listeners during SSR, so onChange
+  // never fired for it. The input is uncontrolled, so the DOM still holds
+  // it; treat whatever is there on mount as a fresh query.
   useEffect(() => {
+    const initial = inputRef.current?.value ?? "";
+    if (initial.trim()) handleSearchRef.current(initial);
+
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -107,6 +119,9 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
     setResults([]);
     setOpen(false);
     setError("");
+    // The input is uncontrolled (defaultValue) so text typed before React
+    // hydrates survives — clearing must reset the DOM value too.
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   return (
@@ -131,7 +146,10 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
           className="oz-input oz-input-search"
           placeholder="Search address or place..."
           aria-label="Search address or place"
-          value={query}
+          // Uncontrolled: pre-hydration keystrokes stay in the DOM instead of
+          // being reset when React mounts (controlled inputs reset to state).
+          ref={inputRef}
+          defaultValue=""
           onChange={(e) => { handleSearch(e.target.value); }}
           onFocus={() => {
             if (results.length > 0) setOpen(true);

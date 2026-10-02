@@ -1,5 +1,17 @@
 # OpenZenith handoff
 
+> **Update (2026-10-02):** the performance deep-dive
+> ([PERFORMANCE_PLAN_2026-10-02.md](PERFORMANCE_PLAN_2026-10-02.md)) is
+> executed through P0+P1: fonts self-hosted, landing render storm fixed,
+> /map layers lazy-loaded, layer timer lifecycles repaired on both maps,
+> tile routes `immutable`, geocode/elevation edge-cached — all deployed
+> and prod-verified (ship.sh; X-Cache HIT + immutable headers confirmed
+> via Playwright). New gates: `perf-budget.mjs` (+ CI job) and the
+> `measure-perf.mjs` CDP harness — re-measure only when
+> `/proc/loadavg` < 12 (co-tenant builds poison wall-clock numbers).
+> Open: globe data-fetcher abort-on-teardown; P2 items 11–15; Next16/
+> OpenNext and `gitforge auth --login` remain user decisions.
+
 > **Update (2026-10-01):** the reliability-gap audit
 > ([RELIABILITY_GAPS_2026-10-01.md](RELIABILITY_GAPS_2026-10-01.md)) is
 > worked through: ship gate (`scripts/ship.sh`: build → bundle-marker

@@ -247,6 +247,16 @@ export default function Globe() {
             "currents",
             "gpsJamming",
             "dayNight",
+            // These seven were missing, so after one tab hide/show their
+            // polling never restarted — the layers froze on stale data until
+            // manually toggled (dataLoaded had been reset below).
+            "airQuality",
+            "aviationWeather",
+            "volcanoes",
+            "gdacs",
+            "marineWeather",
+            "wildfires",
+            "lightning",
           ] as const;
           for (const dk of dynamicKeys) {
             if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {

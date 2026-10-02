@@ -195,7 +195,7 @@ export function removeHurricaneTracks(map: maplibregl.Map): void {
 
 export function startHurricaneAnimation(
   map: maplibregl.Map,
-  handle: LayerHandle,
+  _handle: LayerHandle,
   callback: (progress: number) => void,
 ): void {
   const source = map.getSource("hurricanes");
@@ -265,12 +265,20 @@ export function startHurricaneAnimation(
   };
 
   animate();
-  handle.intervals.push(setInterval(animate, 100));
+  // Module-level id, cleared by stopHurricaneAnimation: this interval is
+  // started outside addDataLayer's scoped window (from the panel effect), so
+  // pushing it onto handle.intervals made stopHurricaneAnimation drain the
+  // SHARED array — killing every other layer's polling along with ours.
+  if (hurricaneAnimationInterval) clearInterval(hurricaneAnimationInterval);
+  hurricaneAnimationInterval = setInterval(animate, 100);
 }
 
-export function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle): void {
-  while (handle.intervals.length > 0) {
-    clearInterval(handle.intervals.pop());
+let hurricaneAnimationInterval: ReturnType<typeof setInterval> | null = null;
+
+export function stopHurricaneAnimation(map: maplibregl.Map, _handle: LayerHandle): void {
+  if (hurricaneAnimationInterval) {
+    clearInterval(hurricaneAnimationInterval);
+    hurricaneAnimationInterval = null;
   }
   // Re-fetch to restore full tracks
   if (map.getSource("hurricanes")) {

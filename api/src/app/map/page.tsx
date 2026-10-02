@@ -1066,7 +1066,7 @@ export default function MapPage() {
           addDataLayer(map, layerHandleRef.current, layerName);
           reorderMapLayers(map, layers);
         } else {
-          removeDataLayer(map, layerName);
+          removeDataLayer(map, layerHandleRef.current, layerName);
         }
       }
 

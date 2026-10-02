@@ -234,12 +234,51 @@ const LAYER_HANDLERS: Record<string, LayerHandler | undefined> = {
   equator: { add: addEquator, remove: removeEquator },
 };
 
+/**
+ * Resources registered by the most recent add of each layer. Layer add
+ * functions push refresh intervals onto handle.intervals and (some) set
+ * handle.cleanup — both shared slots — so without this bookkeeping a
+ * toggle-off could not tell which timers were its own: disabled layers kept
+ * polling forever and re-enabling stacked a second timer alongside the
+ * first. Scoped here instead, per layer.
+ */
+const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cleanup?: () => void }>();
+
 export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {
   const handler = LAYER_HANDLERS[layerId];
-  if (handler) handler.add(map, handle);
+  if (!handler) return;
+  // Re-add over a live previous registration (e.g. tab-hide resume, which
+  // cleared timers but not cleanups): retire the old cleanup first so its
+  // listeners do not accumulate per hide/show cycle.
+  const existing = layerResources.get(layerId);
+  if (existing?.cleanup) existing.cleanup();
+  // Swap in fresh slots so whatever this add registers is attributable to
+  // this layer, then fold the ids back into the shared handle.intervals —
+  // page-level tab-hide and unmount pause everything through that array.
+  const prevIntervals = handle.intervals;
+  const prevCleanup = handle.cleanup;
+  handle.intervals = [];
+  handle.cleanup = undefined;
+  try {
+    handler.add(map, handle);
+  } finally {
+    const owned = { intervals: handle.intervals, cleanup: handle.cleanup };
+    handle.intervals = [...prevIntervals, ...owned.intervals];
+    handle.cleanup = prevCleanup;
+    layerResources.set(layerId, owned);
+  }
 }
 
-export function removeDataLayer(map: maplibregl.Map, layerId: string): void {
+export function removeDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {
+  const owned = layerResources.get(layerId);
+  layerResources.delete(layerId);
+  if (owned) {
+    owned.intervals.forEach(clearInterval);
+    owned.cleanup?.();
+    // Drop the dead ids from the shared array (tab-hide iterates it).
+    const dead = new Set(owned.intervals);
+    handle.intervals = handle.intervals.filter((id) => !dead.has(id));
+  }
   const handler = LAYER_HANDLERS[layerId];
   if (handler) handler.remove(map);
 }

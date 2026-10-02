@@ -2477,3 +2477,37 @@ on static assets too) — prod verification must use a real browser
 builds fail under box load (Vercel worker EPIPE, page-data collection
 ENOENT) — retry after load clears; a crashed build leaves .next dirty
 (ENOENT on 500.html rename) — move .next aside before retrying.
+
+## 2026-10-01 (evening) — Reliability gap work-through (#164 goal)
+
+Working the RELIABILITY_GAPS_2026-10-01.md queue systematically.
+
+- **#3 retracted (false positive)** — the "35 routes without try/catch"
+  grep heuristic over-flagged: every no-try route only awaits Next's
+  `params` promise; all I/O-bearing routes already wrap handlers.
+- **#4 done** — six landing E2E interaction tests now share a
+  `waitInteractive()` hydration-marker wait; "performs elevation lookup"
+  additionally polls for the VALUE (the default-location panel
+  pre-satisfies `.oz-result-value`; it was reading 6,923m instead of
+  Everest) and the console-errors test whitelists the zone-injected
+  cloudflareinsights beacon. 26/26 green vs prod.
+- **#1 hardening shipped** — `scripts/ship.sh`: pages:build →
+  bundle-marker grep → pages:deploy → landing E2E vs prod.
+- **#2 pipeline authored** — `.gitforge.yml` (push-triggered; install →
+  tsc → eslint baseline-hold → openapi:check → vitest with retry +
+  99-file/1,419-test completeness guard). Format recovered from GitForge
+  source + the StationAware/kubix pipelines already running on this
+  runner; CI reads the file from the pushed commit, so the next push to
+  the gitforge remote activates it. First-run verification needs the
+  user's `gitforge auth --login`.
+- **#7 retracted** — SDK pytest "hangs" were co-tenant CPU starvation:
+  with the box quieter, 1,493 tests collect in 2.07s and the full suite
+  passes 1,479 (14 deselected) at 98.82% coverage in 78s. Not a pytest,
+  plugin, or package defect.
+- **#8 resolved** — core `cargo test`: 26 + 25 tests, all green.
+- **#9 resolved** — three npm trees audited: root is scripts-only (no
+  deps), mcp-server vitest bumped 3.2.7 → 5.0.3 (GHSA-82fw-gwwq-j7x9,
+  16/16 green, 0 vulns), api's 5 remain dev-only miniflare-transitive
+  (cleared by the pending Next16 decision).
+- Remaining open: #5 (lint debt slice, ~4.1k warnings) and #6 (Next16/
+  OpenNext — user decision).

@@ -1,0 +1,125 @@
+# OpenZenith — GitForge CI pipeline (PRIMARY CI/CD platform).
+#
+# Schema notes that shape this file (from GitForge
+# crates/gitforge-ci/src/pipeline.rs and services/ci/src/main.rs — there is
+# no schema doc elsewhere; sibling pipelines StationAware/.gitforge.yml and
+# kubix/.gitforge.yml document the same contract):
+#   * Jobs of one run SHARE one workspace directory, so the graph must stay a
+#     linear `needs` chain — parallel jobs would corrupt npm's locks/cache.
+#     `npm ci` runs once in `install` and persists through later jobs.
+#   * `environment:` (top level) and `env:` at any level are REQUIRED-but-DEAD:
+#     parsed, never forwarded to the container. Everything is set inline.
+#   * `jobs[].retry` is parsed but never enforced — the unit-test job carries
+#     its own in-command retry (NAS tinypool worker-start timeouts are
+#     reported-but-fatal; one retry absorbs them without hiding anything).
+#   * No `cache:`/`artifacts:`/`services:` keys exist. Images must already
+#     exist on the runner host (60s sandbox-acquisition cap rules out pulls at
+#     run time): `node:22-bookworm` is pre-pulled locally.
+#   * Each step's log is capped at 64 KB (oldest bytes dropped), so chatty
+#     steps redirect to a file and echo only the verdict lines.
+#   * There is no secrets mechanism — this pipeline needs none (npm registry
+#     only, no tokens in repo per repo policy).
+#
+# Deliberately NOT in the pipeline (documented decisions):
+#   * e2e (Playwright): the runner is this same shared NAS — load-band
+#     timeouts make browser suites a lottery here (StationAware 2026-09-30:
+#     failures only at load avg 50-73, all green at ~15). E2E stays a local
+#     gate via scripts/ship.sh, which also owns deploy + prod verification.
+#   * pages:build / pages:deploy: needs wrangler + Cloudflare auth and is the
+#     flakiest step under box load; deploy stays a deliberate local act, not
+#     an automatic one (a red build must never block a hotfix deploy, and a
+#     green CI must never deploy unreviewed work).
+#   * aegis scan, cargo test (core/), pytest (openzenith/): host-binary /
+#     other-toolchain gates; run locally (no rust/python image pre-pulled).
+name: openzenith-ci
+version: "1.0"
+trigger_on:
+  - push
+environment: {}
+jobs:
+  - name: install
+    image: node:22-bookworm
+    steps:
+      - name: npm ci (api/)
+        run: |
+          cd api
+          npm ci > /tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
+          tail -3 /tmp/install.log
+    timeout: 15m
+
+  - name: typecheck
+    image: node:22-bookworm
+    needs: [install]
+    steps:
+      - name: tsc --noEmit
+        run: |
+          cd api
+          npx tsc --noEmit
+    timeout: 5m
+
+  - name: lint
+    image: node:22-bookworm
+    needs: [typecheck]
+    steps:
+      # Baseline hold, not zero-warning: the repo carries ~4.1k eslint
+      # warnings (typed-lint debt, tracked in docs/planning/
+      # RELIABILITY_GAPS_2026-10-01.md #5). Fail the job only if the count
+      # GROWS; shrink the number as slices land.
+      - name: eslint + warning-baseline guard
+        run: |
+          cd api
+          npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
+          warnings=$(grep -cE 'warning' /tmp/lint.log || true)
+          echo "eslint warnings: ${warnings:-0} (baseline 4111)"
+          [ "${warnings:-0}" -le 4111 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 4111"; exit 1;
+          }
+    timeout: 10m
+
+  - name: spec-check
+    image: node:22-bookworm
+    needs: [lint]
+    steps:
+      - name: openapi spec is current
+        run: |
+          cd api
+          npm run openapi:check
+    timeout: 5m
+
+  - name: unit-test
+    image: node:22-bookworm
+    needs: [spec-check]
+    steps:
+      - name: vitest (one in-command retry + completeness guard)
+        run: |
+          cd api
+          npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest1.log 2>&1
+          code=$?
+          log=/tmp/vitest1.log
+          if [ "$code" -ne 0 ]; then
+            echo "first attempt failed (exit $code) — retrying (NAS flake)"
+            tail -25 /tmp/vitest1.log
+            npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest2.log 2>&1 || {
+              echo "retry also failed:"; tail -40 /tmp/vitest2.log; exit 1;
+            }
+            echo "retry succeeded (flaky, absorbed)"
+            log=/tmp/vitest2.log
+          fi
+          # Worker-start failures DROP files and exit non-zero, so a green
+          # exit should mean a complete run — assert it. Baseline 2026-10-01:
+          # 99 files / 1419 passed + 5 skipped. Update BOTH numbers when the
+          # suite grows (fail-loud beats fail-silent).
+          clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
+          files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed \([0-9]+\)' | grep -oE '[0-9]+\)' | tr -d ')')
+          tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
+          echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
+          [ "${files:-0}" -eq 99 ] || {
+            echo "INCOMPLETE: passing run covered ${files:-?}/99 files"; exit 1;
+          }
+          [ "${tests:-0}" -eq 1419 ] || {
+            echo "COUNT DRIFT: ${tests:-?} passed, baseline 1419 — update the guard or fix the suite"; exit 1;
+          }
+          tail -8 "$log"
+    # Full suite is ~6 min locally, but load spikes on this shared NAS have
+    # stretched sibling suites >4x — leave headroom for retry + spike.
+    timeout: 30m

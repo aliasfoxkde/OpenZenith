@@ -23,14 +23,28 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
   const pendingFlyRef = useRef<FlyTarget | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Init hero map once on mount. The initial basemap is resolved from the
-  // theme store (initTheme() has already restored localStorage by effect
-  // ordering) rather than the `dark` prop: a light-preference visitor never
-  // triggers a `dark` change, so waiting for one would leave the map
-  // permanently uninitialized.
+  // Init hero map once on mount — deferred to browser-idle. The hero map is
+  // decorative (non-interactive); starting the ~250 KB MapLibre download and
+  // map construction after first paint keeps hydration and the headline from
+  // competing with it, without delaying anything the visitor can act on. The
+  // initial basemap is resolved from the theme store (initTheme() has already
+  // restored localStorage by effect ordering) rather than the `dark` prop: a
+  // light-preference visitor never triggers a `dark` change, so waiting for
+  // one would leave the map permanently uninitialized.
   useEffect(() => {
     if (!mapDivRef.current || mapRef.current) return;
     let cancelled = false;
+    // Browser-idle scheduling with a setTimeout fallback (Safari < 17 has no
+    // requestIdleCallback). Both cancel paths run: cancelIdleCallback is a
+    // no-op on a timeout handle and vice versa, whichever one owns the id.
+    const schedule: (cb: () => void) => number =
+      typeof window.requestIdleCallback === "function"
+        ? (cb) => window.requestIdleCallback(cb)
+        : (cb) => window.setTimeout(cb, 200);
+    const cancel = (id: number) => {
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(id);
+      window.clearTimeout(id);
+    };
     const initMap = async () => {
       try {
         const mlgl = await waitForMapLibre();
@@ -63,72 +77,78 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
 
         map.on("load", () => {
           if (cancelled) return;
-
-          // Admin boundary glow layers
-          try {
-            map.addSource("boundaries", {
-              type: "vector",
-              tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
-              maxzoom: 6,
-            });
-            const boundaryColor = darkAtInit ? "0, 229, 255" : "0, 80, 180";
-            map.addLayer(
-              {
-                id: "boundary-glow",
-                type: "line",
-                source: "boundaries",
-                "source-layer": "boundary",
-                paint: {
-                  "line-color": `rgba(${boundaryColor}, 0.12)`,
-                  "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
-                  "line-blur": 2,
-                },
-              },
-              "osm",
-            );
-            map.addLayer(
-              {
-                id: "boundary-line",
-                type: "line",
-                source: "boundaries",
-                "source-layer": "boundary",
-                paint: {
-                  "line-color": `rgba(${boundaryColor}, 0.25)`,
-                  "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
-                  "line-opacity": 0.6,
-                },
-              },
-              "boundary-glow",
-            );
-          } catch {
-            // Boundary tiles unavailable — continue without
-          }
-
-          // Elevation accuracy overlay (shows data resolution)
-          try {
-            map.addSource("elevation-accuracy", {
-              type: "raster",
-              tiles: ["/api/elevation-accuracy/{z}/{x}/{y}"],
-              tileSize: 256,
-              maxzoom: 5,
-            });
-            map.addLayer(
-              {
-                id: "elevation-accuracy",
-                type: "raster",
-                source: "elevation-accuracy",
-                paint: {
-                  "raster-opacity": 0.4,
-                  "raster-fade-duration": 300,
-                },
-              },
-              "osm",
-            );
-          } catch {
-            // Accuracy layer unavailable
-          }
-
+          // The basemap alone is the first paint. Boundaries and the
+          // elevation-accuracy overlay are decoration — attach them once the
+          // map has drained its initial work instead of racing the basemap
+          // tiles for bandwidth during first render.
           setLoading(false);
+          map.once("idle", () => {
+            if (cancelled) return;
+
+            // Admin boundary glow layers
+            try {
+              map.addSource("boundaries", {
+                type: "vector",
+                tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
+                maxzoom: 6,
+              });
+              const boundaryColor = darkAtInit ? "0, 229, 255" : "0, 80, 180";
+              map.addLayer(
+                {
+                  id: "boundary-glow",
+                  type: "line",
+                  source: "boundaries",
+                  "source-layer": "boundary",
+                  paint: {
+                    "line-color": `rgba(${boundaryColor}, 0.12)`,
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 3, 2, 6, 3],
+                    "line-blur": 2,
+                  },
+                },
+                "osm",
+              );
+              map.addLayer(
+                {
+                  id: "boundary-line",
+                  type: "line",
+                  source: "boundaries",
+                  "source-layer": "boundary",
+                  paint: {
+                    "line-color": `rgba(${boundaryColor}, 0.25)`,
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 3, 0.8, 6, 1],
+                    "line-opacity": 0.6,
+                  },
+                },
+                "boundary-glow",
+              );
+            } catch {
+              // Boundary tiles unavailable — continue without
+            }
+
+            // Elevation accuracy overlay (shows data resolution)
+            try {
+              map.addSource("elevation-accuracy", {
+                type: "raster",
+                tiles: ["/api/elevation-accuracy/{z}/{x}/{y}"],
+                tileSize: 256,
+                maxzoom: 5,
+              });
+              map.addLayer(
+                {
+                  id: "elevation-accuracy",
+                  type: "raster",
+                  source: "elevation-accuracy",
+                  paint: {
+                    "raster-opacity": 0.4,
+                    "raster-fade-duration": 300,
+                  },
+                },
+                "osm",
+              );
+            } catch {
+              // Accuracy layer unavailable
+            }
+          });
         });
 
         mapRef.current = map;
@@ -147,9 +167,12 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
         setLoading(false);
       }
     };
-    void initMap();
+    const idleId = schedule(() => {
+      if (!cancelled) void initMap();
+    });
     return () => {
       cancelled = true;
+      cancel(idleId);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -206,7 +229,10 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
         style={{
           position: "absolute",
           inset: 0,
-          filter: dark ? "brightness(1.4) contrast(0.9) saturate(0.6)" : undefined,
+          // No CSS filter here: dark mode uses the Esri World Dark Gray
+          // basemap, which is already dark — a per-frame brightness/contrast/
+          // saturate filter over a full-bleed canvas is pure GPU cost, and
+          // the overlay gradient below owns text contrast.
         }}
       />
       {/* Subtle overlay — lets map texture show through */}

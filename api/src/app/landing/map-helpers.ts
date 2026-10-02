@@ -14,6 +14,7 @@ export function addOrUpdatePin(map: maplibregl.Map, lon: number, lat: number) {
     position:relative;
   `;
   const pulse = document.createElement("div");
+  pulse.className = "oz-pin-pulse";
   pulse.style.cssText = `
     position:absolute;inset:-6px;border-radius:50%;
     background:rgba(59,130,246,0.3);

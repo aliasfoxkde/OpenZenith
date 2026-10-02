@@ -10,6 +10,7 @@ import { useTheme, setThemeMode, getThemeMode, initTheme } from "./landing/useTh
 import { FlipCard } from "./landing/FlipCard";
 import { HeroMap, type FlyTarget } from "./landing/HeroMap";
 import { SearchBox } from "./landing/SearchBox";
+import StatCard from "./landing/StatCard";
 import { SnippetTabs, type SnippetResult } from "./landing/SnippetTabs";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -33,7 +34,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTop, setShowTop] = useState(false);
-  const [tooltip, setTooltip] = useState<string | null>(null);
   const [userGeo, setUserGeo] = useState<{
     city: string | null;
     region: string | null;
@@ -45,11 +45,12 @@ export default function Home() {
   const [queried, setQueried] = useState<{ la: string; lo: string } | null>(null);
   const geoInitDone = useRef(false);
 
-  // Single writer for the coordinate inputs.
-  function setCoords(la: string, lo: string) {
+  // Single writer for the coordinate inputs. Stable identity: it is passed
+  // as SearchBox's onCoords, which would otherwise re-subscribe per render.
+  const setCoords = useCallback((la: string, lo: string) => {
     if (latInputRef.current) latInputRef.current.value = la;
     if (lonInputRef.current) lonInputRef.current.value = lo;
-  }
+  }, []);
 
   // The GeoIP bootstrap must never override a user who has already typed
   // coordinates — clobbering their input (or worse, hijacking the result panel
@@ -194,16 +195,30 @@ export default function Home() {
     "#0ea5e9": "#075985", // 7.6:1
   };
 
-  // Back-to-top scroll listener
+  // Back-to-top scroll listener. Scroll events fire far faster than frames;
+  // coalesce to one state read per frame instead of one setState per event.
   useEffect(() => {
-    const onScroll = () => { setShowTop(window.scrollY > 500); };
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        setShowTop(window.scrollY > 500);
+      });
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); };
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   const scrollToTop = useCallback(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
-  async function lookup(latOverride?: number, lonOverride?: number) {
+  // Stable identity (refs + setters only) so the SearchBox onPick closure
+  // below is not recreated — and SearchBox's memo/dep chains with it — on
+  // every unrelated render of this 1,400-line component.
+  const lookup = useCallback(async function lookup(latOverride?: number, lonOverride?: number) {
     const seq = ++lookupSeq.current;
     let la = latOverride ?? parseFloat(latInputRef.current?.value ?? "");
     let lo = lonOverride ?? parseFloat(lonInputRef.current?.value ?? "");
@@ -257,7 +272,17 @@ export default function Home() {
       // A superseded lookup must not clear the spinner of the newer one.
       if (seq === lookupSeq.current) setLoading(false);
     }
-  }
+  }, [setCoords]);
+
+  // SearchBox picks a place → fill the inputs and run the lookup. Stable
+  // identity like setCoords/lookup above.
+  const onPick = useCallback(
+    (la: number, lo: number) => {
+      setCoords(la.toString(), lo.toString());
+      void lookup(la, lo);
+    },
+    [setCoords, lookup],
+  );
 
   const inputStyle: React.CSSProperties = {
     flex: 1,
@@ -275,6 +300,12 @@ export default function Home() {
   return (
     <ErrorBoundary>
       <div id="page-root" className="oz-page" data-theme={dark ? "dark" : "light"}>
+        {/* React 19 hoists these to <head> (also in the prerendered HTML).
+            The hero map pulls ~630 KB of tiles from ArcGIS and vector
+            boundaries from openfreemap — open those connections during
+            document parse instead of at first tile request. */}
+        <link rel="preconnect" href="https://server.arcgisonline.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
         <Navbar
           dark={dark}
           extra={
@@ -417,13 +448,8 @@ export default function Home() {
               text={text}
               textSecondary={textSecondary}
               inputStyle={inputStyle}
-              onCoords={(la, lo) => {
-                setCoords(la, lo);
-              }}
-              onPick={(la, lo) => {
-                setCoords(la.toString(), lo.toString());
-                void lookup(la, lo);
-              }}
+              onCoords={setCoords}
+              onPick={onPick}
             />
 
             {/* Lookup inputs */}
@@ -601,94 +627,7 @@ export default function Home() {
                 tip: "Map and globe integrate 62 data layers including earthquakes, flights, vessels, satellites, hurricanes, weather radar, wildfires, lightning, space weather, air quality, volcanoes, GDACS, and more.",
               },
             ].map((s) => (
-              <div
-                key={s.label}
-                className="oz-lift"
-                style={{
-                  background: cardBg,
-                  border: `1px solid ${border}`,
-                  borderRadius: 10,
-                  padding: "0.75rem 1rem",
-                  textAlign: "center",
-                  position: "relative",
-                }}
-              >
-                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accentText, marginBottom: "0.15rem" }}>
-                  {s.value}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: textSecondary,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.2rem",
-                  }}
-                >
-                  {s.label}
-                  <button
-                    type="button"
-                    aria-label={`What does "${s.label}" mean?`}
-                    aria-expanded={tooltip === s.tip}
-                    onMouseEnter={() => { setTooltip(s.tip); }}
-                    onMouseLeave={() => { setTooltip(null); }}
-                    onFocus={() => { setTooltip(s.tip); }}
-                    onBlur={() => { setTooltip(null); }}
-                    onClick={() => { setTooltip(tooltip === s.tip ? null : s.tip); }}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      border: `1px solid ${border}`,
-                      fontSize: "0.6rem",
-                      color: textSecondary,
-                      lineHeight: 1,
-                      flexShrink: 0,
-                      background: "transparent",
-                      padding: 0,
-                      cursor: "help",
-                    }}
-                  >
-                    &#63;
-                  </button>
-                </div>
-                {tooltip === s.tip && (
-                  <div
-                    role="tooltip"
-                    style={{
-                      position: "absolute",
-                      bottom: "calc(100% + 8px)",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      background: dark ? "#222" : "#1a1a1a",
-                      color: "#e5e5e5",
-                      padding: "0.5rem 0.7rem",
-                      borderRadius: 8,
-                      fontSize: "0.72rem",
-                      lineHeight: 1.5,
-                      width: 220,
-                      zIndex: 10,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-                      whiteSpace: "normal",
-                    }}
-                  >
-                    {s.tip}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        border: "5px solid transparent",
-                        borderTopColor: dark ? "#222" : "#1a1a1a",
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+              <StatCard key={s.label} s={s} />
             ))}
           </div>
         </section>
@@ -1034,7 +973,7 @@ export default function Home() {
               front={
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
-                    <div style={{ fontSize: "1.5rem" }}>\uD83D\uDCE4</div>
+                    <div style={{ fontSize: "1.5rem" }}>{"\uD83D\uDCE4"}</div>
                     <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Contribute Data</h3>
                   </div>
                   <p style={{ margin: 0, fontSize: "0.82rem", color: textSecondary, lineHeight: 1.5 }}>
@@ -1075,7 +1014,7 @@ export default function Home() {
               front={
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
-                    <div style={{ fontSize: "1.5rem" }}>\uD83D\uDD27</div>
+                    <div style={{ fontSize: "1.5rem" }}>{"\uD83D\uDD27"}</div>
                     <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Integrations &amp; Tools</h3>
                   </div>
                   <p style={{ margin: 0, fontSize: "0.82rem", color: textSecondary, lineHeight: 1.5 }}>

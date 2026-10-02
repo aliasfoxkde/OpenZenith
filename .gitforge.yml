@@ -123,3 +123,20 @@ jobs:
     # Full suite is ~6 min locally, but load spikes on this shared NAS have
     # stretched sibling suites >4x — leave headroom for retry + spike.
     timeout: 30m
+
+  - name: bundle-budget
+    image: node:22-bookworm
+    needs: [unit-test]
+    steps:
+      # Perf tripwire (docs/planning/PERFORMANCE_PLAN_2026-10-02.md item 5):
+      # rebuilds the production bundle and compares tracked chunk totals +
+      # structural invariants (self-hosted font, CDN preloads, flip-card
+      # marker) against api/perf-budget-baseline.json. Deliberate bundle
+      # moves re-baseline with `node scripts/perf-budget.mjs --update` —
+      # say so in the commit body.
+      - name: pages:build + perf-budget check
+        run: |
+          cd api
+          npm run pages:build > /tmp/budget-build.log 2>&1 || { tail -30 /tmp/budget-build.log; exit 1; }
+          node scripts/perf-budget.mjs
+    timeout: 15m

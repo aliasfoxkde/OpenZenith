@@ -1,0 +1,16 @@
+{
+  "totalJs": 1706799,
+  "polyfills": 112594,
+  "landing": 61762,
+  "map": 62259,
+  "globe": 149253,
+  "explore": 54719,
+  "studio": 39234,
+  "checks": {
+    "selfHostedMono": true,
+    "noGoogleFontsImport": true,
+    "heroTilePreconnect": true,
+    "cesiumPreload": true,
+    "flipCardMarker": true
+  }
+}

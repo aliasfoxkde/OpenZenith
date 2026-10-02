@@ -21,7 +21,6 @@ function useTheme() {
 }
 
 const S = `
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
 .ct-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif}
 .ct-body{max-width:900px;margin:0 auto;padding:1.5rem 2rem 4rem}
 .ct-body h1{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;letter-spacing:-0.02em}

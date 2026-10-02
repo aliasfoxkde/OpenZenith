@@ -105,6 +105,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             preload here fires a "preloaded but not used" console warning on
             every other page. `preconnect` alone keeps the CDN handshake warm. */}
         <link rel="preconnect" href="https://unpkg.com" crossOrigin="anonymous" />
+        {/* JetBrains Mono is self-hosted (public/fonts, OFL — see the
+            license beside it). Pages used to @import it from Google Fonts in
+            four injected <style> blocks, a discover→download serial chain
+            before first paint; the preload starts the fetch with the
+            document instead. Latin subset covers the app; non-latin glyphs
+            fall back to monospace. */}
+        <link
+          rel="preload"
+          href="/fonts/jetbrains-mono-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
       </head>
       <body
         style={{

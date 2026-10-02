@@ -1,5 +1,16 @@
 # OpenZenith handoff
 
+> **Update (2026-10-01):** the reliability-gap audit
+> ([RELIABILITY_GAPS_2026-10-01.md](RELIABILITY_GAPS_2026-10-01.md)) is
+> worked through: ship gate (`scripts/ship.sh`: build → bundle-marker
+> check → deploy → prod E2E), a GitForge CI pipeline (`.gitforge.yml`;
+> first run pending an interactive `gitforge auth --login`), landing E2E
+> hydration guards, mcp-server vitest 5 (0 npm-audit vulns there), lint
+> at 3,744 warnings/0 errors (was 4,111), repo scratch trimmed. Open
+> user decisions: Next.js 16 / OpenNext migration
+> ([NEXTJS16_OPENNEXT_MIGRATION.md](NEXTJS16_OPENNEXT_MIGRATION.md)) and
+> the pipeline activation login above.
+
 **Evidence boundary:** branch `docs/register-openzenith-handoff-20260901`;
 base `main` at `f55f465` before this documentation-only change.
 **Status:** active; deployed to Cloudflare Pages

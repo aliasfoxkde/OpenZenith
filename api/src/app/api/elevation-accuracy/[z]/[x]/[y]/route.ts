@@ -23,7 +23,7 @@ import { zlibSync } from "fflate";
 export const runtime = "edge";
 
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=31536000, s-maxage=31536000", // immutable — coverage doesn't change
+  "Cache-Control": "public, max-age=31536000, immutable", // coverage doesn't change
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };

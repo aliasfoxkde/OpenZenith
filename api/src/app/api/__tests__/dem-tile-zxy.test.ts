@@ -243,8 +243,9 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
   });
 
-  it("ignores an entry older than one hour and reassembles the tile", async () => {
-    const stale = String(Date.now() - 4 * 60 * 60 * 1000);
+  it("ignores an entry older than the immutable TTL and reassembles the tile", async () => {
+    // 400 days — past the 1y immutable window the route now enforces.
+    const stale = String(Date.now() - 400 * 24 * 60 * 60 * 1000);
     stubCaches({ "/api/dem-tile/4/8/5?fmt=png": { body: asciiBuf("stale-png"), cachedAt: stale } });
 
     const { GET } = await route();

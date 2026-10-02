@@ -225,7 +225,8 @@ describe("Elevation color API cache layers", () => {
   });
 
   it("ignores a stale Cloudflare Cache entry and falls through to R2", async () => {
-    const cf = stubCfCache({ entry: cachedResponse(pngBytes(32), Date.now() - 4 * 3600 * 1000) });
+    const cf = // 400 days old — past the 1y immutable TTL, so the edge entry is stale
+      stubCfCache({ entry: cachedResponse(pngBytes(32), Date.now() - 400 * 24 * 3600 * 1000) });
     const bytes = pngBytes(32);
     r2Store.set("8/100/60", bytes);
 
@@ -278,7 +279,8 @@ describe("Elevation color API generation", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Tile-Type")).toBe("elevation-color");
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    expect(resp.headers.get("Cache-Control")).toContain("max-age=3600");
+    expect(resp.headers.get("Cache-Control")).toContain("max-age=31536000");
+    expect(resp.headers.get("Cache-Control")).toContain("immutable");
     expect(mockGetTileData).toHaveBeenCalledWith(8, 100, 60, expect.anything());
 
     const bytes = new Uint8Array(await resp.arrayBuffer());

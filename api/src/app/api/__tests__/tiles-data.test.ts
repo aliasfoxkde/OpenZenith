@@ -164,7 +164,7 @@ describe("OGC Tile Data API — tile assembly and fallback", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toBe("image/png");
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600, s-maxage=2592000");
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
 
     const body = new Uint8Array(await resp.arrayBuffer());
@@ -209,7 +209,7 @@ describe("OGC Tile Data API — tile assembly and fallback", () => {
       expect(resp.status).toBe(200);
       expect(resp.headers.get("Content-Type")).toBe("image/png");
       expect(resp.headers.get("X-Dem-Tile-Source")).toBe("fallback-ocean");
-      expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600, s-maxage=2592000");
+      expect(resp.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
 
       const ocean = new Uint8Array(await resp.arrayBuffer());
       expect(ocean.byteLength).toBeGreaterThan(0);

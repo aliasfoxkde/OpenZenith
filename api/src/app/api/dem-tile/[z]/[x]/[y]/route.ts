@@ -57,10 +57,12 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 export const runtime = "edge";
 
-// Cache headers — tiles are deterministic, cache aggressively
-const CACHE_TTL_SECONDS = 3600;
+// Cache headers — tiles are deterministic for a given RENDER_SCHEMA_VERSION
+// (the cache namespace above is the invalidation lever), so both the browser
+// and the edge hold them immutably. Matches the declared /_headers policy.
+const CACHE_TTL_SECONDS = 31536000;
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
+  "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, immutable`,
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
@@ -111,7 +113,7 @@ async function putCfCacheTile(z: number, x: number, y: number, data: ArrayBuffer
     const key = `/api/dem-tile/${z}/${x}/${y}?fmt=${format}`;
     const headers = new Headers({
       "Content-Type": CONTENT_TYPE[format],
-      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
+      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, immutable`,
       "x-cached-at": String(Date.now()),
       "X-Cache": "HIT",
       "X-Dem-Tile-Format": format,

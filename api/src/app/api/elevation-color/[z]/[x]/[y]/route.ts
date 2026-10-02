@@ -27,9 +27,10 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 export const runtime = "edge";
 
-const CACHE_TTL_SECONDS = 3600;
+// Immutable for a given render schema — same policy as /api/dem-tile.
+const CACHE_TTL_SECONDS = 31536000;
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
+  "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, immutable`,
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
@@ -81,7 +82,7 @@ async function putEcCfCache(z: number, x: number, y: number, data: ArrayBuffer):
     const key = `/api/elevation-color/${z}/${x}/${y}`;
     const headers = new Headers({
       "Content-Type": "image/png",
-      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
+      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}, immutable`,
       "x-cached-at": String(Date.now()),
     });
     cache.put(key, new Response(data, { headers })).catch(() => {});

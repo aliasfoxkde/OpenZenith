@@ -17,7 +17,7 @@ export const runtime = "edge";
  */
 
 const CACHE_HEADERS: Record<string, string> = {
-  "Cache-Control": "public, max-age=3600, s-maxage=2592000",
+  "Cache-Control": "public, max-age=31536000, immutable",
   ...CORS_HEADERS,
 };
 

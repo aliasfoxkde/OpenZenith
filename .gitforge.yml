@@ -61,7 +61,7 @@ jobs:
     image: node:22-bookworm
     needs: [typecheck]
     steps:
-      # Baseline hold, not zero-warning: the repo carries ~4.1k eslint
+      # Baseline hold, not zero-warning: the repo carries ~3.7k eslint
       # warnings (typed-lint debt, tracked in docs/planning/
       # RELIABILITY_GAPS_2026-10-01.md #5). Fail the job only if the count
       # GROWS; shrink the number as slices land.
@@ -70,9 +70,9 @@ jobs:
           cd api
           npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
           warnings=$(grep -cE 'warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 4111)"
-          [ "${warnings:-0}" -le 4111 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 4111"; exit 1;
+          echo "eslint warnings: ${warnings:-0} (baseline 3744)"
+          [ "${warnings:-0}" -le 3744 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 3744"; exit 1;
           }
     timeout: 10m
 

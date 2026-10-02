@@ -48,10 +48,15 @@ apply the same guard or a hydration marker wait across landing.spec.ts.
 
 ## P2 — Debt and modernization (tracked, not urgent)
 
-### 5. Route-layer lint debt: ~4,100 warnings (Phase D)
-eslint 4,111 warnings / 0 errors after #155 slice 1; the residue is
-response-model typing across ~80 routes + tests. Slice per area
-(api/__tests__ first — test files carry most of it).
+### 5. Route-layer lint debt — SLICE 2 SHIPPED (4,111 → 3,744)
+eslint 4,111 warnings / 0 errors after #155 slice 1. **2026-10-01 slice:**
+the three largest `__tests__` files typed via the established body-reader
+pattern — terrain-routes (211), collections-deep (81), query (75) = 367
+warnings retired, all four files graduated to `error` in
+eslint.config.mjs so they cannot regress. Shared `bodyAs<T>()` reader
+added to `__tests__/helpers.ts`. Remaining residue is `src/app/`
+(globe/map pages and layers: 2,858) — the Cesium/MapLibre boundary
+typing from the #155 pattern, plus 101 in lib/components.
 
 ### 6. Next.js 16 / OpenNext Cloudflare migration (decision pending, user)
 `@cloudflare/next-on-pages` is archived/deprecated and caps next at
@@ -83,11 +88,16 @@ decision #6). **Fixed 2026-10-01:** mcp-server vitest 3.2.7 → 5.0.3
 0 vulnerabilities). Dependabot's 11 likely counted these dev-only
 findings; recheck its dashboard after the vitest bump propagates.
 
-### 10. Repo-root scratch accumulation
-`ozt2/`, `output/`, `temp/`, `elevation.geojson`, `contours_100.0m.geojson`
-at repo root; a `.coverage.SWARMONE.*` temp file appears when the co-tenant
-session works here. Trim pass needed (trash-move, never rm; leave the other
-session's live artifacts alone).
+### 10. Repo-root scratch accumulation — TRIMMED
+Trash-moved (never rm) to `/nas/Temp/tmp/oz-trash/` on 2026-10-01:
+`ozt2/` (stale tiles), `output/` (4.7MB playwright debug PNGs), `temp/`
+(empty), `.build-tmp/`, `.tmp-test/`, tonight's `elevation.geojson` +
+`contours_100.0m.geojson` pytest artifacts, `api/.smoke-persist-119/120`
+(workerd persists), `api/test-results/`. `.pkgprobe/` was already
+relocated by an earlier pass. Also removed the tracked-but-dead
+`.gitforce.yml` (pre-rename pipeline spelling, map-style jobs the current
+parser rejects, superseded by `.gitforge.yml` which wins resolution
+order). Co-tenant live artifacts left alone.
 
 ## Verification facts (2026-10-01)
 - Prod serves the flip-card landing + fixed banner search (Playwright

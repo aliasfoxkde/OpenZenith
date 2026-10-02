@@ -2511,3 +2511,24 @@ Working the RELIABILITY_GAPS_2026-10-01.md queue systematically.
   (cleared by the pending Next16 decision).
 - Remaining open: #5 (lint debt slice, ~4.1k warnings) and #6 (Next16/
   OpenNext — user decision).
+
+## 2026-10-01 (late) — Lint slice 2 + repo trim (#164 goal, cont.)
+
+- **Lint slice 2: 4,111 → 3,744 warnings (−367).** The three largest
+  api/__tests__ files now use typed response bodies: terrain-routes via
+  seven per-route body readers, collections-deep + query via the new
+  shared `bodyAs<T>()` in __tests__/helpers.ts with per-file body
+  interfaces. All three files + helpers.ts graduated to `error` in
+  eslint.config.mjs (violations can never rejoin the backlog). Suites
+  verified green after the rewrite (84 + 29 + 44 tests) and the full
+  vitest run exits 0. Residue is the src/app globe/map boundary typing
+  (2,858) — the #155 CesiumType pattern, not test debt.
+- **Repo-root trim:** ozt2/, output/, temp/, .build-tmp/, .tmp-test/,
+  elevation.geojson, contours_100.0m.geojson, api/.smoke-persist-119/120,
+  api/test-results/ → trash-moved (never rm) to
+  /nas/Temp/tmp/oz-trash/. Dead tracked `.gitforce.yml` removed — it was
+  the pre-rename spelling with map-style jobs the current GitForge parser
+  rejects; `.gitforge.yml` (list-shaped, verified schema) supersedes it
+  and wins the resolution order.
+- **CI baseline guard updated** to 3,744 so the pipeline holds the new
+  line.

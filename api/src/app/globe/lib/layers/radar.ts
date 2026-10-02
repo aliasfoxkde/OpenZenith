@@ -3,6 +3,7 @@ import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchRainViewer } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /**
  * Animated weather radar using RainViewer tile frames.
@@ -13,7 +14,7 @@ export function loadRadar(
   cesiumRef: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   toggleImageryOverlay: (name: string, url?: string, opacity?: number) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { radar: boolean },
 ) {
   updateStatus("radar", { error: null });
@@ -38,7 +39,7 @@ export function loadRadar(
       const frameUrl = `https://tilecache.rainviewer.com${radarFrames[frameIndex]}/256/{z}/{x}/{y}/2/1_1.png`;
       toggleImageryOverlay("rainviewer", frameUrl, 0.6);
     }, FRAME_INTERVAL_MS);
-    intervalsRef.current.push(animInterval);
+    pushLayerTimer(intervalsRef, "radar", animInterval);
   };
 
   const doLoad = async () => {
@@ -76,7 +77,7 @@ export function loadRadar(
           }
         })();
       }, 600000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "radar", iv);
     } catch (err) {
       warnLayerError("radar", err);
       updateStatus("radar", {

@@ -3,6 +3,7 @@ import type { DataStatus } from "../types";
 import { fetchGDACS } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const GDACS_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="#ff4444" stroke-width="2"/><path d="M12 5v7l5 5" fill="none" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/></svg>`);
 
@@ -33,7 +34,7 @@ export function loadGDACS(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { gdacs: boolean },
 ) {
   updateStatus("gdacs", { error: null });
@@ -107,7 +108,7 @@ export function loadGDACS(
         removeEntities("gdacs-");
         void doLoad();
       }, 1800000); // 30 min
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "gdacs", iv);
     } catch (err) {
       warnLayerError("gdacs", err);
       updateStatus("gdacs", { error: "fetch failed" });

@@ -11,6 +11,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /** GPS Jamming intensity levels */
 export interface GpsJammingHex {
@@ -189,7 +190,7 @@ export function loadGpsJamming(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
   _entitiesRef: React.RefObject<Record<string, any>>,
   stateLayers: { gpsJamming: boolean },
@@ -291,5 +292,5 @@ export function loadGpsJamming(
     void refresh();
   }, 600000); // 10 minutes
 
-  intervalsRef.current.push(iv);
+  pushLayerTimer(intervalsRef, "gpsJamming", iv);
 }

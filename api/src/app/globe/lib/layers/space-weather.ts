@@ -4,6 +4,7 @@ import type { DataStatus } from "../types";
 import { fetchSWPCaurora, fetchSWPCkpForecast } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const AURORA_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="22" height="22"><ellipse cx="12" cy="16" rx="10" ry="6" fill="#00ff88" opacity="0.25"/><ellipse cx="12" cy="14" rx="8" ry="4" fill="#00ff88" opacity="0.4"/><ellipse cx="12" cy="12" rx="6" ry="2.5" fill="#00ffaa" opacity="0.6"/><path d="M12 4v8M8 8l4-4 4 4" stroke="#00ffcc" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/><circle cx="12" cy="3" r="1.5" fill="#00ffcc" opacity="0.9"/></svg>`);
 
@@ -12,7 +13,7 @@ export function loadSpaceWeather(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { spaceWeather: boolean },
 ) {
   updateStatus("spaceWeather", { error: null });
@@ -133,7 +134,7 @@ export function loadSpaceWeather(
           }
         })();
       }, 300000); // 5 min
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "spaceWeather", iv);
     } catch (err) {
       warnLayerError("spaceWeather", err);
       updateStatus("spaceWeather", {

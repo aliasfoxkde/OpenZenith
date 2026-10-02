@@ -3,6 +3,7 @@ import type { DataStatus } from "../types";
 import { fetchSigmets, fetchAirmets } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const SIGMET_COLOR = "#ff0000";
 const AIRMET_COLOR = "#ff8800";
@@ -55,7 +56,7 @@ export function loadAviationWeather(
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { aviationWeather: boolean },
 ) {
   updateStatus("aviationWeather", { error: null });
@@ -244,7 +245,7 @@ export function loadAviationWeather(
           }
         })();
       }, 300000); // 5 min
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "aviationWeather", iv);
     } catch {
       updateStatus("aviationWeather", { error: "fetch failed" });
     }

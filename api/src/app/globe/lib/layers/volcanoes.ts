@@ -3,6 +3,7 @@ import { fetchVolcanoAlerts } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const VOLCANO_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="#ff4444" opacity="0.8"/><ellipse cx="12" cy="20" rx="8" ry="2" fill="#ff4444" opacity="0.4"/><path d="M12 8v4M12 14v2" stroke="#ffcc00" stroke-width="2" stroke-linecap="round" opacity="0.9"/><circle cx="12" cy="7" r="3" fill="#ff6600" opacity="0.6"/></svg>`);
 
@@ -37,7 +38,7 @@ export function loadVolcanoes(
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { volcanoes: boolean },
 ) {
   updateStatus("volcanoes", { error: null });
@@ -188,7 +189,7 @@ export function loadVolcanoes(
         if (!stateLayers.volcanoes) return;
         void refresh();
       }, 1800000); // 30 min
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "volcanoes", iv);
     } catch (err) {
       warnLayerError("volcanoes", err);
       updateStatus("volcanoes", { error: "fetch failed" });

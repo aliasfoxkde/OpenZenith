@@ -2,6 +2,7 @@ import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
 import { fetchVessels } from "../data-fetchers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /**
  * AISstream.io message types
@@ -116,7 +117,7 @@ export function loadVessels(
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { vessels: boolean },
 ) {
   updateStatus("vessels", { error: null });
@@ -317,7 +318,7 @@ export function loadVessels(
     }
     if (removed > 0) scheduleRebuild();
   }, 60000);
-  intervalsRef.current.push(cleanupIv);
+  pushLayerTimer(intervalsRef, "vessels", cleanupIv);
 
   // Store cleanup function on window for layer toggle
   window.__ozCleanupVessels = () => {

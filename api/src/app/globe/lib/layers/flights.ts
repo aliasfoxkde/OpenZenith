@@ -4,6 +4,7 @@ import { getAircraftIcon } from "../constants";
 import { fetchFlights, fetchFlightsAnonymous } from "../data-fetchers";
 import type { OpenSkyResponse, OpenSkyState } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /**
  * OpenSky state vector field indices (for the array format returned by the API).
@@ -74,7 +75,7 @@ export function loadFlights(
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { flights: boolean },
   _entitiesRef?: React.RefObject<Record<string, unknown>>,
 ) {
@@ -316,7 +317,7 @@ export function loadFlights(
       const iv = setInterval(() => {
         void refresh();
       }, 15000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "flights", iv);
     } catch (err) {
       warnLayerError("flights", err);
       updateStatus("flights", {

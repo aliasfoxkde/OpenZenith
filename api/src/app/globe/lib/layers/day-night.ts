@@ -11,6 +11,7 @@
  */
 
 import type { DataStatus } from "../types";
+import type { LayerTimersRef } from "./timers";
 
 /** Sun position data */
 interface _SunPosition {
@@ -107,7 +108,7 @@ export function loadDayNightTerminator(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  _intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  _intervalsRef: LayerTimersRef,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
   _entitiesRef: React.RefObject<Record<string, any>>,
   stateLayers: { dayNight: boolean },

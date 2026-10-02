@@ -18,6 +18,7 @@ import { STYLES } from "./lib/styles";
 import { loadEarthquakes } from "./lib/layers/earthquakes";
 import { loadEvents } from "./lib/layers/events";
 import { loadElevationColor } from "./lib/layers/elevation";
+import type { LayerTimerEntry } from "./lib/layers/timers";
 import { addCoverage, removeCoverage } from "./lib/layers/coverage";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD } from "./lib/lod";
@@ -59,7 +60,9 @@ export default function Globe() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const cesiumRef = useRef<any>(null);
-  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  // Entries carry the owning layer key so toggle-off can clear exactly that
+  // layer's polling timers (tab-hide still clears the whole array).
+  const intervalsRef = useRef<LayerTimerEntry[]>([]);
   const layerModulesRef = useRef<Record<string, any>>({});
   const dataLoadedRef = useRef<Record<string, boolean>>({});
   const entitiesRef = useRef<Record<string, any>>({});
@@ -216,7 +219,9 @@ export default function Globe() {
     // Visibility handler (outer scope so cleanup can access it)
     const onVisibilityChange = () => {
       if (document.hidden) {
-        intervalsRef.current.forEach(clearInterval);
+        intervalsRef.current.forEach((entry) => {
+          clearInterval(entry.id);
+        });
         intervalsRef.current = [];
       } else {
         const viewer = viewerRef.current;
@@ -520,7 +525,9 @@ export default function Globe() {
       if (handleDocumentClick) document.removeEventListener("click", handleDocumentClick);
       // Both refs are read at cleanup time on purpose: intervals and the
       // lightning module accumulate over the viewer's whole lifetime.
-      intervalsRef.current.forEach(clearInterval);
+      intervalsRef.current.forEach((entry) => {
+        clearInterval(entry.id);
+      });
       // eslint-disable-next-line react-hooks/exhaustive-deps
       layerModulesRef.current.lightning?.cleanupLightning();
       if (viewerRef.current) {
@@ -887,6 +894,17 @@ export default function Globe() {
   // ─── Layer toggling ───
   const toggleLayer = useCallback(
     (key: keyof LayerState) => {
+      // Toggle-off retires this layer's polling timers first. Loaders share
+      // one ref array, so without per-layer attribution the timer survived
+      // toggle-off (fetching forever for a removed layer) and re-enabling
+      // stacked a duplicate beside it. No-op for layers without timers.
+      if (state.layers[key]) {
+        intervalsRef.current = intervalsRef.current.filter((entry) => {
+          if (entry.key !== key) return true;
+          clearInterval(entry.id);
+          return false;
+        });
+      }
       setState((prev) => {
         const next = { ...prev, layers: { ...prev.layers, [key]: !prev.layers[key] } };
         const on = next.layers[key];

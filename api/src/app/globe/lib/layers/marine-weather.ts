@@ -2,6 +2,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const WAVE_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M2 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0" fill="none" stroke="#00aaff" stroke-width="1.5" stroke-linecap="round"/><path d="M2 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0" fill="none" stroke="#0088dd" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>`);
 
@@ -18,7 +19,7 @@ export function loadMarineWeather(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { marineWeather: boolean },
 ) {
   updateStatus("marineWeather", { error: null });
@@ -103,7 +104,7 @@ export function loadMarineWeather(
         removeEntities("marine-");
         void doLoad();
       }, 3600000); // 1 hour
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "marineWeather", iv);
     } catch (err) {
       warnLayerError("marineWeather", err);
       updateStatus("marineWeather", {

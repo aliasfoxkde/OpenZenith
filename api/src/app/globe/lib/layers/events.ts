@@ -5,6 +5,7 @@ import { EONET_COLORS } from "../constants";
 import { fetchEONET } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 interface EonetFeature {
   geometry?: { coordinates?: [number, number] };
@@ -49,7 +50,7 @@ export function loadEvents(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { events: boolean },
 ) {
   updateStatus("events", { error: null });
@@ -167,7 +168,7 @@ export function loadEvents(
           }
         })();
       }, 1800000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "events", iv);
     } catch (err) {
       warnLayerError("events", err);
       updateStatus("events", {

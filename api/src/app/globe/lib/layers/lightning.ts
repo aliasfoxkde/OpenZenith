@@ -2,6 +2,7 @@
 import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const LIGHTNING_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`);
 
@@ -30,7 +31,7 @@ export function loadLightning(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   _removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { lightning: boolean },
 ) {
   updateStatus("lightning", { error: null });
@@ -138,7 +139,9 @@ export function loadLightning(
   connectWs();
 
   // Status update using tracked Set instead of scanning all entities
-  intervalsRef.current.push(
+  pushLayerTimer(
+    intervalsRef,
+    "lightning",
     setInterval(() => {
       updateStatus("lightning", { lastUpdate: Date.now(), count: activeStrikeIds.size });
     }, 10000),

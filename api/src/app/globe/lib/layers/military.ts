@@ -3,6 +3,7 @@ import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchMilitaryFlights } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 interface MilitaryAircraft {
   lat?: number;
@@ -27,7 +28,7 @@ export function loadMilitaryFlights(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { militaryFlights: boolean },
 ) {
   updateStatus("militaryFlights", { error: null });
@@ -108,7 +109,7 @@ export function loadMilitaryFlights(
         if (!stateLayers.militaryFlights) return;
         void refresh();
       }, 30000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "militaryFlights", iv);
     } catch (err) {
       warnLayerError("militaryFlights", err);
       updateStatus("militaryFlights", {

@@ -4,6 +4,7 @@ import type { DataStatus } from "../types";
 import { fetchFIRMS } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /**
  * Fire icon SVG — used for billboard markers at close range.
@@ -37,7 +38,7 @@ export function loadWildfires(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { wildfires: boolean },
 ) {
   updateStatus("wildfires", { error: null });
@@ -150,7 +151,7 @@ export function loadWildfires(
         removeEntities("fire-");
         void doLoad();
       }, 21600000); // 6 hours
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "wildfires", iv);
     } catch (err) {
       warnLayerError("wildfires", err, "entity build");
       retry.recordFailure();

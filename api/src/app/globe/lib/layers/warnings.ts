@@ -3,13 +3,14 @@ import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchWarnings } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 export function loadWarnings(
   viewer: any,
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { warnings: boolean },
 ) {
   updateStatus("warnings", { error: null });
@@ -111,7 +112,7 @@ export function loadWarnings(
       const iv = setInterval(() => {
         void refresh();
       }, 300000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "warnings", iv);
     } catch (err) {
       warnLayerError("warnings", err);
       updateStatus("warnings", {

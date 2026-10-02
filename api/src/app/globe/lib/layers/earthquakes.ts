@@ -3,13 +3,14 @@ import type { DataStatus } from "../types";
 import { fetchEarthquakes } from "../data-fetchers";
 import type { EarthquakeFeature } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 export function loadEarthquakes(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   stateLayers: { earthquakes: boolean },
 ) {
   updateStatus("earthquakes", { error: null });
@@ -179,7 +180,7 @@ export function loadEarthquakes(
       const iv = setInterval(() => {
         void refresh();
       }, 60000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "earthquakes", iv);
     } catch {
       updateStatus("earthquakes", { error: "fetch failed" });
     }

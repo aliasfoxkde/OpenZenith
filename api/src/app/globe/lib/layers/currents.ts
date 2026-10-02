@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
+import type { LayerTimersRef } from "./timers";
 
 /**
  * Ocean currents visualization using particle flow animation.
@@ -298,7 +299,7 @@ export function loadCurrents(
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   _removeEntities: (prefix: string) => void,
-  _intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  _intervalsRef: LayerTimersRef,
   _stateLayers: { currents: boolean },
 ) {
   updateStatus("currents", { error: null });

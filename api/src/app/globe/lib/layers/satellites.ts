@@ -3,6 +3,7 @@ import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
 import { fetchCelestrak, type TleRecord } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
+import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /** A satellite propagated to one moment — the layer's unit of data. */
 export interface SatFeature {
@@ -117,7 +118,7 @@ export function loadSatellites(
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
-  intervalsRef: React.RefObject<ReturnType<typeof setInterval>[]>,
+  intervalsRef: LayerTimersRef,
   entitiesRef: React.RefObject<Record<string, unknown>>,
   satDataRef: React.RefObject<SatFeature[]>,
   stateLayers: { satellites: boolean; orbitalTracks?: boolean; groundTracks?: boolean },
@@ -325,7 +326,7 @@ export function loadSatellites(
           }
         })();
       }, 300000);
-      intervalsRef.current.push(iv);
+      pushLayerTimer(intervalsRef, "satellites", iv);
     } catch (err) {
       warnLayerError("satellites", err);
       updateStatus("satellites", {

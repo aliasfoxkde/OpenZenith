@@ -42,6 +42,8 @@ landing 61 KB.
 ## P0 — contained, high-confidence wins (this pass)
 
 ### 1. Kill the 113 KB polyfills chunk with a modern browserslist
+
+**Status: RETRACTED** — browserslist config produced a byte-identical polyfills chunk; the Next 15 app-router polyfills bundle is a fixed compiled artifact, not browserslist-gated. Config reverted.
 No `browserslist` in `api/package.json`, so Next applies its default
 (~chrome 64+, wide core-js set) → `polyfills-*.js` 112,594 B raw on
 **every** route. Target evergreen browsers; verify the chunk shrinks after
@@ -50,6 +52,8 @@ retract the item. **Verify:** diff polyfills chunk before/after; landing
 E2E green (guards behavior).
 
 ### 2. Self-host JetBrains Mono via `next/font` (4 render-blocking chains)
+
+**Status: SHIPPED** (fc36011, ed65dda) — self-hosted variable woff2 + real `@font-face` keeping the family name (`next/font` rejected: ~45 hardcoded `'JetBrains Mono'` strings, including Cesium canvas `ctx.font`, cannot take a CSS variable); all four `@import` chains deleted.
 `@import` of Google Fonts inside injected `<style>` blocks at
 `src/app/globe/lib/styles.ts:2`, `explore/page.tsx:36`, `about/page.tsx:24`,
 `contribute/page.tsx:24` — each is a discover→download serial chain
@@ -60,6 +64,8 @@ in `layout.tsx` (self-hosted, preloaded, immutable) and delete all four
 built HTML; pages render fonts (screenshot spot-check).
 
 ### 3. Landing render storm: tooltip state re-renders 28 flip cards
+
+**Status: SHIPPED** (ed65dda) — tooltip state localized into `StatCard`, scroll handler rAF-batched, `lookup`/`onPick`/`setCoords` given stable identities.
 `page.tsx` is one 1,566-line client component with page-level `tooltip`
 state (set by all 8 stat-card hover targets, `page.tsx:633-637`) and
 `showTop` (`:200` scroll → `setState` per event, unthrottled). Every hover
@@ -72,6 +78,8 @@ browsers) green; React DevTools not required — the win is fewer wasted
 commits; count renders via a temporary counter if needed.
 
 ### 4. Dead/defective code on the landing path
+
+**Status: SHIPPED** (ed65dda) — HeroParticles deleted, `oz-pulse` keyframes defined (disabled under prefers-reduced-motion), emoji literals fixed.
 - `HeroParticles.tsx` (177 lines, O(n²) particle loop) is imported by
   **nothing** — delete (anti-pattern rule: no dead code).
 - `@keyframes oz-pulse` referenced in `map-helpers.ts:20` is defined
@@ -82,6 +90,8 @@ commits; count renders via a temporary counter if needed.
 **Verify:** build clean, lint clean, landing E2E green, eyeball prod.
 
 ### 5. Budget gate so the wins cannot silently regress
+
+**Status: SHIPPED** (c6f8013, 0552b62) — `scripts/perf-budget.mjs` + committed baseline + `.gitforge.yml` `bundle-budget` job; baseline refreshed deliberately for item 8's chunk split.
 `scripts/perf-budget.mjs`: reads a committed baseline JSON (per-route
 wire-KB from the CDP script + key chunk sizes from the build output) and
 fails on growth beyond a threshold; wire it into `.gitforge.yml` as a
@@ -93,6 +103,8 @@ Baseline stored with this doc; update deliberately when a slice moves it.
 ## P1 — structural (next pass, each independently shippable)
 
 ### 6. `/globe` LCP 4.4 s — start the Cesium fetch earlier, keep CDN
+
+**Status: SHIPPED** (fc36011) — route-scoped preload (no `crossOrigin`: cesium-init injects classic scripts, and a CORS-mode mismatch would double-download) + preconnects for jsdelivr/cdnjs.
 92% of globe wire bytes are unpkg (Cesium 1.119 + Workers/Assets), fetched
 only after hydration because `cesium-init.ts:30-47` injects the script
 from a mount effect. Add `<link rel="preload" as="script">` +
@@ -103,6 +115,8 @@ bundle instead of following it. Optionally self-host Cesium on Pages later
 tradeoff (~30 MB). **Verify:** globe LCP re-measured (target < 3 s cold).
 
 ### 7. HeroMap: idle-init + defer non-critical layers + drop the GPU filter
+
+**Status: SHIPPED** (ed65dda) — `requestIdleCallback` init with timeout fallback and dual cancel, boundaries/accuracy attached after map `idle`, GPU filter removed, arcgisonline/openfreemap preconnects.
 `HeroMap.tsx:31` constructs the map on mount; boundaries vector
 (`:84-89`) and elevation-accuracy raster (`:109-126`) load with it; dark
 mode applies a per-frame GPU `filter: brightness(1.4) contrast(0.9)
@@ -117,6 +131,8 @@ E2E `waitInteractive` guard still green (it polls result values, not map
 init).
 
 ### 8. `/map` layers barrel → per-layer dynamic imports (mirror the globe)
+
+**Status: SHIPPED** (d597514) — dispatcher holds dynamic imports keyed by registry id; earthquakes stays eager (default-on, sync timeline API). Measured: chunk 9157 (67 KB raw / 16.5 KB wire) left /map's initial closure; net ~9 KB wire after the split's own chunks; +17.5 KB raw total from per-chunk overhead (baseline refreshed). **Finding (no action):** the ~108 KB wire of foreign-route chunks seen on every route is Navbar prefetch and starts only after `load` — idle cache warming, no FCP/LCP contention; disabling it would trade navigation latency for nothing.
 `src/app/map/lib/layers` barrel (248-line index, ~50 modules) is
 statically imported by `/map` and `/studio` → 67 KB chunk `9157` parsed on
 every visit; `/map` has the app's worst long-task total (1,855 ms). The
@@ -126,6 +142,8 @@ enabled layer. **Verify:** chunk `9157` no longer in the `/map` initial
 manifest; map E2E green.
 
 ### 9. Layer timer + fetch lifecycle (perf *and* correctness)
+
+**Status: SHIPPED except abort-on-teardown** — map side (d2945a3): per-layer timer/cleanup scoping in the dispatcher, hurricane animation isolated to its own module-level id, tab-hide no longer drains shared state; globe side (1496d51): entries are `{key, id}` pairs across all 17 push sites in 19 modules, toggle-off clears exactly that layer's timers, dynamicKeys restored to all 22 layers. Residual documented in 1496d51: toggle-off during a layer's initial fetch lets that fetch's timer land after the clear (reaped next cycle). **Still open:** aborting in-flight data-fetcher requests on teardown (all fetchers accept `signal`, no caller passes one).
 - Globe layers guard interval callbacks with `if (!stateLayers.X) return`
   but never `clearInterval` on toggle-off, and re-enabling stacks a second
   timer (`globe/lib/layers/*`).
@@ -144,6 +162,8 @@ fetches on teardown. **Verify:** vitest + targeted E2E; manual toggle
 crawl on /globe (network request count stops growing when layers off).
 
 ### 10. Cache alignment: immutable tiles + edge-cache the hot query routes
+
+**Status: SHIPPED** (00c88dd + bf9f26f) — tile-rendering routes now emit `public, max-age=31536000, immutable` (dem-tile, elevation-color, elevation-accuracy gains the token, OZT1/terrarium tile route, WMTS tiles route); namespace version is the invalidation lever, and the x-cached-at freshness check inherits the 1y window. geocode (5 min, nominatim etiquette) and elevation point queries (1 day, coordinate key normalized to 7 dp) wrap the edge Cache API success-only with X-Cache observability. Batch elevation deliberately uncached (near-unique keys); gebco-tile/pmtiles excluded (explanatory JSON / mutable catalog).
 - `dem-tile` route emits `max-age=3600` (`route.ts:61`) while
   `public/_headers` declares `/api/dem-tile/*` immutable 1y — route
   headers win on Pages (worker-served), so tiles re-download hourly and

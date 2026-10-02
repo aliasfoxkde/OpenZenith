@@ -2532,3 +2532,35 @@ Working the RELIABILITY_GAPS_2026-10-01.md queue systematically.
   and wins the resolution order.
 - **CI baseline guard updated** to 3,744 so the pipeline holds the new
   line.
+
+## 2026-10-02 — Performance deep-dive execution (#173 goal)
+
+- **Plan + evidence** (`docs/planning/PERFORMANCE_PLAN_2026-10-02.md`,
+  5e8a28f): cold CDP baseline, build census, three code sweeps. Harness:
+  `api/scripts/measure-perf.mjs` (CDP wire/FCP/LCP/long-tasks per route).
+- **P0 shipped** (fc36011, ed65dda, c6f8013): self-hosted JetBrains Mono
+  variable woff2 killing 4 Google Fonts render chains; landing render
+  storm fixed (tooltip state localized to StatCard, rAF scroll, stable
+  callbacks); HeroParticles dead code + broken oz-pulse + emoji
+  literals; `perf-budget.mjs` gate + `.gitforge.yml` bundle-budget job.
+  Item 1 (polyfills) retracted honestly: browserslist does not gate the
+  Next 15 app-router polyfills chunk (byte-identical rebuild proof).
+- **P1 shipped** (d2945a3, 1496d51, d597514, 00c88dd, bf9f26f): map-side
+  per-layer timer/cleanup scoping + hurricane-animation isolation +
+  globe dynamicKeys restore (+7 layers); globe per-layer timer registry
+  (17 push sites / 19 modules keyed, toggle-off reclaims, stacking
+  fixed); /map layers barrel → per-layer dynamic imports (chunk 9157,
+  67 KB raw, off the initial closure; +17.5 KB raw chunk overhead
+  accepted, baseline refreshed); tile routes aligned to the declared
+  `immutable` 1y policy (dem-tile, elevation-color, elevation-accuracy,
+  tile, WMTS tiles); geocode (5 min) + elevation (1 day, 7-dp key)
+  edge-cached success-only with X-Cache observability.
+- **Verified in prod** (two ship.sh runs, 26 + 25+1-flaky E2E):
+  dem-tile serves `max-age=31536000, immutable`; geocode/elevation show
+  MISS → HIT with fresh requestIds and key normalization holding.
+- **Measured no-action findings:** Navbar route prefetch (~108 KB wire)
+  starts only after `load` — idle cache warming, not FCP/LCP
+  contention; landing scroll adds zero long tasks post-fix.
+- **Open from this pass:** abort-on-teardown for globe data-fetchers
+  (item 9 residue); P2 items 11–15 unscheduled; Next16/OpenNext still
+  user-gated.

@@ -207,7 +207,7 @@ function hostileTileData(): Int16Array {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw "tile payload exploded";
       }
-      return Reflect.get(target, prop, receiver);
+      return Reflect.get(target, prop, receiver) as number;
     },
   });
 }
@@ -230,7 +230,7 @@ describe("Terrain routes — shared validation", () => {
   it("slope rejects missing lat/lon with 400", async () => {
     const resp = await slopeGET(makeRequest(GET_URL));
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await slopeBody(resp);
     expect(body.error).toContain("lat");
   });
 
@@ -242,7 +242,7 @@ describe("Terrain routes — shared validation", () => {
   it("slope rejects out-of-range coordinates with 400", async () => {
     const resp = await slopeGET(makeRequest(`${GET_URL}?lat=95&lon=0`));
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await slopeBody(resp);
     expect(body.error).toContain("Invalid");
   });
 
@@ -309,28 +309,28 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
     const resp = await slopeGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=10&zoom=10`));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBeDefined();
-    const body = await resp.json();
+    const body = await slopeBody(resp);
     expect(body.units).toBe("degrees");
     expect(body.radius_cells).toBe(10);
     expect(body.zoom).toBe(10);
-    expect(body.grid.length).toBeGreaterThan(0);
+    expect(body.grid?.length).toBeGreaterThan(0);
     expect(body.stats).not.toBeNull();
-    expect(body.stats.count).toBeGreaterThan(0);
+    expect(body.stats?.count).toBeGreaterThan(0);
     // Ramp in +x direction at ~45m/64px cell → small but nonzero slope
-    expect(body.stats.mean).toBeGreaterThanOrEqual(0);
+    expect(body.stats?.mean).toBeGreaterThanOrEqual(0);
     expect(mockGetTileData).toHaveBeenCalled();
   });
 
   it("aspect returns direction bins over valid cells", async () => {
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=10&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.units).toContain("degrees");
     expect(body.valid_cells).toBeGreaterThan(0);
     // Ramp rises toward +x (east) → east-facing cells must dominate
     expect(body.direction_bins).not.toBeNull();
-    expect(body.direction_bins.E).toBeGreaterThan(0);
-    const binSum = Object.values(body.direction_bins as Record<string, number>).reduce((a, b) => a + b, 0);
+    expect(body.direction_bins?.E).toBeGreaterThan(0);
+    const binSum = Object.values((body.direction_bins ?? {})).reduce((a, b) => a + b, 0);
     expect(binSum).toBeCloseTo(100, 0);
   });
 
@@ -343,11 +343,11 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await profileBody(resp);
     expect(body.start).toEqual({ lat: 40.7, lon: -74.0 });
     expect(body.num_points).toBeGreaterThan(0);
     expect(Array.isArray(body.profile)).toBe(true);
-    expect(body.profile.length).toBe(body.num_points);
+    expect(body.profile?.length).toBe(body.num_points);
   });
 
   it("trace walks downstream and returns geojson", async () => {
@@ -359,11 +359,11 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.start).toEqual([40.7, -74.0]);
     expect(Array.isArray(body.elevations)).toBe(true);
-    expect(body.elevations.length).toBeGreaterThan(0);
-    expect(body.geojson.type).toBe("Feature");
+    expect(body.elevations?.length).toBeGreaterThan(0);
+    expect(body.geojson?.type).toBe("Feature");
   });
 
   it("twi returns grid and stats", async () => {
@@ -375,8 +375,8 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
-    expect(body.grid.length).toBeGreaterThan(0);
+    const body = await twiBody(resp);
+    expect(body.grid?.length).toBeGreaterThan(0);
   });
 
   it("watershed delineates a basin with geojson output", async () => {
@@ -388,7 +388,7 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await watershedBody(resp);
     expect(body.type ?? body.geojson?.type ?? "FeatureCollection").toBeDefined();
   });
 
@@ -401,11 +401,11 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await streamsBody(resp);
     expect(body.type).toBe("FeatureCollection");
     expect(Array.isArray(body.features)).toBe(true);
-    expect(body.stats.threshold).toBe(50);
-    expect(body.stats.total_cells).toBeGreaterThan(0);
+    expect(body.stats?.threshold).toBe(50);
+    expect(body.stats?.total_cells).toBeGreaterThan(0);
   });
 });
 
@@ -415,17 +415,17 @@ describe("Terrain routes — DEM failure degrades to 200 with null/empty results
     const resp = await slopeGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=5&zoom=10`));
     // Never 5xx — the silent-catch contract
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await slopeBody(resp);
     expect(body.stats).toBeNull();
     // All-nodata cells emit as null, never fake zeros
-    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+    expect((body.grid ?? []).flat().every((v: number | null) => v === null)).toBe(true);
   });
 
   it("aspect returns 200 with null bins when tiles fail", async () => {
     mockGetTileData.mockRejectedValue(new Error("network down"));
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=5&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.direction_bins).toBeNull();
     expect(body.valid_cells).toBe(0);
   });
@@ -440,7 +440,7 @@ describe("Terrain routes — DEM failure degrades to 200 with null/empty results
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await profileBody(resp);
     expect(body.stats).toBeNull();
   });
 });
@@ -469,10 +469,10 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
     );
     // The fallback elevation satisfies the gate, so delineation still runs.
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await watershedBody(resp);
     expect(body.pixels).toBeGreaterThan(0);
-    expect(body.geojson.features).toHaveLength(1);
-    expect(body.geojson.features[0].geometry.type).toBe("Polygon");
+    expect(body.geojson?.features).toHaveLength(1);
+    expect(body.geojson?.features?.[0]?.geometry?.type).toBe("Polygon");
   });
 
   it("returns 400 when neither OZT2 nor merged chunks resolve the pour point", async () => {
@@ -486,7 +486,7 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
       }),
     );
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await watershedBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
   });
 
@@ -502,12 +502,12 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
     // Silent-200 contract: no elevation anywhere still yields a (degenerate)
     // basin with null stats rather than a 5xx.
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await watershedBody(resp);
     expect(body.pixels).toBe(1);
     expect(body.min_elev).toBeNull();
     expect(body.max_elev).toBeNull();
     expect(body.mean_elev).toBeNull();
-    expect(body.geojson.features[0].geometry.type).toBe("Point");
+    expect(body.geojson?.features?.[0]?.geometry?.type).toBe("Point");
   });
 
   it("maps boundary cells to geographic coordinates near the pour point", async () => {
@@ -522,7 +522,7 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await watershedBody(resp);
     const ring = body.boundary as Array<[number, number]>;
     expect(ring.length).toBeGreaterThan(0);
     for (const [lon, lat] of ring) {
@@ -550,7 +550,7 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await watershedBody(resp);
     // Delineation still runs from a relocated centre and reports real stats.
     expect(body.pixels).toBeGreaterThan(0);
     expect(body.min_elev).not.toBeNull();
@@ -580,7 +580,7 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await streamsBody(resp);
     expect(body.type).toBe("FeatureCollection");
   });
 
@@ -595,7 +595,7 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
       }),
     );
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await streamsBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
   });
 
@@ -609,10 +609,10 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await streamsBody(resp);
     expect(body.features).toHaveLength(0);
-    expect(body.stats.stream_count).toBe(0);
-    expect(body.stats.total_cells).toBe(21 * 21);
+    expect(body.stats?.stream_count).toBe(0);
+    expect(body.stats?.total_cells).toBe(21 * 21);
   });
 
   it("marks every cell nodata when the tile holds only nodata values", async () => {
@@ -627,7 +627,7 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await streamsBody(resp);
     expect(body.features).toHaveLength(0);
   });
 
@@ -643,11 +643,11 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
       }),
     );
     expect(resp.status).toBe(200);
-    const body = await resp.json();
-    expect(body.features.length).toBeGreaterThan(0);
-    expect(body.stats.stream_count).toBe(body.features.length);
-    expect(body.stats.threshold).toBe(1);
-    expect(body.stats.total_cells).toBe(21 * 21);
+    const body = await streamsBody(resp);
+    expect(body.features?.length).toBeGreaterThan(0);
+    expect(body.stats?.stream_count).toBe(body.features?.length);
+    expect(body.stats?.threshold).toBe(1);
+    expect(body.stats?.total_cells).toBe(21 * 21);
     // The shared visited array stops each trace at the first cell an earlier
     // trace already walked, so segments stay short — but every reported
     // segment is a real multi-cell LineString whose coordinates match.
@@ -681,7 +681,7 @@ describe("Terrain routes — trace pour-point gate", () => {
     mockGetTileData.mockRejectedValue(new Error("chunk missing"));
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
   });
 
@@ -691,8 +691,8 @@ describe("Terrain routes — trace pour-point gate", () => {
     mockGetTileData.mockImplementation(resolveTile(rampTile()));
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
-    expect(body.geojson.type).toBe("Feature");
+    const body = await traceBody(resp);
+    expect(body.geojson?.type).toBe("Feature");
     expect(body.steps).toBeGreaterThan(0);
   });
 
@@ -701,7 +701,7 @@ describe("Terrain routes — trace pour-point gate", () => {
     storageState.pointElevation = "null";
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
   });
 
@@ -710,7 +710,7 @@ describe("Terrain routes — trace pour-point gate", () => {
     storageState.pointElevation = "throw";
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
   });
 
@@ -722,8 +722,8 @@ describe("Terrain routes — trace pour-point gate", () => {
     mockGetTileData.mockImplementation(resolveTile(rampTile()));
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
-    expect(body.geojson.type).toBe("Feature");
+    const body = await traceBody(resp);
+    expect(body.geojson?.type).toBe("Feature");
     expect(body.steps).toBeGreaterThan(0);
   });
 
@@ -744,14 +744,14 @@ describe("Terrain routes — trace flow-walk termination", () => {
     serveOneTile(pour.tx, pour.ty, (row) => 500 + row);
     const resp = await postJSON(tracePOST, POUR_NORTH_EDGE);
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     // No cell was recorded, but the abortive move still shows up in `end`.
     expect(body.steps).toBe(0);
     expect(body.path).toHaveLength(1);
     expect(body.elevations).toHaveLength(1);
-    expect(body.end[0]).not.toBe(body.start[0]);
-    expect(body.end[1]).not.toBe(body.start[1]);
-    expect(body.geojson.geometry.coordinates).toHaveLength(1);
+    expect(body.end?.[0]).not.toBe(body.start?.[0]);
+    expect(body.end?.[1]).not.toBe(body.start?.[1]);
+    expect(body.geojson?.geometry?.coordinates).toHaveLength(1);
   });
 
   it("aborts before stepping when every downhill probe leaves the served tile", async () => {
@@ -763,7 +763,7 @@ describe("Terrain routes — trace flow-walk termination", () => {
     serveOneTile(pour.tx, pour.ty, (row) => 500 + row);
     const resp = await postJSON(tracePOST, POUR_NORTH_PROBE);
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.start_elev).toBeGreaterThan(0);
     expect(body.steps).toBe(0);
     expect(body.path).toHaveLength(1);
@@ -778,10 +778,10 @@ describe("Terrain routes — trace flow-walk termination", () => {
     serveOneTile(pour.tx, pour.ty, (_row, col) => 500 - col);
     const resp = await postJSON(tracePOST, POUR_EAST_EDGE);
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.steps).toBeGreaterThan(3);
     expect(body.steps).toBeLessThan(50);
-    const steps: number = body.steps;
+    const steps = body.steps ?? 0;
     expect(body.path).toHaveLength(steps + 1);
     // It stopped at the tile edge, not in a nodata cell or at sea level.
     expect(body.end_elev).toBeGreaterThan(0);
@@ -794,12 +794,12 @@ describe("Terrain routes — trace flow-walk termination", () => {
     serveOneTile(pour.tx, pour.ty, (_row, col) => 400 - 2 * col);
     const resp = await postJSON(tracePOST, POUR_MID_TILE);
     expect(resp.status).toBe(200);
-    const body = await resp.json();
-    expect(body.elevations[0]).toBeGreaterThan(0);
+    const body = await traceBody(resp);
+    expect(body.elevations?.[0]).toBeGreaterThan(0);
     expect(body.steps).toBeGreaterThan(10);
     expect(body.end_elev).toBeLessThanOrEqual(0);
     expect(body.total_distance).toBeGreaterThan(0);
-    expect(body.geojson.properties.steps).toBe(body.steps);
+    expect(body.geojson?.properties?.steps).toBe(body.steps);
   });
 
   it("cannot descend out of a tile with a single live pixel", async () => {
@@ -810,18 +810,18 @@ describe("Terrain routes — trace flow-walk termination", () => {
     mockGetTileData.mockImplementation(resolveTile(islandTile()));
     const resp = await postJSON(tracePOST, POUR_ISLAND);
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.start_elev).toBeGreaterThan(-32768);
     expect(body.steps).toBeGreaterThanOrEqual(1);
     expect(body.steps).toBeLessThanOrEqual(4);
-    expect(body.elevations).toHaveLength(body.path.length);
+    expect(body.elevations).toHaveLength(body.path?.length ?? 0);
   });
 
   it("rejects a pour point whose sampled stencil is entirely nodata", async () => {
     mockGetTileData.mockImplementation(resolveTile(nodataTile()));
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
     // The silent-200 contract only covers internal failures; a client asking
     // for a lake-less coordinate still gets a real 400.
@@ -840,7 +840,7 @@ describe("Terrain routes — trace flow-walk termination", () => {
     });
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.geojson).toBeUndefined();
   });
@@ -849,7 +849,7 @@ describe("Terrain routes — trace flow-walk termination", () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await traceBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.geojson).toBeUndefined();
   });
@@ -864,7 +864,7 @@ describe("Terrain routes — twi pour-point gate", () => {
     mockGetTileData.mockImplementation(resolveTile(rampTile()));
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.stats).not.toBeNull();
     expect(body.units).toBe("ln(m)");
   });
@@ -874,7 +874,7 @@ describe("Terrain routes — twi pour-point gate", () => {
     storageState.pointElevation = "throw";
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
   });
 
@@ -885,7 +885,7 @@ describe("Terrain routes — twi pour-point gate", () => {
     mockGetTileData.mockImplementation(resolveTile(rampTile()));
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.stats).not.toBeNull();
   });
 
@@ -902,10 +902,10 @@ describe("Terrain routes — twi grid emission", () => {
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     // Silent-200: an empty DEM is a valid answer with no wetness index anywhere.
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.stats).toBeNull();
     expect(body.radius_cells).toBe(10);
-    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+    expect((body.grid ?? []).flat().every((v: number | null) => v === null)).toBe(true);
   });
 
   it("averages the two middle cells when an even number of cells are valid", async () => {
@@ -918,30 +918,30 @@ describe("Terrain routes — twi grid emission", () => {
     mockGetTileData.mockImplementation(resolveTile(holed));
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.stats).not.toBeNull();
-    expect(body.stats.count % 2).toBe(0);
-    expect(body.stats.count).toBeGreaterThan(0);
-    expect(typeof body.stats.median).toBe("number");
-    expect(body.stats.min).toBeLessThanOrEqual(body.stats.median);
-    expect(body.stats.median).toBeLessThanOrEqual(body.stats.max);
+    expect((body.stats?.count ?? 0) % 2).toBe(0);
+    expect(body.stats?.count).toBeGreaterThan(0);
+    expect(typeof body.stats?.median).toBe("number");
+    expect(body.stats?.min).toBeLessThanOrEqual(body.stats?.median ?? Infinity);
+    expect(body.stats?.median).toBeLessThanOrEqual(body.stats?.max ?? Infinity);
   });
 
   it("downsamples the emitted grid as the radius grows", async () => {
     mockGetTileData.mockImplementation(resolveTile(rampTile()));
     const mid = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 60 });
     const wide = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 120 });
-    expect((await mid.json()).grid).toHaveLength(61); // 121 cells, step 2
-    expect((await wide.json()).grid).toHaveLength(61); // 241 cells, step 4
+    expect((await twiBody(mid)).grid).toHaveLength(61); // 121 cells, step 2
+    expect((await twiBody(wide)).grid).toHaveLength(61); // 241 cells, step 4
   });
 
   it("marks every cell nodata when the tile holds only nodata values", async () => {
     mockGetTileData.mockImplementation(resolveTile(nodataTile()));
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.stats).toBeNull();
-    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+    expect((body.grid ?? []).flat().every((v: number | null) => v === null)).toBe(true);
   });
 
   it("returns a silent 200 error body for non-numeric tile data", async () => {
@@ -953,7 +953,7 @@ describe("Terrain routes — twi grid emission", () => {
     });
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.grid).toBeUndefined();
   });
@@ -962,7 +962,7 @@ describe("Terrain routes — twi grid emission", () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await twiBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.grid).toBeUndefined();
   });
@@ -991,9 +991,9 @@ describe("Terrain routes — aspect direction bins", () => {
       mockGetTileData.mockImplementation(resolveTile(plane));
       const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
       expect(resp.status).toBe(200);
-      const body = await resp.json();
+      const body = await aspectBody(resp);
       expect(body.valid_cells).toBe(1);
-      const hits = Object.entries(body.direction_bins as Record<string, number>)
+      const hits = Object.entries((body.direction_bins ?? {}))
         .filter(([, pct]) => pct === 100)
         .map(([dir]) => dir);
       expect(hits).toHaveLength(1);
@@ -1012,32 +1012,32 @@ describe("Terrain routes — aspect direction bins", () => {
     const risingNorth = buildTile((row) => 500 - (row - 128));
     mockGetTileData.mockImplementation(resolveTile(risingNorth));
     const northResp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
-    expect((await northResp.json()).direction_bins.S).toBe(100);
+    expect((await aspectBody(northResp)).direction_bins?.S).toBe(100);
 
     const risingEast = buildTile((_row, col) => 500 + (col - 128));
     mockGetTileData.mockImplementation(resolveTile(risingEast));
     const eastResp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
-    expect((await eastResp.json()).direction_bins.W).toBe(100);
+    expect((await aspectBody(eastResp)).direction_bins?.W).toBe(100);
   });
 
   it("reports flat terrain under the flat bin instead of a compass direction", async () => {
     mockGetTileData.mockImplementation(resolveTile(buildTile(() => 500)));
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.valid_cells).toBe(9);
-    expect(body.direction_bins.flat).toBe(100);
+    expect(body.direction_bins?.flat).toBe(100);
     // -1 reaches the emitted grid for interior cells, null for the border.
-    expect(body.grid[1][1]).toBe(-1);
-    expect(body.grid[0][0]).toBeNull();
+    expect(body.grid?.[1]?.[1]).toBe(-1);
+    expect(body.grid?.[0]?.[0]).toBeNull();
   });
 
   it("downsamples the emitted grid as the radius grows", async () => {
     mockGetTileData.mockImplementation(resolveTile(rampTile()));
     const mid = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=60&zoom=10`));
     const wide = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=120&zoom=10`));
-    expect((await mid.json()).grid).toHaveLength(61); // 121 cells, step 2
-    expect((await wide.json()).grid).toHaveLength(61); // 241 cells, step 4
+    expect((await aspectBody(mid)).grid).toHaveLength(61); // 121 cells, step 2
+    expect((await aspectBody(wide)).grid).toHaveLength(61); // 241 cells, step 4
   });
 });
 
@@ -1051,20 +1051,20 @@ describe("Terrain routes — aspect nodata handling", () => {
     mockGetTileData.mockImplementation(resolveTile(holed));
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.valid_cells).toBe(0);
     expect(body.direction_bins).toBeNull();
-    expect(body.grid[1][1]).toBeNull();
+    expect(body.grid?.[1]?.[1]).toBeNull();
   });
 
   it("nulls cells whose four source pixels are all nodata", async () => {
     mockGetTileData.mockImplementation(resolveTile(nodataTile()));
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.valid_cells).toBe(0);
     expect(body.direction_bins).toBeNull();
-    expect(body.grid.flat().every((v: number | null) => v === null)).toBe(true);
+    expect((body.grid ?? []).flat().every((v: number | null) => v === null)).toBe(true);
   });
 
   it("returns a silent 200 error body for non-numeric tile data", async () => {
@@ -1076,7 +1076,7 @@ describe("Terrain routes — aspect nodata handling", () => {
     });
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.grid).toBeUndefined();
   });
@@ -1085,7 +1085,7 @@ describe("Terrain routes — aspect nodata handling", () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await aspectBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.grid).toBeUndefined();
   });
@@ -1094,16 +1094,39 @@ describe("Terrain routes — aspect nodata handling", () => {
 // ── slope — nodata, even-median and downsample arms ──────────────────────────
 
 // Typed body readers keep the appended slope/profile suites off the unsafe-any
-// lint path that the older suites predate.
+// lint path that the older suites predate. The older suites now use them too —
+// each reader types only the fields its route's suites assert.
+interface SlopeStats {
+  count: number;
+  mean: number;
+  median: number;
+  min: number;
+  max: number;
+  total_cells: number;
+}
 interface SlopeBody {
-  stats?: { count: number } | null;
+  units?: string;
+  radius_cells?: number;
+  zoom?: number;
+  stats?: SlopeStats | null;
   grid?: Array<Array<number | null>>;
   error?: string;
 }
 async function slopeBody(resp: Response): Promise<SlopeBody> {
   return (await resp.json()) as SlopeBody;
 }
+interface AspectBody {
+  units?: string;
+  valid_cells?: number;
+  direction_bins?: Record<string, number> | null;
+  grid?: Array<Array<number | null>>;
+  error?: string;
+}
+async function aspectBody(resp: Response): Promise<AspectBody> {
+  return (await resp.json()) as AspectBody;
+}
 interface ProfileBody {
+  start?: { lat: number; lon: number };
   num_points?: number;
   profile?: Array<{ elevation: number }>;
   stats?: { min: number; max: number; total_gain: number } | null;
@@ -1111,6 +1134,64 @@ interface ProfileBody {
 }
 async function profileBody(resp: Response): Promise<ProfileBody> {
   return (await resp.json()) as ProfileBody;
+}
+interface TraceBody {
+  start?: number[];
+  end?: number[];
+  elevations?: number[];
+  steps?: number;
+  path?: Array<[number, number]>;
+  start_elev?: number;
+  end_elev?: number;
+  total_distance?: number;
+  geojson?: {
+    type?: string;
+    geometry?: { coordinates?: Array<[number, number]> };
+    properties?: { steps?: number };
+  };
+  error?: string;
+}
+async function traceBody(resp: Response): Promise<TraceBody> {
+  return (await resp.json()) as TraceBody;
+}
+interface TwiBody {
+  units?: string;
+  radius_cells?: number;
+  stats?: { count: number; median: number; min: number; max: number } | null;
+  grid?: Array<Array<number | null>>;
+  error?: string;
+}
+async function twiBody(resp: Response): Promise<TwiBody> {
+  return (await resp.json()) as TwiBody;
+}
+interface WatershedBody {
+  type?: string;
+  pixels?: number;
+  min_elev?: number | null;
+  max_elev?: number | null;
+  mean_elev?: number | null;
+  boundary?: Array<[number, number]>;
+  geojson?: {
+    type?: string;
+    features?: Array<{ geometry?: { type?: string } }>;
+  };
+  error?: string;
+}
+async function watershedBody(resp: Response): Promise<WatershedBody> {
+  return (await resp.json()) as WatershedBody;
+}
+interface StreamsFeature {
+  geometry: { coordinates: Array<[number, number]> };
+  properties: { length_cells: number };
+}
+interface StreamsBody {
+  type?: string;
+  features?: StreamsFeature[];
+  stats?: { stream_count: number; threshold: number; total_cells: number } | null;
+  error?: string;
+}
+async function streamsBody(resp: Response): Promise<StreamsBody> {
+  return (await resp.json()) as StreamsBody;
 }
 
 describe("Terrain routes — slope nodata and downsampling arms", () => {

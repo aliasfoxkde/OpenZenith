@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
 import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
 import { getWeather } from "@/lib/weather/open-meteo";
 import { getTides } from "@/lib/tides/noaa";
@@ -66,6 +66,32 @@ const tideData = () => ({
   source: "noaa",
 });
 
+/**
+ * The aggregate /api/query response shape these suites assert on. Only the
+ * touched fields are declared; the route returns more.
+ */
+interface QueryBody {
+  location?: { lat: number; lon: number };
+  query?: { units?: string; includes?: string[] };
+  elevation?: { elevation: number } | null;
+  weather?: {
+    current?: Record<string, number>;
+    daily?: Array<Record<string, number>>;
+    units?: Record<string, string>;
+  } | null;
+  address?: {
+    display_name?: string | null;
+    name?: string | null;
+    type?: string | null;
+    address?: unknown;
+    osm_id?: number | null;
+    osm_type?: string | null;
+  } | null;
+  tides?: { source?: string; predictions?: unknown[] } | null;
+  waterways?: { count?: number; features?: Array<Record<string, unknown>> } | null;
+  error?: string;
+}
+
 type FetchRoute = { match: string; respond: () => Response };
 
 /** Route stubbed fetch calls by URL substring so concurrent includes stay deterministic. */
@@ -91,7 +117,7 @@ describe("Query API", () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
     expect(data.error).toContain("Missing");
   });
 
@@ -105,17 +131,17 @@ describe("Query API", () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query?lat=40.7&lon=-74.0"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
     expect(data.location).toEqual({ lat: 40.7, lon: -74.0 });
     expect(data.elevation).toBeTruthy();
-    expect(data.elevation.elevation).toBe(100);
+    expect(data.elevation?.elevation).toBe(100);
   });
 
   it("rejects invalid include values", async () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query?lat=40.7&lon=-74.0&include=invalid_type"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
     expect(data.error).toContain("Invalid include");
   });
 
@@ -123,7 +149,7 @@ describe("Query API", () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
     expect(data.weather).toBeTruthy();
   });
 
@@ -131,7 +157,7 @@ describe("Query API", () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query?lat=40.7&lon=-74.0&include=elevation,weather"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
     expect(data.elevation).toBeTruthy();
     expect(data.weather).toBeTruthy();
   });
@@ -140,16 +166,16 @@ describe("Query API", () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query?lat=40.7&lon=-74.0&include=elevation&units=imperial"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
-    expect(data.query.units).toBe("imperial");
+    const data = await bodyAs<QueryBody>(resp);
+    expect(data.query?.units).toBe("imperial");
   });
 
   it("respects forecast_days parameter", async () => {
     const { GET } = await import("@/app/api/query/route");
     const resp = await GET(mockRequest("/api/query?lat=40.7&lon=-74.0&forecast_days=5"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
-    expect(data.query.includes).toContain("elevation");
+    const data = await bodyAs<QueryBody>(resp);
+    expect(data.query?.includes).toContain("elevation");
   });
 
   it("returns 400 for out-of-range latitude", async () => {
@@ -177,13 +203,13 @@ describe("Query API — parameter validation edges", () => {
   it("returns 400 when only lat is provided", async () => {
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7"));
     expect(resp.status).toBe(400);
-    expect((await resp.json()).error).toContain("Missing required parameters");
+    expect((await bodyAs<QueryBody>(resp)).error).toContain("Missing required parameters");
   });
 
   it("returns 400 when lat is not numeric", async () => {
     const resp = await (await GET())(mockRequest("/api/query?lat=abc&lon=0"));
     expect(resp.status).toBe(400);
-    expect((await resp.json()).error).toContain("Invalid coordinates");
+    expect((await bodyAs<QueryBody>(resp)).error).toContain("Invalid coordinates");
   });
 
   it("returns 400 when lon is below the minimum", async () => {
@@ -194,9 +220,9 @@ describe("Query API — parameter validation edges", () => {
   it("treats an empty include parameter as the elevation default", async () => {
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include="));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
-    expect(data.query.includes).toEqual(["elevation"]);
-    expect(data.elevation.elevation).toBe(100);
+    const data = await bodyAs<QueryBody>(resp);
+    expect(data.query?.includes).toEqual(["elevation"]);
+    expect(data.elevation?.elevation).toBe(100);
   });
 
   it("drops unknown include entries and normalises case and whitespace", async () => {
@@ -204,8 +230,8 @@ describe("Query API — parameter validation edges", () => {
       mockRequest("/api/query?lat=40.7&lon=-74.0&include= Elevation , bogus , WEATHER "),
     );
     expect(resp.status).toBe(200);
-    const data = await resp.json();
-    expect(data.query.includes).toEqual(["elevation", "weather"]);
+    const data = await bodyAs<QueryBody>(resp);
+    expect(data.query?.includes).toEqual(["elevation", "weather"]);
     expect(data.elevation).toBeTruthy();
     expect(data.weather).toBeTruthy();
   });
@@ -226,7 +252,7 @@ describe("Query API — parameter validation edges", () => {
     vi.mocked(getElevationFromR2).mockRejectedValueOnce(new Error("tile unavailable"));
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
     expect(data.error).toBe("tile unavailable");
     expect(data.elevation).toBeUndefined();
   });
@@ -235,7 +261,7 @@ describe("Query API — parameter validation edges", () => {
     vi.mocked(getElevationFromR2).mockRejectedValueOnce("boom");
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0"));
     expect(resp.status).toBe(200);
-    expect((await resp.json()).error).toBe("Query failed");
+    expect((await bodyAs<QueryBody>(resp)).error).toBe("Query failed");
   });
 });
 
@@ -262,7 +288,7 @@ describe("Query API — reverse geocode (address) include", () => {
       },
     ]);
 
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.address).toEqual({
       display_name: "New York, NY, USA",
       name: "New York",
@@ -281,11 +307,11 @@ describe("Query API — reverse geocode (address) include", () => {
         respond: () => new Response(JSON.stringify({ display_name: "Springfield, IL, USA" }), { status: 200 }),
       },
     ]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
-    expect(data.address.display_name).toBe("Springfield, IL, USA");
-    expect(data.address.name).toBe("Springfield");
-    expect(data.address.type).toBeNull();
-    expect(data.address.osm_id).toBeNull();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
+    expect(data.address?.display_name).toBe("Springfield, IL, USA");
+    expect(data.address?.name).toBe("Springfield");
+    expect(data.address?.type).toBeNull();
+    expect(data.address?.osm_id).toBeNull();
   });
 
   it("returns a null address when Nominatim reports no result", async () => {
@@ -295,7 +321,7 @@ describe("Query API — reverse geocode (address) include", () => {
         respond: () => new Response(JSON.stringify({ error: "Unable to geocode" }), { status: 200 }),
       },
     ]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.address).toBeNull();
   });
 
@@ -303,14 +329,14 @@ describe("Query API — reverse geocode (address) include", () => {
     stubFetch([
       { match: "nominatim.openstreetmap.org", respond: () => new Response("blocked", { status: 403 }) },
     ]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.address).toBeNull();
   });
 
   it("returns a null address when the geocode request throws", async () => {
     const fetchMock = vi.fn(() => Promise.reject(new Error("dns failure")));
     vi.stubGlobal("fetch", fetchMock);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.address).toBeNull();
     expect(data.error).toBeUndefined();
   });
@@ -319,7 +345,7 @@ describe("Query API — reverse geocode (address) include", () => {
     stubFetch([
       { match: "nominatim.openstreetmap.org", respond: () => new Response(JSON.stringify({}), { status: 200 }) },
     ]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.address).toEqual({
       display_name: null,
       name: null,
@@ -359,22 +385,22 @@ describe("Query API — weather include", () => {
       await GET()
     )(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&units=imperial"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<QueryBody>(resp);
 
-    expect(data.weather.current.temperature).toBe(59);
-    expect(data.weather.current.apparentTemperature).toBe(55.4);
-    expect(data.weather.current.windSpeed).toBe(6.2);
-    expect(data.weather.current.windGusts).toBe(12.4);
-    expect(data.weather.current.pressure).toBe(29.91);
-    expect(data.weather.current.precipitation).toBe(0.06);
-    expect(data.weather.current.visibility).toBe(0);
+    expect(data.weather?.current?.temperature).toBe(59);
+    expect(data.weather?.current?.apparentTemperature).toBe(55.4);
+    expect(data.weather?.current?.windSpeed).toBe(6.2);
+    expect(data.weather?.current?.windGusts).toBe(12.4);
+    expect(data.weather?.current?.pressure).toBe(29.91);
+    expect(data.weather?.current?.precipitation).toBe(0.06);
+    expect(data.weather?.current?.visibility).toBe(0);
 
-    expect(data.weather.daily[0].tempMax).toBe(68);
-    expect(data.weather.daily[0].tempMin).toBe(50);
-    expect(data.weather.daily[0].precipitationSum).toBe(0.08);
-    expect(data.weather.daily[0].windSpeedMax).toBe(9.3);
+    expect(data.weather?.daily?.[0]?.tempMax).toBe(68);
+    expect(data.weather?.daily?.[0]?.tempMin).toBe(50);
+    expect(data.weather?.daily?.[0]?.precipitationSum).toBe(0.08);
+    expect(data.weather?.daily?.[0]?.windSpeedMax).toBe(9.3);
 
-    expect(data.weather.units).toEqual({
+    expect(data.weather?.units).toEqual({
       temperature: "°F",
       windSpeed: "mph",
       pressure: "inHg",
@@ -387,7 +413,7 @@ describe("Query API — weather include", () => {
     vi.mocked(getWeather).mockResolvedValueOnce(null);
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather"));
     expect(resp.status).toBe(200);
-    expect((await resp.json()).weather).toBeNull();
+    expect((await bodyAs<QueryBody>(resp)).weather).toBeNull();
   });
 });
 
@@ -399,9 +425,9 @@ describe("Query API — tides include", () => {
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=tides"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=1800");
-    const data = await resp.json();
-    expect(data.tides.source).toBe("noaa");
-    expect(data.tides.predictions).toHaveLength(1);
+    const data = await bodyAs<QueryBody>(resp);
+    expect(data.tides?.source).toBe("noaa");
+    expect(data.tides?.predictions).toHaveLength(1);
   });
 });
 
@@ -448,9 +474,9 @@ describe("Query API — waterways include", () => {
       },
     ]);
 
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
-    expect(data.waterways.count).toBe(3);
-    expect(data.waterways.features).toEqual([
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
+    expect(data.waterways?.count).toBe(3);
+    expect(data.waterways?.features).toEqual([
       { id: 1, name: "Hudson", type: "river" },
       { id: 2, name: null, type: "water" },
       { id: 3, name: null, type: null },
@@ -464,27 +490,27 @@ describe("Query API — waterways include", () => {
         respond: () => new Response(JSON.stringify({ elements: overpassElements(25) }), { status: 200 }),
       },
     ]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
-    expect(data.waterways.count).toBe(25);
-    expect(data.waterways.features).toHaveLength(20);
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
+    expect(data.waterways?.count).toBe(25);
+    expect(data.waterways?.features).toHaveLength(20);
   });
 
   it("reports zero waterways when the response has no elements array", async () => {
     stubFetch([{ match: "overpass-api.de", respond: () => new Response(JSON.stringify({}), { status: 200 }) }]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.waterways).toEqual({ count: 0, features: [] });
   });
 
   it("returns null waterways on a non-2xx upstream response", async () => {
     stubFetch([{ match: "overpass-api.de", respond: () => new Response("busy", { status: 429 }) }]);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.waterways).toBeNull();
   });
 
   it("returns null waterways when the Overpass request throws", async () => {
     const fetchMock = vi.fn(() => Promise.reject(new Error("timeout")));
     vi.stubGlobal("fetch", fetchMock);
-    const data = await (await (await GET())(mockRequest(QUERY))).json();
+    const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.waterways).toBeNull();
   });
 

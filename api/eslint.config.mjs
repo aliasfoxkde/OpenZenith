@@ -124,6 +124,16 @@ const eslintConfig = [
       "src/app/globe/lib/layers/vessels.ts",
       "src/app/globe/lib/layers/aviation-weather.ts",
       "src/app/globe/lib/layers/earthquakes.ts",
+      // 2026-10-01: first test-file cohort — terrain-routes.test.ts typed via
+      // per-route body readers (slopeBody/aspectBody/profileBody/traceBody/
+      // twiBody/watershedBody/streamsBody); the older raw resp.json() suites
+      // now go through them too. collections-deep.test.ts and query.test.ts
+      // use the shared bodyAs<T>() reader from __tests__/helpers.ts with
+      // per-file body interfaces.
+      "src/app/api/__tests__/terrain-routes.test.ts",
+      "src/app/api/__tests__/collections-deep.test.ts",
+      "src/app/api/__tests__/query.test.ts",
+      "src/app/api/__tests__/helpers.ts",
     ],
     rules: {
       "@typescript-eslint/no-unsafe-member-access": "error",

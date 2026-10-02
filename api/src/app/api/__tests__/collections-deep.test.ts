@@ -1,7 +1,29 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
 
 type JsonBody = Record<string, unknown>;
+
+/**
+ * The OGC collections/items response shape these suites assert on. Only the
+ * touched fields are declared; the routes may return more.
+ */
+interface CollectionBody {
+  type?: string;
+  id?: string;
+  title?: string;
+  timeStamp?: string;
+  numberMatched?: number;
+  numberReturned?: number;
+  links?: Array<{ rel?: string; href?: string }>;
+  extent?: { spatial?: { bbox?: unknown }; temporal?: { interval?: unknown } };
+  features?: Array<{
+    type?: string;
+    id?: string;
+    geometry?: { type?: string; coordinates?: number[] };
+    properties?: Record<string, unknown>;
+  }>;
+  error?: string;
+}
 
 const pointFeature = (id: string, lon: number, lat: number, props: JsonBody = {}): JsonBody => ({
   type: "Feature",
@@ -40,11 +62,11 @@ describe("Collection by ID — extended", () => {
         params: Promise.resolve({ id }),
       });
       expect(resp.status).toBe(200);
-      const data = await resp.json();
+      const data = await bodyAs<CollectionBody>(resp);
       expect(data.id).toBe(id);
       expect(data.title).toBeTruthy();
       expect(data.links).toBeTruthy();
-      expect(data.extent.spatial.bbox).toBeTruthy();
+      expect(data.extent?.spatial?.bbox).toBeTruthy();
     }
   });
 
@@ -53,8 +75,8 @@ describe("Collection by ID — extended", () => {
     const resp = await GET(mockRequest("/api/collections/wildfires"), {
       params: Promise.resolve({ id: "wildfires" }),
     });
-    const data = await resp.json();
-    const rels = data.links.map((l: { rel: string }) => l.rel);
+    const data = await bodyAs<CollectionBody>(resp);
+    const rels = data.links?.map((l) => l.rel) ?? [];
     expect(rels).toContain("self");
     expect(rels).toContain("items");
     expect(rels).toContain("root");
@@ -91,7 +113,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
 
-    const data = await resp.json();
+    const data = await bodyAs<CollectionBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.numberMatched).toBe(2);
     expect(data.numberReturned).toBe(2);
@@ -102,9 +124,9 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     expect(url).toBe("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
     expect((init.headers as Record<string, string>)["User-Agent"]).toBe("OpenZenith/1.0");
 
-    const rels = (data.links as Array<{ rel: string; href: string }>).map((l) => l.rel);
+    const rels = (data.links ?? []).map((l) => l.rel);
     expect(rels).toEqual(["self", "collection", "root"]);
-    const self = (data.links as Array<{ rel: string; href: string }>).find((l) => l.rel === "self");
+    const self = (data.links ?? []).find((l) => l.rel === "self");
     expect(self?.href).toBe("http://localhost:8788/api/collections/earthquakes/items?limit=100&offset=0");
   });
 
@@ -118,7 +140,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600");
     const [url] = fetchMock.mock.calls[0] as [string];
     expect(url).toBe("http://localhost:8788/api/wildfires");
-    expect(await resp.json()).toMatchObject({ numberMatched: 0, numberReturned: 0 });
+    expect(await bodyAs<CollectionBody>(resp)).toMatchObject({ numberMatched: 0, numberReturned: 0 });
   });
 
   it("returns a 200 error payload when the upstream source is unavailable", async () => {
@@ -127,7 +149,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     const GET = await getGET();
     const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<CollectionBody>(resp);
     expect(data.error).toBe("Upstream data source returned 429");
   });
 
@@ -142,7 +164,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     const GET = await getGET();
     const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
     expect(resp.status).toBe(200);
-    expect((await resp.json()).error).toBe("connection reset");
+    expect((await bodyAs<CollectionBody>(resp)).error).toBe("connection reset");
   });
 
   it("returns a 200 error payload when the upstream body is not JSON", async () => {
@@ -151,16 +173,16 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     const GET = await getGET();
     const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
     expect(resp.status).toBe(200);
-    expect((await resp.json()).error).toBeTruthy();
+    expect((await bodyAs<CollectionBody>(resp)).error).toBeTruthy();
   });
 
   it("treats an upstream payload without a features array as empty", async () => {
     stubFetch([{ match: "earthquake.usgs.gov", respond: () => new Response(JSON.stringify({ metadata: {} }), { status: 200 }) }]);
 
     const GET = await getGET();
-    const data = await (
+    const data = await bodyAs<CollectionBody>(
       await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"))
-    ).json();
+    );
     expect(data.features).toEqual([]);
     expect(data.numberMatched).toBe(0);
   });
@@ -184,9 +206,9 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     ]);
 
     const GET = await getGET();
-    const data = await (
+    const data = await bodyAs<CollectionBody>(
       await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes"))
-    ).json();
+    );
     expect(data.numberMatched).toBe(1);
     expect(data.features).toEqual([
       {
@@ -213,11 +235,11 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     ]);
 
     const GET = await getGET();
-    const data = await (
+    const data = await bodyAs<CollectionBody>(
       await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes"))
-    ).json();
+    );
     expect(data.numberMatched).toBe(1);
-    expect(data.features[0].properties.hostname).toBe("node9");
+    expect(data.features?.[0]?.properties?.hostname).toBe("node9");
   });
 
   it("keeps a features array for non-NLNOG collections even when nodes are present", async () => {
@@ -232,10 +254,10 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     ]);
 
     const GET = await getGET();
-    const data = await (
+    const data = await bodyAs<CollectionBody>(
       await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"))
-    ).json();
-    expect(data.features[0].properties.id).toBe("a");
+    );
+    expect(data.features?.[0]?.properties?.id).toBe("a");
   });
 });
 
@@ -259,19 +281,19 @@ describe("Collection Items — bbox filtering", () => {
   };
 
   it("keeps only features inside the bbox", async () => {
-    const data = await (await query("?bbox=-75,39,-73,42")).json();
+    const data = await bodyAs<CollectionBody>(await query("?bbox=-75,39,-73,42"));
     expect(data.numberMatched).toBe(1);
-    expect(data.features[0].properties.id).toBe("inside");
+    expect(data.features?.[0]?.properties?.id).toBe("inside");
   });
 
   it("drops features without geometry coordinates", async () => {
-    const data = await (await query("?bbox=-180,-90,180,90")).json();
+    const data = await bodyAs<CollectionBody>(await query("?bbox=-180,-90,180,90"));
     expect(data.numberMatched).toBe(2);
-    expect(data.features.map((f: { properties: { id: string } }) => f.properties.id).sort()).toEqual(["inside", "outside"]);
+    expect((data.features ?? []).map((f) => f.properties?.id).sort()).toEqual(["inside", "outside"]);
   });
 
   it("matches nothing when the bbox is not numeric", async () => {
-    const data = await (await query("?bbox=a,b,c,d")).json();
+    const data = await bodyAs<CollectionBody>(await query("?bbox=a,b,c,d"));
     expect(data.numberMatched).toBe(0);
     expect(data.numberReturned).toBe(0);
   });
@@ -311,8 +333,8 @@ describe("Collection Items — property filtering", () => {
     ["nosuchprop:1", []],
     ["mag:>=2.5,place:california", ["q3"]],
   ])("applies %s and returns %s", async (filter, expected) => {
-    const data = await (await query(`?properties=${encodeURIComponent(filter)}`)).json();
-    const ids = data.features.map((f: { properties: { id: string } }) => f.properties.id);
+    const data = await bodyAs<CollectionBody>(await query(`?properties=${encodeURIComponent(filter)}`));
+    const ids = (data.features ?? []).map((f) => f.properties?.id);
     expect(ids).toEqual(expected);
     expect(data.numberMatched).toBe(expected.length);
   });
@@ -325,8 +347,8 @@ describe("Collection Items — property filtering", () => {
       "mag:<2.5": ["q1"],
     };
     for (const [filter, ids] of Object.entries(expected)) {
-      const data = await (await query(`?properties=${encodeURIComponent(filter)}`)).json();
-      const got = data.features.map((f: { properties: { id: string } }) => f.properties.id);
+      const data = await bodyAs<CollectionBody>(await query(`?properties=${encodeURIComponent(filter)}`));
+      const got = (data.features ?? []).map((f) => f.properties?.id);
       expect(got, filter).toEqual(ids);
       expect(data.numberMatched, filter).toBe(ids.length);
     }
@@ -335,7 +357,7 @@ describe("Collection Items — property filtering", () => {
   it("matches nothing for a filter that has no :value separator", async () => {
     // `properties=mag` has no value — it must degrade to a non-matching
     // string filter, not crash the route (it used to throw on undefined).
-    const data = await (await query("?properties=mag")).json();
+    const data = await bodyAs<CollectionBody>(await query("?properties=mag"));
     expect(data.error).toBeUndefined();
     expect(data.features).toEqual([]);
   });
@@ -363,12 +385,12 @@ describe("Collection Items — pagination and links", () => {
 
   it("returns the requested page with next and prev links", async () => {
     const resp = await query("?limit=2&offset=1");
-    const data = await resp.json();
+    const data = await bodyAs<CollectionBody>(resp);
     expect(data.numberReturned).toBe(2);
     expect(data.numberMatched).toBe(4);
-    expect(data.features.map((f: { properties: { id: string } }) => f.properties.id)).toEqual(["f1", "f2"]);
+    expect((data.features ?? []).map((f) => f.properties?.id)).toEqual(["f1", "f2"]);
 
-    const links = data.links as Array<{ rel: string; href: string }>;
+    const links = data.links ?? [];
     const next = links.find((l) => l.rel === "next");
     const prev = links.find((l) => l.rel === "prev");
     expect(next?.href).toBe("http://localhost:8788/api/collections/earthquakes/items?limit=2&offset=3");
@@ -376,9 +398,9 @@ describe("Collection Items — pagination and links", () => {
   });
 
   it("omits the next link on the final page and clamps the prev link at zero", async () => {
-    const data = await (await query("?limit=10&offset=2")).json();
+    const data = await bodyAs<CollectionBody>(await query("?limit=10&offset=2"));
     expect(data.numberReturned).toBe(2);
-    const links = data.links as Array<{ rel: string; href: string }>;
+    const links = data.links ?? [];
     expect(links.find((l) => l.rel === "next")).toBeUndefined();
     expect(links.find((l) => l.rel === "prev")?.href).toBe(
       "http://localhost:8788/api/collections/earthquakes/items?limit=10&offset=0",
@@ -386,30 +408,30 @@ describe("Collection Items — pagination and links", () => {
   });
 
   it("returns an empty page when offset is past the end", async () => {
-    const data = await (await query("?limit=2&offset=100")).json();
+    const data = await bodyAs<CollectionBody>(await query("?limit=2&offset=100"));
     expect(data.numberReturned).toBe(0);
     expect(data.numberMatched).toBe(4);
     expect(data.features).toEqual([]);
-    expect((data.links as Array<{ rel: string }>).find((l) => l.rel === "next")).toBeUndefined();
+    expect((data.links ?? []).find((l) => l.rel === "next")).toBeUndefined();
   });
 
   it("caps the limit at 10000", async () => {
-    const data = await (await query("?limit=999999")).json();
+    const data = await bodyAs<CollectionBody>(await query("?limit=999999"));
     expect(data.numberReturned).toBe(4);
   });
 
   it("treats a non-numeric offset as zero and a non-numeric limit as the default", async () => {
-    const badOffset = await (await query("?offset=abc")).json();
+    const badOffset = await bodyAs<CollectionBody>(await query("?offset=abc"));
     expect(badOffset.numberReturned).toBe(4);
     expect(badOffset.numberMatched).toBe(4);
 
     // parseInt("abc") is NaN — the route falls back to the default limit of 100
-    const badLimit = await (await query("?limit=abc")).json();
+    const badLimit = await bodyAs<CollectionBody>(await query("?limit=abc"));
     expect(badLimit.numberMatched).toBe(4);
     expect(badLimit.numberReturned).toBe(4);
 
     // Non-positive limits fall back too, rather than clamping the page to empty
-    const zeroLimit = await (await query("?limit=0")).json();
+    const zeroLimit = await bodyAs<CollectionBody>(await query("?limit=0"));
     expect(zeroLimit.numberReturned).toBe(4);
   });
 });

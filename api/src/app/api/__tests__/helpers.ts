@@ -19,3 +19,16 @@ export function mockRequest(
   const req = new NextRequest(url, { method, body: body ?? undefined });
   return Object.assign(req, overrides);
 }
+
+/**
+ * Read a route response body as the shape the suite asserts on. Raw
+ * `resp.json()` types the body as `any`, which poisons every later member
+ * access with no-unsafe-* lint warnings — each test file declares its own
+ * body interface and passes it here instead.
+ *
+ * Usage:
+ *   const data = await bodyAs<CollectionBody>(resp);
+ */
+export async function bodyAs<T>(resp: Response): Promise<T> {
+  return (await resp.json()) as T;
+}

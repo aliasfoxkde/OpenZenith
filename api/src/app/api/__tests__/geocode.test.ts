@@ -27,6 +27,41 @@ describe("Geocode endpoint", () => {
     expect(data.error.message).toContain("query");
   });
 
+  it("serves a HIT from the edge cache without touching nominatim", async () => {
+    const { edgeGetJson, edgePutJson } = await import("@/lib/storage/edge-cache");
+    const cached = {
+      results: [{ display_name: "Paris, France", lat: 48.8566, lon: 2.3522, type: "city", importance: 0.9, address: {} }],
+      count: 1,
+    };
+    vi.mocked(edgeGetJson).mockResolvedValueOnce(cached);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { GET } = await import("@/app/api/geocode/route");
+    const resp = await GET(mockRequest("/api/geocode?query=paris"));
+    const data = await resp.json();
+
+    expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(data.count).toBe(1);
+    expect(data.results[0].display_name).toContain("Paris");
+    expect(data.requestId).toBeDefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(edgePutJson).not.toHaveBeenCalled();
+  });
+
+  it("stores successful lookups in the edge cache on MISS", async () => {
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(mockNominatimResponse), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/geocode/route");
+    const resp = await GET(mockRequest("/api/geocode?query=London&limit=5"));
+
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    // TTL is short by design — nominatim etiquette.
+    expect(edgePutJson).toHaveBeenCalledWith(expect.stringContaining("api/geocode"), expect.anything(), 300);
+  });
+
   it("returns results for a valid query", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify(mockNominatimResponse), { status: 200 }),

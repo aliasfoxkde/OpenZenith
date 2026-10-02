@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { edgeGetJson, edgePutJson } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
+
+// Short TTL: nominatim etiquette caps how aggressively we may lean on the
+// upstream service, and the edge cache is exactly the repeated-query shield.
+const GEOCODE_EDGE_TTL_SECONDS = 300;
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
 export function OPTIONS() {
@@ -28,6 +33,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Edge Cache API in front of nominatim: identical place-name queries
+    // repeat constantly (autocomplete retyping, shared popular searches) and
+    // worker responses are not CDN-cached on Pages. Only the results array is
+    // cached — the envelope's requestId is per-request correlation and must
+    // not be replayed from another caller's lookup.
+    const cacheKey = `api/geocode?q=${encodeURIComponent(query.toLowerCase())}&limit=${limit}`;
+    const cached = await edgeGetJson<{ results: Record<string, unknown>[]; count: number }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(
+        { requestId, results: cached.results, count: cached.count },
+        { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "HIT" } },
+      );
+    }
+
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1`;
     const res = await fetch(url, {
       signal: AbortSignal.timeout(10000),
@@ -67,21 +86,23 @@ export async function GET(request: NextRequest) {
     }
 
     const data = (await res.json()) as Record<string, unknown>[];
+    const results = data.map((r) => ({
+      display_name: r.display_name,
+      lat: Number(r.lat),
+      lon: Number(r.lon),
+      type: r.type,
+      importance: r.importance,
+      address: r.address,
+    }));
+    await edgePutJson(cacheKey, { results, count: results.length }, GEOCODE_EDGE_TTL_SECONDS);
 
     return NextResponse.json(
       {
         requestId,
-        results: data.map((r) => ({
-          display_name: r.display_name,
-          lat: Number(r.lat),
-          lon: Number(r.lon),
-          type: r.type,
-          importance: r.importance,
-          address: r.address,
-        })),
-        count: data.length,
+        results,
+        count: results.length,
       },
-      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
+      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "MISS" } },
     );
   } catch {
     return NextResponse.json(

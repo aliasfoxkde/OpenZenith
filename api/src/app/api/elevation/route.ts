@@ -3,6 +3,7 @@ import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";
 import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { edgeGetJson, edgePutJson } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -114,7 +115,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Edge Cache API in front of the elevation sources: point queries repeat
+    // heavily (popular summits, SDK retries, map pin re-reads) and worker
+    // responses are not CDN-cached on Pages. Success-only — a no-data sample
+    // may be a transient source outage, not a property of the coordinate.
+    const cacheKey = `api/elevation?lat=${lat.toFixed(7)}&lon=${lon.toFixed(7)}`;
+    const cached = await edgeGetJson<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      return NextResponse.json(
+        { requestId, ...cached, ok: true as const },
+        { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600", "X-Cache": "HIT" } },
+      );
+    }
+
     const result = await getElevation(lat, lon);
+    if (result.elevation !== null) {
+      await edgePutJson(cacheKey, result, 86400);
+    }
     const payload = {
       requestId,
       ...result,
@@ -134,6 +151,7 @@ export async function GET(request: NextRequest) {
       headers: {
         ...CORS_HEADERS,
         "Cache-Control": "public, max-age=3600",
+        "X-Cache": "MISS",
       },
     });
   } catch (err) {

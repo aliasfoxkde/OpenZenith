@@ -101,6 +101,49 @@ describe("Elevation endpoint", () => {
     expect(data.requestId).toBe("trace-abc-123");
   });
 
+  it("serves a HIT from the edge cache for a repeated coordinate", async () => {
+    const { edgeGetJson, edgePutJson } = await import("@/lib/storage/edge-cache");
+    vi.mocked(edgeGetJson).mockResolvedValueOnce({ elevation: 8849, surfaceType: "land", tile: "N28E086" });
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9"));
+    const data = await resp.json();
+
+    expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(data.elevation).toBe(8849);
+    expect(data.ok).toBe(true);
+    expect(data.requestId).toBeDefined();
+    expect(mockGetPointElevation).not.toHaveBeenCalled();
+    expect(edgePutJson).not.toHaveBeenCalled();
+  });
+
+  it("stores a successful sample in the edge cache on MISS", async () => {
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    mockGetPointElevation.mockResolvedValueOnce({ elevation: 8849, surfaceType: "land", tile: "N28E086" });
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9"));
+
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    // Coordinate-addressed data is static — a day-long edge TTL.
+    expect(edgePutJson).toHaveBeenCalledWith(
+      "api/elevation?lat=28.0000000&lon=86.9000000",
+      expect.objectContaining({ elevation: 8849, tile: "N28E086" }),
+      86400,
+    );
+  });
+
+  it("does not cache a no-data sample", async () => {
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    mockGetPointElevation.mockResolvedValueOnce({ elevation: null, surfaceType: "unknown" });
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=0&lon=0"));
+
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    expect(edgePutJson).not.toHaveBeenCalled();
+  });
+
   it("returns elevation data from SRTM", async () => {
     mockGetPointElevation.mockResolvedValueOnce({
       elevation: 8849,

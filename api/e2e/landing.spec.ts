@@ -1,9 +1,20 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /** Assert a nullable Playwright value is present before use. */
 function must<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("unexpected null value");
   return value;
+}
+
+/**
+ * The landing hydrates late (hero map + particles): SSR emits the controls,
+ * but React attaches listeners only at hydration, and hydration resets
+ * controlled inputs. The default-location result panel is client-rendered,
+ * so its appearance is the "page is interactive" signal — wait for it
+ * before filling or clicking anything.
+ */
+async function waitInteractive(page: Page) {
+  await page.waitForSelector(".oz-result-value", { timeout: 30000 });
 }
 
 test.describe("Landing page", () => {
@@ -26,20 +37,25 @@ test.describe("Landing page", () => {
 
   test("performs elevation lookup", async ({ page }) => {
     await page.goto("/");
+    await waitInteractive(page);
 
     await page.fill("#lookup-lat", "27.9881");
     await page.fill("#lookup-lon", "86.925");
     await page.click("#lookup-btn");
 
-    // Wait for result to appear
-    await page.waitForSelector(".oz-result-value", { timeout: 15000 });
-    const resultText = await page.locator(".oz-result-value").textContent();
-    // Everest summit elevation should be > 8000m
-    expect(parseInt(must(resultText).replace(/,/g, ""))).toBeGreaterThan(8000);
+    // The panel already shows the default location's result (hydration
+    // marker), so its mere existence proves nothing — wait for the VALUE to
+    // become Everest's.
+    await expect(async () => {
+      const resultText = await page.locator(".oz-result-value").textContent();
+      // Everest summit elevation should be > 8000m
+      expect(parseInt(must(resultText).replace(/,/g, ""))).toBeGreaterThan(8000);
+    }).toPass({ timeout: 15000 });
   });
 
   test("shows error for invalid coordinates", async ({ page }) => {
     await page.goto("/");
+    await waitInteractive(page);
 
     await page.fill("#lookup-lat", "abc");
     await page.fill("#lookup-lon", "86.9");
@@ -52,12 +68,13 @@ test.describe("Landing page", () => {
 
   test("address search zooms to a picked place", async ({ page }) => {
     await page.goto("/");
+    await waitInteractive(page);
     const search = page.locator("#address-search");
     await expect(search).toBeVisible({ timeout: 15000 });
 
     // Debounced geocode — type a well-known place and wait for the dropdown.
-    // The landing hydrates late (hero map + particles), and React resets a
-    // controlled input filled before hydration — re-fill until the value sticks.
+    // Keep the re-fill guard even though we waited for hydration above: the
+    // marker can appear while a later component is still mounting.
     await expect(async () => {
       await search.fill("Eiffel Tower");
       await expect(search).toHaveValue("Eiffel Tower");
@@ -97,6 +114,7 @@ test.describe("Landing page", () => {
 
   test("sample location buttons work", async ({ page }) => {
     await page.goto("/");
+    await waitInteractive(page);
 
     // Click a sample location button and wait for state update
     const sampleBtn = page.locator(".oz-sample-btn").first();
@@ -130,6 +148,7 @@ test.describe("Landing page", () => {
 
   test("flip card toggles on click and keyboard", async ({ page }) => {
     await page.goto("/");
+    await waitInteractive(page);
 
     const card = page.locator(".oz-flip-card").first();
     await card.scrollIntoViewIfNeeded();
@@ -157,6 +176,7 @@ test.describe("Landing page", () => {
 
   test("CTA link inside a flipped card does not toggle the card", async ({ page }) => {
     await page.goto("/");
+    await waitInteractive(page);
 
     // The Contribute card's back face carries an in-app CTA; clicking it must
     // navigate without also flipping (cancel navigation here, keep the click).
@@ -181,12 +201,15 @@ test.describe("Landing page", () => {
     page.on("pageerror", (err) => errors.push(String(err)));
 
     await page.goto("/");
+    await waitInteractive(page);
     await page.locator(".oz-flip-card").first().scrollIntoViewIfNeeded();
     await page.waitForTimeout(1500);
 
     // Map tiles and third-party layers fail for network reasons; those are
-    // environmental, not app defects. Anything else fails the test.
-    const environmental = /net::|Failed to load resource|tile| ERR_/i;
+    // environmental, not app defects. The cloudflareinsights beacon is
+    // injected by the zone (CORS-blocked and SRI-mismatched when the edge
+    // challenges the request) — also environmental. Anything else fails.
+    const environmental = /net::|Failed to load resource|tile| ERR_|cloudflareinsights|beacon\.min\.js/i;
     const real = errors.filter((e) => !environmental.test(e));
     expect(real).toEqual([]);
   });

@@ -6,6 +6,30 @@ Every item is evidence-anchored (file:line or measurement) and has a
 verification method. Work top-to-bottom; each item lands as its own commit
 with its gate re-run.
 
+## Results (2026-10-02, P0+P1 executed)
+
+Deterministic evidence (build bytes, headers, prod E2E — reproducible):
+
+| Slice | Evidence |
+|---|---|
+| Fonts (2) | 4 Google Fonts `@import` chains removed (about, contribute, explore, globe); one 31,432 B self-hosted variable woff2, preloaded with matching CORS mode |
+| Landing render storm (3) | tooltip state local to `StatCard`; scroll rAF-batched; stable `lookup`/`onPick`/`setCoords` — landing page chunk unchanged at 61,762 B (the win is commits avoided, not bytes) |
+| Dead code (4) | HeroParticles (177 lines) deleted; `oz-pulse` keyframes defined; emoji literals fixed |
+| Budget gate (5) | `perf-budget.mjs` + baseline JSON + `bundle-budget` CI job; deliberate moves require `--update` + their own commit |
+| Cesium preload (6) | globe route HTML preloads Cesium/satellite.js (classic-script CORS mode) + preconnects jsdelivr/cdnjs — the ~2.4 MB unpkg fetch now races hydration instead of following it |
+| HeroMap (7) | map init deferred to `requestIdleCallback`; boundaries + elevation-accuracy attach after map `idle`; per-frame GPU filter removed; arcgisonline/openfreemap preconnects |
+| Lazy barrel (8) | chunk 9157 (67 KB raw / 16.5 KB wire) off /map's initial closure — net ~9.4 KB wire after the split's own chunks; +17.5 KB raw total from per-chunk overhead (baseline refreshed); earthquakes stays eager |
+| Layer timers (9) | map: per-layer interval/cleanup scoping + hurricane-animation isolation; globe: 17 push sites keyed across 19 modules, toggle-off reclaims timers, dynamicKeys complete (22 layers). Verified by suites + code paths; live toggle-network crawl still to do |
+| Cache alignment (10) | dem-tile/elevation-color/elevation-accuracy/tile/WMTS-tiles emit `max-age=31536000, immutable` (prod-verified); geocode MISS→HIT with fresh requestIds; elevation HIT across `28.0/86.9` vs `28/86.90` (key normalization) — prod-verified via Playwright |
+| Prod E2E | two ship.sh runs: 26 passed, then 25 passed + 1 flaky-retry (address search — watch for recurrence; geocode HIT may have shifted timing) |
+
+Wall-clock deltas (FCP/LCP/long-tasks vs the baseline table above) are
+**pending**: this host was mid co-tenant compile storm (loadavg 43-70)
+at pass-end, which poisons CDP timings — re-measure when
+`/proc/loadavg < 12` (`measure-perf.mjs`). One directional signal from
+the noisy run: /globe LCP 4,416 → 3,064 ms, consistent with the
+preload racing hydration.
+
 ## Method
 
 1. **Fresh production build** (`npm run pages:build`, 2026-10-02) and full

@@ -1,23 +1,24 @@
 /**
  * MapLibre data layer loaders for 2D map page.
  *
- * Each layer module provides add/remove functions compatible with MapLibre GL's
- * source/layer API. Layers that fetch GeoJSON data from APIs include
+ * Each layer module provides add/remove functions compatible with MapLibre
+ * GL's source/layer API. Layers that fetch GeoJSON data from APIs include
  * auto-refresh via setInterval (returned for cleanup).
  *
  * Layer status tracking: callers can pass a statusCallback to get notified
  * when layers load, error, or return empty data.
+ *
+ * Layer modules load lazily: the dispatcher holds dynamic imports, so a
+ * module's code ships in its own chunk and is fetched on first add instead
+ * of riding in /map's initial JS (the eager barrel was ~67KB across ~50
+ * modules for a page whose default view needs none of them). earthquakes
+ * stays eager — it is a default-on layer with synchronous timeline state.
  */
 
 export { type LayerStatus, type LayerHandle, createLayerHandle, setStatus, latLonToTile } from "./types";
 
-// Terrain
-export { addHillshade, removeHillshade } from "./hillshade";
-export { addElevationColor, removeElevationColor } from "./elevation-color";
-export { addElevationAccuracy, removeElevationAccuracy } from "./elevation-accuracy";
-export { addContours, removeContours } from "./contours";
-
-// Weather
+// Default-on layer: eagerly re-exported so the page's timeline wiring keeps
+// its synchronous helpers (setEarthquakeFeed / getEarthquakeTimeRange / …).
 export {
   addEarthquakes,
   removeEarthquakes,
@@ -26,212 +27,127 @@ export {
   getEarthquakeTimeRange,
   refreshEarthquakeFilter,
 } from "./earthquakes";
-export { addWarnings, removeWarnings } from "./warnings";
-export { addNaturalEvents, removeNaturalEvents } from "./events";
-export { addRadar, removeRadar } from "./radar";
-export {
-  addHurricaneTracks,
-  removeHurricaneTracks,
-  startHurricaneAnimation,
-  stopHurricaneAnimation,
-} from "./hurricanes";
-export { addWildfires, removeWildfires } from "./wildfires";
-
-// Infrastructure
-export { addNLNOGNodes, removeNLNOGNodes } from "./nlnog";
-export { addBuildings, removeBuildings } from "./buildings";
-export { addPopulationDensity, removePopulationDensity } from "./population";
-export { addLandCover, removeLandCover } from "./landcover";
-export { addWaterways, removeWaterways } from "./waterways";
-
-// Imagery
-export { addSentinel2, removeSentinel2 } from "./sentinel2";
-
-// Aviation
-export { addFlights, removeFlights } from "./flights";
-export { addMilitary, removeMilitary } from "./military";
-
-// Maritime
-export { addVessels, removeVessels } from "./vessels";
-export { addMarineWeather, removeMarineWeather } from "./marine-weather";
-
-// Space / Space Weather
-export { addSpaceWeather, removeSpaceWeather } from "./space-weather";
-export { addLightning, removeLightning } from "./lightning";
-
-// Imagery
-export { addNightLights, removeNightLights } from "./night-lights";
-
-// Disaster
-export { addVolcanoes, removeVolcanoes } from "./volcanoes";
-export { addGdacs, removeGdacs } from "./gdacs";
-
-// SAR / Environmental
-export { addFloods, removeFloods } from "./floods";
-export { addFireTemperature, removeFireTemperature } from "./fire-temperature";
-export { addSarBackscatter, removeSarBackscatter } from "./sar-backscatter";
-export { addSeaIce, removeSeaIce } from "./sea-ice";
-export { addBurnScars, removeBurnScars } from "./burn-scars";
-export { addDynamicSurfaceWater, removeDynamicSurfaceWater } from "./dynamic-surface-water";
-export { addDisturbanceAlerts, removeDisturbanceAlerts } from "./disturbance-alerts";
-export { addSo2Volcanic, removeSo2Volcanic } from "./so2-volcanic";
-export { addNo2Pollution, removeNo2Pollution } from "./no2-pollution";
-export { addPrecipitation, removePrecipitation } from "./precipitation";
-export { addSoilMoisture, removeSoilMoisture } from "./soil-moisture";
-export { addNdvi, removeNdvi } from "./ndvi";
-
-// Ocean & Climate
-export { addSST, removeSST } from "./sst";
-export { addChlorophyll, removeChlorophyll } from "./chlorophyll";
-export { addSnowCover, removeSnowCover } from "./snow-cover";
-export { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
-export { addSeaHeight, removeSeaHeight } from "./sea-height";
-export { addOceanCurrents, removeOceanCurrents } from "./currents";
-
-// Risk & Air Quality
-export { addFloodHazard, removeFloodHazard } from "./flood-hazard";
-export { addLandslideHazard, removeLandslideHazard } from "./landslide-hazard";
-export { addDroughtHazard, removeDroughtHazard } from "./drought-hazard";
-export { addPM25, removePM25 } from "./pm25";
-export { addAOD, removeAOD } from "./aod";
-
-// Environment
-export { addAirQuality, removeAirQuality } from "./airquality";
-
-// Aviation Weather
-export { addAviationWeather, removeAviationWeather } from "./aviation-weather";
-
-// Satellites
-export { addSatellites, removeSatellites } from "./satellites";
-
-// Bathymetry
-export { addBathymetry, removeBathymetry } from "./bathymetry";
-
-// Reference
-export { addEquator, removeEquator } from "./equator";
-
-// GOES Satellite Imagery
-export { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
-
-// ─── Master dispatcher ───
 
 import type { LayerHandle } from "./types";
-import { addHillshade, removeHillshade } from "./hillshade";
-import { addElevationColor, removeElevationColor } from "./elevation-color";
-import { addElevationAccuracy, removeElevationAccuracy } from "./elevation-accuracy";
-import { addContours, removeContours } from "./contours";
-import { addEarthquakes, removeEarthquakes } from "./earthquakes";
-import { addWarnings, removeWarnings } from "./warnings";
-import { addNaturalEvents, removeNaturalEvents } from "./events";
-import { addRadar, removeRadar } from "./radar";
-import { addWaterways, removeWaterways } from "./waterways";
-import { addHurricaneTracks, removeHurricaneTracks } from "./hurricanes";
-import { addNLNOGNodes, removeNLNOGNodes } from "./nlnog";
-import { addWildfires, removeWildfires } from "./wildfires";
-import { addBuildings, removeBuildings } from "./buildings";
-import { addPopulationDensity, removePopulationDensity } from "./population";
-import { addLandCover, removeLandCover } from "./landcover";
-import { addSentinel2, removeSentinel2 } from "./sentinel2";
-import { addAirQuality, removeAirQuality } from "./airquality";
-import { addFlights, removeFlights } from "./flights";
-import { addMilitary, removeMilitary } from "./military";
-import { addVessels, removeVessels } from "./vessels";
-import { addMarineWeather, removeMarineWeather } from "./marine-weather";
-import { addSpaceWeather, removeSpaceWeather } from "./space-weather";
-import { addLightning, removeLightning } from "./lightning";
-import { addNightLights, removeNightLights } from "./night-lights";
-import { addVolcanoes, removeVolcanoes } from "./volcanoes";
-import { addGdacs, removeGdacs } from "./gdacs";
-import { addFloods, removeFloods } from "./floods";
-import { addFireTemperature, removeFireTemperature } from "./fire-temperature";
-import { addSarBackscatter, removeSarBackscatter } from "./sar-backscatter";
-import { addSeaIce, removeSeaIce } from "./sea-ice";
-import { addBurnScars, removeBurnScars } from "./burn-scars";
-import { addAviationWeather, removeAviationWeather } from "./aviation-weather";
-import { addSatellites, removeSatellites } from "./satellites";
-import { addBathymetry, removeBathymetry } from "./bathymetry";
-import { addSatelliteImagery, removeSatelliteImagery } from "./satellite-imagery";
-import { addEquator, removeEquator } from "./equator";
-import { addDynamicSurfaceWater, removeDynamicSurfaceWater } from "./dynamic-surface-water";
-import { addDisturbanceAlerts, removeDisturbanceAlerts } from "./disturbance-alerts";
-import { addSo2Volcanic, removeSo2Volcanic } from "./so2-volcanic";
-import { addNo2Pollution, removeNo2Pollution } from "./no2-pollution";
-import { addPrecipitation, removePrecipitation } from "./precipitation";
-import { addSoilMoisture, removeSoilMoisture } from "./soil-moisture";
-import { addNdvi, removeNdvi } from "./ndvi";
-import { addSST, removeSST } from "./sst";
-import { addChlorophyll, removeChlorophyll } from "./chlorophyll";
-import { addSnowCover, removeSnowCover } from "./snow-cover";
-import { addSeaSalinity, removeSeaSalinity } from "./sea-salinity";
-import { addSeaHeight, removeSeaHeight } from "./sea-height";
-import { addOceanCurrents, removeOceanCurrents } from "./currents";
-import { addFloodHazard, removeFloodHazard } from "./flood-hazard";
-import { addLandslideHazard, removeLandslideHazard } from "./landslide-hazard";
-import { addDroughtHazard, removeDroughtHazard } from "./drought-hazard";
-import { addPM25, removePM25 } from "./pm25";
-import { addAOD, removeAOD } from "./aod";
 
-interface LayerHandler {
+/** The add/remove surface every layer module exposes. */
+interface LayerModule {
   add: (map: maplibregl.Map, handle: LayerHandle) => void;
   remove: (map: maplibregl.Map) => void;
 }
 
-// Values stay nullable: callers can pass a layer id with no 2D handler.
-const LAYER_HANDLERS: Record<string, LayerHandler | undefined> = {
-  hillshade: { add: addHillshade, remove: removeHillshade },
-  elevationColor: { add: addElevationColor, remove: removeElevationColor },
-  elevationAccuracy: { add: addElevationAccuracy, remove: removeElevationAccuracy },
-  contours: { add: addContours, remove: removeContours },
-  earthquakes: { add: addEarthquakes, remove: removeEarthquakes },
-  warnings: { add: addWarnings, remove: removeWarnings },
-  events: { add: addNaturalEvents, remove: removeNaturalEvents },
-  radar: { add: addRadar, remove: removeRadar },
-  waterways: { add: addWaterways, remove: removeWaterways },
-  hurricaneTracks: { add: addHurricaneTracks, remove: removeHurricaneTracks },
-  nlnogNodes: { add: addNLNOGNodes, remove: removeNLNOGNodes },
-  wildfires: { add: addWildfires, remove: removeWildfires },
-  buildings: { add: addBuildings, remove: removeBuildings },
-  populationDensity: { add: addPopulationDensity, remove: removePopulationDensity },
-  landCover: { add: addLandCover, remove: removeLandCover },
-  sentinel2: { add: addSentinel2, remove: removeSentinel2 },
-  airQuality: { add: addAirQuality, remove: removeAirQuality },
-  flights: { add: addFlights, remove: removeFlights },
-  militaryFlights: { add: addMilitary, remove: removeMilitary },
-  vessels: { add: addVessels, remove: removeVessels },
-  marineWeather: { add: addMarineWeather, remove: removeMarineWeather },
-  spaceWeather: { add: addSpaceWeather, remove: removeSpaceWeather },
-  lightning: { add: addLightning, remove: removeLightning },
-  nightLights: { add: addNightLights, remove: removeNightLights },
-  volcanoes: { add: addVolcanoes, remove: removeVolcanoes },
-  gdacs: { add: addGdacs, remove: removeGdacs },
-  floods: { add: addFloods, remove: removeFloods },
-  fireTemperature: { add: addFireTemperature, remove: removeFireTemperature },
-  sarBackscatter: { add: addSarBackscatter, remove: removeSarBackscatter },
-  seaIce: { add: addSeaIce, remove: removeSeaIce },
-  burnScars: { add: addBurnScars, remove: removeBurnScars },
-  aviationWeather: { add: addAviationWeather, remove: removeAviationWeather },
-  satellites: { add: addSatellites, remove: removeSatellites },
-  bathymetry: { add: addBathymetry, remove: removeBathymetry },
-  satellite: { add: addSatelliteImagery, remove: removeSatelliteImagery },
-  dynamicSurfaceWater: { add: addDynamicSurfaceWater, remove: removeDynamicSurfaceWater },
-  disturbanceAlerts: { add: addDisturbanceAlerts, remove: removeDisturbanceAlerts },
-  so2Volcanic: { add: addSo2Volcanic, remove: removeSo2Volcanic },
-  no2Pollution: { add: addNo2Pollution, remove: removeNo2Pollution },
-  precipitation: { add: addPrecipitation, remove: removePrecipitation },
-  soilMoisture: { add: addSoilMoisture, remove: removeSoilMoisture },
-  ndvi: { add: addNdvi, remove: removeNdvi },
-  sst: { add: addSST, remove: removeSST },
-  chlorophyll: { add: addChlorophyll, remove: removeChlorophyll },
-  snowCover: { add: addSnowCover, remove: removeSnowCover },
-  seaSalinity: { add: addSeaSalinity, remove: removeSeaSalinity },
-  seaHeight: { add: addSeaHeight, remove: removeSeaHeight },
-  oceanCurrents: { add: addOceanCurrents, remove: removeOceanCurrents },
-  floodHazard: { add: addFloodHazard, remove: removeFloodHazard },
-  landslideHazard: { add: addLandslideHazard, remove: removeLandslideHazard },
-  droughtHazard: { add: addDroughtHazard, remove: removeDroughtHazard },
-  pm25: { add: addPM25, remove: removePM25 },
-  aod: { add: addAOD, remove: removeAOD },
-  equator: { add: addEquator, remove: removeEquator },
+// Registry key -> dynamic loader. Modules split into their own chunks and are
+// fetched on first add; earthquakes resolves from the main chunk (still eager).
+// Partial: callers pass arbitrary registry ids, so lookup can miss.
+const LAYER_LOADERS: Partial<Record<string, () => Promise<LayerModule>>> = {
+  hillshade: () =>
+    import("./hillshade").then((m) => ({ add: m.addHillshade, remove: m.removeHillshade })),
+  elevationColor: () =>
+    import("./elevation-color").then((m) => ({ add: m.addElevationColor, remove: m.removeElevationColor })),
+  elevationAccuracy: () =>
+    import("./elevation-accuracy").then((m) => ({ add: m.addElevationAccuracy, remove: m.removeElevationAccuracy })),
+  contours: () =>
+    import("./contours").then((m) => ({ add: m.addContours, remove: m.removeContours })),
+  earthquakes: () =>
+    import("./earthquakes").then((m) => ({ add: m.addEarthquakes, remove: m.removeEarthquakes })),
+  warnings: () =>
+    import("./warnings").then((m) => ({ add: m.addWarnings, remove: m.removeWarnings })),
+  events: () =>
+    import("./events").then((m) => ({ add: m.addNaturalEvents, remove: m.removeNaturalEvents })),
+  radar: () =>
+    import("./radar").then((m) => ({ add: m.addRadar, remove: m.removeRadar })),
+  waterways: () =>
+    import("./waterways").then((m) => ({ add: m.addWaterways, remove: m.removeWaterways })),
+  hurricaneTracks: () =>
+    import("./hurricanes").then((m) => ({ add: m.addHurricaneTracks, remove: m.removeHurricaneTracks })),
+  nlnogNodes: () =>
+    import("./nlnog").then((m) => ({ add: m.addNLNOGNodes, remove: m.removeNLNOGNodes })),
+  wildfires: () =>
+    import("./wildfires").then((m) => ({ add: m.addWildfires, remove: m.removeWildfires })),
+  buildings: () =>
+    import("./buildings").then((m) => ({ add: m.addBuildings, remove: m.removeBuildings })),
+  populationDensity: () =>
+    import("./population").then((m) => ({ add: m.addPopulationDensity, remove: m.removePopulationDensity })),
+  landCover: () =>
+    import("./landcover").then((m) => ({ add: m.addLandCover, remove: m.removeLandCover })),
+  sentinel2: () =>
+    import("./sentinel2").then((m) => ({ add: m.addSentinel2, remove: m.removeSentinel2 })),
+  airQuality: () =>
+    import("./airquality").then((m) => ({ add: m.addAirQuality, remove: m.removeAirQuality })),
+  flights: () =>
+    import("./flights").then((m) => ({ add: m.addFlights, remove: m.removeFlights })),
+  militaryFlights: () =>
+    import("./military").then((m) => ({ add: m.addMilitary, remove: m.removeMilitary })),
+  vessels: () =>
+    import("./vessels").then((m) => ({ add: m.addVessels, remove: m.removeVessels })),
+  marineWeather: () =>
+    import("./marine-weather").then((m) => ({ add: m.addMarineWeather, remove: m.removeMarineWeather })),
+  spaceWeather: () =>
+    import("./space-weather").then((m) => ({ add: m.addSpaceWeather, remove: m.removeSpaceWeather })),
+  lightning: () =>
+    import("./lightning").then((m) => ({ add: m.addLightning, remove: m.removeLightning })),
+  nightLights: () =>
+    import("./night-lights").then((m) => ({ add: m.addNightLights, remove: m.removeNightLights })),
+  volcanoes: () =>
+    import("./volcanoes").then((m) => ({ add: m.addVolcanoes, remove: m.removeVolcanoes })),
+  gdacs: () =>
+    import("./gdacs").then((m) => ({ add: m.addGdacs, remove: m.removeGdacs })),
+  floods: () =>
+    import("./floods").then((m) => ({ add: m.addFloods, remove: m.removeFloods })),
+  fireTemperature: () =>
+    import("./fire-temperature").then((m) => ({ add: m.addFireTemperature, remove: m.removeFireTemperature })),
+  sarBackscatter: () =>
+    import("./sar-backscatter").then((m) => ({ add: m.addSarBackscatter, remove: m.removeSarBackscatter })),
+  seaIce: () =>
+    import("./sea-ice").then((m) => ({ add: m.addSeaIce, remove: m.removeSeaIce })),
+  burnScars: () =>
+    import("./burn-scars").then((m) => ({ add: m.addBurnScars, remove: m.removeBurnScars })),
+  aviationWeather: () =>
+    import("./aviation-weather").then((m) => ({ add: m.addAviationWeather, remove: m.removeAviationWeather })),
+  satellites: () =>
+    import("./satellites").then((m) => ({ add: m.addSatellites, remove: m.removeSatellites })),
+  bathymetry: () =>
+    import("./bathymetry").then((m) => ({ add: m.addBathymetry, remove: m.removeBathymetry })),
+  satellite: () =>
+    import("./satellite-imagery").then((m) => ({ add: m.addSatelliteImagery, remove: m.removeSatelliteImagery })),
+  dynamicSurfaceWater: () =>
+    import("./dynamic-surface-water").then((m) => ({ add: m.addDynamicSurfaceWater, remove: m.removeDynamicSurfaceWater })),
+  disturbanceAlerts: () =>
+    import("./disturbance-alerts").then((m) => ({ add: m.addDisturbanceAlerts, remove: m.removeDisturbanceAlerts })),
+  so2Volcanic: () =>
+    import("./so2-volcanic").then((m) => ({ add: m.addSo2Volcanic, remove: m.removeSo2Volcanic })),
+  no2Pollution: () =>
+    import("./no2-pollution").then((m) => ({ add: m.addNo2Pollution, remove: m.removeNo2Pollution })),
+  precipitation: () =>
+    import("./precipitation").then((m) => ({ add: m.addPrecipitation, remove: m.removePrecipitation })),
+  soilMoisture: () =>
+    import("./soil-moisture").then((m) => ({ add: m.addSoilMoisture, remove: m.removeSoilMoisture })),
+  ndvi: () =>
+    import("./ndvi").then((m) => ({ add: m.addNdvi, remove: m.removeNdvi })),
+  sst: () =>
+    import("./sst").then((m) => ({ add: m.addSST, remove: m.removeSST })),
+  chlorophyll: () =>
+    import("./chlorophyll").then((m) => ({ add: m.addChlorophyll, remove: m.removeChlorophyll })),
+  snowCover: () =>
+    import("./snow-cover").then((m) => ({ add: m.addSnowCover, remove: m.removeSnowCover })),
+  seaSalinity: () =>
+    import("./sea-salinity").then((m) => ({ add: m.addSeaSalinity, remove: m.removeSeaSalinity })),
+  seaHeight: () =>
+    import("./sea-height").then((m) => ({ add: m.addSeaHeight, remove: m.removeSeaHeight })),
+  oceanCurrents: () =>
+    import("./currents").then((m) => ({ add: m.addOceanCurrents, remove: m.removeOceanCurrents })),
+  floodHazard: () =>
+    import("./flood-hazard").then((m) => ({ add: m.addFloodHazard, remove: m.removeFloodHazard })),
+  landslideHazard: () =>
+    import("./landslide-hazard").then((m) => ({ add: m.addLandslideHazard, remove: m.removeLandslideHazard })),
+  droughtHazard: () =>
+    import("./drought-hazard").then((m) => ({ add: m.addDroughtHazard, remove: m.removeDroughtHazard })),
+  pm25: () =>
+    import("./pm25").then((m) => ({ add: m.addPM25, remove: m.removePM25 })),
+  aod: () =>
+    import("./aod").then((m) => ({ add: m.addAOD, remove: m.removeAOD })),
+  equator: () =>
+    import("./equator").then((m) => ({ add: m.addEquator, remove: m.removeEquator })),
 };
 
 /**
@@ -244,9 +160,10 @@ const LAYER_HANDLERS: Record<string, LayerHandler | undefined> = {
  */
 const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cleanup?: () => void }>();
 
-export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {
-  const handler = LAYER_HANDLERS[layerId];
-  if (!handler) return;
+export async function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): Promise<void> {
+  const load = LAYER_LOADERS[layerId];
+  if (!load) return;
+  const mod = await load();
   // Re-add over a live previous registration (e.g. tab-hide resume, which
   // cleared timers but not cleanups): retire the old cleanup first so its
   // listeners do not accumulate per hide/show cycle.
@@ -260,7 +177,7 @@ export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: 
   handle.intervals = [];
   handle.cleanup = undefined;
   try {
-    handler.add(map, handle);
+    mod.add(map, handle);
   } finally {
     const owned = { intervals: handle.intervals, cleanup: handle.cleanup };
     handle.intervals = [...prevIntervals, ...owned.intervals];
@@ -269,7 +186,7 @@ export function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: 
   }
 }
 
-export function removeDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): void {
+export async function removeDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): Promise<void> {
   const owned = layerResources.get(layerId);
   layerResources.delete(layerId);
   if (owned) {
@@ -279,9 +196,28 @@ export function removeDataLayer(map: maplibregl.Map, handle: LayerHandle, layerI
     const dead = new Set(owned.intervals);
     handle.intervals = handle.intervals.filter((id) => !dead.has(id));
   }
-  const handler = LAYER_HANDLERS[layerId];
-  if (handler) handler.remove(map);
+  const load = LAYER_LOADERS[layerId];
+  if (load) {
+    const mod = await load();
+    mod.remove(map);
+  }
 }
 
 /** Layer IDs that are available in MapLibre 2D context. */
-export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_HANDLERS));
+export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_LOADERS));
+
+/* ─── Hurricane animation (module kept lazy; async delegation) ─── */
+
+export async function startHurricaneAnimation(
+  map: maplibregl.Map,
+  handle: LayerHandle,
+  callback: (progress: number) => void,
+): Promise<void> {
+  const m = await import("./hurricanes");
+  m.startHurricaneAnimation(map, handle, callback);
+}
+
+export async function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle): Promise<void> {
+  const m = await import("./hurricanes");
+  m.stopHurricaneAnimation(map, handle);
+}

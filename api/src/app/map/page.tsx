@@ -246,12 +246,12 @@ export default function MapPage() {
     const handle = layerHandleRef.current;
     if (!map) return;
     if (hurricaneAnimating) {
-      stopHurricaneAnimation(map, handle);
+      void stopHurricaneAnimation(map, handle);
       setHurricaneAnimating(false);
       setHurricaneProgress(0);
     } else {
       setHurricaneAnimating(true);
-      startHurricaneAnimation(map, handle, setHurricaneProgress);
+      void startHurricaneAnimation(map, handle, setHurricaneProgress);
     }
   }, [hurricaneAnimating]);
 
@@ -260,7 +260,7 @@ export default function MapPage() {
     if (!mapState.layers.hurricaneTracks && hurricaneAnimating) {
       const map = mapRef.current;
       const handle = layerHandleRef.current;
-      if (map) stopHurricaneAnimation(map, handle);
+      if (map) void stopHurricaneAnimation(map, handle);
       setHurricaneAnimating(false);
       setHurricaneProgress(0);
     }
@@ -700,11 +700,11 @@ export default function MapPage() {
         if (!map) return;
         for (const layerId of MAP_2D_LAYER_IDS) {
           if (mapState.layers[layerId]) {
-            addDataLayer(map, handle, layerId);
+            void addDataLayer(map, handle, layerId);
           }
         }
         // Restore hillshade if enabled
-        if (mapState.layers.hillshade) addDataLayer(map, handle, "hillshade");
+        if (mapState.layers.hillshade) void addDataLayer(map, handle, "hillshade");
       }
     };
 
@@ -778,7 +778,7 @@ export default function MapPage() {
             // Phase 1: Terrain base layers (color, accuracy, bathymetry, contours)
             for (const layer of LAYERS) {
               if (layer.category === "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
-                addDataLayer(map, layerHandleRef.current, layer.id);
+                void addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
             // Phase 2: Data layers (non-terrain, non-hillshade) on top of terrain
@@ -789,11 +789,11 @@ export default function MapPage() {
                 MAP_2D_LAYER_IDS.has(layer.id) &&
                 mapState.layers[layer.id]
               ) {
-                addDataLayer(map, layerHandleRef.current, layer.id);
+                void addDataLayer(map, layerHandleRef.current, layer.id);
               }
             }
             // Phase 3: Hillshade — loaded last (on top of everything except labels)
-            if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
+            if (mapState.layers.hillshade) void addDataLayer(map, layerHandleRef.current, "hillshade");
             // Phase 4: Labels on very top
             addLabelLayer(map, mapState.basemap);
             // Enforce z-order
@@ -1012,7 +1012,7 @@ export default function MapPage() {
         // Re-add all layers in correct order after style change
         for (const layer of LAYERS) {
           if (layer.category === "terrain" && MAP_2D_LAYER_IDS.has(layer.id) && mapState.layers[layer.id]) {
-            addDataLayer(map, layerHandleRef.current, layer.id);
+            void addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
         for (const layer of LAYERS) {
@@ -1022,11 +1022,11 @@ export default function MapPage() {
             MAP_2D_LAYER_IDS.has(layer.id) &&
             mapState.layers[layer.id]
           ) {
-            addDataLayer(map, layerHandleRef.current, layer.id);
+            void addDataLayer(map, layerHandleRef.current, layer.id);
           }
         }
         // Hillshade — loaded last (on top of everything except labels)
-        if (mapState.layers.hillshade) addDataLayer(map, layerHandleRef.current, "hillshade");
+        if (mapState.layers.hillshade) void addDataLayer(map, layerHandleRef.current, "hillshade");
         addLabelLayer(map, key);
         reorderMapLayers(map, mapState.layers);
         if (mapState.layers.terrain3d) enable3DTerrain(map);
@@ -1063,10 +1063,10 @@ export default function MapPage() {
       // Data layers from shared registry
       if (MAP_2D_LAYER_IDS.has(layerName)) {
         if (enabled) {
-          addDataLayer(map, layerHandleRef.current, layerName);
+          void addDataLayer(map, layerHandleRef.current, layerName);
           reorderMapLayers(map, layers);
         } else {
-          removeDataLayer(map, layerHandleRef.current, layerName);
+          void removeDataLayer(map, layerHandleRef.current, layerName);
         }
       }
 

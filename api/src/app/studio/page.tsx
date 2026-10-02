@@ -375,8 +375,8 @@ export default function StudioPage() {
     if (!map) return;
 
     if (MAP_2D_LAYER_IDS.has(id)) {
-      if (enabled) addDataLayer(map, layerHandleRef.current, id);
-      else removeDataLayer(map, layerHandleRef.current, id);
+      if (enabled) void addDataLayer(map, layerHandleRef.current, id);
+      else void removeDataLayer(map, layerHandleRef.current, id);
     }
   }, []);
 

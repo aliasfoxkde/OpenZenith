@@ -1,7 +1,7 @@
 {
   "name": "@openzenith/mcp-server",
   "version": "1.0.0",
-  "description": "MCP Server for OpenZenith geospatial API \u2014 elevation, weather, tides, address, waterways",
+  "description": "MCP Server for OpenZenith geospatial API — elevation, weather, tides, address, waterways",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -17,6 +17,6 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.8.0",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.3"
   }
 }

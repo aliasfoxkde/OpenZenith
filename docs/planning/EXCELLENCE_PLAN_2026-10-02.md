@@ -17,7 +17,7 @@ evidence is cited as `file:line` where it anchors a work item.
 
 | Gate | State | Source |
 |---|---|---|
-| eslint (api/) | **0 errors**, **3,733 warnings** after the 2026-10-03 regression fix (was 3,759 — +15 from the Oct-2 perf/landing work, caught by the first GitForge run; +10 fixed, guard rebased to measured 3,733) | `api/eslint.config.mjs:42-51`, `.gitforge.yml` lint job, live run + local run 2026-10-02/03 |
+| eslint (api/) | **0 errors**, **3,539 warnings** after the 2026-10-03 slices: the +15 regression fixed (bodyAs test reads, HeroMap initMap typing) and the CDN MapLibre loader properly typed (`Promise<MapLibreGL>`), collapsing 253 → 59 warnings across the map consumers. Was 3,759 at audit time | `api/eslint.config.mjs:42-51`, `.gitforge.yml` lint job, live runs 2026-10-02/03 |
 | tsc (api/) | clean (`strict: true` only; `noUncheckedIndexedAccess` etc. absent) | audit §2 |
 | vitest (api/) | floors 97/92/89/97; coverage **counts only `src/lib/**` + `src/app/api/**`** — globe/map/landing/studio/components/hooks are outside the instrumented set entirely | `api/vitest.config.ts:16-22` |
 | pytest (openzenith/) | **1,479 passed / 14 deselected, 98.82% lines** (floor 97; 171 uncovered lines stand between here and the 99% target) | `pyproject.toml:103`, live run 2026-10-02 |
@@ -309,3 +309,17 @@ toggle smoke for item 1.
   Aegis Phase-1 triage: 214 gate findings → 203 line-shift + 11 triaged
   (all FP/accepted, dispositions in security/TRIAGE.md); baseline
   regenerated 1,716 → 1,710, gate green.
+- 2026-10-03 (Phase 2, first real slice): `waitForMapLibre()` typed to
+  `Promise<MapLibreGL>` (the two `as any` casts removed), HeroMap's
+  `mapRef` → `maplibregl.Map | null`, and the hand-rolled global.d.ts
+  declarations completed (Map constructor, MapMouseEvent overloads for
+  `on()` with async-handler support, real `unproject` signature,
+  `queryRenderedFeatures(): GeoJSON.Feature[]`, GeolocateControl, raster
+  `tiles`/`setTiles` on getSource). The `any` loader had been silently
+  defeating the typed annotations downstream: 12 latent tsc errors fixed
+  at the declaration layer, 253 → 59 warnings across the five map
+  consumers, 0 errors. Lint guard 3,733 → measured 3,539. Also learned:
+  GitForge re-registers pipelines on push (the pipeline id changes; run
+  triggers fire per push), and an ae222ff CI run failed in `npm ci` with
+  exit 137 (OOM SIGKILL) under the co-tenant load spike — infra, not
+  code; re-run when quieter.

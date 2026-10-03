@@ -61,24 +61,25 @@ jobs:
     image: node:22-bookworm
     needs: [typecheck]
     steps:
-      # Baseline hold, not zero-warning: the repo carries ~3.7k eslint
-      # warnings (typed-lint debt, tracked in docs/planning/
-      # RELIABILITY_GAPS_2026-10-01.md #5). Fail the job only if the count
-      # GROWS; shrink the number as slices land.
+      # Baseline hold, not zero-warning: the repo still carries typed-lint
+      # debt (tracked in docs/planning/RELIABILITY_GAPS_2026-10-01.md #5).
+      # Fail the job only if the count GROWS; shrink the number as slices
+      # land.
       # Baseline history: 3744 was set from a stale audit and was already RED
       # by +15 when the first run executed (3,759 after the Oct-2 perf pass;
-      # grep-counting adds +5 vs the JSON message count — 3,754 messages).
-      # The +10 attributable warnings were fixed (typed bodyAs reads in
-      # elevation/geocode tests, HeroMap initMap typed against the global
-      # maplibregl decls) and the guard reset to the measured 3,733.
+      # grep-counting adds ~+5 vs the JSON message count). 2026-10-03: the
+      # +10 attributable warnings were fixed and the CDN MapLibre loader was
+      # properly typed (waitForMapLibre -> Promise<MapLibreGL>, hand-rolled
+      # global.d.ts completed), collapsing 253 warnings to 59 across the map
+      # consumers: measured guard now 3,539.
       - name: eslint + warning-baseline guard
         run: |
           cd api
           npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
           warnings=$(grep -cE 'warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 3733)"
-          [ "${warnings:-0}" -le 3733 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 3733"; exit 1;
+          echo "eslint warnings: ${warnings:-0} (baseline 3539)"
+          [ "${warnings:-0}" -le 3539 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 3539"; exit 1;
           }
     timeout: 10m
 

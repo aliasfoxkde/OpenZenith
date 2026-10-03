@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** NLNOG looking-glass payload, or the `{ error }` body the route emits on failure. */
+interface BgpBody {
+  prefix?: string;
+  /** Upstream NLNOG response, echoed back verbatim by the route. */
+  data?: { prefix: string; as_path: string[]; origin: string };
+  // `error` is member-accessed (length) below, so it stays non-optional
+  // to typecheck under strictNullChecks.
+  error: string;
+}
 
 const mockBgpResponse = { prefix: "8.8.8.0/24", as_path: ["15169"], origin: "igp" };
 
@@ -13,7 +23,7 @@ describe("BGP endpoint", () => {
     const req = mockRequest("/api/bgp");
     const resp = await GET(req);
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<BgpBody>(resp);
     expect(data.error).toContain("prefix");
   });
 
@@ -25,7 +35,7 @@ describe("BGP endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BgpBody>(resp);
     expect(data.prefix).toBe("8.8.8.0/24");
     expect(data.data).toBeDefined();
   });
@@ -56,7 +66,7 @@ describe("BGP endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BgpBody>(resp);
     expect(data.error).toBe("NLNOG Looking Glass returned 503");
   });
 
@@ -70,7 +80,7 @@ describe("BGP endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BgpBody>(resp);
     expect(typeof data.error).toBe("string");
     expect(data.error.length).toBeGreaterThan(0);
   });
@@ -83,7 +93,7 @@ describe("BGP endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BgpBody>(resp);
     expect(data.error).toBe("Failed to query BGP data");
   });
 

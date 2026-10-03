@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** Bodies the ArcGIS proxy returns: either the upstream JSON or `{ error }`. */
+interface ArcgisBody {
+  currentVersion?: number;
+  error?: string;
+}
 
 /**
  * One-shot fetch stub that hands the recorded request to `onCaptured` and
@@ -22,7 +28,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=https://services9.arcgis.com/test"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(data.currentVersion).toBe(10.81);
   });
 
@@ -36,7 +42,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=https://evil.com/data"));
     expect(resp.status).toBe(403);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(data.error).toContain("not allowed");
   });
 
@@ -46,7 +52,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=https://evil-services9.arcgis.com/ArcGIS/rest"));
     expect(resp.status).toBe(403);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(data.error).toContain("not allowed");
   });
 
@@ -95,7 +101,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=not-a-url"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(data.error).toBe("Invalid URL");
   });
 
@@ -105,7 +111,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=https://services9.arcgis.com/test"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(data.error).toBe("dns resolution failed");
   });
 
@@ -115,7 +121,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=https://services9.arcgis.com/test"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(data.error).toBe("ArcGIS proxy error");
   });
 
@@ -127,7 +133,7 @@ describe("ArcGIS Proxy API", () => {
     const { GET } = await import("@/app/api/arcgis/route");
     const resp = await GET(mockRequest("/api/arcgis?url=https://services9.arcgis.com/test"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<ArcgisBody>(resp);
     expect(typeof data.error).toBe("string");
   });
 

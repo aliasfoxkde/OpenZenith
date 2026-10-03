@@ -82,7 +82,7 @@ describe("parseMergedHeader", () => {
 
   it("parses a v2 (float32) header", () => {
     const index = parseMergedHeader(new MergedBuilder(2, 1, 1).addChunk("x").build());
-    expect(index).toEqual({ rows: 1, cols: 1, entries: [{ offset: expect.any(Number), size: expect.any(Number) }] });
+    expect(index).toEqual({ rows: 1, cols: 1, entries: [{ offset: expect.any(Number) as number, size: expect.any(Number) as number }] });
   });
 
   it("reads chunk offsets relative to the file start", () => {

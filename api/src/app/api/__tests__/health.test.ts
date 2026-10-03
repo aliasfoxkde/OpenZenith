@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+interface HealthBody {
+  requestId: string;
+  status: string;
+  storage: { backend: string };
+  coverage: { latRange: number[]; lonRange: number[] };
+}
 
 describe("Health endpoint", () => {
   it("returns 200 with expected shape and requestId", async () => {
@@ -7,7 +14,7 @@ describe("Health endpoint", () => {
     const resp = GET(mockRequest("/api/health"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<HealthBody>(resp);
     expect(data.requestId).toBeDefined();
     expect(data.status).toBe("healthy");
     expect(data.storage).toBeDefined();

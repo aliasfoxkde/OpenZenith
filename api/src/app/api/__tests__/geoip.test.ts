@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * GeoIP response body — the fields these suites assert on. Nulls are what the
+ * route emits for absent CF fields; the index signature backs the "every
+ * optional field is null" loop below.
+ */
+interface GeoipBody {
+  ip?: string;
+  city?: string | null;
+  country?: string | null;
+  countryName?: string | null;
+  region?: string | null;
+  regionName?: string | null;
+  postalCode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string | null;
+  continent?: string | null;
+  asn?: number | null;
+  asOrganization?: string | null;
+  colo?: string | null;
+  [key: string]: string | number | null | undefined;
+}
 
 const MOCK_CF = {
   ip: "1.2.3.4",
@@ -27,7 +50,7 @@ describe("GeoIP endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeoipBody>(resp);
     expect(data.ip).toBe("1.2.3.4");
     expect(data.city).toBe("Amsterdam");
     expect(data.country).toBe("NL");
@@ -59,7 +82,7 @@ describe("GeoIP endpoint", () => {
     const resp = await GET(mockRequest("/api/geoip"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeoipBody>(resp);
     expect(data.ip).toBe("unknown");
     for (const field of [
       "city",
@@ -85,7 +108,7 @@ describe("GeoIP endpoint", () => {
     const req = mockRequest("/api/geoip", "GET", null, { cf: { city: "Rotterdam" } });
     req.headers.set("x-forwarded-for", "203.0.113.7");
 
-    const data = await (await GET(req)).json();
+    const data = await bodyAs<GeoipBody>(await GET(req));
     expect(data.ip).toBe("203.0.113.7");
     expect(data.city).toBe("Rotterdam");
   });
@@ -98,7 +121,7 @@ describe("GeoIP endpoint", () => {
       cf: { ip: "9.9.9.9", city: "", asn: 0, latitude: 0, longitude: 0 },
     });
 
-    const data = await (await GET(req)).json();
+    const data = await bodyAs<GeoipBody>(await GET(req));
     expect(data.ip).toBe("9.9.9.9");
     expect(data.city).toBeNull();
     expect(data.asn).toBeNull();

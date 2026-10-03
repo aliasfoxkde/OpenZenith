@@ -308,7 +308,7 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     // which stores 256 rows with zero-delta padding beyond the 17 real rows.
     const result = await getTileData(13, 1458, 3216, storage);
 
-    const chunkRows = new Set((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1]));
+    const chunkRows = new Set((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1] as number));
     expect(chunkRows).toContain(14);
     expect(Array.from(result.data).every((v) => v === 777)).toBe(true);
   });
@@ -341,7 +341,7 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     // and its western edge overlaps blacklisted N36W116 (Death Valley).
     const result = await getTileData(11, 364, 804, storage);
 
-    const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0]);
+    const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as string);
     expect(names).toContain("N36W115.tif");
     expect(names).toContain("N35W115.tif");
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
@@ -362,7 +362,7 @@ describe("getTileData — HuggingFace chunk assembly", () => {
 
     const result = await getTileData(BLACKLIST_TILE.z, BLACKLIST_TILE.x, BLACKLIST_TILE.y, storage);
 
-    const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0]);
+    const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as string);
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
     // AWS fallback was attempted because a blacklisted tile overlaps
     const abortSignal = expect.any(AbortSignal) as AbortSignal;

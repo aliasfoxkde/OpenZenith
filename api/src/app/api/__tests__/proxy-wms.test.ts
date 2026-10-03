@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** Every JSON body this route returns is an error envelope; images stay binary. */
+interface WmsErrorBody {
+  error?: string;
+}
 
 /** Resolve a request URL the way `fetch` receives it (string, URL or Request). */
 function requestUrl(input: RequestInfo | URL): string {
@@ -55,7 +60,7 @@ describe("Proxy WMS API", () => {
     const { GET } = await import("@/app/api/proxy/wms/route");
     const resp = await GET(mockRequest("/api/proxy/wms?url=not-a-url&layers=test"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WmsErrorBody>(resp);
     expect(data.error).toBe("Invalid URL");
   });
 
@@ -63,7 +68,7 @@ describe("Proxy WMS API", () => {
     const { GET } = await import("@/app/api/proxy/wms/route");
     const resp = await GET(mockRequest("/api/proxy/wms?url=ftp://example.com/wms&layers=test"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WmsErrorBody>(resp);
     expect(data.error).toBe("Only HTTP/HTTPS URLs allowed");
   });
 
@@ -71,7 +76,7 @@ describe("Proxy WMS API", () => {
     const { GET } = await import("@/app/api/proxy/wms/route");
     const resp = await GET(mockRequest("/api/proxy/wms?url=https://example.com/wms&BBOX=-180,-90,180,90"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WmsErrorBody>(resp);
     expect(data.error).toBe("Missing 'layers' parameter");
   });
 
@@ -79,7 +84,7 @@ describe("Proxy WMS API", () => {
     const { GET } = await import("@/app/api/proxy/wms/route");
     const resp = await GET(mockRequest("/api/proxy/wms?url=https://example.com/wms&layers=demo"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WmsErrorBody>(resp);
     expect(data.error).toBe("Missing 'bbox' parameter");
   });
 
@@ -181,7 +186,7 @@ describe("Proxy WMS API", () => {
     const { GET } = await import("@/app/api/proxy/wms/route");
     const resp = await GET(mockRequest("/api/proxy/wms?url=https://example.com/wms&layers=demo&bbox=-10,-10,10,10"));
     expect(resp.status).toBe(500);
-    const data = await resp.json();
+    const data = await bodyAs<WmsErrorBody>(resp);
     expect(data.error).toBe("WMS error: 500");
   });
 
@@ -208,7 +213,7 @@ describe("Proxy WMS API", () => {
       const { GET } = await import("@/app/api/proxy/wms/route");
       const resp = await GET(mockRequest("/api/proxy/wms?url=https://example.com/wms&layers=demo&bbox=-10,-10,10,10"));
       expect(resp.status).toBe(502);
-      const data = await resp.json();
+      const data = await bodyAs<WmsErrorBody>(resp);
       expect(data.error).toBe("Failed to fetch from WMS server");
     } finally {
       errSpy.mockRestore();

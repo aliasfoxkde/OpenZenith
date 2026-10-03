@@ -1,5 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * One tile-matrix entry of an OGC TileMatrixSet. Only the asserted fields are
+ * declared; the route emits the full OGC 17-083r2 shape.
+ */
+interface TileMatrixEntry {
+  id: string;
+  scaleDenominator: number;
+  matrixWidth: number;
+  matrixHeight: number;
+  pointOfOrigin: { x: number; y: number };
+}
+
+/** Success body of /api/tiles/{tileMatrixSetId}. */
+interface TileMatrixSetBody {
+  id: string;
+  title: string;
+  crs: string;
+  wellKnownScaleSet: string;
+  tileMatrices: TileMatrixEntry[];
+  links: unknown;
+}
+
+/** OGC exception body for an unknown tileMatrixSetId. */
+interface TileMatrixErrorBody {
+  code: string;
+}
 
 describe("Tile Matrix Set API", () => {
   it("returns WebMercatorQuad metadata", async () => {
@@ -8,7 +35,7 @@ describe("Tile Matrix Set API", () => {
       params: Promise.resolve({ tileMatrixSetId: "WebMercatorQuad" }),
     });
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<TileMatrixSetBody>(resp);
     expect(data.id).toBe("WebMercatorQuad");
     expect(data.title).toBe("Google Web Mercator");
     expect(data.crs).toContain("3857");
@@ -27,7 +54,7 @@ describe("Tile Matrix Set API", () => {
       params: Promise.resolve({ tileMatrixSetId: "WorldCRS84Quad" }),
     });
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<TileMatrixSetBody>(resp);
     expect(data.id).toBe("WorldCRS84Quad");
     expect(data.crs).toBe("http://www.opengis.net/def/crs/OGC/1.3/CRS84");
     expect(data.wellKnownScaleSet).toBe("http://www.opengis.net/def/wkss/OGC/1.0/WorldCRS84Quad");
@@ -50,7 +77,7 @@ describe("Tile Matrix Set API", () => {
       params: Promise.resolve({ tileMatrixSetId: "UnknownSet" }),
     });
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<TileMatrixErrorBody>(resp);
     expect(data.code).toBe("InvalidParameterValue");
   });
 

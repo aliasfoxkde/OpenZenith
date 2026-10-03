@@ -73,7 +73,7 @@ describe("finishDrawing", () => {
     expect(result.features).toHaveLength(1);
     expect(result.features[0].geometry.type).toBe("Polygon");
     // Polygon should be closed
-    expect(result.features[0].geometry.coordinates[0]).toEqual([
+    expect((result.features[0].geometry.coordinates as [number, number][][])[0]).toEqual([
       [0, 0],
       [1, 0],
       [1, 1],
@@ -214,7 +214,7 @@ describe("exportGeoJSONString", () => {
     const withFeature = finishDrawing(state);
 
     const str = exportGeoJSONString(withFeature);
-    const parsed = JSON.parse(str);
+    const parsed = JSON.parse(str) as { type: string };
     expect(parsed.type).toBe("FeatureCollection");
   });
 });

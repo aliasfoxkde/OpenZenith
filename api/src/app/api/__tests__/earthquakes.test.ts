@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Mock } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** USGS GeoJSON collection, or the `{ error }` payload the route emits on failure. */
+interface QuakeBody {
+  type?: string;
+  features?: Array<{
+    type?: string;
+    geometry?: { type?: string; coordinates?: number[] };
+    properties?: { mag?: number };
+  }>;
+  // `error` is member-accessed (split/length) below, so it stays non-optional
+  // to typecheck under strictNullChecks.
+  error: string;
+}
 
 describe("Earthquakes API", () => {
   it("returns GeoJSON from USGS", async () => {
@@ -12,7 +25,7 @@ describe("Earthquakes API", () => {
 
     const { GET } = await import("@/app/api/earthquakes/route");
     const resp = await GET(mockRequest("/api/earthquakes"));
-    const data = await resp.json();
+    const data = await bodyAs<QuakeBody>(resp);
 
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(1);
@@ -22,7 +35,7 @@ describe("Earthquakes API", () => {
     const { GET } = await import("@/app/api/earthquakes/route");
     const resp = await GET(mockRequest("/api/earthquakes?period=invalid_period"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<QuakeBody>(resp);
     expect(data.error).toContain("Invalid period");
   });
 
@@ -118,7 +131,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     const resp = await (await getRoute())(mockRequest("/api/earthquakes?period=all_year"));
     expect(resp.status).toBe(400);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    const data = await resp.json();
+    const data = await bodyAs<QuakeBody>(resp);
     // 21 valid periods are enumerated back to the caller.
     expect(data.error).toMatch(/^Invalid period\. Valid: /);
     expect(data.error.split(",").map((p: string) => p.trim())).toHaveLength(21);
@@ -142,7 +155,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(await resp.json()).toEqual(cached);
+    expect(await bodyAs<QuakeBody>(resp)).toEqual(cached);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -152,7 +165,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(await resp.json()).toEqual({ error: "USGS API returned 503" });
+    expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "USGS API returned 503" });
   });
 
   it("propagates the thrown message when the upstream request rejects", async () => {
@@ -160,7 +173,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(200);
-    expect(await resp.json()).toEqual({ error: "usgs unreachable" });
+    expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "usgs unreachable" });
   });
 
   it("falls back to a generic message when the cache layer throws a non-Error", async () => {
@@ -171,7 +184,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(200);
-    expect(await resp.json()).toEqual({ error: "Earthquake data fetch failed" });
+    expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "Earthquake data fetch failed" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -185,7 +198,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    expect(await resp.json()).toEqual(payload);
+    expect(await bodyAs<QuakeBody>(resp)).toEqual(payload);
 
     // Fire-and-forget write: the rejection must be swallowed, not surfaced.
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,6 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Mock } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** Error bodies from both the token and flights routes. */
+interface OpenSkyErrorBody {
+  error?: string;
+  authenticated?: boolean;
+}
+
+/** Successful client-credentials token response. */
+interface OpenSkyTokenBody {
+  cached?: boolean;
+  token?: string;
+  expires_at?: number;
+}
+
+/** 429 payload once the daily credit budget is spent. */
+interface OpenSkyExhaustedBody {
+  error?: string;
+  credits_used?: number;
+  budget?: number;
+}
 
 const tokenBody = (accessToken: string, expiresIn: number): string =>
   JSON.stringify({ access_token: accessToken, expires_in: expiresIn, token_type: "Bearer" });
@@ -60,7 +80,7 @@ describe("OpenSky Token API", () => {
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toContain("token");
     expect(data.authenticated).toBe(false);
   });
@@ -72,7 +92,7 @@ describe("OpenSky Token API", () => {
     vi.stubGlobal("fetch", fetchFn);
 
     const { GET } = await import("@/app/api/opensky/token/route");
-    const data = await (await GET()).json();
+    const data = await bodyAs<OpenSkyErrorBody>(await GET());
     expect(data.error).toContain("Failed to obtain OpenSky token");
     expect(fetchFn).not.toHaveBeenCalled();
   });
@@ -91,7 +111,7 @@ describe("OpenSky Token API", () => {
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toContain("Failed to obtain OpenSky token");
     expect(data.authenticated).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -106,7 +126,7 @@ describe("OpenSky Token API", () => {
     );
 
     const { GET } = await import("@/app/api/opensky/token/route");
-    const data = await (await GET()).json();
+    const data = await bodyAs<OpenSkyErrorBody>(await GET());
     expect(data.error).toContain("Failed to obtain OpenSky token");
   });
 
@@ -117,7 +137,7 @@ describe("OpenSky Token API", () => {
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyTokenBody>(resp);
     expect(data.cached).toBe(false);
     expect(data.token).toBe("tok-fresh");
 
@@ -142,11 +162,11 @@ describe("OpenSky Token API", () => {
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const first = await GET();
-    const firstData = await first.json();
+    const firstData = await bodyAs<OpenSkyTokenBody>(first);
     expect(firstData.cached).toBe(false);
 
     const second = await GET();
-    const secondData = await second.json();
+    const secondData = await bodyAs<OpenSkyTokenBody>(second);
     expect(secondData.cached).toBe(true);
     expect(secondData.token).toBe("tok-cached");
     expect(secondData.expires_at).toBe(firstData.expires_at);
@@ -162,14 +182,14 @@ describe("OpenSky Token API", () => {
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const first = await GET();
-    expect((await first.json()).token).toBe("tok-a");
+    expect((await bodyAs<OpenSkyTokenBody>(first)).token).toBe("tok-a");
 
     // Cached lifetime is 3300s (3600 minus the 300s buffer); advance past it.
     vi.setSystemTime(start + 3301 * 1000);
     fetchMock.mockImplementation(() => jsonResponse(tokenBody("tok-b", 3600)));
 
     const second = await GET();
-    const data = await second.json();
+    const data = await bodyAs<OpenSkyTokenBody>(second);
     expect(data.cached).toBe(false);
     expect(data.token).toBe("tok-b");
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -180,8 +200,8 @@ describe("OpenSky Token API", () => {
     stubFetch(vi.fn(() => jsonResponse(tokenBody("tok-short", 200))));
 
     const { GET } = await import("@/app/api/opensky/token/route");
-    expect((await (await GET()).json()).cached).toBe(false);
-    expect((await (await GET()).json()).cached).toBe(false);
+    expect((await bodyAs<OpenSkyTokenBody>(await GET())).cached).toBe(false);
+    expect((await bodyAs<OpenSkyTokenBody>(await GET())).cached).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
@@ -210,7 +230,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights?lamin=91"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toContain("Invalid bbox params");
   });
 
@@ -227,7 +247,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toBe("network unreachable");
   });
 
@@ -236,7 +256,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
 
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toBe("Flight data fetch failed");
   });
 
@@ -276,7 +296,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toBe("OpenSky API returned 401");
     expect(data.authenticated).toBe(true);
     expect(spy).toHaveBeenCalledTimes(1);
@@ -354,10 +374,10 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     const { GET } = await import("@/app/api/opensky/flights/route");
     // 4 credits per global request against a 4000/day budget — drive the
     // counter over the line rather than reaching into module state.
-    let exhausted: { error?: string; credits_used?: number; budget?: number } | undefined;
+    let exhausted: OpenSkyExhaustedBody | undefined;
     for (let i = 0; i < 1400 && !exhausted; i += 1) {
       const resp = await GET(mockRequest("/api/opensky/flights"));
-      if (resp.status === 429) exhausted = await resp.json();
+      if (resp.status === 429) exhausted = await bodyAs<OpenSkyExhaustedBody>(resp);
     }
     expect(exhausted).toBeDefined();
     expect(exhausted?.error).toBe("Daily credit budget exhausted");

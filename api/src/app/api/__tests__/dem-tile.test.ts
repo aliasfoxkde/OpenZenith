@@ -1,12 +1,29 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** TileJSON metadata served by GET /api/dem-tile (no health probe). */
+interface DemTileMetadataBody {
+  tilejson: string;
+  tiles: string[];
+  encoding: string;
+  minzoom: number;
+  maxzoom: number;
+}
+
+/** Body served by GET /api/dem-tile?health=1. */
+interface DemTileHealthBody {
+  status: string;
+  backend: string;
+  message: string;
+  http_status?: number;
+}
 
 describe("DEM Tile Metadata API", () => {
   it("returns TileJSON metadata", async () => {
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<DemTileMetadataBody>(resp);
     expect(data.tilejson).toBe("3.0.0");
     expect(data.tiles).toContain("/api/dem-tile/{z}/{x}/{y}");
     expect(data.encoding).toBe("terrarium");
@@ -20,7 +37,7 @@ describe("DEM Tile Metadata API", () => {
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("ok");
     expect(data.backend).toBe("huggingface");
   });
@@ -31,7 +48,7 @@ describe("DEM Tile Metadata API", () => {
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("degraded");
   });
 
@@ -42,7 +59,7 @@ describe("DEM Tile Metadata API", () => {
     for (const query of ["", "?health=0", "?health=true", "?format=ozt2"]) {
       const resp = await GET(mockRequest(`/api/dem-tile${query}`));
       expect(resp.status).toBe(200);
-      expect((await resp.json()).tilejson).toBe("3.0.0");
+      expect((await bodyAs<DemTileMetadataBody>(resp)).tilejson).toBe("3.0.0");
     }
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
@@ -64,7 +81,7 @@ describe("DEM Tile Metadata API", () => {
       const { GET } = await import("@/app/api/dem-tile/route");
       const resp = await GET(mockRequest("/api/dem-tile?health=1"));
       expect(resp.status).toBe(200);
-      const data = await resp.json();
+      const data = await bodyAs<DemTileHealthBody>(resp);
       expect(data.status).toBe("ok");
       expect(data.http_status).toBe(redirectStatus);
       expect(resp.headers.get("Cache-Control")).toBe("no-cache");
@@ -80,7 +97,7 @@ describe("DEM Tile Metadata API", () => {
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("degraded");
     expect(data.message).toBe("HuggingFace returned status 304");
     fetchSpy.mockRestore();
@@ -94,7 +111,7 @@ describe("DEM Tile Metadata API", () => {
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("error");
     expect(data.backend).toBe("huggingface");
     expect(data.message).toBe("HuggingFace request aborted");
@@ -107,7 +124,7 @@ describe("DEM Tile Metadata API", () => {
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("error");
     expect(data.message).toBe("Health check failed");
     fetchSpy.mockRestore();

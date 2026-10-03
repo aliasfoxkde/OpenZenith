@@ -1,5 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * Waterways GeoJSON payload fields these suites assert on. Only a Polygon or
+ * LineString geometry is ever emitted, and `properties` mirrors the way's
+ * Overpass tags (absent tags become null).
+ */
+interface WaterwayBody {
+  type?: string;
+  features: WaterwayFeature[];
+  count?: number;
+  error?: string;
+}
+
+interface WaterwayFeature {
+  type?: string;
+  geometry: { type: string; coordinates: number[][] };
+  properties?: Record<string, unknown>;
+}
 
 // Overpass `out body geom` attaches per-way geometry as {lat, lon} objects —
 // without the geom modifier ways carry only a node-id list and the route
@@ -49,7 +67,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(Array.isArray(data.features)).toBe(true);
     expect(data.features.length).toBe(1);
@@ -92,7 +110,7 @@ describe("Waterways endpoint", () => {
     // 0.2 deg of latitude (fine) with 20 deg of longitude (too wide).
     const resp = await GET(mockRequest("/api/waterways?bbox=-84.1,40.6,-64.1,40.8"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toContain("too large");
   });
 
@@ -101,7 +119,7 @@ describe("Waterways endpoint", () => {
     // 0.2 deg of longitude (fine) with 120 deg of latitude (too tall).
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,-60,-73.9,60"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toContain("too large");
   });
 
@@ -109,7 +127,7 @@ describe("Waterways endpoint", () => {
     const { GET } = await import("@/app/api/waterways/route");
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,north"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toContain("Invalid bbox format");
   });
 
@@ -123,7 +141,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.type).toBe("FeatureCollection");
   });
 
@@ -171,7 +189,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.count).toBeLessThanOrEqual(2);
   });
 
@@ -184,7 +202,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.features).toEqual([]);
     expect(data.count).toBe(0);
   });
@@ -208,7 +226,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.features).toEqual([]);
     expect(data.count).toBe(0);
   });
@@ -239,7 +257,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.count).toBe(1);
     expect(data.features[0].geometry.type).toBe("Polygon");
     // Overpass geometry is {lat, lon} objects; GeoJSON wants [lon, lat].
@@ -278,7 +296,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.features[0].geometry.type).toBe("Polygon");
     expect(data.features[0].geometry.coordinates).toHaveLength(1);
   });
@@ -306,7 +324,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.count).toBe(1);
     expect(data.features[0].geometry.type).toBe("LineString");
     expect(data.features[0].geometry.coordinates).toEqual([
@@ -329,7 +347,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toBe("Overpass API unavailable");
   });
 
@@ -340,7 +358,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toBe("Waterways query failed");
   });
 
@@ -353,7 +371,7 @@ describe("Waterways endpoint", () => {
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toBe("Waterways query failed");
   });
 

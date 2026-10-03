@@ -1,5 +1,31 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * The slimmed state-vector object the route emits (heavy upstream fields
+ * already dropped) and the top-level /api/flights body shape. Only the
+ * asserted fields are declared.
+ */
+interface SlimmedState {
+  icao24: string;
+  callsign: string | null;
+  origin_country: string;
+  longitude: number;
+  latitude: number;
+  baro_altitude: number;
+  on_ground: boolean;
+  velocity: number;
+  true_track: number;
+  vertical_rate: number;
+  squawk: string;
+  position_source: number;
+}
+
+interface FlightsBody {
+  time?: number;
+  states: SlimmedState[];
+  error?: string;
+}
 
 // A full 17-element OpenSky state vector, in the documented index order.
 const FULL_STATE = [
@@ -50,7 +76,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data).toHaveProperty("states");
   });
 
@@ -73,7 +99,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.states).toEqual([]);
     expect(data.error).toBeDefined();
   });
@@ -89,7 +115,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights?lamin=40&lamax=200"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.error).toContain("Invalid bbox params");
   });
 
@@ -115,7 +141,7 @@ describe("Flights API", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
 
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.time).toBe(1700000100);
     expect(data.states).toHaveLength(2);
     // time_position, last_contact, sensors, geo_altitude and spi are all gone.
@@ -130,7 +156,7 @@ describe("Flights API", () => {
 
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights?lamin=40&lamax=42&lomin=-74&lomax=-72"));
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.states).toEqual([SLIMMED_FULL_STATE]);
   });
 
@@ -139,7 +165,7 @@ describe("Flights API", () => {
 
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.states).toEqual([]);
   });
 
@@ -149,7 +175,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.states).toEqual([]);
     expect(data.error).toBe("socket hang up");
   });
@@ -160,7 +186,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<FlightsBody>(resp);
     expect(data.error).toBe("Flight data fetch failed");
   });
 });

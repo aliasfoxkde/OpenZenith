@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { bodyAs } from "./helpers";
 
 // Route tests run without an R2 binding, where the real edgeGetJson resolves
 // null. The mock mirrors that default but lets individual tests plant a
@@ -14,6 +15,24 @@ const mockNlnogNodes = [
   { id: 1, hostname: "ams01", asn: 123, ipv4: "1.2.3.4", city: "Amsterdam", countrycode: "NL", geo: "52.37,4.9" },
   { id: 2, hostname: "lon01", asn: 456, ipv4: "5.6.7.8", city: "London", countrycode: "GB", geo: "51.51,-0.13" },
 ];
+
+/** Parsed node as the route emits it (fields blanked upstream stay absent). */
+interface NlnogNode {
+  id?: number;
+  hostname?: string;
+  asn?: number;
+  ipv4?: string;
+  city?: string;
+  country?: string;
+  lat?: number;
+  lon?: number;
+}
+
+interface NlnogBody {
+  nodes: NlnogNode[];
+  count?: number;
+  error?: string;
+}
 
 /** Stub fetch with a fixed response for the duration of one test. */
 const stubUpstream = (body: string, status = 200): void => {
@@ -46,7 +65,7 @@ describe("NLNOG endpoint", () => {
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(resp.headers.get("cache-control")).toContain("max-age=3600");
 
-    const data = await resp.json();
+    const data = await bodyAs<NlnogBody>(resp);
     expect(data.nodes).toEqual([{ id: 7, hostname: "cached" }]);
     expect(data.count).toBe(1);
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -60,7 +79,7 @@ describe("NLNOG endpoint", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("x-cache")).toBeNull();
 
-    const data = await resp.json();
+    const data = await bodyAs<NlnogBody>(resp);
     expect(data.error).toBe("NLNOG API returned 503");
   });
 
@@ -71,16 +90,16 @@ describe("NLNOG endpoint", () => {
     const resp = await GET();
     expect(resp.headers.get("X-Cache")).toBe("MISS");
 
-    const data = await resp.json();
+    const data = await bodyAs<NlnogBody>(resp);
     expect(data.count).toBe(2);
-    expect(data.nodes.map((n: { hostname: string }) => n.hostname)).toEqual(["ams01", "lon01"]);
+    expect(data.nodes.map((n) => n.hostname)).toEqual(["ams01", "lon01"]);
   });
 
   it("returns an empty node list when the envelope carries no results", async () => {
     stubUpstream(JSON.stringify({ info: { nodes_found: 0 } }));
 
     const { GET } = await import("@/app/api/nlnog/route");
-    const data = await (await GET()).json();
+    const data = await bodyAs<NlnogBody>(await GET());
     expect(data.nodes).toEqual([]);
     expect(data.count).toBe(0);
   });
@@ -89,7 +108,7 @@ describe("NLNOG endpoint", () => {
     stubUpstream("null");
 
     const { GET } = await import("@/app/api/nlnog/route");
-    const data = await (await GET()).json();
+    const data = await bodyAs<NlnogBody>(await GET());
     expect(data.nodes).toEqual([]);
     expect(data.count).toBe(0);
   });
@@ -105,7 +124,7 @@ describe("NLNOG endpoint", () => {
     stubUpstream(JSON.stringify(messy));
 
     const { GET } = await import("@/app/api/nlnog/route");
-    const data = await (await GET()).json();
+    const data = await bodyAs<NlnogBody>(await GET());
     expect(data.count).toBe(1);
     expect(data.nodes).toEqual([
       { id: 1, hostname: "ok", asn: undefined, ipv4: undefined, city: undefined, country: undefined, lat: 52.37, lon: 4.9 },
@@ -119,7 +138,7 @@ describe("NLNOG endpoint", () => {
     const resp = await GET();
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<NlnogBody>(resp);
     expect(data.error).toBe("nlnog unreachable");
   });
 
@@ -129,7 +148,7 @@ describe("NLNOG endpoint", () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject("aborted")));
 
     const { GET } = await import("@/app/api/nlnog/route");
-    const data = await (await GET()).json();
+    const data = await bodyAs<NlnogBody>(await GET());
     expect(data.error).toBe("Failed to fetch NLNOG nodes");
   });
 
@@ -143,7 +162,7 @@ describe("NLNOG endpoint", () => {
     const resp = await GET();
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<NlnogBody>(resp);
     expect(Array.isArray(data.nodes)).toBe(true);
     expect(typeof data.count).toBe("number");
     expect(data.count).toBe(data.nodes.length);
@@ -158,7 +177,7 @@ describe("NLNOG endpoint", () => {
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
-    const data = await resp.json();
+    const data = await bodyAs<NlnogBody>(resp);
 
     if (data.nodes.length === 0) return;
 

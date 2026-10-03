@@ -1,29 +1,38 @@
 import { describe, it, expect } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * OGC tiles landing document — the link structures these suites assert on.
+ * The route always emits both arrays, so they are non-optional.
+ */
+interface TilesInfoBody {
+  tileMatrixSetLinks: Array<{ tileMatrixSet: string; href: string }>;
+  links: Array<{ rel: string; href: string }>;
+}
 
 describe("Tiles OGC API", () => {
   it("returns tileset metadata for both advertised matrix sets", async () => {
     const { GET } = await import("@/app/api/tiles/route");
     const resp = await GET(mockRequest("/api/tiles"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<TilesInfoBody>(resp);
     expect(data.tileMatrixSetLinks).toBeTruthy();
     expect(data.links).toBeTruthy();
     // #122 advertises the conformant geographic set alongside Web Mercator
-    const setIds = data.tileMatrixSetLinks.map((l: { tileMatrixSet: string }) => l.tileMatrixSet);
+    const setIds = data.tileMatrixSetLinks.map((l) => l.tileMatrixSet);
     expect(setIds).toEqual(["WebMercatorQuad", "WorldCRS84Quad"]);
-    const crs84Hrefs = data.links.filter((l: { href: string }) => l.href.includes("WorldCRS84Quad"));
+    const crs84Hrefs = data.links.filter((l) => l.href.includes("WorldCRS84Quad"));
     expect(crs84Hrefs.length).toBeGreaterThanOrEqual(1);
   });
 
   it("reflects the request origin in its links", async () => {
     const { GET } = await import("@/app/api/tiles/route");
     const resp = await GET(mockRequest("/api/tiles?probe=1"));
-    const data = await resp.json();
-    const hrefs = data.links.map((link: { href: string }) => link.href);
+    const data = await bodyAs<TilesInfoBody>(resp);
+    const hrefs = data.links.map((link) => link.href);
     expect(hrefs).toContain("http://localhost:8788/api/openapi.json");
     expect(data.tileMatrixSetLinks[0].href).toBe("http://localhost:8788/api/tiles/WebMercatorQuad");
-    expect(data.links.find((link: { rel: string }) => link.rel === "self").href).toBe(
+    expect(data.links.find((link) => link.rel === "self")?.href).toBe(
       "http://localhost:8788/api/tiles",
     );
   });

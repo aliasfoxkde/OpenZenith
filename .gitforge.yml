@@ -71,16 +71,20 @@ jobs:
       # +10 attributable warnings were fixed and the whole map consumer
       # stack was typed (waitForMapLibre -> Promise<MapLibreGL>, hand-rolled
       # global.d.ts completed, map/demo/studio/HeroMap escape hatches
-      # removed): 3,759 -> 3,480 measured, zero warnings left in the map
-      # consumers.
+      # removed): 3,759 -> 3,480 measured. Same day, every route/lib test
+      # file was converted to the typed bodyAs<T>() response pattern (43
+      # files; interfaces per response shape, no eslint-disables, tsc clean):
+      # 3,475 -> 2,690 JSON-message warnings (grep count 2,694). Remaining
+      # debt is dominated by the globe raster-layer family (~1,890), which
+      # waits for the Phase-6 layer factory rather than 24 hand-typings.
       - name: eslint + warning-baseline guard
         run: |
           cd api
           npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
           warnings=$(grep -cE 'warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 3480)"
-          [ "${warnings:-0}" -le 3480 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 3480"; exit 1;
+          echo "eslint warnings: ${warnings:-0} (baseline 2694)"
+          [ "${warnings:-0}" -le 2694 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 2694"; exit 1;
           }
     timeout: 10m
 

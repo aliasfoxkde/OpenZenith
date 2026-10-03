@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** 400 rejection body served by GET /api/dem-tile/{z}/{x}/{y}. */
+interface DemTileErrorBody {
+  error: string;
+}
 
 vi.mock("@/lib/tile", () => ({
   getTileData: vi.fn().mockResolvedValue({
@@ -100,7 +105,7 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/-1/0/0.png"), ctx(-1, 0, "0.png"));
     expect(resp.status).toBe(400);
-    expect((await resp.json()).error).toBe("Invalid zoom level");
+    expect((await bodyAs<DemTileErrorBody>(resp)).error).toBe("Invalid zoom level");
   });
 
   it("rejects a non-numeric y coordinate with and without the .png suffix", async () => {
@@ -109,7 +114,7 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     const withoutSuffix = await GET(mockRequest("/api/dem-tile/4/0/abc"), ctx(4, 0, "abc"));
     expect(withSuffix.status).toBe(400);
     expect(withoutSuffix.status).toBe(400);
-    expect((await withoutSuffix.json()).error).toBe("Invalid tile coordinates");
+    expect((await bodyAs<DemTileErrorBody>(withoutSuffix)).error).toBe("Invalid tile coordinates");
   });
 
   it("serves an explicit ?format=png request from HuggingFace", async () => {

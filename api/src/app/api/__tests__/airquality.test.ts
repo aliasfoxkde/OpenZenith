@@ -1,5 +1,30 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Mock } from "vitest";
+import { bodyAs } from "./helpers";
+
+/**
+ * GeoJSON feature the route emits for a non-empty upstream `current` block.
+ * Only the asserted properties are declared; the route may emit more.
+ */
+interface AqFeature {
+  geometry: { type: string; coordinates: number[] };
+  properties: {
+    pm2_5?: number;
+    us_aqi?: number;
+    aqi_level?: string;
+  };
+}
+
+/** Success body: a FeatureCollection (possibly empty). */
+interface AqBody {
+  type?: string;
+  features: AqFeature[];
+}
+
+/** Failure body: the route answers upstream errors with a 200 + error field. */
+interface AqErrorBody {
+  error: string;
+}
 
 // Each test stubs globalThis.fetch wholesale instead of queueing
 // mockResolvedValueOnce responses: an orphaned route call from a timed-out
@@ -34,7 +59,7 @@ describe("Air Quality API", () => {
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality?lat=40.7&lon=-74.0"));
-    const data = await resp.json();
+    const data = await bodyAs<AqBody>(resp);
 
     expect(resp.status).toBe(200);
     expect(data.type).toBe("FeatureCollection");
@@ -51,7 +76,7 @@ describe("Air Quality API", () => {
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
-    const data = await resp.json();
+    const data = await bodyAs<AqBody>(resp);
 
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(0);
@@ -84,7 +109,7 @@ describe("Air Quality API", () => {
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
-    const data = await resp.json();
+    const data = await bodyAs<AqBody>(resp);
 
     expect(data.features[0].geometry.coordinates).toEqual([-74.0, 40.7]);
   });
@@ -134,7 +159,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     expect(url).toContain("timezone=auto");
     expect(url).toContain("current=pm10%2Cpm2_5");
 
-    const data = await resp.json();
+    const data = await bodyAs<AqBody>(resp);
     expect(data.features[0].geometry.coordinates).toEqual([10.25, 45.5]);
   });
 
@@ -146,7 +171,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const url = fetchMock.mock.calls[0][0];
     expect(url).toContain("latitude=40.7");
     expect(url).toContain("longitude=-74");
-    const data = await resp.json();
+    const data = await bodyAs<AqBody>(resp);
     expect(data.features[0].geometry.coordinates).toEqual([-74, 40.7]);
   });
 
@@ -182,14 +207,14 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality?lat=1&lon=2"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    const data = await resp.json();
+    const data = await bodyAs<AqBody>(resp);
     expect(data).toEqual({ type: "FeatureCollection", features: [] });
   });
 
   it("maps a missing us_aqi to level Good", async () => {
     withCurrent({ pm2_5: 3, pm10: 5, time: "2026-09-23T00:00" });
 
-    const data = await (await (await getRoute())(new Request("http://localhost/api/airquality"))).json();
+    const data = await bodyAs<AqBody>(await (await getRoute())(new Request("http://localhost/api/airquality")));
     expect(data.features[0].properties.us_aqi).toBeUndefined();
     expect(data.features[0].properties.aqi_level).toBe("Good");
   });
@@ -215,7 +240,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const GET = await getRoute();
     for (const [aqi, level] of bands) {
       fetchMock.mockImplementation(() => aqResponse({ us_aqi: aqi }));
-      const data = await (await GET(new Request("http://localhost/api/airquality"))).json();
+      const data = await bodyAs<AqBody>(await GET(new Request("http://localhost/api/airquality")));
       expect(data.features[0].properties.aqi_level, `us_aqi=${aqi}`).toBe(level);
       expect(data.features[0].properties.us_aqi).toBe(aqi);
     }
@@ -228,7 +253,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(await resp.json()).toEqual({ error: "Failed to fetch air quality data" });
+    expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Failed to fetch air quality data" });
   });
 
   it("returns a 200 error payload when the upstream request throws", async () => {
@@ -237,7 +262,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(await resp.json()).toEqual({ error: "Internal server error" });
+    expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Internal server error" });
   });
 
   it("returns a 200 error payload when the upstream body is not JSON", async () => {
@@ -245,6 +270,6 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
     expect(resp.status).toBe(200);
-    expect(await resp.json()).toEqual({ error: "Internal server error" });
+    expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Internal server error" });
   });
 });

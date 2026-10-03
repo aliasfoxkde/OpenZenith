@@ -178,7 +178,7 @@ describe("createGIBSHandler — WMS proxy", () => {
 
     const resp = await call(2, 1, 2);
     expect(fetchSpy).toHaveBeenCalledWith(wmsUrl(2, 1, 2), {
-      signal: expect.any(AbortSignal),
+      signal: expect.any(AbortSignal) as AbortSignal,
       headers: { "User-Agent": "OpenZenith/1.0" },
     });
     expect(resp.status).toBe(200);

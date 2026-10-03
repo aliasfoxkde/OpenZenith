@@ -1,5 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * Overpass proxy response body — `elements` on success, `error` on any of the
+ * route's silent-200 failure paths. Only asserted fields are declared.
+ */
+interface OverpassBody {
+  elements?: Array<{ type?: string; id?: number; lat?: number; lon?: number }>;
+  error?: string;
+}
 
 /**
  * One-shot fetch stub that hands the recorded request to `onCaptured` and
@@ -27,7 +36,7 @@ describe("Overpass API", () => {
     );
     const resp = await POST(req);
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(data.elements).toHaveLength(1);
   });
 
@@ -69,7 +78,7 @@ describe("Overpass API", () => {
     const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: 12345 }));
     const resp = await POST(req);
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(data.error).toBe("Missing query string");
   });
 
@@ -78,7 +87,7 @@ describe("Overpass API", () => {
     const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "x".repeat(10001) }));
     const resp = await POST(req);
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(data.error).toContain("too long");
   });
 
@@ -91,7 +100,7 @@ describe("Overpass API", () => {
     const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "x".repeat(10000) }));
     const resp = await POST(req);
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(data.elements).toEqual([]);
   });
 
@@ -103,7 +112,7 @@ describe("Overpass API", () => {
     const resp = await POST(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(data.error).toBe("upstream reset");
   });
 
@@ -115,7 +124,7 @@ describe("Overpass API", () => {
     const resp = await POST(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(data.error).toBe("Overpass proxy error");
   });
 
@@ -125,7 +134,7 @@ describe("Overpass API", () => {
     const resp = await POST(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(typeof data.error).toBe("string");
     expect(data.error).not.toBe("Missing query string");
   });
@@ -140,7 +149,7 @@ describe("Overpass API", () => {
     const resp = await POST(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<OverpassBody>(resp);
     expect(typeof data.error).toBe("string");
   });
 

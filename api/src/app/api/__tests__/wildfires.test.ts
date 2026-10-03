@@ -1,5 +1,35 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Mock } from "vitest";
+import { bodyAs } from "./helpers";
+
+/**
+ * FIRMS wildfire payload fields these suites assert on. The route omits the
+ * success-only fields (days/bbox/satellite/date/apiKeyStatus) on its error
+ * variants, and only the success payloads carry a `date` to match against.
+ */
+interface WildfireBody {
+  type: string;
+  features: WildfireFeature[];
+  count: number;
+  error?: string;
+  days?: number;
+  bbox?: string;
+  satellite?: string;
+  date: string;
+  apiKeyStatus?: string;
+}
+
+interface WildfireFeature {
+  type: string;
+  geometry: { type: string; coordinates: number[] };
+  properties: {
+    confidence: number | string;
+    brightness: number;
+    frp: number;
+    daynight: string;
+    satellite: string;
+  };
+}
 
 // Re-mock the cache module for this file only so the `CACHE_TTL.WARNINGS || 300`
 // fallback branch is reachable.
@@ -40,7 +70,7 @@ describe("Wildfires API", () => {
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
-    const data = await resp.json();
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(0);
     expect(data.error).toContain("not configured");
@@ -52,7 +82,7 @@ describe("Wildfires API", () => {
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires?days=3&bbox=-130,25,-60,50"));
-    const data = await resp.json();
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.days).toBe(3);
     expect(data.bbox).toBe("-130,25,-60,50");
@@ -107,7 +137,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600");
-    expect(await resp.json()).toEqual(cached);
+    expect(await bodyAs<WildfireBody>(resp)).toEqual(cached);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -126,7 +156,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600");
 
-    const data = await resp.json();
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.count).toBe(2);
     expect(data.days).toBe(2);
@@ -147,7 +177,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
 
     const { edgePutJson } = await r2Json();
     expect(edgePutJson).toHaveBeenCalledTimes(1);
-    const [key, payload, ttl] = (edgePutJson as Mock).mock.calls[0];
+    const [key, payload, ttl] = (edgePutJson as Mock).mock.calls[0] as [unknown, WildfireBody, number];
     expect(String(key)).toContain("wildfires");
     expect(payload.count).toBe(2);
     expect(ttl).toBe(3600);
@@ -164,7 +194,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     stubFetch(vi.fn(() => new Response(csv, { status: 200 })));
 
     const GET = await getRoute();
-    const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
+    const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
     const props = data.features[0].properties;
     expect(props.frp).toBe(42.7);
     expect(props.daynight).toBe("N");
@@ -182,7 +212,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     stubFetch(vi.fn(() => new Response(csv, { status: 200 })));
 
     const GET = await getRoute();
-    const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
+    const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
     expect(data.count).toBe(2);
     expect(data.features.map((f: { geometry: { coordinates: number[] } }) => f.geometry.coordinates)).toEqual([
       [2, 1],
@@ -199,7 +229,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     stubFetch(vi.fn(() => new Response(rows.join("\n"), { status: 200 })));
 
     const GET = await getRoute();
-    const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
+    const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
     expect(data.count).toBe(3000);
     expect(data.features).toHaveLength(3000);
   });
@@ -213,7 +243,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
-    const data = await resp.json();
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.count).toBe(0);
     expect(data.features).toHaveLength(0);
     expect(data.error).toContain("FIRMS API returned 429");
@@ -228,7 +258,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600");
-    const data = await resp.json();
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.count).toBe(0);
     expect(data.features).toHaveLength(0);
     expect(data.error).toBeUndefined();
@@ -254,9 +284,9 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     stubFetch(vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
 
     const GET = await getRoute();
-    const data = await (
-      await GET(createMockRequest("https://example.com/api/wildfires?satellite=MODIS_NRT&bbox=-10,10,10,20"))
-    ).json();
+    const data = await bodyAs<WildfireBody>(
+      await GET(createMockRequest("https://example.com/api/wildfires?satellite=MODIS_NRT&bbox=-10,10,10,20")),
+    );
 
     const url = fetchMock.mock.calls[0][0] as string;
     expect(url).toBe("https://firms.modaps.eosdis.nasa.gov/api/area/csv/test-key/MODIS_NRT/-10,10,10,20/1");
@@ -273,7 +303,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.error).toBe("R2 unavailable");
     expect(data.count).toBe(0);
     expect(data.type).toBe("FeatureCollection");
@@ -287,7 +317,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     (edgeGetJson as Mock).mockRejectedValueOnce("boom");
 
     const GET = await getRoute();
-    const data = await (await GET(createMockRequest("https://example.com/api/wildfires"))).json();
+    const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
     expect(data.error).toBe("Failed to fetch FIRMS data");
   });
 });

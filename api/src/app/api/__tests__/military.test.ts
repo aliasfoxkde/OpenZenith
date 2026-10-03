@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** ADSB aircraft record — these suites only ever inspect `hex`. */
+type Aircraft = Record<string, unknown>;
+
+/**
+ * Military aircraft payload fields these suites assert on. The route forwards
+ * the upstream `ac` verbatim, so a non-array upstream body lands as an object,
+ * and `total` is null when neither totalCount nor total is present.
+ */
+interface MilitaryBody {
+  ac?: Aircraft[] | Aircraft;
+  count?: number;
+  total?: number | null;
+  error?: string;
+}
 
 // Route tests run without an R2 binding, where the real edgeGetJson resolves
 // null. The mock mirrors that default but lets individual tests plant a
@@ -24,7 +39,7 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
     const resp = await GET(mockRequest("/api/military?lat=30&lon=-90&dist=100"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<MilitaryBody>(resp);
     expect(data.ac).toHaveLength(1);
   });
 
@@ -46,7 +61,7 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
     const resp = await GET(mockRequest("/api/military"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<MilitaryBody>(resp);
     expect(data.error).toContain("API key");
   });
 
@@ -69,7 +84,7 @@ describe("Military API", () => {
       expect(resp.headers.get("X-Cache")).toBe("HIT");
       expect(resp.headers.get("cache-control")).toBe("public, max-age=30");
 
-      const data = await resp.json();
+      const data = await bodyAs<MilitaryBody>(resp);
       expect(data.ac).toEqual([{ hex: "CACHED1" }]);
       expect(data.count).toBe(1);
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -120,17 +135,17 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
 
     spy.mockResolvedValueOnce(new Response("forbidden", { status: 403 }));
-    const forbidden = await (await GET(mockRequest("/api/military"))).json();
+    const forbidden = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(forbidden.error).toContain("requires API key");
     expect(forbidden.ac).toEqual([]);
     expect(forbidden.count).toBe(0);
 
     spy.mockResolvedValueOnce(new Response("slow down", { status: 429 }));
-    const limited = await (await GET(mockRequest("/api/military"))).json();
+    const limited = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(limited.error).toContain("rate limit");
 
     spy.mockResolvedValueOnce(new Response("boom", { status: 500 }));
-    const serverError = await (await GET(mockRequest("/api/military"))).json();
+    const serverError = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(serverError.error).toBe("ADSB Exchange returned 500");
     expect(serverError.count).toBe(0);
   });
@@ -140,16 +155,16 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
 
     spy.mockResolvedValueOnce(new Response(JSON.stringify({ aircraft: [{ hex: "B1" }] }), { status: 200 }));
-    const viaAircraft = await (await GET(mockRequest("/api/military"))).json();
+    const viaAircraft = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(viaAircraft.ac).toEqual([{ hex: "B1" }]);
     expect(viaAircraft.count).toBe(1);
 
     spy.mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ hex: "R1" }, { hex: "R2" }] }), { status: 200 }));
-    const viaResults = await (await GET(mockRequest("/api/military"))).json();
+    const viaResults = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(viaResults.count).toBe(2);
 
     spy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
-    const empty = await (await GET(mockRequest("/api/military"))).json();
+    const empty = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(empty.ac).toEqual([]);
     expect(empty.count).toBe(0);
     expect(empty.total).toBeNull();
@@ -161,7 +176,7 @@ describe("Military API", () => {
     );
 
     const { GET } = await import("@/app/api/military/route");
-    const data = await (await GET(mockRequest("/api/military"))).json();
+    const data = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(data.ac).toEqual({ hex: "NOT-AN-ARRAY" });
     expect(data.count).toBe(0);
     expect(data.total).toBe(3);
@@ -172,11 +187,11 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
 
     spy.mockResolvedValueOnce(new Response(JSON.stringify({ ac: [], totalCount: 12, total: 9 }), { status: 200 }));
-    const withTotalCount = await (await GET(mockRequest("/api/military"))).json();
+    const withTotalCount = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(withTotalCount.total).toBe(12);
 
     spy.mockResolvedValueOnce(new Response(JSON.stringify({ ac: [] }), { status: 200 }));
-    const withNeither = await (await GET(mockRequest("/api/military"))).json();
+    const withNeither = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(withNeither.total).toBeNull();
   });
 
@@ -187,7 +202,7 @@ describe("Military API", () => {
     const resp = await GET(mockRequest("/api/military"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<MilitaryBody>(resp);
     expect(data.error).toBe("adsb unreachable");
     expect(data.ac).toEqual([]);
     expect(data.count).toBe(0);
@@ -197,7 +212,7 @@ describe("Military API", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("timed out");
 
     const { GET } = await import("@/app/api/military/route");
-    const data = await (await GET(mockRequest("/api/military"))).json();
+    const data = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(data.error).toBe("Military flight fetch failed");
     expect(data.count).toBe(0);
   });
@@ -206,7 +221,7 @@ describe("Military API", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("null", { status: 200 }));
 
     const { GET } = await import("@/app/api/military/route");
-    const data = await (await GET(mockRequest("/api/military"))).json();
+    const data = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(data.ac).toEqual([]);
     expect(data.count).toBe(0);
     expect(data.total).toBeNull();

@@ -104,7 +104,7 @@ describe("getTileDataCRS84 — AWS resample path (z <= 10)", () => {
     const result = await getTileDataCRS84(4, 0, 4, storage);
 
     // Both 3857 tiles spanning the tile's latitude band were fetched
-    expect(fetchMock.mock.calls.map((c) => c[0]).sort()).toEqual([
+    expect(fetchMock.mock.calls.map((c) => c[0] as string).sort()).toEqual([
       "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/5/0/11.png",
       "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/5/0/12.png",
     ]);
@@ -208,7 +208,7 @@ describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
 
     const result = await getTileDataCRS84(BLACKLIST.z, BLACKLIST.col, BLACKLIST.row, storage);
 
-    const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0]);
+    const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as string);
     expect(names).toContain("N36W117.tif");
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
     // The blacklist triggered the AWS attempt even though chunks produced data

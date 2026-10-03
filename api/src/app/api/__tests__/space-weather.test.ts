@@ -70,7 +70,7 @@ describe("Space weather API (/api/space-weather)", () => {
     expect(resp.status).toBe(200);
     // Each source is fetched exactly once for a combined request
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([KP_URL, AURORA_URL]);
+    expect(mockFetch.mock.calls.map((call) => call[0] as string)).toEqual([KP_URL, AURORA_URL]);
 
     const body = (await resp.json()) as { kp_forecast: unknown; aurora: { coordinates: number[][] } };
     expect(body.kp_forecast).toEqual(KP_PAYLOAD);
@@ -91,7 +91,7 @@ describe("Space weather API (/api/space-weather)", () => {
     expect(resp.status).toBe(200);
     // Unknown types skip the two sequential prefetches that `type=all` performs
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([KP_URL, AURORA_URL]);
+    expect(mockFetch.mock.calls.map((call) => call[0] as string)).toEqual([KP_URL, AURORA_URL]);
     const body = (await resp.json()) as { kp_forecast: unknown; aurora: unknown };
     expect(body.kp_forecast).toEqual(KP_PAYLOAD);
     expect(body.aurora).toEqual(AURORA_PAYLOAD);

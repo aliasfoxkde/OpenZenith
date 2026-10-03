@@ -1,12 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * STAC bodies these suites assert on. Only the touched fields are declared;
+ * the route may return more.
+ */
+interface StacLink {
+  rel: string;
+  href?: string;
+  type?: string;
+  title?: string;
+}
+
+interface StacCatalogBody {
+  type?: string;
+  id?: string;
+  links?: StacLink[];
+}
+
+interface StacCollectionSummaryBody {
+  type?: string;
+  id?: string;
+  stac_version?: string;
+}
+
+interface StacCollectionBody {
+  type?: string;
+  id?: string;
+  extent: { spatial: { bbox: number[][] } };
+  links: StacLink[];
+}
+
+interface StacErrorBody {
+  error: string;
+}
 
 describe("STAC API", () => {
   it("returns STAC catalog", async () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<StacCatalogBody>(resp);
     expect(data.type).toBe("Catalog");
     expect(data.id).toBe("openzenith");
   }, 30000);
@@ -15,7 +49,7 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<StacCollectionSummaryBody[]>(resp);
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
     expect(data[0].type).toBe("Collection");
@@ -26,7 +60,7 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/"));
     expect(resp.status).toBe(200);
-    expect((await resp.json()).type).toBe("Catalog");
+    expect((await bodyAs<StacCatalogBody>(resp)).type).toBe("Catalog");
   }, 30000);
 
   it("exposes CORS preflight", async () => {
@@ -41,14 +75,14 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections/hillshade"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<StacCollectionBody>(resp);
     expect(data.type).toBe("Collection");
     expect(data.id).toBe("hillshade");
     expect(data.extent.spatial.bbox[0]).toEqual([-180, -85, 180, 85]);
 
-    const rels = data.links.map((link: { rel: string }) => link.rel);
+    const rels = data.links.map((link) => link.rel);
     expect(rels).toEqual(["self", "parent", "root", "items", "tiles"]);
-    const tiles = data.links.find((link: { rel: string }) => link.rel === "tiles");
+    const tiles = data.links.find((link) => link.rel === "tiles") as StacLink;
     expect(tiles.href).toBe("http://localhost:8788/api/tile/{z}/{x}/{y}");
     expect(tiles.type).toBe("application/vnd.mapbox-vector-tile");
   }, 30000);
@@ -57,7 +91,7 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections/satellites"));
     expect(resp.status).toBe(200);
-    expect((await resp.json()).extent.spatial.bbox[0]).toEqual([-180, -90, 180, 90]);
+    expect((await bodyAs<StacCollectionBody>(resp)).extent.spatial.bbox[0]).toEqual([-180, -90, 180, 90]);
   }, 30000);
 
   it("advertises GeoJSON items instead of vector tiles for non-2D API layers", async () => {
@@ -66,7 +100,7 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections/flightArcs"));
     expect(resp.status).toBe(200);
-    const links = (await resp.json()).links as Array<{ rel: string; href: string; type: string; title?: string }>;
+    const links = (await bodyAs<StacCollectionBody>(resp)).links;
     const items = links.filter((link) => link.rel === "items");
     expect(items).toHaveLength(2);
     expect(items[1]).toEqual({
@@ -84,7 +118,7 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections/orbitalTracks"));
     expect(resp.status).toBe(200);
-    const links = (await resp.json()).links as Array<{ rel: string }>;
+    const links = (await bodyAs<StacCollectionBody>(resp)).links;
     expect(links.map((link) => link.rel)).toEqual(["self", "parent", "root", "items"]);
   }, 30000);
 
@@ -92,7 +126,7 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections/blueMarble"));
     expect(resp.status).toBe(200);
-    const links = (await resp.json()).links as Array<{ rel: string }>;
+    const links = (await bodyAs<StacCollectionBody>(resp)).links;
     expect(links.map((link) => link.rel)).toEqual(["self", "parent", "root", "items"]);
   }, 30000);
 
@@ -100,13 +134,13 @@ describe("STAC API", () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/collections/not-a-layer"));
     expect(resp.status).toBe(404);
-    expect(await resp.json()).toEqual({ error: "Collection not found" });
+    expect(await bodyAs<StacErrorBody>(resp)).toEqual({ error: "Collection not found" });
   }, 30000);
 
   it("returns 404 for an unrecognized catalog path", async () => {
     const { GET } = await import("@/app/api/stac/[...path]/route");
     const resp = await GET(mockRequest("/api/stac/bogus"));
     expect(resp.status).toBe(404);
-    expect(await resp.json()).toEqual({ error: "Not found" });
+    expect(await bodyAs<StacErrorBody>(resp)).toEqual({ error: "Not found" });
   }, 30000);
 });

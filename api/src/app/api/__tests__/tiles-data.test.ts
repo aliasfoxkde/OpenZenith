@@ -1,5 +1,11 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/** OGC tile-data exception document — the fields these suites assert on. */
+interface TileErrorBody {
+  code?: string;
+  description?: string;
+}
 
 vi.mock("@/lib/tile", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/tile")>();
@@ -45,7 +51,7 @@ describe("OGC Tile Data API", () => {
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/[tileMatrix]/[tileRow]/[tileCol]/route");
     const resp = await GET(mockRequest("/api/tiles/BadSet/0/0/0"), tileParams("0", "0", "0", "BadSet"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<TileErrorBody>(resp);
     expect(data.code).toBe("InvalidParameterValue");
   });
 
@@ -53,7 +59,7 @@ describe("OGC Tile Data API", () => {
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/[tileMatrix]/[tileRow]/[tileCol]/route");
     const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/abc/0/0"), tileParams("abc", "0", "0"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<TileErrorBody>(resp);
     expect(data.code).toBe("InvalidParameterValue");
   });
 
@@ -67,7 +73,7 @@ describe("OGC Tile Data API", () => {
     const { GET } = await import("@/app/api/tiles/[tileMatrixSetId]/[tileMatrix]/[tileRow]/[tileCol]/route");
     const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/0/5/5"), tileParams("0", "5", "5"));
     expect(resp.status).toBe(404);
-    const data = await resp.json();
+    const data = await bodyAs<TileErrorBody>(resp);
     expect(data.code).toBe("TileOutOfRange");
   });
 
@@ -94,7 +100,7 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/0/abc"), tileParams("4", "0", "abc"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<TileErrorBody>(resp);
     expect(data.code).toBe("InvalidParameterValue");
     expect(data.description).toBe("Invalid tile coordinates");
   });
@@ -103,7 +109,7 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/abc/0"), tileParams("4", "abc", "0"));
     expect(resp.status).toBe(400);
-    expect((await resp.json()).description).toBe("Invalid tile coordinates");
+    expect((await bodyAs<TileErrorBody>(resp)).description).toBe("Invalid tile coordinates");
   });
 
   it("returns 400 for negative tile coordinates before any range check", async () => {
@@ -112,8 +118,8 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
     const negativeCol = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/-1/0"), tileParams("4", "0", "-1"));
     expect(negativeRow.status).toBe(400);
     expect(negativeCol.status).toBe(400);
-    expect((await negativeRow.json()).description).toBe("Invalid tile coordinates");
-    expect((await negativeCol.json()).description).toBe("Invalid tile coordinates");
+    expect((await bodyAs<TileErrorBody>(negativeRow)).description).toBe("Invalid tile coordinates");
+    expect((await bodyAs<TileErrorBody>(negativeCol)).description).toBe("Invalid tile coordinates");
   });
 
   it("accepts the full coordinate range at the highest zoom (z=14, maxTile=16383)", async () => {
@@ -131,7 +137,7 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
       tileParams("14", "0", "16384"),
     );
     expect(resp.status).toBe(404);
-    const data = await resp.json();
+    const data = await bodyAs<TileErrorBody>(resp);
     expect(data.code).toBe("TileOutOfRange");
     expect(data.description).toBe("Tile 14/16384/0 is out of range");
   });
@@ -145,7 +151,7 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
     // col 2 is past matrixWidth
     const badCol = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/0/2"), tileParams("0", "0", "2", "WorldCRS84Quad"));
     expect(badCol.status).toBe(404);
-    expect((await badCol.json()).code).toBe("TileOutOfRange");
+    expect((await bodyAs<TileErrorBody>(badCol)).code).toBe("TileOutOfRange");
     // row 1 is past matrixHeight
     const badRow = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/1/0"), tileParams("0", "1", "0", "WorldCRS84Quad"));
     expect(badRow.status).toBe(404);

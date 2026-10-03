@@ -1,6 +1,23 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Mock } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * NWS alert FeatureCollection as the route trims and returns it — each feature
+ * reduced to type/geometry/properties, properties reduced to the short-field
+ * allowlist. Only the fields the suites assert on are declared; the
+ * pass-through payloads (`{ status }`, `{ error }`) reuse the same type and
+ * are compared as whole bodies.
+ */
+interface WarningsBody {
+  features: Array<{
+    type?: string;
+    geometry?: { type?: string; coordinates?: number[][][] };
+    properties: Record<string, unknown>;
+  }>;
+  status?: string;
+  error?: string;
+}
 
 describe("Weather Warnings API", () => {
   it("returns alerts from NOAA", async () => {
@@ -11,7 +28,7 @@ describe("Weather Warnings API", () => {
     const { GET } = await import("@/app/api/weather/warnings/route");
     const resp = await GET(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<WarningsBody>(resp);
     expect(data.features).toHaveLength(1);
   });
 
@@ -108,7 +125,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
 
-    const data = await resp.json();
+    const data = await bodyAs<WarningsBody>(resp);
     expect(data.features).toHaveLength(1);
     const feature = data.features[0];
     expect(Object.keys(feature).sort()).toEqual(["geometry", "properties", "type"]);
@@ -153,7 +170,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    const data = await resp.json();
+    const data = await bodyAs<WarningsBody>(resp);
     expect(data).toEqual({ status: "ok" });
     expect(edgePutJson).toHaveBeenCalledTimes(1);
     const [, stored] = (edgePutJson as Mock).mock.calls[0] as [string, unknown];

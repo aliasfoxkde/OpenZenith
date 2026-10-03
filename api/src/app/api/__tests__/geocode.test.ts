@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest, bodyAs } from "./helpers";
 
+interface GeocodeResult {
+  display_name: string;
+  lat: number;
+  lon: number;
+}
+
 interface GeocodeBody {
   ok?: boolean;
-  error?: { message: string };
-  results: Array<{ display_name: string }>;
-  count: number;
   requestId?: string;
+  results: GeocodeResult[];
+  count: number;
+}
+
+interface GeocodeErrorBody extends GeocodeBody {
+  ok: false;
+  error: { code: string; message: string; retryable?: boolean; retryAfter?: number };
 }
 
 const mockNominatimResponse = [
@@ -30,7 +40,7 @@ describe("Geocode endpoint", () => {
     const req = mockRequest("/api/geocode");
     const resp = await GET(req);
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.message).toContain("query");
   });
@@ -80,7 +90,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeBody>(resp);
     expect(data.requestId).toBeDefined();
     expect(data.results).toHaveLength(1);
     expect(data.count).toBe(1);
@@ -97,7 +107,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeBody>(resp);
     expect(data.results).toHaveLength(0);
     expect(data.count).toBe(0);
     expect(data.requestId).toBeDefined();
@@ -112,7 +122,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(mockRequest("/api/geocode?query=London"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("GEOCODE_RATE_LIMITED");
     expect(data.error.retryable).toBe(true);
@@ -138,7 +148,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(mockRequest("/api/geocode?query=London"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("GEOCODE_UPSTREAM");
     expect(data.error.retryable).toBe(true);
@@ -160,7 +170,7 @@ describe("Geocode endpoint", () => {
     const req = mockRequest("/api/geocode?query=London");
     req.headers.set("x-request-id", "req-42");
 
-    const data = await (await GET(req)).json();
+    const data = await bodyAs<GeocodeBody>(await GET(req));
     expect(data.requestId).toBe("req-42");
   });
 
@@ -171,7 +181,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(mockRequest("/api/geocode?query=%20%20%20"));
     expect(resp.status).toBe(400);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("INVALID_PARAM");
     expect(data.count).toBe(0);
@@ -185,7 +195,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(mockRequest(`/api/geocode?query=${"a".repeat(201)}`));
     expect(resp.status).toBe(400);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.error.code).toBe("INVALID_PARAM");
     expect(data.results).toEqual([]);
     expect(spy).not.toHaveBeenCalled();
@@ -219,7 +229,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(mockRequest("/api/geocode?query=London"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.error.code).toBe("GEOCODE_RATE_LIMITED");
     expect(data.error.retryAfter).toBe(5);
     expect(resp.headers.get("retry-after")).toBe("5");
@@ -232,7 +242,7 @@ describe("Geocode endpoint", () => {
     const resp = await GET(mockRequest("/api/geocode?query=London"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("GEOCODE_UNAVAILABLE");
     expect(data.error.message).toBe("Geocoding request failed");

@@ -5,6 +5,16 @@ import { describe, it, expect, vi } from "vitest";
  * Each route validates: successful proxy, zoom range enforcement, error handling.
  */
 
+/**
+ * The dynamic import specifier is a template literal, so TypeScript types the
+ * whole module as `any`; this assertion restores the real handler signatures
+ * (createGIBSHandler's GET and corsPreflightResponse's OPTIONS).
+ */
+interface GibsRouteModule {
+  GET: (request: Request, ctx: { params: Promise<{ z: string; x: string; y: string }> }) => Promise<Response>;
+  OPTIONS: () => Response;
+}
+
 const GIBS_ROUTES = [
   { name: "Dynamic Surface Water", prefix: "dynamic-surface-water", minZoom: 0, maxZoom: 9 },
   { name: "Disturbance Alerts", prefix: "disturbance-alerts", minZoom: 0, maxZoom: 8 },
@@ -35,7 +45,7 @@ for (const route of GIBS_ROUTES) {
         new Response(mockPng, { status: 200, headers: { "Content-Type": "image/png" } }),
       );
 
-      const { GET } = await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`);
+      const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
       const midZoom = Math.floor((route.minZoom + route.maxZoom) / 2);
       const resp = await GET(new Request(`http://localhost/api/${route.prefix}/${midZoom}/1/1`), {
         params: Promise.resolve({ z: String(midZoom), x: "1", y: "1" }),
@@ -46,7 +56,7 @@ for (const route of GIBS_ROUTES) {
     });
 
     it("returns 400 for zoom below minimum", async () => {
-      const { GET } = await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`);
+      const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
       // For minZoom=0, test with -1; for minZoom>0, test with minZoom-1
       const testZoom = route.minZoom === 0 ? -1 : route.minZoom - 1;
       const resp = await GET(new Request(`http://localhost/api/${route.prefix}/${testZoom}/0/0`), {
@@ -56,7 +66,7 @@ for (const route of GIBS_ROUTES) {
     });
 
     it("returns 400 for zoom above maximum", async () => {
-      const { GET } = await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`);
+      const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
       const aboveMax = route.maxZoom + 1;
       const resp = await GET(new Request(`http://localhost/api/${route.prefix}/${aboveMax}/0/0`), {
         params: Promise.resolve({ z: String(aboveMax), x: "0", y: "0" }),
@@ -67,7 +77,7 @@ for (const route of GIBS_ROUTES) {
     it("returns 200 on upstream failure (never 5xx)", async () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network error"));
 
-      const { GET } = await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`);
+      const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
       const midZoom = Math.floor((route.minZoom + route.maxZoom) / 2);
       const resp = await GET(new Request(`http://localhost/api/${route.prefix}/${midZoom}/1/1`), {
         params: Promise.resolve({ z: String(midZoom), x: "1", y: "1" }),
@@ -77,9 +87,7 @@ for (const route of GIBS_ROUTES) {
 
     it("exposes CORS preflight OPTIONS", async () => {
       // Typed destructure keeps the dynamic-imported handler off the any path.
-      const { OPTIONS } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as {
-        OPTIONS: () => Response;
-      };
+      const { OPTIONS } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
       const resp = OPTIONS();
       expect(resp.status).toBe(204);
       expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");

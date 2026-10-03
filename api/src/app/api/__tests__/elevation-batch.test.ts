@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
 import { getTileData } from "@/lib/tile";
 
 vi.mock("@/lib/tile", () => ({
@@ -25,11 +25,10 @@ vi.mock("@/lib/srtm/zoom-math", async (importOriginal) => {
   };
 });
 
-/** Typed body reader keeps the new assertions off the unsafe-any lint path. */
-async function jsonBody(
-  resp: Response,
-): Promise<{ results?: { id?: string; elevation: number | null }[]; error?: string }> {
-  return (await resp.json()) as { results?: { id?: string; elevation: number | null }[]; error?: string };
+/** Success/error union the batch route can return. */
+interface ElevationBatchBody {
+  results?: Array<{ id?: string; lat: number; lon: number; elevation: number | null }>;
+  error?: string;
 }
 
 describe("Elevation Batch API", () => {
@@ -54,11 +53,11 @@ describe("Elevation Batch API", () => {
     );
     const resp = await POST(req);
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBatchBody>(resp);
     expect(data.results).toHaveLength(2);
-    expect(data.results[0].lat).toBe(40.7);
-    expect(data.results[0].lon).toBe(-74.0);
-    expect(typeof data.results[0].elevation).toBe("number");
+    expect(data.results?.[0].lat).toBe(40.7);
+    expect(data.results?.[0].lon).toBe(-74.0);
+    expect(typeof data.results?.[0].elevation).toBe("number");
   });
 
   it("rejects empty points array", async () => {
@@ -98,8 +97,8 @@ describe("Elevation Batch API", () => {
       JSON.stringify({ points: [{ lat: 40.7, lon: -74.0, id: "nyc" }] }),
     );
     const resp = await POST(req);
-    const data = await resp.json();
-    expect(data.results[0].id).toBe("nyc");
+    const data = await bodyAs<ElevationBatchBody>(resp);
+    expect(data.results?.[0].id).toBe("nyc");
   });
 
   it("groups points that share a tile into one fetch", async () => {
@@ -116,7 +115,7 @@ describe("Elevation Batch API", () => {
       }),
     );
     const resp = await POST(req);
-    const data = await jsonBody(resp);
+    const data = await bodyAs<ElevationBatchBody>(resp);
     expect(data.results).toHaveLength(2);
     expect(vi.mocked(getTileData).mock.calls.length).toBe(fetchesBefore + 1);
   });
@@ -131,7 +130,7 @@ describe("Elevation Batch API", () => {
     const { POST } = await import("@/app/api/elevation/batch/route");
     const req = mockRequest("/api/elevation/batch", "POST", JSON.stringify({ points: [{ lat: 40.7, lon: -74.0 }] }));
     const resp = await POST(req);
-    const data = await jsonBody(resp);
+    const data = await bodyAs<ElevationBatchBody>(resp);
     expect(data.results?.[0].elevation).toBeNull();
   });
 
@@ -150,7 +149,7 @@ describe("Elevation Batch API", () => {
       }),
     );
     const resp = await POST(req);
-    const data = await jsonBody(resp);
+    const data = await bodyAs<ElevationBatchBody>(resp);
     expect(data.results?.[0].elevation).toBeNull();
     expect(typeof data.results?.[1].elevation).toBe("number");
   });
@@ -160,7 +159,7 @@ describe("Elevation Batch API", () => {
     const req = mockRequest("/api/elevation/batch", "POST", JSON.stringify({ points: [{ lat: 77.77, lon: 0 }] }));
     const resp = await POST(req);
     expect(resp.status).toBe(200);
-    expect(await resp.json()).toEqual({ error: "tile math exploded" });
+    expect(await bodyAs<ElevationBatchBody>(resp)).toEqual({ error: "tile math exploded" });
   });
 
   it("reports Unknown error for non-Error throws", async () => {
@@ -168,6 +167,6 @@ describe("Elevation Batch API", () => {
     const req = mockRequest("/api/elevation/batch", "POST", JSON.stringify({ points: [{ lat: 77.78, lon: 0 }] }));
     const resp = await POST(req);
     expect(resp.status).toBe(200);
-    expect(await resp.json()).toEqual({ error: "Unknown error" });
+    expect(await bodyAs<ElevationBatchBody>(resp)).toEqual({ error: "Unknown error" });
   });
 });

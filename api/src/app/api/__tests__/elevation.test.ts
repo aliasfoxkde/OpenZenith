@@ -4,8 +4,19 @@ import { mockRequest, bodyAs } from "./helpers";
 
 interface ElevationBody {
   ok?: boolean;
-  elevation: number;
+  elevation: number | null;
+  unit?: string;
+  source?: string;
+  tile?: string;
+  resolution?: number;
+  location?: { lat: number; lon: number };
+  surface_type?: string;
   requestId?: string;
+}
+
+interface ElevationErrorBody extends ElevationBody {
+  ok: false;
+  error: { code: string; message: string; retryable?: boolean };
 }
 
 const mockOZT2GetElevation = vi.fn();
@@ -22,17 +33,17 @@ vi.mock("@/lib/storage/backend", () => ({
   }),
   OZT2HuggingFaceBackend: vi.fn(function OZT2HuggingFaceBackend() {
     return {
-      getElevation: (...args: unknown[]) => mockOZT2GetElevation(...args),
+      getElevation: (...args: unknown[]): unknown => mockOZT2GetElevation(...args),
     };
   }),
 }));
 
 vi.mock("@/lib/point-elevation", () => ({
-  getPointElevation: (...args: unknown[]) => mockGetPointElevation(...args),
+  getPointElevation: (...args: unknown[]): unknown => mockGetPointElevation(...args),
 }));
 
 vi.mock("@/lib/gebco/cog-reader", () => ({
-  getGebcoElevation: (...args: unknown[]) => mockGetGebcoElevation(...args),
+  getGebcoElevation: (...args: unknown[]): unknown => mockGetGebcoElevation(...args),
 }));
 
 describe("Elevation endpoint", () => {
@@ -46,7 +57,7 @@ describe("Elevation endpoint", () => {
     const req = mockRequest("/api/elevation?lon=86.9");
     const resp = await GET(req);
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.message).toContain("lat");
     expect(data.requestId).toBeDefined();
@@ -57,7 +68,7 @@ describe("Elevation endpoint", () => {
     const req = mockRequest("/api/elevation?lat=28.0");
     const resp = await GET(req);
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.message).toContain("lon");
     expect(data.requestId).toBeDefined();
@@ -74,7 +85,7 @@ describe("Elevation endpoint", () => {
     const { GET } = await import("@/app/api/elevation/route");
     const resp = await GET(mockRequest("/api/elevation?lat=28.0&lon=west"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.error.code).toBe("INVALID_COORDS");
   });
 
@@ -87,7 +98,7 @@ describe("Elevation endpoint", () => {
     const { GET } = await import("@/app/api/elevation/route");
     const resp = await GET(mockRequest(`/api/elevation?${search}`));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("INVALID_COORDS");
     expect(data.requestId).toBeDefined();
@@ -103,7 +114,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
     expect(data.requestId).toBe("trace-abc-123");
   });
 
@@ -162,7 +173,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
     expect(data.requestId).toBeDefined();
     expect(data.elevation).toBe(8849);
     expect(data.unit).toBe("meters");
@@ -179,7 +190,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=28.0&lon=86.9"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
     expect(data.ok).toBe(true);
     expect(data.elevation).toBe(8790);
     expect(data.source).toBe("ozt2");
@@ -199,7 +210,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=27.5&lon=86.9"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
     expect(data.source).toBe("huggingface");
     expect(data.elevation).toBe(8790);
     expect(mockGetPointElevation).toHaveBeenCalledWith(27.5, 86.9, expect.anything());
@@ -213,7 +224,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
     expect(data.source).toBe("gebco2025");
     expect(data.elevation).toBe(-4100);
     expect(data.resolution).toBe(450);
@@ -228,7 +239,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("ELEVATION_NO_DATA");
     expect(data.elevation).toBeNull();
@@ -250,7 +261,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
     expect(data.requestId).toBeDefined();
     expect(data.elevation).toBe(-3380);
     expect(data.surface_type).toBe("ocean");
@@ -279,7 +290,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=10&lon=10"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.requestId).toBeDefined();
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("ELEVATION_NO_DATA");
@@ -298,7 +309,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("ELEVATION_UNAVAILABLE");
     expect(data.error.retryable).toBe(true);
@@ -326,7 +337,7 @@ describe("Elevation endpoint", () => {
     const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5"));
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
     expect(data.error.code).toBe("ELEVATION_UNAVAILABLE");
     expect(data.error.message).toBe("Unknown error");

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
 
 // Route tests run without an R2 binding, where the real edgeGetJson resolves
 // null. The mock mirrors that default but lets individual tests plant a
@@ -16,11 +16,15 @@ const MOCK_IBTRACS = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO
 2024272N18284,2024,NA,NORTH_ATLANTIC,MILTON,2024-10-09 12:00:00,TS,23.0,-89.4,50,987,main`;
 
 /** Typed body reader keeps the later storm-row suites off the unsafe-any lint path. */
-interface HurricaneCollectionBody {
-  features?: Array<{ properties: Record<string, unknown> }>;
+interface HurricaneFeature {
+  properties: Record<string, unknown>;
+  geometry?: { type?: string; coordinates: number[][][] };
 }
-async function geoJsonBody(resp: Response): Promise<HurricaneCollectionBody> {
-  return (await resp.json()) as HurricaneCollectionBody;
+
+interface HurricaneCollectionBody {
+  type: string;
+  features: HurricaneFeature[];
+  error?: string;
 }
 
 const MOCK_SHORT_CSV = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO_WIND,WMO_PRES,TRACK_TYPE
@@ -68,7 +72,7 @@ describe("Hurricanes API", () => {
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?active=false"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(0);
   });
@@ -81,7 +85,7 @@ describe("Hurricanes API", () => {
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?active=false"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features.length).toBeGreaterThan(0);
     expect(data.features[0].properties.name).toBe("MILTON");
@@ -104,7 +108,7 @@ describe("Hurricanes API", () => {
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(0);
   });
 
@@ -133,7 +137,7 @@ describe("Hurricanes API", () => {
       const resp = await GET(mockRequest("/api/hurricanes"));
       expect(resp.status).toBe(200);
       expect(resp.headers.get("X-Cache")).toBe("HIT");
-      expect((await resp.json()).features).toHaveLength(1);
+      expect((await bodyAs<HurricaneCollectionBody>(resp)).features).toHaveLength(1);
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
       r2State.cached = undefined;
@@ -146,7 +150,7 @@ describe("Hurricanes API", () => {
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.error).toBe("boom");
   });
 
@@ -158,14 +162,14 @@ describe("Hurricanes API", () => {
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?track=full"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
 
     // The active-only recency filter must NOT apply to full tracks, even with
     // the default active=true and 2024 timestamps.
     expect(data.features).toHaveLength(7);
 
-    const bySid = new Map<string, Record<string, unknown>>(
-      data.features.map((f: { properties: Record<string, unknown> }) => [f.properties.sid, f.properties]),
+    const bySid = new Map<unknown, Record<string, unknown>>(
+      data.features.map((f) => [f.properties.sid, f.properties]),
     );
     expect(bySid.get("c5")?.category).toBe(5);
     expect(bySid.get("c4")?.category).toBe(4);
@@ -183,11 +187,9 @@ describe("Hurricanes API", () => {
     // NOT_NAMED is normalised to UNNAMED.
     expect(bySid.get("c5")?.name).toBe("UNNAMED");
 
-    const geo = data.features.find(
-      (f: { properties: { sid: string } }) => f.properties.sid === "c5",
-    );
-    expect(geo.geometry.type).toBe("MultiLineString");
-    expect(geo.geometry.coordinates[0]).toEqual([
+    const geo = data.features.find((f) => f.properties.sid === "c5");
+    expect(geo?.geometry?.type).toBe("MultiLineString");
+    expect(geo?.geometry?.coordinates[0]).toEqual([
       [-89.1, 22.8],
       [-89.4, 23.0],
     ]);
@@ -208,7 +210,7 @@ describe("Hurricanes API", () => {
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?track=full"));
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(1);
     expect(data.features[0].properties.sid).toBe("good");
     expect(data.features[0].properties.trackPoints).toBe(2);
@@ -223,7 +225,7 @@ describe("Hurricanes API", () => {
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
-    const data = await resp.json();
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(0);
   });
 
@@ -242,11 +244,11 @@ describe("Hurricanes API", () => {
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?active=false"));
-    const data = await geoJsonBody(resp);
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
 
     expect(data.features).toHaveLength(2);
     const bySid = new Map<unknown, Record<string, unknown>>(
-      (data.features ?? []).map((f) => [f.properties.sid, f.properties] as const),
+      data.features.map((f) => [f.properties.sid, f.properties] as const),
     );
     // Blank columns fall back to the documented defaults; zero wind and
     // pressure normalise to null, season to 0, name to UNNAMED.
@@ -268,7 +270,7 @@ describe("Hurricanes API", () => {
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
-    const data = await geoJsonBody(resp);
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(0);
   });
 
@@ -283,10 +285,10 @@ describe("Hurricanes API", () => {
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?track=full&active=false"));
-    const data = await geoJsonBody(resp);
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
 
     expect(data.features).toHaveLength(1);
-    expect((data.features ?? [])[0]?.properties).toMatchObject({
+    expect(data.features[0].properties).toMatchObject({
       sid: "ghost",
       name: "UNNAMED",
       season: 0,

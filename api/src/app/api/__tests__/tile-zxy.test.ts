@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NextRequest } from "next/server";
+import { bodyAs } from "./helpers";
 
 /**
  * Tests for /api/tile/[z]/[x]/[y] — the raw Int16 DEM tile route.
@@ -7,6 +8,10 @@ import type { NextRequest } from "next/server";
  * Named `tile-zxy` (not `tile`) so coverage dashboards keying on file names
  * don't mask this route behind `dem-tile`/`gebco-tile` substring matches.
  */
+
+interface TileErrorBody {
+  error: string;
+}
 
 vi.mock("@/lib/tile", () => {
   const data = new Int16Array(256 * 256).fill(123);
@@ -74,7 +79,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
     const ctx = { params: Promise.resolve({ z: "abc", x: "1", y: "1" }) };
     const resp = await GET(req("http://localhost/api/tile/abc/1/1"), ctx);
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await bodyAs<TileErrorBody>(resp);
     expect(body.error).toContain("integers");
   });
 
@@ -87,7 +92,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
     // z=1 allows x,y in {0,1} only
     const resp = await GET(req("http://localhost/api/tile/1/5/0"), routeCtx(1, 5, 0));
     expect(resp.status).toBe(400);
-    const body = await resp.json();
+    const body = await bodyAs<TileErrorBody>(resp);
     expect(body.error).toContain("between 0 and 1");
   });
 
@@ -96,7 +101,7 @@ describe("Raw DEM tile API (/api/tile)", () => {
     (getTileData as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("chunk not found"));
     const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
     expect(resp.status).toBe(200);
-    const body = await resp.json();
+    const body = await bodyAs<TileErrorBody>(resp);
     expect(body.error).toContain("chunk not found");
   });
 

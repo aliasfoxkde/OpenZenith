@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import type { Mock } from "vitest";
+import { mockRequest, bodyAs } from "./helpers";
 
-const mockGetElevationFromR2 = vi.fn();
-const mockGetGebcoElevation = vi.fn();
+const mockGetElevationFromR2: Mock<(...args: unknown[]) => unknown> = vi.fn();
+const mockGetGebcoElevation: Mock<(...args: unknown[]) => unknown> = vi.fn();
 
 vi.mock("@/lib/elevation/terrarium-reader", () => ({
   getElevationFromR2: (...args: unknown[]) => mockGetElevationFromR2(...args),
@@ -11,6 +12,18 @@ vi.mock("@/lib/elevation/terrarium-reader", () => ({
 vi.mock("@/lib/gebco/cog-reader", () => ({
   getGebcoElevation: (...args: unknown[]) => mockGetGebcoElevation(...args),
 }));
+
+/** Body the bathymetry route returns (plus the silent-200 error variant). */
+interface BathymetryBody {
+  elevation?: number | null;
+  surface_type?: string;
+  source?: string;
+  tile?: string;
+  location?: { lat: number; lon: number };
+  depth?: number | null;
+  unit?: string;
+  error?: string;
+}
 
 describe("Bathymetry endpoint", () => {
   it("returns surface_type land for land coordinates", async () => {
@@ -27,7 +40,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.surface_type).toBe("land");
     expect(data.depth).toBe(0);
     expect(data.elevation).toBe(10);
@@ -65,7 +78,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.surface_type).toBe("ocean");
     expect(data.source).toBe("gebco2025");
     expect(data.depth).toBeGreaterThan(0);
@@ -86,7 +99,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.surface_type).toBe("ocean");
     expect(data.depth).toBeGreaterThan(8000);
   });
@@ -121,7 +134,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.depth).toBeNull();
     expect(data.elevation).toBeNull();
     expect(data.surface_type).toBe("unknown");
@@ -138,7 +151,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     // Silent-200 contract: reader failure never becomes a 5xx.
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.error).toBe("r2 binding unavailable");
   });
 
@@ -151,7 +164,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.source).toBe("none");
     expect(data.elevation).toBeNull();
   });
@@ -170,7 +183,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.depth).toBe(12);
     expect(data.elevation).toBe(0);
     expect(data.surface_type).toBe("ocean");
@@ -191,7 +204,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.depth).toBe(0);
     expect(data.elevation).toBe(15);
     expect(data.source).toBe("gebco2025");
@@ -205,7 +218,7 @@ describe("Bathymetry endpoint", () => {
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 
-    const data = await resp.json();
+    const data = await bodyAs<BathymetryBody>(resp);
     expect(data.error).toBe("Bathymetry query failed");
   });
 });

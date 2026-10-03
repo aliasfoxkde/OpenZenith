@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+interface GebcoTileBody {
+  error: string;
+}
 
 describe("GEBCO Tile API", () => {
   const route = () => import("@/app/api/gebco-tile/[name]/route");
@@ -8,7 +12,7 @@ describe("GEBCO Tile API", () => {
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/gebco-tile/test.tif"), { params: Promise.resolve({ name: "test.tif" }) });
     expect(resp.status).toBe(400);
-    expect((await resp.json()).error).toBe("Invalid tile name");
+    expect((await bodyAs<GebcoTileBody>(resp)).error).toBe("Invalid tile name");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
@@ -18,7 +22,7 @@ describe("GEBCO Tile API", () => {
       params: Promise.resolve({ name: "gebco_2025_sub_ice_n90.0_s0.0_w-180.0_e-90.0.tif" }),
     });
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<GebcoTileBody>(resp);
     expect(data.error).toContain("GEBCO COG tiles require Node.js runtime");
     expect(data.error).toContain("/api/dem-tile/{z}/{x}/{y}");
   });

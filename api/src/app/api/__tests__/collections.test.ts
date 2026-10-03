@@ -1,13 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
 import type { NextRequest } from "next/server";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+interface CollectionsBody {
+  collections: Array<{ id: string; title: string }>;
+  links: Array<{ rel: string; type: string; href: string }>;
+}
+
+interface CollectionDetailBody {
+  id: string;
+  title: string;
+}
 
 describe("Collections API", () => {
   it("returns list of collections", async () => {
     const { GET } = await import("@/app/api/collections/route");
     const resp = GET(mockRequest("/api/collections"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<CollectionsBody>(resp);
     expect(data.collections).toBeTruthy();
     expect(data.collections.length).toBeGreaterThan(0);
     expect(data.links).toBeTruthy();
@@ -38,7 +48,7 @@ describe("Collection by ID API", () => {
       params: Promise.resolve({ id: "earthquakes" }),
     });
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<CollectionDetailBody>(resp);
     expect(data.id).toBe("earthquakes");
     expect(data.title).toBe("Earthquakes");
   });

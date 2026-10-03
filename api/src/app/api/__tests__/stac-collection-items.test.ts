@@ -36,7 +36,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-const mockFetch = vi.fn();
+// Typed so `.mock.calls` entries are RequestInfo/RequestInit rather than `any`
+// (the route receives a NextRequest and a { params } context).
+const mockFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
 
 function request(id: string, query = ""): NextRequest {
   return new NextRequest(`http://localhost/api/stac/collections/${id}/items${query}`);

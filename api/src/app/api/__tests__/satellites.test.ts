@@ -1,5 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+/**
+ * Satellites response body — the fields these suites assert on. The error
+ * payloads return only `error`, so every other field is optional.
+ */
+interface SatellitesBody {
+  count?: number;
+  truncated?: boolean;
+  limit?: number;
+  satellites?: Array<{ name?: string }>;
+  error?: string;
+}
 
 // Route tests run without an R2 binding, where the real edgeGetJson resolves
 // null. The mock mirrors that default but lets individual tests plant a
@@ -20,16 +32,16 @@ describe("Satellites API", () => {
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites?group=active"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data.satellites).toBeDefined();
-    expect(data.satellites[0].name).toBe("ISS (ZARYA)");
+    expect(data.satellites?.[0]?.name).toBe("ISS (ZARYA)");
   });
 
   it("rejects invalid group", async () => {
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites?group=invalid_group"));
     expect(resp.status).toBe(400);
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data.error).toContain("Invalid group");
   });
 
@@ -60,7 +72,7 @@ describe("Satellites API", () => {
       expect(resp.status).toBe(200);
       expect(resp.headers.get("X-Cache")).toBe("HIT");
       expect(resp.headers.get("Cache-Control")).toBe("public, max-age=600");
-      const data = await resp.json();
+      const data = await bodyAs<SatellitesBody>(resp);
       expect(data.satellites).toHaveLength(1);
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
@@ -74,7 +86,7 @@ describe("Satellites API", () => {
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({ count: 0, truncated: false, satellites: [], error: "Celestrak returned 503" });
   });
 
@@ -83,7 +95,7 @@ describe("Satellites API", () => {
 
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({
       count: 0,
       truncated: false,
@@ -99,7 +111,7 @@ describe("Satellites API", () => {
     const { GET } = await import("@/app/api/satellites/route");
     // The group itself must be valid, or the route 400s before fetching.
     const resp = await GET(mockRequest("/api/satellites?group=stations"));
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({ count: 0, truncated: false, satellites: [], error: message });
   });
 
@@ -111,7 +123,7 @@ describe("Satellites API", () => {
     const resp = await GET(mockRequest("/api/satellites?group=starlink&limit=2"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data.count).toBe(3);
     expect(data.truncated).toBe(true);
     expect(data.limit).toBe(2);
@@ -126,7 +138,7 @@ describe("Satellites API", () => {
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({ error: "no such catalogue" });
   });
 
@@ -136,7 +148,7 @@ describe("Satellites API", () => {
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
     expect(resp.status).toBe(200);
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({
       count: 0,
       truncated: false,
@@ -150,7 +162,7 @@ describe("Satellites API", () => {
 
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
-    const data = await resp.json();
+    const data = await bodyAs<SatellitesBody>(resp);
     expect(data.error).toBe("Satellite data fetch failed");
   });
 });

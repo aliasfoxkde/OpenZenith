@@ -333,3 +333,17 @@ toggle smoke for item 1.
   (98/99 files, parsers.test.ts) — retries bumped to two in-command
   attempts; isolation stays on (module-state leakage risk documented
   2026-10-01).
+- 2026-10-03 (Phase 2, slice 3): the **entire test family converted to
+  typed response bodies** — all 43 route/lib test files (785 warnings →
+  0) now read bodies via `bodyAs<T>()` with a per-file interface per
+  response shape (success + error-envelope variants), typed `vi.fn`
+  returns where mock pass-throughs leaked `any`, and narrow casts for
+  `expect.any(...)`/mock-call projections. No eslint-disables, no new
+  `any`; tsc strict clean (3 strictNullChecks misses caught by the
+  central tsc run and fixed by making member-accessed fields required:
+  airquality `features`, flights `states`, hurricanes `coordinates`).
+  Full suite: 1,405 passed + 3 known load-flake files (docs-md,
+  openapi-generation, error-diagnostics — 15s timeouts at load ~70; all
+  pass in isolation). Lint 3,475 → 2,690 (grep 2,694); guard ratcheted.
+  Remaining debt: globe raster family ~1,890 (awaits Phase-6 factory),
+  map lib ~322, routes ~148.

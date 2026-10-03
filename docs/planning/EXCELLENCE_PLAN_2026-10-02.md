@@ -17,7 +17,7 @@ evidence is cited as `file:line` where it anchors a work item.
 
 | Gate | State | Source |
 |---|---|---|
-| eslint (api/) | **0 errors**, **3,539 warnings** after the 2026-10-03 slices: the +15 regression fixed (bodyAs test reads, HeroMap initMap typing) and the CDN MapLibre loader properly typed (`Promise<MapLibreGL>`), collapsing 253 → 59 warnings across the map consumers. Was 3,759 at audit time | `api/eslint.config.mjs:42-51`, `.gitforge.yml` lint job, live runs 2026-10-02/03 |
+| eslint (api/) | **0 errors**, **3,480 warnings** after the 2026-10-03 slices: the +15 regression fixed and the whole map consumer stack (loader, global.d.ts decls, map/demo/studio pages, HeroMap) typed — 253 warnings → **0** there. Was 3,759 at audit time | `api/eslint.config.mjs:42-51`, `.gitforge.yml` lint job, live runs 2026-10-02/03 |
 | tsc (api/) | clean (`strict: true` only; `noUncheckedIndexedAccess` etc. absent) | audit §2 |
 | vitest (api/) | floors 97/92/89/97; coverage **counts only `src/lib/**` + `src/app/api/**`** — globe/map/landing/studio/components/hooks are outside the instrumented set entirely | `api/vitest.config.ts:16-22` |
 | pytest (openzenith/) | **1,479 passed / 14 deselected, 98.82% lines** (floor 97; 171 uncovered lines stand between here and the 99% target) | `pyproject.toml:103`, live run 2026-10-02 |
@@ -323,3 +323,13 @@ toggle smoke for item 1.
   triggers fire per push), and an ae222ff CI run failed in `npm ci` with
   exit 137 (OOM SIGKILL) under the co-tenant load spike — infra, not
   code; re-run when quieter.
+- 2026-10-03 (Phase 2, slice 2): map consumers driven to **zero** —
+  map.getStyle() declared, fetch responses typed at the res.json()
+  boundary, demo page's `as any` refs/waivers deleted, studio vertex
+  reads annotated. Map/demo/studio/HeroMap/loader/global.d.ts: 0w/0e.
+  Guard ratchets 3,539 → 3,480 (measured). CI progress on run
+  092b056e: install → typecheck → lint (3,539 guard green) → spec-check
+  all succeeded; unit-test failed on the documented worker-start flake
+  (98/99 files, parsers.test.ts) — retries bumped to two in-command
+  attempts; isolation stays on (module-state leakage risk documented
+  2026-10-01).

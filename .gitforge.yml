@@ -68,18 +68,19 @@ jobs:
       # Baseline history: 3744 was set from a stale audit and was already RED
       # by +15 when the first run executed (3,759 after the Oct-2 perf pass;
       # grep-counting adds ~+5 vs the JSON message count). 2026-10-03: the
-      # +10 attributable warnings were fixed and the CDN MapLibre loader was
-      # properly typed (waitForMapLibre -> Promise<MapLibreGL>, hand-rolled
-      # global.d.ts completed), collapsing 253 warnings to 59 across the map
-      # consumers: measured guard now 3,539.
+      # +10 attributable warnings were fixed and the whole map consumer
+      # stack was typed (waitForMapLibre -> Promise<MapLibreGL>, hand-rolled
+      # global.d.ts completed, map/demo/studio/HeroMap escape hatches
+      # removed): 3,759 -> 3,480 measured, zero warnings left in the map
+      # consumers.
       - name: eslint + warning-baseline guard
         run: |
           cd api
           npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
           warnings=$(grep -cE 'warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 3539)"
-          [ "${warnings:-0}" -le 3539 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 3539"; exit 1;
+          echo "eslint warnings: ${warnings:-0} (baseline 3480)"
+          [ "${warnings:-0}" -le 3480 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 3480"; exit 1;
           }
     timeout: 10m
 
@@ -97,7 +98,12 @@ jobs:
     image: node:22-bookworm
     needs: [spec-check]
     steps:
-      - name: vitest (one in-command retry + completeness guard)
+      # Two in-command retries: worker-start timeouts under host load are the
+      # dominant failure mode (run 092b056e burned both attempts at load
+      # ~110). isolate:false would remove the 99 worker spawns but leaks
+      # module state across files (see the 10-01 cache-key decoupling bug),
+      # so isolation stays on and retries absorb the flake instead.
+      - name: vitest (two in-command retries + completeness guard)
         run: |
           cd api
           npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest1.log 2>&1
@@ -106,11 +112,17 @@ jobs:
           if [ "$code" -ne 0 ]; then
             echo "first attempt failed (exit $code) — retrying (NAS flake)"
             tail -25 /tmp/vitest1.log
-            npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest2.log 2>&1 || {
-              echo "retry also failed:"; tail -40 /tmp/vitest2.log; exit 1;
-            }
+            if npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest2.log 2>&1; then
+              log=/tmp/vitest2.log
+            else
+              echo "second attempt failed — one more retry"
+              tail -25 /tmp/vitest2.log
+              npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest3.log 2>&1 || {
+                echo "all three attempts failed:"; tail -40 /tmp/vitest3.log; exit 1;
+              }
+              log=/tmp/vitest3.log
+            fi
             echo "retry succeeded (flaky, absorbed)"
-            log=/tmp/vitest2.log
           fi
           # Worker-start failures DROP files and exit non-zero, so a green
           # exit should mean a complete run — assert it. Baseline 2026-10-03:

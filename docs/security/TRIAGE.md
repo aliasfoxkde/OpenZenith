@@ -1462,3 +1462,44 @@ removals:
 - `eslint.config.mjs`: net 0 (provenance comment only).
 
 Baseline 1,715 → 1,714 as written by the full-scope update scan (per-file probes summarize −8; a few findings classify differently in per-file vs whole-scope scans — the full-scope number is authoritative). No new fingerprints accepted.
+
+## 2026-10-03 — excellence pass: repo cleanup + perf-pass line drift (214 → 11)
+
+Raw gate: 214 new findings after the dead-file cleanup and the 2026-10-02
+perf/landing work. Shift-proof multiset diff of (pattern, description) per
+file with the profile denylist applied: 344/359 flagged files UNCHANGED —
+203 of the 214 are line-shift artifacts of files edited by the perf pass
+(stable fingerprints are line-based). The 11 real additions, all triaged:
+
+- `api/src/app/api/elevation/route.ts`, `api/src/app/api/geocode/route.ts`,
+  `api/src/app/api/__tests__/elevation-color-zxy.test.ts` +3 no-cache-headers:
+  heuristic miss — all three set `Cache-Control` in the NextResponse headers
+  object (3600s on the JSON routes; the test asserts 31536000+immutable).
+  Prod-verified 2026-10-02 via Playwright (X-Cache MISS→HIT, immutable
+  headers on tile routes). ACCEPTED FP.
+- `api/src/app/api/dem-tile/[z]/[x]/[y]/route.ts` +1 namespace-declaration:
+  the word "namespace" in comments ("cache namespace … invalidation lever").
+  No TypeScript namespace exists. ACCEPTED FP (comment word-match).
+- `api/src/app/landing/HeroMap.tsx` +2 global-variable: `window.clearTimeout`
+  / `window.setTimeout` usage flagged as global assignment. ACCEPTED FP.
+- `api/src/app/globals.css` +1 blinking-content: `@keyframes oz-pulse` —
+  decorative status-dot pulse, not flashing text; well under the WCAG
+  2.3.1 three-flashes threshold and frozen during the a11y audit's scan
+  injection. ACCEPTED FP.
+- `api/src/app/globe/lib/widgets/SectionHeader.tsx` +1 comment-ratio-outlier:
+  degenerate metric ("0% versus a mean of 0%") — mean-of-zero denominator,
+  flags every file. ACCEPTED FP (metric artifact).
+- `api/src/app/map/lib/layers/index.ts` +1 azure-functions: generic
+  async-function shape in the new lazy layer loader matched the Azure
+  Functions pattern. ACCEPTED FP.
+- `api/src/app/api/__tests__/terrain-routes.test.ts` +1 file-size-outlier:
+  1,332 lines, 8.3σ — the σ shifted because the cleanup deleted files from
+  the size population. Pre-existing file, flagged only by threshold drift.
+  ACCEPTED; splitting this suite is tracked in
+  EXCELLENCE_PLAN_2026-10-02.md Phase 6.
+- `scripts/ship.sh` +1 ssrf-localhost: the `E2E_BASE_URL=http://localhost:9006`
+  usage example in the header comment. ACCEPTED FP (comment word-match).
+
+Baseline 1,716 → written by the full-scope update scan (authoritative). The
+removed files (root tests/, examples/, Dockerfile) took their findings out
+of the population; no new fingerprint classes accepted.

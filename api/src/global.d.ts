@@ -20,9 +20,17 @@ declare namespace maplibregl {
   class Map {
     addSource(id: string, source: Record<string, unknown>): this;
     removeSource(id: string): this;
-    getSource(
-      id: string,
-    ): { setData(data: unknown): void; type: string; _data?: GeoJSON.FeatureCollection } | undefined;
+    getSource(id: string):
+      | {
+          setData(data: unknown): void;
+          type: string;
+          _data?: GeoJSON.FeatureCollection;
+          // Raster sources expose the current tile URL template and allow
+          // swapping it in place (theme basemap changes) without a rebuild.
+          tiles?: string[];
+          setTiles?(tiles: string[]): void;
+        }
+      | undefined;
     addLayer(layer: Record<string, unknown>, beforeId?: string): this;
     removeLayer(id: string): this;
     getLayer(id: string): Record<string, unknown> | undefined;

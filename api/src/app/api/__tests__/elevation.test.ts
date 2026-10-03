@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+interface ElevationBody {
+  ok?: boolean;
+  elevation: number;
+  requestId?: string;
+}
 
 const mockOZT2GetElevation = vi.fn();
 const mockGetPointElevation = vi.fn();
@@ -107,7 +113,7 @@ describe("Elevation endpoint", () => {
 
     const { GET } = await import("@/app/api/elevation/route");
     const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9"));
-    const data = await resp.json();
+    const data = await bodyAs<ElevationBody>(resp);
 
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(data.elevation).toBe(8849);

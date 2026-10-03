@@ -17,7 +17,7 @@ evidence is cited as `file:line` where it anchors a work item.
 
 | Gate | State | Source |
 |---|---|---|
-| eslint (api/) | **0 errors**, **3,759 warnings** — the CI baseline (≤3,744) is now RED by +15 from the 2026-10-02 perf/landing work (first GitForge run caught it; fix in Phase 2 entry) | `api/eslint.config.mjs:42-51`, `.gitforge.yml` lint job, live run + local run 2026-10-02 |
+| eslint (api/) | **0 errors**, **3,733 warnings** after the 2026-10-03 regression fix (was 3,759 — +15 from the Oct-2 perf/landing work, caught by the first GitForge run; +10 fixed, guard rebased to measured 3,733) | `api/eslint.config.mjs:42-51`, `.gitforge.yml` lint job, live run + local run 2026-10-02/03 |
 | tsc (api/) | clean (`strict: true` only; `noUncheckedIndexedAccess` etc. absent) | audit §2 |
 | vitest (api/) | floors 97/92/89/97; coverage **counts only `src/lib/**` + `src/app/api/**`** — globe/map/landing/studio/components/hooks are outside the instrumented set entirely | `api/vitest.config.ts:16-22` |
 | pytest (openzenith/) | **1,479 passed / 14 deselected, 98.82% lines** (floor 97; 171 uncovered lines stand between here and the 99% target) | `pyproject.toml:103`, live run 2026-10-02 |
@@ -295,3 +295,17 @@ toggle smoke for item 1.
   guard works; CLI `pipeline --run` has a separate response-decode bug
   (platform feedback, not an OZ defect). pytest live baseline: 1,479 passed
   / 14 deselected, 98.82% lines. vitest coverage baseline in flight.
+- 2026-10-03: +15 lint regression root-caused via a pre-regression worktree
+  per-file diff: +10 attributable (raw `resp.json()` in the new edge-cache
+  tests ×8, HeroMap initMap `any` flows ×2) + 5 pre-existing drift the old
+  3,744 baseline never measured (grep-count is +5 vs JSON messages). Fixed
+  the +10 (typed `bodyAs<T>()` reads; `map: maplibregl.Map` annotation in
+  HeroMap initMap — which also cleared 16 baseline `no-unsafe-*` warnings in
+  that file and exposed one dead null-guard, removed; global.d.ts `getSource`
+  return widened with the optional raster `tiles`/`setTiles` members the
+  basemap swap effect already relied on). New measured guard baselines in
+  .gitforge.yml: lint 3,733 (CI-visible grep count), vitest 99 files /
+  1,424 passed (1,419 + the 5 edge-cache tests). HeroMap 44 → 26 warnings.
+  Aegis Phase-1 triage: 214 gate findings → 203 line-shift + 11 triaged
+  (all FP/accepted, dispositions in security/TRIAGE.md); baseline
+  regenerated 1,716 → 1,710, gate green.

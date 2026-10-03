@@ -53,7 +53,9 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
         const darkAtInit = isDarkNow();
         const basemapDef = darkAtInit ? BASEMAPS.dark : BASEMAPS.voyager;
 
-        const map = new mlgl.Map({
+        // mlgl is the untyped CDN namespace; the local annotation gives every
+        // lifecycle call below the hand-rolled global.d.ts types.
+        const map: maplibregl.Map = new mlgl.Map({
           container: mapDivRef.current,
           style: {
             version: 8,
@@ -158,7 +160,6 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
           const pending = pendingFlyRef.current;
           pendingFlyRef.current = null;
           setTimeout(() => {
-            if (!map || !map.getSource) return;
             flyToWithPadding(map, pending.lon, pending.lat, 8);
             addOrUpdatePin(map, pending.lon, pending.lat);
           }, 500);

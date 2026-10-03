@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mockRequest } from "./helpers";
+import { mockRequest, bodyAs } from "./helpers";
+
+interface GeocodeBody {
+  ok?: boolean;
+  error?: { message: string };
+  results: Array<{ display_name: string }>;
+  count: number;
+  requestId?: string;
+}
 
 const mockNominatimResponse = [
   {
@@ -38,7 +46,7 @@ describe("Geocode endpoint", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { GET } = await import("@/app/api/geocode/route");
     const resp = await GET(mockRequest("/api/geocode?query=paris"));
-    const data = await resp.json();
+    const data = await bodyAs<GeocodeBody>(resp);
 
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(data.count).toBe(1);

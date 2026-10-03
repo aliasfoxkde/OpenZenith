@@ -204,7 +204,9 @@ export default function StudioPage() {
               layers: ["draw-vertices", "draw-selected-vertex"],
             });
             if (vertexFeatures.length > 0) {
-              const vi = vertexFeatures[0].properties?.vertexIndex;
+              // properties is typed `{[k: string]: any} | null`, which TS
+              // collapses to any — the `typeof` guard below is the real check.
+              const vi = vertexFeatures[0].properties.vertexIndex;
               if (typeof vi === "number") {
                 setDrawState((prev) => ({ ...prev, selectedVertexIndex: vi }));
                 return;
@@ -221,7 +223,9 @@ export default function StudioPage() {
               layers: ["draw-line", "draw-fill", "draw-selected"],
             });
             if (clicked.length > 0) {
-              const clickedCoords = clicked[0].geometry?.coordinates;
+              // Query results always carry geometry (geometry: null is an
+              // uploaded-file concern, not a rendered-feature one).
+              const clickedCoords = clicked[0].geometry.coordinates;
               if (clickedCoords) {
                 const idx = ds.features.findIndex((f) => {
                   // Uploaded GeoJSON may carry `geometry: null` (RFC 7946), which

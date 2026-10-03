@@ -18,6 +18,7 @@ declare module "shpjs" {
 // Declare the global type so we can use `maplibregl.Map` etc.
 declare namespace maplibregl {
   class Map {
+    constructor(options?: Record<string, unknown>);
     addSource(id: string, source: Record<string, unknown>): this;
     removeSource(id: string): this;
     getSource(id: string):
@@ -48,7 +49,14 @@ declare namespace maplibregl {
           },
       options?: Record<string, unknown>,
     ): this;
-    on(type: string, listener: (...args: unknown[]) => void): this;
+    // Mouse events carry a lngLat/point payload; everything else is declared
+    // loosely (the app's handlers for them take no event argument). Handlers
+    // may be async — MapLibre ignores the returned promise (fire-and-forget).
+    on(
+      type: "click" | "mousedown" | "mousemove" | "mouseup" | "mouseout" | "dblclick" | "contextmenu",
+      listener: (e: maplibregl.MapMouseEvent) => void | Promise<void>,
+    ): this;
+    on(type: string, listener: (...args: unknown[]) => void | Promise<void>): this;
     off(type: string, listener: (...args: unknown[]) => void): this;
     once(type: string, listener: (...args: unknown[]) => void): this;
     addControl(control: unknown, position?: string): this;
@@ -60,18 +68,20 @@ declare namespace maplibregl {
     getPitch(): number;
     setTerrain(options: Record<string, unknown> | undefined): this;
     getCanvas(): HTMLCanvasElement;
-    queryRenderedFeatures(point?: unknown, parameters?: Record<string, unknown>): unknown[];
+    queryRenderedFeatures(point?: unknown, parameters?: Record<string, unknown>): GeoJSON.Feature[];
     querySourceFeatures(sourceId: string, parameters?: Record<string, unknown>): unknown[];
     flyTo(options: Record<string, unknown>): this;
     project(lnglat: [number, number]): { x: number; y: number };
-    unproject(point: { x: number; y: number }): [number, number];
+    unproject(point: [number, number] | { x: number; y: number }): { lng: number; lat: number };
     remove(): void;
     dragPan: { enable(): void; disable(): void };
   }
 
-  // Constructor-only global — MapLibre's NavigationControl exposes no members
-  // this app touches, so it is declared as a bare constructor.
-  const NavigationControl: new () => object;
+  /** Payload MapLibre delivers for mouse events on the map (lngLat + screen point). */
+  interface MapMouseEvent {
+    lngLat: { lng: number; lat: number };
+    point: { x: number; y: number };
+  }
 
   class LngLatBounds {
     extend(point: [number, number] | { lng: number; lat: number }): this;
@@ -93,6 +103,12 @@ declare namespace maplibregl {
     constructor(options?: Record<string, unknown>);
     setHTML(html: string): this;
   }
+
+  // Constructor-only controls — declared as bare constructor types (a
+  // constructor-only class trips no-extraneous-class, and these expose no
+  // members this app touches).
+  const NavigationControl: new (options?: Record<string, unknown>) => object;
+  const GeolocateControl: new (options?: Record<string, unknown>) => object;
 }
 
 /** Type for the maplibregl global namespace object (returned by waitForMapLibre). */
@@ -102,6 +118,7 @@ interface MapLibreGL {
   Popup: typeof maplibregl.Popup;
   LngLatBounds: typeof maplibregl.LngLatBounds;
   NavigationControl: typeof maplibregl.NavigationControl;
+  GeolocateControl: typeof maplibregl.GeolocateControl;
 }
 
 /** Minimal type for the topojson-client global. */

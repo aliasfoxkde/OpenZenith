@@ -18,8 +18,7 @@ export interface FlyTarget {
  */
 export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarget | null }) {
   const mapDivRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre Map loaded dynamically
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
   const pendingFlyRef = useRef<FlyTarget | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -213,7 +212,7 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
   useEffect(() => {
     if (!flyTarget) return;
     const map = mapRef.current;
-    if (!map || !map.getSource) {
+    if (!map) {
       pendingFlyRef.current = flyTarget;
       return;
     }

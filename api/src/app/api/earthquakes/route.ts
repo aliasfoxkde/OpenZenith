@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `USGS API returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
     }
 
-    const data = await resp.json();
+    // USGS GeoJSON is relayed verbatim — `unknown` is the honest boundary type.
+    const data: unknown = await resp.json();
 
     // Store in R2 for future requests (best-effort)
     edgePutJson(cacheKey, data, CACHE_TTL.EARTHQUAKES).catch(() => {});

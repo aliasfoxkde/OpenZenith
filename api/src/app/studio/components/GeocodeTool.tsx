@@ -4,9 +4,13 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { GeocodeResult } from "../lib/types";
 
 interface Props {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  map: any;
+  map: maplibregl.Map | null;
   dark: boolean;
+}
+
+/** Body of GET /api/geocode (results mirror lib/types GeocodeResult). */
+interface GeocodeResponse {
+  results?: GeocodeResult[];
 }
 
 export function GeocodeTool({ map, dark }: Props) {
@@ -22,7 +26,7 @@ export function GeocodeTool({ map, dark }: Props) {
       const res = await fetch(`/api/geocode?query=${encodeURIComponent(q)}&limit=5`, {
         signal: AbortSignal.timeout(6_000),
       });
-      const data = await res.json();
+      const data = (await res.json()) as GeocodeResponse;
       setResults(data.results || []);
     } catch {
       setResults([]);

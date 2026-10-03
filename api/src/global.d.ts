@@ -58,6 +58,12 @@ declare namespace maplibregl {
       listener: (e: maplibregl.MapMouseEvent) => void | Promise<void>,
     ): this;
     on(type: string, listener: (...args: unknown[]) => void | Promise<void>): this;
+    // off() mirrors on()'s mouse-event overload so a handler registered
+    // against one can be unregistered against the other.
+    off(
+      type: "click" | "mousedown" | "mousemove" | "mouseup" | "mouseout" | "dblclick" | "contextmenu",
+      listener: (e: maplibregl.MapMouseEvent) => void,
+    ): this;
     off(type: string, listener: (...args: unknown[]) => void): this;
     once(type: string, listener: (...args: unknown[]) => void): this;
     addControl(control: unknown, position?: string): this;

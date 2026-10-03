@@ -78,6 +78,16 @@ const textDim = "#888";
 
 /* ─── Small Components ─── */
 
+/**
+ * Re-parse a captured response body for display. Deliberately throws for
+ * non-JSON text — the surrounding ErrorBoundary renders that, exactly as the
+ * inline `JSON.parse` did before this boundary was typed.
+ */
+function parseDisplayedBody(text: string): unknown {
+  const value: unknown = JSON.parse(text);
+  return value;
+}
+
 function CopyBtn({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -106,7 +116,7 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
-function ExampleBlock({ data }: { data: Record<string, unknown> }) {
+function ExampleBlock({ data }: { data: unknown }) {
   return (
     <pre
       style={{
@@ -291,7 +301,9 @@ function EndpointCard({
       setResponseStatus(String(res.status));
       const text = await res.text();
       try {
-        const json = JSON.parse(text);
+        // Pretty-print whatever JSON the endpoint returned; the parse throws
+        // for a non-JSON body and the catch keeps the raw text.
+        const json: unknown = JSON.parse(text);
         setResponseJson(JSON.stringify(json, null, 2));
       } catch {
         setResponseJson(text);
@@ -549,7 +561,7 @@ function EndpointCard({
                 >
                   Status: {responseStatus}
                 </div>
-                {responseJson && <ExampleBlock data={JSON.parse(responseJson)} />}
+                {responseJson && <ExampleBlock data={parseDisplayedBody(responseJson)} />}
               </div>
             )}
             {error && <div style={{ marginTop: "0.5rem", color: "#ef4444", fontSize: "0.85rem" }}>{error}</div>}

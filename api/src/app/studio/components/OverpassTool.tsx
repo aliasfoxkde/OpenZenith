@@ -5,10 +5,38 @@ import { OVERPASS_PRESETS } from "../lib/constants";
 import { getOverpassBBox } from "../lib/map-helpers";
 
 interface Props {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  map: any;
+  map: maplibregl.Map | null;
   dark: boolean;
   onResult: (data: GeoJSON.FeatureCollection, name: string) => void;
+}
+
+/** Error body returned by /api/overpass (always `{ error: string }`). */
+interface OverpassErrorBody {
+  error?: unknown;
+}
+
+/** One `elements[]` entry of an Overpass JSON response (subset we read). */
+interface OverpassElement {
+  type?: unknown;
+  id?: unknown;
+  lat?: unknown;
+  lon?: unknown;
+  tags?: Record<string, unknown> | null;
+  bounds?: {
+    minlat?: unknown;
+    minlon?: unknown;
+    maxlat?: unknown;
+    maxlon?: unknown;
+  } | null;
+}
+
+interface OverpassResponse {
+  elements?: OverpassElement[];
+}
+
+/** [lon, lat] when the element carries a numeric node position. */
+function elementPoint(el: OverpassElement): [number, number] | null {
+  return typeof el.lat === "number" && typeof el.lon === "number" ? [el.lon, el.lat] : null;
 }
 
 export function OverpassTool({ map, dark, onResult }: Props) {
@@ -45,21 +73,22 @@ export function OverpassTool({ map, dark, onResult }: Props) {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Overpass query failed");
+        const err = (await res.json()) as OverpassErrorBody;
+        throw new Error(typeof err.error === "string" && err.error ? err.error : "Overpass query failed");
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as OverpassResponse;
 
       // Convert Overpass elements to GeoJSON
       const features: GeoJSON.Feature[] = (data.elements || [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((el: any) => {
+        .map((el): GeoJSON.Feature | null => {
           const tags = el.tags || {};
           let geometry: GeoJSON.Geometry;
 
-          if (el.type === "node" && el.lat !== undefined) {
-            geometry = { type: "Point", coordinates: [el.lon, el.lat] };
+          if (el.type === "node") {
+            const point = elementPoint(el);
+            if (!point) return null;
+            geometry = { type: "Point", coordinates: point };
           } else if (el.type === "way" && el.bounds) {
             geometry = {
               type: "Point",
@@ -68,10 +97,10 @@ export function OverpassTool({ map, dark, onResult }: Props) {
                 (Number(el.bounds.minlat) + Number(el.bounds.maxlat)) / 2,
               ],
             };
-          } else if (el.lat !== undefined) {
-            geometry = { type: "Point", coordinates: [el.lon, el.lat] };
           } else {
-            return null;
+            const point = elementPoint(el);
+            if (!point) return null;
+            geometry = { type: "Point", coordinates: point };
           }
 
           return {
@@ -80,7 +109,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
             properties: { ...tags, osm_id: el.id, osm_type: el.type },
           };
         })
-        .filter(Boolean);
+        .filter((feature): feature is GeoJSON.Feature => feature !== null);
 
       const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
       setResultCount(features.length);

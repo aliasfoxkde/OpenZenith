@@ -49,7 +49,8 @@ export function computeProfileInWorker(
 
   return new Promise((resolve, reject) => {
     const worker = createInlineWorker(workerCode);
-    worker.onmessage = (e) => {
+    // The inline worker posts exactly this payload shape (see workerCode).
+    worker.onmessage = (e: MessageEvent<{ points: [number, number][]; totalDistance: number }>) => {
       worker.terminate();
       resolve(e.data);
     };

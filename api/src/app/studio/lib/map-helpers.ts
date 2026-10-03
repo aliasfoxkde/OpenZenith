@@ -10,7 +10,7 @@ type MapLibreExpression = (string | number | MapLibreExpression)[];
  */
 export type UploadedFeature = Omit<GeoJSON.Feature, "geometry" | "properties"> & {
   geometry?: { type: string };
-  properties?: GeoJSON.Feature["properties"] | null;
+  properties?: Record<string, unknown> | null;
 };
 
 /** FeatureCollection made of {@link UploadedFeature}s. */
@@ -56,7 +56,12 @@ function getUniqueValues(data: UploadedFeatureCollection, property: string): str
   const seen = new Set<string>();
   for (const f of data.features) {
     const v = f.properties?.[property];
-    if (v != null) seen.add(String(v));
+    if (v != null) {
+      // Uploads own their property values; String() keeps the same output for
+      // every shape (object values still render as their default stringification).
+      const label = v as string | number | boolean;
+      seen.add(String(label));
+    }
   }
   return Array.from(seen);
 }

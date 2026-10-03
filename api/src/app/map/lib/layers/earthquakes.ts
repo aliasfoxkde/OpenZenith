@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Earthquakes (USGS) with time range filtering ─── */
 
+/**
+ * USGS summary feed body. `features` is optional because the feed also serves
+ * bare `{error: ...}` bodies on upstream failure.
+ */
+type UsgsFeed = { features?: GeoJSON.Feature[] };
+
 // Available USGS feeds
 const FEEDS: Record<string, string> = {
   "1h": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",
@@ -54,7 +60,7 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const url = FEEDS[currentFeed] || FEEDS["7d"];
       const res = await fetch(url);
-      const data = await res.json();
+      const data = (await res.json()) as UsgsFeed | null;
       allFeatures = data?.features || [];
       const filtered = filterByTime(allFeatures);
 
@@ -69,8 +75,7 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("earthquakes")) {
           map.addSource("earthquakes", { type: "geojson", data: geojson });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("earthquakes") as any).setData(geojson);
+          map.getSource("earthquakes")?.setData(geojson);
         }
 
         // Circle layer — sized by magnitude
@@ -148,8 +153,7 @@ export function refreshEarthquakeFilter(map: maplibregl.Map): void {
   const filtered = filterByTime(allFeatures);
   const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: filtered };
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-    (map.getSource("earthquakes") as any).setData(geojson);
+    map.getSource("earthquakes")?.setData(geojson);
   } catch {}
 }
 

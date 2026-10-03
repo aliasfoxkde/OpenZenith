@@ -21,6 +21,49 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 const SAMPLE_LAT = 28.0;
 const SAMPLE_LON = 86.9;
 
+/** /api/geoip response — every field is null when the lookup did not resolve. */
+interface GeoIpResponse {
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  regionName?: string | null;
+  countryName?: string | null;
+}
+
+/** /api/query reverse-geocode block (the Nominatim subset the page reads). */
+interface QueryAddress {
+  display_name?: string | null;
+  name?: string | null;
+  type?: string | null;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    county?: string;
+    state?: string;
+    country?: string;
+  } | null;
+}
+
+/** /api/query elevation block (same shape as /api/elevation's payload). */
+interface QueryElevation {
+  elevation: number | null;
+  unit?: string;
+  tile?: string;
+  /** Not part of the /api/query payload; SnippetResult only falls back to it. */
+  srtmTile?: string;
+  source?: string;
+  resolution?: number;
+  location?: { lat: number; lon: number };
+}
+
+/** /api/query response — the includes the landing lookup asks for. */
+interface QueryResponse {
+  error?: string;
+  elevation?: QueryElevation;
+  address?: QueryAddress | null;
+}
+
 export default function Home() {
   const dark = useTheme();
   // The coordinate inputs are uncontrolled and refs are the single source of
@@ -83,7 +126,7 @@ export default function Home() {
         // route degrades to the fallback path instead of pinning the spinner.
         const geoRes = await fetch("/api/geoip", { signal: AbortSignal.timeout(5_000) });
         if (isCancelled()) return;
-        const geo = await geoRes.json();
+        const geo = (await geoRes.json()) as GeoIpResponse | null;
 
         const userLat = geo?.latitude;
         const userLon = geo?.longitude;
@@ -124,9 +167,11 @@ export default function Home() {
         // A user-initiated lookup started while this fetch was in flight — its
         // answer owns the result panel now.
         if (bootstrapSeq !== lookupSeq.current) return;
-        const eData = await eRes.json();
+        const eData = (await eRes.json()) as QueryResponse;
         if (!eData.error) {
-          if (eData.elevation) setResult(eData.elevation);
+          // SnippetResult reads only elevation/location/tile here; /api/query
+          // omits srtmTile, which is just SnippetResult's fallback for tile.
+          if (eData.elevation) setResult(eData.elevation as SnippetResult);
           setFlyTarget({ lat: clampedLat, lon: clampedLon });
           if (eData.address) {
             const addr = eData.address.address;
@@ -244,7 +289,7 @@ export default function Home() {
       const res = await fetch(`/api/query?lat=${la}&lon=${lo}&include=elevation,address`, {
         signal: AbortSignal.timeout(15_000),
       });
-      const data = await res.json();
+      const data = (await res.json()) as QueryResponse;
       // Superseded: a newer lookup (user pressed Go again, or the bootstrap
       // ran after us) owns the result panel — drop this stale answer.
       if (seq !== lookupSeq.current) return;
@@ -253,7 +298,9 @@ export default function Home() {
         setResult(null);
       } else {
         // Extract elevation for backward compat
-        setResult(data.elevation ?? null);
+        // SnippetResult reads only elevation/location/tile here; /api/query
+        // omits srtmTile, which is just SnippetResult's fallback for tile.
+        setResult((data.elevation ?? null) as SnippetResult | null);
         // Extract address from unified response
         if (data.address) {
           const addr = data.address.address;

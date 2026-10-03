@@ -29,6 +29,31 @@ export interface TideData {
   source: string;
 }
 
+/** NOAA station-metadata row — coordinates arrive as decimal strings. */
+interface NoaaStationRow {
+  id: string;
+  name: string;
+  lat?: string;
+  lng?: string;
+}
+
+/** NOAA mdapi station list response. */
+interface NoaaStationsResponse {
+  stations?: NoaaStationRow[];
+}
+
+/** NOAA prediction row — time, value and tide type as strings. */
+interface NoaaPredictionRow {
+  t: string;
+  v: string;
+  type: string;
+}
+
+/** NOAA datagetter response for the predictions product. */
+interface NoaaPredictionsResponse {
+  predictions?: NoaaPredictionRow[];
+}
+
 /**
  * Calculate distance between two coordinates in nautical miles.
  */
@@ -57,7 +82,7 @@ async function findNearestStation(
     });
     if (!res.ok) return null;
 
-    const data = await res.json();
+    const data = (await res.json()) as NoaaStationsResponse;
     const stations = data.stations;
     if (!Array.isArray(stations)) return null;
 
@@ -118,10 +143,10 @@ async function fetchPredictions(
 
   if (!res.ok) return [];
 
-  const data = await res.json();
+  const data = (await res.json()) as NoaaPredictionsResponse;
   if (!data.predictions) return [];
 
-  return data.predictions.map((p: { t: string; v: string; type: string }) => ({
+  return data.predictions.map((p) => ({
     time: p.t,
     type: p.type as "H" | "L",
     height: parseFloat(p.v),

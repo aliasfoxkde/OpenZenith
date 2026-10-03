@@ -36,10 +36,18 @@ export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/** Client request body. Required fields are validated explicitly after parsing. */
+interface TraceRequestBody {
+  lat?: number;
+  lon?: number;
+  zoom?: number;
+  max_steps?: number;
+}
+
 export async function POST(request: NextRequest) {
-  let body: { lat?: number; lon?: number; zoom?: number; max_steps?: number };
+  let body: TraceRequestBody;
   try {
-    body = await request.json();
+    body = (await request.json()) as TraceRequestBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }

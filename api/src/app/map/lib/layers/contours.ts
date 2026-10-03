@@ -3,6 +3,12 @@ import { latLonToTile } from "./types";
 
 /* ─── Topo Contours ─── */
 
+/**
+ * Body of /api/contours/{z}/{x}/{y} — a GeoJSON FeatureCollection. `features`
+ * is optional because the route serves an error body when tile assembly fails.
+ */
+type ContourTile = { features?: GeoJSON.Feature[] };
+
 export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("contours")) return;
 
@@ -71,7 +77,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
 
           promises.push(
             fetch(`/api/contours/${zoom}/${tx}/${ty}`)
-              .then((r) => (r.ok ? r.json() : null))
+              .then((r) => (r.ok ? (r.json() as Promise<ContourTile | null>) : null))
               .then((data) => {
                 if (data?.features?.length) {
                   allFeatures.push(...data.features);

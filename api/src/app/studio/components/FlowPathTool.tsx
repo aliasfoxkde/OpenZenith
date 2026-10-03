@@ -3,11 +3,25 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { traceDownstream, traceUpstream, computeElevationProfile, type FlowPathResult } from "@/lib/flow-path";
 
+/** Properties stamped on every exported flow-path feature (see handleClick). */
+type FlowPathFeatureProperties = {
+  mode: "downstream" | "upstream" | "none";
+  startLat: number;
+  startLon: number;
+  pointCount: number;
+  totalDistanceM: number;
+  minElevM: number;
+  maxElevM: number;
+  elevRangeM: number;
+  elevations: number[];
+};
+
 interface FlowPathFeature {
   id: string;
   mode: "downstream" | "upstream";
   result: FlowPathResult;
-  geojson: GeoJSON.Feature;
+  /** Still a Feature (it is exported verbatim), with the properties narrowed. */
+  geojson: GeoJSON.Feature & { properties: FlowPathFeatureProperties };
 }
 
 interface Props {

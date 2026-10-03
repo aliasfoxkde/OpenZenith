@@ -5,6 +5,9 @@
 
 const BOUNDARIES_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
+/** world-atlas TopoJSON topology — only the object this app converts. */
+type WorldAtlas = { objects: { countries: unknown } };
+
 let topojsonLib: TopoJSONClient | null = null;
 let boundariesGeoJSON: GeoJSON.FeatureCollection | null = null;
 
@@ -30,7 +33,7 @@ export async function loadBoundariesData(): Promise<GeoJSON.FeatureCollection | 
     const topo = await loadTopojsonLib();
     const res = await fetch(BOUNDARIES_URL);
     if (!res.ok) return null;
-    const world = await res.json();
+    const world = (await res.json()) as WorldAtlas;
     boundariesGeoJSON = topo.feature(world, world.objects.countries);
     return boundariesGeoJSON;
   } catch {

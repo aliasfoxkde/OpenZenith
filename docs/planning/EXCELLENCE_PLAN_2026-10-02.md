@@ -347,3 +347,23 @@ toggle smoke for item 1.
   pass in isolation). Lint 3,475 → 2,690 (grep 2,694); guard ratcheted.
   Remaining debt: globe raster family ~1,890 (awaits Phase-6 factory),
   map lib ~322, routes ~148.
+- 2026-10-03 (Phase 2, slice 4): **every non-globe source file typed** —
+  map/lib layers (vessels, marine-weather, satellites, aviation, buildings,
+  currents, hurricanes, space-weather, military, flights, burn-scars,
+  measure, + 14 more), api route handlers (collections items, nlnog,
+  airquality, sentinel2, military, weather-warnings, + 13 small routes),
+  studio components (TileDownloadTool, OverpassTool, parsers, DataTable,
+  + 7 more), shared lib (open-meteo, client-elevation, noaa tides,
+  ozt2_decode, worker-utils), and the home/explore/landing/contribute
+  pages: **800 warnings → 0** (eslint messages; 2,690 → 1,890 total).
+  Honest boundary interfaces + guard narrowing, no behavior changes;
+  8 pre-existing eslint-disable comments deleted along the way. tsc
+  strict clean after two cross-slice fixes: a type predicate returning
+  `a.lat && a.lon` (number) in map military.ts → Boolean(), and the
+  ambient `off()` lacking the mouse-event overload that `on()` had
+  (global.d.ts now mirrors them — handlers registered via on() can be
+  removed via off()). Route suites re-run green by the slice agents
+  (278 tests). global.d.ts candidates recorded for the globe pass:
+  getContainer(), moveLayer(), getBounds S/W/N/E, fitBounds array form,
+  studio geojson.d.ts discriminated union. Remaining lint debt is 100%
+  app/globe/** (1,890) — the Phase-6 raster factory's payoff.

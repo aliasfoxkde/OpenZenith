@@ -3,13 +3,16 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Natural Events (NASA EONET) ─── */
 
+/** NASA EONET v3 GeoJSON feed — `features` is what this layer renders. */
+type EonetFeed = { features?: GeoJSON.Feature[] };
+
 export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("natural-events")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
-      const data = await res.json();
+      const data = (await res.json()) as EonetFeed;
       if (!data.features) return;
       setStatus(handle, "events", "loaded", data.features.length);
 

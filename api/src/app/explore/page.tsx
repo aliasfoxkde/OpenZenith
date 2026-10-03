@@ -29,6 +29,31 @@ import { OverpassTab } from "./tabs/OverpassTab";
 import { OvertureTab } from "./tabs/OvertureTab";
 
 /* ═══════════════════════════════════════════════════════════════
+   Response shapes
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * /api/overpass response: the upstream Overpass JSON is passed through
+ * verbatim, so `elements` is absent whenever the proxy answers with its own
+ * error envelope instead.
+ */
+interface OverpassApiResponse {
+  elements?: OverpassElement[];
+  osm3s?: { timestamp_osm_base: string };
+  /** Proxy/Overpass failure text. */
+  error?: string;
+  /** Overpass advisory remark, treated here as a failure. */
+  remark?: string;
+}
+
+/** /api/flights response — slimmed OpenSky state vectors. */
+interface FlightsApiResponse {
+  time: number;
+  states?: FlightState[];
+  error?: string;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    CSS
    ═══════════════════════════════════════════════════════════════ */
 
@@ -213,10 +238,10 @@ export default function ExplorePage() {
         body: JSON.stringify({ query: resolvedQuery }),
         signal: AbortSignal.timeout(30_000),
       });
-      const data = await resp.json();
+      const data = (await resp.json()) as OverpassApiResponse;
       if (data.error) throw new Error(data.error);
       if (data.remark) throw new Error(data.remark);
-      setOpResult(data);
+      setOpResult(data as OverpassResult);
       const els = data.elements || [];
       setOpStats({
         nodes: els.filter((e: OverpassElement) => e.type === "node").length,
@@ -318,7 +343,7 @@ export default function ExplorePage() {
       }
       url += params.toString();
       const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-      const data = await resp.json();
+      const data = (await resp.json()) as FlightsApiResponse;
       if (data.error) throw new Error(data.error);
       // Filter client-side
       let states = data.states || [];

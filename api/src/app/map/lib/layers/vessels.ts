@@ -3,6 +3,39 @@ import { setStatus, warnLayerError, domEventCause } from "./types";
 
 /* ─── Vessels (AIS via AISstream.io) ─── */
 
+/** Bootstrap payload served by /api/vessels. */
+interface VesselsConfig {
+  configured?: boolean;
+  wsUrl?: string;
+  apiKey?: string;
+}
+
+/**
+ * AISstream.io `PositionReport` message. The feed also emits array-framed
+ * batches (`[msg, msg, ...]`), and individual fields are absent on some
+ * transponders, so everything is optional.
+ */
+interface AISPositionReport {
+  MessageType?: string;
+  MMSI?: number;
+  Name?: string;
+  ShipType?: string | number;
+  Heading?: number;
+  Latitude?: number;
+  Longitude?: number;
+  Speed?: number;
+  Cog?: number;
+  Destination?: string;
+}
+
+/** Pull the report out of an array-framed or single-message AIS payload. */
+function asVesselReport(raw: unknown): AISPositionReport | null | undefined {
+  // `Array.isArray` narrows `unknown` to `any[]`; pin the element type back to
+  // `unknown` so the report stays guarded below.
+  const first = Array.isArray(raw) ? (raw as readonly unknown[])[0] : raw;
+  return first as AISPositionReport | null | undefined;
+}
+
 let ws: WebSocket | null = null;
 let vesselCount = 0;
 
@@ -49,7 +82,7 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       setStatus(handle, "vessels", "loading");
       const res = await fetch("/api/vessels");
-      const config = await res.json();
+      const config = (await res.json()) as VesselsConfig;
 
       if (!config.configured || !config.wsUrl || !config.apiKey) {
         setStatus(handle, "vessels", "empty");
@@ -90,10 +123,9 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
         }, 15000);
       };
 
-      ws.onmessage = (evt) => {
+      ws.onmessage = (evt: MessageEvent<unknown>) => {
         try {
-          const msg = JSON.parse(evt.data);
-          const report = Array.isArray(msg) ? msg[0] : msg;
+          const report = asVesselReport(JSON.parse(String(evt.data)));
 
           if (report?.MessageType === "PositionReport") {
             vesselCount++;
@@ -102,18 +134,16 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
             }
 
             // Update source with latest position (accumulate on map)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-            const source = map.getSource("vessels") as any;
-            if (source && source.setData) {
+            const source = map.getSource("vessels");
+            if (source) {
               // Accumulate features by merging with existing data
-              const existing = source._data || { type: "FeatureCollection", features: [] };
-              const features = existing.features || [];
+              const features = source._data?.features ?? [];
 
               // Check if MMSI already exists, update it
               const mmsi = report.MMSI;
-              // Structural type on purpose: `features` mirrors MapLibre's
+              // Structural cast on purpose: `features` mirrors MapLibre's
               // internal source data, whose `properties` may be absent.
-              const idx = features.findIndex((f: { properties?: { mmsi?: number } }) => f.properties?.mmsi === mmsi);
+              const idx = features.findIndex((f) => (f.properties as { mmsi?: number } | null)?.mmsi === mmsi);
               const feature: GeoJSON.Feature = {
                 type: "Feature",
                 geometry: {

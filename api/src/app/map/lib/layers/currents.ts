@@ -323,8 +323,13 @@ let canvasEl: HTMLCanvasElement | null = null;
 let animFrame = 0;
 let particles: FlowParticle[] = [];
 let mapRef: maplibregl.Map | null = null;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- module state mutated by onMoveStart/onMoveEnd closures
-let isMoving = false;
+// Marker / listener state kept module-side so removeOceanCurrents can detach
+// exactly what addOceanCurrents attached (same lifetime as canvasEl/mapRef).
+let markers: maplibregl.Marker[] | null = null;
+let moveStartHandler: (() => void) | null = null;
+let moveEndHandler: (() => void) | null = null;
+// Write-only camera flag, mirrored by the move listeners below.
+let _isMoving = false;
 
 function createParticle(): FlowParticle {
   return {
@@ -534,8 +539,8 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
     pointer-events: none;
     z-index: 1;
   `;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped getContainer
-  (map as any).getContainer().appendChild(canvasEl);
+  // The local maplibregl shim omits getContainer; the runtime Map always has it.
+  (map as unknown as { getContainer(): HTMLElement }).getContainer().appendChild(canvasEl);
 
   // Initialize particles
   particles = [];
@@ -565,11 +570,11 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
     paint: { "line-color": "rgba(60, 140, 255, 0.06)", "line-width": 1 },
   });
 
-  // Labels at midpoints
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const MlglMarker = (map as any).constructor as typeof maplibregl.Marker;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markers: any[] = [];
+  // Labels at midpoints. The Marker constructor is recovered from the live map
+  // instance rather than the CDN global, so this keeps working whichever
+  // bundle loaded it.
+  const MlglMarker = map.constructor as typeof maplibregl.Marker;
+  markers = [];
   for (const current of OCEAN_CURRENTS) {
     const midIdx = Math.floor(current.path.length / 2);
     const [midLon, midLat] = current.path[midIdx];
@@ -588,30 +593,26 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
     const marker = new MlglMarker({ element: el, anchor: "center" }).setLngLat([midLon, midLat]).addTo(map);
     markers.push(marker);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (addOceanCurrents as any)._markers = markers;
 
   // Start animation
   animFrame = requestAnimationFrame(renderFrame);
 
   // Clear trails on camera move
   const onMoveStart = () => {
-    isMoving = true;
+    _isMoving = true;
   };
   const onMoveEnd = () => {
-    isMoving = false;
+    _isMoving = false;
     for (const p of particles) {
       p.trailCount = 0;
       p.trailHead = 0;
     }
   };
+  moveStartHandler = onMoveStart;
+  moveEndHandler = onMoveEnd;
   map.on("movestart", onMoveStart);
   map.on("moveend", onMoveEnd);
   map.on("zoomend", onMoveEnd);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
-  (addOceanCurrents as any)._onMoveStart = onMoveStart;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
-  (addOceanCurrents as any)._onMoveEnd = onMoveEnd;
 }
 
 export function removeOceanCurrents(map: maplibregl.Map): void {
@@ -627,30 +628,23 @@ export function removeOceanCurrents(map: maplibregl.Map): void {
   mapRef = null;
   particles = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markers = (addOceanCurrents as any)._markers as any[] | undefined;
   if (markers) {
     for (const m of markers) {
       m.remove();
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property access
-    (addOceanCurrents as any)._markers = [];
+    markers = [];
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
-  const onMoveStart = (addOceanCurrents as any)._onMoveStart;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property
-  const onMoveEnd = (addOceanCurrents as any)._onMoveEnd;
-  if (onMoveStart)
+  if (moveStartHandler)
     try {
-      map.off("movestart", onMoveStart);
+      map.off("movestart", moveStartHandler);
     } catch {}
-  if (onMoveEnd) {
+  if (moveEndHandler) {
     try {
-      map.off("moveend", onMoveEnd);
+      map.off("moveend", moveEndHandler);
     } catch {}
     try {
-      map.off("zoomend", onMoveEnd);
+      map.off("zoomend", moveEndHandler);
     } catch {}
   }
 

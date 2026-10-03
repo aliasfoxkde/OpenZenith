@@ -129,10 +129,18 @@ export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/** Client request body. Required fields are validated explicitly after parsing. */
+interface TwiRequestBody {
+  lat?: number;
+  lon?: number;
+  zoom?: number;
+  radius_cells?: number;
+}
+
 export async function POST(request: NextRequest) {
-  let body: { lat?: number; lon?: number; zoom?: number; radius_cells?: number };
+  let body: TwiRequestBody;
   try {
-    body = await request.json();
+    body = (await request.json()) as TwiRequestBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }

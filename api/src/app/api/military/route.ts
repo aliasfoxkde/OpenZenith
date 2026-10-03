@@ -17,6 +17,19 @@ function parseCoord(val: string | null, fallback: number, min: number, max: numb
 }
 
 /**
+ * ADSB Exchange v2 replies with `{ac: [...]}`, but the route also tolerates the
+ * legacy `{aircraft}` / `{results}` containers and a bare `{total}`. The
+ * aircraft list is relayed verbatim, so it stays `unknown` here.
+ */
+interface AdsbExchangeResponse {
+  ac?: unknown;
+  aircraft?: unknown;
+  results?: unknown;
+  totalCount?: number;
+  total?: number;
+}
+
+/**
  * Military flight data — proxies to ADSB Exchange to avoid CORS.
  *
  * NOTE: ADSB Exchange requires a paid subscription for API access.
@@ -68,12 +81,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: errorMsg, ac: [], count: 0 }, { status: 200, headers: CORS_HEADERS });
     }
 
-    const data = await resp.json();
+    const data = (await resp.json()) as AdsbExchangeResponse | null;
 
     // Handle various response formats
     const aircraft = data?.ac || data?.aircraft || data?.results || [];
 
-    const result = {
+    const result: { ac: unknown; count: number; total: number | null } = {
       ac: aircraft,
       count: Array.isArray(aircraft) ? aircraft.length : 0,
       total: data?.totalCount ?? data?.total ?? null,

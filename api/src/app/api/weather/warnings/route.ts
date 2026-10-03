@@ -15,6 +15,20 @@ export function OPTIONS() {
  * Trims verbose fields (description, parameters, instruction) to reduce
  * response from ~1.7MB to ~100KB while retaining all display-relevant data.
  */
+
+/** One NWS alert feature. Only the trimmed allowlist of properties is read. */
+interface NwsAlertFeature {
+  type?: unknown;
+  geometry?: unknown;
+  /** NWS always sends a properties object; missing keys read as undefined. */
+  properties: Record<string, unknown>;
+}
+
+/** NWS active-alerts FeatureCollection. */
+interface NwsAlertCollection {
+  features?: NwsAlertFeature[];
+}
+
 export async function GET(_request: NextRequest) {
   // The cache read sits inside the try: a rejecting cache layer resolves to
   // the route's 200-error payload instead of escaping as an unhandled edge
@@ -41,12 +55,12 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    const data = await resp.json();
+    const data = (await resp.json()) as NwsAlertCollection;
 
     // Trim each feature to only display-relevant fields
     if (data.features) {
-      data.features = data.features.map((f: Record<string, unknown>) => {
-        const props = f.properties as Record<string, unknown>;
+      data.features = data.features.map((f) => {
+        const props = f.properties;
         return {
           type: f.type,
           geometry: f.geometry,

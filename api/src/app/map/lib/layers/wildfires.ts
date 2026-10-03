@@ -3,13 +3,19 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Wildfires (NASA FIRMS) ─── */
 
+/**
+ * Body of /api/wildfires — a GeoJSON FeatureCollection of FIRMS detections
+ * whose `features` may be absent when the route returns an error payload.
+ */
+type WildfiresResponse = { features?: GeoJSON.Feature[] } | null;
+
 export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("wildfires")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("/api/wildfires");
-      const data = await res.json();
+      const data = (await res.json()) as WildfiresResponse;
       if (!data?.features?.length) return;
 
       try {

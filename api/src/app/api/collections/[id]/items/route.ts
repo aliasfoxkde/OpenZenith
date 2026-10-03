@@ -49,6 +49,46 @@ export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/** Upstream GeoJSON geometry — only the coordinate pair is inspected. */
+interface UpstreamGeometry {
+  coordinates?: number[];
+}
+
+/**
+ * Upstream GeoJSON feature. Property keys are open-ended and values are JSON
+ * scalars — the property filter compares them with Number()/String(), which is
+ * exactly how a scalar property is meant to be read.
+ */
+interface UpstreamFeature {
+  type?: string;
+  geometry?: UpstreamGeometry;
+  properties?: Record<string, string | number | boolean | null | undefined>;
+}
+
+/**
+ * NLNOG node entry as emitted by /api/nlnog. Coordinates may be absent or null;
+ * such entries are dropped when the node list is converted to GeoJSON.
+ */
+interface NlnogNode {
+  id?: number;
+  hostname?: string;
+  asn?: number;
+  city?: string;
+  country?: string;
+  lat?: number | null;
+  lon?: number | null;
+}
+
+/**
+ * Upstream body: a GeoJSON FeatureCollection, or — for the nlnog_nodes
+ * collection — an NLNOG `{nodes: [...]}` document. Malformed bodies surface
+ * through the try/catch below, which keeps the 200 error-payload contract.
+ */
+interface UpstreamBody {
+  features?: UpstreamFeature[];
+  nodes?: NlnogNode[];
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const baseUrl = new URL(request.url).origin;
   const { id } = await params;
@@ -86,17 +126,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as UpstreamBody;
 
     // Normalize to GeoJSON FeatureCollection
     // NLNOG returns { nodes: [...] } — convert to GeoJSON
-    let features = data.features || [];
+    let features: UpstreamFeature[] = data.features || [];
     if (id === "nlnog_nodes" && data.nodes) {
       features = data.nodes
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((n: any) => n.lat != null && n.lon != null)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((n: any) => ({
+        .filter((n): n is NlnogNode & { lat: number; lon: number } => n.lat != null && n.lon != null)
+        .map((n) => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [n.lon, n.lat] },
           properties: {
@@ -112,8 +150,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Bbox filtering: bbox=minLon,minLat,maxLon,maxLat
     if (bbox) {
       const [minLon, minLat, maxLon, maxLat] = bbox.split(",").map(Number);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      features = features.filter((f: any) => {
+      features = features.filter((f) => {
         const coords = f.geometry?.coordinates;
         if (!coords) return false;
         const lon = coords[0];
@@ -131,8 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return { key, val };
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      features = features.filter((f: any) => {
+      features = features.filter((f) => {
         return filters.every(({ key, val }) => {
           const prop = f.properties?.[key];
           if (prop === undefined) return false;

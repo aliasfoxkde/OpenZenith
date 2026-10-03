@@ -36,7 +36,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await resp.json();
+    // Looking-glass result is relayed verbatim — the route never interprets it,
+    // so `unknown` is the honest boundary type.
+    const data: unknown = await resp.json();
 
     return NextResponse.json(
       { prefix, data },

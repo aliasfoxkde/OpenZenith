@@ -22,17 +22,20 @@ export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/** Client request body. Required fields are validated explicitly after parsing. */
+interface ProfileRequestBody {
+  lat1?: number;
+  lon1?: number;
+  lat2?: number;
+  lon2?: number;
+  num_points?: number;
+  zoom?: number;
+}
+
 export async function POST(request: NextRequest) {
-  let body: {
-    lat1?: number;
-    lon1?: number;
-    lat2?: number;
-    lon2?: number;
-    num_points?: number;
-    zoom?: number;
-  };
+  let body: ProfileRequestBody;
   try {
-    body = await request.json();
+    body = (await request.json()) as ProfileRequestBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }

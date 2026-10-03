@@ -3,13 +3,36 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Military ADS-B (ADSB Exchange) ─── */
 
+/**
+ * ADSB Exchange v2 aircraft record. `/api/military` relays the `ac` array
+ * verbatim, so every field is treated as possibly absent.
+ */
+interface MilitaryAircraft {
+  lat?: number;
+  lon?: number;
+  type?: string;
+  call?: string;
+  flight?: string;
+  /** `alt_baro` is the literal string "ground" for aircraft on the deck. */
+  alt_baro?: number | "ground";
+  alt_geom?: number;
+  gs?: number;
+  track?: number;
+  mil?: boolean;
+}
+
+/** Payload served by /api/military. */
+interface MilitaryResponse {
+  ac?: MilitaryAircraft[];
+}
+
 export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("military")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("/api/military");
-      const data = await res.json();
+      const data = (await res.json()) as MilitaryResponse | null;
       const ac = data?.ac || [];
       setStatus(handle, "militaryFlights", ac.length ? "loaded" : "empty", ac.length);
 
@@ -17,10 +40,13 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
         const geojson: GeoJSON.FeatureCollection = {
           type: "FeatureCollection",
           features: ac
-            .filter((a: Record<string, unknown>) => a.lat && a.lon)
-            .map((a: Record<string, unknown>) => ({
+            // Same truthiness test as before; Boolean() only satisfies the
+            // predicate's boolean return type.
+            .filter((a: MilitaryAircraft): a is MilitaryAircraft & { lat: number; lon: number } =>
+              Boolean(a.lat && a.lon))
+            .map((a) => ({
               type: "Feature" as const,
-              geometry: { type: "Point" as const, coordinates: [Number(a.lon), Number(a.lat)] },
+              geometry: { type: "Point" as const, coordinates: [a.lon, a.lat] },
               properties: {
                 type: a.type || "unknown",
                 callsign: a.call || a.flight || "",

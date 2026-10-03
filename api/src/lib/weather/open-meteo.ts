@@ -37,6 +37,62 @@ interface WeatherDaily {
   uvIndexMax: number;
 }
 
+/**
+ * Open-Meteo `current` block. The API echoes back exactly the variables named
+ * in the `current` query parameter, so every requested field is present.
+ */
+interface OpenMeteoCurrentBlock {
+  temperature_2m: number;
+  relative_humidity_2m: number;
+  apparent_temperature: number;
+  precipitation: number;
+  weather_code: number;
+  surface_pressure: number;
+  wind_speed_10m: number;
+  wind_direction_10m: number;
+  wind_gusts_10m: number;
+  cloud_cover: number;
+  visibility: number;
+  uv_index: number;
+  is_day: number;
+}
+
+/**
+ * Open-Meteo `daily` block: one parallel array per requested variable, sized
+ * by `forecast_days`. A variable with no data for a day is `null` in place,
+ * so the arrays stay unguarded exactly as the parser reads them.
+ */
+interface OpenMeteoDailyBlock {
+  time: string[];
+  temperature_2m_max: number[];
+  temperature_2m_min: number[];
+  precipitation_sum: number[];
+  weather_code: number[];
+  sunrise: string[];
+  sunset: string[];
+  wind_speed_10m_max: number[];
+  uv_index_max: number[];
+}
+
+/** Per-variable unit labels Open-Meteo returns alongside the values. */
+interface OpenMeteoUnitsBlock {
+  temperature_2m?: string;
+  wind_speed_10m?: string;
+  surface_pressure?: string;
+  precipitation?: string;
+  visibility?: string;
+}
+
+/** Open-Meteo forecast response — the subset getWeather consumes. */
+interface OpenMeteoForecastResponse {
+  /** Set (with `reason`) when the request itself was rejected. */
+  error?: unknown;
+  current?: OpenMeteoCurrentBlock;
+  daily?: OpenMeteoDailyBlock;
+  current_units?: OpenMeteoUnitsBlock;
+  timezone?: string;
+}
+
 export interface WeatherData {
   current: WeatherCurrent;
   daily: WeatherDaily[];
@@ -147,11 +203,13 @@ export async function getWeather(
 
     if (!res.ok) return null;
 
-    const data = await res.json();
-    if (data.error) return null;
+    const data = (await res.json()) as OpenMeteoForecastResponse | null;
+    if (!data || data.error) return null;
 
     const c = data.current;
     const d = data.daily;
+    // A payload without a current block cannot be parsed into a reading.
+    if (!c) return null;
 
     const current: WeatherCurrent = {
       temperature: Math.round(c.temperature_2m * 10) / 10,
@@ -171,7 +229,7 @@ export async function getWeather(
     };
 
     const daily: WeatherDaily[] = [];
-    if (Array.isArray(d?.time)) {
+    if (d && Array.isArray(d.time)) {
       for (let i = 0; i < d.time.length; i++) {
         daily.push({
           date: d.time[i],

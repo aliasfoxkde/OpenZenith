@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: `SWPC Kp API returned ${kpResp.status}` }, { status: 200, headers: CORS_HEADERS });
       }
       headers.set("Cache-Control", `public, max-age=${KP_CACHE_TTL}`);
-      return new Response(JSON.stringify(await kpResp.json()), { status: 200, headers });
+      // Relayed verbatim — `unknown` is the honest boundary type.
+      const kp: unknown = await kpResp.json();
+      return new Response(JSON.stringify(kp), { status: 200, headers });
     }
 
     if (type === "aurora") {
@@ -50,7 +52,8 @@ export async function GET(request: NextRequest) {
         );
       }
       headers.set("Cache-Control", `public, max-age=${AURORA_CACHE_TTL}`);
-      return new Response(JSON.stringify(await auroraResp.json()), { status: 200, headers });
+      const aurora: unknown = await auroraResp.json();
+      return new Response(JSON.stringify(aurora), { status: 200, headers });
     }
 
     // type === "all" (default) — tolerate a single source failing
@@ -63,13 +66,11 @@ export async function GET(request: NextRequest) {
     headers.set("Cache-Control", `public, max-age=${Math.min(KP_CACHE_TTL, AURORA_CACHE_TTL)}`);
     headers.set("Content-Type", "application/json");
 
-    return new Response(
-      JSON.stringify({
-        kp_forecast: kpResp.ok ? await kpResp.json() : [],
-        aurora: auroraResp.ok ? await auroraResp.json() : { coordinates: [] },
-      }),
-      { status: 200, headers },
-    );
+    // Same read order as before: Kp first, then aurora.
+    const kp: unknown = kpResp.ok ? await kpResp.json() : [];
+    const aurora: unknown = auroraResp.ok ? await auroraResp.json() : { coordinates: [] };
+
+    return new Response(JSON.stringify({ kp_forecast: kp, aurora }), { status: 200, headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Space weather fetch failed";
     return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });

@@ -40,6 +40,21 @@ export interface ClientElevationResult {
   source?: string;
 }
 
+/** `/api/elevation` 200 payload — the fields this module's fallback reads. */
+interface ElevationApiResponse {
+  elevation: number | null;
+  /** Same vocabulary as ClientElevationResult.surfaceType. */
+  surface_type?: ClientElevationResult["surfaceType"];
+  tile?: string;
+  source?: string;
+  ok?: boolean;
+}
+
+/** `/api/elevation/batch` 200 payload — results in request order. */
+interface ElevationBatchApiResponse {
+  results?: Array<{ elevation: number | null }>;
+}
+
 // --- GEBCO 2025 client-side constants ---
 
 const GEBCO_CEDA_BASE = "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff";
@@ -240,7 +255,7 @@ export async function getClientElevation(lat: number, lon: number): Promise<Clie
   try {
     const res = await fetch(`/api/elevation?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`);
     if (res.ok) {
-      const d = await res.json();
+      const d = (await res.json()) as ElevationApiResponse;
       if (d.elevation !== null) {
         return {
           elevation: d.elevation,
@@ -362,7 +377,7 @@ export async function getClientElevationBatch(
       body: JSON.stringify({ points: normalizedPoints }),
     });
     if (res.ok) {
-      const d = await res.json();
+      const d = (await res.json()) as ElevationBatchApiResponse;
       if (Array.isArray(d.results)) return withCallerFields(d.results);
       return points.map((p) => ({ ...p, elevation: null }));
     }

@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Air Quality ─── */
 
+/**
+ * Body of /api/airquality — a GeoJSON FeatureCollection whose `features` may
+ * be absent when the route returns an error payload.
+ */
+type AirQualityResponse = { features?: GeoJSON.Feature[] } | null;
+
 export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("air-quality")) return;
 
@@ -10,7 +16,7 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const center = map.getCenter();
       const res = await fetch(`/api/airquality?lat=${center.lat.toFixed(2)}&lon=${center.lng.toFixed(2)}`);
-      const data = await res.json();
+      const data = (await res.json()) as AirQualityResponse;
       if (!data?.features) return;
 
       try {

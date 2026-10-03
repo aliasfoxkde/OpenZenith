@@ -25,7 +25,7 @@ function uid(): string {
 export function loadAnnotations(): Annotation[] {
   try {
     const raw = localStorage.getItem(ANNOTATIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? (JSON.parse(raw) as Annotation[]) : [];
   } catch {
     return [];
   }

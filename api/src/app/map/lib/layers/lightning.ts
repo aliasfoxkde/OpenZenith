@@ -3,6 +3,9 @@ import { setStatus, warnLayerError, domEventCause } from "./types";
 
 /* ─── Lightning (Blitzortung.org WebSocket) ─── */
 
+/** Blitzortung strike message — only the fields this layer renders. */
+type BlitzStrikeMessage = { lon?: number; lat?: number; time?: number };
+
 let ws: WebSocket | null = null;
 const MAX_STRIKES = 500;
 const strikes: GeoJSON.Feature[] = [];
@@ -51,7 +54,7 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
 
       ws.onmessage = (evt) => {
         try {
-          const msg = JSON.parse(evt.data);
+          const msg = JSON.parse(String(evt.data)) as BlitzStrikeMessage;
           if (msg.lon !== undefined && msg.lat !== undefined) {
             strikes.push({
               type: "Feature",

@@ -124,16 +124,22 @@ export function DataTable({ dark, dataset }: Props) {
         const desc = String(props.description ?? "");
         const geom = f.geometry;
         let geomXml = "";
+        // The ambient GeoJSON.Geometry leaves `coordinates` untyped; the
+        // branches below narrow on `type` first, so the casts match the shape
+        // each branch has already asserted.
         if (geom?.type === "Point") {
-          geomXml = `<Point><coordinates>${geom.coordinates[0]},${geom.coordinates[1]},0</coordinates></Point>`;
+          const coords = geom.coordinates as [number, number];
+          geomXml = `<Point><coordinates>${coords[0]},${coords[1]},0</coordinates></Point>`;
         } else if (geom?.type === "LineString") {
-          const coords = geom.coordinates.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ");
+          const coords = (geom.coordinates as [number, number][])
+            .map((c) => `${c[0]},${c[1]},0`)
+            .join(" ");
           geomXml = `<LineString><coordinates>${coords}</coordinates></LineString>`;
         } else if (geom?.type === "Polygon") {
-          const rings = geom.coordinates
+          const rings = (geom.coordinates as [number, number][][])
             .map(
-              (ring: number[][]) =>
-                `<outerBoundaryIs><LinearRing><coordinates>${ring.map((c: number[]) => `${c[0]},${c[1]},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs>`,
+              (ring) =>
+                `<outerBoundaryIs><LinearRing><coordinates>${ring.map((c) => `${c[0]},${c[1]},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs>`,
             )
             .join("");
           geomXml = `<Polygon>${rings}</Polygon>`;

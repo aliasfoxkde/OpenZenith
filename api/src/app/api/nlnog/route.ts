@@ -12,6 +12,23 @@ export function OPTIONS() {
 
 const NLNOG_API = "https://api.ring.nlnog.net/1.0";
 
+/** One entry of the NLNOG `nodes` list. Coordinates arrive as a "lat,lon" string. */
+interface NlnogNode {
+  id?: number;
+  hostname?: string;
+  asn?: number;
+  ipv4?: string;
+  city?: string;
+  countrycode?: string;
+  geo?: string;
+}
+
+/**
+ * NLNOG API returns {info: {...}, results: {nodes: [...]}}; some deployments
+ * answer with a bare node array. Anything else falls through to `[]` below.
+ */
+type NlnogResponse = NlnogNode[] | { results?: { nodes?: NlnogNode[] } };
+
 export async function GET() {
   try {
     // Try R2 cache first
@@ -32,18 +49,14 @@ export async function GET() {
       return NextResponse.json({ error: `NLNOG API returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
     }
 
-    const data = await resp.json();
-
-    // NLNOG API returns {info: {...}, results: {nodes: [...]}}
+    const data = (await resp.json()) as NlnogResponse | null;
 
     const rawNodes = Array.isArray(data) ? data : data?.results?.nodes || [];
 
     // Transform nodes to a simpler format with parsed coordinates
     const nodes = rawNodes
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((n: any) => n.geo)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((n: any) => {
+      .filter((n): n is NlnogNode & { geo: string } => Boolean(n.geo))
+      .map((n) => {
         const [lat, lon] = n.geo.split(",").map(Number);
         return {
           id: n.id,
@@ -56,8 +69,7 @@ export async function GET() {
           lon: isNaN(lon) ? null : lon,
         };
       })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((n: any) => n.lat !== null && n.lon !== null);
+      .filter((n) => n.lat !== null && n.lon !== null);
 
     const result = { nodes, count: nodes.length };
     edgePutJson(cacheKey, result, 3600).catch(() => {});

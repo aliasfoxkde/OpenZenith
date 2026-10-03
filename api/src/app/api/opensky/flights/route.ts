@@ -129,7 +129,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await resp.json();
+    // OpenSky state vector document is relayed verbatim — keep it `unknown`.
+    const data: unknown = await resp.json();
     creditsUsed += creditCost;
 
     const responseHeaders = new Headers(CORS_HEADERS);

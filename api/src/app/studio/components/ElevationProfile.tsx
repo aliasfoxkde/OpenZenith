@@ -15,6 +15,11 @@ interface Props {
   coordinates: [number, number][];
 }
 
+/** Body of POST /api/elevation/batch (see the route's BatchResult). */
+interface ElevationBatchResponse {
+  results?: { lat: number; lon: number; elevation: number | null }[];
+}
+
 export function ElevationProfile({ dark, onClose, coordinates }: Props) {
   const [points, setPoints] = useState<ElevationPoint[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,11 +73,11 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
         });
 
         if (!res.ok) throw new Error(`API error: ${res.status}`);
-        const data = await res.json();
+        const data = (await res.json()) as ElevationBatchResponse;
         if (!data.results) throw new Error("No results from API");
 
         // Interpolate elevations back onto all points
-        const results = data.results as { lat: number; lon: number; elevation: number | null }[];
+        const results = data.results;
         for (const p of pointsWithDist) {
           const match = results.find((r) => Math.abs(r.lat - p.lat) < 0.0001 && Math.abs(r.lon - p.lon) < 0.0001);
           p.elevation = match?.elevation ?? null;

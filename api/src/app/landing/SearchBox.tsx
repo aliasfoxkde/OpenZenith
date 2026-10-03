@@ -14,13 +14,30 @@ interface SearchBoxProps {
   onPick: (lat: number, lon: number) => void;
 }
 
+/** One /api/geocode hit — the fields the dropdown renders. */
+interface GeocodeResult {
+  display_name: string;
+  lat: number;
+  lon: number;
+}
+
+/** The route's error envelope field (an object; a bare string is tolerated). */
+type GeocodeError = { message?: string } | string;
+
+/** /api/geocode response — success carries results, failures carry error. */
+interface GeocodeResponse {
+  ok?: boolean;
+  error?: GeocodeError;
+  results?: GeocodeResult[];
+}
+
 /**
  * Debounced address/place search with geocoder dropdown. Owns the query,
  * results, and error state; the page only receives committed selections.
  */
 export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onCoords, onPick }: SearchBoxProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Array<{ display_name: string; lat: number; lon: number }>>([]);
+  const [results, setResults] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -92,10 +109,14 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
           setOpen(true);
           return;
         }
-        const data = await res.json();
-        if (data?.ok === false || data?.error) {
+        const data = (await res.json()) as GeocodeResponse | null;
+        // A body our route never sends (empty/non-object JSON) lands in the
+        // catch below, exactly where an unparseable payload already lands.
+        if (!data) throw new Error("geocode: empty response body");
+        if (data.ok === false || data.error) {
+          const err = data.error;
           setResults([]);
-          setError(data.error?.message || data.error || "Address search is temporarily unavailable.");
+          setError((typeof err === "string" ? err : err?.message) || "Address search is temporarily unavailable.");
           setOpen(true);
           return;
         }

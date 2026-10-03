@@ -3,6 +3,11 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Active Fires (NASA FIRMS VIIRS via /api/wildfires proxy) ─── */
 
+/** GeoJSON FeatureCollection served by /api/wildfires. */
+interface WildfireResponse {
+  features?: GeoJSON.Feature[];
+}
+
 export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("burnScars")) return;
 
@@ -12,7 +17,7 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
       const res = await fetch("/api/wildfires", {
         signal: AbortSignal.timeout(15000),
       });
-      const data = await res.json();
+      const data = (await res.json()) as WildfireResponse | null;
       const features = data?.features || [];
 
       setStatus(handle, "burnScars", features.length ? "loaded" : "empty", features.length);
@@ -23,8 +28,7 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("burnScars")) {
           map.addSource("burnScars", { type: "geojson", data: geojson });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("burnScars") as any).setData(geojson);
+          map.getSource("burnScars")?.setData(geojson);
         }
 
         if (!map.getLayer("burnScars-glow")) {

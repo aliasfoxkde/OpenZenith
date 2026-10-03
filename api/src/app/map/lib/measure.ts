@@ -79,8 +79,7 @@ export function createMeasureController() {
   const fillLayerId = "measure-fill";
   const vertexLayerId = "measure-vertices";
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function addLayers(map: any) {
+  function addLayers(map: maplibregl.Map) {
     if (map.getSource(sourceId)) return;
     map.addSource(sourceId, {
       type: "geojson",
@@ -122,12 +121,11 @@ export function createMeasureController() {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function updateMap(map: any, points: [number, number][], mode: MeasureMode) {
-    if (!map.getSource(sourceId)) return;
+  function updateMap(map: maplibregl.Map, points: [number, number][], mode: MeasureMode) {
+    const source = map.getSource(sourceId);
+    if (!source) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const features: any[] = [];
+    const features: GeoJSON.Feature[] = [];
 
     // Vertex points
     for (let i = 0; i < points.length; i++) {
@@ -154,15 +152,13 @@ export function createMeasureController() {
       });
     }
 
-     
-    (map.getSource(sourceId)).setData({
+    source.setData({
       type: "FeatureCollection",
       features,
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function removeLayers(map: any) {
+  function removeLayers(map: maplibregl.Map) {
     try {
       map.removeLayer(fillLayerId);
     } catch {}

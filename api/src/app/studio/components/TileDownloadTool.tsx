@@ -4,8 +4,19 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 interface Props {
   dark: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  map: any;
+  map: maplibregl.Map | null;
+}
+
+/**
+ * Bounds surface this tool reads. The ambient `maplibregl.Map.getBounds()`
+ * declaration only exposes getSouthWest/getNorthEast, so the returned object
+ * is cast to the four-edge form MapLibre actually provides.
+ */
+interface MapEdges {
+  getSouth(): number;
+  getWest(): number;
+  getNorth(): number;
+  getEast(): number;
 }
 
 const DATASETS = [
@@ -390,7 +401,7 @@ export function TileDownloadTool({ dark, map }: Props) {
 
   const useCurrentView = useCallback(() => {
     if (!map) return;
-    const bounds = map.getBounds();
+    const bounds = map.getBounds() as unknown as MapEdges;
     const b = {
       latMin: bounds.getSouth(),
       lonMin: bounds.getWest(),
@@ -437,10 +448,8 @@ export function TileDownloadTool({ dark, map }: Props) {
 
   useEffect(() => {
     if (!map) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre event type untyped
-    const onClick = (e: any) => { handleMapClick(e); };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre event type untyped
-    const onMove = (e: any) => { handleMouseMove(e); };
+    const onClick = (e: maplibregl.MapMouseEvent): void => { handleMapClick(e); };
+    const onMove = (e: maplibregl.MapMouseEvent): void => { handleMouseMove(e); };
     map.on("click", onClick);
     map.on("mousemove", onMove);
     return () => {

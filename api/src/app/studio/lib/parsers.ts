@@ -1,25 +1,58 @@
 import type { UploadedDataset } from "./types";
 import { DATASET_COLORS } from "./constants";
 
+/**
+ * Loosely-typed view of a parsed JSON payload. Every member stays `unknown`
+ * until a branch narrows on `type`, so nothing `any` leaks out of
+ * `JSON.parse`.
+ */
+interface RawGeoJsonNode {
+  type?: unknown;
+  features?: unknown;
+  coordinates?: unknown;
+}
+
+/**
+ * Array payload (features or bare [lon, lat] pairs). `parseGeoJSON` checks
+ * `type` before it checks for an array, so the array form carries the same
+ * tag rather than forcing an Array.isArray first.
+ */
+type RawGeoJsonArray = RawGeoJsonNode[] & RawGeoJsonNode;
+
+type RawGeoJsonPayload = RawGeoJsonNode | RawGeoJsonArray;
+
+/**
+ * Loose view of one shpjs layer. The `type` guards below are load-bearing —
+ * shpjs's own return type is `any` and it emits either a FeatureCollection, a
+ * bare Feature, or one layer per shapefile — so the payload stays untyped here
+ * instead of being narrowed into a union that would make the checks look dead.
+ */
+interface ShapefileLayerLike {
+  type?: unknown;
+  features?: unknown;
+}
+
+type ShapefilePayload = ShapefileLayerLike | ShapefileLayerLike[];
+
 /** Parse a Shapefile (zip buffer) into a GeoJSON FeatureCollection */
 export async function parseShapefile(buffer: ArrayBuffer): Promise<GeoJSON.FeatureCollection> {
   const shp = await import("shpjs");
-  const geojson = shp.default.parseZip(buffer);
+  const geojson = shp.default.parseZip(buffer) as ShapefilePayload;
   // shpjs can return a FeatureCollection or an array of FeatureCollections
   if (Array.isArray(geojson)) {
     // Merge all layers into one
     const features: GeoJSON.Feature[] = [];
     for (const layer of geojson) {
       if (layer.type === "FeatureCollection") {
-        features.push(...layer.features);
+        features.push(...(layer.features as GeoJSON.Feature[]));
       } else if (layer.type === "Feature") {
-        features.push(layer);
+        features.push(layer as GeoJSON.Feature);
       }
     }
     return { type: "FeatureCollection", features };
   }
-  if (geojson.type === "FeatureCollection") return geojson;
-  if (geojson.type === "Feature") return { type: "FeatureCollection", features: [geojson] };
+  if (geojson.type === "FeatureCollection") return geojson as GeoJSON.FeatureCollection;
+  if (geojson.type === "Feature") return { type: "FeatureCollection", features: [geojson as GeoJSON.Feature] };
   throw new Error("Unexpected shapefile output format");
 }
 
@@ -47,19 +80,25 @@ let datasetCounter = 0;
 
 /** Parse a GeoJSON string into a FeatureCollection */
 export function parseGeoJSON(text: string): GeoJSON.FeatureCollection {
-  const data = JSON.parse(text);
-  if (data.type === "FeatureCollection") return data;
-  if (data.type === "Feature") return { type: "FeatureCollection", features: [data] };
+  const data = JSON.parse(text) as RawGeoJsonPayload;
+  if (data.type === "FeatureCollection") return data as GeoJSON.FeatureCollection;
+  if (data.type === "Feature") return { type: "FeatureCollection", features: [data as GeoJSON.Feature] };
   if (data.type === "Geometry")
-    return { type: "FeatureCollection", features: [{ type: "Feature", geometry: data, properties: {} }] };
-  // Array of features or coordinates
-  if (Array.isArray(data)) {
-    if (data.length > 0 && data[0].type === "Feature") return { type: "FeatureCollection", features: data };
-    // Assume array of [lon, lat] coordinates
     return {
       type: "FeatureCollection",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      features: data.map((c: any) => ({
+      features: [{ type: "Feature", geometry: data as GeoJSON.Geometry, properties: {} }],
+    };
+  // Array of features or coordinates
+  if (Array.isArray(data)) {
+    const items = data as RawGeoJsonNode[];
+    if (items.length > 0 && items[0].type === "Feature") {
+      return { type: "FeatureCollection", features: items as GeoJSON.Feature[] };
+    }
+    // Assume array of [lon, lat] coordinates
+    const coords = data as [number, number][];
+    return {
+      type: "FeatureCollection",
+      features: coords.map((c) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: c },
         properties: {},
@@ -313,7 +352,9 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
             type: "Feature",
             geometry: {
               type: `Multi${t}`,
-              coordinates: geoms.map((g) => g.coordinates),
+              // Geometry.coordinates is untyped in the ambient declaration;
+              // the multi-container shape is the array of each member's own.
+              coordinates: geoms.map((g) => g.coordinates as unknown),
             },
             properties: { name, description: desc },
           });
@@ -353,8 +394,8 @@ export function parseFile(
 
   // Try auto-detect
   try {
-    const parsed = JSON.parse(text);
-    if (parsed.type && parsed.type.includes("Feature")) {
+    const parsed = JSON.parse(text) as RawGeoJsonNode;
+    if (typeof parsed.type === "string" && parsed.type.includes("Feature")) {
       return { data: parseGeoJSON(text), format: "GeoJSON" };
     }
   } catch {

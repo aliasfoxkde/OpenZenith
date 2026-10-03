@@ -55,6 +55,24 @@ const OCEAN_SAMPLE_POINTS: Array<{ lat: number; lon: number }> = [
   { lat: 10, lon: -65 },
 ];
 
+/**
+ * Open-Meteo Marine API `current` block. For a batch multi-coordinate request
+ * every variable comes back as a parallel array; the scalar spellings are kept
+ * because the API mirrors whatever form it was asked for.
+ */
+interface OpenMeteoMarineCurrent {
+  time?: string | number | Array<string | number>;
+  wave_height?: number | number[];
+  wind_wave_height?: number | number[];
+  swell_wave_height?: number | number[];
+  sea_surface_temperature?: number | number[];
+}
+
+/** Payload served by marine-api.open-meteo.com/v1/marine. */
+interface OpenMeteoMarineResponse {
+  current?: OpenMeteoMarineCurrent;
+}
+
 export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("marineWeather")) return;
 
@@ -137,28 +155,28 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
         return;
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as OpenMeteoMarineResponse;
       const features: GeoJSON.Feature[] = [];
 
-      if (data.current) {
+      const current = data.current;
+      if (current) {
         // Batch response format
-        const _times = Array.isArray(data.current?.time) ? data.current.time : [data.current?.time];
-        const waveHeights = Array.isArray(data.current?.wave_height)
-          ? data.current.wave_height
-          : [data.current?.wave_height];
-        const windWaves = Array.isArray(data.current?.wind_wave_height)
-          ? data.current.wind_wave_height
-          : [data.current?.wind_wave_height];
-        const swellWaves = Array.isArray(data.current?.swell_wave_height)
-          ? data.current.swell_wave_height
-          : [data.current.swell_wave_height];
-        const sst = Array.isArray(data.current?.sea_surface_temperature)
-          ? data.current.sea_surface_temperature
-          : [data.current?.sea_surface_temperature];
+        const _times = Array.isArray(current.time) ? current.time : [current.time];
+        const whRaw = current.wave_height;
+        const waveHeights = Array.isArray(whRaw) ? whRaw : [whRaw];
+        const windRaw = current.wind_wave_height;
+        const windWaves = Array.isArray(windRaw) ? windRaw : [windRaw];
+        const swellRaw = current.swell_wave_height;
+        const swellWaves = Array.isArray(swellRaw) ? swellRaw : [swellRaw];
+        const sstRaw = current.sea_surface_temperature;
+        const sst = Array.isArray(sstRaw) ? sstRaw : [sstRaw];
 
         for (let i = 0; i < OCEAN_SAMPLE_POINTS.length; i++) {
           const wh = waveHeights[i];
           if (wh == null || isNaN(wh)) continue;
+          const windWave = windWaves[i];
+          const swellWave = swellWaves[i];
+          const seaSurfaceTemp = sst[i];
 
           features.push({
             type: "Feature",
@@ -169,9 +187,9 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
             properties: {
               waveHeight: Math.round(wh * 10) / 10,
               waveHeightStr: wh.toFixed(1),
-              windWave: windWaves[i] != null ? Math.round(windWaves[i] * 10) / 10 : null,
-              swellWave: swellWaves[i] != null ? Math.round(swellWaves[i] * 10) / 10 : null,
-              sst: sst[i] != null ? Math.round(sst[i] * 10) / 10 : null,
+              windWave: windWave != null ? Math.round(windWave * 10) / 10 : null,
+              swellWave: swellWave != null ? Math.round(swellWave * 10) / 10 : null,
+              sst: seaSurfaceTemp != null ? Math.round(seaSurfaceTemp * 10) / 10 : null,
               color: wh > 6 ? "#ef4444" : wh > 4 ? "#f97316" : wh > 2 ? "#3b82f6" : "#22d3ee",
             },
           });
@@ -185,8 +203,7 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
         if (!map.getSource("marineWeather")) {
           map.addSource("marineWeather", { type: "geojson", data: geojson });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("marineWeather") as any)?.setData(geojson);
+          map.getSource("marineWeather")?.setData(geojson);
         }
       } catch {
         /* style may have changed */

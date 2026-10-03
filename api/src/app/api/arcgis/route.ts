@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
     });
 
     clearTimeout(timeout);
-    const data = await resp.json();
+    // ArcGIS service document is relayed verbatim — `unknown` is honest here.
+    const data: unknown = await resp.json();
 
     const headers = new Headers(CORS_HEADERS);
     headers.set("Cache-Control", "public, max-age=300");

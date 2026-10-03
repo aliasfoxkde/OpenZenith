@@ -63,9 +63,12 @@ export interface OZT2DecodeResult {
  */
 async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8Array> {
   if (compressor === COMP_BROTLI) {
-    // "br" is supported natively in browsers and Cloudflare Workers
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ds = new DecompressionStream("br" as any);
+    // "br" is supported natively in browsers and Cloudflare Workers, but the
+    // DOM lib's CompressionFormat union does not list it yet, so the
+    // constructor is re-typed locally with the format it really accepts. Read
+    // off the global at call time so test stubs are picked up.
+    const BrotliDecompressionStream = DecompressionStream as unknown as new (format: string) => DecompressionStream;
+    const ds = new BrotliDecompressionStream("br");
     const writer = ds.writable.getWriter();
     // Await the writes — dropping these promises turns an invalid brotli
     // payload into an unhandled rejection instead of a rejected decodeOZT2.

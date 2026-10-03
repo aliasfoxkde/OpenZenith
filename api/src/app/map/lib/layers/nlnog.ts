@@ -3,13 +3,34 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── NLNOG Nodes ─── */
 
+/**
+ * Node record served by /api/nlnog. `lat`/`lon` are always numbers — the route
+ * geocodes upstream entries itself and drops the ones it cannot resolve. The
+ * remaining fields mirror the upstream NLNOG API and may be absent.
+ */
+type NlnogNode = {
+  lat: number;
+  lon: number;
+  id?: number;
+  hostname?: string;
+  asn?: number;
+  city?: string;
+  country?: string;
+};
+
+/**
+ * Body of /api/nlnog: `{nodes, count}` (or `{error}` on upstream failure).
+ * The legacy GeoJSON shape is still accepted via the same `features` key.
+ */
+type NlnogResponse = { nodes?: NlnogNode[]; features?: NlnogNode[]; error?: string } | null;
+
 export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("nlnog-nodes")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("/api/nlnog");
-      const data = await res.json();
+      const data = (await res.json()) as NlnogResponse;
 
       // API returns {nodes: [...], count: N}, not GeoJSON — convert
       const nodes = data?.nodes || data?.features || [];
@@ -17,27 +38,17 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
 
       const geojson: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
-        features: nodes.map(
-          (n: {
-            lat: number;
-            lon: number;
-            id: number;
-            hostname?: string;
-            asn?: number;
-            city?: string;
-            country?: string;
-          }) => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [n.lon, n.lat] },
-            properties: {
-              id: n.id,
-              hostname: n.hostname || "",
-              asn: n.asn || 0,
-              city: n.city || "",
-              country: n.country || "",
-            },
-          }),
-        ),
+        features: nodes.map((n) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [n.lon, n.lat] },
+          properties: {
+            id: n.id,
+            hostname: n.hostname || "",
+            asn: n.asn || 0,
+            city: n.city || "",
+            country: n.country || "",
+          },
+        })),
       };
 
       try {

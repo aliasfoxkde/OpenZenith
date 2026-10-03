@@ -10,7 +10,9 @@ export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {
-    const raw = await request.json();
+    // Request body is client-supplied and only inspected for `query`, so it is
+    // read as unknown and narrowed below.
+    const raw: unknown = await request.json();
     const body = raw as { query?: string };
     const query = body.query;
 
@@ -33,7 +35,8 @@ export async function POST(request: NextRequest) {
     });
 
     clearTimeout(timeout);
-    const data = await resp.json();
+    // Overpass reply is relayed verbatim — `unknown` is the honest boundary type.
+    const data: unknown = await resp.json();
 
     const headers = new Headers(CORS_HEADERS);
     headers.set("Cache-Control", "public, max-age=60");

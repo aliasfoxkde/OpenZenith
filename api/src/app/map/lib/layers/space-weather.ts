@@ -3,13 +3,21 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Space Weather (NOAA Aurora Forecast) ─── */
 
+/**
+ * NOAA SWPC OVATION aurora forecast. `coordinates` is a flat grid of
+ * `[longitude, latitude, aurora power (0..100)]` triples.
+ */
+interface AuroraForecast {
+  coordinates?: Array<[number, number, number]>;
+}
+
 export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("spaceWeather")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
-      const data = await res.json();
+      const data = (await res.json()) as AuroraForecast | null;
       const coords = data?.coordinates || [];
       setStatus(handle, "spaceWeather", coords.length ? "loaded" : "empty", coords.length);
 

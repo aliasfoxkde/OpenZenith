@@ -32,6 +32,13 @@ export function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
   });
 }
 
+/**
+ * `moveLayer` exists on the runtime MapLibre Map but is absent from the
+ * ambient `maplibregl.Map` declaration, so the z-order helpers reach it
+ * through this narrowed intersection view of the same instance.
+ */
+type LayerReorderableMap = maplibregl.Map & { moveLayer(id: string, beforeId?: string): void };
+
 /** Enforce correct z-order (bottom to top). */
 export function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, boolean>): void {
   // Definitive bottom-to-top order.
@@ -59,9 +66,7 @@ export function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, bo
   for (const id of Z_ORDER) {
     if (map.getLayer(id)) {
       try {
-        // maplibregl.Map.moveLayer is not in the public types but exists at runtime
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).moveLayer(id);
+        (map as LayerReorderableMap).moveLayer(id);
       } catch {
         /* skip */
       }
@@ -73,8 +78,7 @@ export function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, bo
   // then labels are moved back to the absolute top.
   if (map.getLayer("hillshade-base")) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- maplibregl.Map.moveLayer not in public types
-      (map as any).moveLayer("hillshade-base");
+      (map as LayerReorderableMap).moveLayer("hillshade-base");
     } catch {
       /* skip */
     }
@@ -82,8 +86,7 @@ export function reorderMapLayers(map: maplibregl.Map, _layers: Record<string, bo
   // Labels — always on absolute top (above hillshade)
   if (map.getLayer("labels-raster")) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- maplibregl.Map.moveLayer not in public types
-      (map as any).moveLayer("labels-raster");
+      (map as LayerReorderableMap).moveLayer("labels-raster");
     } catch {
       /* skip */
     }

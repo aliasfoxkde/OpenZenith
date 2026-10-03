@@ -3,13 +3,19 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Weather Warnings ─── */
 
+/**
+ * Body of /api/weather/warnings — the route proxies NWS alerts as a GeoJSON
+ * FeatureCollection, and serves `{error}` instead when upstream fails.
+ */
+type WarningsResponse = { features?: GeoJSON.Feature[] };
+
 export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("warnings")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("/api/weather/warnings");
-      const data = await res.json();
+      const data = (await res.json()) as WarningsResponse;
       if (!data.features) return;
       setStatus(handle, "warnings", "loaded", data.features.length);
 

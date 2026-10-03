@@ -345,8 +345,9 @@ function getFeatureCoords(feature: NullableGeometryFeature): [number, number][] 
   if (!g) return null;
   if (g.type === "LineString") return g.coordinates as [number, number][];
   if (g.type === "Polygon") {
-    // Edit the outer ring (exclude closing duplicate)
-    const ring = g.coordinates[0] as [number, number][];
+    // Edit the outer ring (exclude closing duplicate). The ambient Geometry
+    // keeps `coordinates` untyped, so the ring is cast at the access point.
+    const ring = (g.coordinates as [number, number][][])[0];
     return ring.slice(0, -1); // remove closing vertex
   }
   return null;
@@ -512,7 +513,7 @@ export function measureFeature(feature: NullableGeometryFeature): Measurement | 
     return { type: "distance", value: d };
   }
   if (g.type === "Polygon") {
-    const a = ringArea(g.coordinates[0] as [number, number][]);
+    const a = ringArea((g.coordinates as [number, number][][])[0]);
     return { type: "area", value: a };
   }
   if (g.type === "Point") {

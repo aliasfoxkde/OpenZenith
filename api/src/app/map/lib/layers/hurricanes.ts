@@ -3,6 +3,14 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Hurricane Tracks ─── */
 
+/**
+ * GeoJSON FeatureCollection served by /api/hurricanes. Track records may carry
+ * `geometry: null` (GeoJSON permits it), so geometry checks stay guarded.
+ */
+interface HurricaneResponse {
+  features?: GeoJSON.Feature[];
+}
+
 export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("hurricanes")) return;
 
@@ -21,17 +29,20 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
 
       // Parse point data (active storms)
       if (pointRes.status === "fulfilled" && pointRes.value.ok) {
-        const data = await pointRes.value.json();
+        const data = (await pointRes.value.json()) as HurricaneResponse | null;
         if (data?.features) features.push(...data.features);
       }
 
       // Parse track data (polylines)
       let _trackCount = 0;
       if (trackRes.status === "fulfilled" && trackRes.value.ok) {
-        const trackData = await trackRes.value.json();
+        const trackData = (await trackRes.value.json()) as HurricaneResponse | null;
         if (trackData?.features) {
           for (const f of trackData.features) {
-            if (f.geometry?.type === "MultiLineString") {
+            // GeoJSON allows `geometry: null`; read it through the nullable
+            // view so the guard below keeps skipping such records.
+            const geometry = f.geometry as GeoJSON.Geometry | null;
+            if (geometry?.type === "MultiLineString") {
               _trackCount++;
               features.push(f);
             }
@@ -50,8 +61,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
         if (!map.getSource("hurricanes")) {
           map.addSource("hurricanes", { type: "geojson", data: geojson });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("hurricanes") as any).setData(geojson);
+          map.getSource("hurricanes")?.setData(geojson);
         }
 
         // Track lines (MultiLineString features)
@@ -259,8 +269,7 @@ export function startHurricaneAnimation(
           (f.geometry as GeoJSON.MultiLineString).coordinates = [coords];
         }
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre internal property access
-      (source as any).setData({ type: "FeatureCollection", features: source._data?.features || [] });
+      source.setData({ type: "FeatureCollection", features: source._data?.features || [] });
     } catch {}
   };
 
@@ -284,11 +293,10 @@ export function stopHurricaneAnimation(map: maplibregl.Map, _handle: LayerHandle
   if (map.getSource("hurricanes")) {
     fetch("/api/hurricanes?track=full")
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: HurricaneResponse | null) => {
         if (data?.features) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-            (map.getSource("hurricanes") as any).setData(data);
+            map.getSource("hurricanes")?.setData(data);
           } catch {}
         }
       })

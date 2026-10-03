@@ -3,14 +3,21 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Weather Radar (RainViewer) ─── */
 
+/** One RainViewer frame — `path` is the tile URL prefix for that timestamp. */
+type RainViewerFrame = { path: string };
+
+/** Shape of https://api.rainviewer.com/public/weather-maps.json. */
+type RainViewerMaps = { radar?: { past?: RainViewerFrame[] } };
+
 export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("radar")) return;
 
   const doLoad = async () => {
     try {
       const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-      const data = await res.json();
-      const latest = data.radar?.past?.[data.radar.past.length - 1];
+      const data = (await res.json()) as RainViewerMaps;
+      const past = data.radar?.past;
+      const latest = past ? past[past.length - 1] : undefined;
       if (!latest) return;
 
       try {

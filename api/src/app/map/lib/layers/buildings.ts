@@ -9,6 +9,25 @@ import { setStatus, warnLayerError } from "./types";
 
 let currentBounds: string | null = null;
 
+/** Overpass geometry node for a building way. */
+interface OverpassNode {
+  lat: number;
+  lon: number;
+}
+
+/** Overpass element — only `way` elements carry a resolved `geometry`. */
+interface OverpassElement {
+  type?: string;
+  id?: number;
+  geometry?: OverpassNode[];
+  tags?: Record<string, string>;
+}
+
+/** Payload served by /api/overpass (Overpass `out:json` envelope). */
+interface OverpassResponse {
+  elements?: OverpassElement[];
+}
+
 export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("buildings")) return;
 
@@ -76,7 +95,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
         return;
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as OverpassResponse;
       const features: GeoJSON.Feature[] = [];
 
       if (data.elements) {
@@ -87,7 +106,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
             type: "Feature",
             geometry: {
               type: "Polygon",
-              coordinates: [el.geometry.map((n: { lat: number; lon: number }) => [n.lon, n.lat])],
+              coordinates: [el.geometry.map((n: OverpassNode) => [n.lon, n.lat])],
             },
             properties: {
               id: el.id,
@@ -107,8 +126,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
         if (!map.getSource("buildings")) {
           map.addSource("buildings", { type: "geojson", data: geojson });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("buildings") as any)?.setData(geojson);
+          map.getSource("buildings")?.setData(geojson);
         }
       } catch {
         /* style may have changed */

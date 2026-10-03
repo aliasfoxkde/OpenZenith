@@ -23,6 +23,21 @@ const STAC_SEARCH = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
 const GIBS_WMS = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi";
 const GIBS_MODIS = "MODIS_Terra_CorrectedReflectance_TrueColor";
 
+/** One STAC asset — only its href is consumed. */
+interface StacAsset {
+  href?: string;
+}
+
+/** A STAC item; assets are keyed by common-name or band id depending on provider. */
+interface StacItem {
+  assets?: Record<string, StacAsset>;
+}
+
+/** Planetary Computer STAC /search reply. */
+interface StacSearchResponse {
+  features?: StacItem[];
+}
+
 let cachedAssetUrl: string | null = null;
 let cachedAt = 0;
 const CACHE_TTL = 3600000; // 1 hour
@@ -42,7 +57,7 @@ async function findRecentSentinel2Tile(bbox: string): Promise<string | null> {
       }),
     });
     if (!res.ok) return null;
-    const data = await res.json();
+    const data = (await res.json()) as StacSearchResponse;
     if (!data.features?.length) return null;
     const item = data.features[0];
     const visualAsset = item.assets?.visual || item.assets?.["TCI"] || item.assets?.["tci"];

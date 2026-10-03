@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Waterways ─── */
 
+/**
+ * Body of /api/waterways — a GeoJSON FeatureCollection whose `features` may be
+ * absent when the route returns an error payload.
+ */
+type WaterwaysResponse = { features?: GeoJSON.Feature[] } | null;
+
 export function addWaterways(map: maplibregl.Map, handle: LayerHandle): void {
   // Waterways require a lat/lon center to query. Fetch from current map center.
   if (map.getSource("waterways")) return;
@@ -11,7 +17,7 @@ export function addWaterways(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const center = map.getCenter();
       const res = await fetch(`/api/waterways?lat=${center.lat.toFixed(4)}&lon=${center.lng.toFixed(4)}&radius=50`);
-      const data = await res.json();
+      const data = (await res.json()) as WaterwaysResponse;
       if (!data?.features) return;
 
       try {

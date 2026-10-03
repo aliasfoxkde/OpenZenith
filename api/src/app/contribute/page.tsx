@@ -99,7 +99,9 @@ export default function ContributePage() {
       try {
         const text = reader.result as string;
         if (file.name.endsWith(".json")) {
-          const parsed = JSON.parse(text);
+          // Parsed for validation only — the preview re-serialises whatever
+          // JSON the user dropped in, valid or not.
+          const parsed: unknown = JSON.parse(text);
           setUploadData(JSON.stringify(parsed, null, 2));
         } else if (file.name.endsWith(".csv") || file.name.endsWith(".geojson") || file.name.endsWith(".txt")) {
           setUploadData(text);

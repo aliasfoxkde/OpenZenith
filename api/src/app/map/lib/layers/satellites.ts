@@ -6,14 +6,25 @@ import { setStatus, warnLayerError } from "./types";
 // Simple satellite position from TLE using SGP4 approximation
 // For display purposes, we fetch pre-computed positions from Celestrak JSON API
 
-// Satellite position data (Celestrak GP API format)
-interface _SatPosition {
-  name: string;
-  id: string;
-  latitude: number;
-  longitude: number;
-  altitude_km: number;
+/**
+ * Record served by /api/satellites. The route may relay Celestrak GP JSON
+ * (`name`/`norad_cat_id`/`altitude_km`) or a derived position record
+ * (`NAME`/`NORAD_CAT_ID`/`altitude`), and neither set is guaranteed present.
+ */
+interface SatRecord {
+  name?: string;
+  NAME?: string;
+  id?: string;
+  norad_cat_id?: string | number;
+  NORAD_CAT_ID?: string | number;
+  latitude?: number;
+  longitude?: number;
+  altitude_km?: number;
+  altitude?: number;
 }
+
+/** Position list served by the Celestrak GP proxy. */
+type SatellitePositions = SatRecord[];
 
 export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("satellites")) return;
@@ -92,7 +103,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
         return;
       }
 
-      const tleData = await res.json();
+      const tleData = (await res.json()) as SatellitePositions | null;
       if (!Array.isArray(tleData) || tleData.length === 0) {
         setStatus(handle, "satellites", "empty");
         return;
@@ -132,7 +143,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
         try {
           const posRes = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json");
           if (posRes.ok) {
-            const satData = await posRes.json();
+            const satData = (await posRes.json()) as SatellitePositions;
             // Celestrak JSON returns TLE elements, not positions
             // We need to compute positions — for simplicity, just show a subset
             // by marking them at their sub-satellite point if available
@@ -150,11 +161,11 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
       }
 
       try {
-        if (!map.getSource("satellites")) {
+        const source = map.getSource("satellites");
+        if (!source) {
           map.addSource("satellites", { type: "geojson", data: { type: "FeatureCollection", features } });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("satellites") as any).setData({ type: "FeatureCollection", features });
+          source.setData({ type: "FeatureCollection", features });
         }
         setStatus(handle, "satellites", "loaded", features.length);
       } catch {}

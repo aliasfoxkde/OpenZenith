@@ -74,17 +74,21 @@ jobs:
       # removed): 3,759 -> 3,480 measured. Same day, every route/lib test
       # file was converted to the typed bodyAs<T>() response pattern (43
       # files; interfaces per response shape, no eslint-disables, tsc clean):
-      # 3,475 -> 2,690 JSON-message warnings (grep count 2,694). Remaining
-      # debt is dominated by the globe raster-layer family (~1,890), which
-      # waits for the Phase-6 layer factory rather than 24 hand-typings.
+      # 3,475 -> 2,690 JSON-message warnings (grep count 2,694). 2026-10-03
+      # (later): every non-globe source file followed — map/lib layers,
+      # api route handlers, studio components, shared lib, landing/explore/
+      # home pages — all typed at their fetch/json boundaries: 2,690 ->
+      # 1,890 (grep 1,892). Everything outside app/globe/** is now at zero;
+      # the residual is the globe raster-layer family, which waits for the
+      # Phase-6 layer factory rather than 24 hand-typings.
       - name: eslint + warning-baseline guard
         run: |
           cd api
           npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
           warnings=$(grep -cE 'warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 2694)"
-          [ "${warnings:-0}" -le 2694 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 2694"; exit 1;
+          echo "eslint warnings: ${warnings:-0} (baseline 1892)"
+          [ "${warnings:-0}" -le 1892 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 1892"; exit 1;
           }
     timeout: 10m
 

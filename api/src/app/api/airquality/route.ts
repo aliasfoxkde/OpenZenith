@@ -14,6 +14,23 @@ export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/** One `current` block of the Open-Meteo Air Quality reply. */
+interface OpenMeteoCurrent {
+  pm10?: number;
+  pm2_5?: number;
+  carbon_monoxide?: number;
+  nitrogen_dioxide?: number;
+  sulphur_dioxide?: number;
+  ozone?: number;
+  us_aqi?: number;
+  time?: string;
+}
+
+/** Open-Meteo Air Quality API reply — only `current` is read. */
+interface OpenMeteoAirQuality {
+  current?: OpenMeteoCurrent | null;
+}
+
 function parseCoord(val: string | null, fallback: number, min: number, max: number): number {
   if (!val) return fallback;
   const n = Number(val);
@@ -40,7 +57,7 @@ export async function GET(request: Request) {
       return corsError("Failed to fetch air quality data", 200);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as OpenMeteoAirQuality;
     const current = data.current;
     if (!current) {
       return NextResponse.json({ type: "FeatureCollection", features: [] }, { headers: CORS_HEADERS });

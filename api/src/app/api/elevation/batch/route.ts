@@ -37,6 +37,11 @@ interface BatchResult {
   elevation: number | null;
 }
 
+/** Client request body. Every field is validated explicitly after parsing. */
+interface BatchRequestBody {
+  points?: BatchPoint[];
+}
+
 function sampleElevation(
   tileData: { data: Int16Array; width: number; height: number },
   lat: number,
@@ -73,9 +78,9 @@ function sampleElevation(
 }
 
 export async function POST(request: NextRequest) {
-  let body: { points?: BatchPoint[] };
+  let body: BatchRequestBody;
   try {
-    body = await request.json();
+    body = (await request.json()) as BatchRequestBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }
@@ -108,7 +113,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const zoom = 12;
-    const results: BatchResult[] = new Array(points.length);
+    const results: BatchResult[] = new Array<BatchResult>(points.length);
     const tileCache = new Map<string, { data: Int16Array; width: number; height: number } | null>();
 
     const tileGroups = new Map<string, number[]>();

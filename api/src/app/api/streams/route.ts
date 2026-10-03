@@ -92,10 +92,19 @@ export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/** Client request body. Required fields are validated explicitly after parsing. */
+interface StreamsRequestBody {
+  lat?: number;
+  lon?: number;
+  zoom?: number;
+  radius_cells?: number;
+  threshold?: number;
+}
+
 export async function POST(request: NextRequest) {
-  let body: { lat?: number; lon?: number; zoom?: number; radius_cells?: number; threshold?: number };
+  let body: StreamsRequestBody;
   try {
-    body = await request.json();
+    body = (await request.json()) as StreamsRequestBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }

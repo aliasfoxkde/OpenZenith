@@ -3,6 +3,14 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Aviation Weather (SIGMETs / AIRMETs) ─── */
 
+/**
+ * aviationweather.gov data-server record. The endpoints overlap but do not
+ * share a schema — `hazard`/`hazardType`, `start_time`/`validTimeFrom` and
+ * `coordinates`/`area`/`vertices`/`points` are alternative spellings, and
+ * geometry parsing stays shape-agnostic (see `parseAviationGeometry`).
+ */
+type AviationEntry = Record<string, unknown>;
+
 export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("aviationWeather")) return;
 
@@ -97,7 +105,7 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
       try {
         const sigRes = await fetch("/api/proxy/https://aviationweather.gov/api/data/sigmet?format=json");
         if (sigRes.ok) {
-          const sigData = await sigRes.json();
+          const sigData = (await sigRes.json()) as AviationEntry[] | null;
           if (Array.isArray(sigData)) {
             for (const s of sigData) {
               const geom = parseAviationGeometry(s);
@@ -122,7 +130,7 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
       try {
         const airRes = await fetch("/api/proxy/https://aviationweather.gov/api/data/airmet?format=json");
         if (airRes.ok) {
-          const airData = await airRes.json();
+          const airData = (await airRes.json()) as AviationEntry[] | null;
           if (Array.isArray(airData)) {
             for (const a of airData) {
               const geom = parseAviationGeometry(a);
@@ -149,11 +157,11 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
       }
 
       try {
-        if (!map.getSource("aviationWeather")) {
+        const source = map.getSource("aviationWeather");
+        if (!source) {
           map.addSource("aviationWeather", { type: "geojson", data: { type: "FeatureCollection", features } });
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MapLibre untyped API
-          (map.getSource("aviationWeather") as any).setData({ type: "FeatureCollection", features });
+          source.setData({ type: "FeatureCollection", features });
         }
         setStatus(handle, "aviationWeather", "loaded", features.length);
       } catch {}
@@ -185,7 +193,7 @@ export function removeAviationWeather(map: maplibregl.Map): void {
 /* ─── Helpers ─── */
 
 /** Parse aviation weather geometry from various NOAA formats */
-function parseAviationGeometry(entry: Record<string, unknown>): GeoJSON.Geometry | null {
+function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
   // Try coordinates array: [[lon,lat], [lon,lat], ...]
   const coords =
     entry.coordinates || entry.area || (entry.geometry as Record<string, unknown> | undefined)?.coordinates;
@@ -208,7 +216,10 @@ function parseAviationGeometry(entry: Record<string, unknown>): GeoJSON.Geometry
     const ring: [number, number][] = [];
     for (const v of verts) {
       if (Array.isArray(v) && v.length >= 2) {
-        ring.push([v[0], v[1]]);
+        // Vertex pairs are relayed as-is; the numeric assertion only satisfies
+        // the ring's tuple type (unlike the `coords` branch there is no
+        // per-element typeof check to narrow them).
+        ring.push([v[0] as number, v[1] as number]);
       } else if (typeof v === "object" && v !== null) {
         // NOAA polygon vertices are either [lon, lat] pairs or {lon|lng, lat} objects
         const vert = v as Partial<Record<string, number>>;

@@ -3,6 +3,28 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Flights (ADS-B) ─── */
 
+/**
+ * Slimmed OpenSky state vector as relayed by /api/flights (see `slimState`
+ * in src/app/api/flights/route.ts). Fields OpenSky omits come through as
+ * `null`.
+ */
+interface FlightState {
+  icao24?: string;
+  callsign?: string | null;
+  origin_country?: string;
+  longitude?: number | null;
+  latitude?: number | null;
+  baro_altitude?: number | null;
+  on_ground?: boolean | null;
+  velocity?: number | null;
+}
+
+/** Payload served by /api/flights — `error` accompanies a failure fallback. */
+interface FlightsResponse {
+  states?: FlightState[];
+  error?: string;
+}
+
 export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("flights")) return;
   setStatus(handle, "flights", "loading");
@@ -44,7 +66,7 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
       const bounds = map.getBounds();
       const url = `/api/flights?lamin=${bounds.getSouthWest().lat.toFixed(2)}&lamax=${bounds.getNorthEast().lat.toFixed(2)}&lomin=${bounds.getSouthWest().lng.toFixed(2)}&lomax=${bounds.getNorthEast().lng.toFixed(2)}`;
       const res = await fetch(url);
-      const data = await res.json();
+      const data = (await res.json()) as FlightsResponse | null;
       const states = data?.states || [];
 
       if (!states.length) {
@@ -53,12 +75,15 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
       }
 
       const features: GeoJSON.Feature[] = states
-        .filter((s: Record<string, unknown>) => s.latitude != null && s.longitude != null)
-        .map((s: Record<string, unknown>) => ({
+        .filter(
+          (s: FlightState): s is FlightState & { latitude: number; longitude: number } =>
+            s.latitude != null && s.longitude != null,
+        )
+        .map((s) => ({
           type: "Feature" as const,
           geometry: {
             type: "Point" as const,
-            coordinates: [s.longitude as number, s.latitude as number],
+            coordinates: [s.longitude, s.latitude],
           },
           properties: {
             icao24: s.icao24,

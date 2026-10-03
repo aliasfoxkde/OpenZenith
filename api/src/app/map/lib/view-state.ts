@@ -57,7 +57,8 @@ export function buildDefaultLayers(): Record<string, boolean> {
     try {
       const saved = localStorage.getItem(LAYER_STATE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
+        // Written by this app as JSON.stringify(<Record<string, boolean>>).
+        const parsed = JSON.parse(saved) as Record<string, boolean>;
         for (const key of Object.keys(parsed)) {
           if (key in layers) layers[key] = parsed[key];
         }

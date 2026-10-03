@@ -54,7 +54,9 @@ export function loadPreferences(): Partial<UserPreferences> {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return {};
-    return JSON.parse(raw);
+    // Stored preferences are written by savePreferences below; cast at the
+    // read boundary and let callers narrow the partial shape themselves.
+    return JSON.parse(raw) as Partial<UserPreferences>;
   } catch {
     return {};
   }

@@ -39,6 +39,7 @@ declare namespace maplibregl {
     setPaintProperty(layerId: string, name: string, value: unknown): this;
     setFilter(layerId: string, filter?: unknown): this;
     setStyle(style: Record<string, unknown>): this;
+    getStyle(): { layers?: Array<{ id: string; type: string }> } | undefined;
     getBounds(): { getSouthWest(): { lat: number; lng: number }; getNorthEast(): { lat: number; lng: number } };
     fitBounds(
       bounds:

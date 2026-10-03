@@ -99,7 +99,7 @@ export default function MapPage() {
     if (typeof window === "undefined") return {};
     try {
       const saved = localStorage.getItem("openzenith-map-opacity");
-      return saved ? JSON.parse(saved) : {};
+      return saved ? (JSON.parse(saved) as Record<string, number>) : {};
     } catch {
       return {};
     }
@@ -115,8 +115,7 @@ export default function MapPage() {
     const map = mapRef.current;
     if (!map) return;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const style = (map as any).getStyle();
+      const style = map.getStyle();
       if (!style?.layers) return;
       for (const layer of style.layers) {
         if (layer.id.startsWith(layerId) && layer.type === "raster") {
@@ -440,7 +439,7 @@ export default function MapPage() {
         body: JSON.stringify({ points: lats.map((lat, i) => [lat, lons[i]]) }),
         signal: AbortSignal.timeout(30_000),
       });
-      const data = await res.json();
+      const data = (await res.json()) as { elevations?: number[]; results?: number[] } | null;
       const elevations = data?.elevations || data?.results || [];
       let dist = 0;
       const profile = [{ distance: 0, elevation: elevations[0] ?? 0 }];
@@ -461,7 +460,7 @@ export default function MapPage() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
     try {
       const saved = localStorage.getItem(BOOKMARKS_KEY);
-      return saved ? JSON.parse(saved) : [];
+      return saved ? (JSON.parse(saved) as Bookmark[]) : [];
     } catch {
       return [];
     }
@@ -1108,12 +1107,16 @@ export default function MapPage() {
           signal: AbortSignal.timeout(6_000),
         });
         if (!res.ok) throw new Error("search unavailable");
-        const data = await res.json();
-        if (data?.ok === false || data?.error) throw new Error(data.error?.message || "search unavailable");
-        if (data.results?.length > 0) {
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: { message: string };
+          results?: Array<{ lon: number; lat: number }>;
+        } | null;
+        if (!data || data.ok === false || data.error) throw new Error(data?.error?.message || "search unavailable");
+        if (data.results && data.results.length > 0) {
           const r = data.results[0];
           const map = mapRef.current;
-          if (map) map.flyTo({ center: [Number(r.lon), Number(r.lat)], zoom: 12, duration: 1500 });
+          if (map) map.flyTo({ center: [r.lon, r.lat], zoom: 12, duration: 1500 });
         }
       } catch {
         showToast("Address search is temporarily unavailable.", "error");

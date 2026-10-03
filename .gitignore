@@ -76,3 +76,7 @@ coverage.xml
 # SDK CLI output (openzenith contours/query default outputs)
 contours_*.geojson
 elevation.geojson
+
+# Local smoke-test wrangler state + package probes (regenerated per run)
+.smoke-persist-*/
+.pkgprobe/

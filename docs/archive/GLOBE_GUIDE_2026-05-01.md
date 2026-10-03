@@ -1,3 +1,11 @@
+> **Archived 2026-10-03.** This globe architecture guide dates to
+> 2026-05-01 and references files that no longer exist
+> (`lib/terrain-csr.ts`, `lib/clustering.ts`) plus stale counts (layers,
+> basemaps, page line counts). Current globe architecture lives in the
+> source under `api/src/app/globe/` with context in
+> `docs/planning/MASTER_PLAN_2026-09-22.md`. Kept for history only —
+> do not cite as current behavior.
+
 # Globe Page — Architecture & Developer Guide
 
 **Path:** `api/src/app/globe/`

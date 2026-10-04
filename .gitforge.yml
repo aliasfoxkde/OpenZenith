@@ -45,7 +45,11 @@ jobs:
           cd api
           npm ci > /tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
           tail -3 /tmp/install.log
-    timeout: 15m
+    # 2026-10-03/04: three consecutive infra-class install failures under
+    # co-tenant load (2x infrastructure_failure with empty logs, 1x
+    # timed_out at 15m — npm ci never finished). Normal install is ~2-4m;
+    # headroom covers the load spikes (observed loadavg 60-170).
+    timeout: 30m
 
   - name: typecheck
     image: node:22-bookworm
@@ -85,10 +89,13 @@ jobs:
         run: |
           cd api
           npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
-          warnings=$(grep -cE 'warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 1892)"
-          [ "${warnings:-0}" -le 1892 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 1892"; exit 1;
+          # Count warning MESSAGE lines, not the word "warning": the summary
+          # line and a file named warnings.ts also match a naive grep (off
+          # by two).
+          warnings=$(grep -cE '^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+warning' /tmp/lint.log || true)
+          echo "eslint warnings: ${warnings:-0} (baseline 1890)"
+          [ "${warnings:-0}" -le 1890 ] || {
+            echo "WARNING REGRESSION: ${warnings} > 1890"; exit 1;
           }
     timeout: 10m
 
@@ -153,9 +160,28 @@ jobs:
     # stretched sibling suites >4x — leave headroom for retry + spike.
     timeout: 30m
 
-  - name: bundle-budget
+  - name: mcp-server
     image: node:22-bookworm
     needs: [unit-test]
+    steps:
+      # The stdio MCP server package gets the same gates as api/: strict
+      # typecheck, typed eslint (0 warnings — the unsafe-family runs at
+      # error there), and its contract tests. npm ci is scoped to
+      # mcp-server/ so it cannot disturb the api/ node_modules the earlier
+      # jobs installed.
+      - name: typecheck + lint + contract tests
+        run: |
+          cd mcp-server
+          npm ci > /tmp/mcp-install.log 2>&1 || { tail -30 /tmp/mcp-install.log; exit 1; }
+          npm run typecheck || exit 1
+          npm run lint || exit 1
+          npm test > /tmp/mcp-test.log 2>&1 || { tail -30 /tmp/mcp-test.log; exit 1; }
+          tail -6 /tmp/mcp-test.log
+    timeout: 20m
+
+  - name: bundle-budget
+    image: node:22-bookworm
+    needs: [mcp-server]
     steps:
       # Perf tripwire (docs/planning/PERFORMANCE_PLAN_2026-10-02.md item 5):
       # rebuilds the production bundle and compares tracked chunk totals +

@@ -367,3 +367,49 @@ toggle smoke for item 1.
   getContainer(), moveLayer(), getBounds S/W/N/E, fitBounds array form,
   studio geojson.d.ts discriminated union. Remaining lint debt is 100%
   app/globe/** (1,890) — the Phase-6 raster factory's payoff.
+- 2026-10-03/04 (Phase 2, slices 5-8: strictness quartet, all gates green):
+  - **tsconfig**: adopted `noFallthroughCasesInSwitch` (0 fallout),
+    `noImplicitOverride` (2 fixes in ErrorBoundary), `noImplicitReturns`
+    (0). Declined WITH MEASURED COUNTS: `noUnusedLocals/Parameters` (36;
+    13 structurally inside the frozen globe zone — revisit after the
+    Phase-6 factory), `noUncheckedIndexedAccess` (1,134 — 19x threshold),
+    `exactOptionalPropertyTypes` (25; 3 in globe, plus non-mechanical
+    reshaping of shared optional-prop surfaces).
+  - **Python (ruff + mypy)**: adopted ERA (12 dead-code hits fixed),
+    PERF (8), RET (12), N (19), TC (3), S (1,908 — 2 prod asserts removed,
+    4 urllib HTTPS-guarded; 1,902 test-side per-file-ignores with written
+    reasons). Declined with counts: ARG 157 (interface-symmetry +
+    duck-typed fakes), ANN 1,816 (mypy already covers the prod surface),
+    PL 1,095 (deliberate lazy imports + numpy kernels). **mypy
+    introduced** (`[tool.mypy]` disallow_untyped_defs, non-test):
+    68 findings fixed, exit 0 — including a REAL latent bug: fuse.py's
+    GEBCO fallback returned a bare int where callers unpack a tuple
+    (first ocean point would TypeError); fixed + regression test, suite
+    1,479 → 1,480 green (98.81% lines).
+  - **Rust (core/)**: `missing_docs = warn` (was already 0 hits; stub
+    docs upgraded to real contract docs + crate-level totality contract),
+    `clippy::pedantic = warn` adopted: 62 findings fixed properly
+    (must_use x16, items_after_statements x12, doc_markdown x22,
+    cast_lossless x11, needless_pass_by_value x2, …), 52 numeric-cast
+    lints configured-allow with written reasons (crate's documented
+    position), float_cmp scoped to the ozt2 test module only,
+    decode_ozt2 decomposed into 6 named helpers (+7 new wasm-gated unit
+    tests). clippy -D warnings exit 0 INCLUDING --features wasm; 51/51
+    tests unchanged; cargo doc warning-free.
+  - **mcp-server**: real gates added (typecheck/lint/test scripts, flat
+    typed eslint — unsafe-family at ERROR, 0/0 achieved, strict tsconfig
+    with measured flag adoption incl. noUncheckedIndexedAccess at 2
+    fixes), deprecated SDK server.tool()/resource() migrated to
+    registerTool/registerResource, `npm test` scoped to src (was
+    silently testing stale dist/ output — 2 files/16 tests → 1 file/8).
+    **Found + fixed a production bug**: apiFetch JSON.parsed the
+    text/markdown /docs-md response, so the api_docs tool and docs
+    resource always errored; a toContain() test masked it because the
+    SyntaxError message embeds the body head. Fixed with a content-type
+    branch + exact-equality regression test with a tail marker.
+    `.gitforge.yml` gains an mcp-server job (typecheck+lint+tests) and
+    precise warning-message grep for the lint guard.
+  - CI infra note: 41db3f2's two runs failed at install
+    (infrastructure_failure, empty logs) and 89f1549's first run hit
+    install timed_out at 15m — co-tenant load; install/mcp-server
+    timeouts raised to 30m/20m with the failure history documented.

@@ -201,17 +201,19 @@ def image_correlation(
     b: np.ndarray,
     kernel_size: int = 5,
     nodata: float = -32768.0,
-) -> float:
+) -> float | np.ndarray:
     """Compute Pearson correlation coefficient between two rasters.
 
     Args:
         a: First array
         b: Second array
-        kernel_size: Window size for local correlation (0 = global)
+        kernel_size: Window size for local correlation (0 = global). A window
+            of 0 returns a single global coefficient; any other size returns a
+            per-window coefficient grid of the same shape as ``a``.
         nodata: NODATA value
 
     Returns:
-        Correlation coefficient (-1 to 1)
+        Correlation coefficient (-1 to 1), or a grid of them.
 
     """
     valid = (a != nodata) & (b != nodata)
@@ -223,27 +225,27 @@ def image_correlation(
         a_flat = a[valid]
         b_flat = b[valid]
         return float(np.corrcoef(a_flat, b_flat)[0, 1])
-    else:
-        # Local correlation in windows
-        from scipy.ndimage import uniform_filter
 
-        a_f = np.where(valid, a, 0.0).astype(np.float64)
-        b_f = np.where(valid, b, 0.0).astype(np.float64)
-        a_mean = uniform_filter(a_f, size=kernel_size)
-        b_mean = uniform_filter(b_f, size=kernel_size)
-        a_sq = uniform_filter(a_f**2, size=kernel_size)
-        b_sq = uniform_filter(b_f**2, size=kernel_size)
-        ab = uniform_filter(a_f * b_f, size=kernel_size)
+    # Local correlation in windows
+    from scipy.ndimage import uniform_filter
 
-        num = ab - a_mean * b_mean
-        den = np.sqrt((a_sq - a_mean**2) * (b_sq - b_mean**2))
-        corr = np.where(den > 0, num / den, 0)
-        valid_mask = uniform_filter(valid.astype(np.float64), size=kernel_size) > 0.5
+    a_f = np.where(valid, a, 0.0).astype(np.float64)
+    b_f = np.where(valid, b, 0.0).astype(np.float64)
+    a_mean = uniform_filter(a_f, size=kernel_size)
+    b_mean = uniform_filter(b_f, size=kernel_size)
+    a_sq = uniform_filter(a_f**2, size=kernel_size)
+    b_sq = uniform_filter(b_f**2, size=kernel_size)
+    ab = uniform_filter(a_f * b_f, size=kernel_size)
 
-        result = np.full(a.shape, np.nan, dtype=np.float32)
-        result[valid_mask] = corr[valid_mask]
-        result[~valid_mask] = nodata
-        return result.astype(np.float32)
+    num = ab - a_mean * b_mean
+    den = np.sqrt((a_sq - a_mean**2) * (b_sq - b_mean**2))
+    corr = np.where(den > 0, num / den, 0)
+    valid_mask = uniform_filter(valid.astype(np.float64), size=kernel_size) > 0.5
+
+    result = np.full(a.shape, np.nan, dtype=np.float32)
+    result[valid_mask] = corr[valid_mask]
+    result[~valid_mask] = nodata
+    return result.astype(np.float32)
 
 
 def image_autocorrelation(

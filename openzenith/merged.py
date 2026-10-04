@@ -36,7 +36,6 @@ import math
 import struct
 import zlib
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 from cachetools import LRUCache
@@ -133,7 +132,7 @@ class MergedFile:
             out = np.frombuffer(decompressed, dtype=np.float32).reshape(256, 256)
 
         _chunk_cache[cache_key] = out
-        return cast(np.ndarray, out)
+        return out
 
 
 def lat_lon_to_srtm_name(lat: float, lon: float) -> str:

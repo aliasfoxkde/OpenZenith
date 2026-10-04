@@ -69,7 +69,7 @@ def convert_tile(
     total_time = time.time() - t0
     reduction = (1 - len(encoded) / src_size) * 100
 
-    result = {
+    return {
         "source": name,
         "output": dst_name,
         "source_bytes": src_size,
@@ -93,8 +93,6 @@ def convert_tile(
         "terrain_type": terrain,
         "elevation_range": [int(arr[arr != -32768].min()), int(arr[arr != -32768].max())],
     }
-
-    return result
 
 
 def convert_directory(

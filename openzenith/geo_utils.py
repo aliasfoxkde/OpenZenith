@@ -11,8 +11,7 @@ def load_geotiff(path: str) -> np.ndarray:
     Handles SRTM 1x1 degree tiles (3601x3601 at 30m resolution).
     """
     img = Image.open(path)
-    arr = np.array(img, dtype=np.int16)
-    return arr
+    return np.array(img, dtype=np.int16)
 
 
 def srtm_filename_to_bounds(filename: str) -> tuple[float, float, float, float]:

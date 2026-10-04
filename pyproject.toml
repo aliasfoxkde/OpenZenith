@@ -83,12 +83,24 @@ target-version = "py310"
 
 [tool.ruff.lint]
 # Strict set: pycodestyle/pyflakes, isort, bugbear, flake8-comprehensions,
-# pyupgrade, flake8-simplify, ruff-specific, flake8-use-pathlib, pydocstyle.
+# pyupgrade, flake8-simplify, ruff-specific, flake8-use-pathlib, pydocstyle,
+# plus the measured-cheap strict groups: performance anti-patterns (PERF),
+# return simplification (RET), naming (N), type-checking imports (TC), and
+# bandit (S).
 # D203/D213 excluded as ruff recommends (incompatible with D211/D212).
 extend-select = [
     "E", "W", "F", "I", "B", "C4", "UP", "SIM", "RUF", "PTH", "D",
+    "PERF", "RET", "N", "TC", "S",
 ]
-ignore = ["D203", "D213"]
+ignore = [
+    "D203", "D213",
+    # PERF203 flags every `try` inside a loop, but per-item error isolation is a
+    # requirement here: `cmd_ingest` must skip one corrupt DEM file instead of
+    # aborting the whole bundle, and the same shape appears wherever a batch of
+    # user-supplied inputs is processed. Moving the `try` outside the loop would
+    # reintroduce the abort-on-first-failure defect this code was written to fix.
+    "PERF203",
+]
 # × (U+00D7) and − (U+2212) are intentional math symbols in dimension strings
 # like "3600×1800" and elevation deltas, not confusable typos.
 allowed-confusables = ["×", "−"]
@@ -96,7 +108,57 @@ allowed-confusables = ["×", "−"]
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402"]
 # Test names document themselves; enforcing docstrings there is noise.
-"openzenith/tests/*" = ["D101", "D102", "D103", "D107"]
+# S101: tests assert by design — that is the point of a test.
+# S106/S108: fixture literals ("r2_secret_access_key=...", "/tmp/...") are
+#   throwaway values handed to fakes, never real credentials or real temp
+#   paths that hold anything sensitive; the CLI paths are string arguments
+#   under test, not files this suite writes.
+"openzenith/tests/*" = ["D101", "D102", "D103", "D107", "S101", "S106", "S108"]
+
+[tool.mypy]
+# Narrow start: the whole package minus tests. Tests get fixtures and
+# third-party doubles whose signatures are deliberately loose, so typing them
+# buys little; the shipped SDK surface is what callers depend on.
+files = ["openzenith"]
+exclude = "tests/"
+# The package declares requires-python = ">=3.10" and py310 in ruff.
+python_version = "3.10"
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Third-party imports mypy cannot resolve, split by why. Everything listed here
+# is imported lazily inside the function that needs it (optional accelerator or
+# optional I/O backend), and the SDK already converts whatever those libraries
+# return into its own typed values at the call site, so the missing annotations
+# do not leak into openzenith's public signatures.
+#
+# 1. Ships no py.typed marker and publishes no stub package. There is nothing to
+#    install; the only alternative is duplicating these libraries' signatures
+#    ourselves, which is not worth it for lazy optional imports.
+#    - "brotli"      — the reference Brotli C extension (tile_format_v2 fallback chain)
+#    - "shapefile"   — pyshp (vector.py shapefile reader)
+#    - "numba"       — optional JIT accelerator for viewshed (terrain/viewshed.py)
+# 2. Stubs exist as a separate package (types-cachetools, scipy-stubs,
+#    types-requests, boto3-stubs) but are not installed in this environment, and
+#    installing them here would change the shared dev environment rather than the
+#    repo. Recorded instead so the gap is visible; swapping these to real stubs
+#    is the follow-up if the SDK ever needs their signatures.
+[[tool.mypy.overrides]]
+module = ["brotli", "shapefile", "numba"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "cachetools.*",
+    "scipy.*",
+    "requests.*",
+    "boto3.*",
+    "botocore.*",
+    "rasterio.*",
+    "fiona",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]

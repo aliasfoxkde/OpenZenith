@@ -55,6 +55,11 @@ Unrealistic values (< -11000 or > 9000) are treated as nodata.
 
 GEBCO_LAND_THRESHOLD = 0.0  # positive = above sea level
 
+# Byte layout of one raster row inside a GEBCO quadrant GeoTIFF: 21600 Int16
+# samples per row (43200 bytes) and the pixel data beginning at byte 135948.
+GEBCO_STRIP_BYTES = 21600 * 2
+GEBCO_STRIP_DATA_START = 135948
+
 
 # ─── GEBCO tile math ───────────────────────────────────────────────────────────
 
@@ -159,6 +164,10 @@ class FusedDEM:
         self.use_http_fallback = use_http_fallback
         self._srtm_tiles = srtm_tiles
         self._gebco_cache: dict[str, np.ndarray] = {}
+        # Created lazily by `_get_gebco_session`. Declared here so mypy sees one
+        # definition; aiohttp itself is an optional dependency imported inside
+        # that method (and for types only at module scope).
+        self._gebco_session: aiohttp.ClientSession | None = None
 
     # ─── Public API ───────────────────────────────────────────────────────────
 
@@ -283,10 +292,15 @@ class FusedDEM:
                 coords.append((r, c))
 
         # Run all queries concurrently
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results: list[tuple[int, bool] | BaseException | None] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
 
         for (r, c), result in zip(coords, results, strict=False):
-            if isinstance(result, Exception):
+            # `return_exceptions=True` hands back BaseException, so test that
+            # rather than Exception — otherwise a CancelledError slipped into
+            # the gather would reach the unpack below and crash the loop.
+            if isinstance(result, BaseException):
                 _logger.debug("Async query failed for (%d,%d): %s", r, c, result)
                 continue
             if result is not None:
@@ -321,11 +335,15 @@ class FusedDEM:
 
         # Query all points concurrently
         tasks = [self._query_point_async(lat, lon) for lat, lon in lat_lon_pairs]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results: list[tuple[int, bool] | BaseException | None] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
 
         output: list[float | None] = []
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
+                # See query_async: gather with return_exceptions=True can hand
+                # back a BaseException, which is as much "no data" as None.
                 output.append(None)
             elif result is not None:
                 elev, _is_land = result
@@ -346,12 +364,19 @@ class FusedDEM:
         if srtm_result is not None:
             return srtm_result
 
-        # Fall back to GEBCO via async HTTP
+        # Fall back to GEBCO. GEBCO is bathymetry, so a hit is never land —
+        # the sync path sets mask=0 for the same reason. The fallbacks return a
+        # bare elevation, so wrap it into this method's (elevation, is_land)
+        # contract; returning it bare would crash the callers' tuple unpack.
         if self.gebco_dir is not None:
             # Local GEBCO read (blocking, so offload to thread)
-            return await asyncio.to_thread(self._gebco_from_local, lat, lon)
-        elif self.use_http_fallback:
-            return await self._gebco_from_http_async(lat, lon)
+            gebco_elev = await asyncio.to_thread(self._gebco_from_local, lat, lon)
+            if gebco_elev is not None:
+                return gebco_elev, False
+        if self.use_http_fallback:
+            gebco_elev = await self._gebco_from_http_async(lat, lon)
+            if gebco_elev is not None:
+                return gebco_elev, False
 
         return None
 
@@ -369,11 +394,9 @@ class FusedDEM:
         row = round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG)
         row = max(0, min(21600 - 1, row))
 
-        STRIP_BYTES = 21600 * 2
-        STRIP_DATA_START = 135948
-        offset = STRIP_DATA_START + row * STRIP_BYTES
+        offset = GEBCO_STRIP_DATA_START + row * GEBCO_STRIP_BYTES
 
-        headers = {"Range": f"bytes={offset}-{offset + STRIP_BYTES - 1}"}
+        headers = {"Range": f"bytes={offset}-{offset + GEBCO_STRIP_BYTES - 1}"}
 
         # Get or create session
         session = await self._get_gebco_session()
@@ -400,25 +423,20 @@ class FusedDEM:
 
     async def _get_gebco_session(self) -> aiohttp.ClientSession:
         """Get or create a shared aiohttp session for GEBCO HTTP requests."""
-        if (
-            not hasattr(self, "_gebco_session")
-            or self._gebco_session is None
-            or self._gebco_session.closed
-        ):
+        session = self._gebco_session
+        if session is None or session.closed:
             import aiohttp
 
             connector = aiohttp.TCPConnector(limit=32)
-            self._gebco_session = aiohttp.ClientSession(connector=connector)
-        return self._gebco_session
+            session = aiohttp.ClientSession(connector=connector)
+            self._gebco_session = session
+        return session
 
     async def close_gebco_session(self) -> None:
         """Close the shared GEBCO HTTP session."""
-        if (
-            hasattr(self, "_gebco_session")
-            and self._gebco_session is not None
-            and not self._gebco_session.closed
-        ):
-            await self._gebco_session.close()
+        session = self._gebco_session
+        if session is not None and not session.closed:
+            await session.close()
             self._gebco_session = None
 
     # ─── SRTM ─────────────────────────────────────────────────────────────────
@@ -494,7 +512,7 @@ class FusedDEM:
         """Get GEBCO elevation at a point (negative = ocean depth)."""
         if self.gebco_dir is not None:
             return self._gebco_from_local(lat, lon)
-        elif self.use_http_fallback:
+        if self.use_http_fallback:
             return self._gebco_from_http(lat, lon)
         return None
 
@@ -556,13 +574,9 @@ class FusedDEM:
         row = round((bounds[2] - lat) * GEBCO_PIXELS_PER_DEG)
         row = max(0, min(21600 - 1, row))
 
-        # GEBCO strip: each row is STRIP_BYTES = 21600 * 2 = 43200 bytes
-        # Data starts at byte 135948
-        STRIP_BYTES = 21600 * 2
-        STRIP_DATA_START = 135948
-        offset = STRIP_DATA_START + row * STRIP_BYTES
+        offset = GEBCO_STRIP_DATA_START + row * GEBCO_STRIP_BYTES
 
-        headers = {"Range": f"bytes={offset}-{offset + STRIP_BYTES - 1}"}
+        headers = {"Range": f"bytes={offset}-{offset + GEBCO_STRIP_BYTES - 1}"}
         try:
             resp = requests.get(url, headers=headers, timeout=10)
             if resp.status_code not in (200, 206):

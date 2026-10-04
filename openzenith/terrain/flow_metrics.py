@@ -87,9 +87,8 @@ def flow_width(
     # D8 flow is at 45° increments
     # E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6, NE=7
     # Width is cell_m for cardinal (E/W/N/S) and cell_m*sqrt(2) for diagonal
-    # But for flow width perpendicular to flow, use:
-    # cardinal: cell_m
-    # diagonal: cell_m * sqrt(2)
+    # But for flow width perpendicular to flow, use cell_m for cardinal and
+    # cell_m * sqrt(2) for diagonal.
     width = np.full((rows, cols), cell_m, dtype=np.float32)
 
     # Diagonal directions: 1(SE), 3(SW), 5(NW), 7(NE)
@@ -258,12 +257,12 @@ def hack_integral(
     if abs(denom) < 1e-10:
         return {"hack_exponent": np.nan, "k_coefficient": np.nan, "chi": chi.astype(np.float32)}
 
-    F = (n * sum_xy - sum_x * sum_y) / denom
-    log_k = (sum_y - F * sum_x) / n
+    hack_exp = (n * sum_xy - sum_x * sum_y) / denom
+    log_k = (sum_y - hack_exp * sum_x) / n
     k = np.exp(log_k)
 
     return {
-        "hack_exponent": round(float(F), 4),
+        "hack_exponent": round(float(hack_exp), 4),
         "k_coefficient": round(float(k), 2),
         "chi": chi.astype(np.float32),
     }

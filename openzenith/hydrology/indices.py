@@ -52,7 +52,7 @@ def stream_power_index(
     cell_m = cell_size_deg * 111320.0
     cell_area = cell_m * cell_m
 
-    # SPI = ln(accum * cell_area * tan(slope))
+    # SPI is the natural log of (accum * cell_area * tan(slope)).
     accum_m2 = flow_accum.astype(np.float64) * cell_area
     tan_slope = np.tan(slope_rad)
 
@@ -64,9 +64,7 @@ def stream_power_index(
 
     # Mask invalid cells
     valid = (dem != nodata) & (flow_accum > 0)
-    result = np.where(valid, spi, np.nan).astype(np.float32)
-
-    return result
+    return np.where(valid, spi, np.nan).astype(np.float32)
 
 
 def twi(
@@ -112,7 +110,7 @@ def twi(
     # Specific catchment area
     sca = accum.astype(np.float64) * cell_area
 
-    # TWI = ln(sca / tan(slope_rad))
+    # TWI is the natural log of sca over tan(slope_rad).
     # Avoid division by zero: mask slope < 0.1 degrees
     slope_rad = np.deg2rad(slp)
     slope_rad[slope_rad < np.deg2rad(0.1)] = np.nan
@@ -175,7 +173,7 @@ def ls_factor(
     # M exponent: increases with slope (Moore & Nieber 1989)
     m_arr = np.where(valid, exp * (slope_pct / (slope_pct + 1)), 0.0)
 
-    # LS = (sca / 22.13)^m * (slope_pct / 22.13)^(m+1)
+    # LS combines (sca / 22.13) raised to m with (slope_pct / 22.13) raised to m+1.
     sca_factor = np.power(np.maximum(sca / 22.13, 0.0), m_arr)
     slope_factor = np.power(np.maximum(slope_pct / 22.13, 0.0), m_arr + 1)
     ls = sca_factor * slope_factor

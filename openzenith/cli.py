@@ -20,11 +20,14 @@ import math
 import sys
 import time
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 
+from openzenith.elevation import REGION_BBOXES
 
-def cmd_download(args):
+
+def cmd_download(args: argparse.Namespace) -> None:
     """Download elevation tiles from HuggingFace to local cache."""
     try:
         from openzenith.elevation import get_tile_count as _get_tile_count
@@ -86,7 +89,7 @@ def cmd_download(args):
     print(f"📈 Per zoom: {', '.join(f'z{z}={counts.get(z, 0)}' for z in sorted(counts.keys()))}")
 
 
-def cmd_query(args):
+def cmd_query(args: argparse.Namespace) -> None:
     """Query elevation at one or more points."""
     from openzenith.elevation import get_elevation, get_elevation_batch
 
@@ -110,7 +113,7 @@ def cmd_query(args):
         print(f"📍 ({args.lat:.6f}, {args.lon:.6f}) → {status}")
 
 
-def cmd_trace(args):
+def cmd_trace(args: argparse.Namespace) -> None:
     """Trace downstream from a point to the ocean."""
     try:
         from openzenith.tracing import trace_downstream
@@ -150,7 +153,7 @@ def cmd_trace(args):
         print(f"💾 Path saved to {args.output}")
 
 
-def cmd_watershed(args):
+def cmd_watershed(args: argparse.Namespace) -> None:
     """Delineate watershed from a pour point."""
     try:
         from openzenith.hydrology import delineate_watershed
@@ -181,7 +184,7 @@ def cmd_watershed(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_info(args):
+def cmd_info(args: argparse.Namespace) -> None:
     """Show system info and data availability."""
     print("OpenZenith Elevation Tools")
     print("=" * 40)
@@ -234,7 +237,7 @@ def cmd_info(args):
     print("  openzenith watershed --lat 40.7 --lon -74.0")
 
 
-def cmd_validate(args):
+def cmd_validate(args: argparse.Namespace) -> None:
     """Run elevation validation."""
     # Re-export from validate script
     from scripts.validate_elevation import main as validate_main
@@ -242,7 +245,7 @@ def cmd_validate(args):
     validate_main()
 
 
-def cmd_slope(args):
+def cmd_slope(args: argparse.Namespace) -> None:
     """Compute terrain slope."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import slope_fast
@@ -268,7 +271,7 @@ def cmd_slope(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_hillshade(args):
+def cmd_hillshade(args: argparse.Namespace) -> None:
     """Compute analytical hillshade."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import hillshade
@@ -300,7 +303,7 @@ def cmd_hillshade(args):
             print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
 
 
-def cmd_viewshed(args):
+def cmd_viewshed(args: argparse.Namespace) -> None:
     """Compute viewshed from observer point."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import viewshed
@@ -341,7 +344,7 @@ def cmd_viewshed(args):
             print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
 
 
-def cmd_twi(args):
+def cmd_twi(args: argparse.Namespace) -> None:
     """Compute Topographic Wetness Index."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.hydrology import twi
@@ -363,7 +366,7 @@ def cmd_twi(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_aspect(args):
+def cmd_aspect(args: argparse.Namespace) -> None:
     """Compute terrain aspect (compass direction of steepest descent)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import aspect
@@ -384,7 +387,7 @@ def cmd_aspect(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_tpi(args):
+def cmd_tpi(args: argparse.Namespace) -> None:
     """Compute Topographic Position Index (TPI)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import tpi
@@ -407,7 +410,7 @@ def cmd_tpi(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_roughness(args):
+def cmd_roughness(args: argparse.Namespace) -> None:
     """Compute terrain roughness (range of elevations in 3×3 window)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import roughness
@@ -428,7 +431,7 @@ def cmd_roughness(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_curvature(args):
+def cmd_curvature(args: argparse.Namespace) -> None:
     """Compute terrain curvature (second derivative of elevation)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import curvature
@@ -461,7 +464,7 @@ def _latlon_to_grid_coords(lat: float, lon: float, grid: dict) -> tuple[int, int
     return row, col
 
 
-def cmd_profile(args):
+def cmd_profile(args: argparse.Namespace) -> None:
     """Extract elevation profile along a transect between two points."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import profile
@@ -513,7 +516,7 @@ def cmd_profile(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_contour(args):
+def cmd_contour(args: argparse.Namespace) -> None:
     """Export DEM contours as GeoJSON."""
     import json as _json
 
@@ -539,7 +542,7 @@ def cmd_contour(args):
     print(f"✅ {len(result['features'])} contour lines → {out_path} ({elapsed:.1f}s)")
 
 
-def cmd_geojson(args):
+def cmd_geojson(args: argparse.Namespace) -> None:
     """Export terrain grid as GeoJSON."""
     import json as _json
 
@@ -562,7 +565,7 @@ def cmd_geojson(args):
     print(f"✅ {len(result['features'])} points → {out_path} ({elapsed:.1f}s)")
 
 
-def cmd_fill_depressions(args):
+def cmd_fill_depressions(args: argparse.Namespace) -> None:
     """Fill depressions in DEM using priority-flood algorithm."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.hydrology import fill_depressions
@@ -583,7 +586,7 @@ def cmd_fill_depressions(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_flow_accum(args):
+def cmd_flow_accum(args: argparse.Namespace) -> None:
     """Compute D8 flow accumulation from elevation grid."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.hydrology import d8_flow_direction, flow_accumulation
@@ -605,7 +608,7 @@ def cmd_flow_accum(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_streams(args):
+def cmd_streams(args: argparse.Namespace) -> None:
     """Extract stream network from flow accumulation."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.hydrology import d8_flow_direction, extract_streams, flow_accumulation
@@ -639,7 +642,7 @@ def cmd_streams(args):
             print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
 
 
-def cmd_export_geotiff(args):
+def cmd_export_geotiff(args: argparse.Namespace) -> None:
     """Export elevation grid as GeoTIFF."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.geotiff import export_geotiff
@@ -660,7 +663,7 @@ def cmd_export_geotiff(args):
     print(f"✅ Exported → {out_path} ({elapsed:.1f}s)")
 
 
-def cmd_export_cog(args):
+def cmd_export_cog(args: argparse.Namespace) -> None:
     """Export elevation grid as Cloud-Optimized GeoTIFF (COG)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.geotiff import export_cog
@@ -681,7 +684,7 @@ def cmd_export_cog(args):
     print(f"✅ Exported → {out_path} ({elapsed:.1f}s)")
 
 
-def cmd_tri(args):
+def cmd_tri(args: argparse.Namespace) -> None:
     """Compute Terrain Ruggedness Index (TRI)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import tri
@@ -703,7 +706,7 @@ def cmd_tri(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_profile_curvature(args):
+def cmd_profile_curvature(args: argparse.Namespace) -> None:
     """Compute profile curvature (curvature along slope direction)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import profile_curvature
@@ -725,7 +728,7 @@ def cmd_profile_curvature(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_planform_curvature(args):
+def cmd_planform_curvature(args: argparse.Namespace) -> None:
     """Compute planform curvature (curvature perpendicular to slope direction)."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import planform_curvature
@@ -747,7 +750,7 @@ def cmd_planform_curvature(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_drainage_density(args):
+def cmd_drainage_density(args: argparse.Namespace) -> None:
     """Compute drainage density from flow accumulation."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.hydrology import d8_flow_direction, flow_accumulation
@@ -772,7 +775,7 @@ def cmd_drainage_density(args):
         print(f"💾 Saved to {args.output}")
 
 
-def cmd_multi_hillshade(args):
+def cmd_multi_hillshade(args: argparse.Namespace) -> None:
     """Compute multi-directional hillshade composite."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import multi_hillshade
@@ -799,7 +802,7 @@ def cmd_multi_hillshade(args):
             print(f"💾 Saved array to {args.output} (install Pillow for PNG)")
 
 
-def cmd_color_relief(args):
+def cmd_color_relief(args: argparse.Namespace) -> None:
     """Generate color relief image from elevation grid."""
     from openzenith.elevation import load_elevation_grid
     from openzenith.terrain import color_relief
@@ -893,7 +896,17 @@ def _filename_to_bbox(filename: str) -> dict | None:
     return None
 
 
-def cmd_encode(args):
+class EncodeResult(TypedDict):
+    """Per-file outcome of an OZT2 encode, as summarised by `cmd_encode`."""
+
+    file: str
+    size: int
+    bits: int
+    rmse: float
+    lossless: bool
+
+
+def cmd_encode(args: argparse.Namespace) -> None:
     """Encode a DEM file or directory of DEM files to OZT2 format."""
     from openzenith.tile_format_v2 import (
         PRED_GRADIENT,
@@ -915,7 +928,7 @@ def cmd_encode(args):
         print(f"❌ Input not found: {input_path}")
         sys.exit(1)
 
-    def encode_file(src_path: Path, dst_path: Path):
+    def encode_file(src_path: Path, dst_path: Path) -> EncodeResult | None:
         """Encode a single DEM file to OZT2."""
         try:
             # Detect format
@@ -998,7 +1011,7 @@ def cmd_encode(args):
         sys.exit(1)
 
     print(f"Encoding {len(files)} files from {input_path} → {output_path}")
-    results = []
+    results: list[EncodeResult] = []
     for f in sorted(files):
         dst = output_path / f"{f.stem}.ozt2"
         r = encode_file(f, dst)
@@ -1018,12 +1031,42 @@ def cmd_encode(args):
         sys.exit(1)
 
 
-def cmd_ingest(args):
+def _encode_dem_tile(src: Path, dataset_path: Path, tiles_dir: Path) -> dict:
+    """Encode one DEM file into an OZT2 tile and return its manifest entry.
+
+    Lets any loader/encoder error propagate so cmd_ingest can isolate a single
+    bad input instead of aborting the whole bundle.
+    """
+    from openzenith.tile_format_v2 import auto_encode
+
+    # Load elevation
+    ext = src.suffix.lower()
+    elev = _load_geotiff(str(src)) if ext in (".tif", ".tiff") else _load_merged(str(src))
+
+    # Encode to OZT2
+    encoded, meta = auto_encode(elev, max_rmse=1.0)
+    tile_name = f"{src.stem}.ozt2"
+    (tiles_dir / tile_name).write_bytes(encoded)
+
+    # Compute bbox from filename (SRTM naming convention)
+    bbox = _filename_to_bbox(src.name)
+
+    print(f"  ✅ {src.name} → {tile_name} ({len(encoded):,}B)")
+    return {
+        "file": tile_name,
+        "source_file": str(src.relative_to(dataset_path)),
+        "size_bytes": len(encoded),
+        "bits": meta.get("auto_selected_bits", 16),
+        "rmse": meta.get("rmse", 0),
+        "coverage": bbox,
+    }
+
+
+def cmd_ingest(args: argparse.Namespace) -> None:
     """Prepare a contributed dataset for submission to OpenZenith."""
     import json as _json
 
     from openzenith.tile_format_v2 import TileError as TileErrorV2
-    from openzenith.tile_format_v2 import auto_encode
 
     dataset_path = Path(args.dataset)
     if not dataset_path.is_dir():
@@ -1062,31 +1105,7 @@ def cmd_ingest(args):
 
     for f in sorted(dem_files):
         try:
-            # Load elevation
-            ext = f.suffix.lower()
-            elev = _load_geotiff(str(f)) if ext in (".tif", ".tiff") else _load_merged(str(f))
-
-            # Encode to OZT2
-            encoded, meta = auto_encode(elev, max_rmse=1.0)
-            tile_name = f"{f.stem}.ozt2"
-            tile_path = tiles_dir / tile_name
-            tile_path.write_bytes(encoded)
-
-            # Compute bbox from filename (SRTM naming convention)
-            bbox = _filename_to_bbox(f.name)
-
-            tiles.append(
-                {
-                    "file": tile_name,
-                    "source_file": str(f.relative_to(dataset_path)),
-                    "size_bytes": len(encoded),
-                    "bits": meta.get("auto_selected_bits", 16),
-                    "rmse": meta.get("rmse", 0),
-                    "coverage": bbox,
-                }
-            )
-            print(f"  ✅ {f.name} → {tile_name} ({len(encoded):,}B)")
-
+            tiles.append(_encode_dem_tile(f, dataset_path, tiles_dir))
         except (OSError, ValueError, TileErrorV2) as e:
             errors.append({"file": str(f), "error": str(e)})
             print(f"  💥 {f.name}: {e}")
@@ -1121,7 +1140,7 @@ def cmd_ingest(args):
     print("  3. Attach bundle as LFS file")
 
 
-def cmd_tiles(args):
+def cmd_tiles(args: argparse.Namespace) -> None:
     """Download tiles for a specific region and zoom levels.
 
     Supports multiple data sources:
@@ -1219,20 +1238,6 @@ def cmd_tiles(args):
     print("  # => {elev}m")
 
 
-REGION_BBOXES = {
-    "world": (-90, -180, 90, 180),
-    "europe": (34, -25, 72, 45),
-    "usa": (24, -125, 50, -66),
-    "conus": (24, -125, 50, -66),
-    "asia": (0, 60, 55, 150),
-    "africa": (-35, -20, 37, 55),
-    "south-america": (-56, -82, 13, -34),
-    "australia": (-44, 112, -10, 155),
-    "arctic": (60, -180, 90, 180),
-    "antarctica": (-90, -180, -60, 180),
-}
-
-
 def _parse_zoom_levels(s: str) -> list[int]:
     """Parse zoom level specification: '0-8' or '0,1,2,5' or '8' or '0-3,5,7-9'."""
     result: set[int] = set()
@@ -1260,7 +1265,7 @@ def _latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
 # ─── Main ───
 
 
-def main():
+def main() -> None:
     """Build the argument parser and dispatch the requested CLI subcommand."""
     parser = argparse.ArgumentParser(
         prog="openzenith",

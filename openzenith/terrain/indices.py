@@ -132,10 +132,10 @@ def landform_classification(
     cu_nan = np.isnan(curv)
     any_nan = s_nan | cu_nan
 
-    # Flat (slope < 2)
+    # Class 8: flat ground, slope under 2 degrees.
     result[(slp < 2) & valid] = 8
 
-    # Pit (TPI < -5 and concave)
+    # Class 6: pit — TPI under -5 on concave terrain.
     result[(tpi_vals < -5) & (curv < -0.001) & valid] = 6
 
     # Peak (TPI > 5, slope > 10, concave profile)
@@ -397,8 +397,7 @@ def greater_than_height(
         2D uint8 array (1 = above height, 0 = below or nodata)
 
     """
-    result = np.where(dem > nodata, (dem > height).astype(np.uint8), np.uint8(0))
-    return result
+    return np.where(dem > nodata, (dem > height).astype(np.uint8), np.uint8(0))
 
 
 def pct_above_thresh(

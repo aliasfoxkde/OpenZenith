@@ -529,8 +529,7 @@ def fetch_analysis(
                         if dem[nr, nc] >= origin_elev:
                             fetch = dist
                             break
-                        else:
-                            fetch = dist
+                        fetch = dist
                     else:
                         fetch = dist
                         break

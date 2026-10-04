@@ -13,13 +13,30 @@ Usage:
 
 import logging
 import math
+import urllib.error
+import urllib.request
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from ..tile_format_v2 import TileError, decode
 
 _logger = logging.getLogger(__name__)
+
+
+def _require_https_url(url: str) -> str:
+    """Return `url` only if it is https, raising otherwise.
+
+    `_tile_url` always emits an `https://huggingface.co/...` literal, so the
+    scheme is fixed by construction; this guard makes that invariant explicit
+    and answers the S310 audit for the SDK's only two URL-open paths, which
+    carry `# noqa: S310` because `urllib.request.Request` cannot express the
+    allowlist the rule asks for.
+    """
+    if not url.startswith("https://"):
+        raise TileError(f"refusing to open non-https URL: {url}")
+    return url
 
 
 class OZT2Backend:
@@ -178,7 +195,7 @@ class OZT2R2Backend:
         self.r2_access_key_id = r2_access_key_id or os.environ.get("R2_ACCESS_KEY_ID")
         self.r2_secret_access_key = r2_secret_access_key or os.environ.get("R2_SECRET_ACCESS_KEY")
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Lazily create S3-compatible client for R2."""
         if self._client is not None:
             return self._client
@@ -349,18 +366,15 @@ class OZT2HFBackend:
         if cached and cached.exists():
             return cached.read_bytes()
 
-        url = self._tile_url(z, x, y)
+        url = _require_https_url(self._tile_url(z, x, y))
         token = self._get_token()
         headers = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
         try:
-            import urllib.error
-            import urllib.request
-
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            req = urllib.request.Request(url, headers=headers)  # noqa: S310
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
                 data = resp.read()
             if cached:
                 cached.parent.mkdir(parents=True, exist_ok=True)
@@ -374,18 +388,15 @@ class OZT2HFBackend:
 
     def tile_exists(self, z: int, x: int, y: int) -> bool:
         """Check if a tile exists on HuggingFace via HEAD request."""
-        url = self._tile_url(z, x, y)
+        url = _require_https_url(self._tile_url(z, x, y))
         token = self._get_token()
         headers = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
         try:
-            import urllib.error
-            import urllib.request
-
-            req = urllib.request.Request(url, method="HEAD", headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            req = urllib.request.Request(url, method="HEAD", headers=headers)  # noqa: S310
+            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
                 return resp.status == 200
         except (urllib.error.URLError, OSError) as err:
             _logger.debug(

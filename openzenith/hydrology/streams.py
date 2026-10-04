@@ -176,7 +176,7 @@ def stream_reach_identifier(
     next_reach_id = 1
 
     # Find junctions: stream cells with multiple upstream stream neighbors
-    def count_upstream_streams(r, c):
+    def count_upstream_streams(r: int, c: int) -> int:
         count = 0
         for d in range(8):
             nr = r - int(D8_DR[d])

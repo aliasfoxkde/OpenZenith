@@ -168,7 +168,7 @@ def export_geotiff(
 
     # Build rasterio transform from origin
     gt = metadata["geotransform"]
-    # from_origin(lon_min, lat_max, pixel_width, pixel_height)
+    # from_origin takes (west, north, pixel width, pixel height) in that order.
     transform_rio = from_origin(gt[0], gt[3], gt[1], abs(gt[5]))
 
     profile = {

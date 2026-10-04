@@ -528,10 +528,10 @@ class TestReadGebcoQuad:
         assert arr[3, 3] == 15
 
     def test_pil_fallback_when_rasterio_missing(self, tmp_path, monkeypatch):
-        PIL_Image = pytest.importorskip("PIL.Image")
+        pil_image = pytest.importorskip("PIL.Image")
         monkeypatch.setitem(sys.modules, "rasterio", None)
         path = tmp_path / "quad.tif"
-        PIL_Image.fromarray(np.full((4, 4), 300, np.uint16), mode="I;16").save(path)
+        pil_image.fromarray(np.full((4, 4), 300, np.uint16), mode="I;16").save(path)
         fused = FusedDEM()
         arr = fused._read_gebco_quad(path)
         assert arr[0, 0] == 300
@@ -716,7 +716,10 @@ class TestQueryPointAsyncBranches:
         fused = FusedDEM(gebco_dir=tmp_path)
         fused._srtm_elevation = lambda lat, lon: None
         fused._gebco_from_local = lambda lat, lon: -800
-        assert asyncio.run(fused._query_point_async(40.5, 0.5)) == -800
+        # GEBCO is bathymetry, so a hit is never land: the fallback wraps the
+        # bare elevation as (elevation, is_land=False), matching the "ocean"
+        # the sync query_point reports for a GEBCO hit.
+        assert asyncio.run(fused._query_point_async(40.5, 0.5)) == (-800, False)
 
     def test_http_fallback(self):
         async def fake_http(lat, lon):
@@ -725,7 +728,7 @@ class TestQueryPointAsyncBranches:
         fused = FusedDEM(gebco_dir=None, use_http_fallback=True)
         fused._srtm_elevation = lambda lat, lon: None
         fused._gebco_from_http_async = fake_http
-        assert asyncio.run(fused._query_point_async(40.5, 0.5)) == -1200
+        assert asyncio.run(fused._query_point_async(40.5, 0.5)) == (-1200, False)
 
     def test_no_source_returns_none(self):
         fused = FusedDEM(gebco_dir=None, use_http_fallback=False)
@@ -744,6 +747,21 @@ class TestQueryAsyncWithData:
         assert fused._srtm_tiles == {(40, -75): {"has_data": True}}
         assert elevation[0, 0] == 100
         assert mask[0, 0] == 1
+
+    def test_gebco_only_point_sets_ocean_mask(self, tmp_path, monkeypatch):
+        """Regression: a GEBCO-only point reaches the grid as (elevation, False).
+
+        The GEBCO fallback used to return the bare elevation while every
+        caller unpacked a (elevation, is_land) tuple, so the first real ocean
+        point raised "cannot unpack non-iterable int" inside the gather loop.
+        """
+        _install_srtm(monkeypatch, tmp_path)
+        fused = FusedDEM(srtm_dir=tmp_path, gebco_dir=tmp_path)
+        fused._srtm_elevation = lambda lat, lon: None
+        fused._gebco_from_local = lambda lat, lon: -800
+        elevation, mask = asyncio.run(fused.query_async(40.0, 0.0, 41.0, 1.0, resolution=0.5))
+        assert elevation[0, 0] == -800
+        assert mask[0, 0] == 0
 
     def test_point_errors_leave_nodata(self, tmp_path, monkeypatch):
         _install_srtm(monkeypatch, tmp_path)

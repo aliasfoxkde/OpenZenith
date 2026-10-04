@@ -10,7 +10,7 @@ class TestExtractAtPoints:
         """Extract elevation at a single known point."""
         dem = np.array([[100, 200], [300, 400]], dtype=np.float32)
         # coordinates are [lon, lat] = [0.5, 0.5]
-        # transform = (lat0, lon0, dy, dx) = (0, 0, 1, 1)
+        # The transform tuple is (lat0, lon0, dy, dx) = (0, 0, 1, 1), so
         # r = round((lat - lat0)/dy) = round(0.5/1) = 0
         # c = round((lon - lon0)/dx) = round(0.5/1) = 0
         # so dem[0, 0] = 100

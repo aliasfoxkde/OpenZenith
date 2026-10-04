@@ -47,7 +47,7 @@ def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.
     b = padded[:-2, 1:-1]
     c = padded[:-2, 2:]
     d = padded[1:-1, :-2]
-    # e = padded[1:-1, 1:-1]  # center — not needed for Horn's method
+    # The center slice is not needed for Horn's method.
     f = padded[1:-1, 2:]
     g = padded[2:, :-2]
     h = padded[2:, 1:-1]
@@ -609,13 +609,13 @@ def edge_density(
     padded = np.pad(dem.astype(np.float64), 1, mode="edge")
 
     # Absolute elevation differences to 4 neighbors
-    dE = np.abs(padded[1:-1, 1:-1] - padded[1:-1, :-2])  # W
-    dE = np.maximum(dE, np.abs(padded[1:-1, 1:-1] - padded[1:-1, 2:]))  # E
-    dE = np.maximum(dE, np.abs(padded[1:-1, 1:-1] - padded[:-2, 1:-1]))  # N
-    dE = np.maximum(dE, np.abs(padded[1:-1, 1:-1] - padded[2:, 1:-1]))  # S
+    max_diff = np.abs(padded[1:-1, 1:-1] - padded[1:-1, :-2])  # W
+    max_diff = np.maximum(max_diff, np.abs(padded[1:-1, 1:-1] - padded[1:-1, 2:]))  # E
+    max_diff = np.maximum(max_diff, np.abs(padded[1:-1, 1:-1] - padded[:-2, 1:-1]))  # N
+    max_diff = np.maximum(max_diff, np.abs(padded[1:-1, 1:-1] - padded[2:, 1:-1]))  # S
 
     result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = dE[valid]
+    result[valid] = max_diff[valid]
     result[~valid] = nodata
     return result.astype(np.float32)
 

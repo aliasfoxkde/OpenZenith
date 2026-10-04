@@ -644,7 +644,7 @@ def highland(
     valid = dem > nodata
     result = np.full(dem.shape, np.nan, dtype=np.float32)
 
-    def _range(x):
+    def _range(x: np.ndarray) -> float:
         v = x[x != nodata]
         return np.max(v) - np.min(v) if len(v) > 0 else np.nan
 

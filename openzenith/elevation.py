@@ -36,6 +36,21 @@ from .tile_format_v2 import decode as decode_ozt2
 
 _logger = logging.getLogger(__name__)
 
+# Named region bounding boxes as (lat_min, lon_min, lat_max, lon_max), used by
+# download_tiles(region=...).
+REGION_BBOXES = {
+    "world": (-90, -180, 90, 180),
+    "europe": (34, -25, 72, 45),
+    "usa": (24, -125, 50, -66),
+    "conus": (24, -125, 50, -66),
+    "asia": (0, 60, 55, 150),
+    "africa": (-35, -20, 37, 55),
+    "south-america": (-56, -82, 13, -34),
+    "australia": (-44, 112, -10, 155),
+    "arctic": (60, -180, 90, 180),
+    "antarctica": (-90, -180, -60, 180),
+}
+
 
 def _log_tile_error(path: Path, operation: str, err: Exception) -> None:
     """Log tile read/decode errors at debug level (these are frequent and expected)."""
@@ -146,7 +161,7 @@ def get_elevation_batch(
             executor.submit(get_elevation, lat, lon, tile_dir, zoom_levels): i
             for i, (lat, lon) in enumerate(points)
         }
-        results = [None] * len(points)
+        results: list[float | None] = [None] * len(points)
         for future in as_completed(futures):
             idx = futures[future]
             try:
@@ -236,10 +251,7 @@ def load_tiles(
         ) from err
 
     # Download specific zoom directories
-    [f"tiles/{z}/*" for z in zoom_levels]
-    allow_patterns = []
-    for z in zoom_levels:
-        allow_patterns.append(f"tiles/{z}/**")
+    allow_patterns = [f"tiles/{z}/**" for z in zoom_levels]
 
     print(f"Downloading tiles from {repo_id} (zoom {min(zoom_levels)}-{max(zoom_levels)})...")
     local_dir = snapshot_download(
@@ -318,7 +330,9 @@ def load_elevation_grid(
                 tile_tasks.append((tx, ty, tile_path))
 
     # Load tiles in parallel
-    def load_tile(args):
+    def load_tile(
+        args: tuple[int, int, Path],
+    ) -> tuple[int, int, np.ndarray | None]:
         tx, ty, tile_path = args
         try:
             with tile_path.open("rb") as f:
@@ -498,7 +512,7 @@ def get_elevation_from_ozt2(
     _ozt2_dir = ozt2_dir if ozt2_dir is not None else DEFAULT_OZT2_DIR
     if _ozt2_dir is None:
         raise ValueError("No OZT2 directory. Call load_ozt2_tiles() or pass ozt2_dir.")
-    return _get_elevation_from_ozt2(lat, lon, cast(Path, _ozt2_dir), zoom_levels)
+    return _get_elevation_from_ozt2(lat, lon, cast("Path", _ozt2_dir), zoom_levels)
 
 
 def load_ozt2_tiles(tile_dir: str | Path) -> Path:
@@ -649,19 +663,6 @@ def download_tiles(
         print(f"Downloaded {result['total_tiles']:,} tiles to {result['tile_dir']}")
 
     """
-    REGION_BBOXES = {
-        "world": (-90, -180, 90, 180),
-        "europe": (34, -25, 72, 45),
-        "usa": (24, -125, 50, -66),
-        "conus": (24, -125, 50, -66),
-        "asia": (0, 60, 55, 150),
-        "africa": (-35, -20, 37, 55),
-        "south-america": (-56, -82, 13, -34),
-        "australia": (-44, 112, -10, 155),
-        "arctic": (60, -180, 90, 180),
-        "antarctica": (-90, -180, -60, 180),
-    }
-
     # Resolve bbox
     if bbox is not None:
         lat_min, lon_min, lat_max, lon_max = bbox
@@ -736,14 +737,14 @@ def get_elevation_along_path(
         lat2, lon2 = points[i + 1]
 
         # Great-circle distance
-        R = 6371000  # Earth radius in meters
+        earth_radius_m = 6371000  # Earth radius in meters
         dlat = math.radians(lat2 - lat1)
         dlon = math.radians(lon2 - lon1)
         a = (
             math.sin(dlat / 2) ** 2
             + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
         )
-        seg_dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        seg_dist = 2 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
         # Number of points to interpolate (every ~90m)
         n_points = max(2, int(seg_dist / 90))
@@ -777,7 +778,7 @@ def get_elevation_along_path(
                 * math.cos(math.radians(lat))
                 * math.sin(math.radians(dlon) / 2) ** 2
             )
-            seg_dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            seg_dist = 2 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(1 - a))
             cumulative_dist += seg_dist
 
         slope_deg = None
@@ -831,14 +832,14 @@ async def get_elevation_along_path_async(
         lat1, lon1 = points[i]
         lat2, lon2 = points[i + 1]
 
-        R = 6371000
+        earth_radius_m = 6371000
         dlat = math.radians(lat2 - lat1)
         dlon = math.radians(lon2 - lon1)
         a = (
             math.sin(dlat / 2) ** 2
             + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
         )
-        seg_dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        seg_dist = 2 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         n_points = max(2, int(seg_dist / 90))
 
         for j in range(n_points):
@@ -869,7 +870,7 @@ async def get_elevation_along_path_async(
                 * math.cos(math.radians(lat))
                 * math.sin(math.radians(dlon) / 2) ** 2
             )
-            seg_dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            seg_dist = 2 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(1 - a))
             cumulative_dist += seg_dist
 
         slope_deg = None

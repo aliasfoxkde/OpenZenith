@@ -41,6 +41,7 @@ Why this enables updates:
 """
 
 import struct
+from typing import Any
 
 import numpy as np
 
@@ -49,7 +50,6 @@ try:
 
     HAS_ZSTD = True
 except ImportError:  # pragma: no cover - exercised via the ImportError guards
-    zstd = None
     HAS_ZSTD = False
 
 MAGIC = b"OZT1"
@@ -347,7 +347,9 @@ def _decompress_predict(compressed: bytes, width: int, height: int) -> np.ndarra
     return arr.astype(np.int16)
 
 
-def validate_roundtrip(elevation: np.ndarray, **encode_kwargs) -> tuple[bool, float, dict]:
+def validate_roundtrip(
+    elevation: np.ndarray, **encode_kwargs: Any
+) -> tuple[bool, float, dict]:
     """Validate that encode→decode produces identical output."""
     encoded = encode(elevation, **encode_kwargs)
     decoded, meta = decode(encoded)
@@ -357,10 +359,10 @@ def validate_roundtrip(elevation: np.ndarray, **encode_kwargs) -> tuple[bool, fl
         valid = elevation != encode_kwargs.get("nodata_value", -32768)
         rmse = float(np.sqrt(np.mean((elevation[valid] - decoded[valid]) ** 2)))
         return False, rmse, meta
-    else:
-        # Should be lossless
-        if np.array_equal(elevation, decoded):
-            return True, 0.0, meta
-        valid = elevation != encode_kwargs.get("nodata_value", -32768)
-        max_err = float(np.max(np.abs(elevation[valid] - decoded[valid])))
-        return False, max_err, meta
+
+    # Should be lossless
+    if np.array_equal(elevation, decoded):
+        return True, 0.0, meta
+    valid = elevation != encode_kwargs.get("nodata_value", -32768)
+    max_err = float(np.max(np.abs(elevation[valid] - decoded[valid])))
+    return False, max_err, meta

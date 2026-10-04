@@ -15,6 +15,8 @@ For compute-intensive applications, the local SDK is recommended over the web AP
 to avoid HTTPS chunk download overhead on each tile request.
 """
 
+from typing import Any
+
 __version__ = "0.8.4"
 
 
@@ -94,7 +96,7 @@ from openzenith.tile_format_v2 import (
 
 
 # Lazy imports for optional heavy dependencies
-def __getattr__(name):
+def __getattr__(name: str) -> Any:
     # OZT2 backends
     if name == "OZT2Backend":
         from openzenith.backends.ozt2 import OZT2Backend

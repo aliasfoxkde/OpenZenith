@@ -13,8 +13,16 @@ Usage:
     # Returns: path coordinates, distances, elevations, total distance
 """
 
+from __future__ import annotations
+
 import logging
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Annotation-only: numpy is a heavy import and this module lazy-loads it
+    # in the one helper that post-processes a grid.
+    import numpy as np
 
 _logger = logging.getLogger(__name__)
 
@@ -86,7 +94,7 @@ def trace_downstream(
 
     current_lat = lat
     current_lon = lon
-    current_elev = start_elev
+    current_elev: float | None = start_elev
 
     # Step size in degrees (approximate)
     step_deg = step_size_m / 111320.0  # meters per degree at equator
@@ -166,8 +174,12 @@ def trace_downstream(
                 neighbor_coords.append((d, nr, nc))
 
         def fetch_neighbor_elev(
-            args, lat_min=lat_min, lon_min=lon_min, cell_size_deg=cell_size_deg, dem=dem
-        ):
+            args: tuple[int, int, int],
+            lat_min: float = lat_min,
+            lon_min: float = lon_min,
+            cell_size_deg: float = cell_size_deg,
+            dem: np.ndarray = dem,
+        ) -> tuple[int, int, int, float]:
             d, nr, nc = args
             key = (round(lat_min + nr * cell_size_deg, 6), round(lon_min + nc * cell_size_deg, 6))
             cached = elevation_cache.get(key)
@@ -312,7 +324,7 @@ def _load_grid_at(
 
 def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Haversine distance between two points in meters."""
-    R = 6371000.0  # Earth radius in meters
+    earth_radius_m = 6371000.0  # Earth radius in meters
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = (
@@ -320,4 +332,4 @@ def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> f
         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+    return earth_radius_m * c

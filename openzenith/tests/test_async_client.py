@@ -141,9 +141,7 @@ class TestElevationBatchProcessor:
         client = ElevationClient(timeout=15.0)
         processor = ElevationBatchProcessor(client, max_concurrency=4)
         points = [(40.7128, -74.0060), (35.6762, 139.6503)]
-        results = []
-        async for r in processor.process(points):
-            results.append(r)
+        results = [r async for r in processor.process(points)]
         await client.close()
 
         assert len(results) == 2
@@ -334,9 +332,7 @@ class TestElevationBatchProcessorUnit:
 
         with patch.object(client, "get_elevation_batch", new_callable=AsyncMock) as mock_batch:
             mock_batch.return_value = mock_batch_results
-            items = []
-            async for r in proc.process([(40.0, -74.0)]):
-                items.append(r)
+            items = [r async for r in proc.process([(40.0, -74.0)])]
             assert len(items) == 1
 
         await client.close()

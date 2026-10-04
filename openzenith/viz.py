@@ -22,13 +22,14 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     # Annotation-only (from __future__ import annotations keeps these lazy).
     # A module-scope import here made `import openzenith.viz` crash in any
     # environment without matplotlib; the plotting helpers below already
     # raise a friendly ImportError with install instructions when missing.
+    from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
 __all__ = [
@@ -62,6 +63,24 @@ DEFAULT_TERRAIN_PALETTE: list[tuple[float, tuple[int, int, int]]] = [
 # ─── Matplotlib helpers ───────────────────────────────────────────────────────
 
 
+def _figure_axes(ax: Axes | None, figsize: tuple[float, float]) -> tuple[Figure, Axes]:
+    """Return a (Figure, Axes) pair to draw on, creating them when `ax` is None.
+
+    The caller must already have imported matplotlib — every plotting helper
+    below does so lazily so a missing install raises the friendly ImportError.
+    matplotlib types both `plt.subplots` and `Axes.figure` as possibly yielding
+    a `SubFigure`; nothing in this module draws into one, so the type is
+    narrowed once here rather than cast at each return site.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
+
+    fig, resolved = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
+    if not isinstance(fig, Figure):
+        raise TypeError(f"expected a top-level matplotlib Figure, got {type(fig).__name__}")
+    return fig, resolved
+
+
 def plot_terrain(
     dem: np.ndarray,
     transform: tuple[float, float, float, float] | None = None,
@@ -73,8 +92,8 @@ def plot_terrain(
     show: bool = False,
     figsize: tuple[float, float] = (12, 8),
     title: str = "Elevation (m)",
-    ax=None,
-) -> Figure:
+    ax: Axes | None = None,
+) -> tuple[Figure, Axes]:
     """Plot a DEM as a filled-colour terrain map with matplotlib.
 
     Args:
@@ -113,7 +132,7 @@ def plot_terrain(
     else:
         extent = None
 
-    fig, ax_ = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
+    fig, ax_ = _figure_axes(ax, figsize)
     ax_.axis("off")
     ax_.set_title(title, fontsize=14)
 
@@ -158,9 +177,9 @@ def plot_hillshade(
     *,
     figsize: tuple[float, float] = (12, 8),
     show: bool = False,
-    ax=None,
-    **kwargs,
-) -> Figure:
+    ax: Axes | None = None,
+    **kwargs: Any,
+) -> tuple[Figure, Axes]:
     """Plot a DEM shaded with a hillshade overlay.
 
     Args:
@@ -192,7 +211,7 @@ def plot_hillshade(
     hs = hillshade(dem, cell_size_deg=cell_size)
     masked_hs = np.where(dem != -32768, hs, np.nan)
 
-    fig, ax_ = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
+    fig, ax_ = _figure_axes(ax, figsize)
     ax_.axis("off")
     ax_.set_title("Hillshade", fontsize=14)
 
@@ -225,8 +244,8 @@ def plot_contours(
     decimals: int = 1,
     figsize: tuple[float, float] = (12, 8),
     show: bool = False,
-    ax=None,
-) -> Figure:
+    ax: Axes | None = None,
+) -> tuple[Figure, Axes]:
     """Plot elevation contour lines over a terrain base.
 
     Args:
@@ -257,7 +276,7 @@ def plot_contours(
     start = math.floor(vmn / interval) * interval
     levels = np.arange(start, vmx + interval, interval)
 
-    fig, ax_ = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
+    fig, ax_ = _figure_axes(ax, figsize)
     ax_.axis("off")
     ax_.set_title(f"Contours (interval={interval}m)", fontsize=14)
 
@@ -332,8 +351,8 @@ def terrain_to_3d_mesh(
     # Subsampled grid for quad evaluation (one value per cell corner)
     r_idx, c_idx = np.mgrid[0 : rows - 1 : step, 0 : cols - 1 : step]
 
-    # Quad validity: all four corners must be non-nodata
-    # dem is indexed [row, col]
+    # Quad validity: all four corners must be non-nodata. Index dem by row
+    # first, then column.
     nodata = dem == -32768
     quad_valid = (
         ~nodata[r_idx, c_idx]
@@ -405,6 +424,20 @@ def terrain_to_3d_mesh(
         )
 
     return {"type": "FeatureCollection", "features": features}
+
+
+def _export_glb_bytes(mesh: Any) -> bytes:
+    """Export a trimesh mesh as GLB bytes.
+
+    trimesh types `export()` as returning `dict | bytes | str` because the
+    result dispatches on `file_type`; rather than a `cast` that trusts the
+    call site, this narrows at runtime so a format change surfaces as a
+    raised error instead of a silently mis-typed return.
+    """
+    data = mesh.export(file_type="glb")
+    if isinstance(data, bytes | bytearray):
+        return bytes(data)
+    raise TypeError(f"trimesh GLB export returned {type(data).__name__}, expected bytes")
 
 
 def terrain_to_glb(
@@ -489,7 +522,7 @@ def terrain_to_glb(
         mesh = trimesh.Trimesh(
             vertices=np.zeros((0, 3), dtype=np.float32), faces=np.zeros((0, 3), dtype=np.uint32)
         )
-        return mesh.export(file_type="glb")
+        return _export_glb_bytes(mesh)
 
     # ── Second pass: build faces using cumulative vertex counts ───────────────
     # Each quad contributes 4 unique vertices, placed consecutively in the
@@ -544,7 +577,7 @@ def terrain_to_glb(
         faces=faces,
         vertex_colors=colors_arr,
     )
-    return mesh.export(file_type="glb")
+    return _export_glb_bytes(mesh)
 
 
 def _palette_color(

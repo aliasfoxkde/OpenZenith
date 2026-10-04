@@ -325,13 +325,15 @@ class _FakeS3Client:
         self.gets = []
         self.heads = []
 
-    def get_object(self, Bucket, Key):
+    # N803: the fake mirrors boto3's real get_object/head_object keyword
+    # signature, which the production caller invokes by keyword.
+    def get_object(self, Bucket, Key):  # noqa: N803
         self.gets.append(Key)
         if self.get_error is not None:
             raise self.get_error
         return {"Body": _FakeS3Body(self.objects[Key])}
 
-    def head_object(self, Bucket, Key):
+    def head_object(self, Bucket, Key):  # noqa: N803
         self.heads.append(Key)
         if self.head_error is not None:
             raise self.head_error

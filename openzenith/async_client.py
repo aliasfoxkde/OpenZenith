@@ -39,13 +39,14 @@ Installation:
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from typing_extensions import Self
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import aiohttp
 
 __all__ = [
@@ -140,7 +141,7 @@ class ElevationClient:
         self,
         method: str,
         path: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict:
         """Make an HTTP request with retry logic and ETag caching."""
         import aiohttp
@@ -167,16 +168,16 @@ class ElevationClient:
                 ) as resp:
                     if resp.status == 200:
                         # Cache ETag for future requests
-                        etag = resp.headers.get("ETag") or resp.headers.get("etag")
+                        resp_etag = resp.headers.get("ETag") or resp.headers.get("etag")
                         data = await resp.json()
-                        if etag:
-                            self._etag_cache[url] = (etag, data)
+                        if resp_etag:
+                            self._etag_cache[url] = (resp_etag, data)
                         return data
-                    elif resp.status == 304:
+                    if resp.status == 304:
                         # Not Modified — return cached response
                         _, cached = self._etag_cache[url]
                         return cached
-                    elif resp.status == 429 or resp.status >= 500:
+                    if resp.status == 429 or resp.status >= 500:
                         # Rate-limited or server error: retry with backoff
                         last_err = RuntimeError(f"HTTP {resp.status}: {await resp.text()}")
                     else:
@@ -194,12 +195,13 @@ class ElevationClient:
     def _get_session(self) -> aiohttp.ClientSession:
         if self._external_session is not None:
             return self._external_session
-        if not hasattr(self, "_session") or self._session is None or self._session.closed:
+        session = self._session
+        if session is None or session.closed:
             import aiohttp
 
-            self._session = aiohttp.ClientSession(connector=self._connector)
-        assert self._session is not None
-        return self._session
+            session = aiohttp.ClientSession(connector=self._connector)
+            self._session = session
+        return session
 
     async def get_elevation(
         self,
@@ -267,9 +269,9 @@ class ElevationClient:
 
         # Chunk into batches of 2000 (API limit)
         chunk_size = 2000
-        chunks: list[list[tuple[int, float, float, str | None]]] = []
-        for i in range(0, len(normalized), chunk_size):
-            chunks.append(normalized[i : i + chunk_size])
+        chunks: list[list[tuple[int, float, float, str | None]]] = [
+            normalized[i : i + chunk_size] for i in range(0, len(normalized), chunk_size)
+        ]
 
         # Send all chunks concurrently
         async def fetch_chunk(
@@ -333,20 +335,14 @@ class ElevationClient:
 
     async def close(self) -> None:
         """Close the underlying aiohttp session (no-op if session was injected)."""
-        if (
-            self._owns_session
-            and hasattr(self, "_session")
-            and self._session is not None
-            and not self._session.closed
-        ):
-            assert self._session is not None
+        if self._owns_session and self._session is not None and not self._session.closed:
             await self._session.close()
 
     async def __aenter__(self) -> Self:
         """Enter the async context and return this client for awaited queries."""
         return self
 
-    async def __aexit__(self, *args) -> None:
+    async def __aexit__(self, *args: object) -> None:
         """Close the HTTP session when leaving the async context."""
         await self.close()
 
@@ -442,9 +438,10 @@ class ElevationBatchProcessor:
             normalized.append((i, float(lat), float(lon), pid))
 
         # Chunk
-        chunks: list[list[tuple[int, float, float, str | None]]] = []
-        for i in range(0, len(normalized), self._chunk_size):
-            chunks.append(normalized[i : i + self._chunk_size])
+        step = self._chunk_size
+        chunks: list[list[tuple[int, float, float, str | None]]] = [
+            normalized[i : i + step] for i in range(0, len(normalized), step)
+        ]
 
         # Fetch all chunks concurrently with semaphore
         chunk_results: list[list[ElevationResult]] = await asyncio.gather(

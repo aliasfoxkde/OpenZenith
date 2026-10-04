@@ -61,11 +61,11 @@ def shapefile_to_geojson(
     fields = [f[0] for f in sf.fields[1:]]  # skip DeletionFlag
 
     features = []
-    for shapeRec in sf:
-        shape_bbox = getattr(shapeRec.shape, "bbox", None)
+    for shape_rec in sf:
+        shape_bbox = getattr(shape_rec.shape, "bbox", None)
         # pyshp 3.x Point shapes have no .bbox — compute from coordinates
         if shape_bbox is None:
-            pts = getattr(shapeRec.shape, "points", None)
+            pts = getattr(shape_rec.shape, "points", None)
             if pts and len(pts) > 0:
                 xs = [p[0] for p in pts]
                 ys = [p[1] for p in pts]
@@ -73,8 +73,8 @@ def shapefile_to_geojson(
         if bbox and shape_bbox is not None and not _bbox_intersects(bbox, shape_bbox):
             continue
 
-        coords = _shape_points_to_coords(shapeRec.shape, geom_type)
-        props = dict(zip(fields, shapeRec.record, strict=False))
+        coords = _shape_points_to_coords(shape_rec.shape, geom_type)
+        props = dict(zip(fields, shape_rec.record, strict=False))
         if filter_fields:
             props = {k: v for k, v in props.items() if k in filter_fields}
 
@@ -97,18 +97,17 @@ def _shape_points_to_coords(shape: Any, geom_type: str) -> list:
         return [list(p) for p in pts]
     if geom_type in ("Polygon", "MultiPolygon"):
         parts = [*list(shape.parts), len(pts)]
-        rings = []
-        for i in range(len(parts) - 1):
-            rings.append([list(p) for p in pts[parts[i] : parts[i + 1]]])
+        rings = [
+            [list(p) for p in pts[parts[i] : parts[i + 1]]] for i in range(len(parts) - 1)
+        ]
         if geom_type == "Polygon":
             return rings
         return [rings]
     if geom_type == "MultiLineString":
         parts = [*list(shape.parts), len(pts)]
-        lines = []
-        for i in range(len(parts) - 1):
-            lines.append([list(p) for p in pts[parts[i] : parts[i + 1]]])
-        return lines
+        return [
+            [list(p) for p in pts[parts[i] : parts[i + 1]]] for i in range(len(parts) - 1)
+        ]
     return [list(p) for p in pts]
 
 

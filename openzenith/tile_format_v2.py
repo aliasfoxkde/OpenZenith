@@ -42,6 +42,7 @@ Decode speed:
 
 import math
 import struct
+from typing import Any
 
 import numpy as np
 
@@ -184,12 +185,11 @@ def _decompress(data: bytes, compressor: int = COMP_BROTLI) -> bytes:
     """Decompress data with the specified compressor."""
     if compressor == COMP_BROTLI and HAS_BROTLI:
         return brotli.decompress(data)
-    elif compressor == COMP_ZSTD and HAS_ZSTD:
+    if compressor == COMP_ZSTD and HAS_ZSTD:
         return zstd.ZstdDecompressor().decompress(data)
-    elif HAS_ZLIB:
+    if HAS_ZLIB:
         return zlib.decompress(data)
-    else:
-        raise TileError(f"No decompressor available for type {compressor}")
+    raise TileError(f"No decompressor available for type {compressor}")
 
 
 # ─── Adaptive Quantization ───
@@ -413,7 +413,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
 def validate_roundtrip(
     elevation: np.ndarray,
     nodata_value: int = -32768,
-    **encode_kwargs,
+    **encode_kwargs: Any,
 ) -> tuple[bool, float, dict]:
     """Validate that encode → decode produces acceptable output.
 
@@ -444,14 +444,14 @@ def validate_roundtrip(
         else:
             rmse = 0.0
         return is_lossless, rmse, meta
+
+    # Lossy — compute RMSE
+    if valid.any():
+        diff = elevation[valid].astype(np.float32) - decoded[valid].astype(np.float32)
+        rmse = float(np.sqrt(np.mean(diff**2)))
     else:
-        # Lossy — compute RMSE
-        if valid.any():
-            diff = elevation[valid].astype(np.float32) - decoded[valid].astype(np.float32)
-            rmse = float(np.sqrt(np.mean(diff**2)))
-        else:
-            rmse = 0.0
-        return False, rmse, meta
+        rmse = 0.0
+    return False, rmse, meta
 
 
 def auto_encode(
@@ -491,7 +491,7 @@ def auto_encode(
             meta["auto_selected_bits"] = bits
             return encoded, meta
 
-    # Fallback: lossless
+    # Fall back to the lossless 16-bit path.
     encoded = encode(
         elevation, nodata_value=nodata_value, bits_per_pixel=16, compress_level=compress_level
     )

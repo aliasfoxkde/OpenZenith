@@ -23,14 +23,21 @@ const DIST: [f32; 8] = [
 
 /// D8 flow direction for a DEM.
 ///
+/// For every cell, picks the steepest downward neighbour and records its
+/// compass index. Returns an int8 grid with values 0-7 (direction index) or
+/// -1 (nodata/pit). Direction: 0=E, 1=SE, 2=S, 3=SW, 4=W, 5=NW, 6=N, 7=NE.
 ///
-/// Returns an int8 grid with values 0-7 (direction index) or -1 (nodata/pit).
-/// Direction: 0=E, 1=SE, 2=S, 3=SW, 4=W, 5=NW, 6=N, 7=NE
+/// Ties are won by the first direction in that order; a cell whose elevation
+/// is at or below `nodata`, and a cell with no downhill neighbour (flat or
+/// pit), are both recorded as -1.
 ///
 /// # Arguments
-/// * `dem` – 2D elevation grid (f32)
-/// * `nodata` – nodata value
+/// * `dem` – 2D elevation grid, `f32` in metres (or any consistent unit)
+/// * `nodata` – elevation sentinel; cells `<= nodata` are ignored as terrain
 ///
+/// # Returns
+/// Grid of the same shape as `dem`, one `i8` per cell.
+#[must_use]
 pub fn d8_flow_direction(dem: &ArrayView2<f32>, nodata: f32) -> Array2<i8> {
     let rows = dem.nrows();
     let cols = dem.ncols();
@@ -73,6 +80,17 @@ pub fn d8_flow_direction(dem: &ArrayView2<f32>, nodata: f32) -> Array2<i8> {
 
 /// D8 flow direction — parallel version using rayon row parallelism.
 ///
+/// Row-independent, so the rayon pass is bitwise identical to
+/// [`d8_flow_direction`]; it exists purely to use spare cores on large DEMs.
+///
+/// # Arguments
+/// * `dem` – 2D elevation grid, `f32` in metres
+/// * `nodata` – elevation sentinel; cells `<= nodata` are ignored as terrain
+///
+/// # Returns
+/// Grid of the same shape as `dem`, one `i8` per cell (0-7, or -1 for
+/// nodata/pit), exactly as [`d8_flow_direction`] would produce.
+#[must_use]
 pub fn d8_flow_direction_par(dem: &ArrayView2<f32>, nodata: f32) -> Array2<i8> {
     let rows = dem.nrows();
     let cols = dem.ncols();
@@ -118,14 +136,17 @@ pub fn d8_flow_direction_par(dem: &ArrayView2<f32>, nodata: f32) -> Array2<i8> {
 
 /// Flow accumulation via topological sort (Kahn's algorithm).
 ///
-/// Matches the Python openzenith.hydrology._flow_accumulation_toposort.
+/// Matches the Python `openzenith.hydrology._flow_accumulation_toposort`.
 ///
 /// # Arguments
-/// * `flow_dir` – D8 direction grid (i8, values 0-7 or -1)
-/// * `nodata_dir` – nodata value (typically -1)
+/// * `flow_dir` – D8 direction grid (`i8`, values 0-7 or -1), as produced by
+///   [`d8_flow_direction`]
+/// * `nodata_dir` – the value in `flow_dir` marking "no flow" (typically -1)
 ///
 /// # Returns
-/// 2D int32 grid where each cell holds the count of upstream draining cells.
+/// 2D `i32` grid where each cell holds the count of upstream draining cells
+/// (itself included, so a headwater is 1).
+#[must_use]
 pub fn flow_accumulation(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i32> {
     let rows = flow_dir.nrows();
     let cols = flow_dir.ncols();
@@ -190,16 +211,33 @@ pub fn flow_accumulation(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i3
 /// on all upstream totals being finalised first — so there is no parallel
 /// phase to run here. This delegates to [`flow_accumulation`] rather than
 /// duplicating its body.
+///
+/// # Arguments
+/// * `flow_dir` – D8 direction grid (`i8`, values 0-7 or -1)
+/// * `nodata_dir` – the value in `flow_dir` marking "no flow" (typically -1)
+///
+/// # Returns
+/// 2D `i32` upstream-cell counts, identical to [`flow_accumulation`].
+#[must_use]
 pub fn flow_accumulation_par(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i32> {
     flow_accumulation(flow_dir, nodata_dir)
 }
 
-/// Stream order from binary stream mask and D8 flow direction grid (Strahler order).
+/// Stream order from a binary stream mask and a D8 flow direction grid
+/// (Strahler order).
 ///
-/// Args:
-///   streams: 2D int8 array (1 = stream cell, 0 = non-stream)
-///   flow_dir: 2D int8 array from d8_flow_direction (0-7, -1 = pit/nodata)
-///   nodata_dir: value in flow_dir that indicates no flow (default -1)
+/// Repeatedly propagates the Strahler rule to a fixed point (at most 20
+/// passes): a downstream cell takes the maximum inflowing order, +1 when two
+/// or more inflows carry that same order — i.e. a genuine confluence.
+///
+/// # Arguments
+/// * `streams` – 2D `i8` array (1 = stream cell, 0 = non-stream)
+/// * `flow_dir` – 2D `i8` array from [`d8_flow_direction`] (0-7, -1 = pit/nodata)
+/// * `nodata_dir` – value in `flow_dir` that indicates no flow (default -1)
+///
+/// # Returns
+/// 2D `u8` grid of Strahler orders (0 = non-stream, 1 = headwater, n = order n).
+#[must_use]
 pub fn stream_order(
     streams: &ArrayView2<i8>,
     flow_dir: &ArrayView2<i8>,

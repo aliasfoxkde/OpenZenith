@@ -8,6 +8,9 @@ repository = "https://github.com/aliasfox/openzenith"
 
 [lints.rust]
 unsafe_code = "deny"
+# Every public item carries a doc comment stating what it computes, the unit
+# of every grid and argument, and that the algorithm is total (never panics).
+missing_docs = "warn"
 
 [lints.clippy]
 # A terrain-analysis library must not panic on caller input: every failure
@@ -15,11 +18,29 @@ unsafe_code = "deny"
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"
-# Deliberately NOT enabled: arithmetic_side_effects / cast_possible_truncation
-# / cast_sign_loss measured 103 hits, all in D8/viewshed neighbor indexing
-# where offsets are -1..1 and indices are bounded by the grid dimensions by
-# construction. Enforcing them would add 100+ unreachable assertions to hot
-# loops. Revisit if untrusted indices ever reach these functions directly.
+# Full pedantic, adopted 2026-10-03. Baseline census (`cargo clippy
+# --all-targets -- -W clippy::pedantic -W missing_docs`) measured 96 unique
+# findings on the default feature set, 140 with `--features wasm`. Everything
+# not declined below is fixed at the item, not suppressed. The group runs at
+# priority -1 so the per-lint declines below it can override individual
+# members (cargo's lint_groups_priority requires it).
+pedantic = { level = "warn", priority = -1 }
+# Declined: the numeric-cast family measured 52 unique findings (18
+# cast_sign_loss, 16 cast_possible_wrap, 9 cast_possible_truncation, 9
+# cast_precision_loss), all in D8/viewshed/gradient arithmetic — neighbour
+# offsets that are -1..1 by construction, r/c indices bounded by the grid
+# dimensions, and int/f32 conversions in dequantisation. Enforcing them would
+# add ~50 unreachable assertions to hot loops without changing behaviour.
+# Revisit if untrusted indices ever reach these functions directly.
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+# Still enforced, and fixed rather than allowed: cast_lossless (11 hits)
+# became `From::from`. float_cmp (8 hits) is allowed only on the ozt2
+# unit-test module, where integer-valued f32 arithmetic is exact.
+# Deliberately NOT enabled: arithmetic_side_effects (restriction lint, outside
+# pedantic) — same neighbour-indexing rationale as the cast family above.
 
 [lib]
 name = "openzenith_core"

@@ -11,22 +11,35 @@ const MAX_RAYS: usize = 720;
 
 /// Compute visible cells from an observer point on a DEM.
 ///
-///
-/// Casts `n_angles` rays at uniform angular intervals around the observer.
-/// For each ray, samples terrain heights at regular distance intervals and
-/// determines whether each sample is visible using the maximum-slope criterion.
+/// Casts at most 720 rays at uniform angular intervals around the
+/// observer. For each ray, samples terrain heights at half-cell steps with
+/// bilinear interpolation over the four surrounding corners (invalid corners
+/// are excluded from the weighted mean) and marks a sample visible when its
+/// slope from the observer is at least the maximum slope seen so far along
+/// that ray.
 ///
 /// # Arguments
-/// * `dem` – 2D elevation grid (f32)
-/// * `observer_row` – Row index of observer in the grid
-/// * `observer_col` – Column index of observer in the grid
-/// * `observer_height` – Height of observer above terrain (metres)
-/// * `cell_size` – Size of each cell in the same units as elevation (e.g. degrees or metres)
-/// * `nodata` – Value marking invalid cells
-/// * `max_distance_cells` – Maximum ray length in cells (default: diagonal of grid)
+/// * `dem` – 2D elevation grid, `f32` in metres
+/// * `observer_row` – row index of the observer in the grid
+/// * `observer_col` – column index of the observer in the grid
+/// * `observer_height` – eye height above the observer's terrain, in metres
+/// * `cell_size` – ground size of one cell, in the same unit as the
+///   elevations (metres for a projected DEM); scales the slope denominator
+/// * `nodata` – value marking invalid cells; cells `<= nodata` are never
+///   visible and never block
+/// * `max_distance_cells` – maximum ray length in cells; `None` uses the grid
+///   diagonal
 ///
 /// # Returns
-/// Boolean grid (1=visible, 0=not visible).
+/// Boolean grid of the same shape as `dem` (`true` = visible). The observer's
+/// own cell is always visible when the observer is inside the grid and off
+/// nodata; a reference outside the grid, or standing on nodata, yields an
+/// all-`false` grid.
+///
+/// # Panics
+/// Never — out-of-range observer indices short-circuit to an all-`false`
+/// grid, and ray samples are bounds-checked before writeback.
+#[must_use]
 pub fn viewshed(
     dem: &ArrayView2<f32>,
     observer_row: usize,

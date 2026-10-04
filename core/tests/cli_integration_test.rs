@@ -1,4 +1,4 @@
-//! Integration tests for the openzenith_core_cli binary.
+//! Integration tests for the `openzenith_core_cli` binary.
 //!
 //! Tests JSON I/O by piping input to stdin and checking stdout output.
 

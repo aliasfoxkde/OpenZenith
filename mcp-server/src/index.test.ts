@@ -7,9 +7,10 @@
  * parameters must match what the OpenZenith API actually accepts (see
  * api/src/app/api/<route>/route.ts and the generated OpenAPI spec).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { server, clearCache } from "./index.js";
 
 const BASE = "https://openzenith.pages.dev/api";
@@ -22,9 +23,13 @@ async function connectClient(): Promise<Client> {
 }
 
 /** Extract the URL the mocked fetch saw, failing loudly if it was not called. */
-function calledUrl(fetchMock: ReturnType<typeof vi.fn>): string {
+function calledUrl(fetchMock: Mock<typeof fetch>): string {
   expect(fetchMock).toHaveBeenCalled();
-  return fetchMock.mock.calls[0][0] as string;
+  const input = fetchMock.mock.calls[0]?.[0];
+  if (typeof input !== "string") {
+    throw new Error("expected fetch to have been called with a URL string");
+  }
+  return input;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -36,12 +41,12 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 describe("openzenith mcp server", () => {
   let client: Client;
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: Mock<typeof fetch>;
 
   beforeEach(async () => {
     clearCache();
     client = await connectClient();
-    fetchMock = vi.fn();
+    fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -134,9 +139,20 @@ describe("openzenith mcp server", () => {
   });
 
   it("api_docs passes the markdown through as text", async () => {
-    fetchMock.mockResolvedValue(new Response("# OpenZenith API\n...", { status: 200 }));
-    const result = await client.callTool({ name: "api_docs", arguments: {} });
-    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
-    expect(text).toContain("# OpenZenith API");
+    // Exact-equality on a body with a tail marker: the pre-fix behavior
+    // (JSON.parsing a text/markdown response) surfaced a SyntaxError whose
+    // message embeds only a truncated body prefix, so a toContain() on the
+    // head of the body passed even while the tool was broken in production.
+    const body = "# OpenZenith API\n\nREGRESSION-TAIL-9f2e7c";
+    fetchMock.mockResolvedValue(new Response(body, { status: 200 }));
+    // Client#callTool's result type unions the backwards-compatibility variant,
+    // which degrades `content` to `unknown`. Re-validate against the SDK's own
+    // schema to recover the typed shape instead of asserting it.
+    const result = CallToolResultSchema.parse(await client.callTool({ name: "api_docs", arguments: {} }));
+    const block = result.content[0];
+    if (!block || block.type !== "text") {
+      throw new Error(`expected a text content block, saw ${JSON.stringify(block)}`);
+    }
+    expect(block.text).toBe(body);
   });
 });

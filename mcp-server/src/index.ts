@@ -40,10 +40,15 @@ const CACHE_TTL = parseInt(process.env.OPENZENITH_CACHE_TTL || "300000", 10);
 // In-memory cache with TTL
 const cache = new Map<string, { data: unknown; ts: number }>();
 
-function getCached<T>(key: string): T | null {
+/**
+ * Cached payload for `key`, or null on miss/expiry. Payloads are passed
+ * straight to JSON.stringify, so `unknown` is the honest type — no caller
+ * ever narrows them.
+ */
+function getCached(key: string): unknown {
   const entry = cache.get(key);
   if (entry && Date.now() - entry.ts < CACHE_TTL) {
-    return entry.data as T;
+    return entry.data;
   }
   return null;
 }
@@ -65,7 +70,39 @@ async function apiFetch(path: string): Promise<unknown> {
     const text = await res.text().catch(() => "");
     throw new Error(`API error ${res.status}: ${text.slice(0, 200)}`);
   }
-  return res.json();
+  // /docs-md answers Content-Type: text/markdown — JSON.parsing it throws
+  // before the caller ever sees the payload, so branch on the content type.
+  if (!(res.headers.get("content-type") ?? "").includes("application/json")) {
+    return res.text();
+  }
+  const body: unknown = await res.json();
+  return body;
+}
+
+/** Is this payload a JSON object (the shape every projected field lives on)? */
+function isRecord(payload: unknown): payload is Record<string, unknown> {
+  return typeof payload === "object" && payload !== null;
+}
+
+/**
+ * Narrow an API payload to the object this server reads fields from. The REST
+ * API is the trust boundary — nothing is assumed about its JSON beyond
+ * "object or not", and a non-object is a hard error rather than an
+ * untyped member read.
+ */
+function asRecord(payload: unknown): Record<string, unknown> {
+  if (!isRecord(payload)) {
+    throw new TypeError(`API returned ${typeof payload}, expected a JSON object`);
+  }
+  return payload;
+}
+
+/** Narrow an API payload to the text this server passes through verbatim. */
+function asText(payload: unknown): string {
+  if (typeof payload !== "string") {
+    throw new TypeError(`API returned ${typeof payload}, expected text`);
+  }
+  return payload;
 }
 
 const server = new McpServer({
@@ -76,20 +113,22 @@ const server = new McpServer({
 
 // ─── Tool: unified query ───
 
-server.tool(
+server.registerTool(
   "query",
-  "Query multiple geospatial data types for a location in a single request. Returns elevation, address, weather, tides, and/or waterways based on the 'include' parameter. Default: elevation only.",
   {
-    lat: z.number().min(-90).max(90).describe("Latitude"),
-    lon: z.number().min(-180).max(180).describe("Longitude"),
-    include: z.string()
-      .default("elevation")
-      .describe("Comma-separated data to include: elevation, address, weather, tides, waterways"),
-    units: z.enum(["metric", "imperial"])
-      .default("metric")
-      .describe("Temperature/measurement units"),
-    forecast_days: z.number().min(1).max(7).default(3)
-      .describe("Weather forecast days (1-7)"),
+    description: "Query multiple geospatial data types for a location in a single request. Returns elevation, address, weather, tides, and/or waterways based on the 'include' parameter. Default: elevation only.",
+    inputSchema: {
+      lat: z.number().min(-90).max(90).describe("Latitude"),
+      lon: z.number().min(-180).max(180).describe("Longitude"),
+      include: z.string()
+        .default("elevation")
+        .describe("Comma-separated data to include: elevation, address, weather, tides, waterways"),
+      units: z.enum(["metric", "imperial"])
+        .default("metric")
+        .describe("Temperature/measurement units"),
+      forecast_days: z.number().min(1).max(7).default(3)
+        .describe("Weather forecast days (1-7)"),
+    },
   },
   async ({ lat, lon, include, units, forecast_days }) => {
     const params = new URLSearchParams({
@@ -112,12 +151,14 @@ server.tool(
 
 // ─── Tool: elevation ───
 
-server.tool(
+server.registerTool(
   "elevation",
-  "Get elevation (positive) or ocean depth (negative) for a point on Earth. The server picks the best source automatically: OZT2 z10 tiles from SRTM 30m, falling back to merged SRTM chunks.",
   {
-    lat: z.number().min(-90).max(90).describe("Latitude"),
-    lon: z.number().min(-180).max(180).describe("Longitude"),
+    description: "Get elevation (positive) or ocean depth (negative) for a point on Earth. The server picks the best source automatically: OZT2 z10 tiles from SRTM 30m, falling back to merged SRTM chunks.",
+    inputSchema: {
+      lat: z.number().min(-90).max(90).describe("Latitude"),
+      lon: z.number().min(-180).max(180).describe("Longitude"),
+    },
   },
   async ({ lat, lon }) => {
     const params = new URLSearchParams({ lat: lat.toString(), lon: lon.toString() });
@@ -133,16 +174,18 @@ server.tool(
 
 // ─── Tool: weather ───
 
-server.tool(
+server.registerTool(
   "weather",
-  "Get current weather conditions and daily forecast for a location. Powered by Open-Meteo (free, no API key).",
   {
-    lat: z.number().min(-90).max(90).describe("Latitude"),
-    lon: z.number().min(-180).max(180).describe("Longitude"),
-    forecast_days: z.number().min(1).max(7).default(3)
-      .describe("Forecast days (1-7)"),
-    units: z.enum(["metric", "imperial"]).default("metric")
-      .describe("Temperature units"),
+    description: "Get current weather conditions and daily forecast for a location. Powered by Open-Meteo (free, no API key).",
+    inputSchema: {
+      lat: z.number().min(-90).max(90).describe("Latitude"),
+      lon: z.number().min(-180).max(180).describe("Longitude"),
+      forecast_days: z.number().min(1).max(7).default(3)
+        .describe("Forecast days (1-7)"),
+      units: z.enum(["metric", "imperial"]).default("metric")
+        .describe("Temperature units"),
+    },
   },
   async ({ lat, lon, forecast_days, units }) => {
     const params = new URLSearchParams({
@@ -158,18 +201,20 @@ server.tool(
 
     const data = await apiFetch(`/query?${params}`);
     setCache(cacheKey, data);
-    return { content: [{ type: "text" as const, text: JSON.stringify((data as Record<string, unknown>).weather, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify(asRecord(data).weather, null, 2) }] };
   },
 );
 
 // ─── Tool: tides ───
 
-server.tool(
+server.registerTool(
   "tides",
-  "Get tide predictions for a coastal location. Uses NOAA Tides and Currents (US coastal areas only, within ~50 nautical miles of a station).",
   {
-    lat: z.number().min(-90).max(90).describe("Latitude"),
-    lon: z.number().min(-180).max(180).describe("Longitude"),
+    description: "Get tide predictions for a coastal location. Uses NOAA Tides and Currents (US coastal areas only, within ~50 nautical miles of a station).",
+    inputSchema: {
+      lat: z.number().min(-90).max(90).describe("Latitude"),
+      lon: z.number().min(-180).max(180).describe("Longitude"),
+    },
   },
   async ({ lat, lon }) => {
     const cacheKey = `tides:${lat.toFixed(2)},${lon.toFixed(2)}`;
@@ -178,18 +223,20 @@ server.tool(
 
     const data = await apiFetch(`/query?lat=${lat}&lon=${lon}&include=tides`);
     setCache(cacheKey, data);
-    return { content: [{ type: "text" as const, text: JSON.stringify((data as Record<string, unknown>).tides, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify(asRecord(data).tides, null, 2) }] };
   },
 );
 
 // ─── Tool: geocode ───
 
-server.tool(
+server.registerTool(
   "geocode",
-  "Convert a place name or address to coordinates. Uses OpenStreetMap Nominatim.",
   {
-    query: z.string().describe("Place name or address to search for"),
-    limit: z.number().min(1).max(10).default(5).describe("Max results"),
+    description: "Convert a place name or address to coordinates. Uses OpenStreetMap Nominatim.",
+    inputSchema: {
+      query: z.string().describe("Place name or address to search for"),
+      limit: z.number().min(1).max(10).default(5).describe("Max results"),
+    },
   },
   async ({ query, limit }) => {
     const params = new URLSearchParams({ query, limit: limit.toString() });
@@ -200,14 +247,16 @@ server.tool(
 
 // ─── Tool: reverse_geocode ───
 
-server.tool(
+server.registerTool(
   "reverse_geocode",
-  "Convert coordinates to a human-readable address. Uses OpenStreetMap Nominatim.",
   {
-    lat: z.number().min(-90).max(90).describe("Latitude"),
-    lon: z.number().min(-180).max(180).describe("Longitude"),
-    zoom: z.number().min(0).max(18).default(18)
-      .describe("Detail level (0=country, 18=building)"),
+    description: "Convert coordinates to a human-readable address. Uses OpenStreetMap Nominatim.",
+    inputSchema: {
+      lat: z.number().min(-90).max(90).describe("Latitude"),
+      lon: z.number().min(-180).max(180).describe("Longitude"),
+      zoom: z.number().min(0).max(18).default(18)
+        .describe("Detail level (0=country, 18=building)"),
+    },
   },
   async ({ lat, lon, zoom }) => {
     const params = new URLSearchParams({
@@ -222,12 +271,14 @@ server.tool(
 
 // ─── Tool: bathymetry ───
 
-server.tool(
+server.registerTool(
   "bathymetry",
-  "Get ocean depth at a location. Returns depth (positive meters below sea level), elevation, and surface type. Uses GEBCO 2025 global bathymetry.",
   {
-    lat: z.number().min(-90).max(90).describe("Latitude"),
-    lon: z.number().min(-180).max(180).describe("Longitude"),
+    description: "Get ocean depth at a location. Returns depth (positive meters below sea level), elevation, and surface type. Uses GEBCO 2025 global bathymetry.",
+    inputSchema: {
+      lat: z.number().min(-90).max(90).describe("Latitude"),
+      lon: z.number().min(-180).max(180).describe("Longitude"),
+    },
   },
   async ({ lat, lon }) => {
     const cacheKey = `bathy:${lat.toFixed(2)},${lon.toFixed(2)}`;
@@ -242,25 +293,28 @@ server.tool(
 
 // ─── Tool: api_docs ───
 
-server.tool(
+server.registerTool(
   "api_docs",
-  "Get the full OpenZenith API documentation as markdown. Always read this first to understand available endpoints, parameters, and response formats.",
-  {},
+  {
+    description: "Get the full OpenZenith API documentation as markdown. Always read this first to understand available endpoints, parameters, and response formats.",
+    inputSchema: {},
+  },
   async () => {
-    const data = await apiFetch("/docs-md");
-    return { content: [{ type: "text" as const, text: data as string }] };
+    const data = asText(await apiFetch("/docs-md"));
+    return { content: [{ type: "text" as const, text: data }] };
   },
 );
 
 // ─── Resource: API docs ───
 
-server.resource(
+server.registerResource(
   "docs",
   "OpenZenith API documentation (markdown)",
+  {},
   async () => {
-    const docs = await apiFetch("/docs-md");
+    const docs = asText(await apiFetch("/docs-md"));
     return {
-      contents: [{ uri: "openzenith://docs", mimeType: "text/markdown", text: docs as string }],
+      contents: [{ uri: "openzenith://docs", mimeType: "text/markdown", text: docs }],
     };
   },
 );
@@ -278,7 +332,7 @@ if (
   process.argv[1] &&
   import.meta.url === (await import("node:url")).pathToFileURL(process.argv[1]).href
 ) {
-  main().catch((err) => {
+  main().catch((err: unknown) => {
     console.error("OpenZenith MCP Server failed:", err);
     process.exit(1);
   });

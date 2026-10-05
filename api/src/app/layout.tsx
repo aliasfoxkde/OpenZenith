@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { Providers } from "@/components/Providers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
 
@@ -136,9 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 })();`,
           }}
         />
-        <Providers>
-          <ErrorBoundary>{children}</ErrorBoundary>
-        </Providers>
+        <ErrorBoundary>{children}</ErrorBoundary>
       </body>
     </html>
   );

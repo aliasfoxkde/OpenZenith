@@ -143,7 +143,8 @@ jobs:
           # exit should mean a complete run — assert it. Baseline 2026-10-04
           # (task #179 coverage wave): 99 files / 1446 passed + 5 skipped
           # (was 1424 on 2026-10-03); 2026-10-05 (task #180 docs gate): the
-          # docs-claims contract tests add one file / four tests -> 100/1450.
+          # 2026-10-05 (task #182 raster factory): the raster-factory test adds
+          # one file / ten tests -> 101/1460.
           # Update BOTH numbers when the suite grows (fail-loud beats
           # fail-silent).
           clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
@@ -151,10 +152,10 @@ jobs:
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
           echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
           [ "${files:-0}" -eq 100 ] || {
-            echo "INCOMPLETE: passing run covered ${files:-?}/100 files"; exit 1;
+            echo "INCOMPLETE: passing run covered ${files:-?}/101 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1450 ] || {
-            echo "COUNT DRIFT: ${tests:-?} passed, baseline 1450 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1460 ] || {
+            echo "COUNT DRIFT: ${tests:-?} passed, baseline 1460 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

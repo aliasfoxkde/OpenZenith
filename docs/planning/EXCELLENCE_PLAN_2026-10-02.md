@@ -517,3 +517,47 @@ toggle smoke for item 1.
     (was stale at the 97.96% pre-stdout-fix baseline): floor 95 → **99**,
     new baseline comment cites 99.19% lines and the closure-instantiation
     remainder.
+
+### 2026-10-05 — Phases 5 + 6 closed (a11y AAA, code smells, typed abort slice)
+
+**Phase 5 (WCAG 2.1 AAA) — complete.** Suite expanded to 10 audited pages
+plus the globe (vendor-scoped), with 2.1.1/2.4.3/2.4.7 keyboard checks and
+a 2.5.8 24px target-size floor (44px AAA delta logged, not enforced). Real
+findings found and fixed, not waived:
+- FlipCard rebuilt as a disclosure pattern (axe nested-interactive plus a
+  real 2.1.1 trap): the card is no longer a role="button" wrapper; a corner
+  `aria-expanded` toggle is the only closed-card tab stop, the back face is
+  visibility-gated on hover/.flipped, and the toggle precedes the faces in
+  DOM order so Tab after activation lands in the revealed CTAs.
+- `/api/docs` example blocks are keyboard-reachable scroll regions
+  (scrollable-region-focusable); not-found CTA sky-500 → sky-800 (2.6:1 →
+  8.1:1, AAA); wasm-demo was the only page without site chrome (Navbar
+  added); 2.5.8 floors applied across Navbar/Footer/CodeBlock/StatCard,
+  the landing sample buttons (inline styles deduplicated into the
+  .oz-sample-btn/.oz-shuffle-btn classes), and the api-docs page's own
+  header brand link.
+- Tab-order floors scale with each page's visible tabbable count instead of
+  asserting six stops unconditionally (honest on a one-link 404, strict on
+  rich pages).
+- Final local run: 89 passed / 0 failed / 3 flaky-retried (firefox globe
+  axe + studio tab-order flake under host load — the documented
+  environmental pattern; chromium-consistent failures were treated as real
+  and fixed).
+
+**Phase 6 (code smells) — complete.** Raster-layer factory (29 map layer
+files → createRasterLayer + data table, +10-test suite); dead useToast
+removed (Toast.tsx/Providers.tsx deleted, layout unwired); gps-jamming
+route is a clearly-labeled static reference dataset (data-honesty
+docstring, no invented fallback); local Moran's I implemented for real in
+terrain/raster.py (+tests). Perf residue (task #174): the typed
+abort-on-teardown slice landed — `dedupFetch(url, timeoutMs, signal?)`
+with dedup-safe external-abort semantics (an abort on a shared in-flight
+request abandons only that caller's await, never the shared request),
+`isAbort` guards in every fetch-wrapping catch, and page-level per-layer
+AbortControllers (toggle-off aborts in-flight fetches, unmount aborts all,
+and a slow chunk import re-checks the signal before fetching).
+
+**Gates at close:** tsc 0; eslint 0 errors / **1,887 warnings** (−3 net);
+vitest **101 files / 1,460 passed + 5 skipped** (.gitforge.yml guard
+updated to 101/1460); pytest 1,522 passed / **99.07%** lines; a11y +
+landing e2e 89 passed / 0 failed.

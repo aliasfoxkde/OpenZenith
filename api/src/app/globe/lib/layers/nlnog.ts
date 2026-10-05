@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
@@ -25,13 +26,14 @@ interface NlnogNode {
  * entities whose id starts with `nlnog-`. Reports node count or error through
  * `updateStatus("nlnogNodes")`. Returns nothing.
  */
-export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
+export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void,
+  signal?: AbortSignal,) {
   if (!Cesium || !viewer) return;
 
   const doLoad = async () => {
     try {
       updateStatus("nlnogNodes", { error: null });
-      const res = await fetch("/api/nlnog");
+      const res = await fetch("/api/nlnog", { signal });
       const data = await res.json();
       if (!data.nodes) {
         updateStatus("nlnogNodes", { error: "no data" });
@@ -99,6 +101,7 @@ export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: str
       viewer.dataSources.add(ds);
       updateStatus("nlnogNodes", { lastUpdate: Date.now(), count: nodes.length });
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("nlnogNodes", err);
       updateStatus("nlnogNodes", {
         error: "fetch failed" });

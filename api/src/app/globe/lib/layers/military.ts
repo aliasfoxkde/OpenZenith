@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchMilitaryFlights } from "../data-fetchers";
+import { fetchMilitaryFlights, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
@@ -52,13 +52,14 @@ export function loadMilitaryFlights(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { militaryFlights: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("militaryFlights", { error: null });
   const retry = createRetryGuard();
 
   const doLoad = async () => {
     try {
-      const data = await fetchMilitaryFlights();
+      const data = await fetchMilitaryFlights(undefined, undefined, undefined, signal);
       if (!Cesium || !viewer || !data.ac) {
         if (data.msg && data.msg.includes("purchase")) {
           updateStatus("militaryFlights", { error: "ADSBExchange requires API key", lastUpdate: Date.now(), count: 0 });
@@ -89,7 +90,7 @@ export function loadMilitaryFlights(
 
       const refresh = async () => {
         try {
-          const d = await fetchMilitaryFlights();
+          const d = await fetchMilitaryFlights(undefined, undefined, undefined, signal);
           if (d.ac) {
             removeEntities("mil-");
             d.ac
@@ -132,6 +133,7 @@ export function loadMilitaryFlights(
       }, 30000);
       pushLayerTimer(intervalsRef, "militaryFlights", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("militaryFlights", err);
       updateStatus("militaryFlights", {
         error: "fetch failed",

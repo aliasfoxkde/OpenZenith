@@ -1,6 +1,6 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchHurricaneTracks } from "../data-fetchers";
+import { fetchHurricaneTracks, isAbort } from "../data-fetchers";;
 
 interface StormTrackPoint {
   coordinates: [number, number];
@@ -81,12 +81,13 @@ export function loadHurricanes(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
+  signal?: AbortSignal,
 ) {
   updateStatus("hurricaneTracks", { error: null });
 
   const doLoad = async () => {
     try {
-      const csv = await fetchHurricaneTracks();
+      const csv = await fetchHurricaneTracks(signal);
       if (!Cesium || !viewer) return;
       const lines = csv.split("\n").slice(1);
       const storms: Record<string, StormTrackPoint[]> = {};
@@ -285,6 +286,7 @@ export function loadHurricanes(
 
       updateStatus("hurricaneTracks", { lastUpdate: Date.now(), count });
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("hurricaneTracks", err);
       updateStatus("hurricaneTracks", {
         error: "fetch failed" });

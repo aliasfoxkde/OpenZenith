@@ -1,5 +1,5 @@
 import type { DataStatus } from "../types";
-import { fetchVolcanoAlerts } from "../data-fetchers";
+import { fetchVolcanoAlerts, isAbort } from "../data-fetchers";;
 import { warnLayerError } from "@/lib/diagnostics";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
@@ -56,13 +56,14 @@ export function loadVolcanoes(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { volcanoes: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("volcanoes", { error: null });
   const retry = createRetryGuard({ maxFailures: 3 });
 
   const doLoad = async () => {
     try {
-      const data = await fetchVolcanoAlerts();
+      const data = await fetchVolcanoAlerts(signal);
       if (!Cesium || !viewer) return;
       const features = data.features;
       removeEntities("vol-");
@@ -146,7 +147,7 @@ export function loadVolcanoes(
 
       const refresh = async () => {
         try {
-          const d = await fetchVolcanoAlerts();
+          const d = await fetchVolcanoAlerts(signal);
           const feats = d.features;
           removeEntities("vol-");
           let count = 0;
@@ -193,6 +194,7 @@ export function loadVolcanoes(
           updateStatus("volcanoes", { lastUpdate: Date.now(), count, error: null });
           retry.recordSuccess();
         } catch (err) {
+          if (isAbort(err)) return; // teardown, not a failure
           warnLayerError("volcanoes", err, "entity build");
           retry.recordFailure();
           updateStatus("volcanoes", {
@@ -207,6 +209,7 @@ export function loadVolcanoes(
       }, 1800000); // 30 min
       pushLayerTimer(intervalsRef, "volcanoes", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("volcanoes", err);
       updateStatus("volcanoes", { error: "fetch failed" });
     }

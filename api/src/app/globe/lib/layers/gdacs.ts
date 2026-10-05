@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
-import { fetchGDACS } from "../data-fetchers";
+import { fetchGDACS, isAbort } from "../data-fetchers";;
 import { warnLayerError } from "@/lib/diagnostics";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -47,12 +47,13 @@ export function loadGDACS(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { gdacs: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("gdacs", { error: null });
 
   const doLoad = async () => {
     try {
-      const data = await fetchGDACS();
+      const data = await fetchGDACS(signal);
       if (!Cesium || !viewer) return;
 
       // GDACS ATOM format: parse entries
@@ -121,6 +122,7 @@ export function loadGDACS(
       }, 1800000); // 30 min
       pushLayerTimer(intervalsRef, "gdacs", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("gdacs", err);
       updateStatus("gdacs", { error: "fetch failed" });
     }

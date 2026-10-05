@@ -1,7 +1,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
-import { fetchCelestrak, type TleRecord } from "../data-fetchers";
+import { fetchCelestrak, isAbort, type TleRecord } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
@@ -142,13 +142,14 @@ export function loadSatellites(
   entitiesRef: React.RefObject<Record<string, unknown>>,
   satDataRef: React.RefObject<SatFeature[]>,
   stateLayers: { satellites: boolean; orbitalTracks?: boolean; groundTracks?: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("satellites", { error: null });
   const retry = createRetryGuard();
 
   const doLoad = async () => {
     try {
-      const tles = await fetchCelestrak();
+      const tles = await fetchCelestrak(signal);
       if (!Cesium || !viewer) return;
       const satJs = window.satellite;
       const now = new Date();
@@ -300,7 +301,7 @@ export function loadSatellites(
         void (async () => {
           if (!stateLayers.satellites) return;
           try {
-            const t = await fetchCelestrak();
+            const t = await fetchCelestrak(signal);
             const sj = window.satellite;
             const n = new Date();
             const updated = t
@@ -348,6 +349,7 @@ export function loadSatellites(
       }, 300000);
       pushLayerTimer(intervalsRef, "satellites", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("satellites", err);
       updateStatus("satellites", {
         error: "fetch failed" });

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
@@ -13,13 +14,14 @@ import type { DataStatus } from "../types";
  * `arc-<n>`. Adds to viewer.entities and returns void; a single load with no
  * polling interval, so arcs go stale until the layer is reloaded.
  */
-export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
+export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void,
+  signal?: AbortSignal,) {
   if (!Cesium || !viewer) return;
 
   const doLoad = async () => {
     try {
       updateStatus("flightArcs", { error: null });
-      const res = await fetch("/api/proxy/https://opensky-network.org/api/states/all");
+      const res = await fetch("/api/proxy/https://opensky-network.org/api/states/all", { signal });
       const data = await res.json();
       if (!data.states) {
         updateStatus("flightArcs", { error: "no data" });
@@ -61,6 +63,7 @@ export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: str
       }
       updateStatus("flightArcs", { lastUpdate: Date.now(), count: arcCount });
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("flightArcs", err);
       updateStatus("flightArcs", {
         error: "fetch failed" });

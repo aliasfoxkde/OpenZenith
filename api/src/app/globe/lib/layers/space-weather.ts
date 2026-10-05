@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchSWPCaurora, fetchSWPCkpForecast } from "../data-fetchers";
+import { fetchSWPCaurora, fetchSWPCkpForecast, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -35,6 +35,7 @@ export function loadSpaceWeather(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { spaceWeather: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("spaceWeather", { error: null });
   const retry = createRetryGuard();
@@ -72,7 +73,7 @@ export function loadSpaceWeather(
   const doLoad = async () => {
     try {
       // Fetch Kp forecast
-      const kpData = await fetchSWPCkpForecast();
+      const kpData = await fetchSWPCkpForecast(signal);
       const currentKp = kpData?.[0]?.kp_index ?? 0;
       if (Cesium && viewer) {
         removeEntities("swpc-");
@@ -82,7 +83,7 @@ export function loadSpaceWeather(
 
       // Fetch aurora forecast polygons
       try {
-        const auroraData = await fetchSWPCaurora();
+        const auroraData = await fetchSWPCaurora(signal);
         if (!auroraData || !Cesium || !viewer) return;
         removeEntities("aurora-");
 
@@ -141,7 +142,7 @@ export function loadSpaceWeather(
         void (async () => {
           if (!stateLayers.spaceWeather) return;
           try {
-            const kd = await fetchSWPCkpForecast();
+            const kd = await fetchSWPCkpForecast(signal);
             const kp = kd?.[0]?.kp_index ?? 0;
             removeEntities("swpc-");
             addKpIndicator(kp);
@@ -156,6 +157,7 @@ export function loadSpaceWeather(
       }, 300000); // 5 min
       pushLayerTimer(intervalsRef, "spaceWeather", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("spaceWeather", err);
       updateStatus("spaceWeather", {
         error: "fetch failed" });

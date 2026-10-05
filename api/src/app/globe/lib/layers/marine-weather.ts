@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
@@ -33,6 +34,7 @@ export function loadMarineWeather(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { marineWeather: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("marineWeather", { error: null });
 
@@ -50,7 +52,7 @@ export function loadMarineWeather(
       for (const pt of points) {
         try {
           const url = `/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=${pt.lat}&longitude=${pt.lon}&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature`;
-          const r = await fetch(url);
+          const r = await fetch(url, { signal });
           const data = await r.json();
           const current = data.current;
           if (!current || current.wave_height == null) continue;
@@ -118,6 +120,7 @@ export function loadMarineWeather(
       }, 3600000); // 1 hour
       pushLayerTimer(intervalsRef, "marineWeather", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("marineWeather", err);
       updateStatus("marineWeather", {
         error: "fetch failed" });

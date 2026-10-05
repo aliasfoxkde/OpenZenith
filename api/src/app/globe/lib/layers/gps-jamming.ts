@@ -1,13 +1,14 @@
 /**
  * GPS Jamming Hex Grid Layer
  *
- * Displays hexagonal H3 cells indicating GPS jamming activity.
- * Data sources:自主 (OpenZenith), jam data from various sensors.
- *
- * Based on patterns from gods-eye.app which confirms this layer type
- * with hex-grid visualization for electronic warfare detection.
+ * Displays hexagonal cells for GPS interference regions, drawn from
+ * /api/gps-jamming — a static reference dataset of publicly documented
+ * interference zones (see that route's docstring). There is no real-time
+ * jamming feed behind this layer; if the route is unreachable the layer
+ * renders nothing and reports the failure rather than inventing data.
  */
 
+import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { createRetryGuard } from "../helpers";
@@ -21,15 +22,6 @@ export interface GpsJammingHex {
   intensity: number; // 0-1 scale
   source: string;
   timestamp: string;
-}
-
-/** Hex cell for Cesium rendering */
-interface _HexCell {
-  lat: number;
-  lon: number;
-  edgeLen: number;
-  intensity: number;
-  id: string;
 }
 
 /** H3 Resolution → approximate edge length in meters */
@@ -48,16 +40,6 @@ function intensityColor(intensity: number, Cesium: any): any {
   if (intensity >= 0.5) return Cesium.Color.ORANGE;
   if (intensity >= 0.3) return Cesium.Color.YELLOW;
   return Cesium.Color.GREEN;
-}
-
-/**
- * Convert lat/lon + resolution to H3 cell ID (simplified).
- * Uses a pseudo-H3 approximation for visualization.
- */
-function _latLonToCellId(lat: number, lon: number, resolution: number): string {
-  const latBucket = Math.round(lat * Math.pow(2, resolution));
-  const lonBucket = Math.round(lon * Math.pow(2, resolution));
-  return `gps-jam-${resolution}-${latBucket}-${lonBucket}`;
 }
 
 /**
@@ -81,103 +63,17 @@ function hexagonVertices(centerLon: number, centerLat: number, edgeLenMeters: nu
 }
 
 /**
- * Fetch GPS jamming data from various sources.
- * Combines public ADS-B based jamming detection with other sources.
+ * Fetch the GPS interference reference dataset. The route is the single
+ * source of truth — no client-side fallback data: a failed fetch surfaces
+ * as a layer error instead of silently rendering stale or invented hexes.
  */
-async function fetchGpsJammingData(): Promise<GpsJammingHex[]> {
-  try {
-    // Primary: OpenZenith GPS jamming database (when available)
-    const response = await fetch("/api/gps-jamming");
-    if (response.ok) {
-      const data = await response.json();
-      return data.hexes || [];
-    }
-  } catch {
-    /* continue to fallback */
+async function fetchGpsJammingData(signal?: AbortSignal): Promise<GpsJammingHex[]> {
+  const response = await fetch("/api/gps-jamming", { signal });
+  if (!response.ok) {
+    throw new Error(`gps-jamming route returned ${response.status}`);
   }
-
-  // Fallback: Generate demo hexes for known problem areas
-  // These are approximate based on publicly known GPS interference zones
-  return generateKnownJammingZones();
-}
-
-/** Known GPS interference/jamming zones (approximate, for demo) */
-function generateKnownJammingZones(): GpsJammingHex[] {
-  const zones: GpsJammingHex[] = [
-    // Ukraine conflict zone - well documented GPS interference
-    {
-      lat: 50.45,
-      lon: 30.52,
-      resolution: 6,
-      intensity: 0.9,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-    {
-      lat: 48.5,
-      lon: 35.0,
-      resolution: 6,
-      intensity: 0.85,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-    {
-      lat: 49.8,
-      lon: 33.5,
-      resolution: 6,
-      intensity: 0.7,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-
-    // Middle East - documented interference areas
-    {
-      lat: 31.5,
-      lon: 34.8,
-      resolution: 6,
-      intensity: 0.6,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-    {
-      lat: 29.5,
-      lon: 45.0,
-      resolution: 6,
-      intensity: 0.5,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-
-    // Taiwan Strait - documented interference
-    {
-      lat: 24.5,
-      lon: 119.5,
-      resolution: 6,
-      intensity: 0.65,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-
-    // Russian border areas
-    {
-      lat: 60.0,
-      lon: 30.0,
-      resolution: 6,
-      intensity: 0.4,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-    {
-      lat: 55.7,
-      lon: 37.6,
-      resolution: 6,
-      intensity: 0.55,
-      source: "ADS-B Analysis",
-      timestamp: new Date().toISOString(),
-    },
-  ];
-
-  return zones;
+  const data = (await response.json()) as { hexes?: GpsJammingHex[] };
+  return data.hexes || [];
 }
 
 /**
@@ -194,6 +90,7 @@ export function loadGpsJamming(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
   _entitiesRef: React.RefObject<Record<string, any>>,
   stateLayers: { gpsJamming: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("gpsJamming", { error: null });
   const retry = createRetryGuard();
@@ -257,7 +154,7 @@ export function loadGpsJamming(
 
   const doLoad = async () => {
     try {
-      const hexes = await fetchGpsJammingData();
+      const hexes = await fetchGpsJammingData(signal);
       renderHexGrid(hexes);
       updateStatus("gpsJamming", {
         lastUpdate: Date.now(),
@@ -266,6 +163,7 @@ export function loadGpsJamming(
       });
       retry.recordSuccess();
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("gpsJamming", err, "entity build");
       retry.recordFailure();
       updateStatus("gpsJamming", {
@@ -279,10 +177,11 @@ export function loadGpsJamming(
   const refresh = async () => {
     if (!stateLayers.gpsJamming) return;
     try {
-      const hexes = await fetchGpsJammingData();
+      const hexes = await fetchGpsJammingData(signal);
       renderHexGrid(hexes);
       updateStatus("gpsJamming", { lastUpdate: Date.now(), count: hexes.length });
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("gpsJamming", err, "refresh");
     }
   };

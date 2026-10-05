@@ -1,6 +1,6 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchSigmets, fetchAirmets } from "../data-fetchers";
+import { fetchAirmets, fetchSigmets, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -71,6 +71,7 @@ export function loadAviationWeather(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { aviationWeather: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("aviationWeather", { error: null });
   const retry = createRetryGuard();
@@ -211,7 +212,7 @@ export function loadAviationWeather(
 
       // Fetch SIGMETs
       try {
-        const sigmets = asSigmetList(await fetchSigmets());
+        const sigmets = asSigmetList(await fetchSigmets(signal));
         sigmets.forEach((s, i) => { addSigmet(s, i); });
         total += sigmets.length;
       } catch {
@@ -220,7 +221,7 @@ export function loadAviationWeather(
 
       // Fetch AIRMETs
       try {
-        const airmets = asSigmetList(await fetchAirmets());
+        const airmets = asSigmetList(await fetchAirmets(signal));
         airmets.forEach((a, i) => { addAirmet(a, i); });
         total += airmets.length;
       } catch {
@@ -237,8 +238,8 @@ export function loadAviationWeather(
             removeEntities("airmet-");
             // viewer/Cesium are narrowed by doLoad's guard before this
             // closure is created (both are load-time captures, never re-read).
-            const sigmets = asSigmetList(await fetchSigmets());
-            const airmets = asSigmetList(await fetchAirmets());
+            const sigmets = asSigmetList(await fetchSigmets(signal));
+            const airmets = asSigmetList(await fetchAirmets(signal));
             let t = 0;
             sigmets.forEach((s, i) => {
               addSigmet(s, i);
@@ -250,6 +251,7 @@ export function loadAviationWeather(
             });
             updateStatus("aviationWeather", { lastUpdate: Date.now(), count: t });
           } catch (err) {
+            if (isAbort(err)) return; // teardown, not a failure
             warnLayerError("aviationWeather", err, "entity build");
             retry.recordFailure();
             updateStatus("aviationWeather", {

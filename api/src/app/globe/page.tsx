@@ -528,6 +528,15 @@ export default function Globe() {
       intervalsRef.current.forEach((entry) => {
         clearInterval(entry.id);
       });
+      // Abort every in-flight layer fetch — the viewer they feed is going
+      // away. Read at cleanup time on purpose: controllers are created after
+      // mount, so snapshotting the map now would snapshot it empty. Stale
+      // entries are harmless — beginLayerLoad supersedes per key and the
+      // component instance is going away regardless.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      abortControllersRef.current.forEach((controller) => {
+        controller.abort();
+      });
       // eslint-disable-next-line react-hooks/exhaustive-deps
       layerModulesRef.current.lightning?.cleanupLightning();
       if (viewerRef.current) {
@@ -711,11 +720,24 @@ export default function Globe() {
   }, []);
 
   // ─── Dynamic layer loader (lazy imports with cache) ───
+  // Per-layer abort controllers: toggle-off and unmount abort the layer's
+  // in-flight network work instead of letting it run to timeout for entities
+  // that are already gone. beginLayerLoad supersedes any prior load of the
+  // same layer (the stale one rejects with AbortError, which loaders swallow).
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const beginLayerLoad = useCallback((key: string): AbortSignal => {
+    abortControllersRef.current.get(key)?.abort();
+    const controller = new AbortController();
+    abortControllersRef.current.set(key, controller);
+    return controller.signal;
+  }, []);
+
   const loadLayerDynamic = useCallback(
     async (key: string) => {
       const Cesium = cesiumRef.current;
       const viewer = viewerRef.current;
       if (!Cesium || !viewer || dataLoadedRef.current[key]) return;
+      const signal = beginLayerLoad(key);
 
       let mod: any;
       switch (key) {
@@ -787,22 +809,24 @@ export default function Globe() {
           break;
       }
       if (!mod) return;
+      // A toggle-off while the chunk was importing must not proceed to fetch.
+      if (signal.aborted) return;
 
       switch (key) {
         case "radar":
-          mod.loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers);
+          mod.loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers, signal);
           break;
         case "flights":
-          mod.loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "militaryFlights":
-          mod.loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "vessels":
-          mod.loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "warnings":
-          mod.loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "satellites":
           mod.loadSatellites(
@@ -814,52 +838,55 @@ export default function Globe() {
             entitiesRef,
             satDataRef,
             state.layers,
+            signal,
           );
           break;
         case "hurricaneTracks":
-          mod.loadHurricanes(viewer, Cesium, updateStatus);
+          mod.loadHurricanes(viewer, Cesium, updateStatus, signal);
           break;
         case "nlnogNodes":
-          mod.loadNlnogNodes(viewer, Cesium, updateStatus);
+          mod.loadNlnogNodes(viewer, Cesium, updateStatus, signal);
           break;
         case "flightArcs":
-          mod.loadFlightArcs(viewer, Cesium, updateStatus);
+          mod.loadFlightArcs(viewer, Cesium, updateStatus, signal);
           break;
         case "orbitalTracks":
-          mod.loadOrbitalTracks(viewer, Cesium, updateStatus);
+          mod.loadOrbitalTracks(viewer, Cesium, updateStatus, signal);
           break;
         case "groundTracks":
-          mod.loadGroundTracks(viewer, Cesium);
+          mod.loadGroundTracks(viewer, Cesium, signal);
           break;
         case "currents":
+          // Fetchless layer — nothing to abort.
           mod.loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
           break;
         case "spaceWeather":
-          mod.loadSpaceWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadSpaceWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "airQuality":
-          mod.loadAirQuality(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadAirQuality(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "aviationWeather":
-          mod.loadAviationWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadAviationWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "volcanoes":
-          mod.loadVolcanoes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadVolcanoes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "gdacs":
-          mod.loadGDACS(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadGDACS(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "marineWeather":
-          mod.loadMarineWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadMarineWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "wildfires":
-          mod.loadWildfires(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          mod.loadWildfires(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
           break;
         case "lightning":
+          // Fetchless layer — nothing to abort.
           mod.loadLightning(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
           break;
         case "gpsJamming":
-          mod.loadGpsJamming(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers);
+          mod.loadGpsJamming(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers, signal);
           break;
         case "dayNight":
           mod.loadDayNightTerminator(
@@ -878,7 +905,7 @@ export default function Globe() {
 
     // The remaining callees are all useCallback([], …)-stable; listing them
     // costs nothing and keeps the rule honest.
-    [state.layers, updateStatus, removeEntities, toggleImageryOverlay],
+    [state.layers, updateStatus, removeEntities, toggleImageryOverlay, beginLayerLoad],
   );
   loadLayerDynamicRef.current = loadLayerDynamic;
 
@@ -904,6 +931,14 @@ export default function Globe() {
           clearInterval(entry.id);
           return false;
         });
+        // Stop the layer's in-flight fetches too: polling timers are dead,
+        // so a request that survives this toggle would only render into a
+        // removed layer or pile onto the next toggle's fresh load.
+        const controller = abortControllersRef.current.get(key);
+        if (controller) {
+          controller.abort();
+          abortControllersRef.current.delete(key);
+        }
       }
       setState((prev) => {
         const next = { ...prev, layers: { ...prev.layers, [key]: !prev.layers[key] } };
@@ -915,7 +950,15 @@ export default function Globe() {
         switch (key) {
           case "earthquakes":
             if (on && !dataLoadedRef.current.earthquakes)
-              loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+              loadEarthquakes(
+                viewer,
+                Cesium,
+                updateStatus,
+                removeEntities,
+                intervalsRef,
+                state.layers,
+                beginLayerLoad("earthquakes"),
+              );
             if (!on) {
               removeEntities("eq-");
               dataLoadedRef.current.earthquakes = false;
@@ -960,7 +1003,15 @@ export default function Globe() {
             break;
           case "events":
             if (on && !dataLoadedRef.current.events)
-              loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+              loadEvents(
+                viewer,
+                Cesium,
+                updateStatus,
+                removeEntities,
+                intervalsRef,
+                state.layers,
+                beginLayerLoad("events"),
+              );
             if (!on) {
               removeEntities("event-");
               dataLoadedRef.current.events = false;
@@ -1150,7 +1201,15 @@ export default function Globe() {
 
     // state.layers is read inside the updater's side branches; the remaining
     // callees are useCallback([], …)-stable.
-    [loadLayerDynamic, state.layers, updateStatus, removeEntities, toggleImageryOverlay, doLoadElevationColor],
+    [
+      loadLayerDynamic,
+      state.layers,
+      updateStatus,
+      removeEntities,
+      toggleImageryOverlay,
+      doLoadElevationColor,
+      beginLayerLoad,
+    ],
   );
 
   // ─── Section/theme toggles ───
@@ -1255,11 +1314,27 @@ export default function Globe() {
       // event loading on every unrelated layer toggle.
       const layers = stateLayersRef.current;
       if (layers.earthquakes)
-        loadEarthquakes(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, layers);
+        loadEarthquakes(
+          viewerRef.current,
+          cesiumRef.current,
+          updateStatus,
+          removeEntities,
+          intervalsRef,
+          layers,
+          beginLayerLoad("earthquakes"),
+        );
       if (layers.events)
-        loadEvents(viewerRef.current, cesiumRef.current, updateStatus, removeEntities, intervalsRef, layers);
+        loadEvents(
+          viewerRef.current,
+          cesiumRef.current,
+          updateStatus,
+          removeEntities,
+          intervalsRef,
+          layers,
+          beginLayerLoad("events"),
+        );
     }
-  }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef]);
+  }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef, beginLayerLoad]);
 
   // ─── Render ───
   // `state.theme` may be unknown to the registry, so the lookup can miss — view

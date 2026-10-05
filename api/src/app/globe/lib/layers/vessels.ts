@@ -1,7 +1,7 @@
 import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
-import { fetchVessels } from "../data-fetchers";
+import { fetchVessels, isAbort } from "../data-fetchers";;
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /**
@@ -136,6 +136,7 @@ export function loadVessels(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { vessels: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("vessels", { error: null });
 
@@ -246,7 +247,7 @@ export function loadVessels(
   /** Connect to AISstream.io WebSocket */
   const connectWebSocket = async () => {
     try {
-      const config = await fetchVessels();
+      const config = await fetchVessels(signal);
       if (!config.wsUrl || !config.apiKey) {
         updateStatus("vessels", { error: config.message || config.error || "Vessel feed unavailable" });
         return;
@@ -313,6 +314,7 @@ export function loadVessels(
         }
       };
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("vessels", err);
       updateStatus("vessels", {
         error: "Failed to connect to vessel feed" });

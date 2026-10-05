@@ -1,7 +1,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { getAircraftIcon } from "../constants";
-import { fetchFlights, fetchFlightsAnonymous } from "../data-fetchers";
+import { fetchFlights, fetchFlightsAnonymous, isAbort } from "../data-fetchers";;
 import type { OpenSkyResponse, OpenSkyState } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -92,6 +92,7 @@ export function loadFlights(
   intervalsRef: LayerTimersRef,
   stateLayers: { flights: boolean },
   _entitiesRef?: React.RefObject<Record<string, unknown>>,
+  signal?: AbortSignal,
 ) {
   updateStatus("flights", { error: null });
   const retry = createRetryGuard();
@@ -252,7 +253,7 @@ export function loadFlights(
         lastBboxKey = `${bbox.lamin},${bbox.lamax},${bbox.lomin},${bbox.lomax}`;
 
         try {
-          data = await fetchFlights(bbox);
+          data = await fetchFlights(bbox, signal);
           authenticated = !data.error;
         } catch {
           // Fall back to anonymous
@@ -261,7 +262,7 @@ export function loadFlights(
 
       // Fallback to anonymous API
       if (!data || data.error) {
-        data = await fetchFlightsAnonymous();
+        data = await fetchFlightsAnonymous(signal);
       }
 
       if (!Cesium || !viewer || !data.states) return;
@@ -298,14 +299,14 @@ export function loadFlights(
             lastBboxKey = bboxKey;
 
             try {
-              newData = await fetchFlights(bbox);
+              newData = await fetchFlights(bbox, signal);
             } catch {
               // Fall through to anonymous
             }
           }
 
           if (!newData || newData.error) {
-            newData = await fetchFlightsAnonymous();
+            newData = await fetchFlightsAnonymous(signal);
           }
 
           if (newData.states) {
@@ -333,6 +334,7 @@ export function loadFlights(
       }, 15000);
       pushLayerTimer(intervalsRef, "flights", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("flights", err);
       updateStatus("flights", {
         error: "fetch failed" });

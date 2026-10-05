@@ -1,6 +1,6 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchEarthquakes } from "../data-fetchers";
+import { fetchEarthquakes, isAbort } from "../data-fetchers";;
 import type { EarthquakeFeature } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -24,6 +24,7 @@ export function loadEarthquakes(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { earthquakes: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("earthquakes", { error: null });
 
@@ -164,13 +165,14 @@ export function loadEarthquakes(
   const refresh = async () => {
     if (!stateLayers.earthquakes) return;
     try {
-      const d = await fetchEarthquakes();
+      const d = await fetchEarthquakes(signal);
       removeEntities("eq-");
       const fs = d.features ?? [];
       fs.forEach((f, i) => { addQuakeEntity(f, i); });
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
       retry.recordSuccess();
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("earthquakes", err, "entity build");
       retry.recordFailure();
       if (retry.shouldRetry) {
@@ -183,7 +185,7 @@ export function loadEarthquakes(
 
   const doLoad = async () => {
     try {
-      const data = await fetchEarthquakes();
+      const data = await fetchEarthquakes(signal);
       if (!Cesium || !viewer) return;
       const features = data.features ?? [];
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: features.length });

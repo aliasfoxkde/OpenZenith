@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchWarnings } from "../data-fetchers";
+import { fetchWarnings, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
@@ -27,6 +27,7 @@ export function loadWarnings(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { warnings: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("warnings", { error: null });
   const retry = createRetryGuard();
@@ -102,13 +103,14 @@ export function loadWarnings(
   const refresh = async () => {
     if (!stateLayers.warnings) return;
     try {
-      const d = await fetchWarnings();
+      const d = await fetchWarnings(signal);
       if (d.features) {
         removeEntities("warn-");
         d.features.forEach(addWarningEntity);
         updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length });
       }
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("warnings", err, "entity build");
       retry.recordFailure();
       updateStatus("warnings", {
@@ -119,7 +121,7 @@ export function loadWarnings(
 
   const doLoad = async () => {
     try {
-      const data = await fetchWarnings();
+      const data = await fetchWarnings(signal);
       if (!Cesium || !viewer || !data.features) return;
       updateStatus("warnings", { lastUpdate: Date.now(), count: data.features.length });
       data.features.forEach(addWarningEntity);
@@ -129,6 +131,7 @@ export function loadWarnings(
       }, 300000);
       pushLayerTimer(intervalsRef, "warnings", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("warnings", err);
       updateStatus("warnings", {
         error: "fetch failed" });

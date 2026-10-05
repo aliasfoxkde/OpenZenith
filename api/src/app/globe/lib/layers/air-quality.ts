@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
@@ -43,6 +44,7 @@ export function loadAirQuality(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { airQuality: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("airQuality", { error: null });
 
@@ -76,7 +78,7 @@ export function loadAirQuality(
       for (const city of cities) {
         try {
           const url = `/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone`;
-          const r = await fetch(url);
+          const r = await fetch(url, { signal });
           const data = await r.json();
           const current = data.current;
           if (!current) continue;
@@ -150,6 +152,7 @@ export function loadAirQuality(
       }, 1800000); // 30 min
       pushLayerTimer(intervalsRef, "airQuality", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("airQuality", err);
       updateStatus("airQuality", {
         error: "fetch failed" });

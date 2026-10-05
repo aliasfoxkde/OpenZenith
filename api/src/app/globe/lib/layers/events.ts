@@ -2,7 +2,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
-import { fetchEONET } from "../data-fetchers";
+import { fetchEONET, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -63,6 +63,7 @@ export function loadEvents(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { events: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("events", { error: null });
   const retry = createRetryGuard({ maxFailures: 3 });
@@ -154,7 +155,7 @@ export function loadEvents(
 
   const doLoad = async () => {
     try {
-      const data = await fetchEONET();
+      const data = await fetchEONET(signal);
       if (!Cesium || !viewer) return;
       const features = data.features || [];
       updateStatus("events", { lastUpdate: Date.now(), count: features.length });
@@ -164,13 +165,14 @@ export function loadEvents(
         void (async () => {
           if (!stateLayers.events) return;
           try {
-            const d = await fetchEONET();
+            const d = await fetchEONET(signal);
             const fs = d.features || [];
             removeEntities("event-");
             fs.forEach((f: any, i: number) => { addEventEntity(f, i); });
             updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
             retry.recordSuccess();
           } catch (err) {
+            if (isAbort(err)) return; // teardown, not a failure
             warnLayerError("events", err, "entity build");
             retry.recordFailure();
             updateStatus("events", {
@@ -181,6 +183,7 @@ export function loadEvents(
       }, 1800000);
       pushLayerTimer(intervalsRef, "events", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("events", err);
       updateStatus("events", {
         error: "fetch failed" });

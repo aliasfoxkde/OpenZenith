@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchRainViewer } from "../data-fetchers";
+import { fetchRainViewer, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
@@ -16,6 +16,7 @@ export function loadRadar(
   toggleImageryOverlay: (name: string, url?: string, opacity?: number) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { radar: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("radar", { error: null });
   const retry = createRetryGuard();
@@ -44,7 +45,7 @@ export function loadRadar(
 
   const doLoad = async () => {
     try {
-      const data = await fetchRainViewer();
+      const data = await fetchRainViewer(signal);
       if (!viewer || !data.radar) return;
 
       // Collect all frames: past + forecast
@@ -62,7 +63,7 @@ export function loadRadar(
         void (async () => {
           if (!stateLayers.radar) return;
           try {
-            const d = await fetchRainViewer();
+            const d = await fetchRainViewer(signal);
             if (!d.radar) return;
             const past = (d.radar.past || []).map((f: any) => f.path);
             const forecast = (d.radar.forecast || []).map((f: any) => f.path);
@@ -79,6 +80,7 @@ export function loadRadar(
       }, 600000);
       pushLayerTimer(intervalsRef, "radar", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("radar", err);
       updateStatus("radar", {
         error: "fetch failed" });

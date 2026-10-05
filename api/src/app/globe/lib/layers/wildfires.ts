@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchFIRMS } from "../data-fetchers";
+import { fetchFIRMS, isAbort } from "../data-fetchers";;
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
@@ -57,13 +57,14 @@ export function loadWildfires(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { wildfires: boolean },
+  signal?: AbortSignal,
 ) {
   updateStatus("wildfires", { error: null });
   const retry = createRetryGuard({ maxFailures: 3 });
 
   const doLoad = async () => {
     try {
-      const csv = await fetchFIRMS();
+      const csv = await fetchFIRMS(signal);
       if (!Cesium || !viewer) return;
 
       // FIRMS returns CSV: latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight
@@ -170,6 +171,7 @@ export function loadWildfires(
       }, 21600000); // 6 hours
       pushLayerTimer(intervalsRef, "wildfires", iv);
     } catch (err) {
+      if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("wildfires", err, "entity build");
       retry.recordFailure();
       updateStatus("wildfires", {

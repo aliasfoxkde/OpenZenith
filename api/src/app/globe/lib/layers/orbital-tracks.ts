@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
@@ -21,6 +22,7 @@ export function loadOrbitalTracks(
   viewer: any,
   Cesium: any,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
+  signal?: AbortSignal,
 ) {
   const satJs = (window as any).satellite;
   if (!Cesium || !viewer || !satJs) return;
@@ -41,9 +43,10 @@ export function loadOrbitalTracks(
     let tles: any[] = [];
     if (group.url) {
       try {
-        const r = await fetch(group.url);
+        const r = await fetch(group.url, { signal });
         tles = (await r.json()).slice(0, 20);
       } catch (err) {
+        if (isAbort(err)) return; // teardown, not a failure
         warnLayerError("orbitalTracks", err, "tle fetch");
         return;
       }
@@ -51,10 +54,12 @@ export function loadOrbitalTracks(
       try {
         const r = await fetch(
           `/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`,
+          { signal },
         );
         const data = await r.json();
         if (Array.isArray(data)) tles = data;
       } catch (err) {
+        if (isAbort(err)) return; // teardown, not a failure
         warnLayerError("orbitalTracks", err, "tle fetch");
         return;
       }

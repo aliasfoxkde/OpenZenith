@@ -10,22 +10,39 @@ export function OPTIONS() {
 /**
  * GET /api/gps-jamming
  *
- * Returns a list of GPS jamming hex cells with:
+ * Returns a list of GPS interference hex cells with:
  *   lat, lon, resolution, intensity (0-1), source, timestamp
  *
- * This is a placeholder stub with realistic demo data based on
- * publicly known GPS interference zones (Ukraine conflict zone,
- * Middle East, Taiwan Strait, Russian border areas).
+ * Data honesty: this is a STATIC REFERENCE DATASET, not live detection.
+ * There is no freely available real-time GPS-jamming feed; the coordinates
+ * and intensities below are approximate survey values for publicly
+ * documented interference regions (Ukraine conflict zone, Middle East,
+ * Taiwan Strait, Russian border areas, Korean Peninsula, Eastern
+ * Mediterranean). The response marks itself `simulated: true` and carries a
+ * `notice` so clients can disclose that to users.
  */
+const SOURCE_LABEL = "OpenZenith reference survey (static)";
+
+const NOTICE =
+  "Static reference dataset of publicly documented GPS interference zones. " +
+  "Positions and intensities are approximate survey values, not real-time detections.";
+
 export function GET() {
-  const hexes = [
+  const hexes: Array<{
+    lat: number;
+    lon: number;
+    resolution: number;
+    intensity: number;
+    source: string;
+    timestamp: string;
+  }> = [
     // Ukraine conflict zone — well documented GPS interference
     {
       lat: 50.45,
       lon: 30.52,
       resolution: 6,
       intensity: 0.9,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -33,7 +50,7 @@ export function GET() {
       lon: 35.0,
       resolution: 6,
       intensity: 0.85,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -41,7 +58,7 @@ export function GET() {
       lon: 33.5,
       resolution: 6,
       intensity: 0.7,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -49,7 +66,7 @@ export function GET() {
       lon: 28.6,
       resolution: 6,
       intensity: 0.65,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -57,7 +74,7 @@ export function GET() {
       lon: 37.2,
       resolution: 6,
       intensity: 0.8,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
 
@@ -67,7 +84,7 @@ export function GET() {
       lon: 34.8,
       resolution: 6,
       intensity: 0.6,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -75,7 +92,7 @@ export function GET() {
       lon: 45.0,
       resolution: 6,
       intensity: 0.5,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -83,7 +100,7 @@ export function GET() {
       lon: 44.4,
       resolution: 6,
       intensity: 0.45,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
 
@@ -93,7 +110,7 @@ export function GET() {
       lon: 119.5,
       resolution: 6,
       intensity: 0.65,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -101,7 +118,7 @@ export function GET() {
       lon: 118.2,
       resolution: 6,
       intensity: 0.55,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
 
@@ -111,7 +128,7 @@ export function GET() {
       lon: 30.0,
       resolution: 6,
       intensity: 0.4,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -119,7 +136,7 @@ export function GET() {
       lon: 37.6,
       resolution: 6,
       intensity: 0.55,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
     {
@@ -127,7 +144,7 @@ export function GET() {
       lon: 30.3,
       resolution: 6,
       intensity: 0.5,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
 
@@ -137,7 +154,7 @@ export function GET() {
       lon: 127.0,
       resolution: 6,
       intensity: 0.5,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
 
@@ -147,13 +164,13 @@ export function GET() {
       lon: 33.0,
       resolution: 6,
       intensity: 0.4,
-      source: "ADS-B Analysis",
+      source: SOURCE_LABEL,
       timestamp: new Date().toISOString(),
     },
   ];
 
   return NextResponse.json(
-    { hexes },
+    { hexes, simulated: true, notice: NOTICE },
     {
       headers: {
         ...CORS_HEADERS,

@@ -3,8 +3,10 @@ import { describe, it, expect } from "vitest";
 /**
  * Tests for /api/gps-jamming — the static GPS interference hex list.
  *
- * The route is a stub with no outbound dependencies, so the suite pins the
- * response shape, the hex payload invariants, and the CORS/cache headers.
+ * The route serves a static reference dataset with no outbound dependencies,
+ * so the suite pins the response shape, the hex payload invariants, the
+ * data-honesty markers (simulated + notice + non-attributed source), and
+ * the CORS/cache headers.
  */
 
 import { GET, OPTIONS } from "@/app/api/gps-jamming/route";
@@ -26,9 +28,31 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
     expect(resp.headers.get("Access-Control-Allow-Methods")).toContain("GET");
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=600");
 
-    const body = (await resp.json()) as { hexes: JammingHex[] };
+    const body = (await resp.json()) as {
+      hexes: JammingHex[];
+      simulated: boolean;
+      notice: string;
+    };
     expect(Array.isArray(body.hexes)).toBe(true);
     expect(body.hexes.length).toBeGreaterThan(0);
+  });
+
+  it("labels the data honestly as a static reference, not live detection", async () => {
+    const resp = GET();
+    const body = (await resp.json()) as {
+      hexes: JammingHex[];
+      simulated: boolean;
+      notice: string;
+    };
+
+    expect(body.simulated).toBe(true);
+    expect(body.notice).toMatch(/static reference dataset/i);
+    expect(body.notice).toMatch(/not real-time/i);
+    // The per-hex source must not claim a provenance the route doesn't have.
+    for (const hex of body.hexes) {
+      expect(hex.source).not.toMatch(/ADS-B|NOAA|USGS|sensor/i);
+      expect(hex.source).toMatch(/reference/i);
+    }
   });
 
   it("emits every documented field on each hex", async () => {
@@ -44,7 +68,6 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
         "source",
         "timestamp",
       ]);
-      expect(hex.source).toBe("ADS-B Analysis");
       expect(hex.resolution).toBe(6);
       expect(Number.isNaN(Date.parse(hex.timestamp))).toBe(false);
     }

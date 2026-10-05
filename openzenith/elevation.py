@@ -333,6 +333,18 @@ def load_elevation_grid(
     def load_tile(
         args: tuple[int, int, Path],
     ) -> tuple[int, int, np.ndarray | None]:
+        """Read and decode one Terrarium PNG tile for the executor pool.
+
+        Args:
+            args: (tile_x, tile_y, tile_path) for one existing tile file.
+
+        Returns:
+            (tile_x, tile_y, grid) where grid is a float32 elevation array in
+            metres, or None when the tile could not be read or decoded —
+            failures are logged via _log_tile_error instead of raising so a
+            single bad tile cannot abort grid assembly.
+
+        """
         tx, ty, tile_path = args
         try:
             with tile_path.open("rb") as f:
@@ -385,12 +397,33 @@ def load_elevation_grid(
 
     # Convert pixel coordinates to lat/lon using Web Mercator inverse
     def pixel_to_lat(py: int, z: int) -> float:
+        """Inverse Web Mercator: global pixel row -> latitude.
+
+        Args:
+            py: Global pixel row (0 at the top of the world, 256*2**z at the
+                bottom).
+            z: Tile zoom level.
+
+        Returns:
+            Latitude in degrees in [-85.0511, 85.0511]; the pixel's top edge.
+
+        """
         n = 2**z * 256
         y_norm = py / n
         lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * y_norm)))
         return math.degrees(lat_rad)
 
     def pixel_to_lon(px: int, z: int) -> float:
+        """Inverse Web Mercator: global pixel column -> longitude.
+
+        Args:
+            px: Global pixel column (0 at -180 degrees).
+            z: Tile zoom level.
+
+        Returns:
+            Longitude in degrees in [-180, 180]; the pixel's left edge.
+
+        """
         n = 2**z * 256
         return (px / n) * 360.0 - 180.0
 

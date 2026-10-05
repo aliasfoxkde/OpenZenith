@@ -177,6 +177,18 @@ def stream_reach_identifier(
 
     # Find junctions: stream cells with multiple upstream stream neighbors
     def count_upstream_streams(r: int, c: int) -> int:
+        """Count stream cells whose D8 direction drains into (r, c).
+
+        Args:
+            r: Row of the cell to inspect.
+            c: Column of the cell to inspect.
+
+        Returns:
+            Number of in-grid neighbours at (r, c) - offset(d) that are
+            stream cells and point at (r, c); 0 means (r, c) is an outlet,
+            >= 2 means it is a junction.
+
+        """
         count = 0
         for d in range(8):
             nr = r - int(D8_DR[d])

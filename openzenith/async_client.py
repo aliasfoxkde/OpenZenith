@@ -277,6 +277,20 @@ class ElevationClient:
         async def fetch_chunk(
             chunk: list[tuple[int, float, float, str | None]],
         ) -> list[ElevationResult]:
+            """POST one <=2000-point chunk and map results back to input order.
+
+            Args:
+                chunk: (orig_idx, lat, lon, id) tuples for a single API request.
+
+            Returns:
+                One ElevationResult per chunk entry, sorted by orig_idx; entries
+                the API omitted come back with elevation=None.
+
+            Raises:
+                RuntimeError: If the request fails after retries (propagated
+                    from _request); gather() surfaces it to the caller.
+
+            """
             payload = {
                 "points": [
                     {"lat": lat, "lon": lon, **({"id": pid} if pid else {})}

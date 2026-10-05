@@ -180,6 +180,21 @@ def trace_downstream(
             cell_size_deg: float = cell_size_deg,
             dem: np.ndarray = dem,
         ) -> tuple[int, int, int, float]:
+            """Resolve one D8 neighbour's elevation, via cache then the DEM.
+
+            Args:
+                args: (direction_index, row, col) of the neighbour in dem.
+                lat_min: Latitude of dem row 0 (degrees).
+                lon_min: Longitude of dem column 0 (degrees).
+                cell_size_deg: DEM cell size in degrees.
+                dem: Active elevation grid (metres, nodata <= -30000).
+
+            Returns:
+                (direction_index, row, col, elevation_m). Valid land values
+                are written to elevation_cache keyed by the cell's lat/lon
+                (rounded to 6 dp); nodata (<= -30000) is returned uncached.
+
+            """
             d, nr, nc = args
             key = (round(lat_min + nr * cell_size_deg, 6), round(lon_min + nc * cell_size_deg, 6))
             cached = elevation_cache.get(key)

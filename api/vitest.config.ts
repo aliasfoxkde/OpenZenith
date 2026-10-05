@@ -40,10 +40,18 @@ export default defineConfig({
         // 98.58 stmts / 93.77 branches / 90.78 functions / 98.58 lines after
         // earthquakes/airquality/weather-warnings/dem-tile/stac/docs-md/
         // gebco-tile/openapi.json routes all reached 100% branches.
-        statements: 97,
-        branches: 92,
-        functions: 89,
-        lines: 97,
+        // 2026-10-04 (task #179 wave 5, 99 files / 1446 tests): measured
+        // 99.11 stmts / 97.51 branches / 93.40 functions / 99.84 lines
+        // after the coverage sweep closed the remaining reachable gaps
+        // (hurricanes + terrain route arms, edge-cache TTL paths, flow-path
+        // zero-run slope guard). Functions floor stays under the measured
+        // value because the remainder is concentrated in thin route
+        // handlers whose only unexercised lines are error envelopes
+        // reached solely through upstream fetch failure injection.
+        statements: 99,
+        branches: 96,
+        functions: 92,
+        lines: 99,
       },
     },
   },

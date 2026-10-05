@@ -122,6 +122,72 @@ describe("edge-cache tiles", () => {
     await expect(edgePutTile("landcover", 3, 4, 5, asciiBuf("x"))).resolves.toBeUndefined();
     await expect(edgeGetTile("landcover", 3, 4, 5)).resolves.toBeNull();
   });
+
+  it("copies a Uint8Array payload into its own exact-size buffer", async () => {
+    // Rendered tile bytes arrive as views over larger decode buffers; the
+    // stored Response must hold a copy, not the view.
+    const shared = new Uint8Array(16);
+    shared.set([9, 8, 7, 6], 4);
+    const view = shared.subarray(4, 8);
+
+    await edgePutTile("contours", 3, 4, 5, view, "image/png");
+    const got = await edgeGetTile("contours", 3, 4, 5);
+    expect(got?.byteLength).toBe(4);
+    expect(Array.from(new Uint8Array(got ?? new ArrayBuffer(0)))).toEqual([9, 8, 7, 6]);
+  });
+});
+
+describe("edge-cache global Cache API resolution", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setEdgeCacheProvider(null);
+  });
+
+  it("uses the global Cache API when no provider override is installed", async () => {
+    const entries = new Map<string, Response>();
+    vi.stubGlobal("caches", {
+      open: () =>
+        Promise.resolve({
+          match: (key: RequestInfo | URL) => Promise.resolve(entries.get(String(key))),
+          put: (key: RequestInfo | URL, response: Response) => {
+            entries.set(String(key), response);
+            return Promise.resolve();
+          },
+        }),
+    });
+    setEdgeCacheProvider(null); // restore the default global lookup
+
+    await edgePutTile("landcover", 3, 4, 5, asciiBuf("global"), "image/png");
+    await expect(edgeGetTile("landcover", 3, 4, 5)).resolves.toMatchObject({ byteLength: 6 });
+    expect([...entries.keys()][0]).toContain("/landcover/3/4/5");
+  });
+
+  it("treats a global caches object without an open() function as no cache", async () => {
+    // Node/vitest expose no `caches`; a partial stand-in must read as absent.
+    vi.stubGlobal("caches", {});
+    setEdgeCacheProvider(null);
+    await expect(edgeGetTile("landcover", 3, 4, 5)).resolves.toBeNull();
+    await expect(edgePutTile("landcover", 3, 4, 5, asciiBuf("x"))).resolves.toBeUndefined();
+  });
+
+  it("treats a throwing global caches accessor as no cache", async () => {
+    // Workers surface `caches` through a request-scoped accessor that throws
+    // outside a request context.
+    setEdgeCacheProvider(null);
+    const receiver = globalThis as { caches?: unknown };
+    Object.defineProperty(globalThis, "caches", {
+      configurable: true,
+      get() {
+        throw new Error("No such context");
+      },
+    });
+    try {
+      await expect(edgeGetTile("landcover", 3, 4, 5)).resolves.toBeNull();
+      await expect(edgeGetJson("api/landcover")).resolves.toBeNull();
+    } finally {
+      delete receiver.caches;
+    }
+  });
 });
 
 describe("edge-cache JSON", () => {
@@ -148,6 +214,18 @@ describe("edge-cache JSON", () => {
     await expect(edgeGetJson("api/nope")).resolves.toBeNull();
     await expect(edgePutJson("api/nope", { a: 1 })).resolves.toBeUndefined();
   });
+
+  it("returns null when the cache lookup itself fails", async () => {
+    await edgePutJson("api/geojson", { ok: true }, 60);
+    setEdgeCacheProvider(() => ({
+      open: () =>
+        Promise.resolve({
+          match: () => Promise.reject(new Error("cache I/O error")),
+          put: () => Promise.resolve(),
+        }),
+    }));
+    await expect(edgeGetJson("api/geojson")).resolves.toBeNull();
+  });
 });
 
 describe("apiCacheKey", () => {
@@ -155,5 +233,9 @@ describe("apiCacheKey", () => {
     expect(apiCacheKey("earthquakes")).toBe("api/earthquakes");
     expect(apiCacheKey("/earthquakes", { period: "all_day" })).toBe("api/earthquakes?period=all_day");
     expect(apiCacheKey("/military", { lon: "1", lat: "2" })).toBe("api/military?lon=1&lat=2");
+  });
+
+  it("omits the query separator when the params object serializes empty", () => {
+    expect(apiCacheKey("/wildfires", {})).toBe("api/wildfires");
   });
 });

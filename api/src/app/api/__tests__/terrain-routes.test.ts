@@ -1261,6 +1261,145 @@ describe("Terrain routes — slope nodata and downsampling arms", () => {
   });
 });
 
+// ── streams / watershed — outer catch, gate fallback and drainage arms ───────
+// The other terrain routes have their hostile-DEM suites; streams and watershed
+// wrap the whole computation in one outer catch whose arms were never reached.
+
+describe("Terrain routes — streams hostile DEM", () => {
+  it("returns a silent 200 error body for non-numeric tile data", async () => {
+    mockGetTileData.mockResolvedValue({
+      data: new BigInt64Array(256 * 256) as unknown as Int16Array,
+      width: 256,
+      height: 256,
+      zoom: 10,
+    });
+    const resp = await postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await streamsBody(resp);
+    expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
+    expect(body.features).toBeUndefined();
+    expect(body.stats).toBeUndefined();
+  });
+
+  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+    mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
+    const resp = await postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await streamsBody(resp);
+    expect(body.error).toBe("Unknown error");
+    expect(body.features).toBeUndefined();
+  });
+
+  it("excludes nodata cells from the steepest-descent search", async () => {
+    // A nodata column splits the window. On an eastward-falling ramp every cell
+    // west of it would drain into the hole; d8FlowDirection must skip that
+    // neighbour, so the two halves accumulate independently and the western
+    // half can no longer feed a threshold-1 stream across the gap.
+    const pour = pourPixel(40.7, -74.0);
+    const holeCol = Math.floor(pour.lx) + 5;
+    const split = buildTile((_row, col) => (col === holeCol ? -32768 : 800 - col));
+
+    const splitResp = await (async () => {
+      mockGetTileData.mockImplementation(resolveTile(split));
+      return postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10, threshold: 1 });
+    })();
+    expect(splitResp.status).toBe(200);
+    const splitBody = await streamsBody(splitResp);
+    expect(splitBody.stats?.total_cells).toBe(21 * 21);
+
+    mockGetTileData.mockImplementation(resolveTile(buildTile((_row, col) => 800 - col)));
+    const wholeBody = await streamsBody(
+      await postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10, threshold: 1 }),
+    );
+
+    // Blocking the outlet drains less area into any one channel, so the split
+    // grid reaches a lower peak accumulation than the unbroken one.
+    const peak = (b: StreamsBody): number =>
+      (b.features ?? []).reduce((max, f) => Math.max(max, f.properties.length_cells), 0);
+    expect(peak(splitBody)).toBeLessThan(peak(wholeBody));
+    // Nothing was emitted on the far side of the barrier either.
+    expect(splitBody.features?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Terrain routes — watershed hostile DEM", () => {
+  it("returns a silent 200 error body for non-numeric tile data", async () => {
+    mockGetTileData.mockResolvedValue({
+      data: new BigInt64Array(256 * 256) as unknown as Int16Array,
+      width: 256,
+      height: 256,
+      zoom: 10,
+    });
+    const resp = await postJSON(watershedPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await watershedBody(resp);
+    expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
+    expect(body.geojson).toBeUndefined();
+  });
+
+  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+    mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
+    const resp = await postJSON(watershedPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await watershedBody(resp);
+    expect(body.error).toBe("Unknown error");
+    expect(body.geojson).toBeUndefined();
+  });
+
+  it("delineates a two-dimensional basin whose interior cells are not boundary", async () => {
+    // A bowl centred on the pour pixel makes every window cell drain inward, so
+    // the upstream set is the whole filled window rather than the one-cell-wide
+    // line the planar ramps produce. Interior cells then have all eight
+    // neighbours inside the basin and must be excluded from the boundary ring.
+    const pour = pourPixel(40.7, -74.0);
+    const cr = Math.floor(pour.ly);
+    const cc = Math.floor(pour.lx);
+    mockGetTileData.mockImplementation(
+      resolveTile(buildTile((row, col) => 1000 + Math.abs(row - cr) + Math.abs(col - cc))),
+    );
+
+    const resp = await postJSON(watershedPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(200);
+    const body = await watershedBody(resp);
+    // Every one of the 21x21 window cells drains into the pour point.
+    expect(body.pixels).toBe(21 * 21);
+    expect(body.min_elev).toBe(1000);
+    expect(body.max_elev).toBe(1000 + 20);
+    expect(body.geojson?.features?.[0]?.geometry?.type).toBe("Polygon");
+  });
+
+  it("returns 400 when the fallback lookup resolves but carries no elevation", async () => {
+    // OZT2 resolves null and the merged-chunk fallback resolves null: the
+    // `if (fallback)` guard must take its false arm and the route answers 400.
+    storageState.ozt2Elevation = null;
+    storageState.pointElevation = "null";
+    const resp = await postJSON(watershedPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(400);
+    const body = await watershedBody(resp);
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+});
+
+describe("Terrain routes — streams and twi gate fallback arms", () => {
+  it("streams returns 400 when the fallback lookup resolves but carries no elevation", async () => {
+    storageState.ozt2Elevation = null;
+    storageState.pointElevation = "null";
+    const resp = await postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(400);
+    const body = await streamsBody(resp);
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+
+  it("twi returns 400 when the fallback lookup resolves but carries no elevation", async () => {
+    storageState.ozt2Elevation = null;
+    storageState.pointElevation = "null";
+    const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
+    expect(resp.status).toBe(400);
+    const body = await twiBody(resp);
+    expect(body.error).toBe("No elevation data at starting point");
+  });
+});
+
 // ── profile — preflight, nodata transects and the gain-reduce fallback ───────
 
 describe("Terrain routes — profile emission arms", () => {

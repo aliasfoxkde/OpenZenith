@@ -141,6 +141,30 @@ describe("computeElevationProfile", () => {
 
     expect(profile[1]?.distanceM).toBeCloseTo(111194.92664455874, 6);
   });
+
+  it("holds slope at zero across a zero-run segment instead of dividing by it", () => {
+    // Slope at i measures the forward segment i→i+1, so a duplicated
+    // coordinate puts the zero-run segment at i=0: the dDist guard holds
+    // that slope at 0 rather than dividing a rise by a zero run into NaN.
+    // The duplicate itself still slopes normally toward the next sample,
+    // and the final sample has no forward segment so it stays at 0.
+    const profile = computeElevationProfile({
+      coordinates: [
+        [10, 20],
+        [10, 20],
+        [10.001, 20],
+      ],
+      elevations: [100, 110, 120],
+    });
+
+    expect(profile[0]).toEqual({ distanceM: 0, elevationM: 100, slope: 0 });
+    expect(profile[1]?.distanceM).toBe(0);
+    expect(profile[1]?.slope).toBeGreaterThan(0);
+    // 0.001° of longitude at latitude 20: 111.19 m/deg × cos(20°).
+    expect(profile[2]?.distanceM).toBeCloseTo(104.4890520365092, 6);
+    expect(profile[2]?.slope).toBe(0);
+    expect(profile.every((p) => Number.isFinite(p.slope))).toBe(true);
+  });
 });
 
 /* ─── flowPathToGeoJSON ─── */

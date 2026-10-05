@@ -298,4 +298,104 @@ describe("Hurricanes API", () => {
       isoTime: "",
     });
   });
+
+  it("track mode defaults a blank basin and nature to empty strings", async () => {
+    // IBTrACS rows outside a named basin carry empty BASIN/NATURE columns; the
+    // track feature must surface them as "" rather than the string "undefined".
+    const rows = [
+      HEADER,
+      UNITS,
+      "b1,2024,,,IVAN,,,22.8,-89.1,65,982,main",
+      "b1,2024,,,IVAN,,,23.0,-89.4,60,987,main",
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(rows, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?track=full&active=false"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+
+    expect(data.features).toHaveLength(1);
+    expect(data.features[0].properties).toMatchObject({ basin: "", nature: "", category: 1 });
+  });
+
+  it("point mode covers every Saffir-Simpson rung, label and defaulting arm", async () => {
+    // One storm per category plus a NOT_NAMED row and rows with blank
+    // lat/lon/season/basin, so the point-mode if-chain, the nested category
+    // label ternary and the `||` fallbacks are all exercised.
+    const rows = [
+      HEADER,
+      UNITS,
+      "p5,2024,NA,NORTH_ATLANTIC,NOT_NAMED,2024-10-09 18:00:00,TS,22.8,-89.1,140,982,main",
+      "p4,2024,NA,NORTH_ATLANTIC,IVAN,2024-10-09 18:00:00,TS,23.8,-90.1,120,945,main",
+      "p3,2024,NA,NORTH_ATLANTIC,III,2024-10-09 18:00:00,TS,24.8,-91.1,100,955,main",
+      "p2,2024,NA,NORTH_ATLANTIC,II,2024-10-09 18:00:00,TS,25.8,-92.1,90,965,main",
+      "p1,2024,NA,NORTH_ATLANTIC,I,2024-10-09 18:00:00,TS,26.8,-93.1,70,975,main",
+      "pts,2024,NA,NORTH_ATLANTIC,TSY,2024-10-09 18:00:00,TS,27.8,-94.1,55,985,main",
+      "blank,,,NORTH_ATLANTIC,,,TS,,,50,,main",
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(rows, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+
+    const bySid = new Map<unknown, Record<string, unknown>>(
+      data.features.map((f) => [f.properties.sid, f.properties] as const),
+    );
+    expect(bySid.get("p5")).toMatchObject({ category: 5, categoryLabel: "Cat 5", name: "UNNAMED" });
+    expect(bySid.get("p4")).toMatchObject({ category: 4, categoryLabel: "Cat 4" });
+    expect(bySid.get("p3")).toMatchObject({ category: 3, categoryLabel: "Cat 3" });
+    expect(bySid.get("p2")).toMatchObject({ category: 2, categoryLabel: "Cat 2" });
+    expect(bySid.get("p1")).toMatchObject({ category: 1, categoryLabel: "Cat 1" });
+    expect(bySid.get("pts")).toMatchObject({ category: -1, categoryLabel: "Tropical Storm" });
+    // The blank row keeps its geometry (lat/lon parse to NaN and are dropped
+    // only when *both* are unparseable), so it is filtered out before output.
+    expect(bySid.has("blank")).toBe(false);
+  });
+
+  it("point mode drops a storm whose fix has no usable position", async () => {
+    const rows = [
+      HEADER,
+      UNITS,
+      "good,2024,NA,NORTH_ATLANTIC,IVAN,2024-10-09 18:00:00,TS,22.8,-89.1,65,982,main",
+      "nolat,2024,NA,NORTH_ATLANTIC,LOST,2024-10-09 18:00:00,TS,,,-89.1,65,main",
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(rows, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    expect(data.features.map((f) => f.properties.sid)).toEqual(["good"]);
+  });
+
+  it("answers with the generic failure message when the rejection is not an Error", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("upstream socket reset");
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes"));
+    expect(resp.status).toBe(200);
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    expect(data.error).toBe("Hurricane data fetch failed");
+  });
+
+  it("point mode keeps a SID-less row out and a blank-SID row out while defaulting season and basin", async () => {
+    const rows = [
+      HEADER,
+      UNITS,
+      ",,NA,NORTH_ATLANTIC,NOID,2024-10-09 18:00:00,TS,22.8,-89.1,65,982,main", // blank SID
+      "ok3,,,NORTH_ATLANTIC,,2024-10-09 18:00:00,,22.8,-89.1,65,,,main", // blank season/basin
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(rows, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    expect(data.features).toHaveLength(1);
+    expect(data.features[0].properties).toMatchObject({
+      sid: "ok3",
+      season: 0,
+      basin: "",
+      category: 1,
+    });
+  });
 });

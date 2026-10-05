@@ -357,4 +357,11 @@ describe("lerpColor ramp", () => {
     expect(lerpColor(-12000)).toEqual([0, 0, 68]);
     expect(lerpColor(12000)).toEqual([255, 255, 255]);
   });
+
+  it("falls through to the top-of-ramp stop for a NaN elevation", () => {
+    // NaN survives the clamp (Math.max/min both propagate it) and then fails
+    // every `e >= e0 && e <= e1` comparison, so the post-loop fallback stop —
+    // the 8849 m snow-line white — is what a caller receives.
+    expect(lerpColor(Number.NaN)).toEqual([255, 255, 255]);
+  });
 });

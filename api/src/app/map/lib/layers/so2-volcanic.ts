@@ -1,48 +1,25 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
 /* ─── SO₂ Volcanic (TROPOMI L2) ─── */
 
+const so2volcanicSpec: RasterLayerSpec = {
+  sourceId: "so2-volcanic",
+  tiles: ["/api/so2-volcanic/{z}/{x}/{y}"],
+  opacity: 0.8,
+  minzoom: 0,
+  maxzoom: 5,
+  statusId: "so2Volcanic",
+};
+
 /**
- * Add the volcanic SO2 total-column raster: a 256px source at
- * /api/so2-volcanic/{z}/{x}/{y} (NASA GIBS TROPOMI L2 sulfur dioxide, zooms
- * 0-5) at 0.8 opacity. Guarded per source/layer; status is reported under
- * the camelCase id "so2Volcanic".
+ * Add the so2-volcanic raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). Status is reported on the handle under the "so2Volcanic" id.
  */
 export function addSo2Volcanic(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("so2-volcanic")) return;
-
-  try {
-    if (!map.getSource("so2-volcanic")) {
-      map.addSource("so2-volcanic", {
-        type: "raster",
-        tiles: ["/api/so2-volcanic/{z}/{x}/{y}"],
-        tileSize: 256,
-        minzoom: 0,
-        maxzoom: 5,
-      });
-    }
-    if (!map.getLayer("so2-volcanic-raster")) {
-      map.addLayer({
-        id: "so2-volcanic-raster",
-        type: "raster",
-        source: "so2-volcanic",
-        paint: { "raster-opacity": 0.8 },
-      });
-    }
-    setStatus(handle, "so2Volcanic", "loaded");
-  } catch (err) {
-    warnLayerError("so2Volcanic", err);
-    setStatus(handle, "so2Volcanic", "error");
-    }
+  addRasterLayer(map, handle, so2volcanicSpec);
 }
-
-/** Remove the SO2 raster layer and its `so2-volcanic` source, ignoring "not found" errors. */
+/** Remove the so2-volcanic raster layer and its source, ignoring errors. */
 export function removeSo2Volcanic(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("so2-volcanic-raster");
-  } catch {}
-  try {
-    map.removeSource("so2-volcanic");
-  } catch {}
+  removeRasterLayer(map, "so2-volcanic");
 }

@@ -1,48 +1,24 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
 /* ─── Precipitation (IMERG) ─── */
 
+const precipitationSpec: RasterLayerSpec = {
+  sourceId: "precipitation",
+  tiles: ["/api/precipitation/{z}/{x}/{y}"],
+  opacity: 0.8,
+  minzoom: 0,
+  maxzoom: 8,
+};
+
 /**
- * Add the precipitation-rate raster: a 256px source at
- * /api/precipitation/{z}/{x}/{y} (NASA GIBS IMERG GPM retrieval, zooms 0-8)
- * at 0.8 opacity. Guarded per source/layer; reports "loaded"/"error" under
- * the "precipitation" id.
+ * Add the precipitation raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). Status is reported on the handle under the "precipitation" id.
  */
 export function addPrecipitation(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("precipitation")) return;
-
-  try {
-    if (!map.getSource("precipitation")) {
-      map.addSource("precipitation", {
-        type: "raster",
-        tiles: ["/api/precipitation/{z}/{x}/{y}"],
-        tileSize: 256,
-        minzoom: 0,
-        maxzoom: 8,
-      });
-    }
-    if (!map.getLayer("precipitation-raster")) {
-      map.addLayer({
-        id: "precipitation-raster",
-        type: "raster",
-        source: "precipitation",
-        paint: { "raster-opacity": 0.8 },
-      });
-    }
-    setStatus(handle, "precipitation", "loaded");
-  } catch (err) {
-    warnLayerError("precipitation", err);
-    setStatus(handle, "precipitation", "error");
-    }
+  addRasterLayer(map, handle, precipitationSpec);
 }
-
-/** Remove the precipitation raster layer and its `precipitation` source, ignoring "not found" errors. */
+/** Remove the precipitation raster layer and its source, ignoring errors. */
 export function removePrecipitation(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("precipitation-raster");
-  } catch {}
-  try {
-    map.removeSource("precipitation");
-  } catch {}
+  removeRasterLayer(map, "precipitation");
 }

@@ -1,48 +1,25 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
 /* ─── NO₂ Air Pollution (TROPOMI L2) ─── */
 
+const no2pollutionSpec: RasterLayerSpec = {
+  sourceId: "no2-pollution",
+  tiles: ["/api/no2-pollution/{z}/{x}/{y}"],
+  opacity: 0.8,
+  minzoom: 0,
+  maxzoom: 5,
+  statusId: "no2Pollution",
+};
+
 /**
- * Add the NO2 tropospheric-column raster: a 256px source at
- * /api/no2-pollution/{z}/{x}/{y} (NASA GIBS TROPOMI L2 nitrogen dioxide,
- * zooms 0-5) at 0.8 opacity. Guarded per source/layer; status is reported
- * under the camelCase id "no2Pollution".
+ * Add the no2-pollution raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). Status is reported on the handle under the "no2Pollution" id.
  */
 export function addNo2Pollution(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("no2-pollution")) return;
-
-  try {
-    if (!map.getSource("no2-pollution")) {
-      map.addSource("no2-pollution", {
-        type: "raster",
-        tiles: ["/api/no2-pollution/{z}/{x}/{y}"],
-        tileSize: 256,
-        minzoom: 0,
-        maxzoom: 5,
-      });
-    }
-    if (!map.getLayer("no2-pollution-raster")) {
-      map.addLayer({
-        id: "no2-pollution-raster",
-        type: "raster",
-        source: "no2-pollution",
-        paint: { "raster-opacity": 0.8 },
-      });
-    }
-    setStatus(handle, "no2Pollution", "loaded");
-  } catch (err) {
-    warnLayerError("no2Pollution", err);
-    setStatus(handle, "no2Pollution", "error");
-    }
+  addRasterLayer(map, handle, no2pollutionSpec);
 }
-
-/** Remove the NO2 raster layer and its `no2-pollution` source, ignoring "not found" errors. */
+/** Remove the no2-pollution raster layer and its source, ignoring errors. */
 export function removeNo2Pollution(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("no2-pollution-raster");
-  } catch {}
-  try {
-    map.removeSource("no2-pollution");
-  } catch {}
+  removeRasterLayer(map, "no2-pollution");
 }

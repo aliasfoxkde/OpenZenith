@@ -1,55 +1,27 @@
 import type { LayerHandle } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
 /* ─── Night Lights (NASA Black Marble) ─── */
 
+const nightLightsSpec: RasterLayerSpec = {
+  sourceId: "nightLights",
+  tiles: ["https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlackMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png"],
+  opacity: 0.85,
+  minzoom: 0,
+  maxzoom: 8,
+  paint: { "raster-brightness-max": 1.2 },
+  reportStatus: false,
+  attribution: "NASA Black Marble",
+};
+
 /**
- * Add the NASA Black Marble night-lights raster: a direct WMTS source on
- * gibs.earthdata.nasa.gov (GoogleMapsCompatible_Level8, zooms 0-8, attribution
- * set on the source) drawn at 0.85 opacity with raster-brightness-max 1.2 to
- * lift the city lights. No status is written to the handle; tile failures are
- * swallowed so an outage leaves an empty overlay rather than a thrown error.
+ * Add the nightLights raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). No status is written to the handle; failures are logged, not thrown.
  */
-export function addNightLights(map: maplibregl.Map, _handle: LayerHandle): void {
-  if (map.getSource("nightLights")) return;
-
-  // NASA Black Marble tiles via Earth Observatory (free, no key)
-  const tileUrl =
-    "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlackMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png";
-
-  try {
-    if (!map.getSource("nightLights")) {
-      map.addSource("nightLights", {
-        type: "raster",
-        tiles: [tileUrl],
-        tileSize: 256,
-        minzoom: 0,
-        maxzoom: 8,
-        attribution: "NASA Black Marble",
-      });
-    }
-
-    if (!map.getLayer("nightLights-raster")) {
-      map.addLayer({
-        id: "nightLights-raster",
-        type: "raster",
-        source: "nightLights",
-        paint: {
-          "raster-opacity": 0.85,
-          "raster-brightness-max": 1.2,
-        },
-      });
-    }
-  } catch {
-    /* source/layer may already exist */
-  }
+export function addNightLights(map: maplibregl.Map, handle: LayerHandle): void {
+  addRasterLayer(map, handle, nightLightsSpec);
 }
-
-/** Remove the night-lights raster layer and its `nightLights` source, ignoring "not found" errors. */
+/** Remove the nightLights raster layer and its source, ignoring errors. */
 export function removeNightLights(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("nightLights-raster");
-  } catch {}
-  try {
-    map.removeSource("nightLights");
-  } catch {}
+  removeRasterLayer(map, "nightLights");
 }

@@ -1,35 +1,23 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
+
+const snowcoverSpec: RasterLayerSpec = {
+  sourceId: "snow-cover",
+  tiles: ["/api/snow-cover/{z}/{x}/{y}"],
+  opacity: 0.8,
+  minzoom: 0,
+  maxzoom: 8,
+  statusId: "snowCover",
+};
 
 /**
- * Add the snow-extent overlay: a 256px raster source at
- * /api/snow-cover/{z}/{x}/{y} (NASA GIBS MODIS Terra 8-day snow cover,
- * zooms 0-8) drawn at 0.8 opacity. Idempotent on the `snow-cover` source;
- * status goes to the handle under the camelCase id "snowCover".
+ * Add the snow-cover raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). Status is reported on the handle under the "snowCover" id.
  */
 export function addSnowCover(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("snow-cover")) return;
-  try {
-    map.addSource("snow-cover", {
-      type: "raster",
-      tiles: ["/api/snow-cover/{z}/{x}/{y}"],
-      tileSize: 256,
-      minzoom: 0,
-      maxzoom: 8,
-    });
-    map.addLayer({ id: "snow-cover-raster", type: "raster", source: "snow-cover", paint: { "raster-opacity": 0.8 } });
-    setStatus(handle, "snowCover", "loaded");
-  } catch (err) {
-    warnLayerError("snowCover", err);
-    setStatus(handle, "snowCover", "error");
-    }
+  addRasterLayer(map, handle, snowcoverSpec);
 }
-/** Remove the snow-cover raster layer and its `snow-cover` source, ignoring "not found" errors. */
+/** Remove the snow-cover raster layer and its source, ignoring errors. */
 export function removeSnowCover(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("snow-cover-raster");
-  } catch {}
-  try {
-    map.removeSource("snow-cover");
-  } catch {}
+  removeRasterLayer(map, "snow-cover");
 }

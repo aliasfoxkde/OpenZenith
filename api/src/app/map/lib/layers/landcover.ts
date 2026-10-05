@@ -1,39 +1,26 @@
 import type { LayerHandle } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
 /* ─── CORINE Land Cover ─── */
 
+const landcoverSpec: RasterLayerSpec = {
+  sourceId: "land-cover",
+  tiles: ["/api/landcover/{z}/{x}/{y}"],
+  opacity: 0.5,
+  minzoom: 4,
+  maxzoom: 13,
+  layerId: "land-cover-layer",
+  reportStatus: false,
+};
+
 /**
- * Add the land-cover raster: a 256px source at /api/landcover/{z}/{x}/{y}
- * (NASA GIBS MODIS IGBP land-cover classification, zooms 4-13) drawn at 0.5
- * opacity so the basemap shows through. No status is written to the handle.
+ * Add the land-cover raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). No status is written to the handle; failures are logged, not thrown.
  */
-export function addLandCover(map: maplibregl.Map, _handle: LayerHandle): void {
-  if (map.getSource("land-cover")) return;
-
-  map.addSource("land-cover", {
-    type: "raster",
-    tiles: ["/api/landcover/{z}/{x}/{y}"],
-    tileSize: 256,
-    minzoom: 4,
-    maxzoom: 13,
-  });
-
-  map.addLayer({
-    id: "land-cover-layer",
-    type: "raster",
-    source: "land-cover",
-    paint: {
-      "raster-opacity": 0.5,
-    },
-  });
+export function addLandCover(map: maplibregl.Map, handle: LayerHandle): void {
+  addRasterLayer(map, handle, landcoverSpec);
 }
-
-/** Remove the land-cover raster layer and its `land-cover` source, ignoring "not found" errors. */
+/** Remove the land-cover raster layer and its source, ignoring errors. */
 export function removeLandCover(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("land-cover-layer");
-  } catch {}
-  try {
-    map.removeSource("land-cover");
-  } catch {}
+  removeRasterLayer(map, "land-cover", "land-cover-layer");
 }

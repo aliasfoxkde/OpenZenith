@@ -1,50 +1,24 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
 /* ─── Flood Extent (NASA GIBS VIIRS Combined 3-Day Flood) ─── */
 
+const floodsSpec: RasterLayerSpec = {
+  sourceId: "floods",
+  tiles: ["/api/floods-tile/{z}/{x}/{y}"],
+  opacity: 0.75,
+  minzoom: 0,
+  maxzoom: 9,
+};
+
 /**
- * Add the flood-extent raster: a 256px source at /api/floods-tile/{z}/{x}/{y}
- * (NASA GIBS VIIRS combined 3-day flood product — note the route id is
- * floods-tile, not floods, zooms 0-9) at 0.75 opacity. Guarded per
- * source/layer; reports "loaded"/"error" under the "floods" id.
+ * Add the floods raster overlay via the shared raster factory
+ * (tiles/zooms/opacity in the spec above). Status is reported on the handle under the "floods" id.
  */
 export function addFloods(map: maplibregl.Map, handle: LayerHandle): void {
-  if (map.getSource("floods")) return;
-
-  try {
-    if (!map.getSource("floods")) {
-      map.addSource("floods", {
-        type: "raster",
-        tiles: ["/api/floods-tile/{z}/{x}/{y}"],
-        tileSize: 256,
-        minzoom: 0,
-        maxzoom: 9,
-      });
-    }
-    if (!map.getLayer("floods-raster")) {
-      map.addLayer({
-        id: "floods-raster",
-        type: "raster",
-        source: "floods",
-        paint: {
-          "raster-opacity": 0.75,
-        },
-      });
-    }
-    setStatus(handle, "floods", "loaded");
-  } catch (err) {
-    warnLayerError("floods", err);
-    setStatus(handle, "floods", "error");
-    }
+  addRasterLayer(map, handle, floodsSpec);
 }
-
-/** Remove the floods raster layer and its `floods` source, ignoring "not found" errors. */
+/** Remove the floods raster layer and its source, ignoring errors. */
 export function removeFloods(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("floods-raster");
-  } catch {}
-  try {
-    map.removeSource("floods");
-  } catch {}
+  removeRasterLayer(map, "floods");
 }

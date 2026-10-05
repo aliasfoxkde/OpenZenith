@@ -413,3 +413,46 @@ toggle smoke for item 1.
     (infrastructure_failure, empty logs) and 89f1549's first run hit
     install timed_out at 15m — co-tenant load; install/mcp-server
     timeouts raised to 30m/20m with the failure history documented.
+- 2026-10-04 (Phase 3, coverage — three-language sweep, all floors raised
+  and enforced):
+  - **TypeScript**: +22 tests across hurricanes/terrain-routes/edge-cache/
+    flow-path/elevation-color-zxy → 99 files / 1,446 passed + 5 skipped.
+    Measured 99.11 stmts / 97.51 branches / 93.40 functions / 99.84 lines;
+    thresholds ratcheted 97/92/89/97 → **99/96/92/99** (wave-5 note in
+    vitest.config.ts). One generated test asserted backward-looking slope
+    semantics computeElevationProfile does not have (slope at i is the
+    *forward* segment, so a duplicated coordinate puts the zero-run at
+    profile[0], where the dDist>0 guard holds 0; the duplicate itself slopes
+    normally forward) — rewritten to pin the real contract including a
+    no-NaN assertion. `.gitforge.yml` completeness guard → 99 files /
+    1,446 passed.
+  - **Python**: `--cov-fail-under` 97 → **99**; the pyproject comment holds
+    the probe-verified census of every closed branch (PNG IHDR
+    decompression-bomb decode arm — DecompressionBombError is not an OSError
+    so it reached the generic handler the garbage-bytes tests missed, OZT1
+    reject arms, documented zoom ladders, cmd_info cache reports, reach
+    tracing junction cases, …). Measured **99.06%** (14,749 stmts,
+    138 miss), 1,516 passed / 14 deselected.
+  - **Rust (core/)**: measured with cargo-llvm-cov for the first time:
+    default-feature surface **99.19% lines / 99.24% regions** (d8 + ozt2
+    100%, viewshed 99.66%, main 95.9%). A /dev/full integration test drove
+    the stdout write-failure arm and found a **real defect**: stdout is a
+    line-buffered writer and the JSON payload has no newline, so write_all
+    alone only filled the buffer and the deferred flush at process exit
+    discards its error — a failed stdout silently lost the result (the
+    binary exited 0). Fixed with an explicit `flush()` whose error reaches
+    error_exit. wasm.rs measured for the first time (`--features wasm`):
+    its js_sys glue cannot execute on a host target, so `decode_ozt2` now
+    has an executable contract suite via wasm-bindgen-test under node
+    (`wasm-pack test --node --features wasm`; identity-decompressor +
+    compressor-0 paths, full metadata assertions) — dev-dependencies are
+    target-gated so assert_cmd/wait-timeout never build for wasm32. The 91
+    still-unmeasured wasm.rs lines are js_sys-bound only; the two throw_str
+    rejection arms stay validated by the browser E2E (heavy opt-in spec).
+    Function-coverage remainder (main.rs 7 / wasm.rs 11) is entirely
+    closure instantiations (one documented-unreachable serde fallback);
+    line-level LCOV shows no zero-execution lines.
+  - **CI**: run 779f0f61 (head 3f96d97) validated the new mcp-server job
+    and the 30m install timeout — both green; the only red was
+    bundle-budget timing out at 15m under co-tenant load (empty step log,
+    same infra class as install), timeout raised to 30m with the run cited.

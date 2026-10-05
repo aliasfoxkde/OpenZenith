@@ -9,6 +9,15 @@ import { setStatus, warnLayerError } from "./types";
  */
 type WildfiresResponse = { features?: GeoJSON.Feature[] } | null;
 
+/**
+ * Add the wildfire layer: FIRMS detections from /api/wildfires rendered as a
+ * heatmap (up to zoom 9, weighted by the `confidence` property, black→orange→
+ * red ramp) plus a confidence-scaled circle layer that appears at zoom 6+ so
+ * individual detections become readable as you zoom in. The fetch re-runs
+ * hourly (FIRMS cadence) via an interval on handle.intervals; an empty or
+ * malformed payload leaves the previous data in place, and only a thrown
+ * fetch reports "error" on the handle.
+ */
 export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("wildfires")) return;
 
@@ -101,6 +110,7 @@ export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the wildfire heatmap and circle layers plus the `wildfires` source, ignoring "not found" errors. */
 export function removeWildfires(map: maplibregl.Map): void {
   try {
     map.removeLayer("wildfires-circles");

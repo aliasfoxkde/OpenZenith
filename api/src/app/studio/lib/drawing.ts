@@ -9,6 +9,12 @@ import { formatDistance, formatArea } from "@/lib/format-units";
 
 export { formatDistance, formatArea };
 
+/**
+ * Phase of the drawing state machine: `none` when idle, `point`/`line`/`polygon` while clicks
+ * are being collected, and `edit` while the selected feature's vertices are moved, added, or
+ * deleted. "point" commits one feature per click; line and polygon commit on explicit finish.
+ * Mirrors the copy in `lib/types.ts` that the studio components type against.
+ */
 export type DrawMode = "none" | "point" | "line" | "polygon" | "edit";
 
 /**
@@ -20,6 +26,16 @@ type NullableGeometryFeature = Omit<GeoJSON.Feature, "geometry"> & {
   geometry: GeoJSON.Feature["geometry"] | null;
 };
 
+/**
+ * The drawing tool's full state, handled immutably — every mutator in this module returns a
+ * new object and never mutates the one passed in. `features` holds committed GeoJSON features
+ * in EPSG:4326 `[lon, lat]` order, polygon rings closed by repeating the first coordinate;
+ * `currentCoords` is the still-open vertex list of the shape being drawn (unclosed, unlike a
+ * committed polygon); `selectedFeatureIndex` and `selectedVertexIndex` index into `features`
+ * and the selected feature's coordinate list, with -1 meaning no selection; `history` and
+ * `redoStack` are the undo/redo stacks of prior `features` snapshots, with `redoStack`
+ * cleared whenever a new edit invalidates the redo path.
+ */
 export interface DrawState {
   mode: DrawMode;
   features: GeoJSON.Feature[];
@@ -30,6 +46,11 @@ export interface DrawState {
   redoStack: GeoJSON.Feature[][];
 }
 
+/**
+ * Fresh idle state: mode "none", no committed features, no in-progress coordinates, both
+ * selections -1, and empty undo/redo stacks. Serves as the initial React state and as the
+ * reset value behind the drawing tool's clear button.
+ */
 export function createDrawState(): DrawState {
   return {
     mode: "none",
@@ -50,6 +71,16 @@ const drawFillLayerId = "draw-fill";
 const drawSelectedLayerId = "draw-selected";
 const drawLabelLayerId = "draw-label";
 
+/**
+ * Add the `draw-source` GeoJSON source and the six layers that render it, returning early if
+ * the source already exists so calling this on every map init is idempotent. Layer ids, in
+ * add order: `draw-fill` (polygon fill), `draw-line` (dashed cyan outline),
+ * `draw-vertices` and `draw-selected-vertex` (circle handles filtered on the
+ * `vertex`/`selectedVertex` feature properties), `draw-selected` (thicker amber outline on
+ * `selected`), and `draw-label` (measurement text read from the `measurement` property).
+ * Geometry is cyan `#00e5ff`, selection amber `#fbbf24`. No data is written here — the source
+ * starts empty and updateDrawLayers fills it.
+ */
 export function addDrawLayers(map: maplibregl.Map) {
   if (map.getSource(drawSourceId)) return;
 
@@ -134,6 +165,11 @@ export function addDrawLayers(map: maplibregl.Map) {
   });
 }
 
+/**
+ * Tear down everything addDrawLayers created — the six layers first, then the `draw-source`
+ * source — with each removal wrapped in an empty catch so it is safe to call on unmount even
+ * when the map has already dropped some of them, or never had them at all.
+ */
 export function removeDrawLayers(map: maplibregl.Map) {
   try {
     map.removeLayer(drawLabelLayerId);
@@ -158,6 +194,17 @@ export function removeDrawLayers(map: maplibregl.Map) {
   } catch {}
 }
 
+/**
+ * Rebuild the draw layer's data from `state` and write it to the `draw-source` GeoJSON source
+ * via `setData`. The FeatureCollection it produces contains, in order: every committed feature
+ * (stamped with `selected: true` on the selected index), one Point per vertex of the selected
+ * feature when in edit mode (each carrying `vertexIndex` and `selectedVertex`), then the
+ * in-progress shape — point mode as bare Points, line mode as a LineString plus vertex
+ * handles, polygon mode as a ring closed by repeating the first coordinate plus handles —
+ * each tagged `drawing: true`, and finally one `measurement` label feature (formatted distance
+ * at the middle vertex, or formatted area at the vertex centroid) that the `draw-label` layer
+ * renders. No-op when the source has not been added yet. Does not touch state or history.
+ */
 export function updateDrawLayers(map: maplibregl.Map, state: DrawState) {
   if (!map.getSource(drawSourceId)) return;
 
@@ -498,6 +545,12 @@ function ringArea(ring: [number, number][]): number {
   return Math.abs((area * R * R) / 2);
 }
 
+/**
+ * A measurement result: `type` is "distance" for a LineString's length, "area" for a polygon's
+ * surface, or "point" for a feature with no extent; `value` is meters for "distance" and
+ * square meters for "area" (0 for "point"). Display formatting lives in
+ * `@/lib/format-units`, which switches units on the studio's imperial flag.
+ */
 export interface Measurement {
   type: "distance" | "area" | "point";
   value: number; // meters or sq meters

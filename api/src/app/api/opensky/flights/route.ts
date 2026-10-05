@@ -1,3 +1,13 @@
+/**
+ * Live aircraft state vectors from the OpenSky Network.
+ *
+ * GET /api/opensky/flights?[lamin&lamax&lomin&lomax] - relays the OpenSky
+ * /states/all document, optionally clipped to a bbox. Authenticates via
+ * client-credentials when OPENSKY_CLIENT_ID/SECRET are set and reports
+ * X-Credits-Used / X-Credits-Remaining against the per-deployment budget.
+ * Caching: in-flight coalescing fetch for 300s (CACHE_TTL.FLIGHTS);
+ * Cache-Control: public, max-age=10 - positions are near-real-time.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";

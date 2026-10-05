@@ -66,13 +66,24 @@ export function bearing(lat1: number, lon1: number, lat2: number, lon2: number):
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+/** The active measure tool: `none` clears the overlay, `distance` draws a path, `area` closes it into a polygon. */
 export type MeasureMode = "none" | "distance" | "area";
 
+/** Current measure-tool state: the mode plus the vertices clicked so far as [lon, lat] pairs in click order. */
 export interface MeasureState {
   mode: MeasureMode;
   points: [number, number][]; // [lon, lat]
 }
 
+/**
+ * Build the draw/render half of the measure tool. The returned object owns
+ * the `measure-points` GeoJSON source plus three layers (`measure-fill` for
+ * closed area polygons, `measure-line` for the dashed path, `measure-
+ * vertices` for the clicked points) on whichever map addLayers is called
+ * with. `updateMap(map, points, mode)` rewrites the source from the current
+ * vertex list — a LineString from 2 points, and a closed Polygon when mode
+ * is "area" with 3+ — and `removeLayers(map)` tears all four down.
+ */
 export function createMeasureController() {
   const sourceId = "measure-points";
   const lineLayerId = "measure-line";

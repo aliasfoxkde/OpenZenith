@@ -11,6 +11,15 @@ import { setStatus, warnLayerError } from "./types";
  */
 type AviationEntry = Record<string, unknown>;
 
+/**
+ * Add the aviation-hazard layer: SIGMET and AIRMET polygons fetched through
+ * the generic /api/proxy from aviationweather.gov's data server (two
+ * requests, each tolerated independently), normalised by parseAviationGeometry
+ * across that API's several geometry spellings. SIGMETs draw red and AIRMETs
+ * amber, each as a fill plus a dashed outline, with the hazard type as a
+ * label. Refreshes every 5 minutes; no polygons at all reports "empty",
+ * a thrown fetch reports "error".
+ */
 export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("aviationWeather")) return;
 
@@ -179,6 +188,7 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
   );
 }
 
+/** Remove all five aviation layers (SIGMET/AIRMET fills and outlines plus labels) and the `aviationWeather` source, ignoring "not found" errors. */
 export function removeAviationWeather(map: maplibregl.Map): void {
   ["aviationWeather-labels", "airmet-outline", "airmet-fill", "sigmet-outline", "sigmet-fill"].forEach((id) => {
     try {

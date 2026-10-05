@@ -28,6 +28,17 @@ interface OverpassResponse {
   elements?: OverpassElement[];
 }
 
+/**
+ * Add the building-footprint layer: OpenStreetMap building ways requested
+ * from the /api/overpass proxy (`way["building"]; out geom;`) for the visible
+ * bounds, but only at zoom 12+ — below that the handle is simply marked
+ * "empty". Ways become Polygon features with `building`, `name`, `height`
+ * and `building:levels` properties, drawn as a sand-coloured 0.4-opacity
+ * fill with a thin outline. A 2-decimal bounding-box key in module state
+ * suppresses repeat queries for the same area (cleared by
+ * removeBuildings), and moveend drives refetching through a listener released via
+ * handle.cleanup.
+ */
 export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("buildings")) return;
 
@@ -152,6 +163,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
   };
 }
 
+/** Remove the building fill/outline layers and the `buildings` source, and clear the memoised bounding-box key so the next add re-queries. */
 export function removeBuildings(map: maplibregl.Map): void {
   ["buildings-outline", "buildings-fill"].forEach((id) => {
     try {

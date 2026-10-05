@@ -3,6 +3,14 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── GDACS Disaster Alerts ─── */
 
+/**
+ * Add the GDACS disaster-alert layer — currently a deliberate no-op: the
+ * public GDACS API/RSS is no longer freely accessible, so the loader marks
+ * the handle "gdacs" empty with a count of 0 and schedules itself to repeat
+ * that check every 10 minutes (interval pushed onto handle.intervals). No
+ * source or layer is created, and the original RSS parsing is kept inline as
+ * a comment for reintroduction.
+ */
 export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("gdacs")) return;
 
@@ -27,6 +35,7 @@ export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
   handle.intervals.push(setInterval(doLoad, 600000)); // 10 min
 }
 
+/** Remove the gdacs-glow/gdacs-points layers and the `gdacs` source if a previous build of the layer left them behind. */
 export function removeGdacs(map: maplibregl.Map): void {
   ["gdacs-glow", "gdacs-points"].forEach((id) => {
     try {

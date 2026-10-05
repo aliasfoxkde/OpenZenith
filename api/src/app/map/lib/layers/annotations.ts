@@ -2,7 +2,14 @@
 
 const ANNOTATIONS_KEY = "openzenith-annotations";
 
+/** The three annotation geometries the drawing tool supports. */
 export type AnnotationType = "point" | "line" | "polygon";
+/**
+ * One user-drawn annotation as persisted to localStorage. `coordinates` is an
+ * array of [lng, lat] pairs — a single entry for a point, an open polyline
+ * for a line (renderAnnotations closes it for polygons), `timestamp` is the
+ * creation time in epoch milliseconds.
+ */
 export type Annotation = {
   id: string;
   type: AnnotationType;
@@ -22,6 +29,12 @@ function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+/**
+ * Read the user's saved annotations from localStorage under the
+ * `openzenith-annotations` key. Returns the stored Annotation array, an empty
+ * array when nothing is stored, and an empty array rather than throwing when
+ * the value is corrupt or storage is unavailable (private mode, SSR).
+ */
 export function loadAnnotations(): Annotation[] {
   try {
     const raw = localStorage.getItem(ANNOTATIONS_KEY);
@@ -31,10 +44,24 @@ export function loadAnnotations(): Annotation[] {
   }
 }
 
+/**
+ * Persist the annotation list to localStorage as JSON under
+ * `openzenith-annotations`, replacing whatever was there. Throws if storage
+ * is unavailable — callers writing from UI event handlers own that failure.
+ */
 export function saveAnnotations(annotations: Annotation[]): void {
   localStorage.setItem(ANNOTATIONS_KEY, JSON.stringify(annotations));
 }
 
+/**
+ * (Re)draw the annotation set on the map. Any previous annotation layers and
+ * the `annotations` source are removed first, so this is a full redraw rather
+ * than a diff; with an empty list it stops after that teardown. Points become
+ * circles plus a symbol label below them, lines a 2.5px stroke, and polygons
+ * a closed ring with a 0.2-opacity fill, all coloured per-annotation from the
+ * stored `color` value. Layer creation is wrapped so an in-flight style
+ * change degrades to "no annotations drawn" instead of throwing.
+ */
 export function renderAnnotations(map: maplibregl.Map, annotations: Annotation[]): void {
   // Remove existing layers/sources
   ["annotations-fill", "annotations-line", "annotations-point", "annotations-circle"].forEach((id) => {
@@ -139,6 +166,7 @@ export function renderAnnotations(map: maplibregl.Map, annotations: Annotation[]
   }
 }
 
+/** Remove all four annotation layers and the `annotations` source, ignoring "not found" errors; localStorage is left untouched. */
 export function removeAnnotations(map: maplibregl.Map): void {
   ["annotations-point", "annotations-circle", "annotations-line", "annotations-fill"].forEach((id) => {
     try {

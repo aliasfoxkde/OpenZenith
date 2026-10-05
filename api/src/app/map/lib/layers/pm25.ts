@@ -1,6 +1,13 @@
 import type { LayerHandle } from "./types";
 import { setStatus, warnLayerError } from "./types";
 
+/**
+ * Add the PM2.5 particulate-matter overlay: a 256px raster source at
+ * /api/pm25/{z}/{x}/{y} (NASA GIBS Particulate Matter < 2.5um multi-year
+ * mean, zooms 0-5) drawn at 0.8 opacity. Idempotent on the `pm25` source and
+ * reports "loaded"/"error" on the handle under the "pm25" id; tile requests
+ * are issued by MapLibre, not here.
+ */
 export function addPM25(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("pm25")) return;
   try {
@@ -12,6 +19,7 @@ export function addPM25(map: maplibregl.Map, handle: LayerHandle): void {
     setStatus(handle, "pm25", "error");
     }
 }
+/** Remove the PM2.5 raster layer and its `pm25` source, ignoring "not found" errors. */
 export function removePM25(map: maplibregl.Map): void {
   try {
     map.removeLayer("pm25-raster");

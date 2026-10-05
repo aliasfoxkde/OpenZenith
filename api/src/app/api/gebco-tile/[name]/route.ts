@@ -1,3 +1,12 @@
+/**
+ * GEBCO COG tile endpoint - local-dev only, always declines in edge runtime.
+ *
+ * GET /api/gebco-tile/{name} - validates the GEBCO 2025 sub-ice filename and
+ * answers 400 for anything malformed; a well-formed name gets a guidance JSON
+ * pointing at /api/dem-tile/{z}/{x}/{y} (terrain) or /api/elevation (points),
+ * because the GEBCO COG files live on the NAS and are unreadable from a
+ * Cloudflare Worker. No caching.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 

@@ -14,10 +14,22 @@ import type { ElevationPin } from "./view-state";
  * basemap-switch style builders so both carry the provider's maxzoom
  * (clients overzoom the last level instead of requesting 404 tiles).
  */
+/**
+ * Raster source spec for a registry basemap — shared by the map init and
+ * basemap-switch style builders so both carry the provider's maxzoom
+ * (clients overzoom the last level instead of requesting 404 tiles).
+ */
 export function basemapRasterSource(def: BasemapDef) {
   return { type: "raster" as const, tiles: [def.url], tileSize: 256, attribution: def.attribution, maxzoom: def.maxzoom };
 };
 
+/**
+ * Add the shared `elevation` raster-DEM source (Terrarium-encoded 256px
+ * tiles from `/api/dem-tile/{z}/{x}/{y}`, demTileSize 512, maxzoom 10) that
+ * the hillshade layer and 3D terrain both consume. No-op when the source
+ * already exists; adds no layers, so nothing becomes visible until
+ * enable3DTerrain or addHillshade runs.
+ */
 export function addElevationSource(map: maplibregl.Map, _mlgl: MapLibreGL) {
   // Only add if not already present
   if (map.getSource("elevation")) return;
@@ -114,6 +126,13 @@ export function addLabelLayer(map: maplibregl.Map, basemapKey: string) {
   }
 }
 
+/**
+ * Add the country-boundary overlay: three stacked line layers (8px outer
+ * glow, 2.5px inner glow, 1px solid cyan core) over the world-atlas polygons
+ * from loadBoundariesData. Asynchronous and fire-and-forget — the layers
+ * appear whenever the fetch resolves, and are skipped entirely if it returns
+ * null. No-op when `boundaries-glow` already exists.
+ */
 export function addBoundaryLayers(map: maplibregl.Map) {
   if (map.getLayer("boundaries-glow")) return;
   void loadBoundariesData().then((data) => {
@@ -152,6 +171,7 @@ export function addBoundaryLayers(map: maplibregl.Map) {
   });
 }
 
+/** Tear down everything addBoundaryLayers registered: the three boundary line layers plus the `boundaries` GeoJSON source. */
 export function removeBoundaryLayers(map: maplibregl.Map) {
   ["boundaries-core", "boundaries-glow-inner", "boundaries-glow"].forEach((id) => {
     try {
@@ -163,6 +183,11 @@ export function removeBoundaryLayers(map: maplibregl.Map) {
   } catch {}
 }
 
+/**
+ * Switch the globe-on-2D-map terrain on: sets MapLibre terrain from the
+ * shared `elevation` DEM source at 1.5x vertical exaggeration (the source
+ * must already exist via addElevationSource, otherwise this is a no-op).
+ */
 export function enable3DTerrain(map: maplibregl.Map) {
   if (!map.getSource("elevation")) return;
   try {
@@ -170,12 +195,21 @@ export function enable3DTerrain(map: maplibregl.Map) {
   } catch {}
 }
 
+/** Clear the map's terrain (setTerrain(undefined)), returning the surface to flat 2D rendering. */
 export function disable3DTerrain(map: maplibregl.Map) {
   try {
     map.setTerrain(undefined);
   } catch {}
 }
 
+/**
+ * Drop an elevation-pin DOM marker at the pin's lat/lon. The marker shows the
+ * queried elevation in metres (or "No data"/"Service unavailable" when the
+ * lookup failed), the coordinate pair, and an SVG pointer; `anchor: "bottom"`
+ * keeps the point tip on the coordinate. The marker is appended to
+ * `pinsStore` and the store is trimmed to the last 50 markers, removing the
+ * oldest ones from the map as it overflows.
+ */
 export function addPinMarker(
   map: maplibregl.Map,
   mlgl: MapLibreGL,

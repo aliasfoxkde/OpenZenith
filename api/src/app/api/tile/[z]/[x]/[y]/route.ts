@@ -1,3 +1,13 @@
+/**
+ * Raw DEM elevation tile endpoint (Terrarium-compatible 256x256 Int16 grid).
+ *
+ * GET /api/tile/{z}/{x}/{y} - application/octet-stream, zooms 0-15, sourced
+ * from the HuggingFace merged SRTM chunks. Caching: Workers Cache API under
+ * prefix "dem-raw", then Cache-Control: public, max-age=31536000, immutable
+ * (tile content is fixed per zoom/x/y), with X-Tile-Size, X-Zoom and
+ * X-Cache: HIT|MISS markers. For rendered terrain tiles use
+ * /api/dem-tile/{z}/{x}/{y}.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";

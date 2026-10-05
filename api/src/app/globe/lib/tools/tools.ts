@@ -8,6 +8,13 @@
 
 import { haversineDistance, formatDistance, formatArea, polylineLength, polygonArea } from "./measure";
 
+/**
+ * Which globe tool is armed: "none" (idle), "measure-distance" (haversine
+ * polyline length), "measure-area" (polygon area and perimeter), or
+ * "elevation-profile" (terrain cross-section). Shared by the tool manager, the
+ * elevation-profile tool, and the widgets bar, which must all agree on it —
+ * page.tsx keeps the tool manager's own mode in sync with this value.
+ */
 export type ToolMode = "none" | "measure-distance" | "measure-area" | "elevation-profile";
 
 interface ToolState {
@@ -17,6 +24,24 @@ interface ToolState {
   resultEntities: any[];
 }
 
+/**
+ * Interactive measurement tools for one Cesium viewer — page.tsx creates a
+ * single instance right after viewer init and keeps it in a ref. Returns
+ * `{ state, handleClick, clear, setMode }`. `setMode` wipes all previous
+ * measurements and arms a mode; `handleClick` is a no-op while the mode is
+ * "none" and otherwise appends a vertex and rebuilds the overlay; `clear`
+ * removes the in-progress entity and every result entity. Entities are added
+ * to `viewer.entities` and tagged `properties.type = "tool-measure"`.
+ * Distance mode draws a ground-clamped glowing #00ff88 polyline, one point per
+ * vertex, a bold total-length label at the last vertex, and a per-segment
+ * haversine label at each midpoint; area mode draws a filled #ff8800 polygon
+ * at height 0 with vertex points and a centroid label showing area and
+ * perimeter. Lengths are metres and areas square metres, passed through
+ * formatDistance/formatArea for display. It attaches no screen-space handlers
+ * itself — page.tsx's LEFT_CLICK handler decides whether a click belongs to
+ * this manager, the elevation profile, or the elevation popup. There is no
+ * destroy(): call clear() or setMode("none") to tear the entities down.
+ */
 export function createToolManager(viewer: any, Cesium: any) {
   const state: ToolState = {
     mode: "none",

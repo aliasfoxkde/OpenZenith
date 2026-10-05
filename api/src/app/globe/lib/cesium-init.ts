@@ -95,6 +95,17 @@ async function loadScripts(): Promise<{
   return { Cesium: cesium, satJs: w.satellite };
 }
 
+/**
+ * What initCesiumViewer hands back once the CDN scripts and the viewer are
+ * up. `viewer` is the configured Cesium.Viewer — created with
+ * requestRenderMode, so callers must call scene.requestRender() after mutating
+ * entities or imagery — and `Cesium` is the narrowed, non-undefined namespace
+ * it was built from. `destroy()` is a thin wrapper over viewer.destroy()
+ * (drops the canvas and its listeners; it does not clear page refs). The
+ * optional-effect addCloudOverlay() appends one more imagery layer each call,
+ * never toggling: yesterday's NASA GIBS MODIS Terra true color, level 9 max,
+ * at alpha 0.25.
+ */
 export interface CesiumInitResult {
   viewer: CesiumType.Viewer;
   Cesium: typeof CesiumType;

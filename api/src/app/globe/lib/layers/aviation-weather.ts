@@ -51,6 +51,19 @@ function asSigmetList(data: unknown): SigmetFeature[] {
     : [];
 }
 
+/**
+ * Renders active SIGMETs and AIRMETs from aviationweather.gov, fetched live
+ * through /api/proxy via fetchSigmets/fetchAirmets. Coordinates are parsed
+ * out of each bulletin's raw text (DDMM.N N/S, DDDMM.N E/W, degrees); three
+ * or more points draw a translucent hazard polygon (SIGMET #ff0000 at 0.15
+ * alpha, AIRMET #ff8800 at 0.1) plus a centered entity with the hazard label
+ * and the raw bulletin (truncated to 300 chars) in the tooltip. Adds
+ * `sigmet-`/`sigmet-pt-` and `airmet-`/`airmet-pt-` entities to
+ * viewer.entities and returns void. The two feeds fail independently;
+ * refresh runs every 5 min (300000 ms) under "aviationWeather" while
+ * stateLayers.aviationWeather holds, with a 5-attempt retry guard surfacing
+ * progress in the status message.
+ */
 export function loadAviationWeather(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

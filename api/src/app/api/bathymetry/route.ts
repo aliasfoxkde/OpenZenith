@@ -1,3 +1,13 @@
+/**
+ * Point bathymetry / ocean depth.
+ *
+ * GET /api/bathymetry?lat=&lon= - depth in meters (positive down), with the
+ * SRTM terrarium sample tried first and GEBCO 2025 as the ocean fallback.
+ * Returns depth, elevation, surface_type, source, resolution and location.
+ * Caching: per-coordinate static data, Cache-Control: public, max-age=86400.
+ * No edge cache - deep GEBCO range reads can fail transiently, so a cached
+ * miss would stick.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
 import { getGebcoElevation } from "@/lib/gebco/cog-reader";

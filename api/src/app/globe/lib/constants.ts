@@ -2,6 +2,15 @@ import type { LayerState, DashboardState } from "./types";
 import { svgIcon } from "./svg-icon";
 import { BASEMAPS as BASEMAP_REGISTRY, GLOBE_BASEMAP_KEYS } from "@/lib/basemaps";
 
+/**
+ * Sidebar layer picker in display order — one entry per collapsible section.
+ * `title` is the heading text, `key` doubles as the URL-hash category shortcut
+ * (`l=realtime` in parseHash/buildHash), and `layerIds` are the LayerState
+ * flags the section toggles. The six lists together cover every LayerState
+ * key, but they are not a partition: `vessels` is listed under both
+ * "realtime" and "maritime", so enabling a category can flip a layer that
+ * another section also claims.
+ */
 export const SIDEBAR_SECTIONS: { title: string; key: string; layerIds: (keyof LayerState)[] }[] = [
   {
     title: "Overlays",
@@ -63,6 +72,13 @@ export const BASEMAPS: Record<string, { label: string; url: string; maxzoom: num
   ]),
 );
 
+/**
+ * Boot-time layer visibility — one boolean per LayerState key, `true` only for
+ * `hillshade`, `earthquakes` and `events`. This is the baseline that
+ * parseHash spreads under its `l=` tokens and that ALL_LAYER_IDS (the
+ * validator for individual layer names in the hash) is derived from, so a
+ * LayerState key missing here is silently rejected in URLs.
+ */
 export const DEFAULT_LAYERS: LayerState = {
   earthquakes: true,
   radar: false,
@@ -96,6 +112,18 @@ export const DEFAULT_LAYERS: LayerState = {
   coverage: false,
 };
 
+/**
+ * Initial globe state: the useState seed and the fallback for fields a saved
+ * or hash-parsed state omits. `center` is [longitude, latitude] in degrees
+ * (longitude first, matching buildHash and fromDegrees), `zoom` is the
+ * MapLibre-style estimate the page derives from camera height as
+ * log2(40075016 / heightM) — 2 here means roughly 10,000 km up — `basemap`
+ * must be a BASEMAPS key and is exactly the value buildHash omits as default,
+ * and `layers` is a fresh spread so callers can mutate their copy without
+ * leaking into this constant. Note that initCesiumViewer consumes only
+ * `center` and `basemap`: the initial camera height is fixed at 15,000,000 m
+ * and `zoom` is not applied to the camera.
+ */
 export const DEFAULT_STATE: DashboardState = {
   center: [0, 20],
   zoom: 2,
@@ -105,6 +133,18 @@ export const DEFAULT_STATE: DashboardState = {
   viewMode: "3d",
 };
 
+/**
+ * Theme registry keyed by the DashboardState theme string: `default`,
+ * `classified`, `amber`, `arctic`, `crimson`. Each entry is
+ * `{ label, icon, css }` — `label` is the dropdown text, `icon` a unicode
+ * glyph for the switcher button, and `css` a single semicolon-separated
+ * string of CSS custom-property declarations (--bg, --accent, --scanlines,
+ * --corner-size, --glow-intensity, ...) that page.tsx splits on ";" and
+ * applies as an inline style on the .wv-wrap root, so a theme restyles purely
+ * by swapping variables. Some values are display toggles (--scanlines and
+ * friends: none|block), --glow-intensity is a 0-1 multiplier used inside
+ * calc() shadows, and an unknown theme id falls back to `default`.
+ */
 export const THEMES: Record<string, { label: string; icon: string; css: string }> = {
   default: {
     label: "Default",
@@ -133,6 +173,13 @@ export const THEMES: Record<string, { label: string; icon: string; css: string }
   },
 };
 
+/**
+ * NASA EONET category id → hex color for the events-layer markers. Keys are
+ * matched verbatim against the feed's `categories[0].id` (volcanoes,
+ * wildfires, icesbergs, severeStorms, landslides, seaLakeIce, flood, drought,
+ * manmade); lib/layers/events.ts falls back to #888888 for any category not
+ * listed here.
+ */
 export const EONET_COLORS: Record<string, string> = {
   volcanoes: "#ff4444",
   wildfires: "#ff8800",
@@ -167,7 +214,13 @@ const RAW_AIRCRAFT_ICONS: Record<string, string> = {
   "0": `<svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.6"/></svg>`,
 };
 
-// Billboard.image takes a URL — inline SVG must be a data URI.
+/**
+ * OpenSky aircraft category code, as a string ("0"-"8" for the numeric
+ * categories, "A"/"B" for drone/UAV) → SVG data URI. Cesium's Billboard.image
+ * treats a string as a URL, so the inline SVG must be encoded as a data URI
+ * (svgIcon). Codes with no entry — the OpenSky numeric set goes up to 19 —
+ * resolve to the dim-circle "0" fallback through getAircraftIcon.
+ */
 export const AIRCRAFT_ICONS: Record<string, string> = Object.fromEntries(
   Object.entries(RAW_AIRCRAFT_ICONS).map(([k, v]) => [k, svgIcon(v)]),
 );
@@ -178,6 +231,13 @@ export function getAircraftIcon(cat: number | string): string {
   return AIRCRAFT_ICONS[key] || AIRCRAFT_ICONS["0"];
 }
 
+/**
+ * Billboard icons as SVG data URIs (safe for Cesium Billboard.image), keyed
+ * by subject: `flight` (reuses the AIRCRAFT_ICONS jet glyph), `vessel`,
+ * `satellite`, `eq`, `storm`. The satellite and vessels layer loaders read
+ * `satellite` and `vessel`; flights go through getAircraftIcon instead of
+ * `flight`, so those keys are currently unreferenced.
+ */
 export const ICONS = {
   flight: AIRCRAFT_ICONS["3"],
   vessel: svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.21-1.66-3.5-2.68H7.5C6.22 18.21 5.21 19.53 4 19.68 2.78 20.53 1.39 21 0 21c2 0 2-2 2-2s0-2 2-2c1.39 0 2.78-.47 4-1.32 1.21-.15 2.22-1.47 3.5-2.68h9c1.28 1.21 2.29 2.53 3.5 2.68 1.22.85 2.61 1.32 4 1.32 2 0 2 2 2 2s0 2-2 2zM12 2l4 4h-3l-1 7H12l-1-7H8l4-4z" fill="currentColor"/></svg>`),

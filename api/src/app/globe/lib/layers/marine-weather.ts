@@ -14,6 +14,18 @@ function waveColor(height: number): string {
   return "#00aaff";
 }
 
+/**
+ * Renders a coarse global ocean-weather grid: 84 fixed points (lat -60..60
+ * step 20, lon -180..180 step 30), each queried live from the Open-Meteo
+ * Marine API through /api/proxy for current wave height, wind wave
+ * height/direction and sea surface temperature. Each hit becomes a
+ * `marine-<lat>-<lon>` entity with a wave billboard, a height-band colored
+ * point, and a "<h>m" label — heights in meters, SST in °C, wave direction
+ * in degrees. Points that error or report null wave height are skipped.
+ * Adds to viewer.entities and returns void. Refreshes hourly (3600000 ms)
+ * under "marineWeather" while stateLayers.marineWeather holds, clearing the
+ * `marine-` prefix first.
+ */
 export function loadMarineWeather(
   viewer: any,
   Cesium: any,

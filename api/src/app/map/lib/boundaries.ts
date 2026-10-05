@@ -27,6 +27,15 @@ async function loadTopojsonLib(): Promise<TopoJSONClient> {
   });
 }
 
+/**
+ * Country-boundary polygons for the map's boundary overlay, as a GeoJSON
+ * FeatureCollection of Natural Earth 110m countries. Fetches the world-atlas
+ * TopoJSON from unpkg, converts it with topojson-client (injected via a
+ * `<script>` tag if `window.topojson` is absent), and caches the converted
+ * result in module state so later calls return the same object without a
+ * second network round-trip. Resolves `null` when the fetch or conversion
+ * fails — callers must treat that as "no boundaries", not an error.
+ */
 export async function loadBoundariesData(): Promise<GeoJSON.FeatureCollection | null> {
   if (boundariesGeoJSON) return boundariesGeoJSON;
   try {

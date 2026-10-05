@@ -26,6 +26,15 @@ interface MilitaryResponse {
   ac?: MilitaryAircraft[];
 }
 
+/**
+ * Add the military-traffic layer: ADSB Exchange records relayed by
+ * /api/military, filtered to aircraft with a known position and rendered as
+ * 4px purple circles. Feature properties keep the callsign, barometric (or
+ * geometric) altitude in feet, ground speed in knots, track in degrees and
+ * the `mil` flag. Reports "loaded"/"empty" with the aircraft count and
+ * re-polls every 2 minutes — the fastest cadence in this directory, since
+ * the underlying positions move quickly.
+ */
 export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("military")) return;
 
@@ -95,6 +104,7 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the military-traffic circle layer and the `military` source, ignoring "not found" errors. */
 export function removeMilitary(map: maplibregl.Map): void {
   ["military-points"].forEach((id) => {
     try {

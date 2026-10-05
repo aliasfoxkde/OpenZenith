@@ -39,6 +39,17 @@ function asVesselReport(raw: unknown): AISPositionReport | null | undefined {
 let ws: WebSocket | null = null;
 let vesselCount = 0;
 
+/**
+ * Add the live ship-traffic layer: /api/vessels supplies the AISstream.io
+ * WebSocket URL and key (an unconfigured route marks the handle "empty"
+ * straight away), after which the layer subscribes to global PositionReport
+ * messages and accumulates one point per MMSI on the `vessels` source —
+ * capped at 5000 ships, updating in place rather than growing. Cyan 4px
+ * circles over a soft glow, carrying name, ship type, heading, speed,
+ * course and destination. A 15-second silence after subscribe reports
+ * "empty", the socket reconnects 30 seconds after closing, and
+ * handle.cleanup closes it; the running count is reported every 10 vessels.
+ */
 export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("vessels")) return;
 
@@ -213,6 +224,7 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
   };
 }
 
+/** Remove the vessel point and glow layers plus the `vessels` source, and close the AIS WebSocket. */
 export function removeVessels(map: maplibregl.Map): void {
   ["vessels-points", "vessels-glow"].forEach((id) => {
     try {

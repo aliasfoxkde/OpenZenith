@@ -10,6 +10,15 @@ let ws: WebSocket | null = null;
 const MAX_STRIKES = 500;
 const strikes: GeoJSON.Feature[] = [];
 
+/**
+ * Add the live lightning layer: an empty `lightning` GeoJSON source with a
+ * 3px amber circle layer and a blurred glow, fed by a WebSocket to
+ * ws.blitzortung.org. Each strike message appends a point (capped at the
+ * 500 most recent, module-level state shared across add/remove cycles) and
+ * setData's the source. The socket reconnects 30 seconds after closing, is
+ * closed by handle.cleanup, and the layer reports its running strike count
+ * as it goes — "error" only when the socket itself fails.
+ */
 export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("lightning")) return;
 
@@ -102,6 +111,7 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
   };
 }
 
+/** Remove the lightning layers and source, close the WebSocket, and clear the accumulated strike buffer. */
 export function removeLightning(map: maplibregl.Map): void {
   ["lightning-glow", "lightning-points"].forEach((id) => {
     try {

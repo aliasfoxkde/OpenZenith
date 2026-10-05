@@ -7,6 +7,11 @@
 import { LAYERS } from "@/lib/layers/registry";
 import { MAP_2D_LAYER_IDS } from "./layers";
 
+/**
+ * One elevation probe dropped on the map: the queried coordinate in decimal
+ * degrees, the elevation in metres (`null` when nothing was returned), the
+ * lookup outcome, and the classified surface the point fell on.
+ */
 export interface ElevationPin {
   lat: number;
   lon: number;
@@ -15,6 +20,7 @@ export interface ElevationPin {
   surfaceType: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
 }
 
+/** Complete serializable 2D-map view: camera plus basemap and layer toggles. */
 export interface MapViewState {
   center: [number, number];
   zoom: number;
@@ -24,9 +30,17 @@ export interface MapViewState {
   layers: Record<string, boolean>;
 }
 
+/** localStorage key holding the persisted `Record<layerId, enabled>` map. */
 export const LAYER_STATE_KEY = "openzenith-map-layers";
+/** localStorage key holding the user's saved `Bookmark[]` list. */
 export const BOOKMARKS_KEY = "openzenith-bookmarks";
 
+/**
+ * Basemap key matching the visitor's current theme preference: "voyager"
+ * for light, "dark" for dark. Reads the app's `openzenith-theme` localStorage
+ * entry, falling back to `prefers-color-scheme` for system mode, and returns
+ * "dark" during SSR (no window).
+ */
 export function getDefaultBasemap(): string {
   if (typeof window === "undefined") return "dark";
   try {
@@ -38,6 +52,15 @@ export function getDefaultBasemap(): string {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "voyager";
 }
 
+/**
+ * Initial layer-visibility map for a fresh page load: the four map-only
+ * toggles (hillshade on; contour/terrain3d/boundaries off), every registry
+ * layer that MAP_2D_LAYER_IDS makes available at its own `defaultEnabled`
+ * value, then any stored overrides from LAYER_STATE_KEY merged on top — keys
+ * that are not already present in the map are ignored, so retired layer ids
+ * in old localStorage cannot resurrect themselves. Returns hardcoded values
+ * on the server (localStorage is unavailable).
+ */
 export function buildDefaultLayers(): Record<string, boolean> {
   const layers: Record<string, boolean> = {
     // Map-specific layers
@@ -68,6 +91,12 @@ export function buildDefaultLayers(): Record<string, boolean> {
   return layers;
 }
 
+/**
+ * State used when no URL hash is present: world view at zoom 2.5, no
+ * rotation or tilt, the "satellite" basemap, and buildDefaultLayers() —
+ * evaluated once at module load, so it also bakes in whatever localStorage
+ * held when the module was first imported.
+ */
 export const DEFAULT_STATE: MapViewState = {
   center: [0, 0],
   zoom: 2.5,
@@ -77,6 +106,15 @@ export const DEFAULT_STATE: MapViewState = {
   layers: buildDefaultLayers(),
 };
 
+/**
+ * Decode a shareable URL hash (with or without the leading `#`) into the
+ * view-state fields it specifies. Two spellings are accepted: tile form
+ * `x/y/z` (Web Mercator tile indices, converted to a center coordinate,
+ * with `b`/`p`/`bm` as optional bearing in degrees, pitch in degrees, and
+ * basemap key), or center form `lng=..&lat=..&zoom=..` (also `c=lng,lat`).
+ * Absent fields come back as `undefined` so callers can merge onto
+ * DEFAULT_STATE; malformed or out-of-range input yields `{}`.
+ */
 export function parseHash(hash: string): Partial<MapViewState> {
   try {
     const h = hash.replace(/^#/, "");
@@ -130,6 +168,13 @@ export function parseHash(hash: string): Partial<MapViewState> {
   }
 }
 
+/**
+ * Encode a view state back into a URL hash (leading `#` included) using the
+ * center spelling: `lng`/`lat` at 4 decimal places (~11 m), `zoom` at 1, plus
+ * `b`/`p` only when non-zero and `bm` only when the basemap differs from
+ * getDefaultBasemap() — so a default-looking view produces the shortest hash.
+ * Layer visibility is deliberately not encoded.
+ */
 export function buildHash(state: MapViewState): string {
   const p = new URLSearchParams();
   p.set("lng", state.center[0].toFixed(4));

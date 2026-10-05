@@ -24,6 +24,15 @@ type NlnogNode = {
  */
 type NlnogResponse = { nodes?: NlnogNode[]; features?: NlnogNode[]; error?: string } | null;
 
+/**
+ * Add the NLNOG measuring-node layer: /api/nlnog is fetched every 10 minutes
+ * and its node records (whether delivered as `{nodes}` or legacy GeoJSON
+ * `features`) are converted to point features carrying hostname, ASN, city
+ * and country. Rendered as 4px orange circles with a thin white stroke on
+ * the `nlnog-nodes` source — setData in place on refresh. An empty node list
+ * is ignored silently; only a failed fetch reports "error" under
+ * "nlnogNodes".
+ */
 export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("nlnog-nodes")) return;
 
@@ -89,6 +98,7 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the NLNOG circle layer and the `nlnog-nodes` source, ignoring "not found" errors. */
 export function removeNLNOGNodes(map: maplibregl.Map): void {
   try {
     map.removeLayer("nlnog-circles");

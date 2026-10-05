@@ -8,6 +8,15 @@ interface WildfireResponse {
   features?: GeoJSON.Feature[];
 }
 
+/**
+ * Add the active-fire intensity layer (despite the file name, it renders
+ * current FIRMS detections, not burn scars): /api/wildfires is fetched with a
+ * 15-second timeout and rendered as two circle layers driven by the `frp`
+ * (fire radiative power) property — a wide 4-20px orange glow and a 2-8px
+ * core whose colour ramps from amber to deep red across `confidence` 0-80.
+ * Reports "loaded"/"empty" with the feature count, refreshes every 10
+ * minutes, and reports "error" on timeout or fetch failure.
+ */
 export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("burnScars")) return;
 
@@ -87,6 +96,7 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the fire point and glow layers plus the `burnScars` source, ignoring "not found" errors. */
 export function removeBurnScars(map: maplibregl.Map): void {
   ["burnScars-points", "burnScars-glow"].forEach((id) => {
     try {

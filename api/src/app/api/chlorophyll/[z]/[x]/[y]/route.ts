@@ -1,3 +1,11 @@
+/**
+ * NASA GIBS ocean chlorophyll-a raster tiles.
+ *
+ * GET /api/chlorophyll/{z}/{x}/{y} - 256px PNG, zooms 0-7.
+ * Upstream: NASA GIBS WMS (MODIS Aqua L2 Chlorophyll A), EPSG:3857.
+ * Caching: Workers Cache API under prefix "chlorophyll", then
+ * Cache-Control: public, max-age=86400 (daily ocean color).
+ */
 import { corsPreflightResponse } from "@/lib/cors";
 import { createGIBSHandler } from "@/lib/gibs-tile";
 

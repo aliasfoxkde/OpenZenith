@@ -30,6 +30,11 @@ import type { ChunkBackend } from "./storage/backend";
 
 // Web Mercator cannot express the poles; beyond these latitudes AWS has no
 // tiles, and clamping would smear the extreme rows, so pixels report NODATA.
+/**
+ * Latitude limit of Web Mercator in degrees (~85.0511). Beyond it the
+ * projection is undefined, AWS has no tiles, and clamping would smear the
+ * extreme rows — so pixels past this bound report NODATA.
+ */
 export const MAX_MERCATOR_LAT = 85.0511287798066;
 
 /** Number of tile columns / rows at zoom z in WorldCRS84Quad. */

@@ -11,6 +11,15 @@ interface AuroraForecast {
   coordinates?: Array<[number, number, number]>;
 }
 
+/**
+ * Add the aurora-forecast layer: NOAA SWPC OVATION latest forecast fetched
+ * from services.swpc.noaa.gov, whose flat `coordinates` grid of [lon, lat,
+ * power 0..100] triples is converted into one point feature per non-zero
+ * cell on the `spaceWeather` GeoJSON source. Rendered as a single blurred
+ * circle layer whose colour ramps from faint to solid green as intensity
+ * rises from 0 to 8. Reports "loaded" (with the grid count) or "empty" when
+ * the forecast is empty, and refreshes every 10 minutes.
+ */
 export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("spaceWeather")) return;
 
@@ -85,6 +94,7 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
   );
 }
 
+/** Remove the aurora point layer and the `spaceWeather` source, ignoring "not found" errors. */
 export function removeSpaceWeather(map: maplibregl.Map): void {
   ["spaceWeather-points"].forEach((id) => {
     try {

@@ -127,6 +127,22 @@ const SOLAR_SYSTEM_BODIES: SolarSystemBody[] = [
   },
 ];
 
+/**
+ * Build the deep-space scene controller for a viewer: a closure returning
+ * `{ state, loadStars, loadPlanets, loadAll, clear }`. `state` is the mutable
+ * per-manager record { starsLoaded, planetsLoaded, entities, starCollection }
+ * — state is not module-level, so a second manager over the same viewer would
+ * add a duplicate star field. loadStars appends one PointPrimitiveCollection
+ * of 3200 stars on a 200,000,000 m radius sphere to viewer.scene.primitives
+ * (single primitive, batched GPU upload; seeded PRNG makes the sky identical
+ * every session), and loadPlanets adds Moon and Sun marker entities at scaled
+ * altitudes (45,000,000 m and 180,000,000 m from Earth center) carrying
+ * properties.type "space-scene" plus the real distance in km. Both skip when
+ * their flag is set. clear() removes the star collection and every planet
+ * entity by tracked reference — planet entities have auto-generated ids, so
+ * cleanup does not use the "sat-"-style prefix convention — resets the flags
+ * and swallows already-removed errors, so double-clear is safe.
+ */
 export function createSpaceSceneManager(viewer: any, Cesium: any) {
   const state: SpaceSceneState = {
     starsLoaded: false,

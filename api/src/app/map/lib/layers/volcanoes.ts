@@ -3,6 +3,15 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Volcano Alerts (Smithsonian GVP / USGS Weekly Report) ─── */
 
+/**
+ * Add the volcano-alert layer, parsed client-side from the Smithsonian GVP
+ * weekly-report RSS (volcano.si.edu). Each `<item>` with a georss:point
+ * becomes a point feature whose colour and `alert` property encode activity
+ * level: red/WARNING for erupting, orange/WATCH for new activity, amber/
+ * ADVISORY otherwise. Rendered as a coloured 6px circle plus a blurred glow
+ * behind it. Reports the parsed count ("empty" when the RSS yields nothing)
+ * and re-fetches every 10 minutes.
+ */
 export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("volcanoes")) return;
 
@@ -97,6 +106,7 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the volcano glow and point layers plus the `volcanoes` source, ignoring "not found" errors. */
 export function removeVolcanoes(map: maplibregl.Map): void {
   ["volcanoes-glow", "volcanoes-points"].forEach((id) => {
     try {

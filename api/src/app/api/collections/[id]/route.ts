@@ -1,3 +1,11 @@
+/**
+ * OGC API - Features collection metadata.
+ *
+ * GET /api/collections/{id} - one collection descriptor (id, title,
+ * description, self/items/root links, global spatial extent, CRS84).
+ * 404 with an OGC exception body for unknown ids.
+ * Caching: Cache-Control: public, max-age=3600.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 

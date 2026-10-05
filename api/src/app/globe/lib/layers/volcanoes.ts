@@ -33,6 +33,22 @@ function alertLabel(alert: string): string {
   }
 }
 
+/**
+ * Plots the Smithsonian/USGS weekly volcano report — a direct live fetch of
+ * `https://volcano.si.edu/news/WeeklyVolcanoRSS.xml` parsed into point features
+ * carrying alertLevel WARNING (erupting), WATCH (new unrest) or ADVISORY.
+ * Normal and unknown alerts are skipped; the rest become a billboard plus
+ * coloured point, truncated label and description card in `viewer.entities`
+ * (ids `vol-<i>`), and warning/watch sites additionally get a 17.5 km-radius
+ * ellipse disc (id `vol-pulse-<i>`). Coordinates are degrees at height 0, and
+ * ids prefixed `vol-` are cleared before every rebuild. A 1800000 ms (30 min)
+ * interval, registered through `pushLayerTimer` and gated on
+ * `stateLayers.volcanoes`, refetches and rebuilds — the refresh path omits the
+ * pulse disc — with a three-failure retry guard reporting through
+ * `updateStatus("volcanoes")`. The globe page has no toggle-off branch for this
+ * layer, so only the interval is cleared and the entities persist until the
+ * viewer is destroyed.
+ */
 export function loadVolcanoes(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

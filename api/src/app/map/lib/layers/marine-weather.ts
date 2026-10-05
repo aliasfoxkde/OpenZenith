@@ -73,6 +73,15 @@ interface OpenMeteoMarineResponse {
   current?: OpenMeteoMarineCurrent;
 }
 
+/**
+ * Add the sea-state layer: one batched request to Open-Meteo's Marine API
+ * for 36 fixed open-ocean sample points, rendered as wind-scaled circles
+ * (3-12px) coloured by significant wave height in metres — cyan under 2,
+ * blue to 4, amber to 6, orange to 9, red above — each labelled with its
+ * height. Refreshes every 10 minutes; a non-OK response or a payload without
+ * a `current` block marks the handle "empty", a thrown fetch marks it
+ * "error".
+ */
 export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("marineWeather")) return;
 
@@ -222,6 +231,7 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
   ); // 10 min
 }
 
+/** Remove the marine-weather point and label layers plus the `marineWeather` source, ignoring "not found" errors. */
 export function removeMarineWeather(map: maplibregl.Map): void {
   ["marineWeather-labels", "marineWeather-points"].forEach((id) => {
     try {

@@ -17,6 +17,15 @@ function getRecentGibsDate(): string {
 
 const GIBS_DATE = getRecentGibsDate();
 
+/**
+ * Add the daily true-colour satellite basemap: NASA GIBS MODIS Terra
+ * CorrectedReflectance_TrueColor WMTS tiles (zooms 0-9, JPEG, attribution on
+ * the source). The date is pinned once at module load to three days ago —
+ * MODIS Terra needs ~2 days of processing lag — so the imagery always
+ * resolves; a long-lived page therefore keeps showing that same day. Marks
+ * the handle "satellite" loaded unconditionally, whether or not the tiles
+ * actually render.
+ */
 export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("satellite-imagery")) return;
 
@@ -52,6 +61,7 @@ export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): v
   setStatus(handle, "satellite", "loaded");
 }
 
+/** Remove the satellite-imagery raster layer and its source, ignoring "not found" errors. */
 export function removeSatelliteImagery(map: maplibregl.Map): void {
   try {
     map.removeLayer("satellite-imagery");

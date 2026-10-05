@@ -1,3 +1,11 @@
+/**
+ * NASA GIBS sea surface temperature raster tiles.
+ *
+ * GET /api/sst/{z}/{x}/{y} - 256px PNG, zooms 0-8.
+ * Upstream: NASA GIBS WMS (GHRSST L4 MUR 1km), EPSG:3857.
+ * Caching: Workers Cache API under prefix "sst", then
+ * Cache-Control: public, max-age=86400 (daily SST composite).
+ */
 import { corsPreflightResponse } from "@/lib/cors";
 import { createGIBSHandler } from "@/lib/gibs-tile";
 

@@ -2,6 +2,13 @@ import type { LayerHandle } from "./types";
 
 /* ─── Hillshade (terrain overlay) ─── */
 
+/**
+ * Add the terrain hillshade layer on top of the shared `elevation` DEM
+ * source (created by addElevationSource): soft black/white shading at 0.35
+ * exaggeration to keep tile seams invisible. Requires that source to exist —
+ * the function silently does nothing when it is missing — and writes no
+ * status to the handle.
+ */
 export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getLayer("hillshade-base")) return;
   if (!map.getSource("elevation")) return;
@@ -20,6 +27,7 @@ export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
   });
 }
 
+/** Remove the hillshade-base layer (and the legacy hillshade-detail id), leaving the `elevation` source in place for 3D terrain. */
 export function removeHillshade(map: maplibregl.Map): void {
   try {
     map.removeLayer("hillshade-base");

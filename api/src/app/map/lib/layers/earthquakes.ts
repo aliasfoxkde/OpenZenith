@@ -21,14 +21,32 @@ let currentFeed = "7d";
 let allFeatures: GeoJSON.Feature[] = [];
 let currentTimeMs: number | null = null; // null = show all
 
+/**
+ * Select which USGS summary feed subsequent loads use: "1h", "1d", "7d" or
+ * "30d". Module-level state shared with addEarthquakes and the timeline UI —
+ * it does not trigger a fetch, and an unknown feed name is ignored, leaving
+ * the previous selection (initially "7d") in force.
+ */
 export function setEarthquakeFeed(feed: string) {
   if (FEEDS[feed]) currentFeed = feed;
 }
 
+/**
+ * Set the timeline cutoff applied to the quake list: only events at or
+ * before this epoch-ms timestamp are drawn. `null` clears the filter so every
+ * feed event renders. Pure state — call refreshEarthquakeFilter to apply it
+ * to an already-added layer.
+ */
 export function setEarthquakeTimeFilter(timeMs: number | null) {
   currentTimeMs = timeMs;
 }
 
+/**
+ * Report the epoch-ms `{min, max}` window spanned by the events currently
+ * held in module state, so the timeline slider can be scaled to the feed.
+ * Before any feed has loaded (or when it held no usable times) it returns a
+ * synthetic window of the last 24 hours ending now.
+ */
 export function getEarthquakeTimeRange(): { min: number; max: number } {
   if (allFeatures.length === 0) return { min: Date.now() - 86400000, max: Date.now() };
   const times = allFeatures.map(featureTimeMs).filter((t) => t > 0);
@@ -53,6 +71,15 @@ function filterByTime(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
   });
 }
 
+/**
+ * Add the earthquake layer, fetching the feed chosen by setEarthquakeFeed
+ * directly from earthquake.usgs.gov every 60 seconds (interval on
+ * handle.intervals). Events are sized and coloured by magnitude — 3px green
+ * at M0 growing to 16px red at M7, over a matching glow — and filtered
+ * through the time cutoff set by setEarthquakeTimeFilter. The feed is cached
+ * in module state so the timeline helpers and refreshEarthquakeFilter can
+ * re-filter it without refetching; status carries the unfiltered event count.
+ */
 export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("earthquakes")) return;
 
@@ -148,6 +175,11 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/**
+ * Re-apply the current time filter to the already-fetched events and
+ * setData the `earthquakes` source, without a network round-trip. No-op when
+ * the layer is not currently added.
+ */
 export function refreshEarthquakeFilter(map: maplibregl.Map): void {
   if (!map.getSource("earthquakes")) return;
   const filtered = filterByTime(allFeatures);
@@ -157,6 +189,12 @@ export function refreshEarthquakeFilter(map: maplibregl.Map): void {
   } catch {}
 }
 
+/**
+ * Remove the quake circle and glow layers plus the `earthquakes` source. The
+ * module-level feed cache and the feed/time-filter selections are
+ * deliberately retained, so re-adding restores the previous timeline state
+ * on the next fetch.
+ */
 export function removeEarthquakes(map: maplibregl.Map): void {
   ["earthquakes-glow", "earthquakes-circles"].forEach((id) => {
     try {

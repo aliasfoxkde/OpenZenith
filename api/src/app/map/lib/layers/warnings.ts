@@ -9,6 +9,16 @@ import { setStatus, warnLayerError } from "./types";
  */
 type WarningsResponse = { features?: GeoJSON.Feature[] };
 
+/**
+ * Add the active weather-warning polygons (NWS alerts relayed by
+ * /api/weather/warnings as a GeoJSON FeatureCollection). Renders two layers
+ * over one `warnings` source: a 0.15-opacity fill and a dashed 2px outline,
+ * both coloured by the alert's `Event` property — red for tornado/extreme
+ * wind, orange for severe thunderstorm/flash flood, amber otherwise. The
+ * fetch re-runs every 5 minutes via an interval on handle.intervals and calls
+ * setData on the existing source rather than recreating it; a missing
+ * `features` field aborts silently, while a fetch failure reports "error".
+ */
 export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("warnings")) return;
 
@@ -86,6 +96,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the warnings outline and fill layers plus the `warnings` source, ignoring "not found" errors. */
 export function removeWarnings(map: maplibregl.Map): void {
   ["warnings-outline", "warnings-fill"].forEach((id) => {
     try {

@@ -1,3 +1,11 @@
+/**
+ * NASA GIBS sea surface height anomaly raster tiles.
+ *
+ * GET /api/sea-height/{z}/{x}/{y} - 256px PNG, zooms 0-6.
+ * Upstream: NASA GIBS WMS (JPL MEaSUREs L4 anomalies), EPSG:3857.
+ * Caching: Workers Cache API under prefix "sea-height", then
+ * Cache-Control: public, max-age=86400 (daily anomaly product).
+ */
 import { corsPreflightResponse } from "@/lib/cors";
 import { createGIBSHandler } from "@/lib/gibs-tile";
 

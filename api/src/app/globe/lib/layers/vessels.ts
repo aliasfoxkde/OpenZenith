@@ -112,6 +112,23 @@ function vesselTypeLabel(shipType: number): string {
   return types[shipType] || "Other";
 }
 
+/**
+ * Streams live vessel positions over the AISstream.io WebSocket — the wsUrl and
+ * apiKey come from `GET /api/vessels`, and an unconfigured feed sets a status
+ * error instead of connecting — subscribing to PositionReport messages for the
+ * whole globe. Reports are keyed by MMSI into a local position cache and
+ * flushed to the viewer in batches every 2000 ms: a heading-rotated billboard
+ * plus name label per vessel, and for vessels under way (> 0.5 kn with a
+ * heading) a ground-clamped heading vector of min(speed * 15, 5000) m. Speed is
+ * in knots, heading and course in degrees, position in degrees. A 60000 ms
+ * interval drops positions unseen for 600000 ms and is registered in
+ * `intervalsRef` under `vessels`; the socket reconnects 30000 ms after closing
+ * while the layer stays enabled. Cleanup is `window.__ozCleanupVessels`, set
+ * here and invoked by the paired `cleanupVessels()` export on toggle-off: it
+ * cancels the pending batch timer, closes the socket with reconnect suppressed
+ * and empties the cache, while entity removal stays with
+ * `removeEntities("vessel-")`.
+ */
 export function loadVessels(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

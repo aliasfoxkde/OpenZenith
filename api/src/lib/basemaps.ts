@@ -43,6 +43,14 @@ const ESRI_DARK_LABELS = `${ESRI}/Canvas/World_Dark_Gray_Reference/MapServer/til
 const ESRI_LIGHT_BASE = `${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`;
 const ESRI_LIGHT_LABELS = `${ESRI}/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`;
 
+/**
+ * Basemap definition table keyed by registry key (`dark`, `satellite`, ...).
+ * Each value is a `BasemapDef`: display label, XYZ tile URL template, the
+ * attribution HTML the provider requires, label/overlay flags, and the
+ * provider's native `maxzoom` so clients overzoom the last real level instead
+ * of requesting tiles past the end. `dark`/`dark_contrast` share Esri's dark
+ * canvas service and differ only in the UI treatment clients apply.
+ */
 export const BASEMAPS = {
   dark: {
     label: "Dark",

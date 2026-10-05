@@ -39,6 +39,12 @@ const BLACKLISTED_SRTM_TILES = new Set([
   "N19W155", // Hawaii: reports 0m instead of 4205m
 ]);
 
+/**
+ * True when an SRTM 1° cell is a known-corrupt HuggingFace source whose
+ * elevations pass the header checks but are wildly wrong (Death Valley,
+ * Kilimanjaro, Aconcagua, Hawaii). Tile assembly skips these so the AWS
+ * Terrain fallback supplies real data. `name` may carry the ".tif" suffix.
+ */
 export function isBlacklistedSrtmTile(name: string): boolean {
   return BLACKLISTED_SRTM_TILES.has(name.replace(".tif", ""));
 }

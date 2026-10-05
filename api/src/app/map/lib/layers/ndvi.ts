@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── NDVI (MODIS Terra L3 16-Day) ─── */
 
+/**
+ * Add the NDVI vegetation-index raster: a 256px source at
+ * /api/ndvi/{z}/{x}/{y} (NASA GIBS MODIS Terra 16-day NDVI, zooms 0-9) at
+ * 0.85 opacity. Guarded per source/layer; reports "loaded"/"error" under
+ * the "ndvi" id.
+ */
 export function addNdvi(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("ndvi")) return;
 
@@ -31,6 +37,7 @@ export function addNdvi(map: maplibregl.Map, handle: LayerHandle): void {
     }
 }
 
+/** Remove the NDVI raster layer and its `ndvi` source, ignoring "not found" errors. */
 export function removeNdvi(map: maplibregl.Map): void {
   try {
     map.removeLayer("ndvi-raster");

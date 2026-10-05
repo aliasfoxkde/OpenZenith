@@ -10,6 +10,12 @@
 import { formatDistance, haversineDistance, polylineLength } from "./measure";
 import { getClientElevationBatch } from "@/lib/client-elevation";
 
+/**
+ * One sample of a terrain cross-section. `lng`/`lat` are decimal degrees,
+ * `elev` is the sampled surface height in metres (null when the lookup failed
+ * or the point falls outside coverage), and `dist` is the along-track distance
+ * from the profile's first vertex in metres.
+ */
 export interface ProfilePoint {
   lng: number;
   lat: number;
@@ -24,6 +30,26 @@ interface ElevationProfileState {
   resultEntities: any[];
 }
 
+/**
+ * Terrain cross-section tool: the caller clicks vertices on the globe and this
+ * draws the line plus a sampled elevation profile. Returns `{ state, addPoint,
+ * clear }`, where `state` carries the active flag, clicked vertices, the
+ * sampled `profile`, and every entity the tool owns. `addPoint(lng, lat)`
+ * appends a vertex and rebuilds the overlay in `viewer.entities` (all tagged
+ * `properties.type = "tool-measure"`): a ground-clamped glowing #ff4488
+ * polyline, a point per vertex (10px at the ends, 6px in between), START/END
+ * labels, and a total-length label at the last vertex. From two vertices on it
+ * also re-samples the whole line — 20-100 stations spaced roughly 500 m apart,
+ * interpolated along the haversine segments with the last forced to the exact
+ * endpoint — and fetches them in a single batched elevation call that reads
+ * SRTM chunks from HuggingFace in the browser and falls back to
+ * /api/elevation/batch; uncovered points come back with `elev: null`. Sampling
+ * is async: `state.profile` is only meaningful after the addPoint promise
+ * resolves, which is also the caller's re-render trigger. `clear()` removes
+ * every entity the tool added and empties state — call it when leaving the
+ * tool or the overlay stays on the globe. Like the other tools it attaches no
+ * input handlers of its own; page.tsx's LEFT_CLICK handler routes clicks here.
+ */
 export function createElevationProfile(viewer: any, Cesium: any) {
   const state: ElevationProfileState = {
     active: false,

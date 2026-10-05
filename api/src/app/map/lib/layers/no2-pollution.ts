@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── NO₂ Air Pollution (TROPOMI L2) ─── */
 
+/**
+ * Add the NO2 tropospheric-column raster: a 256px source at
+ * /api/no2-pollution/{z}/{x}/{y} (NASA GIBS TROPOMI L2 nitrogen dioxide,
+ * zooms 0-5) at 0.8 opacity. Guarded per source/layer; status is reported
+ * under the camelCase id "no2Pollution".
+ */
 export function addNo2Pollution(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("no2-pollution")) return;
 
@@ -31,6 +37,7 @@ export function addNo2Pollution(map: maplibregl.Map, handle: LayerHandle): void 
     }
 }
 
+/** Remove the NO2 raster layer and its `no2-pollution` source, ignoring "not found" errors. */
 export function removeNo2Pollution(map: maplibregl.Map): void {
   try {
     map.removeLayer("no2-pollution-raster");

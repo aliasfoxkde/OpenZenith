@@ -2,6 +2,13 @@ import type { LayerHandle } from "./types";
 
 /* ─── Sea Ice (OSI SAF — Ocean and Sea Ice Satellite Application Facility) ─── */
 
+/**
+ * Add the sea-ice-concentration raster, pointing MapLibre straight at an
+ * NSIDC THREDDS WMS endpoint ({bbox-epsg-3857} template, 256px, zooms 0-8,
+ * attribution on the source) at 0.7 opacity. This is the one layer that
+ * bypasses the app's own tile proxy, so browser CORS and upstream availability
+ * decide whether anything renders. No status is written to the handle.
+ */
 export function addSeaIce(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("seaIce")) return;
 
@@ -40,6 +47,7 @@ export function addSeaIce(map: maplibregl.Map, _handle: LayerHandle): void {
   }
 }
 
+/** Remove the sea-ice raster layer and its `seaIce` source, ignoring "not found" errors. */
 export function removeSeaIce(map: maplibregl.Map): void {
   try {
     map.removeLayer("seaIce-raster");

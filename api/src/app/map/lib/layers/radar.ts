@@ -9,6 +9,16 @@ type RainViewerFrame = { path: string };
 /** Shape of https://api.rainviewer.com/public/weather-maps.json. */
 type RainViewerMaps = { radar?: { past?: RainViewerFrame[] } };
 
+/**
+ * Add the precipitation-radar layer: the latest past frame of RainViewer's
+ * public weather-maps feed is resolved into a tilecache.rainviewer.com tile
+ * URL and added as a 256px raster source at 0.5 opacity. The feed is
+ * re-fetched every 10 minutes (interval on handle.intervals) so the animation
+ * frame stays current, but the source URL is only created once — later
+ * refreshes cannot re-point an existing source at a newer timestamp. A failed
+ * feed request reports "error"; the inner MapLibre mutations swallow their
+ * own errors.
+ */
 export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("radar")) return;
 
@@ -54,6 +64,7 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the radar raster layer and the `radar` source, ignoring "not found" errors. */
 export function removeRadar(map: maplibregl.Map): void {
   try {
     map.removeLayer("radar-layer");

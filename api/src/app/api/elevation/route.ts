@@ -1,3 +1,14 @@
+/**
+ * Point elevation query.
+ *
+ * GET /api/elevation?lat=&lon= - elevation in meters plus the source that
+ * answered (ozt2 | merged | gebco), surface_type and resolution. Sources are
+ * tried in order: OZT2 z10 tiles on HuggingFace, then merged SRTM chunks,
+ * then GEBCO for bathymetry.
+ * Caching: Workers Cache API keyed to 7 decimal places, success-only, held
+ * for 86400s; responses set Cache-Control: public, max-age=3600 and an
+ * X-Cache: HIT|MISS marker.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";

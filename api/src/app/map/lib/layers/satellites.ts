@@ -26,6 +26,16 @@ interface SatRecord {
 /** Position list served by the Celestrak GP proxy. */
 type SatellitePositions = SatRecord[];
 
+/**
+ * Add the satellite-position layer: records from /api/satellites (Celestrak
+ * GP data for the active catalogue) that already carry a latitude/longitude
+ * become 2.5px pale dots; ISS, HST, Tiangong and Starlink entries are flagged
+ * `notable` and additionally get a glow and a name label. Entries without
+ * positions fall through to a secondary proxy fetch, which reports the
+ * catalogue size without drawing anything (SGP4 propagation is deliberately
+ * not done client-side). Refreshes every 10 minutes and reports the drawn
+ * feature count, or "empty" when the route yields no usable positions.
+ */
 export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("satellites")) return;
 
@@ -183,6 +193,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the satellite points, glow and label layers plus the `satellites` source, ignoring "not found" errors. */
 export function removeSatellites(map: maplibregl.Map): void {
   ["satellites-labels", "satellites-glow", "satellites-points"].forEach((id) => {
     try {

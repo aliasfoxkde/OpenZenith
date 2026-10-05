@@ -13,6 +13,13 @@ let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const activeStrikeIds = new Set<string>();
 
+/**
+ * Tears down the module-level Blitzortung state created by loadLightning:
+ * clears any pending reconnect timer, closes the WebSocket with onclose
+ * nulled so the 30 s reconnect cannot refire during teardown, and empties
+ * the active strike id set. Call on unmount — the socket, timer and strike
+ * ids live at module scope, not per viewer. Returns void.
+ */
 export function cleanupLightning() {
   if (reconnectTimer !== null) {
     clearTimeout(reconnectTimer);
@@ -26,6 +33,18 @@ export function cleanupLightning() {
   activeStrikeIds.clear();
 }
 
+/**
+ * Streams live lightning strikes over a WebSocket to
+ * wss://ws.blitzortung.org:443/ and renders each as a `strike-<ts>-<rand>`
+ * entity: a yellow flash point, a 30 km glow ellipse, and a bolt billboard
+ * that hides after 5 s while the entity itself is removed after 35 s.
+ * Concurrent strikes cap at MAX_ACTIVE_STRIKES (200); messages are
+ * semicolon-delimited with lat at index 1 and lon at index 2, degrees. On
+ * close it schedules a 30 s reconnect while stateLayers.lightning holds, and
+ * a 10 s interval registered under "lightning" reports the live strike
+ * count. The socket, reconnect timer and strike ids are module-level refs —
+ * pair with cleanupLightning() on unmount. Returns void.
+ */
 export function loadLightning(
   viewer: any,
   Cesium: any,

@@ -1,3 +1,11 @@
+/**
+ * NASA GIBS fine particulate matter (PM2.5) raster tiles.
+ *
+ * GET /api/pm25/{z}/{x}/{y} - 256px PNG, zooms 0-5.
+ * Upstream: NASA GIBS WMS (Particulate Matter < 2.5um, 2010-2012), EPSG:3857.
+ * Caching: Workers Cache API under prefix "pm25", then
+ * Cache-Control: public, max-age=604800 (multi-year mean, changes slowly).
+ */
 import { corsPreflightResponse } from "@/lib/cors";
 import { createGIBSHandler } from "@/lib/gibs-tile";
 

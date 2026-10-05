@@ -1,3 +1,12 @@
+/**
+ * OpenSky OAuth2 client-credentials token issuer for the map clients.
+ *
+ * GET /api/opensky/token - exchanges OPENSKY_CLIENT_ID/SECRET for a bearer
+ * token and returns { token, expires_at, cached }. Tokens are memoized in
+ * module scope for the life of the isolate and reused until expires_at, so
+ * only the first request per token window pays the auth round-trip.
+ * No HTTP caching - the credential must not be CDN-shared.
+ */
 import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 

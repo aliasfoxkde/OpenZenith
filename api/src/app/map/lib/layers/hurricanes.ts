@@ -11,6 +11,16 @@ interface HurricaneResponse {
   features?: GeoJSON.Feature[];
 }
 
+/**
+ * Add the tropical-cyclone layer: two parallel requests to /api/hurricanes
+ * (`?active=true` for current storm positions, `?track=full` for the
+ * MultiLineString histories) are merged onto one `hurricanes` source and
+ * rendered as four geometry-filtered layers — dashed track lines coloured by
+ * sustained wind (kt) from amber through dark red, wind-scaled position
+ * circles, a glow, and the storm-name labels. Refreshes every 10 minutes;
+ * reports "empty" when both requests come back featureless and "error" when
+ * the fetches throw.
+ */
 export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("hurricanes")) return;
 
@@ -190,6 +200,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
   );
 }
 
+/** Remove all four hurricane layers (labels, glow, points, tracks) and the `hurricanes` source, ignoring "not found" errors. */
 export function removeHurricaneTracks(map: maplibregl.Map): void {
   ["hurricanes-labels", "hurricanes-glow", "hurricanes-points", "hurricane-tracks"].forEach((id) => {
     try {
@@ -203,6 +214,17 @@ export function removeHurricaneTracks(map: maplibregl.Map): void {
 
 /* ─── Hurricane Animation ─── */
 
+/**
+ * Play the storms forward in time. Reads the track features already in the
+ * `hurricanes` source (so addHurricaneTracks must have run), derives the
+ * overall epoch-ms window from their `times` property arrays, then every
+ * 100 ms truncates each MultiLineString to the points observed by the
+ * current playback time and setData's the source — looping over a 20-second
+ * period. `callback` receives the 0..1 progress each tick for the scrubber
+ * UI. Mutates the source's feature geometries in place; the interval lives
+ * in module state (not handle.intervals) because it is started outside
+ * addDataLayer's per-layer window, and stopHurricaneAnimation clears it.
+ */
 export function startHurricaneAnimation(
   map: maplibregl.Map,
   _handle: LayerHandle,
@@ -284,6 +306,11 @@ export function startHurricaneAnimation(
 
 let hurricaneAnimationInterval: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * Stop the track animation, clear its interval, and restore the full track
+ * geometries by re-fetching /api/hurricanes?track=full into the source (a
+ * no-op fetch when the layer was already removed).
+ */
 export function stopHurricaneAnimation(map: maplibregl.Map, _handle: LayerHandle): void {
   if (hurricaneAnimationInterval) {
     clearInterval(hurricaneAnimationInterval);

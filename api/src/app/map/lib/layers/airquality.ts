@@ -9,6 +9,14 @@ import { setStatus, warnLayerError } from "./types";
  */
 type AirQualityResponse = { features?: GeoJSON.Feature[] } | null;
 
+/**
+ * Add the air-quality layer: US AQI readings for the current map centre,
+ * fetched from /api/airquality and rendered as a 12px circle labelled with
+ * the AQI number and level. Colour follows the official US AQI bands (green
+ * 0-50, yellow 51-100, orange 101-150, red 151-200, purple 201-300, maroon
+ * 301+). The query re-runs every 5 minutes and re-centres on wherever the
+ * map is at that moment; a payload without `features` is ignored silently.
+ */
 export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("air-quality")) return;
 
@@ -102,6 +110,7 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
   ); // 5 min
 }
 
+/** Remove the AQI label and circle layers plus the `air-quality` source, ignoring "not found" errors. */
 export function removeAirQuality(map: maplibregl.Map): void {
   try {
     map.removeLayer("air-quality-label");

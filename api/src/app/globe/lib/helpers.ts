@@ -109,12 +109,29 @@ export function buildHash(s: DashboardState): string {
   return "#" + parts.join("&");
 }
 
+/**
+ * Format an epoch-milliseconds timestamp as a locale HH:MM:SS string for the
+ * status list (output follows the browser locale and timezone). Anything
+ * falsy — null, 0 or undefined — returns the "--:--:--" placeholder instead of
+ * a formatted midnight, so an epoch of exactly 0 is indistinguishable from no
+ * data.
+ */
 export function fmtTime(ts: number | null): string {
   if (!ts) return "--:--:--";
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+/**
+ * Best-effort copy of `text` to the clipboard. Prefers the async Clipboard API
+ * when navigator.clipboard.writeText exists (it is absent in insecure contexts
+ * even though the DOM types declare it), otherwise falls back to the
+ * deprecated execCommand("copy") driven through a fixed, invisible textarea
+ * appended to document.body and removed in the same tick. Fire-and-forget:
+ * no return value and every failure — rejected write, missing clipboard,
+ * thrown execCommand — is swallowed, so a caller cannot tell success from
+ * failure.
+ */
 export function safeCopy(text: string) {
   // navigator.clipboard is absent in insecure contexts even though the DOM
   // types declare it as always present, so widen it before probing.
@@ -141,6 +158,14 @@ export function safeCopy(text: string) {
   }
 }
 
+/**
+ * Map an elevation in meters to one of seven discrete hex colors for the
+ * elevation-color layer: <0 m → #1a5276 (deep water), <200 m → #1e8449,
+ * <500 m → #27ae60, <1,000 m → #f4d03f, <2,000 m → #e67e22,
+ * <4,000 m → #d35400, and #922b21 at 4,000 m and above. Band edges are
+ * upper-exclusive (each test is `<`), so exactly 200 m falls in the <500 m
+ * band, and there is no interpolation between bands.
+ */
 export function elevationColor(elev: number): string {
   if (elev < 0) return "#1a5276";
   if (elev < 200) return "#1e8449";
@@ -151,6 +176,17 @@ export function elevationColor(elev: number): string {
   return "#922b21";
 }
 
+/**
+ * Swap the globe's imagery to the named basemap: every existing imagery layer
+ * is removed first, then — when `key` resolves in the BASEMAPS registry — a
+ * UrlTemplateImageryProvider is added with that url, an empty credit and
+ * maximumLevel set to the registry's maxzoom. `key` comes from user state and
+ * may be missing from the registry, in which case the globe is left with zero
+ * imagery layers and only the scene base color visible; there is no fallback.
+ * The Cesium global is read off window, so this must run after cesium-init has
+ * loaded Cesium — with an unknown key no provider is constructed and the
+ * global is never dereferenced.
+ */
 export function switchBasemapOnViewer(viewer: any, key: string) {
   const Cesium = (window as any).Cesium;
   // key comes from user state, so it may not be in the registry
@@ -210,6 +246,15 @@ export function createRetryGuard(opts?: { maxFailures?: number; baseDelay?: numb
   };
 }
 
+/**
+ * Remove every entity whose id starts with `prefix` from viewer.entities, and
+ * any tracked companion primitive: for the "sat-" and "elev-" prefixes the
+ * PointPrimitiveCollection stored under entitiesRef["sat-points"] /
+ * ["elev-points"] is also removed from viewer.scene.primitives and the ref key
+ * deleted. Mutates `entitiesRef`, so callers must pass the same object the
+ * layer loaders populated. Ends with scene.requestRender(), which is what
+ * makes the change visible on a viewer created with requestRenderMode.
+ */
 export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<string, any>) {
   const toRemove: any[] = [];
   viewer.entities.values.forEach((e: any) => {
@@ -228,6 +273,18 @@ export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<
   viewer.scene.requestRender();
 }
 
+/**
+ * Toggle a single imagery overlay identified by URL substring: if an existing
+ * imagery layer's provider url contains `name` it is removed, otherwise `url`
+ * is added as a UrlTemplateImageryProvider (with optional maximumLevel) and
+ * the new top layer's alpha set to `opacity` (0-1). Matching walks
+ * imageryLayers._layers and _imageryProvider.url — Cesium private APIs, so
+ * this is Cesium-version sensitive — which is why every url passed here must
+ * embed `name` verbatim (the radar/raster loaders use NASA GIBS, BlueMarble
+ * and VIIRS tile URLs that do). Returns nothing; no-ops when the Cesium ref is
+ * unset or when there is no match and no url, and always calls
+ * scene.requestRender() at the end.
+ */
 export function toggleImageryOverlay(
   viewer: any,
   cesiumRef: any,

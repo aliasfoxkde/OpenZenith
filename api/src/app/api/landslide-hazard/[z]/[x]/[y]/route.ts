@@ -1,3 +1,11 @@
+/**
+ * NASA GIBS landslide hazard raster tiles.
+ *
+ * GET /api/landslide-hazard/{z}/{x}/{y} - 256px PNG, zooms 0-8.
+ * Upstream: NASA GIBS WMS (NDH Landslide Hazard Distribution 2000), EPSG:3857.
+ * Caching: Workers Cache API under prefix "landslide-hazard", then
+ * Cache-Control: public, max-age=604800 (static historical data).
+ */
 import { corsPreflightResponse } from "@/lib/cors";
 import { createGIBSHandler } from "@/lib/gibs-tile";
 

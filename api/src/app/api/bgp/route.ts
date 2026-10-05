@@ -1,3 +1,10 @@
+/**
+ * BGP looking-glass proxy over the NLNOG ring.
+ *
+ * GET /api/bgp?prefix=<cidr> - relays the prefix query to
+ * https://lg.ring.nlnog.net/api and returns its JSON response.
+ * Caching: Cache-Control: public, max-age=300 (short - routing state moves).
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 

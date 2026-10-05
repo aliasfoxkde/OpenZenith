@@ -20,6 +20,19 @@ const COLORS: Record<AnnotationType, string> = {
   text: "#44aaff",
 };
 
+/**
+ * Contract of the interactive annotation editor. `mode` is the shape currently
+ * being drawn (null while idle), `points` the vertices collected so far, and
+ * `annotations` every committed shape together with the entities it created.
+ * `setMode` arms a shape and commits any half-finished one first;
+ * `handleClick` appends a vertex in degrees (no-op while idle) — page.tsx's
+ * LEFT_CLICK handler feeds it; `finish` commits the pending vertices;
+ * `clearAll` removes every annotation's entities; `setLabel` stores a caption
+ * on the record and assigns it to the shape's label entity, replacing that
+ * entity's LabelGraphics rather than editing its text; `exportGeoJSON`
+ * serialises all shapes as a GeoJSON FeatureCollection (Point, LineString, or
+ * Polygon with the first vertex repeated to close the ring).
+ */
 export interface AnnotationManager {
   mode: AnnotationType | null;
   points: { lng: number; lat: number }[];
@@ -32,6 +45,20 @@ export interface AnnotationManager {
   exportGeoJSON: () => string;
 }
 
+/**
+ * Factory for drawing markers, lines, polygons, and text labels onto an
+ * already-initialised Cesium viewer. Constructing it adds nothing; entities
+ * appear only when setMode + handleClick + finish complete a shape. Each
+ * committed shape is added to `viewer.entities` and tagged
+ * `properties.type = "annotation"`: a marker is a 10px point with a (empty)
+ * label, a line is a ground-clamped glowing polyline 3px wide, a polygon is a
+ * filled polygon at height 0 with outline, and text is a label entity. Colours
+ * are per-type hex — marker #ff4444, line #ff8800, polygon #aa44ff, text
+ * #44aaff — and entity ids are `<type>-<epoch ms>-<kind>`. Input wiring is the
+ * caller's job: the manager never attaches a ScreenSpaceEventHandler. Lines
+ * need 2+ vertices and polygons 3+; fewer are silently dropped. `clearAll` is
+ * the only cleanup path, and one manager per viewer is assumed.
+ */
 export function createAnnotationManager(viewer: any, Cesium: any): AnnotationManager {
   const annotations: Annotation[] = [];
   let mode: AnnotationType | null = null;

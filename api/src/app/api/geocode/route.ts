@@ -1,3 +1,12 @@
+/**
+ * Forward geocoding proxy.
+ *
+ * GET /api/geocode?q=<text> - relays to Nominatim /search and returns
+ * { requestId, results, count } with display name, lat/lon and address parts.
+ * Caching: Workers Cache API for 300s (Nominatim etiquette caps how hard the
+ * upstream may be leaned on); responses set
+ * Cache-Control: public, max-age=3600 and an X-Cache: HIT|MISS marker.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson } from "@/lib/storage/edge-cache";

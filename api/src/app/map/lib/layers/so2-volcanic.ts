@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── SO₂ Volcanic (TROPOMI L2) ─── */
 
+/**
+ * Add the volcanic SO2 total-column raster: a 256px source at
+ * /api/so2-volcanic/{z}/{x}/{y} (NASA GIBS TROPOMI L2 sulfur dioxide, zooms
+ * 0-5) at 0.8 opacity. Guarded per source/layer; status is reported under
+ * the camelCase id "so2Volcanic".
+ */
 export function addSo2Volcanic(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("so2-volcanic")) return;
 
@@ -31,6 +37,7 @@ export function addSo2Volcanic(map: maplibregl.Map, handle: LayerHandle): void {
     }
 }
 
+/** Remove the SO2 raster layer and its `so2-volcanic` source, ignoring "not found" errors. */
 export function removeSo2Volcanic(map: maplibregl.Map): void {
   try {
     map.removeLayer("so2-volcanic-raster");

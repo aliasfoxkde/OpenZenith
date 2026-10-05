@@ -13,6 +13,12 @@ export function captureScreenshot(viewer: any): string | null {
   }
 }
 
+/**
+ * Triggers a browser download of a PNG data URL (typically the string returned
+ * by captureScreenshot). Inserts a temporary anchor into document.body with
+ * `download` set to `filename` or `openzenith-<epoch ms>.png`, clicks it, and
+ * removes the node — a DOM side effect, no network request.
+ */
 export function downloadScreenshot(dataUrl: string, filename?: string) {
   const link = document.createElement("a");
   link.download = filename || `openzenith-${Date.now()}.png`;

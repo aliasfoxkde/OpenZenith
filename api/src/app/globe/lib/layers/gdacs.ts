@@ -29,6 +29,17 @@ function severityColor(severity: string): string {
   }
 }
 
+/**
+ * Renders GDACS global disaster alerts. fetchGDACS is currently a stub — the
+ * public GDACS API was discontinued and the fetcher resolves to an empty
+ * FeatureCollection — so today this adds no entities and reports count 0,
+ * though the ATOM entry parsing (lat/lon, title, severity, event type) is
+ * kept for when a live source returns. Each parsed entry would become a
+ * `gdacs-<i>` billboard plus severity-colored point and label on
+ * viewer.entities. It still registers a 30 min (1800000 ms) interval under
+ * "gdacs" that clears the `gdacs-` prefix and reloads while
+ * stateLayers.gdacs holds. Returns void.
+ */
 export function loadGDACS(
   viewer: any,
   Cesium: any,

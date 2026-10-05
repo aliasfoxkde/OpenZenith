@@ -2,6 +2,21 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
+/**
+ * Draws ±90-minute orbital tracks for five CelesTrak groups: ISS (25544),
+ * Hubble (20580) and Tiangong (48274) by NORAD catalogue number, plus the first
+ * 20 TLEs each of the gps-ops and starlink groups, all fetched live through
+ * `/api/proxy/.../celestrak.org/NORAD/elements/gp.php`. Each TLE is propagated
+ * with satellite.js at 120 s steps into a `SampledPositionProperty` (degree-5
+ * Lagrange interpolation, ECF km scaled to metres) and one entity per satellite
+ * is added to `viewer.entities` as `orbit-<n>` — a point (ISS 8px white,
+ * Hubble/Tiangong 6px, others 3px), a label on the three notable sats, and a
+ * glow `path` with 5400 s lead and trail out to 40000 km. Needs
+ * `window.satellite` and no-ops silently without it. No polling interval and no
+ * cleanup helper: the globe page's toggle-off clears entities prefixed
+ * `orbit-`, and a reload appends a second set. Progress is reported under the
+ * `satellites` status key, not `orbitalTracks`.
+ */
 export function loadOrbitalTracks(
   viewer: any,
   Cesium: any,

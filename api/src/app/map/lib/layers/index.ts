@@ -160,6 +160,16 @@ const LAYER_LOADERS: Partial<Record<string, () => Promise<LayerModule>>> = {
  */
 const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cleanup?: () => void }>();
 
+/**
+ * Add a data layer by registry id, resolving it through the lazy loader
+ * table (dynamic import, so each module ships in its own chunk). Before the
+ * module's add() runs, any previous registration of the same id is retired —
+ * its cleanup invoked and fresh intervals/cleanup slots swapped into the
+ * handle — so re-adding a layer never stacks a second poller or listener on
+ * top of the first; the ids are folded back into the shared
+ * handle.intervals afterwards for page-level pausing. Unknown ids resolve to
+ * a silent no-op.
+ */
 export async function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): Promise<void> {
   const load = LAYER_LOADERS[layerId];
   if (!load) return;
@@ -186,6 +196,13 @@ export async function addDataLayer(map: maplibregl.Map, handle: LayerHandle, lay
   }
 }
 
+/**
+ * Remove a data layer by registry id: clear the intervals that add captured
+ * for it, run its cleanup, drop those ids from the shared handle.intervals,
+ * then call the module's remove() to tear down its MapLibre source/layers.
+ * Unknown ids (or a remove with no prior add) still run the module's remove,
+ * which tolerates missing sources.
+ */
 export async function removeDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): Promise<void> {
   const owned = layerResources.get(layerId);
   layerResources.delete(layerId);
@@ -208,6 +225,12 @@ export const MAP_2D_LAYER_IDS = new Set(Object.keys(LAYER_LOADERS));
 
 /* ─── Hurricane animation (module kept lazy; async delegation) ─── */
 
+/**
+ * Async passthrough to the hurricanes module's startHurricaneAnimation —
+ * same 100 ms playback loop and progress callback, but the dynamic import
+ * keeps that code out of /map's initial bundle. Awaits resolution before the
+ * animation's first tick.
+ */
 export async function startHurricaneAnimation(
   map: maplibregl.Map,
   handle: LayerHandle,
@@ -217,6 +240,7 @@ export async function startHurricaneAnimation(
   m.startHurricaneAnimation(map, handle, callback);
 }
 
+/** Async passthrough to the hurricanes module's stopHurricaneAnimation: clear the interval and restore full tracks once the module has loaded. */
 export async function stopHurricaneAnimation(map: maplibregl.Map, handle: LayerHandle): Promise<void> {
   const m = await import("./hurricanes");
   m.stopHurricaneAnimation(map, handle);

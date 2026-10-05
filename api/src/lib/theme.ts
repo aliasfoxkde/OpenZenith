@@ -4,6 +4,14 @@
 
 import { BASEMAPS } from "./basemaps";
 
+/**
+ * Dark "surveillance" design tokens shared by the Map and Globe UIs: panel
+ * backgrounds and borders, status/accent colors, muted text, fonts, glow
+ * shadows, the pulse animation, the graticule line color, and the dark
+ * basemap URLs (pulled from the basemap registry so the two never drift).
+ * All values are literal CSS strings; `textMuted` is tuned to pass WCAG AAA
+ * (7:1) against `bg`.
+ */
 export const SURVEILLANCE_THEME = {
   /** Deep navy/black background */
   bg: "#0a0f1a",

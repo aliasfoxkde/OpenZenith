@@ -14,6 +14,13 @@ import type { LayerDefinition, LayerToggleState } from "./types";
    Layer definitions
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * The mountable layer catalog, ordered for sidebar rendering (hillshade first
+ * so it draws on top of its terrain siblings). Each entry carries its id,
+ * display name, category, description, `defaultEnabled` toggle state, accent
+ * color, and — for raster layers — the `dataSource` URL template that both
+ * renderers fetch tiles/GeoJSON from.
+ */
 export const LAYERS: readonly LayerDefinition[] = [
   /* ── Hillshade — top of list, loaded last on map ──── */
   {
@@ -649,6 +656,7 @@ export const CATEGORY_ORDER = [
   "intelligence",
 ] as const;
 
+/** Sidebar display label (with emoji prefix) for each category key in CATEGORY_ORDER. */
 export const CATEGORY_LABELS: Record<string, string> = {
   hillshade: "🏔️ Hillshade",
   terrain: "🏔️ Terrain",

@@ -26,6 +26,13 @@ const MERGED_MAGIC = new Uint8Array([0x4f, 0x5a, 0x43, 0x48, 0x4e, 0x4b, 0x30, 0
 const HEADER_SIZE = 12;
 const INDEX_ENTRY_SIZE = 8;
 
+/**
+ * Validate the OZCHNK01 magic and version, then read the chunk index.
+ * Returns `{ rows, cols, entries }` — one `{ offset, size }` byte pair per
+ * chunk, addressed from the start of the buffer — or null when the input is
+ * shorter than the header, the magic bytes differ, the version is neither 1
+ * (SRTM Int16) nor 2 (Copernicus Float32), or the index array is truncated.
+ */
 export function parseMergedHeader(data: Uint8Array): MergedIndex | null {
   if (data.length < HEADER_SIZE) return null;
 
@@ -61,6 +68,12 @@ function entryAt(entries: MergedIndex["entries"], idx: number): MergedIndex["ent
   return entries[idx];
 }
 
+/**
+ * Slice one stored chunk's compressed bytes out of a parsed `.merged` file.
+ * The chunk is addressed as `row * cols + col` in the 15x15 grid; a missing
+ * index entry or a chunk whose bytes run past EOF throws RangeError instead of
+ * returning a truncated or empty slice.
+ */
 export function extractChunkFromMerged(
   mergedData: Uint8Array,
   index: MergedIndex,
@@ -82,6 +95,7 @@ export function getLatDir(srtmName: string): string {
   return srtmName.substring(0, 3);
 }
 
+/** Strip the ".tif" suffix from an SRTM tile name ("N36W116.tif" -> "N36W116"). */
 export function getTileBase(srtmName: string): string {
   return srtmName.replace(".tif", "");
 }
@@ -93,8 +107,11 @@ export function getTileBase(srtmName: string): string {
 // the real (sampling) extent of an edge chunk is 3601 - 14*256 = 17 pixels.
 // Verified against openzenith/merged.py, which reshapes every chunk to
 // (256, 256) regardless of position.
+/** Chunks per axis of a 1° SRTM cell — a 15x15 grid covering 3601x3601 samples. */
 export const MERGED_CHUNKS_PER_AXIS = 15;
+/** Stored pixel stride of every chunk on disk; even edge chunks occupy this square. */
 export const MERGED_CHUNK_STRIDE = 256;
+/** Real (non-padding) extent of the last row/column chunk: 3601 - 14*256 = 17 px. */
 export const MERGED_EDGE_EXTENT = 3601 - 14 * MERGED_CHUNK_STRIDE;
 
 /** The real (non-padding) pixel extent of a chunk within the 15x15 grid. */

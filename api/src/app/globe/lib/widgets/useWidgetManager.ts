@@ -5,6 +5,12 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { ComponentType } from "react";
 import type { WidgetConfig, WidgetState } from "./types";
 
+/**
+ * One mounted widget: its static `config`, its live and persisted `state`, and
+ * the React component that renders it — looked up by id in the components map
+ * passed to useWidgetManager, so it can be undefined when no component was
+ * supplied for that id.
+ */
 export interface WidgetEntry {
   config: WidgetConfig;
   state: WidgetState;
@@ -66,6 +72,21 @@ function loadSavedState(): Record<string, Partial<WidgetState>> | null {
   }
 }
 
+/**
+ * Owns the four left-column globe widgets (basemaps, layers, tools, settings)
+ * and their drag/collapse/visibility/stacking state. The initial state merges
+ * the WIDGET_CONFIGS defaults with any layout saved in localStorage key
+ * "globe-widgets"; with no window (SSR) the defaults are used. Every state
+ * change is written back to that key after a 500 ms debounce, one setTimeout
+ * per change, cleared on unmount; quota and "tracking prevention" failures are
+ * swallowed silently. Note the initialiser and `resetLayout` touch localStorage
+ * during the state update rather than in an effect, so server and client can
+ * disagree until hydration. Returns `widgets` (id to WidgetEntry), plus
+ * `updateWidget` (partial state patch, ignored for unknown ids),
+ * `toggleWidget`/`showWidget` (visibility), `focusWidget` (raises to
+ * max zIndex + 1, a no-op when already on top so saved values stay bounded),
+ * and `resetLayout` (restores defaults and removes the storage key).
+ */
 export function useWidgetManager(components: Record<string, ComponentType<any>>) {
   const [widgets, setWidgets] = useState<Record<string, WidgetEntry>>(() => {
     const saved = loadSavedState();

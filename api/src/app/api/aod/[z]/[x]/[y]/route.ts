@@ -1,3 +1,11 @@
+/**
+ * NASA GIBS aerosol optical depth raster tiles.
+ *
+ * GET /api/aod/{z}/{x}/{y} - 256px PNG, zooms 0-5.
+ * Upstream: NASA GIBS WMS (MODIS Aqua Deep Blue Combined), EPSG:3857.
+ * Caching: Workers Cache API under prefix "aod", then
+ * Cache-Control: public, max-age=86400 (daily product).
+ */
 import { corsPreflightResponse } from "@/lib/cors";
 import { createGIBSHandler } from "@/lib/gibs-tile";
 

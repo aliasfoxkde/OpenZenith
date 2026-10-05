@@ -8,6 +8,26 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 const AURORA_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="22" height="22"><ellipse cx="12" cy="16" rx="10" ry="6" fill="#00ff88" opacity="0.25"/><ellipse cx="12" cy="14" rx="8" ry="4" fill="#00ff88" opacity="0.4"/><ellipse cx="12" cy="12" rx="6" ry="2.5" fill="#00ffaa" opacity="0.6"/><path d="M12 4v8M8 8l4-4 4 4" stroke="#00ffcc" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/><circle cx="12" cy="3" r="1.5" fill="#00ffcc" opacity="0.9"/></svg>`);
 
+/**
+ * Renders two NOAA SWPC products. First the planetary K-index forecast
+ * (`/api/proxy/.../services.swpc.noaa.gov/json/planetary-k-index-forecast.json`,
+ * live): the first entry's `kp_index` becomes one `viewer.entities` entry, id
+ * `swpc-kp`, at 0 lon / 85 lat with an aurora billboard and a label whose
+ * colour steps at Kp 4, 5 and 7, gaining a `G<n>` tag from Kp 5 and a `STORM`
+ * tag from Kp 7. Then, once per load, the ovation aurora nowcast
+ * (`.../ovation_aurora_latest.json`) is grouped by whole degrees of longitude
+ * into up to 2001 translucent 50 km ellipses (ids `aurora-<n>`) at 100 km
+ * altitude, one per point with intensity > 2; probability is intensity*10
+ * capped at 100 and drives both colour and alpha.
+ *
+ * A 300000 ms (5 min) interval, registered through `pushLayerTimer`, refreshes
+ * only the Kp indicator (clearing ids prefixed `swpc-` and re-adding one) and
+ * is gated on `stateLayers.spaceWeather`, with a five-failure retry guard
+ * feeding `updateStatus("spaceWeather")`. Aurora ellipsoids are drawn once and
+ * never refreshed; the globe page has no toggle-off branch for this layer, so
+ * only the interval is cleared and the entities persist until the viewer is
+ * destroyed.
+ */
 export function loadSpaceWeather(
   viewer: any,
   Cesium: any,

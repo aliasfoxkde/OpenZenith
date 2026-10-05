@@ -8,6 +8,19 @@ const MIN_MOVE_DEGREES = 0.05;
 
 let lastLoadCenter: { lat: number; lon: number } | null = null;
 
+/**
+ * Samples a lat/lon grid centered on the camera and draws one colored point
+ * primitive per valid elevation, giving a coarse terrain-colored dot field.
+ * Grid density (12/18/24 per side) and span (min(camera height * 0.8, 2)
+ * degrees) scale with camera altitude; elevations resolve through
+ * getClientElevationBatch, and null or sub -9000 m values are skipped.
+ * Points go into a PointPrimitiveCollection on viewer.scene.primitives —
+ * not viewer.entities — stored as entitiesRef.current["elev-points"] and
+ * removed before each rebuild. Resolves to void. Skips entirely above
+ * 5,000,000 m camera height or when the camera has moved less than 0.05
+ * degrees since the last load (module-level `lastLoadCenter` memo); a batch
+ * failure is logged and leaves the previous collection in place.
+ */
 export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: Record<string, any>) {
   if (!Cesium || !viewer) return;
 

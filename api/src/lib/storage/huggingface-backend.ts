@@ -133,6 +133,16 @@ abstract class BaseChunkBackend implements ChunkBackend {
   }
 }
 
+/**
+ * ChunkBackend that reads SRTM chunks from a HuggingFace dataset repo.
+ * `repo` is the dataset id (e.g. "aliasfox/srtm30m-merged"); with `tryMerged`
+ * set it downloads whole `.merged` cells (~9.4MB each) and slices chunks from
+ * them — downloads are single-flighted per cell and cached in an in-isolate
+ * Map (30-minute TTL) plus the edge Cache API under key "oz:merged:<tile>" for
+ * cross-isolate reuse. A missing or corrupt merged cell falls back to a direct
+ * `<latDir>/<base>_<row>_<col>.deflate` fetch. Every fetch carries an 8-second
+ * abort timeout so a stalled origin cannot burn the edge CPU budget.
+ */
 export class HuggingFaceChunkBackend extends BaseChunkBackend {
   constructor(
     private repo: string,

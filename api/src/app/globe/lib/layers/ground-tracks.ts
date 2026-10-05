@@ -1,4 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Draws ground tracks for three notable satellites (ISS 25544, Hubble 20580,
+ * Tiangong 48274). Requires the globally loaded satellite.js
+ * (window.satellite) and no-ops without it. Fetches a live TLE per satellite
+ * from Celestrak (gp.php?CATNR=...&FORMAT=json) via /api/proxy, propagates
+ * SGP4 for 200 steps at 30 s intervals from load time, and adds one
+ * ground-clamped glowing cyan polyline per satellite (`gtrack-<n>`) to
+ * viewer.entities. Returns void. No status callback, no polling interval and
+ * no cleanup of its own; a failed or short TLE fetch silently drops that
+ * satellite.
+ */
 export function loadGroundTracks(viewer: any, Cesium: any) {
   const satJs = (window as any).satellite;
   if (!Cesium || !viewer || !satJs) return;

@@ -1,3 +1,10 @@
+/**
+ * API health and capability descriptor.
+ *
+ * GET /api/health - version, active storage backend (OZT2 primary and merged
+ * fallback repos), DEM coverage envelope, and the canonical endpoint map.
+ * Caching: Cache-Control: no-cache - this is a status probe, not a data read.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import pkg from "../../../../package.json";

@@ -12,6 +12,14 @@ export type LayerTimerEntry = {
   id: ReturnType<typeof setInterval>;
 };
 
+/**
+ * The ref loaders hand their `setInterval` handle to via `pushLayerTimer`.
+ * Owned by the globe page as `intervalsRef` and read in three places: the
+ * visibility handler clears every entry when the tab hides (resume reloads the
+ * enabled layers), viewer unmount clears every entry again, and layer
+ * toggle-off filters out only the entries whose key matches — which is the
+ * whole reason `LayerTimerEntry` carries a key.
+ */
 export type LayerTimersRef = React.RefObject<LayerTimerEntry[]>;
 
 /** Register `id` under `key` so toggle-off can clear exactly this layer's timers. */

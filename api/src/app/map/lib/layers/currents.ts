@@ -526,6 +526,18 @@ function renderFrame() {
   animFrame = requestAnimationFrame(renderFrame);
 }
 
+/**
+ * Add the animated ocean-current overlay — the one layer that renders on a
+ * canvas rather than through MapLibre layers. A module-level 360x180 flow
+ * field (pre-computed at import time from 19 hand-drawn current paths, 8°
+ * falloff) advects 6000 particles per frame on a requestAnimationFrame loop,
+ * drawing blue trails onto a canvas appended to the map container. Also adds
+ * a barely-visible GeoJSON line layer of the current paths, a DOM Marker
+ * label at each current's midpoint, and move/zoom listeners that clear
+ * trails on camera motion. All of that state is module-level, so a second
+ * add is a no-op and removeOceanCurrents is what actually tears it down. No
+ * status is written to the handle.
+ */
 export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): void {
   if (canvasEl) return;
 
@@ -615,6 +627,11 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
   map.on("zoomend", onMoveEnd);
 }
 
+/**
+ * Stop the animation, detach the canvas, remove the current-path labels,
+ * lines and source, and unbind the move/zoom listeners — the exact set
+ * addOceanCurrents registered, tracked in module state.
+ */
 export function removeOceanCurrents(map: maplibregl.Map): void {
   if (animFrame) {
     cancelAnimationFrame(animFrame);

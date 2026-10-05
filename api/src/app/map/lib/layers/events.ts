@@ -6,6 +6,15 @@ import { setStatus, warnLayerError } from "./types";
 /** NASA EONET v3 GeoJSON feed — `features` is what this layer renders. */
 type EonetFeed = { features?: GeoJSON.Feature[] };
 
+/**
+ * Add the NASA EONET natural-events layer: open events (limit 200) fetched
+ * from eonet.gsfc.nasa.gov as GeoJSON and rendered as a 6px circle layer
+ * over a 14px blurred glow, coloured by event category — red for
+ * volcanoes/severe storms/icebergs, orange for wildfires/sea-lake ice, blue
+ * for floods/landslides, amber for everything else. Reports the feature
+ * count on the handle and refreshes every 5 minutes; the glow layer is only
+ * created alongside the point layer, and a failed fetch reports "error".
+ */
 export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("natural-events")) return;
 
@@ -78,6 +87,7 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
   );
 }
 
+/** Remove the EONET glow and point layers plus the `natural-events` source, ignoring "not found" errors. */
 export function removeNaturalEvents(map: maplibregl.Map): void {
   try {
     map.removeLayer("natural-events-glow");

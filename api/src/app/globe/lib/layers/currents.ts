@@ -294,6 +294,18 @@ function currentDescription(c: (typeof OCEAN_CURRENTS)[0]): string {
   return `${c.name} — ${type}`;
 }
 
+/**
+ * Renders the 19 hard-coded ocean currents in OCEAN_CURRENTS with no network
+ * fetch — fully static and offline. Per current it adds three entity kinds to
+ * viewer.entities: a static glow polyline (`current-path-<i>`), five animated
+ * particle polylines (`current-particle-<i>-<p>`) whose positions are a
+ * CallbackProperty driven by Date.now() so each particle cycles the path
+ * (cycle speed 0.0003, staggered by p/5), and a midpoint label
+ * (`current-label-<i>`). Returns void. It registers no polling interval and
+ * performs no cleanup of its own — entities persist until the layer is
+ * toggled off — and the reported count is the number of currents (19), not
+ * the ~133 entities actually created.
+ */
 export function loadCurrents(
   viewer: any,
   Cesium: any,

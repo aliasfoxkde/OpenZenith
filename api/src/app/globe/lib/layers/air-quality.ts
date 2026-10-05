@@ -24,6 +24,18 @@ function aqiLabel(aqi: number): string {
   return "Hazardous";
 }
 
+/**
+ * Renders current US-AQI air quality for 20 hard-coded major cities, one
+ * `aq-<city>` entity each (billboard icon, AQI-colored point, an "AQI n"
+ * label faded out past 5e6 m, and a tooltip with PM2.5/PM10/NO2/O3 in
+ * µg/m³). Each city is fetched live from the Open-Meteo Air Quality API
+ * through the /api/proxy route; positions are degrees and colors are hex
+ * from the EPA AQI bands. Adds to viewer.entities and returns void.
+ * Registers a 30 min (1800000 ms) interval under "airQuality" that clears
+ * the `aq-` prefix and reloads while stateLayers.airQuality holds. A
+ * per-city fetch error is skipped silently; only a setup failure sets the
+ * airQuality error status.
+ */
 export function loadAirQuality(
   viewer: any,
   Cesium: any,

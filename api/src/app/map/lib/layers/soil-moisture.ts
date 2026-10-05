@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Soil Moisture (SMAP L3) ─── */
 
+/**
+ * Add the SMAP L3 soil-moisture raster: a 256px source at
+ * /api/soil-moisture/{z}/{x}/{y} (L-band active retrieval, zooms 0-3 — the
+ * coarsest of the GIBS overlays) at 0.85 opacity. Guarded per source/layer;
+ * status is reported under the camelCase id "soilMoisture".
+ */
 export function addSoilMoisture(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("soil-moisture")) return;
 
@@ -31,6 +37,7 @@ export function addSoilMoisture(map: maplibregl.Map, handle: LayerHandle): void 
     }
 }
 
+/** Remove the soil-moisture raster layer and its `soil-moisture` source, ignoring "not found" errors. */
 export function removeSoilMoisture(map: maplibregl.Map): void {
   try {
     map.removeLayer("soil-moisture-raster");

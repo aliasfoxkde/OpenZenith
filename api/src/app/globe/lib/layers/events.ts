@@ -45,6 +45,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   manmade: "Manmade",
 };
 
+/**
+ * Renders open NASA EONET natural events (volcanoes, wildfires, icebergs,
+ * severe storms, ...) fetched live via fetchEONET (v3 GeoJSON, status=open,
+ * limit 200). Each feature becomes an `event-<i>` entity — category SVG
+ * billboard (24 px when updated in the last 24 h, else 20), category-colored
+ * point, title label and tooltip — and events updated within 24 h also get a
+ * 17,500 m pulsing ellipse (`event-pulse-<i>`). Adds to viewer.entities and
+ * returns void. Refreshes every 30 min (1800000 ms) under "events" while
+ * stateLayers.events holds, clearing the `event-` prefix first; failures
+ * feed a 3-attempt retry guard reported as "Retrying (n/3)...".
+ */
 export function loadEvents(
   viewer: any,
   Cesium: any,

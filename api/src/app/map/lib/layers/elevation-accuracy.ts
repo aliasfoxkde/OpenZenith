@@ -25,6 +25,16 @@ const ZONE_BOUNDARIES: GeoJSON.Feature[] = [
   },
 ];
 
+/**
+ * Add the DEM-accuracy overlay: the /api/elevation-accuracy/{z}/{x}/{y}
+ * raster (which source DEM each tile comes from — EEA 10m, ArcticDEM, GEBCO
+ * — as a colour ramp) at 0.25 opacity, plus two reference layers: a dashed
+ * green line around the EEA 10m bounding box, the only zone edge that is a
+ * real geographic boundary, and a Natural Earth 110m coastline fetched from
+ * jsdelivr. Zone labels are deliberately not drawn here — the loader only
+ * receives a Map instance, which is not enough to construct a Marker. No
+ * status is written to the handle.
+ */
 export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("elevation-accuracy")) return;
 
@@ -83,6 +93,7 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
   // should receive the actual MapLibre module explicitly.
 }
 
+/** Remove the accuracy raster, zone-outline and coastline layers and their three sources (plus the legacy elevation-accuracy-edges id), ignoring "not found" errors. */
 export function removeElevationAccuracy(map: maplibregl.Map): void {
   try {
     map.removeLayer("accuracy-zones-line");

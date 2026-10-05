@@ -33,6 +33,23 @@ function frpToRadius(frp: number): number {
   return base + scale * Math.log10(Math.max(frp, 1) + 1);
 }
 
+/**
+ * Plots active fire detections from NASA FIRMS: `GET /api/wildfires` proxies
+ * the FIRMS area CSV API (VIIRS by default) and the loader parses the rows —
+ * latitude and longitude in degrees, brightness in Kelvin, confidence in
+ * percent, Fire Radiative Power in megawatts and a day/night flag. Capped at
+ * 400 detections, each becomes a translucent glow ellipse of
+ * 25000 + 35000*log10(FRP+1) metres (about 35 km for a weak detection, ~130 km
+ * at FRP 1000 MW), an outline-only ring at 1.3x that radius when confidence is
+ * >= 80, and a billboard fire icon over a bright point carrying a description
+ * card. Every entity is prefixed `fire-`
+ * and cleared before a rebuild. A 21600000 ms (6 h) interval, registered
+ * through `pushLayerTimer` and gated on `stateLayers.wildfires`, wipes and
+ * re-runs the whole load; failures pass through a three-failure retry guard
+ * into `updateStatus("wildfires")`. The globe page has no toggle-off branch for
+ * this layer, so only the interval is cleared and the entities persist until
+ * the viewer is destroyed.
+ */
 export function loadWildfires(
   viewer: any,
   Cesium: any,

@@ -13,6 +13,18 @@ interface NlnogNode {
   lon: number;
 }
 
+/**
+ * Renders the NLNOG Ring node network as a `CustomDataSource("NLNOG Ring
+ * Nodes")` added to `viewer.dataSources`: a 5px orange (#f97316) point with a
+ * city/hostname label per node, plus up to 200 ground-clamped glow polylines
+ * joining node pairs 100-2000 km apart (distance is a flat ~111 km/degree
+ * approximation, not geodesic). One-shot live fetch of `GET /api/nlnog`, the
+ * edge-cached proxy for the NLNOG Ring API at api.ring.nlnog.net/1.0/nodes;
+ * coordinates are degrees. No polling interval and no cleanup helper — a reload
+ * adds a second data source, and the globe page's toggle-off path clears
+ * entities whose id starts with `nlnog-`. Reports node count or error through
+ * `updateStatus("nlnogNodes")`. Returns nothing.
+ */
 export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   if (!Cesium || !viewer) return;
 

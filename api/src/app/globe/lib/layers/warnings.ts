@@ -5,6 +5,21 @@ import { fetchWarnings } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
+/**
+ * Draws active US National Weather Service alerts: a live fetch of
+ * `GET /api/weather/warnings`, which proxies
+ * `https://api.weather.gov/alerts/active` as a GeoJSON FeatureCollection. Each
+ * Polygon feature (other geometry types are ignored) yields up to three
+ * entities in `viewer.entities` — a filled polygon (`warn-<i>`), a
+ * ground-clamped dashed outline (`warn-border-<i>`) and a centroid label with a
+ * severity glyph (`warn-label-<i>`). Severity comes from the event name:
+ * tornado or "extreme" renders red with a tight dash, "severe"/"warning" orange,
+ * and anything else yellow as a watch. Coordinates are degrees. A 300000 ms
+ * (5 min) interval, registered through `pushLayerTimer` and gated on
+ * `stateLayers.warnings`, refetches and rebuilds after clearing ids prefixed
+ * `warn-`; failures pass through a five-failure retry guard into
+ * `updateStatus("warnings")`.
+ */
 export function loadWarnings(
   viewer: any,
   Cesium: any,

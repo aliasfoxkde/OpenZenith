@@ -25,6 +25,16 @@ interface FlightsResponse {
   error?: string;
 }
 
+/**
+ * Add the civil-aviation layer: OpenSky state vectors for the current map
+ * viewport, requested from /api/flights with the visible bounds as a bbox.
+ * States without a position are dropped; the rest become cyan 3px circles
+ * under a soft glow, with ICAO24, callsign, origin country, velocity (m/s),
+ * barometric altitude (m) and on_ground carried as properties. Refreshes on
+ * moveend with a 5-second debounce plus a 2-minute interval, and marks the
+ * handle "error" when the route reports a fallback error, "empty" when the
+ * bbox simply has no traffic.
+ */
 export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("flights")) return;
   setStatus(handle, "flights", "loading");
@@ -127,6 +137,7 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
   );
 }
 
+/** Remove the flight glow and circle layers plus the `flights` source, ignoring "not found" errors. */
 export function removeFlights(map: maplibregl.Map): void {
   try {
     map.removeLayer("flights-glow");

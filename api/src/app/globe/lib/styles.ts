@@ -1,3 +1,13 @@
+/**
+ * The globe page's entire stylesheet as one template-literal string, injected
+ * once by page.tsx via dangerouslySetInnerHTML into a <style> tag (no CSS
+ * module, no build step). Every component selector is prefixed `wv-`, with a
+ * few bare helpers (.spinner, .dot, .indicator) and five global @keyframes
+ * (gridPulse, ticker, blink, pulse, spin) that are not namespaced. The rules
+ * are written against the CSS custom properties THEMES[theme].css supplies at
+ * runtime (--bg, --accent, --scanlines, --corner-size, --glow-intensity, ...),
+ * so theming only ever changes variables, never selectors.
+ */
 export const STYLES = `
 .wv-wrap{position:relative;width:100vw;height:100vh;overflow:hidden;font-family:var(--font-ui);background:var(--bg-solid);color:var(--text);
   display:flex;flex-direction:column}

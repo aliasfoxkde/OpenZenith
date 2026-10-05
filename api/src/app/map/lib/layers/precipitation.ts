@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── Precipitation (IMERG) ─── */
 
+/**
+ * Add the precipitation-rate raster: a 256px source at
+ * /api/precipitation/{z}/{x}/{y} (NASA GIBS IMERG GPM retrieval, zooms 0-8)
+ * at 0.8 opacity. Guarded per source/layer; reports "loaded"/"error" under
+ * the "precipitation" id.
+ */
 export function addPrecipitation(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("precipitation")) return;
 
@@ -31,6 +37,7 @@ export function addPrecipitation(map: maplibregl.Map, handle: LayerHandle): void
     }
 }
 
+/** Remove the precipitation raster layer and its `precipitation` source, ignoring "not found" errors. */
 export function removePrecipitation(map: maplibregl.Map): void {
   try {
     map.removeLayer("precipitation-raster");

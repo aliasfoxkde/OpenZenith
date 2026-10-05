@@ -9,6 +9,16 @@ import { latLonToTile } from "./types";
  */
 type ContourTile = { features?: GeoJSON.Feature[] };
 
+/**
+ * Add topographic contour lines: on every moveend (debounced 300 ms) the
+ * visible tiles at the current integer zoom are enumerated via latLonToTile
+ * and fetched from /api/contours/{z}/{x}/{y} in parallel — up to 6 tiles per
+ * pass, and skipped entirely below zoom 7 where DEM assembly is unreliable.
+ * Features carry a `type` property split across two line layers: thin grey
+ * `minor` contours and thicker, brighter `major` ones. Registers moveend/
+ * zoomend listeners on the map and clears them through handle.cleanup; no
+ * status is reported to the handle.
+ */
 export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("contours")) return;
 
@@ -116,6 +126,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
   };
 }
 
+/** Remove both contour line layers and the `contours` source, ignoring "not found" errors. */
 export function removeContours(map: maplibregl.Map): void {
   try {
     map.removeLayer("contours-major");

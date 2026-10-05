@@ -113,6 +113,26 @@ const NOTABLE_PATTERNS = [
   /TIANGONG/,
 ];
 
+/**
+ * Builds the satellite layer from the CelesTrak active catalogue: the first
+ * 1500 TLEs are propagated once via satellite.js into geodetic lon/lat degrees,
+ * altitude in km and speed in km/s, and stored on `satDataRef.current` for the
+ * pick handler. Rendering reaches the viewer three ways — translucent
+ * LEO/MEO/GEO shell ellipsoids centred on the origin (ids `orbit-shell-<name>`,
+ * so outside the `sat-` prefix), one point per satellite in a
+ * `PointPrimitiveCollection` added to `scene.primitives` and cached as
+ * `entitiesRef.current["sat-points"]` at max(altKm*1000, 160 km), and up to 50
+ * name-matched notable satellites as billboards with labels, a description card
+ * and a ground-track polyline sampled every 2 minutes across ±90 minutes at
+ * 500 m.
+ *
+ * A 300000 ms (5 min) interval, registered through `pushLayerTimer`, refetches
+ * the catalogue and slides the existing point primitives and notable entities
+ * to their new positions; failures surface through `updateStatus("satellites")`
+ * via a five-failure retry guard. Toggle-off clears entities prefixed `sat-` —
+ * which also drops the point collection from `scene.primitives` — and clears
+ * the interval through the shared `intervalsRef`.
+ */
 export function loadSatellites(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

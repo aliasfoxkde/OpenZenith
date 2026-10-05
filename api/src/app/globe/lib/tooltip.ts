@@ -11,6 +11,13 @@ export interface TooltipEntityProperty {
   getValue?: () => unknown;
 }
 
+/**
+ * Structural subset of a Cesium Entity — only the three members
+ * buildEntityTooltip reads. Property values are reached through an
+ * optional-call `getValue()`, so real Cesium entities and the partial mocks
+ * used in tests both satisfy it, and every member is optional so null-ish
+ * picks degrade to an empty tooltip rather than throwing.
+ */
 export interface TooltipEntity {
   id?: string;
   name?: string;

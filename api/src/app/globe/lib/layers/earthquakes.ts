@@ -5,6 +5,18 @@ import type { EarthquakeFeature } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
+/**
+ * Renders the past 24 h of global earthquakes from the live USGS all-day
+ * GeoJSON feed (fetchEarthquakes → /api/proxy/.../summary/all_day.geojson).
+ * Each feature becomes an `eq-<i>` ellipse (semi-axis max(3000, mag*8000) m)
+ * plus point and, for M4+, a magnitude label; M5+ also get a white halo ring
+ * (`eq-ring-<i>`, 1.8x axis + 1500 m) and quakes felt by more than 10 people
+ * a felt-radius disc (`eq-felt-<i>`, min(felt*2000, 300000) m). Depth under
+ * 10 km forces red, otherwise magnitude bands apply; the outline follows the
+ * USGS alert level. Adds to viewer.entities and returns void. A 60 s
+ * (60000 ms) interval under "earthquakes" wipes `eq-` and reloads while
+ * stateLayers.earthquakes holds, guarded by a 5-attempt retry guard.
+ */
 export function loadEarthquakes(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

@@ -2,6 +2,11 @@ import type { LayerHandle } from "./types";
 
 /* ─── CORINE Land Cover ─── */
 
+/**
+ * Add the land-cover raster: a 256px source at /api/landcover/{z}/{x}/{y}
+ * (NASA GIBS MODIS IGBP land-cover classification, zooms 4-13) drawn at 0.5
+ * opacity so the basemap shows through. No status is written to the handle.
+ */
 export function addLandCover(map: maplibregl.Map, _handle: LayerHandle): void {
   if (map.getSource("land-cover")) return;
 
@@ -23,6 +28,7 @@ export function addLandCover(map: maplibregl.Map, _handle: LayerHandle): void {
   });
 }
 
+/** Remove the land-cover raster layer and its `land-cover` source, ignoring "not found" errors. */
 export function removeLandCover(map: maplibregl.Map): void {
   try {
     map.removeLayer("land-cover-layer");

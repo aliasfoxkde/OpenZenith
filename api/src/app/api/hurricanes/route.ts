@@ -1,3 +1,12 @@
+/**
+ * Tropical cyclone tracks from NOAA IBTrACS.
+ *
+ * GET /api/hurricanes?tracks=1 - parses the IBTrACS v04r01 last-3-years CSV
+ * into GeoJSON: full track polylines per storm with ?tracks=1, otherwise one
+ * point per storm at its latest position, each carrying max wind and
+ * derived category. Caching: Workers Cache API plus an in-flight coalescing
+ * fetch, both held for 1800s, and Cache-Control: public, max-age=1800.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";

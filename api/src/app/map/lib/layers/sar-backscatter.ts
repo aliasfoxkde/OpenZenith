@@ -3,6 +3,12 @@ import { setStatus, warnLayerError } from "./types";
 
 /* ─── SAR Backscatter (OPERA L2 RTC Sentinel-1) ─── */
 
+/**
+ * Add the OPERA L2 RTC SAR-backscatter raster (Sentinel-1 radar reflectivity
+ * via /api/sar-backscatter/{z}/{x}/{y}, zooms 1-10) at 0.85 opacity.
+ * Guarded per source/layer; status is reported under the camelCase id
+ * "sarBackscatter".
+ */
 export function addSarBackscatter(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("sar-backscatter")) return;
 
@@ -33,6 +39,7 @@ export function addSarBackscatter(map: maplibregl.Map, handle: LayerHandle): voi
     }
 }
 
+/** Remove the SAR-backscatter raster layer and its `sar-backscatter` source, ignoring "not found" errors. */
 export function removeSarBackscatter(map: maplibregl.Map): void {
   try {
     map.removeLayer("sar-backscatter-raster");

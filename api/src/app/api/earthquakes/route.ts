@@ -1,3 +1,12 @@
+/**
+ * USGS earthquake feed proxy.
+ *
+ * GET /api/earthquakes?period=<all_hour|all_day|...|1.0_month> - relays the
+ * USGS summary GeoJSON document verbatim for the requested period.
+ * Caching: Workers Cache API keyed by period plus an in-flight coalescing
+ * fetch; Cache-Control: public, max-age=60 (CACHE_TTL.EARTHQUAKES), with an
+ * X-Cache: HIT|MISS marker.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";

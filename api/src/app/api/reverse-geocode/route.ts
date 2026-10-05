@@ -1,3 +1,12 @@
+/**
+ * Reverse geocoding proxy.
+ *
+ * GET /api/reverse-geocode?lat=&lon=[&zoom=] - relays to Nominatim /reverse
+ * and returns { place, location }; place is null when Nominatim has no match
+ * at the requested zoom. Caching: no edge cache - Nominatim etiquette caps
+ * upstream pressure and misses would stick;
+ * Cache-Control: public, max-age=3600 on both hit and miss.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 

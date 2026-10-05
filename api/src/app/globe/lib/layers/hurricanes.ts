@@ -64,6 +64,19 @@ const CAT_WINDS: Partial<Record<string, { min: number; max: number; label: strin
   EX: { min: 0, max: 999, label: "Extratropical" },
 };
 
+/**
+ * Renders tropical cyclone tracks from the live NOAA IBTrACS last-3-years
+ * CSV (v04r01, via fetchHurricaneTracks), grouping rows by storm id and
+ * coloring by Saffir-Simpson category. Per storm with two or more fixes it
+ * adds to viewer.entities: sampled history dots (`storm-dot-...`, up to 40),
+ * a glowing track polyline (`storm-<n>`), a label and point at the latest
+ * fix with name, category badge and peak wind in kt, three CallbackProperty
+ * spiral arms rotating with scene time (radius 350 km for Cat3+, else
+ * 200 km), a 300 km wind-extent ring, and a 40 km dark eye wall for Cat3+.
+ * Wind is knots, pressure hPa. Returns void; a single fetch with no polling
+ * interval. Reported count is storms drawn, not entities; a fetch failure
+ * sets the hurricaneTracks error status.
+ */
 export function loadHurricanes(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

@@ -1,6 +1,13 @@
 import type { LayerHandle } from "./types";
 import { setStatus, warnLayerError } from "./types";
 
+/**
+ * Add the canopy-height overlay: a 256px raster source at
+ * /api/canopy-height/{z}/{x}/{y} (NASA GIBS GEDI L3 mean RH100 canopy height
+ * in metres, 2019-2023, zooms 0-8) drawn at 0.85 opacity. Idempotent on the
+ * `canopy-height` source; status is reported under the camelCase id
+ * "canopyHeight".
+ */
 export function addCanopyHeight(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("canopy-height")) return;
   try {
@@ -23,6 +30,7 @@ export function addCanopyHeight(map: maplibregl.Map, handle: LayerHandle): void 
     setStatus(handle, "canopyHeight", "error");
     }
 }
+/** Remove the canopy-height raster layer and its `canopy-height` source, ignoring "not found" errors. */
 export function removeCanopyHeight(map: maplibregl.Map): void {
   try {
     map.removeLayer("canopy-height-raster");

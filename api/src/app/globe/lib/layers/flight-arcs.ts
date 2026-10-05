@@ -2,6 +2,17 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
+/**
+ * Renders decorative high-altitude flight arcs. Pulls the full OpenSky
+ * states/all feed live through /api/proxy/https://opensky-network.org/api/
+ * states/all, keeps states above 30,000 ft (state vector index 7), shuffles
+ * and takes 100, then pairs adjacent survivors into arcs — pairs closer than
+ * 15 or farther than 80 apart (planar, measured in degrees) are dropped.
+ * Each arc is a 30-segment polyline bulged to 1.5x the pair's max altitude
+ * at mid-span and colored by altitude ratio via Cesium.Color.fromHsl, id
+ * `arc-<n>`. Adds to viewer.entities and returns void; a single load with no
+ * polling interval, so arcs go stale until the layer is reloaded.
+ */
 export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void) {
   if (!Cesium || !viewer) return;
 

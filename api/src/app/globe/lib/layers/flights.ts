@@ -70,6 +70,20 @@ function toKnots(ms: number): number {
   return Math.round(ms * 1.94384);
 }
 
+/**
+ * Renders live air traffic from OpenSky. The first load tries the
+ * authenticated bbox query (/api/opensky/flights, camera-derived span capped
+ * at 5 degrees) and falls back to the anonymous /api/flights feed; states
+ * without lat/lon or on the ground are dropped, the rest capped at
+ * MAX_FLIGHTS (300). Each aircraft becomes a `flight-<i>` billboard rotated
+ * to true track and colored by altitude band (gray on ground) with an
+ * optional callsign label and a tooltip of flight level / knots / heading;
+ * above 100 m/s it also draws a velocity-vector polyline, and above 8,000 m
+ * five fading contrail segments. Adds to viewer.entities and returns void.
+ * Refreshes every 15 s (15000 ms) under "flights" while stateLayers.flights
+ * holds, skipping the bbox call when the camera has not moved (closure
+ * `lastBboxKey`); failures feed a 5-attempt retry guard.
+ */
 export function loadFlights(
   viewer: CesiumType.Viewer | undefined,
   Cesium: typeof CesiumType | undefined,

@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-04-19 globe performance plan (CesiumJS 1.119). The current
+> performance plan — with measured evidence and open items — is
+> `docs/planning/PERFORMANCE_PLAN_2026-10-02.md`.
+
 # Globe Performance Improvement Plan
 
 **Date:** 2026-04-19  

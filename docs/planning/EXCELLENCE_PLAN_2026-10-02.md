@@ -169,10 +169,13 @@ Work items:
 3. Mechanical docstring fills (Python 6, rust 4, TS JSDoc, 28 route headers).
 4. Create `api/README.md` (scripts, dev server, deploy path, env vars) and
    `.github/SECURITY.md` (points at `docs/security/TRIAGE.md` policy).
-5. Add a **docs-claims gate** (`scripts/check-doc-claims.mjs`): README/CLAUDE
-   numeric claims (layer count, basemap count, route count) are asserted
-   against the registry/config truth in CI — the "99% docs coverage"
-   enforcement mechanism, modeled on perf-budget.mjs.
+5. Add a **docs-claims gate** (`scripts/check-doc-claims.mjs` planned;
+   **implemented 2026-10-05 as a vitest contract test instead** —
+   `api/src/lib/__tests__/docs-claims.test.ts` — so it rides the existing
+   CI unit-test job and derives truth from the real TS module graph):
+   README/CLAUDE numeric claims (layer count, basemap count, route count)
+   are asserted against the registry/config truth — the "99% docs
+   coverage" enforcement mechanism, modeled on perf-budget.mjs.
 6. `docs/README.md` numbered reading-order index with last-swept date
    (StationAware pattern).
 7. `OPZENITH_DATA_REPO.md`: header marking it as a spec/proposal, not current
@@ -456,3 +459,61 @@ toggle smoke for item 1.
     and the 30m install timeout — both green; the only red was
     bundle-budget timing out at 15m under co-tenant load (empty step log,
     same infra class as install), timeout raised to 30m with the run cited.
+- 2026-10-04/05 (Phase 4, documentation coverage — complete):
+  - **Docstrings/JSDoc**: the audit's "65% JSDoc baseline" was wrong — the
+    real measured baseline was **28.5%** (111/390 exported symbols), so the
+    wave is bigger than planned: 114 TS files edited to reach **390/390
+    exported symbols** documented (src/lib, app/globe/lib, app/map/lib,
+    app/studio/lib — contract docs, no restatements), 6 Python public
+    functions gained missing docstrings (async_client.fetch_chunk,
+    elevation.load_tile/pixel_to_lat/pixel_to_lon, tracing.fetch_neighbor_elev,
+    streams.count_upstream_streams), route handler doc headers completed to
+    **80/80**. `missing_docs` stays 0 in core/.
+  - **Stale-claims sweep** (grep-driven, corrected against derived truth,
+    not edited-to-match): **62 layers** (registry LAYERS = curated =
+    mountable — the old "54 mountable / 27 curated" pairing had no
+    population; 54 is MAP_2D_LAYER_IDS, the 2D subset), **10 basemaps**
+    (basemaps.ts BASEMAPS), **80 API routes** (route.ts files counted).
+    README.md, CLAUDE.md, ARCHITECTURE.md (stale gebco-tile/{name} path,
+    removed contours route, FIRMS priority chain) and docs/CLAUDE.md all
+    reconciled; CLI subcommand counts pinned to the argparse census (26).
+    9 `.gitforce.yml` typos → `.gitforge.yml` across planning/archive docs;
+    18 archive files got why-archived headers; docs/README.md (new)
+    indexes canonical docs with a reading order; stale docs/globe/README.md
+    deleted (content contradicted the shipped globe).
+  - **Docs-claims gate**: implemented as a **vitest** contract test
+    (`docs-claims.test.ts`, 4 tests) instead of the planned standalone
+    .mjs — deviation, deliberate: it then runs in every CI unit-test job
+    with zero new plumbing, reuses the TS module graph to derive truth
+    (import the registry, count), and fails the same gate everything else
+    fails. Greps README/CLAUDE.md for the layer/basemap/route-count claim
+    shapes and compares against module-derived counts; `.gitforge.yml`
+    completeness guard → **100 files / 1,450 tests**.
+  - **New docs**: api/README.md (all commands sourced from package.json,
+    not invented; records HF_REPO/USE_MERGED as declared-but-unread env
+    and .env.example's DEM_TILES as read by nothing) and
+    .github/SECURITY.md (GitHub-Issues reporting path per the GitForge
+    primary directive — issues are the mirror's supported surface — with
+    the security/TRIAGE.md gate policy referenced).
+  - **Real bugs the documentation pass surfaced (fixed, not just
+    documented)**: (1) range-rings and ContextMenu drew ellipse rings with
+    **degrees** where `EllipseGraphics.semiMajor/MinorAxis` takes **metres**
+    — rings were microscopic; (2) military aircraft positions passed
+    ADS-B **feet** where `Cartesian3.fromDegrees` height is **metres**
+    (and alt_baro can be the string "ground" — now falls back to alt_geom,
+    then 0); (3) the toggleLayer switch had **no off-branches for eight
+    dynamic layers** (spaceWeather, airQuality, aviationWeather, volcanoes,
+    gdacs, marineWeather, wildfires, lightning) — toggling them off left
+    entities rendered forever; lightning was worst (its module-level
+    WebSocket ignores the toggle, so strikes kept streaming after off —
+    now closed via cleanupLightning() like unmount does). Also fixed 2
+    eslint **errors** the Phase-3 wave had committed in edge-cache.test.ts
+    (no-base-to-string on Cache keys → keyOf union resolver).
+  - **Gates at close**: tsc 0; eslint 0 errors / **1,890 warnings** (guard
+    exact, page.tsx HEAD-exact — the eight new cases add zero);
+    vitest 100 files / 1,450 passed + 5 skipped at floors 99/96/92/99;
+    ruff + mypy clean; pytest re-run after the docstring edits;
+    scripts/core_coverage_gate.sh reconciled with the Phase-3 measurement
+    (was stale at the 97.96% pre-stdout-fix baseline): floor 95 → **99**,
+    new baseline comment cites 99.19% lines and the closure-instantiation
+    remainder.

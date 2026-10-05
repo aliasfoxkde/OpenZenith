@@ -155,7 +155,7 @@ generated code).
 (`unwrap_used`, `expect_used`, `panic`, `integer_division`,
 `float_cmp`) — production paths only; tests may `allow`.
 
-**A5. CI mirror**: every gate above runs in `.gitforce.yml` and the local
+**A5. CI mirror**: every gate above runs in `.gitforge.yml` and the local
 parity script; no gate suffixed with `|| true`.
 
 Exit criteria: `eslint`, `tsc --noEmit`, `vitest`, `ruff check`, `pytest`,
@@ -224,7 +224,7 @@ Scope: map, globe, explore, studio, landing, demo surfaces.
    finding categorized false-positive / accepted-risk / fix-now with a reason.
    The 2 criticals enter as false positives (test-fixture URLs, §2.3).
 3. Gate: `aegis --format json scan . --baseline docs/security/AEGIS_BASELINE.json`
-   fails on **new** findings only; wired into `.gitforce.yml` + parity script.
+   fails on **new** findings only; wired into `.gitforge.yml` + parity script.
 4. Fix-now items from triage (e.g. any real secrets-shaped code in
    `lib/basemaps.ts:123`, `bookmarks.ts:16`) get fixed, not baselined, if they
    touch credentials in code (they must not — env-only, per harness rules).
@@ -235,7 +235,7 @@ Scope: map, globe, explore, studio, landing, demo surfaces.
    push-trigger → run execution; if the event-drain stall persists, record the
    exact pipeline/run IDs and the stall evidence in this doc's progress log —
    honest status, no invented green.
-2. Confirm `.gitforce.yml` executes the full parity chain (A/B gates) when runs
+2. Confirm `.gitforge.yml` executes the full parity chain (A/B gates) when runs
    do materialize; a local dry-run of the same steps is the fallback proof and
    is labeled as such.
 
@@ -411,7 +411,7 @@ commit API. Next session: resume when HF recovers or split batches to
 ### 2026-09-22 — GitForge CI status re-verified (still platform-blocked)
 
 Verified against the live GitForge instance with a fresh JWT: the
-OpenZenith repo is registered (id 814a4cde…), `.gitforce.yml` exists in
+OpenZenith repo is registered (id 814a4cde…), `.gitforge.yml` exists in
 the repo mirroring `ci.yml`, but (a) `gitforge pipeline --list` shows no
 pipeline registered for the repo, and (b) `gitforge pipeline --create`
 returns "Pipeline creation not yet implemented". Together with the
@@ -2526,7 +2526,7 @@ Working the RELIABILITY_GAPS_2026-10-01.md queue systematically.
 - **Repo-root trim:** ozt2/, output/, temp/, .build-tmp/, .tmp-test/,
   elevation.geojson, contours_100.0m.geojson, api/.smoke-persist-119/120,
   api/test-results/ → trash-moved (never rm) to
-  /nas/Temp/tmp/oz-trash/. Dead tracked `.gitforce.yml` removed — it was
+  /nas/Temp/tmp/oz-trash/. Dead tracked pipeline file removed — it was
   the pre-rename spelling with map-style jobs the current GitForge parser
   rejects; `.gitforge.yml` (list-shaped, verified schema) supersedes it
   and wins the resolution order.

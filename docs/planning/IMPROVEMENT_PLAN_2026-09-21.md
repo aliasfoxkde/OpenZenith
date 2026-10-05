@@ -109,7 +109,7 @@ Status: active · Baseline: v0.8.1 (919d0fd) · Scope: repo-wide audit → phase
 ### Phase 7 — Validation, CI, release
 1. Full parity chain: eslint, tsc --noEmit, vitest (+coverage), pytest, ruff,
    cargo fmt/clippy/test — locally before any push.
-2. GitForge pipeline (`.gitforce.yml`) stays the primary CI mirror; GitHub
+2. GitForge pipeline (`.gitforge.yml`) stays the primary CI mirror; GitHub
    Actions remains billing-blocked (not a code signal).
 3. `pages:build` → artifact verify → `pages:deploy` → production verify →
    smoke_public_api.

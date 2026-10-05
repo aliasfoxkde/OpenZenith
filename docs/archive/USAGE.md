@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** API usage guide pointing at `openzenith.pages.dev` with the pre-WMTS
+> endpoint set. Live docs are served at `/api/docs` with the spec at
+> `/api/openapi.json`.
+
 # OpenZenith API Usage Guide
 
 ## Base URL

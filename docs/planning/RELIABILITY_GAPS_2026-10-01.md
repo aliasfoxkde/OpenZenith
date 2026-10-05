@@ -94,10 +94,10 @@ Trash-moved (never rm) to `/nas/Temp/tmp/oz-trash/` on 2026-10-01:
 (empty), `.build-tmp/`, `.tmp-test/`, tonight's `elevation.geojson` +
 `contours_100.0m.geojson` pytest artifacts, `api/.smoke-persist-119/120`
 (workerd persists), `api/test-results/`. `.pkgprobe/` was already
-relocated by an earlier pass. Also removed the tracked-but-dead
-`.gitforce.yml` (pre-rename pipeline spelling, map-style jobs the current
-parser rejects, superseded by `.gitforge.yml` which wins resolution
-order). Co-tenant live artifacts left alone.
+relocated by an earlier pass. Also removed the tracked-but-dead pre-rename
+pipeline file (map-style jobs the current parser rejects, superseded by
+`.gitforge.yml` which wins resolution order). Co-tenant live artifacts left
+alone.
 
 ## Verification facts (2026-10-01)
 - Prod serves the flip-card landing + fixed banner search (Playwright

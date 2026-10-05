@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-04-19 globe fix/optimization plan. The rendering and toggling
+> defects it targets are long fixed; current globe behavior lives in
+> `api/src/app/globe/`.
+
 # OpenZenith — Globe Fix, Optimization & Data Gap Plan
 
 **Date:** 2026-04-19  

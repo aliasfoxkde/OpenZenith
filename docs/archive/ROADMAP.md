@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** Early roadmap with stale counts (47 routes, 236 tests, Terrarium tiles
+> on R2). Current counts and storage truth live in the repo-root `README.md`,
+> `CLAUDE.md`, and `docs/ARCHITECTURE.md`.
+
 # OpenZenith Roadmap
 
 ## Current State

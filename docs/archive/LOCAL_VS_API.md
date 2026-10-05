@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** Local-SDK-vs-API usage guidance with 2026-04 latency and endpoint
+> assumptions. Current commands and endpoints live in the repo-root
+> `README.md` and `docs/ARCHITECTURE.md`.
+
 # OpenZenith — Local SDK vs API Usage Guide
 
 ## Quick Decision

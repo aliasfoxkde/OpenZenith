@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** April 2026 research into SAR and open data sources. Layer wiring has
+> since moved to `api/src/lib/layers/registry.ts`; dataset state is
+> `docs/DATASET_MANIFEST.md`.
+
 # OpenZenith — SAR & Open Data Source Research
 
 **Date:** 2026-04-20  

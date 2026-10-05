@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-05-01 API enhancement plan written against the Cloudflare Pages +
+> R2 + VPS architecture. R2 is decommissioned (2026-09-27); the platform now
+> runs on HuggingFace datasets plus the edge Cache API (`docs/ARCHITECTURE.md`).
+
 # OpenZenith API Enhancement Plan
 
 **Date:** 2026-05-01  

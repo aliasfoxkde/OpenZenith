@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** A 2026-04-30 competitor-feature audit of the globe. The items it
+> recommends (GPS jamming, day/night terminator, clustering) shipped; current
+> globe truth lives in `api/src/app/globe/` and `api/src/lib/layers/registry.ts`.
+
 # God's Eye Technical Audit - Globe Feature Enhancement
 
 **Audit Date:** 2026-04-30  

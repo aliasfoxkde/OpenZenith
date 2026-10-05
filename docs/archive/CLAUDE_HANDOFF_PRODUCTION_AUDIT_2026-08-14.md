@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** A production audit taken at v0.8.0 (2026-08-14); the 404 findings it
+> describes belong to that deployment. Current deployment state lives in
+> `docs/planning/MASTER_PLAN_2026-09-22.md` and `.github/CHANGELOG.md`.
+
 # OpenZenith production audit and Claude/MiniMax handoff
 
 **Audit date:** 2026-08-14 (America/Chicago)  

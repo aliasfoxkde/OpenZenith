@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-04-19 performance audit (four performance domains). Superseded by
+> the measured `docs/planning/PERFORMANCE_PLAN_2026-10-02.md`; budgets are
+> enforced by `api/scripts/perf-budget.mjs`.
+
 # OpenZenith Performance Audit & Improvement Plan
 
 **Date:** 2026-04-19  

@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-04-18 elevation spot-check (30 benchmark points, 23/30 within
+> tolerance). Re-run with `scripts/validate_elevation.py`; this report is a
+> point-in-time record, not a current accuracy statement.
+
 # OpenZenith Elevation Validation Report
 
 **Date:** 2026-04-18

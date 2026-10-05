@@ -1,3 +1,6 @@
+> **Archived 2026-10-04.** v0.6.2 gap analysis (2026-04-19). Superseded by the planning queue in
+> `docs/planning/` (`EXCELLENCE_PLAN_2026-10-02.md` is current).
+
 # OpenZenith — Gap Analysis & Improvement Plan
 
 **Date:** 2026-04-19  

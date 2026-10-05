@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-05-01 guide for self-hosting tiles on a VPS to replace HuggingFace.
+> Never adopted — tiles are still served from HuggingFace
+> (`docs/ARCHITECTURE.md`).
+
 # VPS Setup Guide for OpenZenith
 
 **Date:** 2026-05-01  

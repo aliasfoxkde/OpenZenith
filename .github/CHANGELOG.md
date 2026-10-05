@@ -200,7 +200,7 @@ API:
   kept serving it after removal, producing console warnings).
 
 ### Added
-- `.gitforce.yml` — GitForge CI pipeline (primary CI/CD; GitHub is a mirror).
+- `.gitforge.yml` — GitForge CI pipeline (primary CI/CD; GitHub is a mirror).
 
 ## v0.8.0 (2026-08-10)
 

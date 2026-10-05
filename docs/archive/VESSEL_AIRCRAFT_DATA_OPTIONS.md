@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** 2026-04-19 investigation of vessel/aircraft data sources. The chosen
+> sources shipped as layers (`vessels`, `militaryFlights`, `flights`) in
+> `api/src/lib/layers/registry.ts`.
+
 # Vessel & Military Aircraft Data — Investigation & Options
 
 **Date:** 2026-04-19  

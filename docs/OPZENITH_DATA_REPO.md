@@ -1,5 +1,17 @@
 # openzenith-data
 
+> **Spec / proposal — not current state (marked 2026-10-04).**
+> This describes a community-contribution repository (`openzenith-data`,
+> `contributions/`, `validate_tiles.py`, `merge_contributions.py`) that was
+> never built: no such repo, scripts, or contribution workflow exist. Tiles
+> today live in the HuggingFace datasets `aliasfox/srtm30m-merged` and
+> `aliasfox/srtm30m-ozt2-v2` (see `docs/DATASET_MANIFEST.md`), and the CLI is
+> `openzenith` (argparse; `encode`/`ingest` subcommands), not `oz`. The OZT2
+> byte layout below is accurate, but the encoder now records its compressor
+> per tile (Brotli/Zstd/zlib) rather than being Brotli-only. Read as a design
+> record; current truth lives in `docs/DATASET_MANIFEST.md` and
+> `docs/ARCHITECTURE.md`.
+
 Community-contributed elevation tiles for OpenZenith.
 
 **Live dataset**: https://openzenith.cyopsys.com · **SDK**: `pip install openzenith`

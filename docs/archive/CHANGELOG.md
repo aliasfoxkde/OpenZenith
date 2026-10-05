@@ -1,3 +1,6 @@
+> **Archived 2026-10-04.** Version history through v0.6.4 (2026-04). The live changelog is
+> `.github/CHANGELOG.md`; releases are tagged on GitHub.
+
 # Changelog
 
 ## v0.7.0 (2026-04-19)

@@ -66,6 +66,11 @@ MCP surface is still unqualified and app-page coverage is ungated).
 > (`scripts/validate_hf_ozt2.py`) now paginates the tree API with
 > retry; never call `dataset_info(files_metadata=True)` or
 > `delete_files(patterns)` on this 150K+-file repo — both hang.
+>
+> **Update (2026-09-28):** the "z11 stays R2-authoritative" note above is
+> historical. R2 was decommissioned 2026-09-27 and z11 is complete and
+> byte-validated on HuggingFace (595,149 tiles, 0 missing / 0 stale /
+> 0 extra) — see `docs/DATASET_MANIFEST.md` and `docs/ARCHITECTURE.md`.
 
 ## Repository surfaces
 
@@ -111,8 +116,8 @@ WASM must be tested with fixtures rather than inferred from source presence.
 2. GitForge CI verification needs the user's interactive
    `gitforge auth --login`; the push path itself works (transient
    server-side stalls self-heal — retry or re-fetch).
-3. HF z11 backfill is NOT scheduled: ~595K files ≈ 4h+ under the
-   128-commits/hour cap, and nothing consumes the HF z11 copy (R2 is
-   authoritative). Revisit only if the SDK gains an HF z11 consumer.
+3. ~~HF z11 backfill is NOT scheduled~~ — **complete** (2026-09-28): the
+   595,149-tile backfill landed on HuggingFace and is byte-validated; R2
+   itself was decommissioned 2026-09-27. See `docs/DATASET_MANIFEST.md`.
 4. Decide whether the MCP server is in the Platform execution graph and add a
    versioned contract only after its tests pass.

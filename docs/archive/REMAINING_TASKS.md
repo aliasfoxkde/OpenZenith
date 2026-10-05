@@ -1,3 +1,6 @@
+> **Archived 2026-10-04.** v0.6.4 task board (2026-04-20) — every task on it is closed. The open
+> queue is `docs/planning/EXCELLENCE_PLAN_2026-10-02.md`.
+
 # OpenZenith — Remaining Tasks & Progress
 
 **Version:** 0.6.4 | **Last Updated:** 2026-04-20  

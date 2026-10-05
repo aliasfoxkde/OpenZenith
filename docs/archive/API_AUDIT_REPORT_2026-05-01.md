@@ -1,3 +1,8 @@
+> **Archived 2026-10-04.** An API performance/reliability audit of the 2026-05-01 deployment
+> (77 endpoints, R2-era storage). Route count, latency figures, and the R2
+> assumptions are stale; current truth lives in `docs/ARCHITECTURE.md` and
+> `api/src/app/api/` (80 route handlers).
+
 # OpenZenith API Performance & Reliability Audit Report
 
 **Date:** 2026-05-01  

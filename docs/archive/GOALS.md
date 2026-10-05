@@ -1,3 +1,7 @@
+> **Archived 2026-10-04.** Early project goals checklist (pre-v0.7). Completed items are recorded
+> in the changelog (`.github/CHANGELOG.md`) and the planning docs; this list is
+> not maintained.
+
 # GOALS
 
 ## Completed

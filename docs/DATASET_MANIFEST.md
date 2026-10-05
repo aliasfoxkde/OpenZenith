@@ -42,7 +42,7 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 | Resolution | ~450 meters |
 | Coverage | Global ocean |
 | Strip size | 21,600 × 1 pixels (row strips) |
-| Storage backend | CEDA (primary), R2 (cache) |
+| Storage backend | CEDA live upstream (`dap.ceda.ac.uk`, overridable via `GEBCO_TILE_URL`) — no cache tier |
 | NODATA detection | Range-based (-11000 to 8850m valid) |
 | Surface classification | `seafloor` (negative) / `land` (non-negative) |
 | License | GEBCO license |
@@ -60,12 +60,19 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 > actual build. Real state: tiles live at
 > `aliasfox/srtm30m-ozt2-v2` on HuggingFace (z10: 151,988 tiles and
 > z7–z9: 53,565 tiles, both complete and byte-validated against local;
-> plus vestigial z0/z1/z5 test tiles) and in Cloudflare R2 (z11, 595,149
-> tiles, via `scripts/upload_ozt2_to_r2.py`). The HF copy of z11 is a
-> partial legacy generation (403,483 tiles) that nothing consumes.
+> plus vestigial z0/z1/z5 test tiles). The HF copy of z11 is a
+> partial legacy generation (403,483 tiles).
 > Early upload-test stubs have been removed from the dataset.
 > The planned dataset ID `openzenith/elevation-v2-ozt2` was never
 > created. Section kept as the original design record.
+>
+> **Status update (2026-09-28):** z11 is complete on HuggingFace — the
+> 595,149-tile backfill from the local NAS copy is byte-validated
+> (git-blob-sha comparison, 0 missing / 0 stale / 0 extra). Cloudflare R2
+> was decommissioned 2026-09-27 (bucket emptied and deleted, no
+> `r2_buckets` binding in `api/wrangler.toml`); tile reads go to
+> HuggingFace with the Workers Cache API in front
+> (`api/src/lib/storage/edge-cache.ts`).
 
 | Property | Value |
 |----------|-------|
@@ -77,7 +84,7 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 | Zoom levels | z0–z14 |
 | Tile size | 256 × 256 pixels |
 | Compression | ~93% smaller than Terrarium PNG |
-| Status | **Partially shipped** — z7–z10 on HF (current generation, validated), z11 on R2 |
+| Status | **Shipped** — z7–z11 on HF, complete and byte-validated (z7–z9 + z10: 2026-09-24; z11: 2026-09-28) |
 
 **Build pipeline:** `scripts/convert_to_ozt2.py`
 **Target:** HuggingFace `openzenith/elevation-v2-ozt2`
@@ -148,7 +155,7 @@ OpenZenith uses a unified surface type taxonomy across all elevation sources:
 - [x] Typed elevation result contract across all API routes
 - [x] NODATA policy: preserve -32768 via `noDataValue` in Cesium HeightmapTerrainData
 - [x] OZT2 tiles generated for z7–z11 on local machine (z10: 151,988; z11: 595,149; z7–z9: 53,565)
-- [x] OZT2 z7–z10 uploaded to HuggingFace (`aliasfox/srtm30m-ozt2-v2` — planned ID was never created; z11 went to Cloudflare R2 instead; z7–z10 validated 2026-09-24)
+- [x] OZT2 z7–z11 uploaded to HuggingFace (`aliasfox/srtm30m-ozt2-v2` — planned ID was never created; z7–z10 validated 2026-09-24, z11 2026-09-28)
 - [ ] OZT2 bathymetry tiles generated via `convert_gebco_to_ozt2.py`
 - [ ] OZT2 bathymetry uploaded to HuggingFace `openzenith/bathymetry-v2-ozt2`
 - [ ] API switched to v2 dataset as primary, v1 as fallback
@@ -161,9 +168,9 @@ OpenZenith uses a unified surface type taxonomy across all elevation sources:
 
 | Route | Format | Backend | Status |
 |-------|--------|---------|--------|
-| `GET /api/elevation?lat=&lon=` | JSON | HuggingFace SRTM → GEBCO | ✅ Active |
-| `GET /api/dem-tile/{z}/{x}/{y}` | PNG (Terrarium) | HuggingFace chunks → R2 cache | ✅ Active |
-| `GET /api/dem-tile/{z}/{x}/{y}?format=ozt2` | OZT2 binary | R2 (pre-generated) | ✅ Supported |
+| `GET /api/elevation?lat=&lon=` | JSON | HF OZT2 z10 → HF SRTM chunks → GEBCO | ✅ Active |
+| `GET /api/dem-tile/{z}/{x}/{y}` | PNG (Terrarium) | HuggingFace chunks, edge Cache API in front | ✅ Active |
+| `GET /api/dem-tile/{z}/{x}/{y}?format=ozt2` | OZT2 binary | HuggingFace (pre-generated tiles) | ✅ Supported |
 | `GET /api/elevation-color/{z}/{x}/{y}` | PNG (RGB) | HuggingFace chunks | ✅ Active |
 | `GET /api/health` | JSON | — | ✅ Active |
 

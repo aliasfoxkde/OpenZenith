@@ -22,7 +22,7 @@ Works entirely offline after installing the Python SDK and optional local data. 
 - **Offline-first**: Local SRTM .merged tiles — no network required for elevation queries
 - **Low-latency**: Rust/WASM compute kernels for D8 flow, viewshed, OZT2 decode — runs in-browser or subprocess
 - **Complete terrain analysis**: slope, aspect, hillshade, viewshed, TPI, roughness, curvature, watersheds, stream extraction, downstream tracing
-- **Production-ready**: Type hints, 1,327 pytest unit tests (96.8% coverage), clippy-clean Rust, typed TypeScript API
+- **Production-ready**: Type hints, 1,516 pytest tests (99% coverage gate; last measured 99.06%), clippy-clean Rust, typed TypeScript API
 
 ---
 
@@ -114,13 +114,13 @@ export HF_TOKEN=your_token_here
 | geotiff | export_geotiff, export_cog | GeoTIFF/COG export |
 | merged | read_elevation_from_merged, MergedFile | OZCHNK01 local dataset access |
 | async_client | ElevationClient, ElevationBatchProcessor | aiohttp batch concurrency |
-| tile_format_v2 | encode, decode | OZT2 tiles (gradient prediction + Zstd) |
+| tile_format_v2 | encode, decode | OZT2 tiles (gradient prediction + adaptive quantization; Brotli/Zstd/zlib per tile) |
 | converter | convert_tile, convert_directory | SRTM `.merged` → OZT2 pipeline |
-| backends | OZT2Backend, OZT2R2Backend, OZT2HFBackend | Chunk-based tile access |
+| backends | OZT2Backend, OZT2HFBackend, OZT2R2Backend | Local files, HuggingFace, S3-compatible (the R2 class targets any S3-compatible store — the platform's own R2 bucket was decommissioned 2026-09-27) |
 
 ---
 
-## CLI Commands (31 total — highlights below)
+## CLI Commands (26 total — highlights below)
 
 ```
 openzenith query --lat 40.7 --lon -74.0
@@ -140,7 +140,7 @@ openzenith validate
 
 ## REST API
 
-Base URL: https://openzenith.cyopsys.com/api/
+Base URL: https://openzenith.cyopsys.com/api/ — 80 API routes under `api/src/app/api/`.
 
 ```
 GET /elevation?lat=40.7&lon=-74.0
@@ -174,11 +174,11 @@ Full API docs: https://openzenith.cyopsys.com/api/openapi.json
 ## Architecture
 
 ```
-Python SDK (local compute) ←→ REST API (cloud, 80 edge routes)
+Python SDK (local compute) ←→ REST API (cloud, 80 API routes)
                                      ↓
                               Cloudflare Pages
                                      ↓
-                              R2 / HuggingFace
+                     HuggingFace (origin) + edge Cache API
 ```
 
 ---
@@ -190,11 +190,11 @@ Python SDK (local compute) ←→ REST API (cloud, 80 edge routes)
 | SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
 | API | Next.js 15, TypeScript, Cloudflare Edge |
 | Data | SRTM 30m (HuggingFace), GEBCO 2025 |
-| Tests | 1,327 pytest @ 96.8% cov (Python), 51 cargo test @ 98.0% lines (Rust), 1,032 vitest @ 92.2% stmts (TypeScript) |
+| Tests | 1,516 pytest @ 99% gate (Python), 73 cargo test (Rust), 1,446 vitest across 99 files (TypeScript) |
 
 ---
 
-## Data Layers (54 available on the 2D map, 27 curated in the layer registry — highlights below)
+## Data Layers (62 mountable data layers, 62 curated in `api/src/lib/layers/registry.ts` — 31 highlights below)
 
 ### Weather & Climate
 | Layer | Source | Details |
@@ -247,7 +247,7 @@ Python SDK (local compute) ←→ REST API (cloud, 80 edge routes)
 
 ## Map Features
 
-- **9 basemaps** — Dark, Dark No-Labels, Voyager, Light, Positron, OSM, Satellite, Topo, Terrain
+- **10 basemaps** — Dark, Dark+, Dark No-Labels, Voyager, Light, Positron, OSM, Satellite, Topo, Terrain
 - **Opacity sliders** on all raster layers
 - **DD/DMS coordinate toggle** in position panel
 - **Elevation profiling** — SVG sparkline on distance measurement

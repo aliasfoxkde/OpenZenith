@@ -620,3 +620,30 @@ in memory as a platform blocker. The pipeline def itself is proven:
 (loadavg < 12 gate) + live layer-toggle crawl now that the abort slice
 is complete; GitForge CI green run when the platform's workspace layer
 is restored.
+
+**E2E validation fix (2026-10-05, commit 8b3e3f3, deployed + prod-verified).**
+The prod-readiness sweep found D1: `/api/elevation` returned wrong values
+for every western/southern point (Mauna Kea 0m vs true 4199m, NYC 0m vs
+24m). Root cause: SRTM 1° cells are named by their SW corner (N19W156 =
+lat [19,20], lon [-156,-155], data-verified against the local mirror),
+but all name generators truncated the absolute value and all bounds
+parsers mirrored the error — every W/S point read the cell one degree
+east/south. Proof: simulating the exact deployed chain on local .merged
+files reproduced prod's exact wrong values; the fixed chain returns
+4199/401/24. Fix spans TS (tile-math.ts, ozt2-backend.ts dedup) and
+Python (merged.py, geo_utils.py), with a generative inverse-property
+test (bounds must contain the named point across hemispheres) plus
+re-anchored fixtures in six TS suites and test_converter. Side effect:
+`BLACKLISTED_SRTM_TILES` was dead code for the affected tiles (Death
+Valley N36W116 never matched the old names) and now actually routes to
+AWS Terrain. Prod anchors after deploy: Mauna Kea 4199, Monadnock bench
+401 (= local ground truth), NYC 24, Rio 13, Sydney 63, Buenos Aires 24;
+`dem-tile 11/370/802` healthy. Full gates green (vitest 101 files/1478
+passed, coverage above all four floors; pytest 1525 passed/99.07%; tsc,
+eslint 0 errors, ruff, mypy clean). Known flake: the landing spec hit a
+30s goto timeout during the ship run and passed in 4.6s on immediate
+re-run (host-load transient, not a deploy regression). **Still open
+(D2):** `DecompressionStream("br")` is unsupported in browsers, so edge
+OZT2 brotli tiles never decode — /api/elevation answers come from the
+merged-chunk fallback while labeled `source:"ozt2"`; fix by reusing the
+WASM OZT2 decoder or re-encoding tiles zlib.

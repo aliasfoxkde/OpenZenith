@@ -3,6 +3,77 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.0 (2026-10-05)
+
+119 commits since v0.8.4: map/globe performance work (lazy layers, fetch
+teardown, timer reclamation), a WCAG 2.1 AAA accessibility wave, static
+typing at every fetch boundary, and raised quality floors across all four
+surfaces (TS / Python SDK / Rust core / MCP server).
+
+### Added
+- SDK: `image_autocorrelation` in `openzenith.terrain.raster` now computes
+  a real local spatial autocorrelation (Anselin's local Moran's I over a
+  kernel window — a texture/edge detector, not a hypothesis test),
+  replacing placeholder behavior.
+- API: `gps-jamming` reference endpoint serving a documented synthetic
+  demonstration dataset (honestly labeled — not live measurements).
+- GitForge CI pipeline extended: mcp-server job (typecheck + lint +
+  contract tests), bundle-budget tripwire (production build compared
+  against `api/perf-budget-baseline.json`), and coverage-count guards.
+- `scripts/ship.sh` — one gate for build → bundle-marker check → deploy →
+  production E2E verification.
+- MCP server: `/docs-md` endpoint served as `text/plain` with
+  lint/typecheck/test gates added to CI.
+
+### Performance
+- Map layer modules load on demand — 29 identical raster layer modules
+  collapse to one typed raster factory; layer chunks are imported only on
+  first toggle-on (bundle budget re-baselined for the lazy chunks).
+- Globe layer fetches are abortable end-to-end: toggling a layer off or
+  leaving the page cancels its in-flight requests (`AbortSignal` threaded
+  through all 21 loader modules, dedup-safe in `data-fetchers.ts`).
+- Layer polling timers are reclaimed on toggle-off; globe polling pauses
+  when the tab is hidden.
+- Self-hosted mono font (no third-party font fetch); Cesium preloaded on
+  `/globe`; edge cache now fronts geocode and elevation point queries;
+  tile route TTLs aligned with the declared immutable policy.
+
+### Accessibility
+- WCAG 2.1 AAA wave: flip cards converted to the disclosure pattern
+  (single tab stop when closed, no nested-interactive, no focus trap,
+  Escape closes); 2.5.8 target-size floors on icon-only controls;
+  scrollable-region keyboard access; docs page header contrast and hit
+  area; wasm-demo chrome contrast.
+
+### Fixed
+- Landing banner address search could render pre-hydration text on slow
+  connections; hydration-race e2e guards added for landing interactions.
+- Globe layer units corrected to metres; 8 layers were missing their
+  toggle-off cleanup (interval/fetch leaks).
+- SDK GEBCO fallback returned a bare tuple where callers expected
+  `(grid, meta)`; cache-key construction no longer routes through
+  `String()` (flaky `vi.mock` bypass).
+- Rust core: WASM D8/viewshed entry points flush stdout before returning;
+  ozt2 decode split into testable halves.
+
+### Security
+- Aegis line-shift findings triaged and the baseline re-based; GitHub
+  Actions workflows marked explicitly NON-AUTHORITATIVE (GitForge is the
+  primary CI/CD platform; no GitHub workflow can deploy).
+
+### Coverage
+- TypeScript (vitest): 1,460 passed + 5 skipped across 101 files;
+  thresholds raised to 99 statements / 96 branches / 92 functions /
+  99 lines. ESLint warnings 3,744 → 1,887 (globe raster layers remain,
+  tracked); three stricter tsconfig flags adopted.
+- Python SDK: 1,522 passed, 99.07% line coverage (floor raised to 99);
+  ruff strict rule groups, mypy at exit 0.
+- Rust core: clippy pedantic clean; coverage floor 99 with wasm32
+  contract tests.
+- Documentation: all 390 exported TypeScript symbols JSDoc'd, 26 route
+  headers, 6 undocumented SDK functions docstring'd, docs-claims gate
+  added (README/CLAUDE.md/ARCHITECTURE.md reconciled against code).
+
 ## v0.8.4 (2026-09-24)
 
 ### Security

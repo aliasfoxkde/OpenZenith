@@ -1,6 +1,7 @@
 """SRTM 30m GeoTIFF to OZT1 converter."""
 
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -8,6 +9,8 @@ import numpy as np
 
 from .geo_utils import classify_terrain, load_geotiff, srtm_filename_to_bounds
 from .tile_format import COMP_ZSTD_PREDICT, decode, encode
+
+_logger = logging.getLogger(__name__)
 
 
 def convert_tile(
@@ -130,14 +133,14 @@ def convert_directory(
     total_src = 0
     total_dst = 0
 
-    print(f"Converting {len(files)} tiles from {src_dir}")
-    print(f"Output: {dst_dir}")
-    print(
-        "Compression: "
-        f"zstd level {zstd_level}, "
-        f"quantize={quantize_bits if quantize_bits else 'lossless'}"
+    _logger.info(
+        "Converting %d tiles from %s to %s (zstd level %d, quantize=%s)",
+        len(files),
+        src_dir,
+        dst_dir,
+        zstd_level,
+        quantize_bits if quantize_bits else "lossless",
     )
-    print("=" * 80)
 
     for i, fname in enumerate(files):
         src_path = str(Path(src_dir) / fname)
@@ -155,26 +158,35 @@ def convert_directory(
 
             status = "OK" if result["verified"] else "WARN"
             err_str = f" RMSE={result['rmse']}m" if result["rmse"] > 0 else ""
-            print(
-                f"  [{i + 1:4d}/{len(files)}] {status} {fname} → {result['output']} "
-                f"({result['source_bytes'] / 1024:.0f}K → {result['output_bytes'] / 1024:.0f}K, "
-                f"{result['reduction_pct']:.1f}%){err_str}"
+            _logger.info(
+                "[%4d/%d] %s %s -> %s (%.0fK -> %.0fK, %.1f%%)%s",
+                i + 1,
+                len(files),
+                status,
+                fname,
+                result["output"],
+                result["source_bytes"] / 1024,
+                result["output_bytes"] / 1024,
+                result["reduction_pct"],
+                err_str,
             )
 
             results.append(result)
         except OSError as e:
-            print(f"  [{i + 1:4d}/{len(files)}] FAIL {fname}: {e}")
+            _logger.warning("[%4d/%d] FAIL %s: %s", i + 1, len(files), fname, e)
             results.append({"source": fname, "error": str(e)})
 
     # Summary
     successful = [r for r in results if "error" not in r]
     total_reduction = (1 - total_dst / total_src) * 100 if total_src > 0 else 0
 
-    print("=" * 80)
-    print(f"Converted: {len(successful)}/{len(files)} tiles")
-    print(
-        f"Total: {total_src / 1e9:.2f} GB → {total_dst / 1e9:.2f} GB "
-        f"({total_reduction:.1f}% reduction)"
+    _logger.info(
+        "Converted %d/%d tiles: %.2f GB -> %.2f GB (%.1f%% reduction)",
+        len(successful),
+        len(files),
+        total_src / 1e9,
+        total_dst / 1e9,
+        total_reduction,
     )
 
     # Save conversion manifest
@@ -195,5 +207,5 @@ def convert_directory(
     with manifest_path.open("w") as f:
         json.dump(manifest, f, indent=2)
 
-    print(f"Manifest saved to {manifest_path}")
+    _logger.info("Manifest saved to %s", manifest_path)
     return results

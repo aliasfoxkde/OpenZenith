@@ -253,29 +253,61 @@ def image_autocorrelation(
     kernel_size: int = 5,
     nodata: float = -32768.0,
 ) -> np.ndarray:
-    """Compute local spatial autocorrelation (Moran's I) per cell.
+    """Compute local spatial autocorrelation (Anselin's local Moran's I).
 
-    Measures how similar each cell is to its neighbors.
+    For each valid cell ``i`` with neighbourhood ``N_i`` (the valid cells in
+    the ``kernel_size`` x ``kernel_size`` window, excluding the cell itself)::
+
+        I_i = (z_i / s^2) * mean(z_j, j in N_i)
+        z   = elevation - mean(valid elevations)   (global mean)
+        s^2 = global variance of the valid elevations
+
+    I_i is positive where the cell agrees with its neighbourhood (cluster of
+    similar values), negative where it disagrees (edge/spike), and near zero
+    in noise. It is a texture/edge detector, not a hypothesis test: the
+    classical significance scaling (n/(2(n-1))) is omitted on purpose.
 
     Args:
         dem: 2D elevation grid
-        kernel_size: Window size
-        nodata: NODATA value
+        kernel_size: Side length of the square neighbourhood window
+        nodata: NODATA value (cells <= nodata are excluded)
 
     Returns:
-        2D float32 array of local Moran's I values
+        2D float32 array of local Moran's I. NaN where s^2 is 0 (constant
+        DEM) or the cell has no valid neighbours; ``nodata`` where the cell
+        itself is invalid.
 
     """
     from scipy.ndimage import uniform_filter
 
     valid = dem > nodata
-    f_mean = uniform_filter(np.where(valid, dem, 0.0).astype(np.float64), size=kernel_size)
-    f_sq = uniform_filter(np.where(valid, dem**2, 0.0).astype(np.float64), size=kernel_size)
-    count = uniform_filter(valid.astype(np.float64), size=kernel_size)
+    if not valid.any():
+        return np.full(dem.shape, np.nan, dtype=np.float32)
 
-    var = np.maximum(f_sq / np.maximum(count, 1) - f_mean**2, 0)
+    values = dem.astype(np.float64)
+    mean = float(values[valid].mean())
+    var = float(values[valid].var())
+    if var == 0.0:
+        return np.full(dem.shape, np.nan, dtype=np.float32)
+
+    # z is 0 outside the valid mask so invalid cells contribute nothing to
+    # any neighbourhood sum.
+    z = np.where(valid, values - mean, 0.0)
+
+    # Uniform window sum including the centre; subtract the centre and
+    # re-normalise by the count of *valid* neighbours (mode="constant" plus
+    # the validity count keeps the window from smearing values past the
+    # raster edge).
+    z_sum = uniform_filter(z, size=kernel_size, mode="constant", cval=0.0) * (kernel_size**2)
+    valid_count = (
+        uniform_filter(valid.astype(np.float64), size=kernel_size, mode="constant", cval=0.0)
+        * (kernel_size**2)
+    )
+    neighbor_count = valid_count - valid  # exclude the cell itself
+    neighbor_z = (z_sum - z) / np.maximum(neighbor_count, 1.0)
 
     result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid & (var > 0)] = 0.0  # placeholder until we implement proper local I
+    has_neighbors = valid & (neighbor_count > 0)
+    result[has_neighbors] = (z[has_neighbors] / var * neighbor_z[has_neighbors]).astype(np.float32)
     result[~valid] = nodata
-    return result.astype(np.float32)
+    return result

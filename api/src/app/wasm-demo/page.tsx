@@ -15,6 +15,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Navbar } from "@/components/Navbar";
 
 // ─── Types (mirroring wasm.rs) ────────────────────────────────────────────────
 
@@ -460,9 +461,14 @@ export default function WasmDemo() {
   }
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "monospace", maxWidth: 900, margin: "0 auto" }}>
-      <h1>OpenZenith Core — WASM Decoder Demo</h1>
-      <p style={{ color: "#666" }}>{status}</p>
+    <>
+      {/* The demo was the only page without site chrome; the navbar gives it
+         standard navigation (and its keyboard stop) back. It renders light —
+         this page has no theme support. */}
+      <Navbar dark={false} breadcrumb="WASM Demo" />
+      <main style={{ padding: "2rem", fontFamily: "monospace", maxWidth: 900, margin: "0 auto" }}>
+        <h1>OpenZenith Core — WASM Decoder Demo</h1>
+      <p style={{ color: "#555" }}>{status}</p>
 
       <h2>Benchmarks</h2>
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2rem" }}>
@@ -477,42 +483,57 @@ export default function WasmDemo() {
           {benchmarks.map((b) => (
             <tr key={b.label} style={{ borderBottom: "1px solid #eee" }}>
               <td style={{ padding: "0.5rem" }}>{b.label}</td>
-              <td style={{ padding: "0.5rem", color: "#2a5" }}>{b.ms.toFixed(2)} ms</td>
-              <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.85em" }}>{b.details ?? ""}</td>
+              <td style={{ padding: "0.5rem", color: "#166534" }}>{b.ms.toFixed(2)} ms</td>
+              <td style={{ padding: "0.5rem", color: "#555", fontSize: "0.85em" }}>{b.details ?? ""}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <h2>D8 Flow Direction (3×3 pit DEM)</h2>
-      <p style={{ fontSize: "0.8em", color: "#666" }}>
+      <p style={{ fontSize: "0.8em", color: "#555" }}>
         Direction colours: White=E, LightBlue=SE, Cyan=S, Green=SW, Lime=W, Yellow=NW, Orange=N, Red=NE. Pit cell
         (top-left) = black.
       </p>
       <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
-        <canvas ref={canvasD8} style={{ imageRendering: "pixelated" }} />
+        <canvas
+          ref={canvasD8}
+          role="img"
+          aria-label="D8 flow direction raster of a 3 by 3 pit DEM: eight coloured direction cells around a black pit cell"
+          style={{ imageRendering: "pixelated" }}
+        />
       </div>
 
       <h2>Flow Accumulation (3×3 pit DEM)</h2>
-      <p style={{ fontSize: "0.8em", color: "#666" }}>
+      <p style={{ fontSize: "0.8em", color: "#555" }}>
         Upstream cell count. White = no upstream (peaks/ridges). Red = high accumulation (streams).
       </p>
       <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
-        <canvas ref={canvasAcc} style={{ imageRendering: "pixelated" }} />
+        <canvas
+          ref={canvasAcc}
+          role="img"
+          aria-label="Flow accumulation raster of a 3 by 3 pit DEM: white ridge cells and a red high-accumulation stream cell"
+          style={{ imageRendering: "pixelated" }}
+        />
       </div>
 
       <h2>Viewshed — Mt. Everest (30×30 synthetic DEM)</h2>
-      <p style={{ fontSize: "0.8em", color: "#666" }}>
+      <p style={{ fontSize: "0.8em", color: "#555" }}>
         Observer at the yellow cell (2m eye height). Green = visible, Brown = hidden.
       </p>
       <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
-        <canvas ref={canvasViewshed} style={{ imageRendering: "pixelated" }} />
+        <canvas
+          ref={canvasViewshed}
+          role="img"
+          aria-label="Viewshed raster of a 30 by 30 synthetic Everest DEM: green visible cells and brown hidden cells around a yellow observer cell"
+          style={{ imageRendering: "pixelated" }}
+        />
       </div>
 
       {ozeTileInfo && (
         <>
           <h2>OZT2 Tile Decode</h2>
-          <p style={{ color: "#2a5" }}>{ozeTileInfo}</p>
+          <p style={{ color: "#166534" }}>{ozeTileInfo}</p>
         </>
       )}
 
@@ -539,7 +560,8 @@ const visPtr = viewshed_wasm(demPtr, len, rows, cols,
 
 // Full OZT2 tile decode (header parsing + decompress + reconstruct)
 const { elevations, metadata } = decode_ozt2(tileBytes, decompressFn);`}
-      </pre>
-    </div>
+        </pre>
+      </main>
+    </>
   );
 }

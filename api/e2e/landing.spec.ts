@@ -120,13 +120,13 @@ test.describe("Landing page", () => {
     const sampleBtn = page.locator(".oz-sample-btn").first();
     await expect(sampleBtn).toBeVisible();
     await sampleBtn.click();
-    await page.waitForTimeout(500);
 
-    // Verify inputs are populated
-    const lat = await page.inputValue("#lookup-lat");
-    const lon = await page.inputValue("#lookup-lon");
-    expect(lat).toBeTruthy();
-    expect(lon).toBeTruthy();
+    // The click populates the controlled inputs via React state — wait for
+    // the values instead of a fixed sleep (uniform hydration-marker pattern).
+    await expect(async () => {
+      expect(await page.inputValue("#lookup-lat")).toBeTruthy();
+      expect(await page.inputValue("#lookup-lon")).toBeTruthy();
+    }).toPass({ timeout: 5000 });
   });
 
   test("has feature cards", async ({ page }) => {
@@ -186,7 +186,7 @@ test.describe("Landing page", () => {
     await page.evaluate(() => {
       const anchor = document.querySelector<HTMLElement>('.oz-flip-card a[href="/contribute"]');
       if (!anchor) throw new Error("contribute CTA not found");
-      anchor.addEventListener("click", (e) => e.preventDefault(), { once: true });
+      anchor.addEventListener("click", (e) => { e.preventDefault(); }, { once: true });
       anchor.click();
     });
 

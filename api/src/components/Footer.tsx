@@ -12,6 +12,15 @@ export function Footer({ dark }: FooterProps) {
   // Must match --oz-text-secondary in globals.css (WCAG AAA 7:1 on bg).
   const textSecondary = dark ? "#a3a3a3" : "#525252";
   const footerBg = dark ? "#0c0c0c" : "#f8f8f8";
+  // Shared by all three link columns; minHeight is the 2.5.8 AA floor (24px).
+  const linkStyle: React.CSSProperties = {
+    color: textSecondary,
+    textDecoration: "none",
+    fontSize: "0.8rem",
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 24,
+  };
 
   return (
     <footer style={{ borderTop: `1px solid ${border}`, background: footerBg }}>
@@ -34,7 +43,12 @@ export function Footer({ dark }: FooterProps) {
                 href="https://github.com/aliasfoxkde/OpenZenith"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: textSecondary, display: "flex" }}
+                style={{
+                  color: textSecondary,
+                  display: "flex",
+                  // Icon-only target: pad to the 2.5.8 AA floor (24px).
+                  padding: 4,
+                }}
                 aria-label="GitHub"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -69,7 +83,7 @@ export function Footer({ dark }: FooterProps) {
                 <a
                   key={l.label}
                   href={l.href}
-                  style={{ color: textSecondary, textDecoration: "none", fontSize: "0.8rem" }}
+                  style={linkStyle}
                 >
                   {l.label}
                 </a>
@@ -104,7 +118,7 @@ export function Footer({ dark }: FooterProps) {
                   href={l.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: textSecondary, textDecoration: "none", fontSize: "0.8rem" }}
+                  style={linkStyle}
                 >
                   {l.label}
                 </a>
@@ -138,7 +152,7 @@ export function Footer({ dark }: FooterProps) {
                   href={l.href}
                   target={l.href.startsWith("http") ? "_blank" : undefined}
                   rel={l.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                  style={{ color: textSecondary, textDecoration: "none", fontSize: "0.8rem" }}
+                  style={linkStyle}
                 >
                   {l.label}
                 </a>

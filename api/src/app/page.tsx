@@ -555,15 +555,6 @@ export default function Home() {
                   onClick={() => {
                     setCoords(loc.lat, loc.lon);
                   }}
-                  style={{
-                    padding: "0.15rem 0.45rem",
-                    borderRadius: 4,
-                    border: `1px solid ${border}`,
-                    background: "transparent",
-                    color: textSecondary,
-                    fontSize: "0.72rem",
-                    cursor: "pointer",
-                  }}
                 >
                   {loc.name}
                 </button>
@@ -573,16 +564,6 @@ export default function Home() {
                 className="oz-shuffle-btn"
                 onClick={() => { setSampleLocations(pickRandomLocations(4)); }}
                 title="Shuffle locations"
-                style={{
-                  padding: "0.1rem 0.3rem",
-                  borderRadius: 4,
-                  border: `1px solid ${border}`,
-                  background: "transparent",
-                  color: textSecondary,
-                  fontSize: "0.8rem",
-                  cursor: "pointer",
-                  lineHeight: 1,
-                }}
               >
                 &#x21bb;
               </button>

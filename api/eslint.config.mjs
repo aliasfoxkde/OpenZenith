@@ -159,15 +159,20 @@ const eslintConfig = [
       // Build outputs, not sources: WASM bundle and the generated service worker.
       "public/pkg/",
       "public/sw.js",
+      // Local coverage report (vitest --coverage writes minified instrumented
+      // sources here; parsing them is noise).
+      "coverage/",
     ],
   },
   {
     // Build-time Node scripts (plain .mjs, untyped by design). They stay in
     // the project so the parser and core rules apply, but the type-aware
     // data-flow rules have nothing to chew on without declared types.
+    // measure-perf.mjs additionally drives a real browser via CDP, so it
+    // needs the browser globals alongside Node's.
     files: ["scripts/**/*.mjs"],
     languageOptions: {
-      globals: { ...globals.node },
+      globals: { ...globals.node, ...globals.browser },
     },
     rules: {
       "@typescript-eslint/no-unsafe-assignment": "off",

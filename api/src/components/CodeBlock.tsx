@@ -69,6 +69,8 @@ export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps
           // #404040 = 9.8:1, #c9d1d9 = 11.5:1.
           color: dark ? "#c9d1d9" : "#404040",
           padding: "0.2rem 0.5rem",
+          // 2.5.8 AA floor (24px)
+          minHeight: 24,
           cursor: "pointer",
           fontSize: "0.7rem",
           fontFamily: "inherit",

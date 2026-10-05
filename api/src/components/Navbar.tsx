@@ -80,6 +80,8 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
               gap: "0.4rem",
               textDecoration: "none",
               color: text,
+              // 2.5.8 AA floor (24px)
+              minHeight: 24,
             }}
           >
             <Logo />
@@ -96,7 +98,15 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
               <Link
                 key={l.label}
                 href={l.href}
-                style={{ color: textSecondary, textDecoration: "none", fontSize: "0.85rem" }}
+                style={{
+                  color: textSecondary,
+                  textDecoration: "none",
+                  fontSize: "0.85rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  // 2.5.8 AA floor (24px)
+                  minHeight: 24,
+                }}
               >
                 {l.label}
               </Link>
@@ -112,6 +122,7 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
                 display: "flex",
                 alignItems: "center",
                 gap: "0.25rem",
+                minHeight: 24,
               }}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">

@@ -62,11 +62,15 @@ interface OpenApiSpec {
   tags: { name: string; description: string }[];
 }
 
+// Text colors are WCAG 2.1 AAA (>= 7:1) against every surface they appear on
+// in this page (bg #0a0a0a, cards #111/#161616, code blocks #1a1a1a):
+// textDim #a8a8a8 is 8.3:1 on #0a0a0a and 7.3:1 on #1a1a1a; the badge colors
+// carry #000 text at >= 7.6:1.
 const METHOD_COLORS: Record<string, string> = {
   get: "#22c55e",
-  post: "#3b82f6",
+  post: "#60a5fa",
   put: "#f59e0b",
-  delete: "#ef4444",
+  delete: "#f87171",
 };
 
 const accent = "#22c55e";
@@ -74,7 +78,8 @@ const bg = "#0a0a0a";
 const cardBg = "#111";
 const border = "#222";
 const text = "#e5e5e5";
-const textDim = "#888";
+const textDim = "#a8a8a8";
+const errorText = "#f87171";
 
 /* ─── Small Components ─── */
 
@@ -104,7 +109,7 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
         borderRadius: 4,
         color: copied ? accent : textDim,
         cursor: "pointer",
-        padding: "0.15rem 0.4rem",
+        padding: "0.3rem 0.4rem",
         fontSize: "0.7rem",
         fontFamily: "inherit",
         marginLeft: "0.5rem",
@@ -119,6 +124,9 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
 function ExampleBlock({ data }: { data: unknown }) {
   return (
     <pre
+      // Scrollable region must be keyboard-reachable (2.1.1
+      // scrollable-region-focusable); focus styling in globals.css.
+      tabIndex={0}
       style={{
         background: "#1a1a1a",
         color: "#e5e5e5",
@@ -194,7 +202,7 @@ function ParamTable({ params }: { params: Param[] }) {
                 <span
                   style={{
                     background: "#3b1c1c",
-                    color: "#f87171",
+                    color: "#fca5a5",
                     padding: "0.15rem 0.5rem",
                     borderRadius: 4,
                     fontSize: "0.75rem",
@@ -349,7 +357,7 @@ function EndpointCard({
           {method}
         </span>
         <span style={{ fontFamily: "monospace", fontSize: "0.85rem", flex: 1 }}>{path}</span>
-        <span style={{ color: "#555", fontSize: "0.85rem" }}>{open ? "\u25b2" : "\u25bc"}</span>
+        <span style={{ color: textDim, fontSize: "0.85rem" }}>{open ? "\u25b2" : "\u25bc"}</span>
       </button>
 
       {open && (
@@ -555,7 +563,7 @@ function EndpointCard({
                 <div
                   style={{
                     fontSize: "0.8rem",
-                    color: responseStatus.startsWith("2") ? accent : "#ef4444",
+                    color: responseStatus.startsWith("2") ? accent : errorText,
                     marginBottom: "0.4rem",
                   }}
                 >
@@ -564,7 +572,7 @@ function EndpointCard({
                 {responseJson && <ExampleBlock data={parseDisplayedBody(responseJson)} />}
               </div>
             )}
-            {error && <div style={{ marginTop: "0.5rem", color: "#ef4444", fontSize: "0.85rem" }}>{error}</div>}
+            {error && <div style={{ marginTop: "0.5rem", color: errorText, fontSize: "0.85rem" }}>{error}</div>}
           </div>
         </div>
       )}
@@ -666,7 +674,7 @@ export default function DocsPage() {
 
   if (specError) {
     return (
-      <div
+      <main
         style={{
           minHeight: "100vh",
           background: bg,
@@ -679,15 +687,15 @@ export default function DocsPage() {
           gap: "0.5rem",
         }}
       >
-        <div style={{ color: "#ef4444", fontSize: "1.25rem" }}>Failed to load API documentation</div>
+        <div style={{ color: errorText, fontSize: "1.25rem" }}>Failed to load API documentation</div>
         <div>{specError}</div>
-      </div>
+      </main>
     );
   }
 
   if (!spec) {
     return (
-      <div
+      <main
         style={{
           minHeight: "100vh",
           background: bg,
@@ -699,7 +707,7 @@ export default function DocsPage() {
         }}
       >
         Loading docs...
-      </div>
+      </main>
     );
   }
 
@@ -720,7 +728,7 @@ export default function DocsPage() {
 
   return (
     <ErrorBoundary>
-      <div style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
+      <main style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
         {/* Header */}
         <div
           style={{
@@ -741,6 +749,7 @@ export default function DocsPage() {
               display: "flex",
               alignItems: "center",
               gap: "0.4rem",
+              minHeight: 24, // 2.5.8 AA floor (24px) — this page's own header, not the shared Navbar
             }}
           >
             <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
@@ -750,7 +759,7 @@ export default function DocsPage() {
             </svg>
             OpenZenith
           </Link>
-          <span style={{ color: "#333" }}>/</span>
+          <span aria-hidden="true" style={{ color: "#333" }}>/</span>
           <span style={{ color: textDim, fontSize: "0.9rem" }}>API Docs</span>
         </div>
 
@@ -766,7 +775,7 @@ export default function DocsPage() {
             <span
               style={{
                 background: "#1a2e1a",
-                color: accent,
+                color: "#4ade80",
                 padding: "0.2rem 0.6rem",
                 borderRadius: 4,
                 fontSize: "0.8rem",
@@ -775,7 +784,7 @@ export default function DocsPage() {
             >
               v{spec.info.version}
             </span>
-            <span style={{ color: "#555", fontSize: "0.85rem" }}>Server: {serverUrl}</span>
+            <span style={{ color: textDim, fontSize: "0.85rem" }}>Server: {serverUrl}</span>
           </div>
         </div>
 
@@ -822,7 +831,7 @@ export default function DocsPage() {
                 Click any point for elevation. Hillshade, 3D terrain, contour lines, 6 basemaps, elevation pins, and
                 profile tool.
               </p>
-              <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
+              <div style={{ fontSize: "0.7rem", color: textDim, fontFamily: "monospace", lineHeight: 1.6 }}>
                 #lng=...&lat=...&zoom=...
                 <br />
                 #x=...&y=...&z=... (tile center)
@@ -866,7 +875,7 @@ export default function DocsPage() {
                 Real-time geospatial intelligence. Earthquakes, flights, weather radar, satellites, hurricanes, natural
                 events, and more.
               </p>
-              <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
+              <div style={{ fontSize: "0.7rem", color: textDim, fontFamily: "monospace", lineHeight: 1.6 }}>
                 Layers: earthquakes, radar, flights, satellites,
                 <br />
                 weather, events, hurricanes, hillshade, 3D
@@ -910,7 +919,7 @@ export default function DocsPage() {
                 Discover ArcGIS REST services and query OpenStreetMap via Overpass API. Browse layers, preview features,
                 run custom queries.
               </p>
-              <div style={{ fontSize: "0.7rem", color: "#555", fontFamily: "monospace", lineHeight: 1.6 }}>
+              <div style={{ fontSize: "0.7rem", color: textDim, fontFamily: "monospace", lineHeight: 1.6 }}>
                 ArcGIS service discovery + Overpass QL
               </div>
             </a>
@@ -1010,6 +1019,7 @@ export default function DocsPage() {
                       <CopyBtn text={ex.code} label={`Copy ${ex.lang}`} />
                     </div>
                     <pre
+                      tabIndex={0}
                       style={{
                         background: "#1a1a1a",
                         color: "#e5e5e5",
@@ -1030,7 +1040,7 @@ export default function DocsPage() {
             ))}
           </div>
         </div>
-      </div>
+      </main>
     </ErrorBoundary>
   );
 }

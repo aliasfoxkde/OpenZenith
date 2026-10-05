@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <div
+    <main
       style={{
         minHeight: "100vh",
         display: "flex",
@@ -30,7 +30,7 @@ export default function NotFound() {
         404
       </div>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 600, margin: "0 0 0.5rem" }}>Page Not Found</h1>
-      <p style={{ color: "#888", maxWidth: 400, margin: "0 0 2rem" }}>
+      <p style={{ color: "#a8a8a8", maxWidth: 400, margin: "0 0 2rem" }}>
         The page you&apos;re looking for doesn&apos;t exist or has been moved.
       </p>
       <Link
@@ -39,7 +39,8 @@ export default function NotFound() {
           display: "inline-block",
           padding: "0.75rem 1.5rem",
           borderRadius: 8,
-          background: "#0ea5e9",
+          // sky-800: white on it is 8.1:1 (AAA); the old sky-500 was 2.6:1.
+          background: "#075985",
           color: "#fff",
           textDecoration: "none",
           fontWeight: 500,
@@ -48,6 +49,6 @@ export default function NotFound() {
       >
         Back to Home
       </Link>
-    </div>
+    </main>
   );
 }

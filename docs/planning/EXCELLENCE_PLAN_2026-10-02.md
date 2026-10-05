@@ -543,6 +543,15 @@ findings found and fixed, not waived:
   axe + studio tab-order flake under host load — the documented
   environmental pattern; chromium-consistent failures were treated as real
   and fixed).
+- **Gap caught later by the ship gate (recorded honestly):** the a11y
+  suite was updated to the disclosure contract but `e2e/landing.spec.ts`
+  still asserted the OLD FlipCard contract (`aria-pressed` on the card,
+  `card.focus()` + Enter). The ship-gate prod E2E failed those two tests
+  on both engines; the tests were re-based onto the disclosure contract
+  (toggle `aria-expanded`, Enter on the toggle, Escape bubbling) and the
+  full landing spec passed against prod (22 passed + 2 flaky, 0 failed).
+  Lesson: when a component's contract changes, grep every spec for its
+  selectors, not just the suite that surfaced the defect.
 
 **Phase 6 (code smells) — complete.** Raster-layer factory (29 map layer
 files → createRasterLayer + data table, +10-test suite); dead useToast
@@ -561,3 +570,53 @@ and a slow chunk import re-checks the signal before fetching).
 vitest **101 files / 1,460 passed + 5 skipped** (.gitforge.yml guard
 updated to 101/1460); pytest 1,522 passed / **99.07%** lines; a11y +
 landing e2e 89 passed / 0 failed.
+
+### 2026-10-05 — Phase 7 closed (E2E validated) + Phase 8 executed (v0.9.0 released, deployed, prod-verified)
+
+**Phase 7.** E2E validated locally across the full surface: a11y +
+landing 89/0, globe-diag 2/0, production-verify 30/0 (against the prior
+prod), ozt2-validate heavy 18/0 (full Cesium terrain pipeline). The
+GitForge CI green run is the one item that did not close, and the
+evidence says platform, not pipeline: run 1ad0ed81 went green on the
+same pipeline def at 15:52 the previous day; then four consecutive runs
+(8641ae0a, 38149ca0, 0607fb0a for 0f38146/c56f70d/8f86b4c) failed at
+typecheck with `node_modules` missing despite a succeeded install job
+(npx installs the bogus `tsc@2.0.4`), and the release-head runs split
+the failure modes — 953eb744 passed install/typecheck/lint/spec-check
+then lost unit-test to `sh: 1: vitest: Operation not permitted`
+(exit 127, EPERM on exec, all three in-command attempts), while its
+twin 088da185 failed at typecheck the missing-node_modules way. A
+co-tenant run (d8df5807) failed the same era with `EPERM: operation not
+permitted, open '/workspace/node_modules/...'` on its own pipeline —
+the runner workspace layer on this host broke after ~18:00 and affects
+both tenants. Nothing in this repo can fix another service's workspace
+handling (and the GitForge tree is the co-tenant's); recorded here and
+in memory as a platform blocker. The pipeline def itself is proven:
+4/7 jobs green on the release head before the platform fault.
+
+**Phase 8.** v0.9.0 cut and shipped:
+- Version trio 0.8.4 → 0.9.0 (api/package.json + lockfile,
+  openzenith/__init__.py, openapi base.json, spec re-generated — the
+  openapi-generation test pins the package version, so this is a gate,
+  not paperwork).
+- `.github/CHANGELOG.md` entry for the 119 commits since v0.8.4
+  (Added / Performance / Accessibility / Fixed / Security / Coverage).
+- Tag v0.9.0 pushed **explicitly** to both remotes and verified via
+  `git ls-remote --tags` on both (the `--follow-tags` lesson); GitHub
+  release created from the changelog body.
+- Deployed via `scripts/ship.sh` (marker `GPS Jamming` — a string new
+  this release, so its presence proves the new bundle): build → marker
+  grep → deploy → prod E2E. Hash URL
+  https://148d43ed.openzenith.pages.dev reports version **0.9.0** on
+  both `/api/health` and `/api/openapi.json`.
+- The ship gate earned its keep on the E2E leg: the landing spec's two
+  stale flip-card assertions (pre-disclosure contract) failed against
+  prod — see the Phase 5 gap note above. The fix was test-only (prod
+  serves the correct disclosure UI), and the full landing suite went
+  green against prod (22 passed + 2 flaky-retried, 0 failed); the
+  deployed bundle needed no redeploy.
+
+**Remaining (task #174, next session):** quiet-host perf re-measure
+(loadavg < 12 gate) + live layer-toggle crawl now that the abort slice
+is complete; GitForge CI green run when the platform's workspace layer
+is restored.

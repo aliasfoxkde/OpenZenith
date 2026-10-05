@@ -1,5 +1,23 @@
 # OpenZenith handoff
 
+> **Update (2026-10-05):** the excellence plan
+> ([EXCELLENCE_PLAN_2026-10-02.md](EXCELLENCE_PLAN_2026-10-02.md), gaps
+> F-1…F-18) is executed through Phase 8: WCAG 2.1 AAA wave (disclosure
+> flip cards, 2.5.8 floors), one raster factory replacing 29 map layer
+> modules, typed abort-on-teardown for all globe fetches, coverage
+> floors at 99 across TS/Python/Rust, docs-claims gate, all 390 exported
+> TS symbols JSDoc'd, GitHub workflows marked NON-AUTHORITATIVE. **v0.9.0
+> cut, tagged (verified on both remotes), GitHub-released, deployed via
+> ship.sh, and prod-verified** (hash URL serves 0.9.0 on /api/health and
+> /api/openapi.json; landing E2E 22 passed + 2 flaky after re-basing the
+> two stale flip-card tests onto the disclosure contract — the ship gate
+> caught that miss). Open: GitForge CI green run blocked by a
+> platform-side runner-workspace fault (node_modules vanish / EPERM in
+> /workspace, both tenants affected, ~18:00 2026-10-05 onward — details
+> in the excellence plan's Phase 7 entry); quiet-host perf re-measure +
+> live layer-toggle crawl (loadavg < 12 gate); Next16/OpenNext still
+> user-gated.
+
 > **Update (2026-10-02):** the performance deep-dive
 > ([PERFORMANCE_PLAN_2026-10-02.md](PERFORMANCE_PLAN_2026-10-02.md)) is
 > executed through P0+P1: fonts self-hosted, landing render storm fixed,

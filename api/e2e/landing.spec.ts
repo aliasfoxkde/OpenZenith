@@ -152,25 +152,28 @@ test.describe("Landing page", () => {
 
     const card = page.locator(".oz-flip-card").first();
     await card.scrollIntoViewIfNeeded();
+    // Disclosure pattern: the corner toggle is the card's announcer
+    // (aria-expanded); the card itself is not an interactive element.
+    const toggle = card.locator(".oz-flip-hint");
 
-    // Resting state: front shown, not pressed.
-    await expect(card).toHaveAttribute("aria-pressed", "false");
+    // Resting state: front shown, not expanded.
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
     // Click flips (state class pins it; hover-flip only drives CSS).
     await card.click();
-    await expect(card).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(card).toHaveClass(/flipped/);
 
     // Click again unflips.
     await card.click();
-    await expect(card).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
-    // Enter toggles, Escape unflips.
-    await card.focus();
+    // Enter on the toggle flips; Escape (bubbling to the card) unflips.
+    await toggle.focus();
     await page.keyboard.press("Enter");
-    await expect(card).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await page.keyboard.press("Escape");
-    await expect(card).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(card).not.toHaveClass(/flipped/);
   });
 
@@ -190,7 +193,7 @@ test.describe("Landing page", () => {
       anchor.click();
     });
 
-    await expect(contributeCard).toHaveAttribute("aria-pressed", "false");
+    await expect(contributeCard.locator(".oz-flip-hint")).toHaveAttribute("aria-expanded", "false");
   });
 
   test("loads and interacts without console errors", async ({ page }) => {

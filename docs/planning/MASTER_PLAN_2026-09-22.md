@@ -2564,3 +2564,37 @@ Working the RELIABILITY_GAPS_2026-10-01.md queue systematically.
 - **Open from this pass:** abort-on-teardown for globe data-fetchers
   (item 9 residue); P2 items 11–15 unscheduled; Next16/OpenNext still
   user-gated.
+
+## 2026-10-05 — Excellence plan Phases 1–8: v0.9.0 released, deployed, prod-verified (#175–#184)
+
+The excellence plan
+(`docs/planning/EXCELLENCE_PLAN_2026-10-02.md`, gaps F-1…F-18) ran to
+completion this session; its own progress log carries the phase-level
+detail. Headlines:
+
+- **Quality floors ratcheted:** vitest thresholds 99/96/92/99
+  (1,460 passed + 5 skipped / 101 files), pytest 1,522 passed @ 99.07%
+  lines (floor 99), Rust clippy-pedantic + coverage floor 99, mypy
+  exit 0, eslint 0 errors / 1,887 warnings (guard ≤1,890; the residual
+  is the globe raster family, now on the factory path).
+- **Real fixes, no waivers:** disclosure-pattern flip cards (axe
+  nested-interactive + a genuine 2.1.1 trap), 2.5.8 target floors,
+  scrollable-region keyboard access, one raster factory replacing 29
+  copy-pasted map layer modules, dead Toast system removed, honest
+  labeling on the gps-jamming reference endpoint, local Moran's I
+  implemented for real, typed abort-on-teardown across all 21 globe
+  loader modules.
+- **Docs:** all 390 exported TS symbols JSDoc'd, 26 route headers,
+  docs-claims gate pinning README/CLAUDE.md/ARCHITECTURE.md to the
+  code, GitHub workflows marked NON-AUTHORITATIVE (GitForge primary;
+  none can deploy).
+- **v0.9.0 shipped:** tag pushed + verified on both remotes, GitHub
+  release cut, deployed via scripts/ship.sh, hash URL
+  148d43ed.openzenith.pages.dev serves 0.9.0 on /api/health and
+  /api/openapi.json.
+- **Known blocker:** GitForge CI lost its green streak to a
+  platform-side runner-workspace fault (node_modules vanish / EPERM in
+  /workspace, hitting the co-tenant's pipelines the same era — runs
+  8641ae0a, 38149ca0, 0607fb0a, 953eb744, 088da185, d8df5807). The
+  pipeline def is unchanged and was green (1ad0ed81) the day before;
+  retry when the runner workspace layer is restored.

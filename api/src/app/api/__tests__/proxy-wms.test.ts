@@ -1,14 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest, bodyAs } from "./helpers";
+import { mockRequest, bodyAs, requestUrl } from "./helpers";
 
 /** Every JSON body this route returns is an error envelope; images stay binary. */
 interface WmsErrorBody {
   error?: string;
-}
-
-/** Resolve a request URL the way `fetch` receives it (string, URL or Request). */
-function requestUrl(input: RequestInfo | URL): string {
-  return typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 }
 
 /**

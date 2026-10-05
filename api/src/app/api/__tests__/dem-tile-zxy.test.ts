@@ -155,9 +155,9 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
   });
 
-  it("still falls back to a PNG when the OZT2 fetch fails, logging in development", async () => {
+  it("still falls back to a PNG when the OZT2 fetch fails, warning in development", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
       vi.fn((_input: RequestInfo | URL) => Promise.reject(new Error("HF unavailable"))),

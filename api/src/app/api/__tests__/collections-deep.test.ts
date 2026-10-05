@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest, bodyAs } from "./helpers";
+import { mockRequest, bodyAs, stubFetchRoutes } from "./helpers";
 
 type JsonBody = Record<string, unknown>;
 
@@ -35,19 +35,8 @@ const itemsRoute = () => import("@/app/api/collections/[id]/items/route");
 
 const itemsCtx = (id: string) => ({ params: Promise.resolve({ id }) });
 
-type FetchRoute = { match: string; respond: () => Response };
-
-/** Route stubbed fetch calls by URL substring; anything else fails the test. */
-function stubFetch(routes: FetchRoute[]) {
-  const fetchMock = vi.fn((input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const hit = routes.find((r) => url.includes(r.match));
-    if (!hit) throw new Error(`unexpected fetch: ${url}`);
-    return hit.respond();
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
-}
+// Shared route-table fetch stub; unmatched URLs fail the test loudly.
+const stubFetch = stubFetchRoutes;
 
 afterEach(() => {
   vi.unstubAllGlobals();

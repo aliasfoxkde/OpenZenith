@@ -1,22 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest, bodyAs } from "./helpers";
+import { mockRequest, bodyAs, stubFetchRecording } from "./helpers";
 
 /** Bodies the ArcGIS proxy returns: either the upstream JSON or `{ error }`. */
 interface ArcgisBody {
   currentVersion?: number;
   error?: string;
-}
-
-/**
- * One-shot fetch stub that hands the recorded request to `onCaptured` and
- * answers with a JSON body.
- */
-function stubFetchRecording(onCaptured: (url: string, init: RequestInit | undefined) => void, body = "{}") {
-  vi.spyOn(globalThis, "fetch").mockImplementationOnce((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    onCaptured(url, init);
-    return Promise.resolve(new Response(body, { status: 200 }));
-  });
 }
 
 describe("ArcGIS Proxy API", () => {

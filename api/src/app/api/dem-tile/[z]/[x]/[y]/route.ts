@@ -229,8 +229,10 @@ async function serveOZT2Tile(z: number, x: number, y: number): Promise<Response>
 
   // Layer 3: OZT2 tile not available — fall back to PNG generation.
   // The client will receive a PNG but should gracefully handle this.
+  // Prod diagnostics ride the X-Dem-Tile-Format-Fallback header; the log is
+  // dev-only so routine fallbacks don't spam edge logs.
   if (process.env.NODE_ENV === "development") {
-    console.log(`[dem-tile] OZT2 tile not found for ${z}/${x}/${y}, falling back to PNG`);
+    console.warn(`[dem-tile] OZT2 tile not found for ${z}/${x}/${y}, falling back to PNG`);
   }
   const pngResponse = await servePNGTile(z, x, y);
   // Add header indicating we fell back from OZT2 to PNG

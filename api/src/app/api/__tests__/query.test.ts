@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mockRequest, bodyAs } from "./helpers";
+import { mockRequest, bodyAs, stubFetchRoutes } from "./helpers";
 import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
 import { getWeather } from "@/lib/weather/open-meteo";
 import { getTides } from "@/lib/tides/noaa";
@@ -92,21 +92,9 @@ interface QueryBody {
   error?: string;
 }
 
-type FetchRoute = { match: string; respond: () => Response };
-
-/** Route stubbed fetch calls by URL substring so concurrent includes stay deterministic. */
-function stubFetch(routes: FetchRoute[]) {
-  const fetchMock = vi.fn((input: RequestInfo | URL) =>
-    Promise.resolve().then(() => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const hit = routes.find((r) => url.includes(r.match));
-      if (!hit) throw new Error(`unexpected fetch: ${url}`);
-      return hit.respond();
-    }),
-  );
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
-}
+// Route-table fetch stub shared across route tests (concurrent includes stay
+// deterministic because matches are URL substrings).
+const stubFetch = stubFetchRoutes;
 
 afterEach(() => {
   vi.unstubAllGlobals();

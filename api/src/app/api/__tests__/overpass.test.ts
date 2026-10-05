@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { mockRequest, bodyAs } from "./helpers";
+import { mockRequest, bodyAs, stubFetchRecording } from "./helpers";
 
 /**
  * Overpass proxy response body — `elements` on success, `error` on any of the
@@ -8,18 +8,6 @@ import { mockRequest, bodyAs } from "./helpers";
 interface OverpassBody {
   elements?: Array<{ type?: string; id?: number; lat?: number; lon?: number }>;
   error?: string;
-}
-
-/**
- * One-shot fetch stub that hands the recorded request to `onCaptured` and
- * answers with a JSON body.
- */
-function stubFetchRecording(onCaptured: (url: string, init: RequestInit | undefined) => void, body = "{}") {
-  vi.spyOn(globalThis, "fetch").mockImplementationOnce((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    onCaptured(url, init);
-    return Promise.resolve(new Response(body, { status: 200 }));
-  });
 }
 
 describe("Overpass API", () => {

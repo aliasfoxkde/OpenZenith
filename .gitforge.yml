@@ -140,11 +140,10 @@ jobs:
             echo "retry succeeded (flaky, absorbed)"
           fi
           # Worker-start failures DROP files and exit non-zero, so a green
-          # exit should mean a complete run — assert it. Baseline 2026-10-03:
-          # 99 files / 1424 passed + 5 skipped (1424 = 1419 + the 5 edge-cache
-          # tests from bf9f26f that shipped before this guard existed).
-          # Update BOTH numbers when the suite grows (fail-loud beats
-          # fail-silent).
+          # exit should mean a complete run — assert it. Baseline 2026-10-04
+          # (task #179 coverage wave): 99 files / 1446 passed + 5 skipped
+          # (was 1424 on 2026-10-03). Update BOTH numbers when the suite
+          # grows (fail-loud beats fail-silent).
           clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed \([0-9]+\)' | grep -oE '[0-9]+\)' | tr -d ')')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
@@ -152,8 +151,8 @@ jobs:
           [ "${files:-0}" -eq 99 ] || {
             echo "INCOMPLETE: passing run covered ${files:-?}/99 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1424 ] || {
-            echo "COUNT DRIFT: ${tests:-?} passed, baseline 1424 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1446 ] || {
+            echo "COUNT DRIFT: ${tests:-?} passed, baseline 1446 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have
@@ -194,4 +193,8 @@ jobs:
           cd api
           npm run pages:build > /tmp/budget-build.log 2>&1 || { tail -30 /tmp/budget-build.log; exit 1; }
           node scripts/perf-budget.mjs
-    timeout: 15m
+    # Run 779f0f61: first run after mcp-server was inserted ahead of this
+    # job, pages:build timed out at 15m with an empty step log — the same
+    # host-load class as the install failures (next build under load 100+
+    # stretched siblings >4x). 30m matches install's headroom.
+    timeout: 30m

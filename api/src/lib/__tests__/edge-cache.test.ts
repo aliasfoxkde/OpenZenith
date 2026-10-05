@@ -145,12 +145,17 @@ describe("edge-cache global Cache API resolution", () => {
 
   it("uses the global Cache API when no provider override is installed", async () => {
     const entries = new Map<string, Response>();
+    // The Cache API accepts RequestInfo | URL keys; resolve each union
+    // member to its URL text instead of String()-ing the object (a Request
+    // would stringify as "[object Object]").
+    const keyOf = (key: RequestInfo | URL): string =>
+      typeof key === "string" ? key : key instanceof URL ? key.href : key.url;
     vi.stubGlobal("caches", {
       open: () =>
         Promise.resolve({
-          match: (key: RequestInfo | URL) => Promise.resolve(entries.get(String(key))),
+          match: (key: RequestInfo | URL) => Promise.resolve(entries.get(keyOf(key))),
           put: (key: RequestInfo | URL, response: Response) => {
-            entries.set(String(key), response);
+            entries.set(keyOf(key), response);
             return Promise.resolve();
           },
         }),

@@ -6,6 +6,7 @@ so the exact edge topology is known.
 """
 
 import numpy as np
+import pytest
 
 from openzenith.hydrology.flowpaths import (
     cost_distance,
@@ -268,3 +269,33 @@ class TestFlowpathDelegatingHelpers:
         np.testing.assert_array_equal(
             downslope_distance_to_outlet(dem), flow_length(dem, direction="downslope")
         )
+
+
+# ─── upslope propagation: a direction whose every source is still unreachable ──
+
+
+class TestUpslopeFlowpathLengthUnreachedDirection:
+    """Flow directions with no finite-length source yet are skipped whole.
+
+    ``flow_dir[1, 0] = 0`` (east) is the only eastward cell, and it starts the
+    relaxation at infinity because (0, 0) has to reach it first. The first
+    pass therefore has no valid eastward edge to relax and must continue past
+    it instead of indexing empty index arrays.
+    """
+
+    def test_result_is_still_the_exact_path_length(self):
+        flow_dir = np.full((2, 2), -1, dtype=np.int8)
+        flow_dir[0, 0] = 2  # south, onto the channel cell
+        flow_dir[1, 0] = 0  # east, the direction under test
+        flow_dir[0, 1] = 2  # south, a second ridge draining to the same cell
+
+        result = upslope_flowpath_length(np.ones((2, 2)), flow_dir=flow_dir)
+
+        cell_m = 0.001 * 111320.0
+        assert result[0, 0] == pytest.approx(0.0)  # ridge
+        assert result[0, 1] == pytest.approx(0.0)  # ridge
+        assert result[1, 0] == pytest.approx(cell_m)
+        # The mouth takes the shorter of its two upstream routes.
+        assert result[1, 1] == pytest.approx(cell_m)
+        assert result.dtype == np.float32
+        assert np.isfinite(result).all()

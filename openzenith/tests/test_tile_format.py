@@ -288,3 +288,55 @@ class TestMissingZstandard:
         monkeypatch.setattr("openzenith.tile_format.HAS_ZSTD", False)
         with pytest.raises(ImportError, match=r"openzenith\[compression\]"):
             _decompress_zstd(b"data")
+
+
+# ─── Reject-invalid-encoder-input + roundtrip mismatch arms ────────────────────
+
+
+class TestEncodeRejectsUnknownCompression:
+    """An unsupported compression mode is a caller error, not silent zstd."""
+
+    def test_unknown_mode_raises(self):
+        with pytest.raises(TileError, match="Unknown compression mode: 99"):
+            encode(_make_test_tile(shape=(4, 4)), compression=99)
+
+    def test_known_modes_still_encode(self):
+        """The four documented modes all produce a decodable tile."""
+        tile = _make_test_tile(shape=(8, 8))
+        for mode in (COMP_NONE, COMP_ZSTD, COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT):
+            decoded, meta = decode(encode(tile, compression=mode))
+            assert_array_equal(decoded, tile)
+            assert meta["compression"] == mode
+
+
+class TestDecodeRejectsMalformedHeader:
+    """Header fields outside the format contract are reported, not guessed."""
+
+    def _patch_header(self, tile: bytes, offset: int, value: int) -> bytes:
+        raw = bytearray(tile)
+        raw[offset] = value
+        return bytes(raw)
+
+    def test_unsupported_version(self):
+        tile = encode(_make_test_tile(shape=(4, 4)))
+        with pytest.raises(TileError, match="Unsupported version: 2"):
+            decode(self._patch_header(tile, 4, 2))
+
+    def test_unknown_compression_mode(self):
+        tile = encode(_make_test_tile(shape=(4, 4)))
+        with pytest.raises(TileError, match="Unknown compression: 9"):
+            decode(self._patch_header(tile, 16, 9))
+
+
+class TestValidateRoundtripReportsMismatch:
+    """validate_roundtrip must flag loss the caller did not ask for."""
+
+    def test_int32_source_values_above_int16_range(self):
+        """40000 wraps to -25536 under encode's int16 cast — reported as error."""
+        elevation = np.array([[40000]], dtype=np.int32)
+
+        is_lossless, max_err, meta = validate_roundtrip(elevation)
+
+        assert is_lossless is False
+        assert max_err == 65536.0
+        assert meta["min_elevation"] == -25536

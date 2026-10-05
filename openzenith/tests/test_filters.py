@@ -132,3 +132,35 @@ class TestFeaturePreservingSmooth:
         assert out[0, 0] == 100.0
         assert out[1, 1] == NODATA
         assert out[2, 2] == NODATA
+
+
+# ─── feature_preserving_smooth: windows whose points have no valid context ─────
+
+
+class TestFeaturePreservingSmoothIsolatedCell:
+    """A lone valid cell has no 3×3 context, so its weight must be zero.
+
+    Every window point here is valid (so ``window_vals`` is non-empty) but its
+    3×3 neighbourhood holds just itself, so the range is undefined and is
+    recorded as infinity — which the inverse-range weighting then zeroes.
+    """
+
+    def test_lone_valid_cell_surrounded_by_nodata_is_left_alone(self):
+        dem = np.full((5, 5), NODATA, dtype=np.float32)
+        dem[2, 2] = 100.0
+
+        out = feature_preserving_smooth(dem, filter_size=3, max_diff=1e9)
+
+        assert out[2, 2] == 100.0  # unsmoothable: no comparable neighbours
+        assert (out == NODATA).sum() == 24  # nodata cells stay nodata
+        assert out.dtype == np.float32
+
+    def test_pair_of_equal_cells_still_smooths_to_their_common_value(self):
+        """Two adjacent valid cells give each other a finite range of zero."""
+        dem = np.full((5, 5), NODATA, dtype=np.float32)
+        dem[2, 2] = dem[2, 3] = 70.0
+
+        out = feature_preserving_smooth(dem, filter_size=3, max_diff=1e9)
+
+        assert out[2, 2] == 70.0
+        assert out[2, 3] == 70.0

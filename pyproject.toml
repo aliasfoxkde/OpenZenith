@@ -162,7 +162,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
-addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=97"
+addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=99"
 markers = [
     "integration: marks tests that require network access",
 ]
@@ -264,4 +264,38 @@ markers = [
 # depth/volume sign inversion, vector POLYLINZ typo, profiles upslope
 # flow_length walking the downstream graph under the upslope name).
 # Measured 98.81% (14,412 stmts, 171 miss), 1,475 passed, 0 failed.
+#
+# Raised to 99 (2026-10-04) with the last branches reachable through the
+# public API — elevation decode-failure isolation via a structurally valid
+# PNG whose IHDR declares a decompression bomb (PIL raises
+# DecompressionBombError, which is *not* an OSError, so it reaches the generic
+# decode handler that the garbage-bytes tests cannot), OZT1 reject arms
+# (unknown compression on encode, bad version and unknown compression on
+# decode, validate_roundtrip's lossy-mismatch report when an int32 source
+# wraps under encode's int16 cast), the documented default zoom ladders
+# (HF OZT2 z7-z12, download_tiles z0-z8, path profiles 10-12) for both the
+# sync and thread-offloaded async profiles, cmd_info's empty-cache and
+# populated-cache reports plus `python -m openzenith.cli --help`, reach
+# tracing over hand-built grids whose first cell is a junction and whose
+# upstream walk hits one, stream_basins refusing a non-stream tributary, the
+# least-cost breach no-dig gate, the Kuwahara window with no comparable
+# neighbours, flow truncation excluding a nodata cell from both counts, the
+# upslope relaxation direction with no finite source yet, depth_to_water with
+# and without a network, the float dtype GeoTIFF arm, and the matplotlib
+# SubFigure narrowing guard. Measured 99.06% (14,749 stmts, 138 miss), 1,516
+# passed, 0 failed. Every production line still missed was probe-verified
+# unreachable through the public API, and most are guards whose precondition
+# is established by their own caller: mstp's tail branch chain
+# (terrain/indices 76-81) is dead because tpi() ignores its radius argument so
+# all three "scales" are identical — mstp is single-scale despite its name;
+# sub_basins' trace loop (watersheds 388, 394-401) never iterates because
+# valid = (flow_dir != nodata) & streams seeds every walk on a stream cell;
+# likewise streams 214 (stream_cells comes from np.where(streams)),
+# depressions 211/263/304 (NaN distance and empty labels cannot occur given
+# the valid-mask pre-filter), filters 474, profiles 223, tracing 111/122-124,
+# export 153, fuse 116-117, tile_format_v2 453, and the `if __name__` arm in
+# cli (covered via runpy). One defect surfaced and is pinned rather than
+# fixed here: export_geotiff hardcodes dtype int16 in its rasterio profile,
+# so a float dtype override is computed but truncated on write (see the
+# float-dtype test in test_geotiff.py).
 # Raise --cov-fail-under only together with tests that cover the delta.

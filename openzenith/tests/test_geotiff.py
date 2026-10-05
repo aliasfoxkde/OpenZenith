@@ -218,3 +218,25 @@ class TestExportGeotiffFallbacks:
         self._without_rasterio(monkeypatch)
         with pytest.raises(ImportError, match="rasterio required for COG export"):
             export_cog(dem, tmp_path / "cog.tif")
+
+    def test_float_dtype_override_reaches_the_band_unrounded(self):
+        """A float dtype override takes the float cast arm and skips rounding.
+
+        Pinning current behaviour: ``out_data`` is cast to float32 and the
+        fractional parts survive that cast, but the rasterio profile below
+        hardcodes ``dtype: "int16"``, so the file on disk is int16 and the
+        fractions are truncated at write time. If you are here because the
+        profile now honours ``out_data.dtype``, update the two dtype asserts
+        and the exact-value asserts to the float expectations they were
+        written against.
+        """
+        dem = np.array([[100.5, 200.25], [-0.125, 8848.75]], dtype=np.float32)
+        with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
+            path = export_geotiff(dem, f.name, dtype="float32")
+            import rasterio
+
+            with rasterio.open(path) as src:
+                assert src.dtypes[0] == "int16"
+                data = src.read(1)
+                assert data[0, 0] == 100  # fractional part lost in the band
+                assert data[1, 1] == 8848

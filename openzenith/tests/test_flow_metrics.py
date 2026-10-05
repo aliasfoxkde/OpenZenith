@@ -165,3 +165,31 @@ def test_module_entrypoint_via_package(func):
     from openzenith.terrain import sediment_transport_index as reexported
 
     assert reexported is func
+
+
+# ─── average_flow_truncation: nodata cells are excluded from both counts ───────
+
+
+class TestAverageFlowTruncationNodata:
+    """Cells below nodata are neither measured nor counted as truncated."""
+
+    def test_nodata_cells_are_excluded_from_both_counts(self):
+        """Removing one truncating cell moves the fraction 3/6 → 2/5.
+
+        Steps of 900 m and 100 m over a 111.32 m cell give slopes of 8.1 and
+        0.9, so only the top row truncates at the default 45° threshold.
+        """
+        dem = np.zeros((3, 3), dtype=np.float32)
+        dem[0, :] = 1000.0
+        dem[1, :] = 100.0
+
+        assert average_flow_truncation(dem) == pytest.approx(3 / 6)
+
+        dem[0, 1] = NODATA
+        assert average_flow_truncation(dem) == pytest.approx(2 / 5)
+
+    def test_all_nodata_grid_reports_zero_truncation(self):
+        """Nothing is measured on an empty grid, so the fraction is 0."""
+        dem = np.full((4, 4), NODATA, dtype=np.float32)
+
+        assert average_flow_truncation(dem) == 0.0

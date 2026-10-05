@@ -278,3 +278,33 @@ class TestDepthToWater:
         assert result[2, 1] == pytest.approx(50.0, abs=1e-6)
         # East of the stream it is (2, 4) at 70 m.
         assert result[2, 5] == pytest.approx(30.0, abs=1e-6)
+
+
+class TestDepthToWaterWithoutStreams:
+    """No stream network means no water-table reference at all."""
+
+    def test_all_nodata_when_network_is_empty(self):
+        dem = np.full((4, 4), 50.0)
+
+        result = depth_to_water(dem, np.zeros((4, 4), dtype=bool))
+
+        assert result.dtype == np.float32
+        assert (result == NODATA).all()
+
+    def test_depth_is_surface_minus_nearest_stream_elevation(self):
+        """Depth = surface elevation of the cell minus that of the channel.
+
+        DEM rises 10 m per column, so the channel sits at 60 m: one column
+        east (70 m) is 10 m above the water table, two columns east 20 m.
+        """
+        streams = np.zeros((4, 4), dtype=bool)
+        streams[:, 1] = True
+        dem = np.tile(50.0 + 10.0 * np.arange(4), (4, 1)).astype(np.float32)
+
+        result = depth_to_water(dem, streams)
+
+        assert result[0, 1] == pytest.approx(0.0)  # on the channel
+        assert result[0, 2] == pytest.approx(10.0)
+        assert result[0, 3] == pytest.approx(20.0)
+        assert result[0, 0] == pytest.approx(-10.0)  # valley side below the bed
+        assert (result != NODATA).all()

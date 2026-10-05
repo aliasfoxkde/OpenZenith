@@ -432,3 +432,26 @@ class TestTerrainToPngRGB:
         px = img.load()
         assert px[0, 0] != (0, 0, 0)  # valid cell keeps its palette colour
         assert px[1, 0] == (0, 0, 0)  # NODATA cell is flattened to black
+
+
+# ─── _figure_axes narrows matplotlib's SubFigure union ─────────────────────────
+
+
+class TestFigureAxesNarrowing:
+    """Axes living on a SubFigure are rejected instead of drawn into."""
+
+    def test_subfigure_axes_raise_type_error(self):
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        dem = np.arange(25, dtype=np.float32).reshape(5, 5)
+        fig = plt.figure()
+        try:
+            sub = fig.subfigures()
+            ax = sub.subplots()
+            with pytest.raises(TypeError, match="expected a top-level matplotlib Figure"):
+                plot_terrain(dem, ax=ax)
+        finally:
+            plt.close("all")

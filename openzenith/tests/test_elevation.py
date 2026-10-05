@@ -2,6 +2,8 @@
 
 import io
 import math
+import struct
+import zlib
 from pathlib import Path
 from unittest import mock
 
@@ -960,3 +962,133 @@ def test_get_elevation_along_path_async_over_tiles(tmp_path):
     assert result[0]["elevation"] == 500.0
     assert result[-1]["distance_m"] > 0
     assert result[1]["slope_deg"] == 0.0
+
+
+# ─── Remaining branch coverage: decode-failure isolation + defaults ────────────
+
+
+def _bomb_png(width_px: int, height_px: int, height_m: int = 1000) -> bytes:
+    """Build a 2×2 Terrarium PNG whose IHDR declares a huge raster.
+
+    The CRC is recomputed so the file stays structurally valid — PIL opens it,
+    then raises ``DecompressionBombError`` on the declared pixel count. That
+    error is *not* an ``OSError``, so it reaches the generic decode-failure
+    handler instead of the read-failure one (a truncated/garbage file lands
+    there via ``UnidentifiedImageError``).
+    """
+    value = height_m + 32768
+    rgb = (min(255, value >> 8), value - (value >> 8) * 256, 0)
+    img = Image.fromarray(np.full((2, 2, 3), rgb, dtype=np.uint8), mode="RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    raw = bytearray(buf.getvalue())
+    raw[16:24] = struct.pack(">II", width_px, height_px)
+    crc = zlib.crc32(bytes(raw[12:29])) & 0xFFFFFFFF
+    raw[29:33] = struct.pack(">I", crc)
+    return bytes(raw)
+
+
+def test_get_elevation_survives_non_oserror_decode_failure(tmp_path):
+    """A tile PIL refuses to decode (decompression bomb) is skipped, not fatal."""
+    zoom = 10
+    x, y = latlon_to_tile(40.0, 10.0, zoom)
+    tile_dir = tmp_path / str(zoom) / str(x)
+    tile_dir.mkdir(parents=True)
+    (tile_dir / f"{y}.png").write_bytes(_bomb_png(30000, 30000))
+
+    assert get_elevation(40.0, 10.0, tile_dir=tmp_path, zoom_levels=[zoom]) is None
+
+
+def test_load_elevation_grid_survives_non_oserror_decode_failure(tmp_path):
+    """A grid whose every tile fails decoding comes back all-NaN, not raised."""
+    import openzenith.elevation as e
+
+    zoom = 10
+    x, y = latlon_to_tile(40.0, 10.0, zoom)
+    tile_dir = tmp_path / str(zoom) / str(x)
+    tile_dir.mkdir(parents=True)
+    (tile_dir / f"{y}.png").write_bytes(_bomb_png(30000, 30000))
+
+    result = e.load_elevation_grid(40.0, 10.0, zoom=zoom, radius_cells=3, cache_dir=tmp_path)
+
+    assert result["grid"].shape == (7, 7)
+    assert np.isnan(result["grid"]).all()
+
+
+def test_load_ozt2_tiles_from_hf_default_zoom_levels(tmp_path):
+    """Omitting zoom_levels downloads the documented z7-z12 window."""
+    import openzenith.elevation as e
+
+    saved = e.DEFAULT_OZT2_DIR
+    e.DEFAULT_OZT2_DIR = None
+    try:
+        with mock.patch("huggingface_hub.snapshot_download") as mock_download:
+            mock_download.return_value = str(tmp_path / "dataset")
+            result = load_ozt2_tiles_from_hf(repo_id="test/repo", cache_dir=tmp_path)
+
+            assert result == tmp_path / "dataset" / "tiles"
+            patterns = mock_download.call_args.kwargs["allow_patterns"]
+            assert patterns == [f"tiles/z{z}/**/*.ozt2" for z in range(7, 13)]
+    finally:
+        e.DEFAULT_OZT2_DIR = saved
+
+
+def test_download_tiles_default_zoom_levels(tmp_path):
+    """Omitting zoom_levels plans tiles for z0-z8 and reports the breakdown."""
+    import openzenith.elevation as e
+
+    saved = e.DEFAULT_TILE_DIR
+    e.DEFAULT_TILE_DIR = None
+    try:
+        with mock.patch.object(e, "load_tiles", return_value=tmp_path):
+            result = download_tiles(lat=40.7, lon=-74.0, radius=0.5, cache_dir=tmp_path)
+
+            assert sorted(result["zoom_breakdown"]) == list(range(9))
+            assert result["total_tiles"] == sum(result["zoom_breakdown"].values())
+            assert result["total_tiles"] > 0
+    finally:
+        e.DEFAULT_TILE_DIR = saved
+
+
+def test_get_elevation_along_path_default_zoom_levels(tmp_path):
+    """The default zoom ladder (10, 11, 12) finds the zoom-10 cache."""
+    zoom = 10
+    _make_tile_area(tmp_path, zoom, 40.0, 10.0, 1000)
+    result = get_elevation_along_path([(40.0, 10.0), (40.005, 10.0)], cache_dir=tmp_path)
+
+    assert len(result) >= 3
+    assert result[0]["distance_m"] == 0.0
+    assert result[0]["slope_deg"] is None
+    assert all(point["elevation"] == 1000.0 for point in result)
+    distances = [point["distance_m"] for point in result]
+    assert distances == sorted(distances)
+    assert distances[-1] > 0
+    # Flat ground: every resolvable step is level
+    assert all(point["slope_deg"] == 0.0 for point in result[1:])
+
+
+def test_get_elevation_along_path_async_too_few_points():
+    """The async profile with < 2 waypoints returns an empty list."""
+    import asyncio
+
+    from openzenith.elevation import get_elevation_along_path_async
+
+    assert asyncio.run(get_elevation_along_path_async([(40.0, 10.0)])) == []
+
+
+def test_get_elevation_along_path_async_default_zoom_levels(tmp_path):
+    """The async profile resolves the same default zoom ladder off the loop."""
+    import asyncio
+
+    from openzenith.elevation import get_elevation_along_path_async
+
+    zoom = 10
+    _make_tile_area(tmp_path, zoom, 40.0, 10.0, 640)
+    result = asyncio.run(
+        get_elevation_along_path_async([(40.0, 10.0), (40.005, 10.0)], cache_dir=tmp_path)
+    )
+
+    assert len(result) >= 3
+    assert result[0]["elevation"] == 640.0
+    assert result[-1]["elevation"] == 640.0
+    assert result[-1]["distance_m"] > 0

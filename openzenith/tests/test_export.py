@@ -285,3 +285,42 @@ class TestGeoJSONToKML:
         }
         result = _geojson_to_kml(geojson, name="Contour", altitude_mode="absolute")
         assert "absolute" in result
+
+
+class TestGeojsonToKmlNestedPointPosition:
+    """A Point position wrapped in an extra list still lands in the KML."""
+
+    def test_nested_position_with_altitude(self):
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [[-74.006, 40.7128, 312.5]],
+                    },
+                    "properties": {"elevation": 312.5},
+                }
+            ],
+        }
+
+        kml = _geojson_to_kml(geojson, name="Nested")
+
+        assert "<Point><coordinates>-74.006,40.7128,312.5</coordinates></Point>" in kml
+
+    def test_nested_position_without_altitude_defaults_to_zero(self):
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [[10.5, -20.25]]},
+                    "properties": {},
+                }
+            ],
+        }
+
+        kml = _geojson_to_kml(geojson)
+
+        assert "<Point><coordinates>10.5,-20.25,0</coordinates></Point>" in kml

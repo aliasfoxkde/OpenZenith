@@ -1272,3 +1272,88 @@ class TestBasinIDEdgeCases:
         assert result[3, 2] == 0
         assert result[1, 1] == 1  # the westward component is still labelled
         assert (result[~streams] == 0).all()
+
+
+# ─── Reach/basin tracing over hand-built (possibly cyclic) flow grids ──────────
+
+
+class TestStreamReachIdentifierJunctionArms:
+    """Reaches start at headwaters; junctions separate them but join none.
+
+    Hand-built grids are used so every direction code is deliberate.
+    Direction codes: 0=E, 2=S, 4=W, 6=N.
+    """
+
+    def test_junction_as_first_stream_cell_is_not_a_reach_start(self):
+        """A junction visited first in raster order is skipped, not traced."""
+        streams = np.zeros((2, 3), dtype=bool)
+        streams[0, 1] = streams[0, 2] = streams[1, 1] = True
+
+        flow_dir = np.full((2, 3), -1, dtype=np.int8)
+        flow_dir[0, 2] = 4  # east tributary flows W into the junction
+        flow_dir[1, 1] = 6  # south tributary flows N into the junction
+        flow_dir[0, 1] = 4  # junction drains W, leaving the network
+
+        reaches = stream_reach_identifier(streams, flow_dir)
+
+        # Both headwaters get their own reach; the junction cell is a
+        # separator and carries no reach id.
+        assert reaches[0, 2] == 1
+        assert reaches[1, 1] == 2
+        assert reaches[0, 1] == 0
+        assert (reaches[~streams] == 0).all()
+
+    def test_upstream_walk_stops_at_a_junction(self):
+        """Walking upstream from a mouth halts at the junction above it."""
+        streams = np.zeros((2, 3), dtype=bool)
+        streams[0, 1] = streams[1, 0] = streams[1, 1] = streams[1, 2] = True
+
+        flow_dir = np.full((2, 3), -1, dtype=np.int8)
+        flow_dir[0, 1] = 2  # north tributary joins at (1,1)
+        flow_dir[1, 0] = 0  # west tributary joins at (1,1)
+        flow_dir[1, 1] = 0  # junction drains E to the mouth (1,2)
+
+        reaches = stream_reach_identifier(streams, flow_dir)
+
+        # The mouth's upstream walk stops at (1,1), so the downstream trace
+        # restarts there and labels the junction and the mouth alike.
+        assert reaches[0, 1] == 1
+        assert reaches[1, 0] == 2
+        assert reaches[1, 1] == 3
+        assert reaches[1, 2] == 3
+
+
+class TestStreamBasinsSkipsNonStreamTributary:
+    """A hillslope cell draining into a stream never joins its basin."""
+
+    def test_non_stream_upstream_cell_is_ignored(self):
+        streams = np.zeros((2, 2), dtype=bool)
+        streams[1, 0] = True
+
+        flow_dir = np.full((2, 2), -1, dtype=np.int8)
+        flow_dir[0, 0] = 2  # hillslope cell drains S onto the stream
+        flow_dir[1, 0] = 0  # stream drains E, out of the network
+
+        basins = stream_basins(flow_dir, streams)
+
+        assert basins[1, 0] == 1
+        assert basins[0, 0] == 0  # contributing but not part of the basin
+        assert (basins[~streams] == 0).all()
+
+
+class TestBreachLeastCostPathCostGates:
+    """Cells that need no digging are left exactly as they were."""
+
+    def test_cell_at_or_below_outlet_elevation_is_untouched(self):
+        dem = np.full((3, 3), 100.0)
+        dem[0, 0] = 50.0  # outlet — the lowest thing on the map
+        dem[2, 2] = 40.0  # already below the outlet
+
+        result = breach_least_cost_path(dem, [(0, 0)], max_cost=1e9)
+
+        assert result[2, 2] == 40.0  # not raised to the outlet elevation
+        # Everything else between here and the outlet is dug down to it.
+        assert result[1, 1] == 50.0
+        assert result[0, 2] == 50.0
+        assert result[2, 1] == 50.0
+        assert result.astype(np.float32).dtype == np.float32

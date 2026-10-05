@@ -328,6 +328,14 @@ class TestDownloadParser:
             main()
         assert exc.value.code == 0
 
+    def test_help_parse_suppresses_the_exit(self):
+        """_run is the parse-only path: argparse's SystemExit is swallowed.
+
+        Only --help goes through here; a real download would need the mocks
+        that _run_with_mocks installs.
+        """
+        self._run(["download", "--help"])
+
     def test_download_region(self):
         self._run_with_mocks(["download", "--region", "europe"])
 
@@ -2074,3 +2082,59 @@ class TestCmdEncodeUnknownSingleFile:
         cmd_encode(args)
         assert "Unknown format" in capsys.readouterr().out
         assert not (tmp_path / "out.ozt2").exists()
+
+
+# ─── cmd_info cache-report arms + download parser helper ───────────────────────
+
+
+class TestCmdInfoCacheReport:
+    """cmd_info reports what it finds in ~/.cache/openzenith-dem."""
+
+    def test_empty_cache_directory_reports_empty(self, capsys):
+        """A present-but-tile-less cache says so instead of printing counts."""
+        args = MagicMock()
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("openzenith.elevation.get_tile_count", return_value={}),
+            patch("requests.get"),
+        ):
+            cmd_info(args)
+
+        out = capsys.readouterr().out
+        assert "Local cache: empty (run 'openzenith download' to populate)" in out
+        assert "Tiles:" not in out
+
+    def test_populated_cache_lists_zoom_levels(self, capsys):
+        """A cache with tiles reports the count and the sorted zoom ladder."""
+        args = MagicMock()
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch(
+                "openzenith.elevation.get_tile_count",
+                return_value={8: 100, 6: 50, 7: 200},
+            ),
+            patch("requests.get"),
+        ):
+            cmd_info(args)
+
+        out = capsys.readouterr().out
+        assert "Tiles:       350" in out
+        assert "Zoom levels: 6, 7, 8" in out
+
+
+class TestModuleEntryPoint:
+    """`python -m openzenith.cli` is a documented way to reach the parser."""
+
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    def test_help_via_runpy_exits_zero(self, capsys):
+        """Re-importing via runpy warns; the exit code is the point."""
+        import runpy
+
+        with (
+            patch.object(sys, "argv", ["openzenith.cli", "--help"]),
+            pytest.raises(SystemExit) as exc,
+        ):
+            runpy.run_module("openzenith.cli", run_name="__main__")
+
+        assert exc.value.code == 0
+        assert "usage:" in capsys.readouterr().out

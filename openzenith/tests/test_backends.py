@@ -7,8 +7,13 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from openzenith.backends.ozt2 import OZT2Backend, OZT2HFBackend, OZT2R2Backend
-from openzenith.tile_format_v2 import auto_encode
+from openzenith.backends.ozt2 import (
+    OZT2Backend,
+    OZT2HFBackend,
+    OZT2R2Backend,
+    _require_https_url,
+)
+from openzenith.tile_format_v2 import TileError, auto_encode
 
 NODATA = -32768
 TILE_SIZE = 256
@@ -647,3 +652,27 @@ class TestOZT2HFBackendPrefetch:
         _write_tile(tmp_path, 10, 1, 2, make_grid())
         backend = OZT2HFBackend(cache_dir=tmp_path)
         assert backend.prefetch_tiles([(10, 1, 1), (10, 1, 2)]) == 2
+
+
+# ─── URL scheme guard (the S310 answer for the two urllib paths) ───────────────
+
+
+class TestRequireHttpsUrl:
+    """The helper is the single choke point that refuses non-https origins."""
+
+    def test_accepts_https_and_returns_it_unchanged(self):
+        url = "https://huggingface.co/datasets/r/resolve/main/tiles/z10/1/2.ozt2"
+        assert _require_https_url(url) == url
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://huggingface.co/datasets/r/resolve/main/tiles/z10/1/2.ozt2",
+            "file:///etc/passwd",
+            "ftp://example.com/tile.ozt2",
+            "//cdn.example.com/tile.ozt2",
+        ],
+    )
+    def test_rejects_every_other_scheme(self, url):
+        with pytest.raises(TileError, match="refusing to open non-https URL"):
+            _require_https_url(url)

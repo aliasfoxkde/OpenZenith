@@ -31,6 +31,14 @@
 #     green CI must never deploy unreviewed work).
 #   * aegis scan, cargo test (core/), pytest (openzenith/): host-binary /
 #     other-toolchain gates; run locally (no rust/python image pre-pulled).
+#     aegis specifically was evaluated for the kubix pattern (2026-10-05,
+#     task #183): kubix bakes it into a custom runner image
+#     (kubix-ci-python:1) — building/tagging such an image is runner-host
+#     infrastructure outside this repo, and the full-tree scan currently
+#     carries ~16k untriaged legacy findings, so a baseline gate would
+#     encode an un-dispositioned inventory as acceptable. Aegis stays a
+#     local feedback gate until the finding inventory is triaged down to a
+#     set worth freezing in a baseline.
 name: openzenith-ci
 version: "1.0"
 trigger_on:

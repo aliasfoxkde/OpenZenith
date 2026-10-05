@@ -1,3 +1,9 @@
+# GitHub mirror validation — NON-AUTHORITATIVE.
+# GitForge (http://localhost:42782/bigdata-ci/OpenZenith.git) is the primary
+# CI/CD platform; this workflow is a best-effort mirror check. It must never
+# deploy: the deploy path is scripts/ship.sh from a checkout (build ->
+# bundle-marker -> deploy -> prod E2E), run by the maintainer.
+
 name: "CodeQL"
 
 on:

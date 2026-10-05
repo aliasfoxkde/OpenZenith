@@ -17,8 +17,9 @@ def load_geotiff(path: str) -> np.ndarray:
 def srtm_filename_to_bounds(filename: str) -> tuple[float, float, float, float]:
     """Parse SRTM filename to geographic bounds.
 
-    SRTM naming: N/S{lat}E/W{lon}.tif
-    Each tile covers 1x1 degree at 3601x3601 pixels.
+    SRTM naming: the name is the tile's SW corner — N19W156 covers
+    lat [19, 20], lon [-156, -155]. Each tile is 1x1 degree at
+    3601x3601 pixels.
 
     Returns: (lat_min, lon_min, lat_max, lon_max)
     """
@@ -31,12 +32,12 @@ def srtm_filename_to_bounds(filename: str) -> tuple[float, float, float, float]:
     if lat_dir == "N":
         lat_min, lat_max = lat_deg, lat_deg + 1
     else:
-        lat_min, lat_max = -lat_deg - 1, -lat_deg
+        lat_min, lat_max = -lat_deg, -lat_deg + 1
 
     if lon_dir == "E":
         lon_min, lon_max = lon_deg, lon_deg + 1
     else:
-        lon_min, lon_max = -lon_deg - 1, -lon_deg
+        lon_min, lon_max = -lon_deg, -lon_deg + 1
 
     return lat_min, lon_min, lat_max, lon_max
 

@@ -184,19 +184,24 @@ class TestMergedFile:
 
 
 class TestLatLonToSRTMName:
-    """Tests for lat_lon_to_srtm_name."""
+    """Tests for lat_lon_to_srtm_name.
 
-    def test_northern_positive_lon(self):
-        assert lat_lon_to_srtm_name(40.7128, -74.0060) == "N40W074"
+    Tiles are named by their SW corner (N19W156 covers lat [19, 20],
+    lon [-156, -155]) — the cell index is floor() of the SIGNED coordinate.
+    """
 
-    def test_northern_negative_lon(self):
+    def test_northern_western_lon(self):
+        # NYC at -74.006 is in the cell west of the W074 meridian.
+        assert lat_lon_to_srtm_name(40.7128, -74.0060) == "N40W075"
+
+    def test_northern_negative_lon_exact_degree(self):
         assert lat_lon_to_srtm_name(45.0, -90.0) == "N45W090"
 
     def test_southern_positive_lon(self):
-        assert lat_lon_to_srtm_name(-33.8688, 151.2093) == "S33E151"
+        assert lat_lon_to_srtm_name(-33.8688, 151.2093) == "S34E151"
 
     def test_southern_negative_lon(self):
-        assert lat_lon_to_srtm_name(-34.6, -58.4) == "S34W058"
+        assert lat_lon_to_srtm_name(-34.6, -58.4) == "S35W059"
 
     def test_exact_zero_lat(self):
         assert lat_lon_to_srtm_name(0.0, 10.0) == "N00E010"
@@ -204,8 +209,18 @@ class TestLatLonToSRTMName:
     def test_exact_zero_lon(self):
         assert lat_lon_to_srtm_name(10.0, 0.0) == "N10E000"
 
-    def test_negative_zero_lat(self):
-        assert lat_lon_to_srtm_name(-0.5, 10.0) == "S00E010"
+    def test_lat_just_south_of_equator(self):
+        assert lat_lon_to_srtm_name(-0.5, 10.0) == "S01E010"
+
+    # Data-anchored regressions (2026-10-05): the truncated-absolute-value
+    # formula returned the cell one degree east/south, so every western-
+    # longitude read_elevation_from_merged call hit the wrong file (Mauna
+    # Kea decoded as 0 m from N19W155).
+    def test_mauna_kea_cell(self):
+        assert lat_lon_to_srtm_name(19.8206, -155.4681) == "N19W156"
+
+    def test_rio_cell(self):
+        assert lat_lon_to_srtm_name(-22.9111, -43.2265) == "S23W044"
 
 
 class TestSRTMNameToDir:

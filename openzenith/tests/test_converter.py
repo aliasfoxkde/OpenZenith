@@ -90,12 +90,13 @@ class TestConvertTile:
         assert "elevation_range" in result
         assert result["shape"] == list(TILE_SHAPE)
         assert result["zstd_level"] == 5
-        # Bounds parsed from the SRTM filename
+        # Bounds parsed from the SRTM filename (SW-corner naming: N40W074
+        # covers lat [40, 41], lon [-74, -73])
         assert result["bounds"] == {
             "lat_min": 40,
-            "lon_min": -75,
+            "lon_min": -74,
             "lat_max": 41,
-            "lon_max": -74,
+            "lon_max": -73,
         }
 
     def test_convert_without_verify_skips_roundtrip(self, tmp_path):

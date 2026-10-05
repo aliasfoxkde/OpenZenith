@@ -12,6 +12,7 @@
 import { decodeOZT2 } from "@/lib/ozt2_decode";
 import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
 import { decodeMergedChunk } from "@/lib/srtm/merged-parser";
+import { latLonToPixel, latLonToSrtmName, srtmNameToBounds } from "@/lib/srtm/tile-math";
 import { HuggingFaceChunkBackend } from "./huggingface-backend";
 import { cacheGet, cachePut } from "./cache";
 
@@ -129,9 +130,9 @@ export class OZT2HuggingFaceBackend {
 
     // Fall back to merged chunks (HuggingFaceChunkBackend)
     try {
-      const srtmName = this.latLonToSrtmName(lat, lon);
-      const srtmBounds = this.srtmNameToBounds(srtmName);
-      const pixel = this.latLonToPixel(lat, lon, srtmBounds);
+      const srtmName = latLonToSrtmName(lat, lon);
+      const srtmBounds = srtmNameToBounds(srtmName);
+      const pixel = latLonToPixel(lat, lon, srtmBounds);
       const chunkRow = Math.floor(pixel.row / 256);
       const chunkCol = Math.floor(pixel.col / 256);
 
@@ -158,39 +159,6 @@ export class OZT2HuggingFaceBackend {
     }
 
     return null;
-  }
-
-  // ─── Coordinate utilities (mirrors srtm/tile-math.ts) ───────────────────────
-
-  private latLonToSrtmName(lat: number, lon: number): string {
-    const latDir = lat >= 0 ? "N" : "S";
-    const lonDir = lon >= 0 ? "E" : "W";
-    const latDeg = Math.floor(Math.abs(lat));
-    const lonDeg = Math.floor(Math.abs(lon));
-    return `${latDir}${String(latDeg).padStart(2, "0")}${lonDir}${String(lonDeg).padStart(3, "0")}.tif`;
-  }
-
-  private srtmNameToBounds(name: string): { latMin: number; lonMin: number; latMax: number; lonMax: number } {
-    const latDir = name[0];
-    const latDeg = parseInt(name.substring(1, 3));
-    const lonDir = name[3];
-    const lonDeg = parseInt(name.substring(4, 7));
-    return {
-      latMin: latDir === "N" ? latDeg : -(latDeg + 1),
-      latMax: latDir === "N" ? latDeg + 1 : -latDeg,
-      lonMin: lonDir === "E" ? lonDeg : -(lonDeg + 1),
-      lonMax: lonDir === "E" ? lonDeg + 1 : -lonDeg,
-    };
-  }
-
-  private latLonToPixel(
-    lat: number,
-    lon: number,
-    bounds: { latMin: number; lonMin: number; latMax: number; lonMax: number },
-  ): { row: number; col: number } {
-    const row = Math.round((bounds.latMax - lat) * 3600);
-    const col = Math.round((lon - bounds.lonMin) * 3600);
-    return { row, col };
   }
 
   /**

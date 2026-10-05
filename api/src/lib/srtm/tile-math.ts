@@ -2,24 +2,27 @@
  * SRTM tile math: coordinate conversions and filename parsing.
  *
  * SRTM 30m tiles cover 1x1 degree each, at 3601x3601 pixels.
- * Naming convention: N/S{lat}E/W{lon}.tif
+ * Naming convention (USGS hgt): the name is the tile's SW corner —
+ * N19W156 covers lat [19, 20], lon [-156, -155]. Take floor() of the
+ * SIGNED coordinate to find the cell; truncating the absolute value
+ * instead selects the cell one degree east/south of the point.
  * Top-left pixel = (max_lat, min_lon), pixel spacing = 1 arc-second (~30m)
  */
 
 /**
- * Convert lat/lon to SRTM tile filename.
+ * Convert lat/lon to SRTM tile filename (the cell's SW-corner name).
  */
 export function latLonToSrtmName(lat: number, lon: number): string {
-  const latDir = lat >= 0 ? "N" : "S";
-  const lonDir = lon >= 0 ? "E" : "W";
-  const latDeg = Math.floor(Math.abs(lat));
-  const lonDeg = Math.floor(Math.abs(lon));
-  return `${latDir}${String(latDeg).padStart(2, "0")}${lonDir}${String(lonDeg).padStart(3, "0")}.tif`;
+  const latCell = Math.floor(lat);
+  const lonCell = Math.floor(lon);
+  const latDir = latCell >= 0 ? "N" : "S";
+  const lonDir = lonCell >= 0 ? "E" : "W";
+  return `${latDir}${String(Math.abs(latCell)).padStart(2, "0")}${lonDir}${String(Math.abs(lonCell)).padStart(3, "0")}.tif`;
 }
 
 /**
- * Parse SRTM filename to geographic bounds.
- * Returns [latMin, lonMin, latMax, lonMax].
+ * Parse SRTM filename to geographic bounds — the exact inverse of
+ * {@link latLonToSrtmName} (SW-corner naming).
  */
 export function srtmNameToBounds(name: string): {
   latMin: number;
@@ -33,10 +36,10 @@ export function srtmNameToBounds(name: string): {
   const lonDeg = parseInt(name.substring(4, 7));
 
   return {
-    latMin: latDir === "N" ? latDeg : -(latDeg + 1),
-    latMax: latDir === "N" ? latDeg + 1 : -latDeg,
-    lonMin: lonDir === "E" ? lonDeg : -(lonDeg + 1),
-    lonMax: lonDir === "E" ? lonDeg + 1 : -lonDeg,
+    latMin: latDir === "N" ? latDeg : -latDeg,
+    latMax: latDir === "N" ? latDeg + 1 : -latDeg + 1,
+    lonMin: lonDir === "E" ? lonDeg : -lonDeg,
+    lonMax: lonDir === "E" ? lonDeg + 1 : -lonDeg + 1,
   };
 }
 

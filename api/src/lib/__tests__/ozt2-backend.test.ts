@@ -41,6 +41,7 @@ vi.mock("@/lib/storage/huggingface-backend", () => {
 import { OZT2HuggingFaceBackend } from "@/lib/storage/ozt2-backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { chunkRealExtent } from "@/lib/srtm/merged-parser";
+import { latLonToPixel, latLonToSrtmName, srtmNameToBounds } from "@/lib/srtm/tile-math";
 
 const REPO = "aliasfox/srtm30m-ozt2-v2";
 const BASE = "https://huggingface.co/datasets";
@@ -88,13 +89,10 @@ function checkerboardTile(high: number, low: number): ArrayBuffer {
 
 /** Mirrors the chunk geometry the backend derives for the merged fallback. */
 function chunkGeometry(lat: number, lon: number) {
-  const latDeg = Math.floor(Math.abs(lat));
-  const lonDeg = Math.floor(Math.abs(lon));
-  const srtmName = `${lat >= 0 ? "N" : "S"}${String(latDeg).padStart(2, "0")}${lon >= 0 ? "E" : "W"}${String(lonDeg).padStart(3, "0")}.tif`;
-  const latMax = lat >= 0 ? latDeg + 1 : -latDeg;
-  const lonMin = lon >= 0 ? lonDeg : -(lonDeg + 1);
-  const row = Math.round((latMax - lat) * 3600);
-  const col = Math.round((lon - lonMin) * 3600);
+  // Delegates to the production helpers so this mirror can never drift from
+  // the naming convention again (the S/W branches changed once already).
+  const srtmName = latLonToSrtmName(lat, lon);
+  const { row, col } = latLonToPixel(lat, lon, srtmNameToBounds(srtmName));
   const chunkRow = Math.floor(row / 256);
   const chunkCol = Math.floor(col / 256);
   return {

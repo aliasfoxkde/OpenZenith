@@ -43,12 +43,12 @@ vi.mock("@/lib/storage/cache", () => ({
 
 // ─── Shared tile coordinates ──────────────────────────────────────────────────
 
-/** z11 tile fully inside the N36W115 SRTM cell. */
-const INSIDE_TILE = { z: 11, x: 365, y: 802 };
-/** z11 tile straddling the -116 meridian (N36W116 is on the corrupted list). */
+/** z11 tile fully inside the N36W115 SRTM cell (lon [-115, -114]). */
+const INSIDE_TILE = { z: 11, x: 370, y: 802 };
+/** z11 tile straddling the -116 meridian (the N36W116 sliver is on the corrupted list). */
 const BLACKLIST_TILE = { z: 11, x: 364, y: 802 };
-/** z11 tile straddling -116 at ~40N, away from the blacklist. */
-const STRADDLE_TILE = { z: 11, x: 364, y: 771 };
+/** z11 tile straddling -115 at ~40N: eastern part in N40W115, western sliver in N40W116. */
+const STRADDLE_TILE = { z: 11, x: 369, y: 771 };
 /** z10 tile straddling -116 at ~36N: exercises multi-cell assembly below the AWS cutoff. */
 const OVERVIEW_HF_TILE = { z: 10, x: 182, y: 401 };
 
@@ -184,7 +184,7 @@ describe("getTileData — HuggingFace chunk assembly", () => {
 
     // Work out which output rows read the blanked source row.
     const bounds = tileToLatLon(INSIDE_TILE.z, INSIDE_TILE.x, INSIDE_TILE.y);
-    const srtmBounds = { latMin: 36, latMax: 37, lonMin: -116, lonMax: -115 };
+    const srtmBounds = { latMin: 36, latMax: 37, lonMin: -115, lonMax: -114 };
     const latStep = (bounds.north - bounds.south) / TILE_SIZE;
     const affectedRows = new Set<number>();
     for (let py = 0; py < TILE_SIZE; py++) {
@@ -205,7 +205,7 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     const storage: ChunkBackend = {
       fetchChunk: vi.fn((srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
         calls.push(srtmName);
-        // The sliver west of -116 belongs to N40W116, which has no chunks here.
+        // The sliver west of -115 belongs to N40W116, which has no chunks here.
         if (srtmName === "N40W116.tif") throw new Error("chunk not found");
         return Promise.resolve(buildChunk(() => 4321, row, col));
       }),
@@ -220,10 +220,10 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     const lonStep = (bounds.east - bounds.west) / TILE_SIZE;
     let nodataColumns = 0;
     for (let px = 0; px < TILE_SIZE; px++) {
-      if (bounds.west + (px + 0.5) * lonStep < -116) nodataColumns++;
+      if (bounds.west + (px + 0.5) * lonStep < -115) nodataColumns++;
     }
     expect(nodataColumns).toBeGreaterThan(0);
-    // Columns west of -116 come from the failed cell and stay nodata.
+    // Columns west of -115 come from the failed cell and stay nodata.
     expect(Array.from(result.data).filter((v) => v === NODATA)).toHaveLength(nodataColumns * TILE_SIZE);
     expect(result.data[nodataColumns]).toBe(4321); // first column served by N40W115
   });
@@ -304,9 +304,11 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     stubFetch(() => null);
     const storage = constantStorage(() => 777);
 
-    // z13 tile at ~36.02N: its northern rows fall in the 15th chunk row,
-    // which stores 256 rows with zero-delta padding beyond the 17 real rows.
-    const result = await getTileData(13, 1458, 3216, storage);
+    // z13 tile crossing lat 36.0 (lon [-114.961, -114.917], inside N36W115 —
+    // east of blacklisted N36W116): its southern rows fall in the 15th chunk
+    // row, which stores 256 rows with zero-delta padding beyond the 17 real
+    // rows.
+    const result = await getTileData(13, 1480, 3216, storage);
 
     const chunkRows = new Set((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1] as number));
     expect(chunkRows).toContain(14);
@@ -319,13 +321,13 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     // it into padding zeros / cumulative sums far outside [400, 1420].
     const storage = constantStorage((name, r, c) => 400 + r + c * 3);
 
-    // z13 tile (~36.0-36.08N, lon -114.041..-113.997): columns west of -114.0
-    // land in the last 17 pixel columns of N36W114 (chunk col 14, stored 256
-    // wide with zero-delta padding beyond the 17 real columns).
-    const result = await getTileData(13, 1501, 3215, storage);
+    // z16 tile (lon -116.0046..-115.9991, ~36.25N): its eastern columns reach
+    // the last 17 pixel columns of N36W117 (chunk col 14, stored 256 wide with
+    // zero-delta padding beyond the 17 real columns).
+    const result = await getTileData(16, 11650, 25678, storage);
 
     const calls = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls;
-    expect(calls.some((call) => call[0] === "N36W114.tif" && call[2] === 14)).toBe(true);
+    expect(calls.some((call) => call[0] === "N36W117.tif" && call[2] === 14)).toBe(true);
     // Every sampled pixel decodes inside the ramp's range — under the broken
     // 17-wide decode, padded regions decoded as 0 / NaN here.
     const values = Array.from(result.data).filter((v) => v !== NODATA);
@@ -337,9 +339,10 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     stubFetch(() => null);
     const storage = constantStorage(() => 610);
 
-    // z11 tile spanning lat 36.03 down to 35.89: it crosses into the N35 cell,
-    // and its western edge overlaps blacklisted N36W116 (Death Valley).
-    const result = await getTileData(11, 364, 804, storage);
+    // z11 tile spanning lat 36.03 down to 35.89 (lon straddling -115): it
+    // crosses into the N35 cell, and its western edge overlaps blacklisted
+    // N36W116 (Death Valley).
+    const result = await getTileData(11, 369, 804, storage);
 
     const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as string);
     expect(names).toContain("N36W115.tif");

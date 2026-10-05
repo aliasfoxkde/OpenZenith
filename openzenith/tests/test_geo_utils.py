@@ -15,21 +15,33 @@ from openzenith.geo_utils import (
 
 
 class TestSrtmFilenameToBounds:
-    """Test SRTM filename parsing."""
+    """Test SRTM filename parsing.
 
-    def test_northern_eastern(self):
+    Names are the tile's SW corner: N19W156 covers lat [19, 20],
+    lon [-156, -155] (data-verified against the local SRTM mirror).
+    """
+
+    def test_northern_western(self):
         lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("N40W072.tif")
         assert lat_min == 40
         assert lat_max == 41
-        assert lon_min == -73
-        assert lon_max == -72
+        assert lon_min == -72
+        assert lon_max == -71
 
     def test_southern_eastern(self):
         lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("S01E036.tif")
-        assert lat_min == -2
-        assert lat_max == -1
+        assert lat_min == -1
+        assert lat_max == 0
         assert lon_min == 36
         assert lon_max == 37
+
+    def test_mauna_kea_cell(self):
+        # Data-verified: N19W156.merged holds the Mauna Kea summit.
+        lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("N19W156.tif")
+        assert lat_min == 19
+        assert lat_max == 20
+        assert lon_min == -156
+        assert lon_max == -155
 
     def test_equator_prime_meridian(self):
         lat_min, lon_min, lat_max, lon_max = srtm_filename_to_bounds("N00E000.tif")

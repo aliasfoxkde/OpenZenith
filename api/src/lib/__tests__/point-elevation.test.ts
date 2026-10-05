@@ -122,14 +122,14 @@ describe("getPointElevation — SRTM chunk path", () => {
 
     const result = await getPointElevation(41.95, -73.95, storage);
 
-    // pixel (180,180) of chunk (0,0) in N41W073 -> 100 + 180 + 180
+    // pixel (180,180) of chunk (0,0) in N41W074 (cell [-74,-73]) -> 100 + 180 + 180
     expect(result).toEqual({
       elevation: 460,
       surfaceType: "land",
       source: "srtm",
-      tile: "N41W073",
+      tile: "N41W074",
     });
-    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W073.tif", 0, 0);
+    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W074.tif", 0, 0);
   });
 
   it("returns a constant elevation for a flat chunk", async () => {
@@ -148,7 +148,7 @@ describe("getPointElevation — SRTM chunk path", () => {
     await getPointElevation(41.95, -73.93, storage);
 
     expect(cachePutMock).toHaveBeenCalledTimes(1);
-    expect(cachePutMock.mock.calls[0][0]).toBe("oz:chunk:N41W073.tif:0:0");
+    expect(cachePutMock.mock.calls[0][0]).toBe("oz:chunk:N41W074.tif:0:0");
     expect(cachePutMock.mock.calls[0][1]).toBeInstanceOf(ArrayBuffer);
   });
 
@@ -165,23 +165,24 @@ describe("getPointElevation — SRTM chunk path", () => {
   });
 
   it("reads the 17px remainder chunk at the south-east corner of a tile", async () => {
-    // lat 41 / lon -73 is the last pixel of N41W073 -> chunk (14,14) holds
-    // only 17 real pixel rows/columns (stored 256x256 with zero padding).
+    // lat 41 / lon -71.002 maps to pixel (3600, 3593) of N41W072 (cell
+    // [-72,-71]) -> chunk (14,14) holds only 17 real pixel rows/columns
+    // (stored 256x256 with zero padding).
     const storage = backendFor(buildChunks((row, col) => (r, c) => 100 + row * 17 + r + (col * 17 + c)));
 
-    const result = await getPointElevation(41.0, -73.0, storage);
+    const result = await getPointElevation(41.0, -71.002, storage);
 
-    // local pixel (16,16) -> 100 + 14*17 + 16 + 14*17 + 16 = 608
-    expect(result).toEqual({ elevation: 608, surfaceType: "land", source: "srtm", tile: "N41W073" });
-    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W073.tif", 14, 14);
+    // local pixel (16,9) -> 100 + (14*17 + 16) + (14*17 + 9) = 601
+    expect(result).toEqual({ elevation: 601, surfaceType: "land", source: "srtm", tile: "N41W072" });
+    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W072.tif", 14, 14);
   });
 
   it("samples the padded 15th chunk column without row misalignment", async () => {
     // Regression (production -6385m stripes): lon -73.002 lands in the last
-    // 17 pixel columns of N41W073 (chunk col 14). The stored chunk is 256x256
-    // with zero-delta padding; decoding at the stored stride is what keeps the
-    // predictor aligned. The per-column ramp fails loudly if any row is read
-    // at the wrong width.
+    // 17 pixel columns of N41W074 (cell [-74,-73], chunk col 14). The stored
+    // chunk is 256x256 with zero-delta padding; decoding at the stored stride
+    // is what keeps the predictor aligned. The per-column ramp fails loudly
+    // if any row is read at the wrong width.
     const storage = backendFor(buildChunks((row, col) => (r, c) => 100 + row + col * 10 + r * 2 + c * 3));
 
     // pixel col 3593 -> chunk (7,14), local pixel (8, 9)
@@ -189,8 +190,8 @@ describe("getPointElevation — SRTM chunk path", () => {
 
     // 100 + 7 + 14*10 + 8*2 + 9*3 = 290
     expect(result?.elevation).toBe(290);
-    expect(result?.tile).toBe("N41W073");
-    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W073.tif", 7, 14);
+    expect(result?.tile).toBe("N41W074");
+    expect(storage.fetchChunk).toHaveBeenCalledWith("N41W074.tif", 7, 14);
   });
 
   it("returns null when the target pixel is SRTM nodata", async () => {
@@ -217,9 +218,9 @@ describe("getPointElevation — SRTM chunk path", () => {
 });
 
 describe("getPointElevation — AWS terrarium fallback", () => {
-  const BLACKLISTED = { lat: 36.5, lon: -116.5 }; // N36W116 (Death Valley)
-  // z13 tile x=1444 y=3202, in-tile pixel (250, 197)
-  const TARGET = { x: 250, y: 197 };
+  const BLACKLISTED = { lat: 36.5, lon: -115.5 }; // N36W116 (Death Valley)
+  // z13 tile x=1467 y=3202, in-tile pixel (187, 197)
+  const TARGET = { x: 187, y: 197 };
 
   it("uses AWS terrain tiles for blacklisted SRTM tiles", async () => {
     const png = terrariumPng(256, (x, y) => (x === TARGET.x && y === TARGET.y ? [129, 244, 0] : [0, 0, 0]));
@@ -230,10 +231,10 @@ describe("getPointElevation — AWS terrarium fallback", () => {
     const result = await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, storage);
 
     // 129 * 256 + 244 + 0 / 256 - 32768 = 500
-    expect(result).toEqual({ elevation: 500, surfaceType: "land", source: "aws", tile: "AWS-z13-1444-3202" });
+    expect(result).toEqual({ elevation: 500, surfaceType: "land", source: "aws", tile: "AWS-z13-1467-3202" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/1444/3202.png",
+      "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/1467/3202.png",
     );
     expect(storage.fetchChunk).not.toHaveBeenCalled();
   });

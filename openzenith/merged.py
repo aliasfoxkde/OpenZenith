@@ -136,11 +136,17 @@ class MergedFile:
 
 
 def lat_lon_to_srtm_name(lat: float, lon: float) -> str:
-    """Get SRTM tile name for a lat/lon."""
-    lat_val = abs(int(lat))
-    lon_val = abs(int(lon))
-    lat_dir = f"N{lat_val:02d}" if lat >= 0 else f"S{lat_val:02d}"
-    lon_dir = f"E{lon_val:03d}" if lon >= 0 else f"W{lon_val:03d}"
+    """Get SRTM tile name for a lat/lon.
+
+    Tiles are named by their SW corner (N19W156 covers lat [19, 20],
+    lon [-156, -155]), so the cell index is floor() of the SIGNED
+    coordinate. Truncating the absolute value instead would select the
+    cell one degree east/south of the point.
+    """
+    lat_cell = math.floor(lat)
+    lon_cell = math.floor(lon)
+    lat_dir = f"N{lat_cell:02d}" if lat_cell >= 0 else f"S{-lat_cell:02d}"
+    lon_dir = f"E{lon_cell:03d}" if lon_cell >= 0 else f"W{-lon_cell:03d}"
     return f"{lat_dir}{lon_dir}"
 
 

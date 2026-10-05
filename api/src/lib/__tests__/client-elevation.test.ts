@@ -90,7 +90,7 @@ interface RecordedCall {
 }
 
 interface Fixtures {
-  /** tile base (e.g. "N41W073") -> merged bytes, or an HTTP status to fail with */
+  /** tile base (e.g. "N41W074") -> merged bytes, or an HTTP status to fail with */
   merged?: Record<string, Uint8Array | number>;
   /** fallback for tile bases not listed in `merged` */
   mergedFor?: (tileBase: string) => Uint8Array | number | undefined;
@@ -178,7 +178,7 @@ afterEach(() => {
 
 describe("getClientElevation — SRTM path", () => {
   it("decodes a HuggingFace merged chunk and reports the SRTM tile", async () => {
-    const { calls } = installFixtures({ merged: { N41W073: mergedWithLinearChunk0() } });
+    const { calls } = installFixtures({ merged: { N41W074: mergedWithLinearChunk0() } });
 
     const result = await getClientElevation(41.95, -73.95);
 
@@ -186,39 +186,39 @@ describe("getClientElevation — SRTM path", () => {
     expect(result).toEqual({
       elevation: 460,
       surfaceType: "land",
-      tile: "N41W073",
+      tile: "N41W074",
       status: "ok",
       source: "srtm",
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe(
-      "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N41/N41W073.merged",
+      "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N41/N41W074.merged",
     );
     expect(calls[0].range).toBeNull();
   });
 
   it("normalises wrap-around longitudes before choosing a tile", async () => {
-    installFixtures({ merged: { N41W073: mergedWithLinearChunk0() } });
+    installFixtures({ merged: { N41W074: mergedWithLinearChunk0() } });
 
     // 286.05 - 360 = -73.95 -> the same tile and pixel as the canonical longitude
     const result = await getClientElevation(41.95, 286.05);
     expect(result).toEqual({
       elevation: 460,
       surfaceType: "land",
-      tile: "N41W073",
+      tile: "N41W074",
       status: "ok",
       source: "srtm",
     });
   });
 
   it("reports negative SRTM values as ocean but still credits SRTM for them", async () => {
-    installFixtures({ merged: { N47W073: mergedWithFlatChunk0(-25) } });
+    installFixtures({ merged: { N47W074: mergedWithFlatChunk0(-25) } });
 
     const result = await getClientElevation(47.95, -73.95);
     expect(result).toEqual({
       elevation: -25,
       surfaceType: "ocean",
-      tile: "N47W073",
+      tile: "N47W074",
       status: "ok",
       // the value genuinely came from SRTM (below-sea-level land such as
       // Death Valley) — the ocean surface type must not re-label the source
@@ -235,7 +235,7 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     const { calls } = installFixtures({
-      merged: { N39W073: nodataMerged },
+      merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -3000) },
     });
 
@@ -263,16 +263,16 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     installFixtures({
-      merged: { N38W073: nodataMerged },
+      merged: { N38W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, 20000) }, // physically impossible
-      pointEndpoint: () => jsonResponse({ elevation: 4.5, surface_type: "land", tile: "N38W073" }),
+      pointEndpoint: () => jsonResponse({ elevation: 4.5, surface_type: "land", tile: "N38W074" }),
     });
 
     const result = await getClientElevation(38.99, -73.99);
     expect(result).toEqual({
       elevation: 4.5,
       surfaceType: "land",
-      tile: "N38W073",
+      tile: "N38W074",
       status: "ok",
       source: undefined,
     });
@@ -285,7 +285,7 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     installFixtures({
-      merged: { N39W073: nodataMerged },
+      merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, 150) },
     });
 
@@ -300,7 +300,7 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     const { calls } = installFixtures({
-      merged: { N39W073: nodataMerged },
+      merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -3000) },
     });
 
@@ -316,7 +316,7 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     installFixtures({
-      merged: { N39W073: nodataMerged },
+      merged: { N39W074: nodataMerged },
       stripsAt200: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -1200) },
     });
 
@@ -331,9 +331,9 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     installFixtures({
-      merged: { N39W073: nodataMerged },
+      merged: { N39W074: nodataMerged },
       stripsThrows: ["gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif"],
-      pointEndpoint: () => jsonResponse({ elevation: 9, surface_type: "land", tile: "N39W073" }),
+      pointEndpoint: () => jsonResponse({ elevation: 9, surface_type: "land", tile: "N39W074" }),
     });
 
     const result = await getClientElevation(39.96, -73.99);
@@ -347,9 +347,9 @@ describe("getClientElevation — GEBCO fallback", () => {
       15,
     );
     installFixtures({
-      merged: { N39W073: nodataMerged },
+      merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": new Uint8Array(10) },
-      pointEndpoint: () => jsonResponse({ elevation: 3, surface_type: "land", tile: "N39W073" }),
+      pointEndpoint: () => jsonResponse({ elevation: 3, surface_type: "land", tile: "N39W074" }),
     });
 
     const result = await getClientElevation(39.94, -73.99);
@@ -361,8 +361,8 @@ describe("getClientElevation — corrupt and failing merged files", () => {
   it("treats a merged file with a bad magic number as absent and asks the server", async () => {
     const garbage = new Uint8Array(64); // right size, wrong magic
     installFixtures({
-      merged: { N40W073: garbage },
-      pointEndpoint: () => jsonResponse({ elevation: 7, surface_type: "land", tile: "N40W073" }),
+      merged: { N40W074: garbage },
+      pointEndpoint: () => jsonResponse({ elevation: 7, surface_type: "land", tile: "N40W074" }),
     });
 
     const result = await getClientElevation(40.5, -73.5);
@@ -371,8 +371,8 @@ describe("getClientElevation — corrupt and failing merged files", () => {
 
   it("falls through to the server when the merged fetch rejects outright", async () => {
     installFixtures({
-      mergedThrows: ["N40W073"],
-      pointEndpoint: () => jsonResponse({ elevation: 8, surface_type: "land", tile: "N40W073" }),
+      mergedThrows: ["N40W074"],
+      pointEndpoint: () => jsonResponse({ elevation: 8, surface_type: "land", tile: "N40W074" }),
     });
 
     const result = await getClientElevation(40.5, -73.5);
@@ -381,7 +381,7 @@ describe("getClientElevation — corrupt and failing merged files", () => {
 
   it("defaults the surface type to unknown when the server omits it", async () => {
     installFixtures({
-      merged: { N42W073: 404 },
+      merged: { N42W074: 404 },
       pointEndpoint: () => jsonResponse({ elevation: 6 }),
     });
 
@@ -393,9 +393,9 @@ describe("getClientElevation — corrupt and failing merged files", () => {
 describe("getClientElevation — server fallback", () => {
   it("uses /api/elevation when HuggingFace has no merged file", async () => {
     const { calls } = installFixtures({
-      merged: { N42W073: 404 },
+      merged: { N42W074: 404 },
       pointEndpoint: () =>
-        jsonResponse({ elevation: 12.5, surface_type: "land", tile: "N42W073", source: "huggingface" }),
+        jsonResponse({ elevation: 12.5, surface_type: "land", tile: "N42W074", source: "huggingface" }),
     });
 
     const result = await getClientElevation(42.95, -73.95);
@@ -403,7 +403,7 @@ describe("getClientElevation — server fallback", () => {
     expect(result).toEqual({
       elevation: 12.5,
       surfaceType: "land",
-      tile: "N42W073",
+      tile: "N42W074",
       status: "ok",
       source: "huggingface",
     });
@@ -412,8 +412,8 @@ describe("getClientElevation — server fallback", () => {
 
   it("sends the normalised longitude to the server endpoint", async () => {
     const { calls } = installFixtures({
-      merged: { N42W073: 404 },
-      pointEndpoint: () => jsonResponse({ elevation: 1, surface_type: "land", tile: "N42W073" }),
+      merged: { N42W074: 404 },
+      pointEndpoint: () => jsonResponse({ elevation: 1, surface_type: "land", tile: "N42W074" }),
     });
 
     await getClientElevation(42.95, 286.05);
@@ -422,7 +422,7 @@ describe("getClientElevation — server fallback", () => {
 
   it("reports no_data when the server has no elevation and flags it", async () => {
     installFixtures({
-      merged: { N43W073: 404 },
+      merged: { N43W074: 404 },
       pointEndpoint: () => jsonResponse({ elevation: null, ok: false, surface_type: "unknown", source: "none" }),
     });
 
@@ -438,20 +438,20 @@ describe("getClientElevation — server fallback", () => {
 
   it("reports no_data when the server only signals source none", async () => {
     installFixtures({
-      merged: { N43W073: 404 },
-      pointEndpoint: () => jsonResponse({ elevation: null, source: "none", tile: "N43W073" }),
+      merged: { N43W074: 404 },
+      pointEndpoint: () => jsonResponse({ elevation: null, source: "none", tile: "N43W074" }),
     });
 
     const result = await getClientElevation(43.95, -73.95);
     expect(result.status).toBe("no_data");
-    expect(result.tile).toBe("N43W073");
+    expect(result.tile).toBe("N43W074");
     expect(result.surfaceType).toBe("unknown");
   });
 
   it("reports unavailable when the server elevation is null without a signal", async () => {
     installFixtures({
-      merged: { N43W073: 404 },
-      pointEndpoint: () => jsonResponse({ elevation: null, surface_type: "ocean", tile: "N43W073" }),
+      merged: { N43W074: 404 },
+      pointEndpoint: () => jsonResponse({ elevation: null, surface_type: "ocean", tile: "N43W074" }),
     });
 
     const result = await getClientElevation(43.95, -73.95);
@@ -466,7 +466,7 @@ describe("getClientElevation — server fallback", () => {
 
   it("reports unavailable when the server responds with an error status", async () => {
     installFixtures({
-      merged: { N43W073: 404 },
+      merged: { N43W074: 404 },
       pointEndpoint: () => jsonResponse({ elevation: 1 }, 503),
     });
 
@@ -477,7 +477,7 @@ describe("getClientElevation — server fallback", () => {
 
   it("reports unavailable when every network hop rejects", async () => {
     installFixtures({
-      merged: { N43W073: 404 },
+      merged: { N43W074: 404 },
       pointEndpoint: () => {
         throw new TypeError("fetch failed");
       },
@@ -519,7 +519,7 @@ describe("getClientElevationBatch", () => {
     // chunk (0,0) holds 700 + row + col; chunk (7,7) is absent -> nodata -> GEBCO
     installFixtures({
       merged: {
-        N44W073: mergedFile([{ slot: slot(0, 0), data: chunkPayload((r, c) => 700 + r + c, 256, 256) }], 15, 15),
+        N44W074: mergedFile([{ slot: slot(0, 0), data: chunkPayload((r, c) => 700 + r + c, 256, 256) }], 15, 15),
       },
       strips: {
         // point (70, 10): row (90-70)*240 = 4800, col (10-0)*240 = 2400
@@ -551,7 +551,7 @@ describe("getClientElevationBatch", () => {
 
   it("normalises longitudes for every point before grouping tiles", async () => {
     installFixtures({
-      merged: { N41W073: mergedWithLinearChunk0() },
+      merged: { N41W074: mergedWithLinearChunk0() },
     });
 
     // 286.05 - 360 = -73.95 -> same tile and pixel as the canonical longitude.
@@ -565,7 +565,7 @@ describe("getClientElevationBatch", () => {
   it("falls back to POST /api/elevation/batch when the merged index is unusable", async () => {
     const { calls } = installFixtures({
       // rows=1/cols=1 index cannot satisfy chunk (7,7) -> the client batch throws
-      merged: { N45W073: mergedFile([], 1, 1) },
+      merged: { N45W074: mergedFile([], 1, 1) },
       batchEndpoint: () =>
         jsonResponse({
           results: [
@@ -592,7 +592,7 @@ describe("getClientElevationBatch", () => {
 
   it("returns null elevations when the server batch endpoint errors", async () => {
     installFixtures({
-      merged: { N45W073: mergedFile([], 1, 1) },
+      merged: { N45W074: mergedFile([], 1, 1) },
       batchEndpoint: () => jsonResponse({ error: "boom" }, 500),
     });
 
@@ -602,7 +602,7 @@ describe("getClientElevationBatch", () => {
 
   it("returns null elevations when the server batch response has no results", async () => {
     installFixtures({
-      merged: { N45W073: mergedFile([], 1, 1) },
+      merged: { N45W074: mergedFile([], 1, 1) },
       batchEndpoint: () => jsonResponse({ ok: true }),
     });
 
@@ -612,7 +612,7 @@ describe("getClientElevationBatch", () => {
 
   it("returns null elevations when the server batch endpoint rejects", async () => {
     installFixtures({
-      merged: { N45W073: mergedFile([], 1, 1) },
+      merged: { N45W074: mergedFile([], 1, 1) },
       batchEndpoint: () => {
         throw new TypeError("fetch failed");
       },
@@ -624,7 +624,7 @@ describe("getClientElevationBatch", () => {
 
   it("never leaks caller ids when the server returns more results than points", async () => {
     installFixtures({
-      merged: { N45W073: mergedFile([], 1, 1) },
+      merged: { N45W074: mergedFile([], 1, 1) },
       batchEndpoint: () =>
         jsonResponse({ results: [{ elevation: 11 }, { elevation: 22 }] }), // one extra result
     });
@@ -642,7 +642,7 @@ describe("getClientElevationBatch", () => {
   it("falls back to GEBCO from inside a tile group when the SRTM pixel is nodata", async () => {
     installFixtures({
       // the point lands in chunk (0,0), which decodes to pure nodata
-      merged: { N43W073: mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => NODATA, 256, 256) }], 15, 15) },
+      merged: { N43W074: mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => NODATA, 256, 256) }], 15, 15) },
       // point (43.95, -73.95): row (90 - 43.95) * 240 = 11052, col (90 - 73.95) * 240 = 3852
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3852, -1800) },
     });
@@ -704,9 +704,9 @@ describe("getClientTileData", () => {
   });
 
   it("fills every pixel from a single SRTM chunk when the tile sits inside it", async () => {
-    installFixtures({ merged: { N46W073: mergedWithFlatChunk0(500) } });
+    installFixtures({ merged: { N46W074: mergedWithFlatChunk0(500) } });
 
-    // z15 9652/11532 lies entirely inside chunk (0,0) of N46W073
+    // z15 9652/11532 lies entirely inside chunk (0,0) of N46W074
     const tile = await getClientTileData(15, 9652, 11532);
 
     expect(tile?.width).toBe(256);
@@ -720,13 +720,13 @@ describe("getClientTileData", () => {
       merged: {
         // west of -74: chunk (0,14) holds the remainder column (500 + row +
         // 14*17 + col for its 17 real pixels; stored 256 wide, zero padded)
-        N40W074: mergedFile(
+        N40W075: mergedFile(
           [{ slot: slot(0, 14), data: chunkPayload((r, c) => 500 + r + 14 * 17 + c, 256, 256) }],
           15,
           15,
         ),
         // east of -74: chunk (0,0) holds 100 + row + col
-        N40W073: mergedFile([{ slot: slot(0, 0), data: chunkPayload((r, c) => 100 + r + c, 256, 256) }], 15, 15),
+        N40W074: mergedFile([{ slot: slot(0, 0), data: chunkPayload((r, c) => 100 + r + c, 256, 256) }], 15, 15),
       },
     });
 
@@ -736,8 +736,8 @@ describe("getClientTileData", () => {
     const at = (py: number, px: number) => heights[py * 256 + px];
 
     // hand-computed pixel centres
-    expect(at(0, 0)).toBe(813); // west of -74 -> N40W074 remainder chunk
-    expect(at(0, 23)).toBe(173); // east of -74 -> N40W073 chunk (0,0)
+    expect(at(0, 0)).toBe(813); // west of -74 -> N40W075 remainder chunk
+    expect(at(0, 23)).toBe(173); // east of -74 -> N40W074 chunk (0,0)
     expect(at(128, 200)).toBe(342);
     expect(at(255, 255)).toBe(436);
     expect(at(200, 5)).toBe(909);
@@ -747,9 +747,10 @@ describe("getClientTileData", () => {
   it("leaves NODATA heights where the slippy tile falls outside the fetched SRTM tiles", async () => {
     // z13 2412/2816: lat 48.9225..48.8936 (SRTM rows 279..383 -> chunk row 1),
     // lon -74.00390625..-73.9599609375 (SRTM cols 0..144 -> chunk col 0).
-    // Only N48W073 is served; N48W074 (lon < -74) has no merged file -> 404.
+    // Only N48W074 is served; the western sliver N48W075 (lon < -74) has no
+    // merged file -> 404.
     installFixtures({
-      merged: { N48W073: mergedFile(linearTileChunks([[1, 0]]), 15, 15) },
+      merged: { N48W074: mergedFile(linearTileChunks([[1, 0]]), 15, 15) },
     });
 
     const tile = await getClientTileData(13, 2412, 2816);
@@ -762,7 +763,7 @@ describe("getClientTileData", () => {
     expect(at(0, 0)).toBe(NODATA);
     expect(at(0, 22)).toBe(NODATA);
 
-    // Column 23 onwards lands in N48W073; value = 100 + tileRow + tileCol.
+    // Column 23 onwards lands in N48W074; value = 100 + tileRow + tileCol.
     expect(at(0, 23)).toBe(379); // tile pixel (279, 0)
     expect(at(0, 255)).toBe(523); // tile pixel (279, 144)
     expect(at(128, 23)).toBe(431); // tile pixel (331, 0)
@@ -771,9 +772,9 @@ describe("getClientTileData", () => {
   });
 
   it("leaves NODATA where the neighbouring chunk is missing instead of wrapping values", async () => {
-    // z13 2413/3072 spans chunk columns 144..302 of N40W073, i.e. chunks
+    // z13 2413/3072 spans chunk columns 144..302 of N40W074, i.e. chunks
     // (0,0) and (0,1); only (0,0) is present in the merged file.
-    installFixtures({ merged: { N40W073: mergedWithLinearChunk0() } });
+    installFixtures({ merged: { N40W074: mergedWithLinearChunk0() } });
 
     const tile = await getClientTileData(13, 2413, 3072);
     const heights = tile?.heights as Float32Array;
@@ -793,7 +794,7 @@ describe("getClientTileData", () => {
     // so chunk (1,0) is requested. The served merged file declares a 1x1 index,
     // whose only entry cannot address chunk (1,0) -> the lookup throws and the
     // public wrapper turns that into a null tile.
-    installFixtures({ merged: { N47W073: mergedFile([], 1, 1) } });
+    installFixtures({ merged: { N47W074: mergedFile([], 1, 1) } });
 
     const tile = await getClientTileData(13, 2412, 2852);
 

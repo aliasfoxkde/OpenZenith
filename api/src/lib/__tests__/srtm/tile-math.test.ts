@@ -7,23 +7,39 @@ describe("latLonToSrtmName", () => {
   });
 
   it("south-west tile", () => {
-    expect(latLonToSrtmName(-23.5, -43.5)).toBe("S23W043.tif");
+    expect(latLonToSrtmName(-23.5, -43.5)).toBe("S24W044.tif");
   });
 
   it("equator and prime meridian", () => {
     expect(latLonToSrtmName(0, 0)).toBe("N00E000.tif");
   });
 
-  it("negative zero lat", () => {
-    expect(latLonToSrtmName(-0.1, 0)).toBe("S00E000.tif");
+  it("lat just south of the equator lands in S01 (cell [-1, 0])", () => {
+    expect(latLonToSrtmName(-0.1, 0)).toBe("S01E000.tif");
   });
 
   it("high latitudes with 3-digit lon", () => {
-    expect(latLonToSrtmName(40, -105.5)).toBe("N40W105.tif");
+    expect(latLonToSrtmName(40, -105.5)).toBe("N40W106.tif");
   });
 
   it("pads lat and lon correctly", () => {
     expect(latLonToSrtmName(5, 8)).toBe("N05E008.tif");
+  });
+
+  // Data-anchored regressions (2026-10-05 prod defect): truncating the
+  // absolute value selected the cell one degree east/south, so every
+  // western/southern query read the wrong .merged file. Names below are
+  // verified against the local dataset — N19W156.merged holds Mauna Kea.
+  it("Mauna Kea lands in N19W156 (the cell holding its summit)", () => {
+    expect(latLonToSrtmName(19.8206, -155.4681)).toBe("N19W156.tif");
+  });
+
+  it("NYC lands in N40W075 (cell [-75, -74])", () => {
+    expect(latLonToSrtmName(40.7128, -74.006)).toBe("N40W075.tif");
+  });
+
+  it("Rio de Janeiro lands in S23W044 (real SRTM tile name)", () => {
+    expect(latLonToSrtmName(-22.9111, -43.2265)).toBe("S23W044.tif");
   });
 });
 
@@ -33,8 +49,8 @@ describe("srtmNameToBounds", () => {
     expect(b).toEqual({ latMin: 28, lonMin: 86, latMax: 29, lonMax: 87 });
   });
 
-  it("S23W043", () => {
-    const b = srtmNameToBounds("S23W043.tif");
+  it("S24W044 (SW-corner naming)", () => {
+    const b = srtmNameToBounds("S24W044.tif");
     expect(b).toEqual({ latMin: -24, lonMin: -44, latMax: -23, lonMax: -43 });
   });
 
@@ -45,7 +61,42 @@ describe("srtmNameToBounds", () => {
 
   it("S01W180 at date line", () => {
     const b = srtmNameToBounds("S01W180.tif");
-    expect(b).toEqual({ latMin: -2, lonMin: -181, latMax: -1, lonMax: -180 });
+    expect(b).toEqual({ latMin: -1, lonMin: -180, latMax: 0, lonMax: -179 });
+  });
+
+  it("N19W156 — data-verified: this cell contains Mauna Kea", () => {
+    const b = srtmNameToBounds("N19W156.tif");
+    expect(b).toEqual({ latMin: 19, lonMin: -156, latMax: 20, lonMax: -155 });
+  });
+});
+
+describe("latLonToSrtmName/srtmNameBounds inverse property", () => {
+  // For every point, the parsed bounds of its cell name must contain the
+  // point — this is what broke in production (western/southern points
+  // were named into the neighbouring cell).
+  const points: Array<[number, number]> = [
+    [19.8206, -155.4681],
+    [43.0886, -71.8294],
+    [40.7128, -74.006],
+    [-22.9111, -43.2265],
+    [-33.8688, 151.2093],
+    [27.9879, 86.925],
+    [0.5, 0.5],
+    [-0.5, 0.5],
+    [0.5, -0.5],
+    [-0.5, -0.5],
+    [59.9333, 30.3333],
+    [-54.8019, -68.303],
+    [59.5, -179.5],
+    [-0.0001, 179.9999],
+  ];
+
+  it.each(points)("bounds of %f, %f contain the point", (lat, lon) => {
+    const b = srtmNameToBounds(latLonToSrtmName(lat, lon));
+    expect(b.latMin).toBeLessThanOrEqual(lat);
+    expect(lat).toBeLessThan(b.latMax);
+    expect(b.lonMin).toBeLessThanOrEqual(lon);
+    expect(lon).toBeLessThan(b.lonMax);
   });
 });
 

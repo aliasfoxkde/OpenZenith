@@ -81,7 +81,7 @@ describe("WorldCRS84Quad matrix geometry (OGC 17-083r2)", () => {
     expect(crs84TileBounds(0, 1, 0)).toEqual({ west: 0, east: 180, north: 90, south: -90 });
   });
 
-  it("bounds a z11 tile inside the N36W115 SRTM cell exactly", () => {
+  it("bounds a z11 tile inside the N36W116 SRTM cell exactly", () => {
     // All bounds are dyadic rationals, so equality is exact
     expect(crs84TileBounds(11, 728, 608)).toEqual({
       west: -116.015625,
@@ -146,7 +146,7 @@ describe("getTileDataCRS84 — AWS resample path (z <= 10)", () => {
 
     // z10 tile sitting fully inside the N36W115 cell: the chunk assembler's
     // 3x3 probes all land in one SRTM cell, which covers every output pixel
-    const result = await getTileDataCRS84(10, 365, 304, storage);
+    const result = await getTileDataCRS84(10, 371, 304, storage);
 
     expect((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(0);
     expect(Array.from(result.data).every((v) => v === 555)).toBe(true);
@@ -167,11 +167,11 @@ describe("getTileDataCRS84 — AWS resample path (z <= 10)", () => {
 describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
   /**
    * z11 CRS84 tile whose bounds sit fully inside the N36W115 SRTM cell
-   * (lat 36..37, lon -116..-115).
+   * (lat 36..37, lon -115..-114).
    */
-  const INSIDE = { z: 11, col: 729, row: 608 };
-  /** Sibling tile straddling the -117 meridian into blacklisted N36W116. */
-  const BLACKLIST = { z: 11, col: 716, row: 608 };
+  const INSIDE = { z: 11, col: 740, row: 608 };
+  /** Sibling tile straddling the -115 meridian into blacklisted N36W116. */
+  const BLACKLIST = { z: 11, col: 739, row: 608 };
 
   it("assembles a high-zoom tile straight from chunks without touching AWS", async () => {
     const fetchMock = stubFetch(() => null);
@@ -186,7 +186,7 @@ describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
   it("resamples from AWS when chunk assembly comes back sparse", async () => {
     // Chunks exist but hold nodata everywhere; AWS answers instead.
     stubFetch((url) => {
-      expect(url).toContain("/terrarium/12/729/");
+      expect(url).toContain("/terrarium/12/74");
       return constantElevationPng(100);
     });
     const storage = constantStorage(() => NODATA);
@@ -209,7 +209,7 @@ describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
     const result = await getTileDataCRS84(BLACKLIST.z, BLACKLIST.col, BLACKLIST.row, storage);
 
     const names = (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as string);
-    expect(names).toContain("N36W117.tif");
+    expect(names).toContain("N36W115.tif");
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
     // The blacklist triggered the AWS attempt even though chunks produced data
     const abortSignal = expect.any(AbortSignal) as AbortSignal;

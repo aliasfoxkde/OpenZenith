@@ -440,13 +440,14 @@ export function ContextMenu({
               return;
             }
             for (const r of [50, 100, 200, 500]) {
-              const rDeg = r / 111.32;
+              // EllipseGraphics axes are metres, not degrees.
+              const rMetres = r * 1000;
               v.entities.add({
                 id: `ring-${r}km-${Date.now()}`,
                 position: C.Cartesian3.fromDegrees(lng, lat),
                 ellipse: {
-                  semiMajorAxis: rDeg,
-                  semiMinorAxis: rDeg,
+                  semiMajorAxis: rMetres,
+                  semiMinorAxis: rMetres,
                   material: C.Color.fromCssColorString("#eab308").withAlpha(0.08),
                   outline: true,
                   outlineColor: C.Color.fromCssColorString("#eab308").withAlpha(0.3),

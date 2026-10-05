@@ -1056,6 +1056,70 @@ export default function Globe() {
               dataLoadedRef.current.currents = false;
             }
             break;
+          case "spaceWeather":
+            if (on) void loadLayerDynamic("spaceWeather");
+            if (!on) {
+              removeEntities("swpc-");
+              removeEntities("aurora-");
+              dataLoadedRef.current.spaceWeather = false;
+            }
+            break;
+          case "airQuality":
+            if (on) void loadLayerDynamic("airQuality");
+            if (!on) {
+              removeEntities("aq-");
+              dataLoadedRef.current.airQuality = false;
+            }
+            break;
+          case "aviationWeather":
+            if (on) void loadLayerDynamic("aviationWeather");
+            if (!on) {
+              removeEntities("sigmet-");
+              removeEntities("airmet-");
+              dataLoadedRef.current.aviationWeather = false;
+            }
+            break;
+          case "volcanoes":
+            if (on) void loadLayerDynamic("volcanoes");
+            if (!on) {
+              removeEntities("vol-");
+              dataLoadedRef.current.volcanoes = false;
+            }
+            break;
+          case "gdacs":
+            if (on) void loadLayerDynamic("gdacs");
+            if (!on) {
+              removeEntities("gdacs-");
+              dataLoadedRef.current.gdacs = false;
+            }
+            break;
+          case "marineWeather":
+            if (on) void loadLayerDynamic("marineWeather");
+            if (!on) {
+              removeEntities("marine-");
+              dataLoadedRef.current.marineWeather = false;
+            }
+            break;
+          case "wildfires":
+            if (on) void loadLayerDynamic("wildfires");
+            if (!on) {
+              removeEntities("fire-");
+              dataLoadedRef.current.wildfires = false;
+            }
+            break;
+          case "lightning":
+            if (on) void loadLayerDynamic("lightning");
+            if (!on) {
+              // addStrike never checks the toggle, so an open socket keeps
+              // adding strike entities after off — close it like unmount does.
+              const lightningMod = layerModulesRef.current.lightning as
+                | { cleanupLightning: () => void }
+                | undefined;
+              lightningMod?.cleanupLightning();
+              removeEntities("strike-");
+              dataLoadedRef.current.lightning = false;
+            }
+            break;
           case "gpsJamming":
             if (on) void loadLayerDynamic("gpsJamming");
             if (!on) {

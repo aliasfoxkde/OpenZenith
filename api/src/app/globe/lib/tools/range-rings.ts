@@ -10,6 +10,18 @@ export interface RangeRingState {
   entities: any[];
 }
 
+/**
+ * Concentric range rings around a centre point. Returns `{ state, placeAt,
+ * setRadii, clear }` bound to the given viewer. `placeAt(lat, lng)` clears any
+ * previous rings, then adds one entity per radius in `state.radiiKm` (default
+ * 50/100/200/500 km) to `viewer.entities`: a green #00ff88 ellipse at 0.4
+ * alpha with an outline, classified against terrain and 3D tiles, labelled
+ * "<n> km", with id `ring-<n>km`; `setRadii` replaces the radius list in km
+ * and redraws immediately if rings are placed; `clear()` removes every ring
+ * entity. Radii are converted to the metres that `EllipseGraphics.semiMajorAxis`
+ * requires (km × 1000), so the drawn ellipse matches its label. No input
+ * handlers are attached; supply the centre from a click.
+ */
 export function createRangeRingManager(viewer: any, Cesium: any) {
   const state: RangeRingState = {
     active: false,
@@ -31,14 +43,14 @@ export function createRangeRingManager(viewer: any, Cesium: any) {
     state.active = true;
 
     for (const radiusKm of state.radiiKm) {
-      // Convert km to degrees (approximate at equator, good enough for visualization)
-      const radiusDeg = radiusKm / 111.32;
+      // EllipseGraphics axes are metres, not degrees.
+      const radiusMetres = radiusKm * 1000;
       const entity = viewer.entities.add({
         id: `ring-${radiusKm}km`,
         position: Cesium.Cartesian3.fromDegrees(lng, lat),
         ellipse: {
-          semiMajorAxis: radiusDeg,
-          semiMinorAxis: radiusDeg,
+          semiMajorAxis: radiusMetres,
+          semiMinorAxis: radiusMetres,
           material: Cesium.Color.fromCssColorString("#00ff88").withAlpha(0.4),
           outline: true,
           outlineColor: Cesium.Color.fromCssColorString("#00ff88").withAlpha(0.8),

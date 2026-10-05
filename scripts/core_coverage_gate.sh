@@ -9,12 +9,22 @@
 # Baseline (2026-09-23, task #110): 78.81% lines (150/708 missed) before the
 # par-variant, CLI error-path and edge-branch tests; 97.96% after (15/736
 # missed — serde-derive internals and the unwritable-stdout guard in
-# main.rs). Floor set to 95 to leave headroom for toolchain/serde churn.
+# main.rs).
+#
+# Baseline (2026-10-04, task #179 coverage wave): 99.19% lines / 99.24%
+# regions (default-feature workspace surface, same measurement this script
+# makes). The stdout guard is now covered by the /dev/full write-failure
+# test; the residual misses are closure instantiations (monomorphized serde
+# derive copies plus one documented-unreachable serde fallback in
+# error_exit) — line-level LCOV shows no zero-execution lines. Floor raised
+# 95 -> 99 to match the project-wide 99% standard; if a toolchain update
+# shifts serde expansion, re-measure and move the floor back up with the
+# tests, or pin CORE_COV_FLOOR for a one-off churn window.
 #
 # Extra args are forwarded to cargo llvm-cov (e.g. --html for a report).
 set -euo pipefail
 
-FLOOR="${CORE_COV_FLOOR:-95}"
+FLOOR="${CORE_COV_FLOOR:-99}"
 CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../core" && pwd)"
 
 cd "$CORE_DIR"

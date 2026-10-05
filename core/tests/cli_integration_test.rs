@@ -4,6 +4,9 @@
 
 // In integration tests an unwrap/expect failure IS the test failing.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+// Process-spawning tests are host-only; wasm-pack test --node compiles every
+// test target for wasm32, where this file must become an empty crate.
+#![cfg(not(target_arch = "wasm32"))]
 
 use assert_cmd::assert::OutputAssertExt;
 use assert_cmd::Command;
@@ -422,4 +425,114 @@ fn test_non_utf8_stdin_fails_cleanly() {
         .assert()
         .failure()
         .stderr(predicates::str::contains("failed to read stdin"));
+}
+
+// ─── Dimension overflow (rows*cols must not overflow usize) ──────────────────
+
+#[test]
+fn test_d8_rows_cols_overflow_is_rejected_not_panicked() {
+    // rows*cols = usize::MAX * 2 overflows. The product is computed with
+    // checked_mul, so this is a JSON error with exit code 1 — previously it
+    // aborted with a "multiply with overflow" panic (exit 101).
+    let input = json!({
+        "rows": 18_446_744_073_709_551_615u64,
+        "cols": 2,
+        "nodata": -32768.0,
+        "data": [100.0, 200.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("d8")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicates::str::contains("overflows usize"));
+}
+
+#[test]
+fn test_stream_order_rows_cols_overflow_is_rejected_not_panicked() {
+    // Same overflow guard on the two-array command: absurd dimensions must be
+    // rejected before either array is shaped.
+    let input = json!({
+        "rows": 4_294_967_296u64,
+        "cols": 4_294_967_296u64,
+        "streams": [0i8, 1],
+        "flow_dir": [0i8, 1]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("stream-order")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicates::str::contains("overflows usize"));
+}
+
+#[test]
+fn test_d8_data_length_mismatch_message_is_preserved() {
+    // Shaping now goes through ndarray directly, but the caller-facing message
+    // (and therefore the existing "data length" contract) is unchanged.
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "data": [100.0, 200.0, 300.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("d8")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length 3 != rows*cols 2*2"));
+}
+
+// ─── stdout write failure (main's last error path) ───────────────────────────
+
+#[test]
+fn test_stdout_write_failure_reports_error() {
+    // /dev/full accepts open(2) but fails every write(2) with ENOSPC — the
+    // only portable way to make the binary's final write_all fail and reach
+    // the error_exit("failed to write stdout") arm that no stdin-side fault
+    // can reach. std::process::Command here because assert_cmd's wrapper
+    // offers no Stdio redirection.
+    use assert_cmd::cargo::CommandCargoExt;
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "data": [100.0, 100.0, 100.0, 100.0]
+    });
+
+    let dev_full = std::fs::File::create("/dev/full").unwrap();
+    let mut child = Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("d8")
+        .stdin(Stdio::piped())
+        .stdout(dev_full)
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(serde_json::to_string(&input).unwrap().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("failed to write stdout"),
+        "stderr was: {stderr}"
+    );
 }

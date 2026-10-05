@@ -146,6 +146,11 @@ pub fn d8_flow_direction_par(dem: &ArrayView2<f32>, nodata: f32) -> Array2<i8> {
 /// # Returns
 /// 2D `i32` grid where each cell holds the count of upstream draining cells
 /// (itself included, so a headwater is 1).
+///
+/// # Panics
+/// Never — a direction outside `0..=7` (a hand-built grid rather than
+/// [`d8_flow_direction`] output) is treated as "no flow" instead of being used
+/// as an offset-table index.
 #[must_use]
 pub fn flow_accumulation(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i32> {
     let rows = flow_dir.nrows();
@@ -159,7 +164,7 @@ pub fn flow_accumulation(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i3
     for r in 0..rows {
         for c in 0..cols {
             let d = flow_dir[[r, c]];
-            if d == nodata_dir {
+            if d == nodata_dir || !(0..=7).contains(&d) {
                 continue;
             }
             let d_usize = d as usize;
@@ -187,7 +192,7 @@ pub fn flow_accumulation(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array2<i3
         head += 1;
 
         let d = flow_dir[[r, c]];
-        if d == nodata_dir {
+        if d == nodata_dir || !(0..=7).contains(&d) {
             continue;
         }
         let d_usize = d as usize;
@@ -237,6 +242,10 @@ pub fn flow_accumulation_par(flow_dir: &ArrayView2<i8>, nodata_dir: i8) -> Array
 ///
 /// # Returns
 /// 2D `u8` grid of Strahler orders (0 = non-stream, 1 = headwater, n = order n).
+///
+/// # Panics
+/// Never — a direction outside `0..=7` is treated as "no flow" instead of being
+/// used as an offset-table index, so hand-built grids cannot panic here.
 #[must_use]
 pub fn stream_order(
     streams: &ArrayView2<i8>,
@@ -268,7 +277,7 @@ pub fn stream_order(
 
                 // Find the downstream neighbour using flow_dir
                 let fd = flow_dir[[r, c]];
-                if fd == nodata_dir {
+                if fd == nodata_dir || !(0..=7).contains(&fd) {
                     continue;
                 }
 
@@ -383,6 +392,54 @@ mod tests {
         assert_eq!(fd[[0, 0]], -1);
     }
 
+    #[test]
+    fn test_d8_diagonal_slope_divides_by_sqrt2() {
+        // The diagonal neighbours are sqrt(2) cells away, so the same metres of
+        // drop is a shallower slope than a cardinal drop. Cardinal E drops 5 m
+        // (slope 5); diagonal SE drops 9 m over sqrt(2) (slope ≈ 6.36) and must
+        // win. S stays flat so it cannot compete.
+        let se_wins = arr2(&[[10.0, 10.0, 10.0], [10.0, 10.0, 5.0], [10.0, 10.0, 1.0]]);
+        let fd = d8_flow_direction(&se_wins.view(), -32768.0);
+        assert_eq!(fd[[1, 1]], 1, "SE must win on per-unit slope, not raw drop");
+
+        // Same drop on both (5 m): the diagonal is penalised by sqrt(2), so E wins.
+        let e_wins = arr2(&[[10.0, 10.0, 10.0], [10.0, 10.0, 5.0], [10.0, 10.0, 5.0]]);
+        let fd = d8_flow_direction(&e_wins.view(), -32768.0);
+        assert_eq!(
+            fd[[1, 1]],
+            0,
+            "E must win when the diagonal is distance-penalised"
+        );
+    }
+
+    #[test]
+    fn test_d8_tie_prefers_first_direction() {
+        // E and W drop the same metres over the same distance (slope 5 each).
+        // The `slope > max_slope` comparison is strict and directions are tried
+        // in compass order (0=E … 4=W), so E must keep the cell.
+        let dem = arr2(&[[10.0f32, 5.0, 10.0, 5.0, 10.0]]);
+        let fd = d8_flow_direction(&dem.view(), -32768.0);
+        assert_eq!(
+            fd[[0, 2]],
+            0,
+            "a tie must resolve to the first direction (E)"
+        );
+    }
+
+    #[test]
+    fn test_d8_nodata_neighbour_is_not_a_target() {
+        // A downhill neighbour at or below nodata is not terrain: the cell
+        // beside the hole must not flow into it, so it becomes a pit.
+        let dem = arr2(&[[10.0f32, 5.0, -32768.0]]);
+        let fd = d8_flow_direction(&dem.view(), -32768.0);
+        assert_eq!(fd[[0, 0]], 0, "(0,0) drains E into the valid 5 m cell");
+        assert_eq!(
+            fd[[0, 1]],
+            -1,
+            "(0,1) has only an uphill and a nodata neighbour"
+        );
+    }
+
     // ── flow_accumulation tests ────────────────────────────────────────────────
 
     #[test]
@@ -425,6 +482,34 @@ mod tests {
         assert_eq!(accum[[0, 0]], 1);
         assert_eq!(accum[[1, 0]], 1);
         assert_eq!(accum[[0, 1]], 2);
+    }
+
+    #[test]
+    fn test_flow_accum_all_pits_is_all_ones() {
+        // Every cell is a sink: no edge exists, so each cell keeps its own
+        // initial accumulation of 1.
+        let fd = arr2(&[[-1i8, -1], [-1, -1]]);
+        let accum = flow_accumulation(&fd.view(), -1);
+        assert_eq!(accum, arr2(&[[1i32, 1], [1, 1]]));
+    }
+
+    #[test]
+    fn test_flow_accum_cycle_terminates() {
+        // Two cells flowing into each other never reach in-degree 0, so Kahn's
+        // frontier stays empty: the grid is returned as-is — no hang, no panic.
+        let fd = arr2(&[[0i8, 4]]);
+        let accum = flow_accumulation(&fd.view(), -1);
+        assert_eq!(accum, arr2(&[[1i32, 1]]));
+    }
+
+    #[test]
+    fn test_flow_accum_ignores_out_of_range_direction() {
+        // A direction outside 0..=7 is not a valid offset-table index; it must
+        // behave like "no flow" rather than panic. Cell (0,1) carries 9, so the
+        // only real edge is (0,0) → (0,1), giving accum 1 and 2.
+        let fd = arr2(&[[0i8, 9]]);
+        let accum = flow_accumulation(&fd.view(), -1);
+        assert_eq!(accum, arr2(&[[1i32, 2]]));
     }
 
     // ── stream_order tests ────────────────────────────────────────────────────
@@ -482,6 +567,61 @@ mod tests {
         let order = stream_order(&streams.view(), &flow_dir.view(), -1);
         assert_eq!(order[[0, 0]], 1);
         assert_eq!(order[[0, 1]], 1);
+    }
+
+    #[test]
+    fn test_stream_order_order3_double_confluence() {
+        // Two order-1 pairs merge into two order-2 channels, and those two
+        // merge again at (4,1) — a third-order stream. Fixed point of the
+        // Strahler propagation, not just the first pass:
+        //
+        //   (0,0)→S (0,2)→SW                (0,3)→S (0,5)→SW
+        //        ↓↓↓↓                            ↓↓↓↓
+        //        (1,0)(1,1)                      (1,3)(1,4)
+        //          ↘↘↘ (2,0)=2  →S (3,0) →SE      ↘↘↘ (2,3)=2 →SW (3,2) →SW
+        //                      ↘ (4,1)=3 ←←←←←←↙
+        let streams = arr2(&[
+            [1i8, 0, 1, 1, 0, 1],
+            [1, 1, 0, 1, 1, 0],
+            [1, 0, 0, 1, 0, 0],
+            [1, 0, 1, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+        ]);
+        let flow_dir = arr2(&[
+            [2i8, -1, 3, 2, -1, 3],
+            [2, 3, -1, 2, 3, -1],
+            [2, -1, -1, 3, -1, -1],
+            [1, -1, 3, -1, -1, -1],
+            [-1, -1, -1, -1, -1, -1],
+        ]);
+        let order = stream_order(&streams.view(), &flow_dir.view(), -1);
+        assert_eq!(order[[0, 0]], 1, "headwater");
+        assert_eq!(order[[2, 0]], 2, "first pair of order-1 streams");
+        assert_eq!(order[[2, 3]], 2, "second pair of order-1 streams");
+        assert_eq!(order[[4, 1]], 3, "two order-2 channels meeting");
+        assert_eq!(order[[0, 1]], 0, "non-stream cells stay 0");
+    }
+
+    #[test]
+    fn test_stream_order_respects_custom_nodata_dir() {
+        // nodata_dir is caller-supplied, not hardwired to -1: with 7 as the
+        // sentinel the (0,1) cell pointing NE is a pit, while the -1 cell is
+        // merely not a compass direction and is skipped the same way — so no
+        // cell is ever promoted past order 1.
+        let streams = arr2(&[[1i8, 1, 1]]);
+        let flow_dir = arr2(&[[0i8, 7, -1]]);
+        let order = stream_order(&streams.view(), &flow_dir.view(), 7);
+        assert_eq!(order, arr2(&[[1u8, 1, 1]]));
+    }
+
+    #[test]
+    fn test_stream_order_ignores_out_of_range_direction() {
+        // A direction outside 0..=7 must be skipped like a pit, not used as an
+        // offset-table index — the crate contract is that nothing panics.
+        let streams = arr2(&[[1i8, 1]]);
+        let flow_dir = arr2(&[[0i8, 42]]);
+        let order = stream_order(&streams.view(), &flow_dir.view(), -1);
+        assert_eq!(order, arr2(&[[1u8, 1]]));
     }
 
     // ── d8_flow_direction_par tests ──────────────────────────────────────────

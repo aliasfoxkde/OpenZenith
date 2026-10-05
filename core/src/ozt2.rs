@@ -251,4 +251,100 @@ mod tests {
         assert_eq!(residuals[[0, 1]], -32768i16);
         assert_ne!(residuals[[1, 0]], -32768i16);
     }
+
+    #[test]
+    fn test_gradient_predict_treats_at_or_below_nodata_as_missing() {
+        // The sentinel is compared with `<=`: a cell exactly at nodata and a
+        // cell below it are both "no data", and neither enters the prediction.
+        let elevation = arr2(&[[100.0f32, -32768.0, -40000.0]]);
+        let residuals = gradient_predict(&elevation.view(), -32768.0);
+        assert_eq!(residuals[[0, 1]], -32768i16);
+        assert_eq!(residuals[[0, 2]], -32768i16);
+        // Origin cell has no predictor, so its residual is the elevation itself.
+        assert_eq!(residuals[[0, 0]], 100i16);
+    }
+
+    #[test]
+    fn test_gradient_reconstruct_applies_dequant_params() {
+        // Residuals are metres-after-dequantisation, not raw metres: with
+        // min = 1000 and scale = 0.5, a residual of 4 is 1002 m. The running
+        // gradient then carries the dequantized value, not the raw residual.
+        let residuals = arr2(&[[4i16, 2, -2], [2, 0, 2]]);
+        let out = gradient_reconstruct(&residuals.view(), -32768, 1000.0, 0.5);
+        // (0,0) = 1000 + 4*0.5 = 1002
+        assert_eq!(out[[0, 0]], 1002.0);
+        // (0,1) = 1001 + 1002 = 2003
+        assert_eq!(out[[0, 1]], 2003.0);
+        // (0,2) = 999 + 2003 = 3002
+        assert_eq!(out[[0, 2]], 3002.0);
+        // (1,0) = 1001 + 1002 = 2003
+        assert_eq!(out[[1, 0]], 2003.0);
+        // (1,1) = 1000 + 2003 + 2003 - 1002 = 4004
+        assert_eq!(out[[1, 1]], 4004.0);
+        // (1,2) = 1001 + 4004 + 3002 - 2003 = 6004
+        assert_eq!(out[[1, 2]], 6004.0);
+    }
+
+    #[test]
+    fn test_left_reconstruct_applies_dequant_params() {
+        // Left reconstruction is a per-row cumsum of dequantized residuals.
+        let residuals = arr2(&[[4i16, 2, -2]]);
+        let out = left_reconstruct(&residuals.view(), -32768, 1000.0, 0.5);
+        assert_eq!(out[[0, 0]], 1002.0);
+        assert_eq!(out[[0, 1]], 2003.0);
+        assert_eq!(out[[0, 2]], 3002.0);
+    }
+
+    #[test]
+    fn test_gradient_roundtrip_across_nodata_hole() {
+        // A nodata cell must survive the codec as nodata without corrupting its
+        // neighbours: the encoder emits the sentinel residual and the decoder
+        // copies it through, so the rest of the tile reconstructs exactly.
+        let mut elevation = arr2(&[
+            [100.0f32, 120.0, 140.0],
+            [110.0, 130.0, 150.0],
+            [120.0, 140.0, 160.0],
+        ]);
+        elevation[[2, 2]] = -32768.0;
+        let residuals = gradient_predict(&elevation.view(), -32768.0);
+        assert_eq!(residuals[[2, 2]], -32768i16);
+
+        let reconstructed = gradient_reconstruct(&residuals.view(), -32768, 0.0, 1.0);
+        assert_eq!(reconstructed[[2, 2]], -32768.0, "the hole stays a hole");
+        for i in 0..3 {
+            for j in 0..3 {
+                if (i, j) == (2, 2) {
+                    continue;
+                }
+                assert_eq!(
+                    reconstructed[[i, j]],
+                    elevation[[i, j]],
+                    "cell ({i},{j}) must round-trip exactly past the nodata hole"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_degenerate_shapes_are_total() {
+        // Empty and 1x1 grids exercise the "no predictor" origin branch without
+        // any neighbour to fall back on — both must return, not panic.
+        let empty = Array2::<f32>::zeros((0, 0));
+        assert_eq!(
+            gradient_predict(&empty.view(), -32768.0).nrows(),
+            0,
+            "predict on an empty grid is empty"
+        );
+        assert_eq!(
+            gradient_reconstruct(&Array2::<i16>::zeros((0, 0)).view(), -32768, 0.0, 1.0).ncols(),
+            0,
+            "reconstruct on an empty grid is empty"
+        );
+
+        let single = arr2(&[[42.0f32]]);
+        let residuals = gradient_predict(&single.view(), -32768.0);
+        assert_eq!(residuals[[0, 0]], 42i16);
+        let out = gradient_reconstruct(&residuals.view(), -32768, 0.0, 1.0);
+        assert_eq!(out[[0, 0]], 42.0);
+    }
 }

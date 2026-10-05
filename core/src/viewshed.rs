@@ -241,4 +241,63 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_viewshed_ridge_hides_ground_behind_it() {
+        // East profile from an observer on a 100 m peak: a 90 m shoulder at 1
+        // cell sets the running max slope to 10, the 95 m ridge at 2 cells is
+        // then hidden (slope 2.5 < 10), and the 20 m valley floor at 4 cells is
+        // visible again (slope 20 >= 10) because it drops below the sight line.
+        //
+        // The three extra rows keep every bilinear sample inside the row so the
+        // assertion reads the pure east ray; with max_distance_cells = 4 the ray
+        // count is 4 (E, S, W, N) and only the east ray reaches this row's
+        // columns 1..4.
+        let profile = [100.0_f32, 90.0, 95.0, 95.0, 20.0];
+        let dem = Array2::from_shape_fn((3, 5), |(_, c)| profile[c]);
+        let vis = viewshed(&dem.view(), 1, 0, 0.0, 1.0, -32768.0, Some(4));
+        assert!(vis[[1, 0]], "observer cell");
+        assert!(vis[[1, 1]], "90 m shoulder sets the sight line");
+        assert!(!vis[[1, 2]], "95 m ridge behind the shoulder is hidden");
+        assert!(vis[[1, 4]], "valley floor below the sight line is visible");
+    }
+
+    #[test]
+    fn test_viewshed_max_distance_cells_limits_reach() {
+        // max_distance_cells caps the ray march: with a 1-cell budget the
+        // observer sees only the immediate 90 m shoulder, never the ridge.
+        let profile = [100.0_f32, 90.0, 95.0, 95.0, 20.0];
+        let dem = Array2::from_shape_fn((3, 5), |(_, c)| profile[c]);
+        let vis = viewshed(&dem.view(), 1, 0, 0.0, 1.0, -32768.0, Some(1));
+        assert!(vis[[1, 1]]);
+        assert!(!vis[[1, 2]], "beyond the 1-cell budget");
+        assert!(!vis[[1, 4]], "well beyond the 1-cell budget");
+    }
+
+    #[test]
+    fn test_viewshed_nodata_sample_point_is_not_interpolated() {
+        // A sample that lands exactly on a nodata cell must stay nodata even
+        // when its neighbours are valid: the corner weights collapse onto the
+        // invalid corner, the weight sum is 0, and the sample is skipped
+        // instead of inheriting a neighbour's elevation. The rising ground
+        // beyond keeps the half-step samples off the sight line too.
+        let dem = arr2(&[[100.0f32, -32768.0, 200.0], [100.0, 100.0, 100.0]]);
+        let vis = viewshed(&dem.view(), 0, 0, 0.0, 1.0, -32768.0, None);
+        assert!(vis[[0, 0]], "observer cell");
+        assert!(!vis[[0, 1]], "the nodata cell is never visible");
+        assert!(
+            !vis[[0, 2]],
+            "ground above the observer's eye is not visible"
+        );
+    }
+
+    #[test]
+    fn test_viewshed_zero_ray_count_is_total() {
+        // max_distance_cells = 0 means zero rays: the grid degenerates to the
+        // observer's own cell without dividing by a zero angle step.
+        let dem = arr2(&[[100.0f32, 100.0], [100.0, 100.0]]);
+        let vis = viewshed(&dem.view(), 0, 0, 1.75, 1.0, -32768.0, Some(0));
+        assert!(vis[[0, 0]]);
+        assert!(!vis[[1, 1]], "no rays, no reach");
+    }
 }

@@ -550,7 +550,160 @@ mod tests {
         assert_eq!(predictor_name(1), "left");
         assert_eq!(predictor_name(2), "none");
         assert_eq!(compressor_name(0), "none");
+        assert_eq!(compressor_name(1), "zlib");
         assert_eq!(compressor_name(2), "zstd");
+        assert_eq!(compressor_name(3), "brotli");
         assert_eq!(compressor_name(9), "unknown");
+    }
+
+    // ── exported glue (raw ptr + len ABI, no js_sys involved) ─────────────────
+    //
+    // These run on the host target: the exports are plain Rust functions that
+    // read a caller-provided slice out of linear memory, so the ABI contract —
+    // (ptr, len, rows, cols, …) → clamped integer grid — is verifiable without
+    // a browser. Only `decode_ozt2` (js_sys objects) needs the wasm32 runtime.
+
+    #[test]
+    fn test_gradient_reconstruct_wasm_abi() {
+        // residuals [[0, 257], [300, 100]] → [[0, 257], [300, 657]] metres.
+        let residuals: Vec<i16> = vec![0, 257, 300, 100];
+        let out = unsafe {
+            gradient_reconstruct_wasm(
+                residuals.as_ptr(),
+                residuals.len(),
+                2,
+                2,
+                RESIDUAL_NODATA,
+                0.0,
+                1.0,
+            )
+        };
+        assert_eq!(out, vec![0, 257, 300, 657]);
+    }
+
+    #[test]
+    fn test_gradient_reconstruct_wasm_clamps_to_u16_range() {
+        // Negative metres clamp to 0 — the Uint16Array output range of the
+        // shipped ABI cannot represent below sea level here.
+        let below_sea: Vec<i16> = vec![0, -12, 32767, 32767];
+        let out = unsafe {
+            gradient_reconstruct_wasm(
+                below_sea.as_ptr(),
+                below_sea.len(),
+                2,
+                2,
+                RESIDUAL_NODATA,
+                0.0,
+                1.0,
+            )
+        };
+        // [[0, -12], [32767, 65522]] metres — only the negative cell clamps.
+        assert_eq!(out, vec![0, 0, 32_767, 65_522]);
+
+        // Reconstruction can also overshoot u16 (32 767 m of gradient three
+        // ways), and that clamps at the top of the range instead of wrapping.
+        let overshoot: Vec<i16> = vec![0, 32767, 32767, 32767];
+        let out = unsafe {
+            gradient_reconstruct_wasm(
+                overshoot.as_ptr(),
+                overshoot.len(),
+                2,
+                2,
+                RESIDUAL_NODATA,
+                0.0,
+                1.0,
+            )
+        };
+        // (1,1) = 32767 * 3 = 98301 m → 65535.
+        assert_eq!(out, vec![0, 32_767, 32_767, 65_535]);
+    }
+
+    #[test]
+    fn test_gradient_reconstruct_wasm_shape_mismatch_yields_zero_tile() {
+        // A len that fits no shape falls back to a zero-filled grid rather than
+        // panicking inside WASM. The JS glue always passes a matching length;
+        // this pins the failure mode to a defined result.
+        let residuals: Vec<i16> = vec![1, 2, 3];
+        let out = unsafe {
+            gradient_reconstruct_wasm(
+                residuals.as_ptr(),
+                residuals.len(),
+                2,
+                2,
+                RESIDUAL_NODATA,
+                0.0,
+                1.0,
+            )
+        };
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_left_reconstruct_wasm_abi() {
+        // Row-wise cumsum: [[10, 5], [3, 4]] → [[10, 15], [3, 7]].
+        let residuals: Vec<i16> = vec![10, 5, 3, 4];
+        let out = unsafe {
+            left_reconstruct_wasm(
+                residuals.as_ptr(),
+                residuals.len(),
+                2,
+                2,
+                RESIDUAL_NODATA,
+                0.0,
+                1.0,
+            )
+        };
+        assert_eq!(out, vec![10, 15, 3, 7]);
+    }
+
+    #[test]
+    fn test_gradient_predict_wasm_abi() {
+        // Elevation [[100, 150], [110, 160]] → residuals [[100, 50], [10, 0]].
+        let elevation: Vec<f32> = vec![100.0, 150.0, 110.0, 160.0];
+        let out =
+            unsafe { gradient_predict_wasm(elevation.as_ptr(), elevation.len(), 2, 2, -32768.0) };
+        assert_eq!(out, vec![100, 50, 10, 0]);
+    }
+
+    #[test]
+    fn test_d8_flow_direction_wasm_abi() {
+        // [[10, 5], [10, 5]]: (0,0) and (1,0) drain E (0); (0,1) and (1,1) are
+        // pits, reported as 255 for the Uint8Array output.
+        let dem: Vec<f32> = vec![10.0, 5.0, 10.0, 5.0];
+        let out = unsafe { d8_flow_direction_wasm(dem.as_ptr(), dem.len(), 2, 2, -32768.0) };
+        assert_eq!(out, vec![0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn test_flow_accumulation_wasm_abi() {
+        // (0,0) drains S into (1,0) → accumulations 1 and 2; the right column
+        // is two pits with 1 each.
+        let flow_dir: Vec<i8> = vec![2, -1, -1, -1];
+        let out = unsafe { flow_accumulation_wasm(flow_dir.as_ptr(), flow_dir.len(), 2, 2, -1) };
+        assert_eq!(out, vec![1, 1, 2, 1]);
+    }
+
+    #[test]
+    fn test_viewshed_wasm_abi() {
+        // Flat 2x2 with a 1.75 m eye. The ray count is min(720, grid diagonal)
+        // = 3 here (0°, 120°, 240°), so only the east ray lands in the grid and
+        // reaches (0,1): the output is [1, 1, 0, 0], and it is 0/1 bytes rather
+        // than bools.
+        let dem: Vec<f32> = vec![100.0, 100.0, 100.0, 100.0];
+        let out = unsafe {
+            viewshed_wasm(
+                dem.as_ptr(),
+                dem.len(),
+                2,
+                2,
+                0,
+                0,
+                1.75,
+                1.0,
+                -32768.0,
+                None,
+            )
+        };
+        assert_eq!(out, vec![1, 1, 0, 0]);
     }
 }

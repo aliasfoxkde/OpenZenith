@@ -56,7 +56,13 @@ fn main() {
 
     match result {
         Ok(json) => {
-            if let Err(e) = io::stdout().write_all(json.as_bytes()) {
+            // stdout is a line-buffered writer and the JSON payload contains
+            // no newlines, so write_all alone only fills the buffer — the
+            // ENOSPC surfaces at the deferred flush, whose error is discarded
+            // at process exit, silently losing the result. flush() forces the
+            // write here so a failed stdout is reported, not dropped.
+            let mut out = io::stdout();
+            if let Err(e) = out.write_all(json.as_bytes()).and_then(|()| out.flush()) {
                 error_exit(&format!("failed to write stdout: {e}"));
             }
         }
@@ -73,6 +79,18 @@ fn error_exit(msg: &str) -> ! {
 }
 
 // ─── JSON helpers ──────────────────────────────────────────────────────────────
+
+/// Element count of a `rows × cols` grid, with the product computed safely.
+///
+/// # Errors
+/// A caller-supplied dimension pair near `usize::MAX` would otherwise overflow
+/// `rows * cols` — a panic in a debug build — before the length comparison that
+/// was meant to reject it, so the product is computed with `checked_mul` and the
+/// overflow becomes the JSON error `{"error": "..."}`.
+fn grid_len(rows: usize, cols: usize) -> Result<usize, String> {
+    rows.checked_mul(cols)
+        .ok_or_else(|| format!("rows*cols {rows}*{cols} overflows usize"))
+}
 
 #[derive(serde::Deserialize)]
 struct D8Input {
@@ -94,17 +112,11 @@ fn cmd_d8(input: &str) -> Result<String, String> {
     use openzenith_core::d8_flow_direction;
 
     let inp: D8Input = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
-    if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "data length {} != rows*cols {}*{}",
-            inp.data.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
+    grid_len(inp.rows, inp.cols)?;
+    let len = inp.data.len();
 
     let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
+        .map_err(|_| format!("data length {len} != rows*cols {}*{}", inp.rows, inp.cols))?;
     let result = d8_flow_direction(&arr.view(), inp.nodata);
 
     let out = D8Output {
@@ -135,17 +147,11 @@ fn cmd_accum(input: &str) -> Result<String, String> {
     use openzenith_core::flow_accumulation;
 
     let inp: AccumInput = serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
-    if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "data length {} != rows*cols {}*{}",
-            inp.data.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
+    grid_len(inp.rows, inp.cols)?;
+    let len = inp.data.len();
 
     let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
+        .map_err(|_| format!("data length {len} != rows*cols {}*{}", inp.rows, inp.cols))?;
     let result = flow_accumulation(&arr.view(), inp.nodata);
 
     let out = AccumOutput {
@@ -179,17 +185,11 @@ fn cmd_gradient_reconstruct(input: &str) -> Result<String, String> {
 
     let inp: ReconstructInput =
         serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
-    if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "data length {} != rows*cols {}*{}",
-            inp.data.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
+    grid_len(inp.rows, inp.cols)?;
+    let len = inp.data.len();
 
     let residuals = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
+        .map_err(|_| format!("data length {len} != rows*cols {}*{}", inp.rows, inp.cols))?;
     let result = gradient_reconstruct(
         &residuals.view(),
         inp.nodata,
@@ -232,17 +232,11 @@ fn cmd_viewshed(input: &str) -> Result<String, String> {
 
     let inp: ViewshedInput =
         serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
-    if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "data length {} != rows*cols {}*{}",
-            inp.data.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
+    grid_len(inp.rows, inp.cols)?;
+    let len = inp.data.len();
 
     let dem = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
+        .map_err(|_| format!("data length {len} != rows*cols {}*{}", inp.rows, inp.cols))?;
     let result = viewshed(
         &dem.view(),
         inp.observer_row,
@@ -295,27 +289,22 @@ fn cmd_stream_order(input: &str) -> Result<String, String> {
 
     let inp: StreamOrderInput =
         serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
-    if inp.streams.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "streams length {} != rows*cols {}*{}",
-            inp.streams.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
-    if inp.flow_dir.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "flow_dir length {} != rows*cols {}*{}",
-            inp.flow_dir.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
+    grid_len(inp.rows, inp.cols)?;
+    let streams_len = inp.streams.len();
+    let flow_dir_len = inp.flow_dir.len();
 
-    let streams = Array2::from_shape_vec((inp.rows, inp.cols), inp.streams)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
-    let flow_dir = Array2::from_shape_vec((inp.rows, inp.cols), inp.flow_dir)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
+    let streams = Array2::from_shape_vec((inp.rows, inp.cols), inp.streams).map_err(|_| {
+        format!(
+            "streams length {streams_len} != rows*cols {}*{}",
+            inp.rows, inp.cols
+        )
+    })?;
+    let flow_dir = Array2::from_shape_vec((inp.rows, inp.cols), inp.flow_dir).map_err(|_| {
+        format!(
+            "flow_dir length {flow_dir_len} != rows*cols {}*{}",
+            inp.rows, inp.cols
+        )
+    })?;
     let result = stream_order(&streams.view(), &flow_dir.view(), inp.nodata_dir);
 
     let out = StreamOrderOutput {
@@ -349,17 +338,11 @@ fn cmd_gradient_predict(input: &str) -> Result<String, String> {
 
     let inp: GradientPredictInput =
         serde_json::from_str(input).map_err(|e| format!("invalid JSON: {e}"))?;
-    if inp.data.len() != inp.rows * inp.cols {
-        return Err(format!(
-            "data length {} != rows*cols {}*{}",
-            inp.data.len(),
-            inp.rows,
-            inp.cols
-        ));
-    }
+    grid_len(inp.rows, inp.cols)?;
+    let len = inp.data.len();
 
     let arr = Array2::from_shape_vec((inp.rows, inp.cols), inp.data)
-        .map_err(|e| format!("invalid array shape: {e}"))?;
+        .map_err(|_| format!("data length {len} != rows*cols {}*{}", inp.rows, inp.cols))?;
     let result = gradient_predict(&arr.view(), inp.nodata);
 
     let out = GradientPredictOutput {

@@ -215,9 +215,12 @@
   color: var(--oz-text-secondary);
   font-size: 0.72rem;
   cursor: pointer;
-  flex: 1;
+  /* Grow to share the row, but never below content width: `flex: 1;
+     min-width: 0` compressed the chips under their labels on narrow
+     screens and neighboring texts overlapped. The parent's flex-wrap
+     handles the overflow instead. */
+  flex: 1 0 auto;
   text-align: center;
-  min-width: 0;
   /* 2.5.8 AA floor (24px) */
   min-height: 24px;
 }
@@ -294,6 +297,10 @@
 .oz-snippet-tabs {
   display: flex;
   flex: 1;
+  /* Narrow screens: scroll the tab strip instead of squeezing it under the
+     Copy button (which overlapped the last tabs at 390px). */
+  overflow-x: auto;
+  min-width: 0;
 }
 .oz-snippet-tab {
   padding: 0.35rem 0.7rem;
@@ -304,6 +311,8 @@
   color: var(--oz-text-secondary);
   cursor: pointer;
   font-weight: 400;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .oz-snippet-tab.active {
   border-bottom-color: var(--oz-accent);

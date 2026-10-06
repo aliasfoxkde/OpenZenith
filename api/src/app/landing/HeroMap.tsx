@@ -267,6 +267,10 @@ export function HeroMap({ dark, flyTarget }: { dark: boolean; flyTarget: FlyTarg
             borderRadius: 6,
             fontSize: "0.85rem",
             zIndex: 4,
+            // Informational only — on mobile the hero's center (and thus
+            // this pill) sits on the search form, and an interactive loader
+            // blocked taps there until the map finished loading.
+            pointerEvents: "none",
           }}
         >
           Loading elevation map...

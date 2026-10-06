@@ -129,7 +129,7 @@ export default function Demo() {
           {/* App-shell page title (axe page-has-heading-one): the visible
               chrome is a full-viewport map, so the h1 is announced but not
               rendered. Inside <main> so axe's `region` rule stays satisfied. */}
-          <h1 className="oz-sr-only">OpenZenith WASM Demo</h1>
+          <h1 className="oz-sr-only">OpenZenith Elevation Map Demo</h1>
         {/* Header bar */}
         <div
           style={{

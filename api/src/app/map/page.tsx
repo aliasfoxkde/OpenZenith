@@ -1173,9 +1173,16 @@ export default function MapPage() {
             flexDirection: "column",
             alignItems: "flex-start",
             gap: 6,
+            // `left`+`right` pin this container across the full map width,
+            // and a plain div hit-tests over its entire box even where it is
+            // transparent — the top-right MapLibre controls (zoom, bearing,
+            // locate) and the map itself were click-dead beneath it. The
+            // container passes clicks through; each interactive row below
+            // re-enables hit-testing over its own box only.
+            pointerEvents: "none",
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", maxWidth: "100%" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", maxWidth: "100%", pointerEvents: "auto" }}>
             {isMobile && (
               <button
                 onClick={() => { setSidebarOpen(!sidebarOpen); }}

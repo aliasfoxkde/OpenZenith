@@ -1,24 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { GetInTouch } from "@/components/GetInTouch";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-
-function useTheme() {
-  const [dark, setDark] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => { setDark(e.matches); };
-    mq.addEventListener("change", handler);
-    return () => { mq.removeEventListener("change", handler); };
-  }, []);
-  return dark;
-}
+// Shared hydration-safe theme hook (useSyncExternalStore, server snapshot
+// false). A local useState(() => matchMedia(...)) initializer ran during SSR
+// and desynced the server/client HTML for dark-preference visitors.
+import { useTheme } from "../landing/useTheme";
 
 const S = `
 .ct-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif}

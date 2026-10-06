@@ -29,6 +29,40 @@ import { OnboardingOverlay } from "./components/OnboardingOverlay";
 import { ElevationProfile } from "./components/ElevationProfile";
 import { computeProfileInWorker } from "@/lib/worker-utils";
 
+/* ─── Browser session state ───
+ * Read once on the client: URL-hash deep link + saved preferences.
+ * The restore effect mirrors this into component state, and the map-init
+ * effect calls it directly — same-commit effects see the initial state,
+ * not each other's updates, so the map cannot wait on mirrored state. */
+interface StudioSession {
+  center: [number, number];
+  zoom: number;
+  basemap: string;
+  tab: ToolTab;
+  sidebar: boolean;
+  imperial: boolean;
+  onboarded: boolean;
+  mobile: boolean;
+}
+
+function readStudioSession(): StudioSession {
+  const s = decodeMapHash(window.location.hash);
+  const p = loadPreferences();
+  // Stored preferences may not carry activeTab, so keep the truthiness check.
+  const tab = p.activeTab as ToolTab | undefined;
+  const mobile = window.innerWidth < 768;
+  return {
+    center: s?.center ?? DEFAULT_CENTER,
+    zoom: s?.zoom ?? DEFAULT_ZOOM,
+    basemap: s?.basemap ?? "dark",
+    tab: tab || "elevation",
+    sidebar: mobile ? false : (p.sidebarOpen ?? true),
+    imperial: p.imperial ?? false,
+    onboarded: localStorage.getItem("openzenith-studio-onboarded") !== null,
+    mobile,
+  };
+}
+
 /* ─── Component ─── */
 
 export default function StudioPage() {
@@ -42,47 +76,19 @@ export default function StudioPage() {
   });
 
   const [dark] = useState(true);
-  const [isMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !localStorage.getItem("openzenith-studio-onboarded");
-  });
-
-  // Restore from URL hash and localStorage
-  const [initialCenter] = useState<[number, number]>(() => {
-    const s = typeof window !== "undefined" ? decodeMapHash(window.location.hash) : null;
-    return s?.center ?? DEFAULT_CENTER;
-  });
-  const [initialZoom] = useState(() => {
-    const s = typeof window !== "undefined" ? decodeMapHash(window.location.hash) : null;
-    return s?.zoom ?? DEFAULT_ZOOM;
-  });
-  const [initialBasemap] = useState(() => {
-    const s = typeof window !== "undefined" ? decodeMapHash(window.location.hash) : null;
-    return s?.basemap ?? "dark";
-  });
-  const [initialTab] = useState<ToolTab>(() => {
-    const p = loadPreferences();
-    // Stored preferences may not carry activeTab, so keep the truthiness check.
-    const tab = p.activeTab as ToolTab | undefined;
-    return tab || "elevation";
-  });
-  const [initialSidebar] = useState(() => {
-    const p = loadPreferences();
-    const mobile = typeof window !== "undefined" && window.innerWidth < 768;
-    return mobile ? false : (p.sidebarOpen ?? true);
-  });
-  const [initialImperial] = useState(() => {
-    const p = loadPreferences();
-    return p.imperial ?? false;
-  });
-
-  const [activeTab, setActiveTab] = useState<ToolTab>(initialTab);
-  const [sidebarOpen, setSidebarOpen] = useState(initialSidebar);
-  const [imperial, setImperial] = useState(initialImperial);
+  // Server-safe initial state: every window/localStorage read happens in
+  // the restore effect (and, for map parameters, directly inside the
+  // map-init effect). useState initializers run during SSR as well —
+  // reading browser-only state there desynced the server/client HTML and
+  // hydration regenerated this whole tree on every visit.
+  const [isMobile, setIsMobile] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [activeTab, setActiveTab] = useState<ToolTab>("elevation");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [imperial, setImperial] = useState(false);
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
-  const [zoom, setZoom] = useState(initialZoom);
-  const [basemap, setBasemap] = useState(initialBasemap);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [basemap, setBasemap] = useState("dark");
   const [layers, setLayers] = useState<Record<string, boolean>>(() => ({
     hillshade: true,
     boundaries: true,
@@ -91,6 +97,9 @@ export default function StudioPage() {
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [overpassLayerId, setOverpassLayerId] = useState<string | null>(null);
+  // The overpass GeoJSON is not component state (only its layer id is), so
+  // the basemap-switch restore below keeps a ref to re-add it after setStyle.
+  const overpassLayerRef = useRef<{ id: string; data: GeoJSON.FeatureCollection } | null>(null);
   const [profileCoords, setProfileCoords] = useState<[number, number][] | null>(null);
   const profileClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
   const flowPathClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
@@ -106,6 +115,22 @@ export default function StudioPage() {
     const map = mapRef.current;
     if (map && mapReady) updateDrawLayers(map, drawState);
   }, [drawState, mapReady]);
+
+  /* ─── Restore persisted session state ───
+   * Hash deep link + saved preferences → component state. The map-init
+   * effect below re-derives the same values via readStudioSession()
+   * because both effects run in the same commit: state updates here are
+   * not visible to it yet. */
+  useEffect(() => {
+    const s = readStudioSession();
+    setIsMobile(s.mobile);
+    setShowOnboarding(!s.onboarded);
+    setActiveTab(s.tab);
+    setSidebarOpen(s.sidebar);
+    setImperial(s.imperial);
+    setZoom(s.zoom);
+    setBasemap(s.basemap);
+  }, []);
 
   /* ─── Keyboard shortcuts ─── */
   useEffect(() => {
@@ -134,10 +159,14 @@ export default function StudioPage() {
         if (state.cancelled) return;
         mlglRef.current = mlgl;
 
-        // `basemap` may be stale from a stored hash, so the lookup can miss —
-        // view the registry as Partial to keep the fallback visible to the checker.
+        // Map parameters come straight from the browser session (hash deep
+        // link + preferences) — the `basemap` state mirror may not be
+        // applied yet within this commit. A stale stored hash can name a
+        // basemap the registry dropped, so the lookup is Partial and falls
+        // back to dark.
+        const session = readStudioSession();
         const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
-        const bm = registry[basemap] ?? BASEMAPS.dark;
+        const bm = registry[session.basemap] ?? BASEMAPS.dark;
         const map = new mlgl.Map({
           container: containerRef.current,
           style: {
@@ -148,8 +177,8 @@ export default function StudioPage() {
             layers: [{ id: "basemap", type: "raster", source: "basemap" }],
             glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
           },
-          center: initialCenter,
-          zoom: initialZoom,
+          center: session.center,
+          zoom: session.zoom,
           maxZoom: 15,
           antialias: true,
         });
@@ -157,7 +186,11 @@ export default function StudioPage() {
         map.on("load", () => {
           if (state.cancelled) return;
 
-          // Add elevation/hillshade
+          // Add elevation/hillshade. The hillshade goes through the shared
+          // layer module (id `hillshade-base`) so the LayersTool checkbox —
+          // which toggles that id — actually controls it; a private inline
+          // layer left the checkbox a no-op and re-enable stacked a second
+          // hillshade on top.
           map.addSource("elevation", {
             type: "raster-dem",
             tiles: ["/api/dem-tile/{z}/{x}/{y}"],
@@ -166,17 +199,7 @@ export default function StudioPage() {
             maxzoom: 12,
             encoding: "terrarium",
           });
-          map.addLayer({
-            id: "hillshade",
-            type: "hillshade",
-            source: "elevation",
-            paint: {
-              "hillshade-shadow-color": "#000000",
-              "hillshade-highlight-color": "#ffffff",
-              "hillshade-accent-color": "#333333",
-              "hillshade-exaggeration": 0.3,
-            },
-          });
+          void addDataLayer(map, layerHandleRef.current, "hillshade");
 
           setMapReady(true);
           addDrawLayers(map);
@@ -368,7 +391,6 @@ export default function StudioPage() {
     };
     // Mount-once map construction from initial basemap/center/zoom; later
     // changes flow through toggleLayer/switchBasemap, not a rebuild.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ─── Layer toggling ─── */
@@ -386,22 +408,49 @@ export default function StudioPage() {
 
   /* ─── Basemap switch ─── */
 
-  const handleBasemapChange = useCallback((key: string) => {
-    setBasemap(key);
-    const map = mapRef.current;
-    if (!map) return;
-    // `key` may not exist in the registry, so the lookup can miss — view it as
-    // Partial to keep this guard visible to the checker.
-    const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
-    const bm = registry[key];
-    if (!bm) return;
-    map.setStyle({
-      version: 8,
-      sources: { basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution } },
-      layers: [{ id: "basemap", type: "raster", source: "basemap" }],
-      glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-    });
-  }, []);
+  const handleBasemapChange = useCallback(
+    (key: string) => {
+      setBasemap(key);
+      const map = mapRef.current;
+      if (!map) return;
+      // `key` may not exist in the registry, so the lookup can miss — view it as
+      // Partial to keep this guard visible to the checker.
+      const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
+      const bm = registry[key];
+      if (!bm) return;
+      map.setStyle({
+        version: 8,
+        sources: { basemap: { type: "raster", tiles: [bm.url], tileSize: 256, attribution: bm.attribution } },
+        layers: [{ id: "basemap", type: "raster", source: "basemap" }],
+        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+      });
+      // setStyle() swaps the entire style object — the elevation source,
+      // hillshade, data layers and uploaded datasets all vanish with it.
+      // Re-add whatever the session had once the new style applies.
+      map.once("styledata", () => {
+        map.addSource("elevation", {
+          type: "raster-dem",
+          tiles: ["/api/dem-tile/{z}/{x}/{y}"],
+          tileSize: 256,
+          demTileSize: 512,
+          maxzoom: 12,
+          encoding: "terrarium",
+        });
+        // Hillshade rides the shared module via the `layers` loop below.
+        for (const [id, enabled] of Object.entries(layers)) {
+          if (enabled && MAP_2D_LAYER_IDS.has(id)) {
+            void addDataLayer(map, layerHandleRef.current, id);
+          }
+        }
+        for (const ds of datasets) {
+          if (ds.visible) addGeoJSONLayer(map, ds.id, ds.data, ds.color, ds.visualization);
+        }
+        const op = overpassLayerRef.current;
+        if (op) addGeoJSONLayer(map, op.id, op.data, "#8b5cf6");
+      });
+    },
+    [layers, datasets],
+  );
 
   /* ─── Dataset management ─── */
 
@@ -479,6 +528,7 @@ export default function StudioPage() {
 
       const id = `overpass-${Date.now()}`;
       addGeoJSONLayer(map, id, data, "#8b5cf6");
+      overpassLayerRef.current = { id, data };
       setOverpassLayerId(id);
 
       // Fit bounds

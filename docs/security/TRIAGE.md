@@ -1722,3 +1722,35 @@ Triage: all 3 are content-identical re-fingerprints of the entry
 dispositioned in 2026-10-06b (the `anchored` fixture variable documents a
 fixed grid position; it names a test local, not a tool invocation). No new
 classes. Baseline re-generated; gate green locally before the re-push.
+
+## Re-triage 2026-10-06e — quality-pass line-drift: studio hydration refactor + functional E2E hardening (28 → 0 new)
+
+The UX/E2E quality pass (studio hydration refactor, about/contribute
+shared-`useTheme` dedent, map toolbar pointer-events, demo h1 copy,
+maplibre-loader retry rework, HeroMap loader pill) shifted flagged lines in
+seven files. All 28 findings are content-identical re-fingerprints of
+already-dispositioned classes:
+
+- `dangerouslySetInnerHTML` (about:77, contribute:114, globe:1535 + stored-xss
+  twins) — static `<style>` payload constants (`S`/`STYLES`) defined in the
+  same file; same entry as the 2026-09-22 baseline tuning.
+- pr-review-marker ×6 (contribute) + about:335 — prose substrings ("open a
+  pull request"); word-trigger FP class, 2026-10-06 sweep.
+- model-version-tracking ×2 (about:7, contribute:8) — comment prose; the
+  about line is the new shared-`useTheme` comment mentioning `matchMedia`.
+- ssrf ×1 (contribute:367) — syntax-highlighted documentation snippet
+  rendering a `fetch(url)` example; client-display only.
+- maplibre-loader.ts ×4 (try-catch-bulk, global-variable ×2, namespace-
+  declaration) — the loader retry rework rewrote the file: same
+  `window._maplibreLoading` slot assignments (dispositioned pattern), and
+  the namespace hit is the pre-existing comment naming the
+  `declare namespace maplibregl` global collision.
+- xss-via-url ×1 (map:1404) — `window.location.origin + buildHash(mapState)`
+  share panel, unchanged construct.
+- react-missing-key-prop ×4 (globe:1633, studio:485/501), react-optimization,
+  mobile-optimization, autocomplete-missing (toolbars:153) — scanner-boundary
+  FPs on already-keyed maps and the annotation-name input, shifted by the
+  pointer-events/hydration edits above them.
+
+No new classes, no severity upgrades. Baseline re-generated; gate green
+locally before the re-push.

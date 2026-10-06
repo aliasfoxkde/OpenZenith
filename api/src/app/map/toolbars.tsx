@@ -27,8 +27,9 @@ export function MeasureTools({ mode, onToggleMode, onClear }: MeasureToolsProps)
   return (
     /* Static flow row: the page stacks toolbar rows in one absolute
        container, so a wrapped (mobile) toolbar pushes these down instead of
-       the old fixed top-52 colliding with it. */
-    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+       the old fixed top-52 colliding with it. pointerEvents re-enables
+       hit-testing under the page's click-through toolbar container. */
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", pointerEvents: "auto" }}>
       <button
         onClick={() => { onToggleMode("distance"); }}
         title="Measure distance (Esc to cancel)"
@@ -112,8 +113,9 @@ const DRAW_TOOLS: { mode: Exclude<DrawMode, "none">; glyph: string; title: strin
 
 export function DrawTools({ mode, name, onSetMode, onNameChange, onFinish, onCancel }: DrawToolsProps) {
   return (
-    /* Static flow row — see MeasureTools above. */
-    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+    /* Static flow row — see MeasureTools above. pointerEvents re-enables
+       hit-testing under the page's click-through toolbar container. */
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", pointerEvents: "auto" }}>
       {DRAW_TOOLS.map((tool) => {
         const active = mode === tool.mode;
         return (
@@ -201,6 +203,7 @@ export function MeasureResult({ mode, points }: MeasureResultProps) {
         display: "flex",
         flexDirection: "column",
         gap: 2,
+        pointerEvents: "auto",
       }}
     >
       <div>

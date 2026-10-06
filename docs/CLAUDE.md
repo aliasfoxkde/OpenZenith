@@ -18,7 +18,8 @@ When documents conflict: **repo-root `CLAUDE.md`** > **canonical docs below** >
 | [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) | The companion `openzenith-data` community tile repository (spec/proposal, not built) |
 | [`security/TRIAGE.md`](security/TRIAGE.md) | Aegis security-findings triage and baseline policy |
 | [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) | Current phased improvement plan and progress log |
-| [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) | Current phased excellence plan (gaps F-1…F-18) and the active work queue |
+| [`planning/EXCELLENCE_PLAN_2026-10-06.md`](planning/EXCELLENCE_PLAN_2026-10-06.md) | Current phased excellence plan (gaps G-1…G-5) and the active work queue |
+| [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) | Prior excellence plan (gaps F-1…F-18) — executed through Phase 8; superseded register kept for lineage |
 | [`planning/PERFORMANCE_PLAN_2026-10-02.md`](planning/PERFORMANCE_PLAN_2026-10-02.md) | Performance deep-dive: P0/P1 executed 2026-10-02, P2 open, evidence-anchored |
 | [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) | Reliability/process gap register (deploy+verify policy, open items) |
 | [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) | Next.js 16 + OpenNext migration scoping — decision required, nothing migrated |

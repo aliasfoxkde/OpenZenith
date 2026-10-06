@@ -11,11 +11,13 @@
 > ship.sh, and prod-verified** (hash URL serves 0.9.0 on /api/health and
 > /api/openapi.json; landing E2E 22 passed + 2 flaky after re-basing the
 > two stale flip-card tests onto the disclosure contract — the ship gate
-> caught that miss). Open: GitForge CI green run blocked by a
-> platform-side runner-workspace fault (node_modules vanish / EPERM in
-> /workspace, both tenants affected, ~18:00 2026-10-05 onward — details
-> in the excellence plan's Phase 7 entry); quiet-host perf re-measure
-> (loadavg < 12 gate); Next16/OpenNext still user-gated. Done since:
+> caught that miss). Open: quiet-host perf re-measure
+> (loadavg < 12 gate); Next16/OpenNext still user-gated.
+> **GitForge CI is green**: run 46124e1d (2026-10-06, commit 957588f),
+> all 7 jobs succeeded — the 2026-10-05 runner-workspace fault was
+> episodic and did not recur (caution: the `/api/pipeline-runs`
+> pipeline_id filter is not honored — verify a run's ownership via its
+> detail endpoint before diagnosing "my" failures). Done since:
 > layer-toggle crawl executed and its defect classes fixed in two waves
 > (2026-10-05 — wave 1: glyphs, dispatcher race, guarded removers,
 > waterways contract; wave 2: all 24 remaining layer modules swept onto

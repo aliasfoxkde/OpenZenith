@@ -617,9 +617,15 @@ in memory as a platform blocker. The pipeline def itself is proven:
   deployed bundle needed no redeploy.
 
 **Remaining (task #174):** quiet-host perf re-measure (loadavg < 12
-gate); GitForge CI green run when the platform's workspace layer is
-restored. The live layer-toggle crawl is done — findings fixed
-2026-10-05 (see "Map client layer fixes" below).
+gate). **GitForge CI green run CLOSED 2026-10-06**: run 46124e1d for
+commit 957588f — all 7 jobs succeeded; the 2026-10-05 runner-workspace
+fault was episodic. Diagnostic lesson recorded: the
+`/api/pipeline-runs?pipeline_id=` filter is not honored, so run
+ownership must be confirmed via the run detail endpoint (commit_hash +
+pipeline_id) before attributing failures — several "failed typecheck"
+runs observed this session were co-tenants'. The live layer-toggle
+crawl is done — findings fixed 2026-10-05 (see "Map client layer
+fixes" below).
 
 **E2E validation fix (2026-10-05, commit 8b3e3f3, deployed + prod-verified).**
 The prod-readiness sweep found D1: `/api/elevation` returned wrong values

@@ -20,7 +20,10 @@
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01 --port 9006 --ip 0.0.0.0",
     "pages:deploy": "npx wrangler pages deploy .vercel/output/static",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "npx playwright test",
+    "predev": "node scripts/copy-vendor-assets.mjs",
+    "prebuild": "node scripts/copy-vendor-assets.mjs",
+    "prepages:build": "node scripts/copy-vendor-assets.mjs"
   },
   "dependencies": {
     "brotli-dec-wasm": "^2.3.2",
@@ -45,12 +48,14 @@
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "@vitest/coverage-v8": "^5.0.2",
+    "cesium": "^1.119.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^26.1.0",
     "prettier": "^3.8.1",
+    "satellite.js": "^5.0.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.57.2",
     "vite": "^6.4.3",

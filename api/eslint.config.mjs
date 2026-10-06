@@ -181,9 +181,15 @@ const eslintConfig = [
       ".wrangler/",
       "eslint.config.mjs",
       "src/lib/wasm/",
-      // Build outputs, not sources: WASM bundle and the generated service worker.
+      // Build outputs, not sources: WASM bundle, the generated service worker,
+      // and the vendored Cesium/satellite.js distributions copied from
+      // node_modules by scripts/copy-vendor-assets.mjs (self-hosted 2026-10,
+      // unmodified upstream files — minified chunks the project service
+      // can't type).
       "public/pkg/",
       "public/sw.js",
+      "public/cesium/",
+      "public/vendor/",
       // Local coverage report (vitest --coverage writes minified instrumented
       // sources here; parsing them is noise).
       "coverage/",

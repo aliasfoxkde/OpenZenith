@@ -1521,18 +1521,17 @@ export default function Globe() {
           only, so the ~1 MB Cesium entry script starts downloading at
           document parse instead of after hydration triggers cesium-init.ts.
           Scoped here (not the shared layout) to avoid "preloaded but not
-          used" noise on every other route. No crossOrigin on any of these:
-          cesium-init.ts injects classic <script> elements without one, and a
-          preload/preconnect only matches a consumer fetched the same way —
-          mismatching would double-download the script. */}
+          used" noise on every other route. The assets are first-party
+          (public/cesium, public/vendor — scripts/copy-vendor-assets.mjs);
+          the preconnects below only warm the CDN fallback path. No
+          crossOrigin on any of these: cesium-init.ts injects classic
+          <script> elements without one, and a preload/preconnect only
+          matches a consumer fetched the same way — mismatching would
+          double-download the script. */}
+      <link rel="preload" as="script" href="/cesium/Cesium.js" />
+      <link rel="preload" as="script" href="/vendor/satellite.min.js" />
       <link rel="preconnect" href="https://cdn.jsdelivr.net" />
       <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-      <link rel="preload" as="script" href="https://unpkg.com/cesium@1.119/Build/Cesium/Cesium.js" />
-      <link
-        rel="preload"
-        as="script"
-        href="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js"
-      />
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
 
       {/* Screen-reader page identity: the globe canvas itself has no text. */}

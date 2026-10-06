@@ -2,35 +2,42 @@ import { switchBasemapOnViewer } from "./helpers";
 import { createOZTTerrainProvider } from "./terrain-ozt2";
 import type { DashboardState } from "./types";
 
+// First-party assets copied by scripts/copy-vendor-assets.mjs (predev /
+// prepages:build). Loaded first so the globe never depends on a third-party
+// CDN for its render-critical path: CESIUM_BASE_URL pins where Cesium
+// dynamically imports its Workers from, and a mid-session worker-fetch
+// failure on a CDN stops the whole render loop. The CDNs remain as
+// explicit fallback (partial deploy, stripped install).
+const CESIUM_LOCAL = "/cesium/";
 const CESIUM_CDNS = [
-  "https://unpkg.com/cesium@1.119/Build/Cesium/",
   "https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/",
+  "https://unpkg.com/cesium@1.119/Build/Cesium/",
 ];
+const SATELLITE_LOCAL = "/vendor/satellite.min.js";
+const SATELLITE_CDN =
+  "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
 
 /**
- * Load CesiumJS from CDN with fallback support.
- * If primary CDN fails, tries secondary. If all fail, throws.
+ * Load CesiumJS from the first source that answers, local assets first.
+ * If the local copy fails, tries the CDNs in order. If all fail, throws.
  */
 async function loadCesiumWithFallback(
-  baseUrl: string,
   timeoutMs = 15000,
 ): Promise<typeof CesiumType | undefined> {
   const w = window;
   if (w.Cesium) return w.Cesium;
 
-  // Load CSS
+  // Load CSS from the local copy — widget styling is cosmetic, and unlike
+  // the Workers below it is not version-pinned per source at runtime.
   const css = document.createElement("link");
   css.rel = "stylesheet";
-  css.href = `${baseUrl}Widgets/widgets.css`;
+  css.href = `${CESIUM_LOCAL}Widgets/widgets.css`;
   document.head.appendChild(css);
 
-  for (const cdn of CESIUM_CDNS) {
+  for (const source of [CESIUM_LOCAL, ...CESIUM_CDNS]) {
     try {
       await new Promise<void>((resolve, reject) => {
         const js = document.createElement("script");
-        js.src = `${cdn}Cesium.js`;
-        js.onload = () => { resolve(); };
-        js.onerror = () => { reject(new Error(`CDN failed: ${cdn}`)); };
         // Timeout
         const t = setTimeout(() => {
           js.remove();
@@ -42,17 +49,18 @@ async function loadCesiumWithFallback(
         };
         js.onerror = () => {
           clearTimeout(t);
-          reject(new Error(`CDN failed: ${cdn}`));
+          reject(new Error(`Cesium source failed: ${source}`));
         };
+        js.src = `${source}Cesium.js`;
         document.head.appendChild(js);
       });
-      w.CESIUM_BASE_URL = cdn;
+      w.CESIUM_BASE_URL = source;
       return w.Cesium;
     } catch {
-      // Try next CDN
+      // Try next source
     }
   }
-  throw new Error("All Cesium CDN sources failed");
+  throw new Error("All Cesium sources failed (local + CDN)");
 }
 
 /**
@@ -65,8 +73,9 @@ async function loadScripts(): Promise<{
 }> {
   const w = window;
 
-  // Load both scripts — Cesium with CDN fallback, satellite.js with timeout
-  const cesiumPromise = loadCesiumWithFallback(CESIUM_CDNS[0]);
+  // Load both scripts — Cesium local-first with CDN fallback, satellite.js
+  // local-first with the same non-fatal timeout.
+  const cesiumPromise = loadCesiumWithFallback();
 
   const satJsPromise = new Promise<void>((resolve) => {
     if (w.satellite) {
@@ -74,19 +83,21 @@ async function loadScripts(): Promise<{
       return;
     }
     const sj = document.createElement("script");
-    sj.src = "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
-    const t = setTimeout(() => {
-      // Satellite.js is optional — continue without it if it fails
-      resolve();
-    }, 10000);
-    sj.onload = () => {
+    const finish = () => {
       clearTimeout(t);
       resolve();
     };
+    // Satellite.js is optional — continue without it if every source fails.
+    const t = setTimeout(finish, 10000);
+    sj.onload = finish;
     sj.onerror = () => {
-      clearTimeout(t);
-      resolve();
-    }; // Don't fail the whole init
+      if (sj.src.endsWith(SATELLITE_LOCAL)) {
+        sj.src = SATELLITE_CDN; // fall back to the CDN copy
+      } else {
+        finish(); // Don't fail the whole init
+      }
+    };
+    sj.src = SATELLITE_LOCAL;
     document.head.appendChild(sj);
   });
 

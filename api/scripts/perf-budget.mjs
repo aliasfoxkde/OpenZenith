@@ -54,7 +54,7 @@ function measure() {
     selfHostedMono: indexHtml.includes("/fonts/jetbrains-mono-latin.woff2"),
     noGoogleFontsImport: !indexHtml.includes("fonts.googleapis"),
     heroTilePreconnect: indexHtml.includes("server.arcgisonline.com"),
-    cesiumPreload: globeHtml.includes("cesium@1.119/Build/Cesium/Cesium.js"),
+    cesiumPreload: globeHtml.includes('"/cesium/Cesium.js"'),
     flipCardMarker: chunks.some(
       ([n]) => n.startsWith("app/page-") && readFileSync(join(chunksDir, n)).includes("oz-flip-card"),
     ),

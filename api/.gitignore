@@ -38,3 +38,5 @@ __pycache__/
 # local wrangler dev persistence (miniflare smoke runs)
 .smoke-persist-*/
 .pkgprobe/
+public/cesium/
+public/vendor/

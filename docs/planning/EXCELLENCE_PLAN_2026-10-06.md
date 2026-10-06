@@ -231,3 +231,53 @@ committed + pushed (gitforge first) and re-gated.
   the capacity-4 mitigation held; the runner list's `[offline]` markers
   are unreliable display state (the swarmone agent was pulling jobs
   throughout).
+- 2026-10-06 (latest): UX/E2E quality pass (tasks #204–#208) — systematic
+  browser-automation pass over every surface, then defects fixed and gates
+  re-run. New `api/e2e/functional.spec.ts` (13 tests × 3 browser projects)
+  covers the click-paths: map search geocode→fly, hash deep-link, zoom
+  controls, elevation-on-click, explore tab switches + USGS fetch→list,
+  studio hydration/tab-switch/onboarding-persistence/basemap-switch
+  (asserts `hillshade-base` survives via React-fiber map introspection —
+  found=false on failure, never a fabricated pass), demo elevation
+  readout, wasm-demo decode, /api/docs render. Stub rule: tests that
+  click into a third-party upstream stub the app's own API route
+  (geocode/USGS-proxy/elevation) — public endpoints rate-limit under
+  concurrent workers; availability is production-verify's job. Real
+  product defects found and fixed in the same commit:
+  (1) studio basemap switch wiped hillshade + data + dataset + overpass
+  layers (setStyle replaces the style object; restore now re-adds all of
+  them after `styledata`, reading the session directly — the mount-once
+  init also read hydration-unsafe browser values during SSR);
+  (2) the map page's absolute toolbar container (left+right pinned,
+  transparent) hit-tested over the MapLibre zoom/bearing/locate controls
+  — controls were click-dead; pointer-events restored per row;
+  (3) the shared MapLibre CDN loader cached its rejected promise forever
+  — one unpkg blip bricked every map on the page until manual refresh;
+  now bounded-retries and clears the slot on final failure;
+  (4) about/contribute local `useState(() => matchMedia())` theme
+  initializers desynced SSR HTML (both now use the shared landing
+  useTheme hook); (5) landing mobile at 390px: hero loader pill blocked
+  taps on the search form, sample chips overlapped, Copy overlapped the
+  snippet tabs (verified fixed by re-render + programmatic overlap
+  audit); (6) /demo sr-only h1 said "WASM Demo" on the elevation-map
+  page. eslint ignores gained `public/cesium/` + `public/vendor/` (build
+  outputs of scripts/copy-vendor-assets.mjs). Aegis re-triage
+  2026-10-06e + baseline regeneration for the edit line-drift (28 → 0,
+  all re-fingerprints). Gates at commit 7ca7672: eslint 0/0, tsc clean,
+  vitest 1519+5, functional 26/26, a11y+landing green, pytest 1525 @
+  99.07%, ruff/mypy clean, clippy/fmt clean, 73 core tests, llvm-cov
+  99.24%, aegis delta green, perf-budget PASS, pages:build ok.
+- 2026-10-06 (latest, platform): GitForge orchestrator outage en route —
+  `gitforge@ci.service` wedged (~229% CPU, HTTP 000 on :42781, 12s SQL);
+  push events during the outage are silently dropped (no run rows).
+  `sudo systemctl restart gitforge@ci.service` recovers it; the local
+  runner agent (this host IS swarmone) self-re-registered as 892f30f1
+  within a minute. Post-recovery run 97f3a117: aegis/install/typecheck/
+  lint/spec-check green on swarmone, then unit-test died
+  `runner_lost_while_running` (481 log bytes, no test failure — same
+  suite green locally). Two subsequent retriggers delivered
+  `ci.trigger.delivered` events that produced no run rows: platform DB
+  saturation under a co-tenant storm (host load 41, sqlx pool timeouts).
+  Retriggers are guarded (push only when load ≤10 and no run exists for
+  HEAD). Pipeline id churns per re-registration (f84a92ff → a1313920 →
+  861bed3d) — resolve via pipeline_runs, never cache it.

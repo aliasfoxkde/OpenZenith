@@ -347,9 +347,7 @@ def _decompress_predict(compressed: bytes, width: int, height: int) -> np.ndarra
     return arr.astype(np.int16)
 
 
-def validate_roundtrip(
-    elevation: np.ndarray, **encode_kwargs: Any
-) -> tuple[bool, float, dict]:
+def validate_roundtrip(elevation: np.ndarray, **encode_kwargs: Any) -> tuple[bool, float, dict]:
     """Validate that encode→decode produces identical output."""
     encoded = encode(elevation, **encode_kwargs)
     decoded, meta = decode(encoded)

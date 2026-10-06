@@ -299,10 +299,9 @@ def image_autocorrelation(
     # the validity count keeps the window from smearing values past the
     # raster edge).
     z_sum = uniform_filter(z, size=kernel_size, mode="constant", cval=0.0) * (kernel_size**2)
-    valid_count = (
-        uniform_filter(valid.astype(np.float64), size=kernel_size, mode="constant", cval=0.0)
-        * (kernel_size**2)
-    )
+    valid_count = uniform_filter(
+        valid.astype(np.float64), size=kernel_size, mode="constant", cval=0.0
+    ) * (kernel_size**2)
     neighbor_count = valid_count - valid  # exclude the cell itself
     neighbor_z = (z_sum - z) / np.maximum(neighbor_count, 1.0)
 

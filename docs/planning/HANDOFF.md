@@ -1,5 +1,22 @@
 # OpenZenith handoff
 
+> **Update (2026-10-06, v0.9.1):** the second excellence plan
+> ([EXCELLENCE_PLAN_2026-10-06.md](EXCELLENCE_PLAN_2026-10-06.md), gaps
+> G-1…G-5) is executed end to end: Aegis wired into GitForge CI as the
+> pipeline's first job (fingerprinted delta gate; triage ledger in
+> `docs/security/TRIAGE.md`), globe typed to **0 ESLint warnings across
+> all 444 files** (`npx eslint . --max-warnings=0` is the gate of
+> record — five latent runtime bugs fell out of the typing), WCAG 2.4.1
+> skip links on all 13 pages, SDK print residue moved to `_logger`,
+> ruff strict groups + mypy clean, core clippy-pedantic clean at 99%
+> line coverage. **v0.9.1 cut in this commit** (tag + release notes
+> pushed with it; deploy + prod-verify follow via `scripts/ship.sh`).
+> Known platform debt (not ours to fix in-repo): the GitForge scheduler
+> has no runner affinity and the fedora-docker runner's workspace is
+> noexec — red jobs with `runner_id` on that host are a platform defect;
+> re-trigger. Open: platform fix for that runner; Next16/OpenNext still
+> user-gated.
+
 > **Update (2026-10-05):** the excellence plan
 > ([EXCELLENCE_PLAN_2026-10-02.md](EXCELLENCE_PLAN_2026-10-02.md), gaps
 > F-1…F-18) is executed through Phase 8: WCAG 2.1 AAA wave (disclosure

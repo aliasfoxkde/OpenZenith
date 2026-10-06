@@ -3,6 +3,74 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.1 (2026-10-06)
+
+18 commits since v0.9.0: the map/globe defect backlog from a layer-crawl
+audit, an Aegis security delta gate wired into GitForge CI, the globe
+surface typed to zero ESLint warnings, and the last WCAG 2.4.1 gap
+closed. No breaking changes.
+
+### Fixed
+- Map layers (crawl-audit wave): duplicated glyph styles collapsed to a
+  single source (`buildMapStyle`); a toggle dispatcher race that could
+  leave a layer half-registered; unguarded layer removers across all 24
+  modules (removing a never-added layer no longer throws); the waterways
+  triple defect (style contract, fetch path, remover).
+- Volcano layers (map + globe) now read USGS HANS alerts — the previous
+  RSS upstream bot-gates non-browser clients; the map fetch goes through
+  a same-origin CORS proxy.
+- Terrain tiles overlapping a SRTM cell's edge decoded from the wrong
+  cell: the `.merged` naming convention is the cell's SW corner; the
+  decoder's inverse-property tests now pin it.
+- OZT2 tiles compressed with Brotli (the Python encoder default) failed
+  on the edge where workerd silently returns empty for `br` — decoding
+  now goes through the WASM decoder (Brotli and Zstd), matching the
+  per-tile flags byte.
+- Globe (surfaced by typing the surface): the elevation-color loader
+  stored its `PointPrimitiveCollection` under the wrong object (dot
+  field never drew); the nlnog layer constructed `CustomDataSource`
+  without `new` (layer never rendered); `coverage.ts` discarded the
+  `ImageryLayer` handle (alpha tuning was a no-op);
+  `annotations.setLabel` replaced the whole `LabelGraphics` bag (captions
+  lost font/colour/offset); `bookmarks.loadBookmarks` now shape-checks
+  stored entries instead of crashing on a malformed payload.
+- SDK: `print` residue in `elevation.py` progress and the hydrology
+  error paths moved to the `_logger` idiom (return contracts unchanged);
+  the GEBCO fallback returned a bare tuple where callers expected
+  `(grid, meta)`.
+
+### Added
+- GitForge CI: Aegis secret/vuln pattern scan as the pipeline's first
+  job, fingerprinted as a delta gate — new findings fail the run;
+  dispositioned classes are recorded in `docs/security/TRIAGE.md` with
+  their mapping so line drift alone cannot re-trip the gate.
+- WCAG 2.4.1 skip links: root-layout "Skip to content" link (explicit
+  `target.focus()` on activate — fragment navigation alone leaves
+  `activeElement` on body in Firefox/Safari), `id="main-content"`
+  landmarks on all 13 pages, and the globe's Cesium container now names
+  itself (`role="application"`, `aria-label`), as the 2D map already
+  did. E2E presses the actual keys on every audited page.
+
+### Performance
+- Quiet-host re-measure pass; bundle budget baseline ratcheted down for
+  the embedded Brotli decoder.
+
+### Coverage
+- TypeScript: the entire globe surface typed against ambient Cesium
+  declarations — ESLint **1,909 warnings → 0** across all 444 files
+  (`npx eslint . --max-warnings=0` is now the CI gate of record); three
+  stricter tsconfig flags adopted.
+- Python SDK: ruff extended to the strict measured-cheap groups
+  (PERF/RET/N/TC/S); mypy clean; the 5 format-drifted files conformed.
+- Rust core: clippy pedantic clean; coverage 99.19% lines (floor 95).
+
+### Security
+- The 5 Aegis ssrf-localhost findings the CI gate caught on its first
+  run were triaged (registry references — intended), the baseline
+  re-based, and the runner hazard documented (a fedora-docker runner
+  with a noexec workspace cannot execute job binaries; needs a
+  platform-level fix).
+
 ## v0.9.0 (2026-10-05)
 
 119 commits since v0.8.4: map/globe performance work (lazy layers, fetch

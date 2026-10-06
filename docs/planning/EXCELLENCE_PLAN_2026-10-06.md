@@ -206,3 +206,15 @@ committed + pushed (gitforge first) and re-gated.
   on the link, Enter must focus main. Local run vs dev server: **91
   passed, exit 0** (1 known globe-axe flake green on retry); tsc + eslint
   clean.
+- 2026-10-06 (later): Phase 4 (task #203) — final battery: ruff check
+  clean, mypy clean (38 files), pytest full suite green, cargo fmt/
+  clippy clean, 73 core tests, llvm-cov 99.19% lines (floor 95);
+  tsc/eslint/vitest already green at b9a2fd6. Gap found and closed
+  during the pass: 5 SDK files had drifted from `ruff format` (not a
+  project gate — the lint contract is `ruff check`; drift fixed anyway,
+  formatter gate left as a policy decision for the user). Release:
+  v0.9.1 (18 commits since v0.9.0 — map/globe crawl-defect fixes, Aegis
+  CI gate, globe typed to 0, skip links) cut in this commit; tag goes to
+  both remotes explicitly (lightweight-tag `--follow-tags` gotcha),
+  then deploy via `scripts/ship.sh` and prod-verify via Playwright
+  (curl is WAF-blocked).

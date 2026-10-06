@@ -742,8 +742,9 @@ class TestTracingWithoutElevationModule:
 
         from openzenith import tracing as tracing_mod
 
-        with patch.dict(sys.modules, {"openzenith.elevation": None}), caplog.at_level(
-            logging.WARNING, logger=tracing_mod._logger.name
+        with (
+            patch.dict(sys.modules, {"openzenith.elevation": None}),
+            caplog.at_level(logging.WARNING, logger=tracing_mod._logger.name),
         ):
             result = trace_downstream(40.0, -105.0, max_steps=5)
 

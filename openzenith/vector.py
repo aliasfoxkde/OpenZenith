@@ -97,17 +97,13 @@ def _shape_points_to_coords(shape: Any, geom_type: str) -> list:
         return [list(p) for p in pts]
     if geom_type in ("Polygon", "MultiPolygon"):
         parts = [*list(shape.parts), len(pts)]
-        rings = [
-            [list(p) for p in pts[parts[i] : parts[i + 1]]] for i in range(len(parts) - 1)
-        ]
+        rings = [[list(p) for p in pts[parts[i] : parts[i + 1]]] for i in range(len(parts) - 1)]
         if geom_type == "Polygon":
             return rings
         return [rings]
     if geom_type == "MultiLineString":
         parts = [*list(shape.parts), len(pts)]
-        return [
-            [list(p) for p in pts[parts[i] : parts[i + 1]]] for i in range(len(parts) - 1)
-        ]
+        return [[list(p) for p in pts[parts[i] : parts[i + 1]]] for i in range(len(parts) - 1)]
     return [list(p) for p in pts]
 
 

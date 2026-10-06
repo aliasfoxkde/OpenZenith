@@ -1069,8 +1069,9 @@ class TestDelineateWatershedEdgeCases:
         from openzenith.hydrology import delineate_watershed, watersheds
 
         stub = types.ModuleType("openzenith.elevation")  # lacks load_elevation_grid
-        with mock.patch.dict(sys.modules, {"openzenith.elevation": stub}), caplog.at_level(
-            logging.WARNING, logger=watersheds._logger.name
+        with (
+            mock.patch.dict(sys.modules, {"openzenith.elevation": stub}),
+            caplog.at_level(logging.WARNING, logger=watersheds._logger.name),
         ):
             result = delineate_watershed(40.0, -74.0, zoom=10)
         assert result is None
@@ -1084,10 +1085,13 @@ class TestDelineateWatershedEdgeCases:
         from openzenith.hydrology import delineate_watershed, watersheds
 
         dem = np.full((5, 5), np.nan, dtype=np.float32)
-        with unittest.mock.patch(
-            "openzenith.elevation.load_elevation_grid",
-            return_value=self._grid(dem, 2, 2),
-        ), caplog.at_level(logging.WARNING, logger=watersheds._logger.name):
+        with (
+            unittest.mock.patch(
+                "openzenith.elevation.load_elevation_grid",
+                return_value=self._grid(dem, 2, 2),
+            ),
+            caplog.at_level(logging.WARNING, logger=watersheds._logger.name),
+        ):
             result = delineate_watershed(40.0, -74.0)
         assert result is None
         assert "no valid elevation" in caplog.text.lower()

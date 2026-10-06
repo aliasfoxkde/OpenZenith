@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Range rings — concentric circles drawn at a center point.
  */
@@ -7,7 +6,7 @@ export interface RangeRingState {
   active: boolean;
   center: { lat: number; lng: number } | null;
   radiiKm: number[];
-  entities: any[];
+  entities: CesiumType.Entity[];
 }
 
 /**
@@ -22,7 +21,9 @@ export interface RangeRingState {
  * requires (km × 1000), so the drawn ellipse matches its label. No input
  * handlers are attached; supply the centre from a click.
  */
-export function createRangeRingManager(viewer: any, Cesium: any) {
+// The only caller (ToolsWidget's range-ring effect) creates the manager inside
+// `if (v && C && !ringRef.current)`, so neither argument is optional here.
+export function createRangeRingManager(viewer: CesiumType.Viewer, Cesium: typeof CesiumType) {
   const state: RangeRingState = {
     active: false,
     center: null,

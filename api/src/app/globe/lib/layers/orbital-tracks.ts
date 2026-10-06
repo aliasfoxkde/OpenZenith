@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isAbort } from "../data-fetchers";
+import type { TleRecord } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
@@ -19,13 +19,15 @@ import type { DataStatus } from "../types";
  * `satellites` status key, not `orbitalTracks`.
  */
 export function loadOrbitalTracks(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   signal?: AbortSignal,
 ) {
-  const satJs = (window as any).satellite;
-  if (!Cesium || !viewer || !satJs) return;
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium; the CDN
+  // satellite.js script is the one dependency this layer must verify itself.
+  const satJs = window.satellite;
+  if (!satJs) return;
   updateStatus("satellites", { error: null });
 
   const groups = [
@@ -40,11 +42,12 @@ export function loadOrbitalTracks(
   let trackCount = 0;
 
   const loadGroup = async (group: (typeof groups)[0]) => {
-    let tles: any[] = [];
+    let tles: TleRecord[] = [];
     if (group.url) {
       try {
         const r = await fetch(group.url, { signal });
-        tles = (await r.json()).slice(0, 20);
+        const body: unknown = await r.json();
+        if (Array.isArray(body)) tles = (body as TleRecord[]).slice(0, 20);
       } catch (err) {
         if (isAbort(err)) return; // teardown, not a failure
         warnLayerError("orbitalTracks", err, "tle fetch");
@@ -56,8 +59,8 @@ export function loadOrbitalTracks(
           `/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`,
           { signal },
         );
-        const data = await r.json();
-        if (Array.isArray(data)) tles = data;
+        const body: unknown = await r.json();
+        if (Array.isArray(body)) tles = body as TleRecord[];
       } catch (err) {
         if (isAbort(err)) return; // teardown, not a failure
         warnLayerError("orbitalTracks", err, "tle fetch");

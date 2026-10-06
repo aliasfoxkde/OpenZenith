@@ -4,7 +4,6 @@
  * Extracted from globe/page.tsx with callback props so the page keeps
  * ownership of viewer state.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { RefObject } from "react";
 import { fmtTime } from "../helpers";
 import type { DataStatus, LayerState } from "../types";
@@ -17,7 +16,7 @@ export interface AnnotationEditState {
 
 interface AnnotationEditProps {
   editing: AnnotationEditState;
-  viewerRef: RefObject<any>;
+  viewerRef: RefObject<CesiumType.Viewer | null>;
   onClose: () => void;
 }
 

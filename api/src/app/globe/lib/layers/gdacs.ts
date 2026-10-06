@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import { fetchGDACS, isAbort } from "../data-fetchers";;
 import { warnLayerError } from "@/lib/diagnostics";
@@ -30,6 +29,29 @@ function severityColor(severity: string): string {
 }
 
 /**
+ * One GDACS ATOM entry as this parser reads it. Coordinates are decimal-degree
+ * strings in the ATOM-derived payload, and every alternative field name is
+ * optional because the three payload shapes this accepts (atom.entry,
+ * entries, events) disagree on them.
+ */
+interface GdacsEntry {
+  lat?: string;
+  latitude?: string;
+  lon?: string;
+  longitude?: string;
+  geo?: { lat?: string; lon?: string };
+  title?: string;
+  name?: string;
+  eventname?: string;
+  severitylevel?: string;
+  severity?: string;
+  alertlevel?: string;
+  eventtype?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Renders GDACS global disaster alerts. fetchGDACS is currently a stub — the
  * public GDACS API was discontinued and the fetcher resolves to an empty
  * FeatureCollection — so today this adds no entities and reports count 0,
@@ -41,8 +63,8 @@ function severityColor(severity: string): string {
  * stateLayers.gdacs holds. Returns void.
  */
 export function loadGDACS(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
@@ -57,15 +79,20 @@ export function loadGDACS(
       if (!Cesium || !viewer) return;
 
       // GDACS ATOM format: parse entries
-      const entries = data?.atom?.entry || data?.entries || data?.events || [];
+      const entries = (data?.atom?.entry || data?.entries || data?.events || []) as GdacsEntry[] | GdacsEntry;
       removeEntities("gdacs-");
       let count = 0;
 
       const items = Array.isArray(entries) ? entries : [entries];
       for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const lat = parseFloat(item?.lat || item?.latitude || item?.geo?.lat || 0);
-        const lon = parseFloat(item?.lon || item?.longitude || item?.geo?.lon || 0);
+        // Kept possibly-undefined so the `?.` chain below stays the same
+        // skip-a-dud-entry guard it was before this was typed.
+        const item = items[i] as GdacsEntry | undefined;
+        // Coordinates are decimal strings upstream; the `|| 0` fallback is the
+        // no-coordinates case the `if (!lat || !lon)` bail handles, and the
+        // assertion only satisfies parseFloat's string parameter.
+        const lat = parseFloat((item?.lat || item?.latitude || item?.geo?.lat || 0) as string);
+        const lon = parseFloat((item?.lon || item?.longitude || item?.geo?.lon || 0) as string);
         if (!lat || !lon) continue;
 
         const name = item?.title || item?.name || item?.eventname || "Disaster";
@@ -91,7 +118,7 @@ export function loadGDACS(
             outlineWidth: 1,
           },
           label: {
-            text: `${name.substring(0, 20)}`,
+            text: name.substring(0, 20),
             font: "9px 'JetBrains Mono', monospace",
             fillColor: c.withAlpha(0.9),
             outlineColor: Cesium.Color.BLACK,

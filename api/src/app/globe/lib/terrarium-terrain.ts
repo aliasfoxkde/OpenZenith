@@ -8,18 +8,15 @@
  * CesiumJS's built-in HeightmapTerrainData with decoded elevation values.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CesiumType = any;
-
 const TERRAIN_URL = "/api/dem-tile";
 const MAX_TERRAIN_ZOOM = 12;
 
 /**
  * Create a terrain provider that loads Terrarium PNG heightmap tiles from R2.
  */
-export function createTerrariumTerrainProvider(Cesium: CesiumType) {
+export function createTerrariumTerrainProvider(Cesium: typeof CesiumType) {
 
-  const provider = new (Cesium).EllipsoidTerrainProvider();
+  const provider = new Cesium.EllipsoidTerrainProvider();
 
   // Override requestTileGeometry to fetch and decode Terrarium PNG tiles
   const origRequest = provider.requestTileGeometry?.bind(provider);
@@ -27,8 +24,7 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
     x: number,
     y: number,
     level: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    request: any,
+    request: unknown,
   ) {
     // Beyond our tile zoom, fall back to flat ellipsoid
     if (level > MAX_TERRAIN_ZOOM) {
@@ -60,7 +56,9 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
         }
 
 
-        const HDT = (Cesium).HeightmapTerrainData;
+        // Asserted nullable for the guard below; HeightmapTerrainData is
+        // declared as always present on the Cesium namespace.
+        const HDT = Cesium.HeightmapTerrainData as typeof CesiumType.HeightmapTerrainData | undefined;
         if (!HDT) return null;
 
         return new HDT({
@@ -81,7 +79,7 @@ export function createTerrariumTerrainProvider(Cesium: CesiumType) {
       .catch(() => {
         // Tile fetch failed — return flat terrain
 
-        const HDT = (Cesium).HeightmapTerrainData;
+        const HDT = Cesium.HeightmapTerrainData as typeof CesiumType.HeightmapTerrainData | undefined;
         if (!HDT) return null;
         const flat = new Float32Array(256 * 256);
         return new HDT({

@@ -91,7 +91,6 @@ export function loadFlights(
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { flights: boolean },
-  _entitiesRef?: React.RefObject<Record<string, unknown>>,
   signal?: AbortSignal,
 ) {
   updateStatus("flights", { error: null });

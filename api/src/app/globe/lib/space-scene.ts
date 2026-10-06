@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Space scene — enhanced star field and planet markers for deep-space views.
  *
@@ -11,8 +10,8 @@
 interface SpaceSceneState {
   starsLoaded: boolean;
   planetsLoaded: boolean;
-  entities: any[];
-  starCollection: any; // PointPrimitiveCollection
+  entities: CesiumType.Entity[];
+  starCollection: CesiumType.PointPrimitiveCollection | null;
 }
 
 /**
@@ -143,7 +142,7 @@ const SOLAR_SYSTEM_BODIES: SolarSystemBody[] = [
  * cleanup does not use the "sat-"-style prefix convention — resets the flags
  * and swallows already-removed errors, so double-clear is safe.
  */
-export function createSpaceSceneManager(viewer: any, Cesium: any) {
+export function createSpaceSceneManager(viewer: CesiumType.Viewer, Cesium: typeof CesiumType) {
   const state: SpaceSceneState = {
     starsLoaded: false,
     planetsLoaded: false,
@@ -151,7 +150,7 @@ export function createSpaceSceneManager(viewer: any, Cesium: any) {
     starCollection: null,
   };
 
-  const removeEntity = (e: any) => {
+  const removeEntity = (e: CesiumType.Entity) => {
     try {
       viewer.entities.remove(e);
     } catch {

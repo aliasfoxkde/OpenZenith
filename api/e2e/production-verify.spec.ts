@@ -6,6 +6,25 @@ function must<T>(value: T | null | undefined): T {
   return value;
 }
 
+/** Body of GET /api/elevation, as this spec asserts it. */
+interface ElevationBody {
+  elevation: number;
+  unit: string;
+  source: string;
+}
+
+/** Body of GET /api/health, as this spec asserts it. */
+interface HealthBody {
+  status: string;
+  version: string;
+  storage: string;
+}
+
+/** Body of GET /api/geocode, as this spec asserts it. */
+interface GeocodeBody {
+  results: { lat: number; lon: number }[];
+}
+
 // Targets the configured baseURL (playwright.config.ts — E2E_BASE_URL to
 // retarget; production by default).
 test.describe("Production site verification", () => {
@@ -18,7 +37,7 @@ test.describe("Production site verification", () => {
   test("elevation API responds", async ({ request }) => {
     const resp = await request.get("/api/elevation?lat=28.0&lon=86.9");
     expect(resp.status()).toBe(200);
-    const body = await resp.json();
+    const body = (await resp.json()) as ElevationBody;
     expect(typeof body.elevation).toBe("number");
     expect(body.elevation).toBeGreaterThan(5000); // Everest region
     expect(body.unit).toBe("meters");
@@ -28,7 +47,7 @@ test.describe("Production site verification", () => {
   test("health API responds", async ({ request }) => {
     const resp = await request.get("/api/health");
     expect(resp.status()).toBe(200);
-    const body = await resp.json();
+    const body = (await resp.json()) as HealthBody;
     expect(body.status).toMatch(/healthy|ok/);
     expect(body.version).toBeTruthy();
     expect(body.storage).toBeTruthy();
@@ -95,7 +114,7 @@ test.describe("Production site verification", () => {
   test("geocode API responds", async ({ request }) => {
     const resp = await request.get(`/api/geocode?query=${encodeURIComponent("Mount Everest")}`);
     expect(resp.status()).toBe(200);
-    const body = await resp.json();
+    const body = (await resp.json()) as GeocodeBody;
     expect(body.results).toBeTruthy();
     expect(body.results.length).toBeGreaterThan(0);
     expect(body.results[0].lat).toBeTruthy();

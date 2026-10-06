@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isAbort } from "../data-fetchers";
+import type { MarineWeatherResponse } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
@@ -28,14 +28,17 @@ function waveColor(height: number): string {
  * `marine-` prefix first.
  */
 export function loadMarineWeather(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { marineWeather: boolean },
   signal?: AbortSignal,
 ) {
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium; the per-point
+  // loop's former `!Cesium || !viewer` break was unreachable (the params are
+  // never reassigned) and is gone.
   updateStatus("marineWeather", { error: null });
 
   const doLoad = async () => {
@@ -53,10 +56,10 @@ export function loadMarineWeather(
         try {
           const url = `/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=${pt.lat}&longitude=${pt.lon}&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature`;
           const r = await fetch(url, { signal });
-          const data = await r.json();
+          const body: unknown = await r.json();
+          const data = body as MarineWeatherResponse;
           const current = data.current;
           if (!current || current.wave_height == null) continue;
-          if (!Cesium || !viewer) break;
 
           const waveH = current.wave_height;
           const sst = current.sea_surface_temperature;

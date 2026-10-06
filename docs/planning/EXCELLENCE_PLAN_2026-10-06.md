@@ -21,7 +21,7 @@ StationAware), and the remaining register of the 2026-10-02 plan.
 | cargo (core/) | clippy `-D warnings` 0 · fmt 0 · all workspace tests pass | `audit-clippy.log`, `audit-cargo-test.log` |
 | vitest (api/) | 107 files / 1,519 passed + 5 skipped, coverage floors met (earlier today, tree unchanged) | `vitest-full-volcano2.log` |
 | tsc (api/) | clean | same run |
-| eslint (api/) | **0 errors**; **1,909 warnings in 40 files** — 37 under `src/app/globe/**`, plus `e2e/ozt2-validate.spec.ts`, `e2e/production-verify.spec.ts`, `next.config.ts`. CI ratchet is ≤1890 (grep count via `npm run lint`) | `audit-eslint.log` |
+| eslint (api/) | **0 errors**; **1,909 warnings in 40 files** — 37 under `src/app/globe/**`, plus `e2e/ozt2-validate.spec.ts`, `e2e/production-verify.spec.ts`, `next.config.ts`. CI ratchet is ≤1890 (grep count via `npm run lint`) — **resolved 2026-10-06: 0 warnings / 0 errors; gate is now `eslint . --max-warnings=0` (progress log)** | `audit-eslint.log` |
 | a11y E2E | **67 passed + 3 flaky (all green on retry), exit 0** vs prod: 11 pages axe-audited (wcag2a+aa+aaa+best-practice), keyboard 2.1.1/2.4.3/2.4.7, focus-visible, focus-trap, target-size 2.5.8 + AAA delta | `audit-a11y.log` |
 | prod-verify + globe-diag E2E | **32 passed, 0 failed** vs live prod | `audit-prod-verify.log` |
 | perf budget | PASS, 12/12 checks; baseline ratcheted down 2026-10-06 (totalJs −1,407 B vs pre-wave) | `perf-budget-baseline.json` |
@@ -167,3 +167,28 @@ committed + pushed (gitforge first) and re-gated.
   references) and the GitHub mirror is inactive, so an ownership file
   nothing enforces would be decoration; revisit if GitForge gains review
   approval or the mirror wakes up.
+- 2026-10-06 (later): Phase 3 (task #199) — the entire globe surface typed
+  against the ambient `cesium-types.d.ts` declarations and the typed
+  data-fetchers boundaries: pilot `orbital-tracks.ts`, then a dependency-
+  ordered wave fan-out (foundation: helpers/data-fetchers/lod/terrain-ozt2/
+  terrarium-terrain/space-scene → all 22 layer modules → tools suite,
+  widgets, HudOverlays, the two Cesium E2E specs, next.config.ts →
+  page.tsx last, with a `LayerModules` registry of 22 typeof-imports and a
+  typed dispatch). **1,909 warnings / 40 files → 0 warnings / 0 errors
+  across all 444 files** (`npx eslint .`). Graduation: eslint.config.mjs
+  promotes the `no-unsafe-*` family + `restrict-template-expressions` to
+  ERROR for `src/app/globe/**` + the two E2E specs; `.gitforge.yml`'s lint
+  job replaced the ≤1890 grep-count guard with `npx eslint .
+  --max-warnings=0` (closes G-5 — the gate of record now covers the wider
+  file set, including next.config.ts). Five runtime defects surfaced by
+  typing and fixed: the elevation-color loader stored its
+  PointPrimitiveCollection under the wrong object (dot field never drew);
+  nlnog constructed CustomDataSource without `new` (layer never rendered);
+  coverage.ts discarded the ImageryLayer handle addImageryProvider returns
+  (alpha tuning was a no-op); annotations.setLabel replaced the whole
+  LabelGraphics bag (caption lost font/colour/offset — now sets
+  `graphics.text`); bookmarks.loadBookmarks now shape-checks stored
+  entries (a malformed payload crashed the widget's `bookmarks.map`).
+  Gates: tsc clean; vitest 106/107 files green — the one failure is an
+  ozt2-real-tiles NAS timeout that passes in isolation (13/13; same flake
+  class the CI job's three-retry pattern absorbs).

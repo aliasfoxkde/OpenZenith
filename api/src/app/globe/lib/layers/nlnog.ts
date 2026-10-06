@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
@@ -14,6 +13,12 @@ interface NlnogNode {
   lon: number;
 }
 
+/** /api/nlnog response — `nodes` is the only field the layer reads. */
+interface NlnogPayload {
+  nodes?: NlnogNode[];
+  [key: string]: unknown;
+}
+
 /**
  * Renders the NLNOG Ring node network as a `CustomDataSource("NLNOG Ring
  * Nodes")` added to `viewer.dataSources`: a 5px orange (#f97316) point with a
@@ -26,21 +31,27 @@ interface NlnogNode {
  * entities whose id starts with `nlnog-`. Reports node count or error through
  * `updateStatus("nlnogNodes")`. Returns nothing.
  */
-export function loadNlnogNodes(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void,
-  signal?: AbortSignal,) {
-  if (!Cesium || !viewer) return;
-
+export function loadNlnogNodes(
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
+  updateStatus: (key: string, u: Partial<DataStatus>) => void,
+  signal?: AbortSignal,
+) {
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium.
   const doLoad = async () => {
     try {
       updateStatus("nlnogNodes", { error: null });
       const res = await fetch("/api/nlnog", { signal });
-      const data = await res.json();
+      const body: unknown = await res.json();
+      const data = body as NlnogPayload;
       if (!data.nodes) {
         updateStatus("nlnogNodes", { error: "no data" });
         return;
       }
-      const nodes = data.nodes as NlnogNode[];
-      const ds = Cesium.CustomDataSource("NLNOG Ring Nodes");
+      const nodes = data.nodes;
+      // `new` is required: CustomDataSource is an ES5-style function, and a bare
+      // call returns undefined (this layer rendered nothing until 2026-10-06).
+      const ds = new Cesium.CustomDataSource("NLNOG Ring Nodes");
 
       for (const node of nodes) {
         ds.entities.add({

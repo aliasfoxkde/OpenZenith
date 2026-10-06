@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isAbort } from "../data-fetchers";
+import type { AirQualityResponse } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
@@ -38,8 +38,8 @@ function aqiLabel(aqi: number): string {
  * airQuality error status.
  */
 export function loadAirQuality(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
@@ -79,7 +79,11 @@ export function loadAirQuality(
         try {
           const url = `/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone`;
           const r = await fetch(url, { signal });
-          const data = await r.json();
+          const body: unknown = await r.json();
+          // Open-Meteo answers an object with a `current` block; anything else
+          // (proxy error page, null) is a skipped city like a failed fetch.
+          if (!body || typeof body !== "object") continue;
+          const data = body as AirQualityResponse;
           const current = data.current;
           if (!current) continue;
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Elevation Data Source Coverage layer for the CesiumJS globe.
  *
@@ -18,29 +17,50 @@
 const _LAYER_ID = "elevation-coverage";
 const TILE_URL = "/api/elevation-accuracy/{z}/{x}/{y}";
 
-let coverageProvider: any = null;
+/**
+ * Structural view of one entry of Cesium's private
+ * `ImageryLayerCollection._layers` backing array, which removeCoverage walks to
+ * find the layer carrying this file's provider — the public collection surface
+ * offers no lookup by provider.
+ */
+interface CoverageImageryLayer {
+  _imageryProvider?: unknown;
+  alpha: number;
+  show: boolean;
+}
+
+/** The public collection surface plus the private `_layers` array. */
+type CoverageLayerCollection = CesiumType.ImageryLayerCollection & {
+  _layers: CoverageImageryLayer[];
+};
+
+let coverageProvider: CesiumType.UrlTemplateImageryProvider | null = null;
 
 /**
  * Add the coverage imagery overlay to the CesiumJS viewer.
  */
-export function addCoverage(viewer: any, Cesium: any): void {
+export function addCoverage(viewer: CesiumType.Viewer, Cesium: typeof CesiumType): void {
   if (coverageProvider) return; // already added
 
   const tilingScheme = new Cesium.GeographicTilingScheme({
     rectangle: Cesium.Rectangle.fromDegrees(-180, -90, 180, 90),
   });
 
-  coverageProvider = new Cesium.UrlTemplateImageryProvider({
-    url: TILE_URL,
-    tilingScheme,
-    minimumLevel: 0,
-    maximumLevel: 12,
-    credit: "",
-  });
+  // Held in a typed local rather than an inline literal: the ambient
+  // constructor options omit tilingScheme/minimumLevel, and an inline literal
+  // would fail the excess-property check for options Cesium itself accepts.
+  const providerOptions: {
+    url: string;
+    tilingScheme: CesiumType.GeographicTilingScheme;
+    minimumLevel: number;
+    maximumLevel: number;
+    credit: string;
+  } = { url: TILE_URL, tilingScheme, minimumLevel: 0, maximumLevel: 12, credit: "" };
+
+  coverageProvider = new Cesium.UrlTemplateImageryProvider(providerOptions);
 
   // Add at low alpha — this is an overlay, not a basemap
-  const layerIndex = viewer.imageryLayers.addImageryProvider(coverageProvider);
-  const layer = viewer.imageryLayers.get(layerIndex);
+  const layer = viewer.imageryLayers.addImageryProvider(coverageProvider);
   layer.alpha = 0.35;
   layer.show = true;
 }
@@ -48,10 +68,10 @@ export function addCoverage(viewer: any, Cesium: any): void {
 /**
  * Remove the coverage imagery overlay from the CesiumJS viewer.
  */
-export function removeCoverage(viewer: any): void {
+export function removeCoverage(viewer: CesiumType.Viewer): void {
   if (!coverageProvider) return;
-  const layers = viewer.imageryLayers;
-  const existing = layers._layers.find((l: any) => l._imageryProvider === coverageProvider);
+  const layers = viewer.imageryLayers as CoverageLayerCollection;
+  const existing = layers._layers.find((l) => l._imageryProvider === coverageProvider);
   if (existing) {
     layers.remove(existing);
   }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Level of Detail (LOD) system for the Globe viewer.
  *
@@ -153,7 +152,12 @@ export function getZoneLabel(alt: number): string {
  * if the zone hasn't changed (caller should already check this, but we
  * double-check here for safety).
  */
-export function applyLOD(viewer: any, Cesium: any, currentAlt: number, currentZone: LODZone | null): LODZone {
+export function applyLOD(
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
+  currentAlt: number,
+  currentZone: LODZone | null,
+): LODZone {
   const zone = getZoneForAltitude(currentAlt);
 
   // Skip if zone hasn't changed

@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { TleRecord } from "../data-fetchers";
+
 /**
  * Draws ground tracks for three notable satellites (ISS 25544, Hubble 20580,
  * Tiangong 48274). Requires the globally loaded satellite.js
@@ -10,10 +11,15 @@
  * no cleanup of its own; a failed or short TLE fetch silently drops that
  * satellite.
  */
-export function loadGroundTracks(viewer: any, Cesium: any,
-  signal?: AbortSignal,) {
-  const satJs = (window as any).satellite;
-  if (!Cesium || !viewer || !satJs) return;
+export function loadGroundTracks(
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
+  signal?: AbortSignal,
+) {
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium; the CDN
+  // satellite.js script is the one dependency this layer must verify itself.
+  const satJs = window.satellite;
+  if (!satJs) return;
 
   const notable = [
     { name: "ISS", catnr: 25544 },
@@ -26,9 +32,11 @@ export function loadGroundTracks(viewer: any, Cesium: any,
   const loadTrack = async (sat: (typeof notable)[0]) => {
     try {
       const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`, { signal });
-      const data = await r.json();
-      if (!Array.isArray(data) || !data[0]?.TLE_LINE1) return;
-      const tle = data[0];
+      const body: unknown = await r.json();
+      if (!Array.isArray(body)) return;
+      const tles = body as TleRecord[];
+      if (!tles[0]?.TLE_LINE1) return;
+      const tle = tles[0];
       const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
       const positions: CesiumType.Cartesian3[] = [];
       for (let i = 0; i <= 200; i++) {

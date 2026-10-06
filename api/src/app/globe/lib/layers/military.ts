@@ -1,25 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchMilitaryFlights, isAbort } from "../data-fetchers";;
+import type { MilitaryAircraftRecord } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
-interface MilitaryAircraft {
-  lat?: number;
-  lon?: number;
-  alt_baro?: number;
-  alt_geom?: number;
-  call?: string;
-  reg?: string;
-  [key: string]: unknown;
-}
-
 /** Aircraft record guaranteed to carry coordinates. */
-type LocatedAircraft = MilitaryAircraft & { lat: number; lon: number };
+type LocatedAircraft = MilitaryAircraftRecord & { lat: number; lon: number };
 
 /** The fetcher only keeps aircraft that carry coordinates. */
-function hasCoordinates(a: MilitaryAircraft): a is LocatedAircraft {
+function hasCoordinates(a: MilitaryAircraftRecord): a is LocatedAircraft {
   return Boolean(a.lat && a.lon);
 }
 
@@ -28,7 +18,7 @@ function hasCoordinates(a: MilitaryAircraft): a is LocatedAircraft {
  * string "ground", falling back to alt_geom); Cesium's fromDegrees height
  * argument is metres, so convert and treat "ground"/missing as sea level.
  */
-function altitudeMetres(a: MilitaryAircraft): number {
+function altitudeMetres(a: MilitaryAircraftRecord): number {
   const feet = typeof a.alt_baro === "number" ? a.alt_baro : a.alt_geom;
   return (feet ?? 0) * 0.3048;
 }
@@ -46,8 +36,8 @@ function altitudeMetres(a: MilitaryAircraft): number {
  * properties. Failures feed a 5-attempt retry guard. Returns void.
  */
 export function loadMilitaryFlights(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,

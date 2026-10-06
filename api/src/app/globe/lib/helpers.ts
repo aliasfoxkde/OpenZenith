@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DashboardState } from "./types";
 import { DEFAULT_LAYERS, BASEMAPS, SIDEBAR_SECTIONS } from "./constants";
 
@@ -187,8 +186,8 @@ export function elevationColor(elev: number): string {
  * loaded Cesium — with an unknown key no provider is constructed and the
  * global is never dereferenced.
  */
-export function switchBasemapOnViewer(viewer: any, key: string) {
-  const Cesium = (window as any).Cesium;
+export function switchBasemapOnViewer(viewer: CesiumType.Viewer, key: string) {
+  const Cesium = window.Cesium;
   // key comes from user state, so it may not be in the registry
   const bm = BASEMAPS[key] as { label: string; url: string; maxzoom: number } | undefined;
   const imageryLayers = viewer.imageryLayers;
@@ -199,7 +198,10 @@ export function switchBasemapOnViewer(viewer: any, key: string) {
 
   if (bm?.url) {
     imageryLayers.addImageryProvider(
-      new Cesium.UrlTemplateImageryProvider({
+      // The assertion keeps the runtime dereference of a possibly-absent
+      // global: `Cesium` is only reached when a registry basemap matched,
+      // which cannot happen before cesium-init has installed it.
+      new (Cesium as typeof CesiumType).UrlTemplateImageryProvider({
         url: bm.url,
         credit: "",
         maximumLevel: bm.maxzoom,
@@ -255,12 +257,12 @@ export function createRetryGuard(opts?: { maxFailures?: number; baseDelay?: numb
  * layer loaders populated. Ends with scene.requestRender(), which is what
  * makes the change visible on a viewer created with requestRenderMode.
  */
-export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<string, any>) {
-  const toRemove: any[] = [];
-  viewer.entities.values.forEach((e: any) => {
+export function removeEntities(viewer: CesiumType.Viewer, prefix: string, entitiesRef: Record<string, unknown>) {
+  const toRemove: CesiumType.Entity[] = [];
+  viewer.entities.values.forEach((e) => {
     if (e.id && e.id.startsWith(prefix)) toRemove.push(e);
   });
-  toRemove.forEach((e: any) => viewer.entities.remove(e));
+  toRemove.forEach((e) => viewer.entities.remove(e));
 
   if (prefix === "sat-" && entitiesRef["sat-points"]) {
     viewer.scene.primitives.remove(entitiesRef["sat-points"]);
@@ -285,9 +287,29 @@ export function removeEntities(viewer: any, prefix: string, entitiesRef: Record<
  * unset or when there is no match and no url, and always calls
  * scene.requestRender() at the end.
  */
+/** One entry of Cesium's private `ImageryLayerCollection._layers` array. */
+interface OverlayImageryLayer {
+  _imageryProvider?: { url?: string };
+  alpha: number;
+}
+
+/**
+ * Structural view of the collection surface `toggleImageryOverlay` walks.
+ * `_layers` and a `get()` that returns undefined past the end of the
+ * collection are runtime facts the public `CesiumType.ImageryLayerCollection`
+ * type does not admit, so the collection is asserted to this shape instead.
+ */
+type OverlayLayerCollection = {
+  _layers: OverlayImageryLayer[];
+  length: number;
+  get(index: number): OverlayImageryLayer | undefined;
+  remove(layer: OverlayImageryLayer): boolean;
+  addImageryProvider(provider: unknown, index?: number): OverlayImageryLayer;
+};
+
 export function toggleImageryOverlay(
-  viewer: any,
-  cesiumRef: any,
+  viewer: CesiumType.Viewer,
+  cesiumRef: typeof CesiumType | null | undefined,
   name: string,
   url?: string,
   opacity?: number,
@@ -295,20 +317,20 @@ export function toggleImageryOverlay(
 ) {
   const Cesium = cesiumRef;
   if (!Cesium) return;
-  const layers = viewer.imageryLayers;
-  const existing = layers._layers.find((l: any) => {
+  const layers = viewer.imageryLayers as unknown as OverlayLayerCollection;
+  const existing = layers._layers.find((l) => {
     const providerUrl = l._imageryProvider?.url || "";
     return providerUrl.includes(name);
   });
   if (existing) {
     layers.remove(existing);
   } else if (url) {
-    const opts: any = { url, credit: "" };
+    const opts: { url: string; credit: string; maximumLevel?: number } = { url, credit: "" };
     if (maximumLevel !== undefined) opts.maximumLevel = maximumLevel;
     layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider(opts));
     const idx = layers.length - 1;
     if (opacity !== undefined && layers.get(idx)) {
-      (layers.get(idx)).alpha = opacity;
+      (layers.get(idx) as OverlayImageryLayer).alpha = opacity;
     }
   }
   viewer.scene.requestRender();

@@ -18,8 +18,8 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
  * stateLayers.earthquakes holds, guarded by a 5-attempt retry guard.
  */
 export function loadEarthquakes(
-  viewer: CesiumType.Viewer | undefined,
-  Cesium: typeof CesiumType | undefined,
+  viewer: CesiumType.Viewer | null | undefined,
+  Cesium: typeof CesiumType | null | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,

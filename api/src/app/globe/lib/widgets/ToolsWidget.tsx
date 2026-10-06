@@ -1,18 +1,40 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SectionHeader } from "./SectionHeader";
 import type { WidgetProps } from "./types";
 import type { ToolMode } from "../tools/tools";
-import { createAnnotationManager, type AnnotationType } from "../tools/annotations";
+import { createAnnotationManager, type AnnotationManager, type AnnotationType } from "../tools/annotations";
 import { captureScreenshot, downloadScreenshot } from "../tools/screenshot";
 import { loadBookmarks, saveBookmarks, createBookmark, type Bookmark } from "../tools/bookmarks";
 import { createRangeRingManager } from "../tools/range-rings";
 
 type SectionKey = "measure" | "search" | "bookmarks" | "draw" | "screenshot" | "rangeRings" | "bgp";
 
+/** Range-ring manager instance created once the viewer is ready. */
+type RangeRingManager = ReturnType<typeof createRangeRingManager>;
+
+/** One /api/geocode hit, as the route returns it. */
+interface SearchResult {
+  display_name: string;
+  lat: number;
+  lon: number;
+}
+
+/** Body of /api/bgp — either a `data` payload or an `error` message. */
+interface BgpBody {
+  data?: unknown;
+  error?: unknown;
+}
+
 export function ToolsWidget({ globe }: WidgetProps) {
+  // GlobeContext types these refs precisely (widgets/types.ts), so the widget
+  // reads them straight off the context — no local narrowing casts.
+  const viewerRef = globe.viewerRef;
+  const cesiumRef = globe.cesiumRef;
+  const toolManagerRef = globe.toolManagerRef;
+  const elevationProfileRef = globe.elevationProfileRef;
+
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     measure: true,
     search: false,
@@ -28,7 +50,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
   // ─── Search / Geocode ───
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{ display_name: string; lat: number; lon: number }[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
   const doSearch = useCallback(async () => {
@@ -38,8 +60,11 @@ export function ToolsWidget({ globe }: WidgetProps) {
       const res = await fetch(`/api/geocode?query=${encodeURIComponent(searchQuery)}&limit=5`, {
         signal: AbortSignal.timeout(6_000),
       });
-      const data = await res.json();
-      setSearchResults(data.results || []);
+      // JSON boundary: the route returns `{ results }`; the rendered hits are
+      // the validation, so only the container shape is asserted here.
+      const body: unknown = await res.json();
+      const results = (body as { results?: SearchResult[] | null } | null)?.results;
+      setSearchResults(results ?? []);
     } catch {
       setSearchResults([]);
     }
@@ -56,18 +81,17 @@ export function ToolsWidget({ globe }: WidgetProps) {
   const bookmarkListRef = useRef<HTMLDivElement>(null);
 
   const saveBookmark = () => {
-    const v = globe.viewerRef.current;
-    const C = globe.cesiumRef.current;
+    const v = viewerRef.current;
+    const C = cesiumRef.current;
     if (!v || !C || !bmName.trim()) return;
     const cg = v.camera.positionCartographic;
-    if (!cg) return;
     const bm = createBookmark(
       bmName.trim(),
-      +C.Math.toDegrees(cg.latitude),
-      +C.Math.toDegrees(cg.longitude),
+      C.Math.toDegrees(cg.latitude),
+      C.Math.toDegrees(cg.longitude),
       cg.height,
-      +C.Math.toDegrees(v.camera.heading),
-      +C.Math.toDegrees(v.camera.pitch),
+      C.Math.toDegrees(v.camera.heading),
+      C.Math.toDegrees(v.camera.pitch),
     );
     const updated = [bm, ...bookmarks];
     setBookmarks(updated);
@@ -76,32 +100,32 @@ export function ToolsWidget({ globe }: WidgetProps) {
   };
 
   // ─── Annotations ───
-  const annotationRef = useRef<any>(null);
+  const annotationRef = useRef<AnnotationManager | null>(null);
   const [annMode, setAnnMode] = useState<AnnotationType | null>(null);
   const [annCount, setAnnCount] = useState(0);
   const annActive = annMode !== null;
 
   useEffect(() => {
-    const v = globe.viewerRef.current;
-    const C = globe.cesiumRef.current;
+    const v = viewerRef.current;
+    const C = cesiumRef.current;
     if (v && C && !annotationRef.current) {
       annotationRef.current = createAnnotationManager(v, C);
     }
-  }, [globe.viewerRef, globe.cesiumRef]);
+  }, [viewerRef, cesiumRef]);
 
   // ─── Range Rings ───
-  const ringRef = useRef<any>(null);
+  const ringRef = useRef<RangeRingManager | null>(null);
   const [ringRadii, setRingRadii] = useState("50, 100, 200, 500");
   const [ringPlacing, setRingPlacing] = useState(false);
   const [ringCount, setRingCount] = useState(0);
 
   useEffect(() => {
-    const v = globe.viewerRef.current;
-    const C = globe.cesiumRef.current;
+    const v = viewerRef.current;
+    const C = cesiumRef.current;
     if (v && C && !ringRef.current) {
       ringRef.current = createRangeRingManager(v, C);
     }
-  }, [globe.viewerRef, globe.cesiumRef]);
+  }, [viewerRef, cesiumRef]);
 
   // ─── BGP ───
   const [bgpPrefix, setBgpPrefix] = useState("");
@@ -114,8 +138,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
     setBgpResult(null);
     fetch(`/api/bgp?prefix=${encodeURIComponent(bgpPrefix)}`)
       .then((r) => r.json())
-      .then((d) => {
-        setBgpResult(JSON.stringify(d.data || d.error, null, 2));
+      .then((d: unknown) => {
+        const body = d as BgpBody;
+        setBgpResult(JSON.stringify(body.data || body.error, null, 2));
         setBgpLoading(false);
       })
       .catch(() => {
@@ -126,7 +151,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
 
   // ─── Screenshot ───
   const handleScreenshot = () => {
-    const v = globe.viewerRef.current;
+    const v = viewerRef.current;
     const dataUrl = captureScreenshot(v);
     if (dataUrl) downloadScreenshot(dataUrl);
   };
@@ -166,7 +191,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
               onClick={() => {
                 const n = isMeasure("measure-distance") ? "none" : ("measure-distance" as ToolMode);
                 globe.setActiveTool(n);
-                globe.toolManagerRef.current?.setMode(n);
+                toolManagerRef.current?.setMode(n);
               }}
               style={isMeasure("measure-distance") ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
             >
@@ -180,7 +205,7 @@ export function ToolsWidget({ globe }: WidgetProps) {
               onClick={() => {
                 const n = isMeasure("measure-area") ? "none" : ("measure-area" as ToolMode);
                 globe.setActiveTool(n);
-                globe.toolManagerRef.current?.setMode(n);
+                toolManagerRef.current?.setMode(n);
               }}
               style={isMeasure("measure-area") ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
             >
@@ -194,8 +219,8 @@ export function ToolsWidget({ globe }: WidgetProps) {
               onClick={() => {
                 const n = isMeasure("elevation-profile") ? "none" : ("elevation-profile" as ToolMode);
                 globe.setActiveTool(n);
-                globe.toolManagerRef.current?.setMode("none");
-                if (n === "none") globe.elevationProfileRef.current?.clear();
+                toolManagerRef.current?.setMode("none");
+                if (n === "none") elevationProfileRef.current?.clear();
               }}
               style={isMeasure("elevation-profile") ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
             >
@@ -209,8 +234,8 @@ export function ToolsWidget({ globe }: WidgetProps) {
                 className="wv-widget-bar-btn"
                 onClick={() => {
                   globe.setActiveTool("none");
-                  globe.toolManagerRef.current?.clear();
-                  globe.elevationProfileRef.current?.clear();
+                  toolManagerRef.current?.clear();
+                  elevationProfileRef.current?.clear();
                 }}
                 style={{ borderColor: "var(--err)", color: "var(--err)" }}
               >

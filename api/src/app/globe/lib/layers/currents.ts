@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataStatus } from "../types";
 import type { LayerTimersRef } from "./timers";
 
@@ -307,8 +306,8 @@ function currentDescription(c: (typeof OCEAN_CURRENTS)[0]): string {
  * the ~133 entities actually created.
  */
 export function loadCurrents(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   _removeEntities: (prefix: string) => void,
   _intervalsRef: LayerTimersRef,
@@ -316,9 +315,9 @@ export function loadCurrents(
 ) {
   updateStatus("currents", { error: null });
 
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium; the layer is
+  // also fetchless, so there is nothing else to verify before drawing.
   const doLoad = () => {
-    if (!Cesium || !viewer) return;
-
     const particlesPerCurrent = 5;
     let pIdx = 0;
 

@@ -1,5 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+
+/** Satellite summary rendered in the follow panel (same shape page.tsx keeps). */
+interface SelectedSat {
+  name: string;
+  alt: number;
+  vel: number;
+  lat: number;
+  lon: number;
+  orbit: string;
+}
 
 interface HudOverlaysProps {
   isHud: boolean;
@@ -14,24 +23,17 @@ interface HudOverlaysProps {
   }>;
   cursorPos: [number, number] | null;
   state: { zoom: number; viewMode: string };
-  selectedSat: {
-    name: string;
-    alt: number;
-    vel: number;
-    lat: number;
-    lon: number;
-    orbit: string;
-  } | null;
+  selectedSat: SelectedSat | null;
   followSat: boolean;
-  setSelectedSat: (s: any) => void;
+  setSelectedSat: (s: SelectedSat | null) => void;
   setFollowSat: (f: boolean) => void;
   hoverTooltip: { x: number; y: number; html: string } | null;
   elevPopup: { x: number; y: number; elev: number | null; lat: number; lon: number } | null;
   lodZone: string;
   cameraAlt: number;
   isSpaceMode: boolean;
-  viewerRef: React.RefObject<any>;
-  cesiumRef: React.RefObject<any>;
+  viewerRef: React.RefObject<CesiumType.Viewer | null>;
+  cesiumRef: React.RefObject<typeof CesiumType | null>;
 }
 
 export function HudOverlays({
@@ -117,7 +119,7 @@ export function HudOverlays({
             onClick={() => {
               setSelectedSat(null);
               setFollowSat(false);
-              (window as any).__ozSetFollowEntity?.(null);
+              window.__ozSetFollowEntity?.(null);
             }}
           >
             &times;
@@ -154,18 +156,18 @@ export function HudOverlays({
             onClick={() => {
               if (followSat) {
                 setFollowSat(false);
-                (window as any).__ozSetFollowEntity?.(null);
+                window.__ozSetFollowEntity?.(null);
                 viewerRef.current?.camera.lookAtTransform(cesiumRef.current?.Matrix4.IDENTITY);
               } else {
                 setFollowSat(true);
                 const viewer = viewerRef.current;
                 if (viewer) {
                   const found = viewer.entities.values.find(
-                    (e: any) =>
+                    (e) =>
                       e.properties?.type?.getValue() === "orbitalTrack" &&
-                      (e.name?.includes(selectedSat.name) || e.properties?.group?.getValue() === selectedSat.name),
+                      (e.name?.includes(selectedSat.name) || e.properties.group?.getValue() === selectedSat.name),
                   );
-                  (window as any).__ozSetFollowEntity?.(found || null);
+                  window.__ozSetFollowEntity?.(found || null);
                 }
               }
             }}

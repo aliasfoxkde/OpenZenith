@@ -1,10 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import { elevationColor } from "../helpers";
 import { getClientElevationBatch } from "@/lib/client-elevation";
 
 /** Minimum camera movement (degrees) before reloading elevation color */
 const MIN_MOVE_DEGREES = 0.05;
+
+/**
+ * The tracked-primitive store this loader keeps its PointPrimitiveCollection
+ * under: the globe page's `entitiesRef` (same object the other loaders
+ * populate through `removeEntities`). The ref — not `.current` — is passed,
+ * because the store must survive across calls while `.current` is rebound.
+ */
+type TrackedPrimitives = { current: Record<string, unknown> };
 
 let lastLoadCenter: { lat: number; lon: number } | null = null;
 
@@ -21,8 +28,15 @@ let lastLoadCenter: { lat: number; lon: number } | null = null;
  * degrees since the last load (module-level `lastLoadCenter` memo); a batch
  * failure is logged and leaves the previous collection in place.
  */
-export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: Record<string, any>) {
+export async function loadElevationColor(
+  viewer: CesiumType.Viewer | null | undefined,
+  Cesium: typeof CesiumType | null | undefined,
+  entitiesRef: TrackedPrimitives,
+) {
+  // Unlike every other layer loader, this one is called straight from page.tsx's
+  // doLoadElevationColor with viewerRef/cesiumRef.current, so both can be unset.
   if (!Cesium || !viewer) return;
+  const tracked = entitiesRef;
 
   const camera = viewer.camera;
   const cg = camera.positionCartographic;
@@ -55,8 +69,8 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
 
   try {
     const results = await getClientElevationBatch(points);
-    if (entitiesRef.current["elev-points"]) {
-      viewer.scene.primitives.remove(entitiesRef.current["elev-points"]);
+    if (tracked.current["elev-points"]) {
+      viewer.scene.primitives.remove(tracked.current["elev-points"]);
     }
 
     const pointCollection = new Cesium.PointPrimitiveCollection();
@@ -76,7 +90,7 @@ export async function loadElevationColor(viewer: any, Cesium: any, entitiesRef: 
       });
     }
 
-    entitiesRef.current["elev-points"] = pointCollection;
+    tracked.current["elev-points"] = pointCollection;
     lastLoadCenter = { lat, lon: lng };
   } catch (err) {
     warnLayerError("elevation", err, "batch fetch");

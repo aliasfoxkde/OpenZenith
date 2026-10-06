@@ -35,8 +35,7 @@ const H3_RESOLUTION_EDGES: Record<number, number> = {
 };
 
 /** Color gradient for intensity (red = severe, orange = moderate, yellow = low) */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
-function intensityColor(intensity: number, Cesium: any): any {
+function intensityColor(intensity: number, Cesium: typeof CesiumType): CesiumType.Color {
   if (intensity >= 0.5) return Cesium.Color.ORANGE;
   if (intensity >= 0.3) return Cesium.Color.YELLOW;
   return Cesium.Color.GREEN;
@@ -72,7 +71,8 @@ async function fetchGpsJammingData(signal?: AbortSignal): Promise<GpsJammingHex[
   if (!response.ok) {
     throw new Error(`gps-jamming route returned ${response.status}`);
   }
-  const data = (await response.json()) as { hexes?: GpsJammingHex[] };
+  const body: unknown = await response.json();
+  const data = body as { hexes?: GpsJammingHex[] };
   return data.hexes || [];
 }
 
@@ -80,22 +80,18 @@ async function fetchGpsJammingData(signal?: AbortSignal): Promise<GpsJammingHex[
  * Load GPS jamming hex grid on the globe.
  */
 export function loadGpsJamming(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium.Viewer
-  viewer: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
-  _entitiesRef: React.RefObject<Record<string, any>>,
+  _entitiesRef: React.RefObject<Record<string, unknown>>,
   stateLayers: { gpsJamming: boolean },
   signal?: AbortSignal,
 ) {
   updateStatus("gpsJamming", { error: null });
   const retry = createRetryGuard();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity array
-  let hexEntities: any[] = [];
+  let hexEntities: string[] = [];
 
   const renderHexGrid = (hexes: GpsJammingHex[]) => {
     // Remove existing hexes

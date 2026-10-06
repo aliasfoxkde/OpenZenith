@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * OZT2-first CesiumJS terrain provider.
  *
@@ -16,8 +15,6 @@
 
 import { decodeOZT2 } from "@/lib/ozt2_decode";
 
-type CesiumType = any;
-
 const TERRAIN_URL = "/api/dem-tile";
 const MAX_TERRAIN_ZOOM = 12;
 
@@ -30,6 +27,33 @@ const HEIGHTMAP_STRUCTURE = {
   isBigEndian: false,
 };
 
+/**
+ * Structural view of the provider this module assembles by hand over
+ * `TerrainProvider.prototype`: `Object.create` returns an object whose members
+ * are installed one by one below, so the shape is declared rather than
+ * inferred.
+ */
+interface OZT2TerrainProvider {
+  ready: boolean;
+  readyPromise: Promise<OZT2TerrainProvider>;
+  hasVertexNormals: boolean;
+  hasWaterMask: boolean;
+  errorEvent: CesiumType.Event;
+  credit: CesiumType.Credit;
+  availability: undefined;
+  loadTileDataAvailability(): undefined;
+  requestTileGeometry(
+    x: number,
+    y: number,
+    level: number,
+    request: unknown,
+  ): Promise<CesiumType.HeightmapTerrainData | null>;
+  getTileDataAvailable(x: number, y: number, level: number): boolean | undefined;
+  getLevelMaximumGeometricError(level: number): number;
+  tilingScheme: CesiumType.GeographicTilingScheme;
+  ellipsoid: CesiumType.Ellipsoid;
+}
+
 // OZT2 uses -32768 as the NODATA sentinel (standard Int16 nodata)
 const OZT2_NODATA = -32768;
 
@@ -41,9 +65,12 @@ const OZT2_NODATA = -32768;
  * 2. PNG tiles from R2/edge (on-the-fly generated, legacy)
  * 3. CSR-direct from HuggingFace (browser-side, last resort)
  */
-export function createOZTTerrainProvider(Cesium: CesiumType) {
-  const TDT = Cesium.HeightmapTerrainData;
-  const provider: any = Object.create(Cesium.TerrainProvider.prototype);
+export function createOZTTerrainProvider(Cesium: typeof CesiumType) {
+  // Asserted nullable because the guard below tests presence: HeightmapTerrainData
+  // is declared as always present, and a const annotated nullable would be
+  // narrowed straight back to its initializer.
+  const TDT = Cesium.HeightmapTerrainData as typeof CesiumType.HeightmapTerrainData | undefined;
+  const provider = Object.create(Cesium.TerrainProvider.prototype) as OZT2TerrainProvider;
 
   // TerrainProvider.prototype exposes its interface as getter-only accessors
   // in CesiumJS 1.119 — plain assignment throws "Cannot set property X which
@@ -66,7 +93,7 @@ export function createOZTTerrainProvider(Cesium: CesiumType) {
     return undefined;
   });
 
-  def("requestTileGeometry", function (x: number, y: number, level: number, _request: any) {
+  def("requestTileGeometry", function (x: number, y: number, level: number, _request: unknown) {
     if (level > MAX_TERRAIN_ZOOM || !TDT) {
       return Promise.resolve(null);
     }
@@ -74,7 +101,7 @@ export function createOZTTerrainProvider(Cesium: CesiumType) {
     // Try OZT2 first (fast, pre-generated, ~1KB vs ~15KB for PNG)
     return tryOZTTile(Cesium, level, x, y)
       .catch(() => null)
-      .then((result: any) => {
+      .then((result) => {
         if (result) return result;
 
         // Fall back to PNG tile (on-the-fly generated from HuggingFace)
@@ -116,8 +143,14 @@ export function createOZTTerrainProvider(Cesium: CesiumType) {
  * Try to fetch and decode an OZT2 tile.
  * Returns null on failure (network error, no tile in R2, decode error).
  */
-async function tryOZTTile(Cesium: CesiumType, level: number, x: number, y: number): Promise<any> {
-  const TDT = Cesium.HeightmapTerrainData;
+async function tryOZTTile(
+  Cesium: typeof CesiumType,
+  level: number,
+  x: number,
+  y: number,
+): Promise<CesiumType.HeightmapTerrainData | null> {
+  // Same presence assertion as the provider factory above.
+  const TDT = Cesium.HeightmapTerrainData as typeof CesiumType.HeightmapTerrainData | undefined;
   if (!TDT) return null;
 
   const url = `${TERRAIN_URL}/${level}/${x}/${y}?format=ozt2`;
@@ -149,11 +182,16 @@ async function tryOZTTile(Cesium: CesiumType, level: number, x: number, y: numbe
     heights[i] = elevation[i];
   }
 
+  // Bound to a local first: the extra noDataValue key is passed through to
+  // Cesium at runtime but is not part of the HeightmapTerrainData structure
+  // type, so the literal must not be checked against it directly.
+  const structure = { ...HEIGHTMAP_STRUCTURE, noDataValue: OZT2_NODATA };
+
   return new TDT({
     buffer: heights,
     width: 256,
     height: 256,
-    structure: { ...HEIGHTMAP_STRUCTURE, noDataValue: OZT2_NODATA },
+    structure,
     childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
   });
 }
@@ -162,9 +200,15 @@ async function tryOZTTile(Cesium: CesiumType, level: number, x: number, y: numbe
  * Fetch and decode a Terrarium PNG server tile.
  * Used as fallback when OZT2 tile is not available.
  */
-async function tryPNGTile(Cesium: CesiumType, level: number, x: number, y: number): Promise<any> {
+async function tryPNGTile(
+  Cesium: typeof CesiumType,
+  level: number,
+  x: number,
+  y: number,
+): Promise<CesiumType.HeightmapTerrainData | null> {
   const url = `${TERRAIN_URL}/${level}/${x}/${y}`;
-  const HDT = Cesium.HeightmapTerrainData;
+  // Same presence assertion as the provider factory above.
+  const HDT = Cesium.HeightmapTerrainData as typeof CesiumType.HeightmapTerrainData | undefined;
   if (!HDT) return makeFlatTerrain(Cesium, 256);
 
   try {
@@ -192,20 +236,25 @@ async function tryPNGTile(Cesium: CesiumType, level: number, x: number, y: numbe
       heights[i] = R * 256 + G + B / 256 - 32768;
     }
 
-    return new HDT({
-      buffer: heights,
-      width: w,
-      height: h,
-      structure: { ...HEIGHTMAP_STRUCTURE, noDataValue: -32768 },
-      childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
-    });
+  // Same reason as the OZT2 path: noDataValue rides through to Cesium, so the
+  // literal is bound to a local to stay out of the structure type check.
+  const structure = { ...HEIGHTMAP_STRUCTURE, noDataValue: -32768 };
+
+  return new HDT({
+    buffer: heights,
+    width: w,
+    height: h,
+    structure,
+    childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
+  });
   } catch {
     return makeFlatTerrain(Cesium, 256);
   }
 }
 
-function makeFlatTerrain(Cesium: CesiumType, size: number): any {
-  const TDT = Cesium.HeightmapTerrainData;
+function makeFlatTerrain(Cesium: typeof CesiumType, size: number): CesiumType.HeightmapTerrainData | null {
+  // Same presence assertion as the provider factory above.
+  const TDT = Cesium.HeightmapTerrainData as typeof CesiumType.HeightmapTerrainData | undefined;
   if (!TDT) return null;
   const flat = new Float32Array(size * size);
   return new TDT({ buffer: flat, width: size, height: size, structure: HEIGHTMAP_STRUCTURE });

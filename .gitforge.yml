@@ -121,38 +121,24 @@ jobs:
     image: node:22-bookworm
     needs: [typecheck]
     steps:
-      # Baseline hold, not zero-warning: the repo still carries typed-lint
-      # debt (tracked in docs/planning/RELIABILITY_GAPS_2026-10-01.md #5).
-      # Fail the job only if the count GROWS; shrink the number as slices
-      # land.
-      # Baseline history: 3744 was set from a stale audit and was already RED
-      # by +15 when the first run executed (3,759 after the Oct-2 perf pass;
-      # grep-counting adds ~+5 vs the JSON message count). 2026-10-03: the
-      # +10 attributable warnings were fixed and the whole map consumer
-      # stack was typed (waitForMapLibre -> Promise<MapLibreGL>, hand-rolled
-      # global.d.ts completed, map/demo/studio/HeroMap escape hatches
-      # removed): 3,759 -> 3,480 measured. Same day, every route/lib test
-      # file was converted to the typed bodyAs<T>() response pattern (43
-      # files; interfaces per response shape, no eslint-disables, tsc clean):
-      # 3,475 -> 2,690 JSON-message warnings (grep count 2,694). 2026-10-03
-      # (later): every non-globe source file followed — map/lib layers,
-      # api route handlers, studio components, shared lib, landing/explore/
-      # home pages — all typed at their fetch/json boundaries: 2,690 ->
-      # 1,890 (grep 1,892). Everything outside app/globe/** is now at zero;
-      # the residual is the globe raster-layer family, which waits for the
-      # Phase-6 layer factory rather than 24 hand-typings.
-      - name: eslint + warning-baseline guard
+      # Zero-warning gate. Baseline history: 3,744 was set from a stale audit
+      # and was already RED by +15 when the first run executed (3,759 after
+      # the Oct-2 perf pass). 2026-10-03: route/lib test files typed via the
+      # bodyAs<T>() pattern (43 files), then every non-globe source file
+      # (map/lib layers, route handlers, studio, shared lib, pages):
+      # 3,759 -> 2,690 -> 1,890. 2026-10-06: the entire app/globe surface was
+      # typed against the ambient cesium-types.d.ts declarations — all 22
+      # layer modules, tools suite, widgets, HudOverlays, the E2E specs and
+      # page.tsx itself — reaching 0 warnings / 0 errors; the count guard
+      # became a hard --max-warnings=0 gate. Any new warning is a regression.
+      - name: eslint — zero warnings, zero errors
         run: |
           cd api
-          npm run lint > /tmp/lint.log 2>&1 || { tail -60 /tmp/lint.log; exit 1; }
-          # Count warning MESSAGE lines, not the word "warning": the summary
-          # line and a file named warnings.ts also match a naive grep (off
-          # by two).
-          warnings=$(grep -cE '^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+warning' /tmp/lint.log || true)
-          echo "eslint warnings: ${warnings:-0} (baseline 1890)"
-          [ "${warnings:-0}" -le 1890 ] || {
-            echo "WARNING REGRESSION: ${warnings} > 1890"; exit 1;
+          # "." not "src/": next.config.ts and other root-level TS also gate.
+          npx eslint . --max-warnings=0 > /tmp/lint.log 2>&1 || {
+            tail -60 /tmp/lint.log; exit 1;
           }
+          echo "eslint: 0 problems (globe typed to zero 2026-10-06)"
     timeout: 10m
 
   - name: spec-check

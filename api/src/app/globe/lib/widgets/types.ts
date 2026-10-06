@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { LayerState, DashboardState, DataStatus } from "../types";
-import type { ToolMode } from "../tools/tools";
+import type { ToolMode, createToolManager } from "../tools/tools";
+import type { createElevationProfile } from "../tools/elevation-profile";
 
 /** Widget top-left corner as an offset from the globe viewport's top-left, in pixels. */
 export interface WidgetPosition {
@@ -53,8 +53,8 @@ export interface WidgetState {
  * metres (default 50 000).
  */
 export interface GlobeContext {
-  viewerRef: React.RefObject<any>;
-  cesiumRef: React.RefObject<any>;
+  viewerRef: React.RefObject<CesiumType.Viewer | null>;
+  cesiumRef: React.RefObject<typeof CesiumType | null>;
   state: DashboardState;
   setState: React.Dispatch<React.SetStateAction<DashboardState>>;
   toggleLayer: (key: keyof LayerState) => void;
@@ -63,8 +63,8 @@ export interface GlobeContext {
   switchViewMode: (mode: "3d" | "2d" | "columbus") => void;
   activeTool: ToolMode;
   setActiveTool: React.Dispatch<React.SetStateAction<ToolMode>>;
-  toolManagerRef: React.RefObject<any>;
-  elevationProfileRef: React.RefObject<any>;
+  toolManagerRef: React.RefObject<ReturnType<typeof createToolManager> | null>;
+  elevationProfileRef: React.RefObject<ReturnType<typeof createElevationProfile> | null>;
   cursorPos: [number, number] | null;
   dataStatus: DataStatus[];
   flyTo: (lat: number, lon: number, alt?: number) => void;

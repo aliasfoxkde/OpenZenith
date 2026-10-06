@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Annotation manager — draw markers, lines, polygons, and text labels on the globe.
  */
@@ -10,7 +9,7 @@ interface Annotation {
   type: AnnotationType;
   points: { lng: number; lat: number }[];
   label?: string;
-  entities: any[];
+  entities: CesiumType.Entity[];
 }
 
 const COLORS: Record<AnnotationType, string> = {
@@ -59,7 +58,9 @@ export interface AnnotationManager {
  * need 2+ vertices and polygons 3+; fewer are silently dropped. `clearAll` is
  * the only cleanup path, and one manager per viewer is assumed.
  */
-export function createAnnotationManager(viewer: any, Cesium: any): AnnotationManager {
+// The only caller (ToolsWidget's annotation effect) creates the manager inside
+// `if (v && C && !annotationRef.current)`, so neither argument is optional.
+export function createAnnotationManager(viewer: CesiumType.Viewer, Cesium: typeof CesiumType): AnnotationManager {
   const annotations: Annotation[] = [];
   let mode: AnnotationType | null = null;
   let points: { lng: number; lat: number }[] = [];
@@ -79,7 +80,7 @@ export function createAnnotationManager(viewer: any, Cesium: any): AnnotationMan
 
     const color = Cesium.Color.fromCssColorString(COLORS[mode]);
     const id = `${mode}-${Date.now()}`;
-    const entities: any[] = [];
+    const entities: CesiumType.Entity[] = [];
 
     if (mode === "marker") {
       const p = points[0];
@@ -94,7 +95,7 @@ export function createAnnotationManager(viewer: any, Cesium: any): AnnotationMan
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
-          text: annotations.length === 0 ? "" : "", // label set separately
+          text: "", // caption is set later via setLabel
           font: "11px 'JetBrains Mono', monospace",
           fillColor: color,
           outlineColor: Cesium.Color.BLACK,
@@ -193,8 +194,14 @@ export function createAnnotationManager(viewer: any, Cesium: any): AnnotationMan
   const setLabel = (annotationId: string, text: string) => {
     const ann = annotations.find((a) => a.id === annotationId);
     if (ann) {
+      // Marker and text annotations own the only label entities. Assign to
+      // the existing LabelGraphics' text, not to entity.label itself: the
+      // Entity.label setter would replace the whole graphics bag (font,
+      // colours, offsets, background) with a bare ConstantProperty, and the
+      // caption would render in Cesium's default label style.
       const labelEntity = ann.entities.find((e) => e.label);
-      if (labelEntity) labelEntity.label = text;
+      const graphics = labelEntity && (labelEntity as { label?: { text?: unknown } }).label;
+      if (graphics) graphics.text = text;
       ann.label = text;
     }
   };

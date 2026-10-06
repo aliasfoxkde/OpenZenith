@@ -148,6 +148,31 @@ const eslintConfig = [
     },
   },
   {
+    // 2026-10-06: the graduation is complete — every file under app/globe plus
+    // the two Cesium E2E specs are typed against the ambient cesium-types.d.ts
+    // declarations and the typed data-fetchers boundaries (all 22 layer
+    // modules, tools suite, widgets, HudOverlays, page.tsx; 1,909 -> 0
+    // warnings). The no-unsafe-* family promotes to error across the whole
+    // surface: new untyped data flow in globe code now fails lint instead of
+    // rejoining the backlog. The per-file cohorts above remain as history.
+    files: [
+      "src/app/globe/**/*.{ts,tsx}",
+      "e2e/production-verify.spec.ts",
+      "e2e/ozt2-validate.spec.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        { allowNumber: true },
+      ],
+    },
+  },
+  {
     ignores: [
       ".next/",
       ".vercel/",

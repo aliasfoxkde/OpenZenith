@@ -102,17 +102,16 @@ function calculateNightShadowPolygon(declination: number): number[][] {
  * Load day/night terminator overlay.
  */
 export function loadDayNightTerminator(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium.Viewer
-  viewer: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   _intervalsRef: LayerTimersRef,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium entity record
-  _entitiesRef: React.RefObject<Record<string, any>>,
+  _entitiesRef: React.RefObject<Record<string, unknown>>,
   stateLayers: { dayNight: boolean },
 ) {
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium; the exported
+  // toggle below forwards its own non-optional pair.
   updateStatus("dayNight", { error: null });
 
   if (!stateLayers.dayNight) {
@@ -197,10 +196,8 @@ export function loadDayNightTerminator(
  * Toggle day/night terminator on/off.
  */
 export function toggleDayNightTerminator(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium.Viewer
-  viewer: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party Cesium namespace
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   enabled: boolean,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,

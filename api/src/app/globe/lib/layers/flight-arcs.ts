@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isAbort } from "../data-fetchers";
+import type { OpenSkyResponse, OpenSkyState } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 
@@ -14,20 +14,25 @@ import type { DataStatus } from "../types";
  * `arc-<n>`. Adds to viewer.entities and returns void; a single load with no
  * polling interval, so arcs go stale until the layer is reloaded.
  */
-export function loadFlightArcs(viewer: any, Cesium: any, updateStatus: (key: string, u: Partial<DataStatus>) => void,
-  signal?: AbortSignal,) {
-  if (!Cesium || !viewer) return;
+export function loadFlightArcs(
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
+  updateStatus: (key: string, u: Partial<DataStatus>) => void,
+  signal?: AbortSignal,
+) {
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium.
 
   const doLoad = async () => {
     try {
       updateStatus("flightArcs", { error: null });
       const res = await fetch("/api/proxy/https://opensky-network.org/api/states/all", { signal });
-      const data = await res.json();
+      const body: unknown = await res.json();
+      const data = body as OpenSkyResponse;
       if (!data.states) {
         updateStatus("flightArcs", { error: "no data" });
         return;
       }
-      const highAlt = data.states.filter((s: any[]) => s[5] != null && s[6] != null && (s[7] || 0) > 30000);
+      const highAlt = data.states.filter((s: OpenSkyState) => s[5] != null && s[6] != null && Number(s[7]) > 30000);
       const shuffled = highAlt.sort(() => Math.random() - 0.5).slice(0, 100);
       let arcCount = 0;
 

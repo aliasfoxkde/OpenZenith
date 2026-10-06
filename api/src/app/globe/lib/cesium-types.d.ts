@@ -122,10 +122,21 @@ declare namespace CesiumType {
     frustum: { far: number };
     changed: Event;
     pickEllipsoid(position: Cartesian2, ellipsoid?: unknown): Cartesian3 | undefined;
+    /** Restores the camera's absolute transform after lookAt() — pass Matrix4.IDENTITY. */
+    lookAtTransform(transform?: unknown, offset?: unknown): void;
     zoomIn(amount?: number): void;
     zoomOut(amount?: number): void;
     [key: string]: unknown;
   }
+
+  /** 4×4 transform matrix; the globe surface only reads Matrix4.IDENTITY. */
+  interface Matrix4 {
+    clone(result?: Matrix4): Matrix4;
+  }
+  const Matrix4: {
+    IDENTITY: Matrix4;
+    clone(m: Matrix4, result?: Matrix4): Matrix4;
+  };
 
   class Clock {
     startTime: JulianDate;
@@ -214,6 +225,43 @@ declare namespace CesiumType {
     height: number;
   }
 
+  /** WGS84 is the only ellipsoid the globe page needs by name. */
+  class Ellipsoid {
+    static WGS84: Ellipsoid;
+    geodeticSurfaceNormal(cartesian: Cartesian3, result?: Cartesian3): Cartesian3;
+  }
+
+  class Rectangle {
+    static fromDegrees(west: number, south: number, east: number, north: number, result?: Rectangle): Rectangle;
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  }
+
+  class GeographicTilingScheme {
+    constructor(options?: {
+      ellipsoid?: Ellipsoid;
+      rectangle?: Rectangle;
+      numberOfLevelZeroTilesX?: number;
+      numberOfLevelZeroTilesY?: number;
+    });
+    getNumberOfXTilesAtLevel(level: number): number;
+    getNumberOfYTilesAtLevel(level: number): number;
+  }
+
+  class Credit {
+    constructor(html: string, showOnScreen?: boolean);
+    element: HTMLElement;
+    showOnScreen: boolean;
+  }
+
+  /** Base class for terrain providers — used via `.prototype` when duck-typing. */
+  class TerrainProvider {
+    requestTileGeometry?(x: number, y: number, level: number, request: unknown): Promise<unknown>;
+    getTileDataAvailable?(x: number, y: number, level: number): boolean | undefined;
+  }
+
   class JulianDate {
     static now(): JulianDate;
     static fromDate(date: Date, result?: JulianDate): JulianDate;
@@ -242,6 +290,7 @@ declare namespace CesiumType {
     static LIME: Color;
     static GRAY: Color;
     static DEEPSKYBLUE: Color;
+    static LIGHTBLUE: Color;
     constructor(red: number, green: number, blue: number, alpha?: number);
     red: number;
     green: number;
@@ -249,6 +298,7 @@ declare namespace CesiumType {
     alpha: number;
     withAlpha(alpha: number, result?: Color): Color;
     toCssColorString(): string;
+    static fromHsl(hue: number, saturation: number, lightness: number, alpha?: number, result?: Color): Color;
   }
 
   class NearFarScalar {
@@ -495,6 +545,8 @@ interface Window {
   Cesium?: typeof CesiumType;
   CESIUM_BASE_URL?: string;
   satellite?: SatelliteJsApi;
+  /** Set by the globe page once its viewer is live; E2E/support detect init through it. */
+  __ozViewer?: unknown;
   __ozSetFollowEntity?: (entity: CesiumType.Entity | null) => void;
   // Set by layers/vessels.ts so the layer can be torn down without a
   // module-level singleton.

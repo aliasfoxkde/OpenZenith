@@ -1,13 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Screenshot capture tool for Cesium viewer.
  */
 
-export function captureScreenshot(viewer: any): string | null {
-  if (!viewer?.scene?.canvas) return null;
+/**
+ * Renders the viewer once and returns its canvas as a PNG data URL. `viewer`
+ * stays nullable because the ToolsWidget caller reads the viewer ref without a
+ * truthiness guard; absent viewer/canvas — or a render or serialisation
+ * failure — yields null instead of throwing.
+ */
+export function captureScreenshot(viewer: CesiumType.Viewer | null | undefined): string | null {
+  const scene = viewer?.scene;
+  if (!viewer || !scene?.canvas) return null;
   try {
     viewer.render();
-    return viewer.scene.canvas.toDataURL("image/png");
+    return scene.canvas.toDataURL("image/png");
   } catch {
     return null;
   }

@@ -1,9 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchWarnings, isAbort } from "../data-fetchers";;
+import type { WarningProperties } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
+
+/**
+ * One NWS alert feature as this layer reads it: the live feed capitalizes the
+ * event name (`Event`), which `WarningProperties` does not name, and polygon
+ * rings arrive as arrays of [lon, lat] pairs. Geometry is declared required
+ * because the Polygon branch dereferences it unguarded — a missing field
+ * throws into the caller's catch, exactly as it did when this was untyped.
+ */
+interface WarningAlertFeature {
+  geometry?: { type?: string; coordinates: number[][] } | null;
+  properties?: WarningProperties & { Event?: string };
+}
 
 /**
  * Draws active US National Weather Service alerts: a live fetch of
@@ -21,8 +33,8 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
  * `updateStatus("warnings")`.
  */
 export function loadWarnings(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
@@ -32,7 +44,8 @@ export function loadWarnings(
   updateStatus("warnings", { error: null });
   const retry = createRetryGuard();
 
-  const addWarningEntity = (f: any, i: number) => {
+  const addWarningEntity = (f: WarningAlertFeature, i: number) => {
+    if (!viewer || !Cesium) return;
     const et = (f.properties?.Event || "").toLowerCase();
     const severity =
       et.includes("tornado") || et.includes("extreme")
@@ -47,7 +60,7 @@ export function loadWarnings(
     const outlineWidth = severity === "extreme" ? 2 : 1;
 
     if (f.geometry?.type === "Polygon") {
-      const flat = f.geometry.coordinates.flat(10) as number[];
+      const flat = f.geometry.coordinates.flat(10);
       const hierarchy = Cesium.Cartesian3.fromDegreesArray(flat);
 
       viewer.entities.add({
@@ -106,7 +119,7 @@ export function loadWarnings(
       const d = await fetchWarnings(signal);
       if (d.features) {
         removeEntities("warn-");
-        d.features.forEach(addWarningEntity);
+        (d.features as WarningAlertFeature[]).forEach(addWarningEntity);
         updateStatus("warnings", { lastUpdate: Date.now(), count: d.features.length });
       }
     } catch (err) {
@@ -124,7 +137,7 @@ export function loadWarnings(
       const data = await fetchWarnings(signal);
       if (!Cesium || !viewer || !data.features) return;
       updateStatus("warnings", { lastUpdate: Date.now(), count: data.features.length });
-      data.features.forEach(addWarningEntity);
+      (data.features as WarningAlertFeature[]).forEach(addWarningEntity);
 
       const iv = setInterval(() => {
         void refresh();

@@ -18,14 +18,33 @@ const STORAGE_KEY = "globe-bookmarks";
 /**
  * Reads the saved camera bookmarks back from localStorage key "globe-bookmarks".
  * Returns an empty array on the server (no window), when the key is absent, or
- * when the stored JSON does not parse — it never throws, and never validates
- * the shape of what it parses.
+ * when the stored JSON does not parse. Each stored entry is shape-checked and
+ * malformed entries are dropped: a payload written by another shape of this
+ * key (or a foreign same-origin writer) must degrade to a partial list, not
+ * crash the widget's `bookmarks.map` downstream.
  */
 export function loadBookmarks(): Bookmark[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const isBookmark = (v: unknown): v is Bookmark => {
+      if (typeof v !== "object" || v === null) return false;
+      const b = v as Record<string, unknown>;
+      return (
+        typeof b.id === "string" &&
+        typeof b.name === "string" &&
+        typeof b.lat === "number" &&
+        typeof b.lon === "number" &&
+        typeof b.alt === "number" &&
+        typeof b.heading === "number" &&
+        typeof b.pitch === "number" &&
+        typeof b.timestamp === "number"
+      );
+    };
+    return parsed.filter(isBookmark);
   } catch {
     return [];
   }

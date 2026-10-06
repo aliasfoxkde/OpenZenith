@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Globe Tools — Interactive measurement and drawing tools.
  *
@@ -20,8 +19,8 @@ export type ToolMode = "none" | "measure-distance" | "measure-area" | "elevation
 interface ToolState {
   mode: ToolMode;
   points: { lng: number; lat: number }[];
-  tempEntity: any;
-  resultEntities: any[];
+  tempEntity: CesiumType.Entity | null;
+  resultEntities: CesiumType.Entity[];
 }
 
 /**
@@ -42,7 +41,10 @@ interface ToolState {
  * this manager, the elevation profile, or the elevation popup. There is no
  * destroy(): call clear() or setMode("none") to tear the entities down.
  */
-export function createToolManager(viewer: any, Cesium: any) {
+// The only caller (page.tsx viewer init) constructs the manager with the local
+// viewer and Cesium module inside the same init block, so neither argument is
+// optional here.
+export function createToolManager(viewer: CesiumType.Viewer, Cesium: typeof CesiumType) {
   const state: ToolState = {
     mode: "none",
     points: [],

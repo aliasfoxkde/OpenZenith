@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchSWPCaurora, fetchSWPCkpForecast, isAbort } from "../data-fetchers";;
@@ -29,14 +28,17 @@ const AURORA_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="22" height="22"><el
  * destroyed.
  */
 export function loadSpaceWeather(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer,
+  Cesium: typeof CesiumType,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
   stateLayers: { spaceWeather: boolean },
   signal?: AbortSignal,
 ) {
+  // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium, so the former
+  // `Cesium && viewer` checks were unreachable and are gone — the polling
+  // callback below never had them.
   updateStatus("spaceWeather", { error: null });
   const retry = createRetryGuard();
 
@@ -75,16 +77,14 @@ export function loadSpaceWeather(
       // Fetch Kp forecast
       const kpData = await fetchSWPCkpForecast(signal);
       const currentKp = kpData?.[0]?.kp_index ?? 0;
-      if (Cesium && viewer) {
-        removeEntities("swpc-");
-        addKpIndicator(currentKp);
-      }
+      removeEntities("swpc-");
+      addKpIndicator(currentKp);
       updateStatus("spaceWeather", { lastUpdate: Date.now(), count: 1 });
 
       // Fetch aurora forecast polygons
       try {
         const auroraData = await fetchSWPCaurora(signal);
-        if (!auroraData || !Cesium || !viewer) return;
+        if (!auroraData) return;
         removeEntities("aurora-");
 
         // NOAA returns { coordinates: [[lon, lat, intensity], ...] }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -20,12 +19,13 @@ import { loadEvents } from "./lib/layers/events";
 import { loadElevationColor } from "./lib/layers/elevation";
 import type { LayerTimerEntry } from "./lib/layers/timers";
 import { addCoverage, removeCoverage } from "./lib/layers/coverage";
+import type { SatFeature } from "./lib/layers/satellites";
 import { initCesiumViewer } from "./lib/cesium-init";
-import { applyLOD } from "./lib/lod";
+import { applyLOD, type LODZone } from "./lib/lod";
 
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { createElevationProfile, renderProfileChart } from "./lib/tools/elevation-profile";
+import { createElevationProfile, renderProfileChart, type ProfilePoint } from "./lib/tools/elevation-profile";
 import { getAllFormats } from "./lib/tools/measure";
 import { useWidgetManager } from "./lib/widgets/useWidgetManager";
 import { WidgetShell } from "./lib/widgets/WidgetShell";
@@ -50,23 +50,48 @@ import {
 } from "./lib/components/panels";
 import { buildEntityTooltip } from "./lib/tooltip";
 import { classifyOrbit, orbitalVelocityKms } from "./lib/orbit";
-import { issEcfPosition, parseCelestrakTle, type SatelliteJsLike } from "./lib/iss";
+import { issEcfPosition, parseCelestrakTle } from "./lib/iss";
 
 /* ═══════════════════════════════════════════════════════════════
-   Component
+   Lazy layer modules — keyed exactly as loadLayerDynamic dispatches
+   them; the dynamic imports below populate this record.
    ═══════════════════════════════════════════════════════════════ */
+interface LayerModules {
+  radar: typeof import("./lib/layers/radar");
+  flights: typeof import("./lib/layers/flights");
+  militaryFlights: typeof import("./lib/layers/military");
+  vessels: typeof import("./lib/layers/vessels");
+  warnings: typeof import("./lib/layers/warnings");
+  satellites: typeof import("./lib/layers/satellites");
+  hurricaneTracks: typeof import("./lib/layers/hurricanes");
+  nlnogNodes: typeof import("./lib/layers/nlnog");
+  flightArcs: typeof import("./lib/layers/flight-arcs");
+  orbitalTracks: typeof import("./lib/layers/orbital-tracks");
+  groundTracks: typeof import("./lib/layers/ground-tracks");
+  currents: typeof import("./lib/layers/currents");
+  spaceWeather: typeof import("./lib/layers/space-weather");
+  airQuality: typeof import("./lib/layers/air-quality");
+  aviationWeather: typeof import("./lib/layers/aviation-weather");
+  volcanoes: typeof import("./lib/layers/volcanoes");
+  gdacs: typeof import("./lib/layers/gdacs");
+  marineWeather: typeof import("./lib/layers/marine-weather");
+  wildfires: typeof import("./lib/layers/wildfires");
+  lightning: typeof import("./lib/layers/lightning");
+  gpsJamming: typeof import("./lib/layers/gps-jamming");
+  dayNight: typeof import("./lib/layers/day-night");
+}
 
 export default function Globe() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
-  const cesiumRef = useRef<any>(null);
+  const viewerRef = useRef<CesiumType.Viewer | null>(null);
+  const cesiumRef = useRef<typeof CesiumType | null>(null);
   // Entries carry the owning layer key so toggle-off can clear exactly that
   // layer's polling timers (tab-hide still clears the whole array).
   const intervalsRef = useRef<LayerTimerEntry[]>([]);
-  const layerModulesRef = useRef<Record<string, any>>({});
+  const layerModulesRef = useRef<Partial<LayerModules>>({});
   const dataLoadedRef = useRef<Record<string, boolean>>({});
-  const entitiesRef = useRef<Record<string, any>>({});
-  const satDataRef = useRef<any[]>([]);
+  const entitiesRef = useRef<Record<string, unknown>>({});
+  const satDataRef = useRef<SatFeature[]>([]);
   // Nullable: the loader is assigned during render, before any caller can run.
   const loadLayerDynamicRef = useRef<((key: string) => Promise<void>) | null>(null);
   const addCloudOverlayRef = useRef<(() => void) | null>(null);
@@ -140,10 +165,10 @@ export default function Globe() {
   const [lodZone, setLodZone] = useState<string>("SURFACE");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>("none");
-  const toolManagerRef = useRef<any>(null);
-  const elevationProfileRef = useRef<any>(null);
-  const spaceSceneRef = useRef<any>(null);
-  const [profileData, setProfileData] = useState<any[] | null>(null);
+  const toolManagerRef = useRef<ReturnType<typeof createToolManager> | null>(null);
+  const elevationProfileRef = useRef<ReturnType<typeof createElevationProfile> | null>(null);
+  const spaceSceneRef = useRef<ReturnType<typeof createSpaceSceneManager> | null>(null);
+  const [profileData, setProfileData] = useState<ProfilePoint[] | null>(null);
   const [coordFormats, setCoordFormats] = useState<Record<string, string> | null>(null);
   const [showCoordPanel, setShowCoordPanel] = useState(true);
   const profileCanvasRef = useRef<HTMLDivElement>(null);
@@ -364,8 +389,11 @@ export default function Globe() {
 
             // Handle elevation profile clicks
             if (activeTool === "elevation-profile" && elevationProfileRef.current) {
-              elevationProfileRef.current.addPoint(lng, lat).then(() => {
-                setProfileData([...elevationProfileRef.current.state.profile]);
+              // Bind before the .then(): TS narrowing does not reach into the
+              // closure, and the ref can be nulled while the point is added.
+              const profile = elevationProfileRef.current;
+              void profile.addPoint(lng, lat).then(() => {
+                setProfileData([...profile.state.profile]);
               });
               return;
             }
@@ -402,7 +430,7 @@ export default function Globe() {
           }
         }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
-        handler.setInputAction((e: any) => {
+        handler.setInputAction((e: CesiumType.ScreenSpaceEvent) => {
           setCtxMenu(null);
           // Check for annotation double-click
           const picked = viewer.scene.pick(e.position);
@@ -435,7 +463,7 @@ export default function Globe() {
         viewerRef.current = viewer;
         // Diagnostic hook: E2E and support tooling detect a completed globe
         // init through this global (the viewer itself stays module-scoped).
-        (window as unknown as { __ozViewer?: unknown }).__ozViewer = viewer;
+        window.__ozViewer = viewer;
         cesiumRef.current = Cesium;
         addCloudOverlayRef.current = addCloudOverlay;
         toolManagerRef.current = createToolManager(viewer, Cesium);
@@ -444,14 +472,21 @@ export default function Globe() {
         setLoading(false);
 
         // Track camera heading, altitude, space mode, atmosphere fading, and follow mode
-        let followEntity: any = null;
-        let currentLodZone: any = null;
+        let followEntity: CesiumType.Entity | null = null;
+        let currentLodZone: LODZone | null = null;
         let lastUIUpdate = 0;
         let prevAlt = 0;
         const preRenderListener = () => {
           // Follow-entity needs per-frame update for smooth tracking
           if (followEntity) {
-            const pos = followEntity.position?.getValue(Cesium.JulianDate.now());
+            // A raw Cartesian3 position is legal on entities (Cesium wraps it
+            // in a property on assignment, but the raw value never grows
+            // getValue) — mirror the satellite-click resolution below.
+            const rawPos = followEntity.position;
+            const pos =
+              rawPos instanceof Cesium.Cartesian3
+                ? rawPos
+                : rawPos?.getValue(Cesium.JulianDate.now());
             if (pos) {
               const camH = viewer.camera.positionCartographic.height || 2000000;
               viewer.camera.lookAt(
@@ -499,11 +534,11 @@ export default function Globe() {
           setCompassHeading(-heading);
         };
 
-        (window as any).__ozSetFollowEntity = (entity: any) => {
+        window.__ozSetFollowEntity = (entity: CesiumType.Entity | null) => {
           followEntity = entity;
         };
         viewer.scene.preRender.addEventListener(preRenderListener);
-      } catch (err: any) {
+      } catch (err) {
         // Only update state if component is still mounted
         if (!mount.destroyed) {
           console.error("[Globe] Cesium initialization failed:", err);
@@ -542,7 +577,7 @@ export default function Globe() {
       if (viewerRef.current) {
         viewerRef.current.destroy();
         viewerRef.current = null;
-        (window as unknown as { __ozViewer?: unknown }).__ozViewer = undefined;
+        window.__ozViewer = undefined;
       }
     };
     // Mount-once Cesium viewer construction; later state flows through the
@@ -599,7 +634,8 @@ export default function Globe() {
     const viewer = viewerRef.current;
     const Cesium = cesiumRef.current;
     if (!viewer || !Cesium) return;
-    viewer.camera.flyTo({
+    // Camera flights are fire-and-forget; the promise only reports interruption.
+    void viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(0, 20, 15000000),
       orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
       duration: 1.5,
@@ -670,7 +706,7 @@ export default function Globe() {
     if (!viewer) return;
     const Cesium = cesiumRef.current;
     if (!Cesium) return;
-    viewer.camera.flyTo({
+    void viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(0, 0, altKm * 1000),
       orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
       duration: 2,
@@ -679,15 +715,16 @@ export default function Globe() {
 
   // Load space scene (stars + planets) lazily on first space mode entry
   useEffect(() => {
-    if (isSpaceMode && spaceSceneRef.current && !spaceSceneRef.current.state.starsLoaded) {
-      spaceSceneRef.current.loadAll();
+    const spaceScene = spaceSceneRef.current;
+    if (isSpaceMode && spaceScene && !spaceScene.state.starsLoaded) {
+      spaceScene.loadAll();
     }
   }, [isSpaceMode]);
 
   const flyToISS = useCallback(async () => {
     const Cesium = cesiumRef.current;
     const viewer = viewerRef.current;
-    const satJs = (window as { satellite?: SatelliteJsLike } | undefined)?.satellite;
+    const satJs = window.satellite;
     if (!Cesium || !viewer || !satJs) return;
     try {
       const r = await fetch("/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json", {
@@ -699,7 +736,7 @@ export default function Globe() {
       const ecf = issEcfPosition(satJs, tle, new Date());
       if (!ecf) return;
       const posM = new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000);
-      viewer.camera.flyTo({
+      void viewer.camera.flyTo({
         destination: new Cesium.Cartesian3(posM.x * 1.1, posM.y * 1.1, posM.z * 1.1),
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-45), roll: 0 },
         duration: 2,
@@ -712,7 +749,7 @@ export default function Globe() {
   const compassNorth = useCallback(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
-    viewer.camera.flyTo({
+    void viewer.camera.flyTo({
       destination: viewer.camera.positionWC,
       orientation: { heading: 0, pitch: viewer.camera.pitch, roll: 0 },
       duration: 0.5,
@@ -739,7 +776,7 @@ export default function Globe() {
       if (!Cesium || !viewer || dataLoadedRef.current[key]) return;
       const signal = beginLayerLoad(key);
 
-      let mod: any;
+      let mod: LayerModules[keyof LayerModules] | undefined;
       switch (key) {
         case "radar":
           mod = layerModulesRef.current.radar ??= await import("./lib/layers/radar");
@@ -812,24 +849,67 @@ export default function Globe() {
       // A toggle-off while the chunk was importing must not proceed to fetch.
       if (signal.aborted) return;
 
+      // The first switch bound `mod` to the module matching `key`; the union
+      // type cannot carry that pairing across the two switches, so each case
+      // asserts the exact module its key selected.
       switch (key) {
         case "radar":
-          mod.loadRadar(viewer, Cesium, updateStatus, toggleImageryOverlay, intervalsRef, state.layers, signal);
+          (mod as LayerModules["radar"]).loadRadar(
+            viewer,
+            Cesium,
+            updateStatus,
+            toggleImageryOverlay,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "flights":
-          mod.loadFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["flights"]).loadFlights(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "militaryFlights":
-          mod.loadMilitaryFlights(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["militaryFlights"]).loadMilitaryFlights(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "vessels":
-          mod.loadVessels(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["vessels"]).loadVessels(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "warnings":
-          mod.loadWarnings(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["warnings"]).loadWarnings(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "satellites":
-          mod.loadSatellites(
+          (mod as LayerModules["satellites"]).loadSatellites(
             viewer,
             Cesium,
             updateStatus,
@@ -842,54 +922,133 @@ export default function Globe() {
           );
           break;
         case "hurricaneTracks":
-          mod.loadHurricanes(viewer, Cesium, updateStatus, signal);
+          (mod as LayerModules["hurricaneTracks"]).loadHurricanes(viewer, Cesium, updateStatus, signal);
           break;
         case "nlnogNodes":
-          mod.loadNlnogNodes(viewer, Cesium, updateStatus, signal);
+          (mod as LayerModules["nlnogNodes"]).loadNlnogNodes(viewer, Cesium, updateStatus, signal);
           break;
         case "flightArcs":
-          mod.loadFlightArcs(viewer, Cesium, updateStatus, signal);
+          (mod as LayerModules["flightArcs"]).loadFlightArcs(viewer, Cesium, updateStatus, signal);
           break;
         case "orbitalTracks":
-          mod.loadOrbitalTracks(viewer, Cesium, updateStatus, signal);
+          (mod as LayerModules["orbitalTracks"]).loadOrbitalTracks(viewer, Cesium, updateStatus, signal);
           break;
         case "groundTracks":
-          mod.loadGroundTracks(viewer, Cesium, signal);
+          (mod as LayerModules["groundTracks"]).loadGroundTracks(viewer, Cesium, signal);
           break;
         case "currents":
           // Fetchless layer — nothing to abort.
-          mod.loadCurrents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          (mod as LayerModules["currents"]).loadCurrents(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+          );
           break;
         case "spaceWeather":
-          mod.loadSpaceWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["spaceWeather"]).loadSpaceWeather(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "airQuality":
-          mod.loadAirQuality(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["airQuality"]).loadAirQuality(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "aviationWeather":
-          mod.loadAviationWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["aviationWeather"]).loadAviationWeather(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "volcanoes":
-          mod.loadVolcanoes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["volcanoes"]).loadVolcanoes(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "gdacs":
-          mod.loadGDACS(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["gdacs"]).loadGDACS(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "marineWeather":
-          mod.loadMarineWeather(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["marineWeather"]).loadMarineWeather(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "wildfires":
-          mod.loadWildfires(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers, signal);
+          (mod as LayerModules["wildfires"]).loadWildfires(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+            signal,
+          );
           break;
         case "lightning":
           // Fetchless layer — nothing to abort.
-          mod.loadLightning(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          (mod as LayerModules["lightning"]).loadLightning(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            state.layers,
+          );
           break;
         case "gpsJamming":
-          mod.loadGpsJamming(viewer, Cesium, updateStatus, removeEntities, intervalsRef, entitiesRef, state.layers, signal);
+          (mod as LayerModules["gpsJamming"]).loadGpsJamming(
+            viewer,
+            Cesium,
+            updateStatus,
+            removeEntities,
+            intervalsRef,
+            entitiesRef,
+            state.layers,
+            signal,
+          );
           break;
         case "dayNight":
-          mod.loadDayNightTerminator(
+          (mod as LayerModules["dayNight"]).loadDayNightTerminator(
             viewer,
             Cesium,
             updateStatus,
@@ -915,7 +1074,11 @@ export default function Globe() {
   const elevTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doLoadElevationColor = useCallback(async () => {
-    await loadElevationColor(viewerRef.current, cesiumRef.current, entitiesRef.current);
+    // The ref, not .current — the elevation loader stores its PointPrimitive
+    // collection across calls under entitiesRef.current["elev-points"] and
+    // must see rebinding (this call previously passed the store object, whose
+    // `.current` is undefined, so the loader threw on every rebuild).
+    await loadElevationColor(viewerRef.current, cesiumRef.current, entitiesRef);
   }, []);
 
   // ─── Layer toggling ───
@@ -992,6 +1155,7 @@ export default function Globe() {
               dataLoadedRef.current.vessels = false;
               const vesselMod = layerModulesRef.current.vessels;
               if (vesselMod) vesselMod.cleanupVessels();
+
             }
             break;
           case "warnings":
@@ -1163,10 +1327,7 @@ export default function Globe() {
             if (!on) {
               // addStrike never checks the toggle, so an open socket keeps
               // adding strike entities after off — close it like unmount does.
-              const lightningMod = layerModulesRef.current.lightning as
-                | { cleanupLightning: () => void }
-                | undefined;
-              lightningMod?.cleanupLightning();
+              layerModulesRef.current.lightning?.cleanupLightning();
               removeEntities("strike-");
               dataLoadedRef.current.lightning = false;
             }
@@ -1223,7 +1384,7 @@ export default function Globe() {
     const viewer = viewerRef.current;
     const Cesium = cesiumRef.current;
     if (!viewer || !Cesium) return;
-    viewer.camera.flyTo({
+    void viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(lon, lat, alt || 50000),
       orientation: { heading: 0, pitch: Cesium.Math.toRadians(-45), roll: 0 },
       duration: 1.5,

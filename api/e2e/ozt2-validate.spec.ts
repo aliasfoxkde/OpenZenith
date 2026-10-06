@@ -15,6 +15,13 @@
 
 import { test, expect } from "@playwright/test";
 
+/** Body of GET /api/dem-tile, as this spec asserts it. */
+interface DemTileMetaBody {
+  tileFormat: string;
+  version: string;
+  maxzoom: number;
+}
+
 // First-party origin — used to separate our own request failures from the
 // third-party feed noise the globe is designed to tolerate.
 const baseURL = process.env.E2E_BASE_URL ?? "https://openzenith.cyopsys.com";
@@ -35,7 +42,7 @@ test.describe("OZT2 Tile Format", () => {
     const resp = await request.get("/api/dem-tile");
     expect(resp.ok()).toBe(true);
 
-    const meta = await resp.json();
+    const meta = (await resp.json()) as DemTileMetaBody;
     expect(meta.tileFormat).toBe("ozt2");
     expect(meta.version).toBe("2.0.0");
     expect(meta.maxzoom).toBeGreaterThanOrEqual(12);

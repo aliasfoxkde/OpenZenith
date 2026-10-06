@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { fetchRainViewer, isAbort } from "../data-fetchers";;
@@ -10,8 +9,8 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
  * Cycles through past + forecast frames with configurable interval.
  */
 export function loadRadar(
-  viewer: any,
-  cesiumRef: any,
+  viewer: CesiumType.Viewer | undefined,
+  cesiumRef: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   toggleImageryOverlay: (name: string, url?: string, opacity?: number) => void,
   intervalsRef: LayerTimersRef,
@@ -21,7 +20,9 @@ export function loadRadar(
   updateStatus("radar", { error: null });
   const retry = createRetryGuard();
 
-  let radarFrames: string[] = [];
+  // RainViewerFrame.path is optional, so the collected frame list keeps the
+  // undefined slots; the tile URL interpolates them exactly as before.
+  let radarFrames: (string | undefined)[] = [];
   let frameIndex = 0;
   let animInterval: ReturnType<typeof setInterval> | null = null;
   const FRAME_INTERVAL_MS = 2000; // 2s per frame
@@ -31,13 +32,13 @@ export function loadRadar(
     if (radarFrames.length === 0) return;
 
     // Show first frame immediately
-    const url = `https://tilecache.rainviewer.com${radarFrames[frameIndex]}/256/{z}/{x}/{y}/2/1_1.png`;
+    const url = `https://tilecache.rainviewer.com${String(radarFrames[frameIndex])}/256/{z}/{x}/{y}/2/1_1.png`;
     toggleImageryOverlay("rainviewer", url, 0.6);
 
     animInterval = setInterval(() => {
       if (!stateLayers.radar) return;
       frameIndex = (frameIndex + 1) % radarFrames.length;
-      const frameUrl = `https://tilecache.rainviewer.com${radarFrames[frameIndex]}/256/{z}/{x}/{y}/2/1_1.png`;
+      const frameUrl = `https://tilecache.rainviewer.com${String(radarFrames[frameIndex])}/256/{z}/{x}/{y}/2/1_1.png`;
       toggleImageryOverlay("rainviewer", frameUrl, 0.6);
     }, FRAME_INTERVAL_MS);
     pushLayerTimer(intervalsRef, "radar", animInterval);
@@ -49,8 +50,8 @@ export function loadRadar(
       if (!viewer || !data.radar) return;
 
       // Collect all frames: past + forecast
-      const pastFrames = (data.radar.past || []).map((f: any) => f.path);
-      const forecastFrames = (data.radar.forecast || []).map((f: any) => f.path);
+      const pastFrames = (data.radar.past || []).map((f) => f.path);
+      const forecastFrames = (data.radar.forecast || []).map((f) => f.path);
       radarFrames = [...pastFrames, ...forecastFrames];
 
       if (radarFrames.length === 0) return;
@@ -65,8 +66,8 @@ export function loadRadar(
           try {
             const d = await fetchRainViewer(signal);
             if (!d.radar) return;
-            const past = (d.radar.past || []).map((f: any) => f.path);
-            const forecast = (d.radar.forecast || []).map((f: any) => f.path);
+            const past = (d.radar.past || []).map((f) => f.path);
+            const forecast = (d.radar.forecast || []).map((f) => f.path);
             radarFrames = [...past, ...forecast];
             frameIndex = 0;
             updateStatus("radar", { lastUpdate: Date.now(), count: radarFrames.length });

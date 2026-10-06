@@ -1,6 +1,5 @@
 import { warnLayerError } from "@/lib/diagnostics";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Data fetchers for globe layers.
  * All external API calls route through /api/proxy/ to avoid CORS issues.
@@ -122,33 +121,75 @@ export async function fetchEarthquakes(signal?: AbortSignal): Promise<Earthquake
   }
 }
 
+/** One RainViewer radar frame — `path` is the tile-cache timestamp prefix. */
+export interface RainViewerFrame {
+  time?: number;
+  path?: string;
+  [key: string]: unknown;
+}
+
+/** RainViewer weather-maps manifest — the fields the radar layer consumes. */
+export interface RainViewerResponse {
+  host?: string;
+  radar?: {
+    past?: RainViewerFrame[];
+    forecast?: RainViewerFrame[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 /**
  * RainViewer public weather-maps manifest (`api.rainviewer.com/public/weather-maps.json`)
- * through /api/proxy/. Resolves to the parsed JSON untyped (`any`) — globe
- * layers pick the radar frames and tile host out of it. Returns
+ * through /api/proxy/. Resolves to a `RainViewerResponse` — globe layers pick
+ * the radar frames and tile host out of it. Returns
  * `{ error: "RainViewer unavailable" }` on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle
  * controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchRainViewer(signal?: AbortSignal): Promise<any> {
+export async function fetchRainViewer(signal?: AbortSignal): Promise<RainViewerResponse> {
   try {
     const r = await dedupFetch("/api/proxy/https://api.rainviewer.com/public/weather-maps.json", DEFAULT_TIMEOUT, signal);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as RainViewerResponse;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchRainViewer", err);
     return { error: "RainViewer unavailable" };
   }
 }
 
+/** NASA EONET v3 GeoJSON event feature — the fields the events layer consumes. */
+export interface EonetFeature {
+  id?: string;
+  geometry?: { coordinates?: [number, number] };
+  properties?: {
+    title?: string;
+    description?: string;
+    updated?: number;
+    geometry_lastModified?: number;
+    categories?: { id?: string }[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+/** NASA EONET v3 GeoJSON feed — `features` is the only field layers read. */
+export interface EonetCollection {
+  type?: string;
+  features?: EonetFeature[];
+  [key: string]: unknown;
+}
+
 /**
  * NASA EONET v3 event feed through /api/proxy/ with a hard-coded
  * `status=open&limit=200` query, so no more than 200 open natural events come
- * back per call. Resolves to the parsed GeoJSON untyped (`any`). Returns an
+ * back per call. Resolves to an `EonetCollection`. Returns an
  * empty FeatureCollection on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchEONET(signal?: AbortSignal): Promise<any> {
+export async function fetchEONET(signal?: AbortSignal): Promise<EonetCollection> {
   try {
     const r = await dedupFetch("/api/proxy/https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200", DEFAULT_TIMEOUT, signal);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as EonetCollection;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchEONET", err);
     return { type: "FeatureCollection", features: [] };
@@ -210,19 +251,45 @@ export async function fetchFlightsAnonymous(signal?: AbortSignal): Promise<OpenS
   }
 }
 
+/** ADS-B Exchange aircraft row relayed by /api/military — fields the layer reads. */
+export interface MilitaryAircraftRecord {
+  lat?: number;
+  lon?: number;
+  alt_baro?: number;
+  alt_geom?: number;
+  call?: string;
+  reg?: string;
+  [key: string]: unknown;
+}
+
+/** /api/military response — `ac` holds the aircraft, `msg` the failure text. */
+export interface MilitaryFlightsResponse {
+  ac?: MilitaryAircraftRecord[];
+  count?: number;
+  total?: number;
+  msg?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Military aircraft around a point via the internal `/api/military` route, which
  * proxies ADSB Exchange. `lat`/`lon` are decimal degrees (defaults 30/-90) and
  * `dist` is the search radius in nautical miles (default 500; the route clamps
- * it to 1000). Resolves to the parsed JSON whose `ac` array holds the aircraft,
- * alongside `count` and `total`; the route answers 200 with an `error` message
- * and an empty `ac` when the upstream subscription is absent. Returns
- * `{ ac: [] }` locally on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
+ * it to 1000). Resolves to a `MilitaryFlightsResponse` whose `ac` array holds
+ * the aircraft, alongside `count` and `total`; the route answers 200 with an
+ * `error` message and an empty `ac` when the upstream subscription is absent.
+ * Returns `{ ac: [] }` locally on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchMilitaryFlights(lat = 30, lon = -90, dist = 500, signal?: AbortSignal): Promise<any> {
+export async function fetchMilitaryFlights(
+  lat = 30,
+  lon = -90,
+  dist = 500,
+  signal?: AbortSignal,
+): Promise<MilitaryFlightsResponse> {
   try {
     const r = await dedupFetch(`/api/military?lat=${lat}&lon=${lon}&dist=${dist}`, DEFAULT_TIMEOUT, signal);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as MilitaryFlightsResponse;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchMilitaryFlights", err);
     return { ac: [] };
@@ -258,19 +325,50 @@ export async function fetchVessels(signal?: AbortSignal): Promise<VesselsConfig>
   }
 }
 
+/** NWS alert feature properties — the fields the warnings layer consumes. */
+export interface WarningProperties {
+  event?: string;
+  severity?: string;
+  urgency?: string;
+  certainty?: string;
+  areaDesc?: string;
+  headline?: string;
+  effective?: string;
+  expires?: string;
+  [key: string]: unknown;
+}
+
+/** One NWS alert GeoJSON feature. */
+export interface WarningFeature {
+  type?: string;
+  geometry?: { type?: string; coordinates?: unknown } | null;
+  properties?: WarningProperties;
+  [key: string]: unknown;
+}
+
+/** /api/weather/warnings response — GeoJSON FeatureCollection, or `error`. */
+export interface WarningsResponse {
+  type?: string;
+  features?: WarningFeature[];
+  error?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Active severe-weather alerts via the internal `/api/weather/warnings` route,
  * which relays the NOAA/NWS `alerts/active` feed with verbose fields
- * (description, instruction, parameters) trimmed off. Resolves to a GeoJSON
- * FeatureCollection whose properties keep `event`, `severity`, `urgency`,
- * `areaDesc`, `effective`, `expires` and a few more, or `{ error }` from the
- * route when NWS itself fails. Returns `{ features: [] }` locally on failure.
+ * (description, instruction, parameters) trimmed off. Resolves to a
+ * `WarningsResponse` — a GeoJSON FeatureCollection whose properties keep
+ * `event`, `severity`, `urgency`, `areaDesc`, `effective`, `expires` and a few
+ * more, or `{ error }` from the route when NWS itself fails. Returns
+ * `{ features: [] }` locally on failure.
  * Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchWarnings(signal?: AbortSignal): Promise<any> {
+export async function fetchWarnings(signal?: AbortSignal): Promise<WarningsResponse> {
   try {
     const r = await dedupFetch("/api/weather/warnings", DEFAULT_TIMEOUT, signal);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as WarningsResponse;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchWarnings", err);
     return { features: [] };
@@ -326,15 +424,39 @@ export async function fetchHurricaneTracks(signal?: AbortSignal): Promise<string
 }
 
 /**
+ * NOAA SWPC OVATION aurora forecast — `coordinates` holds `[lon, lat,
+ * intensity]` triples the globe layer maps onto the poles.
+ */
+export interface AuroraForecast {
+  coordinates?: number[][];
+  observation_time?: string;
+  forecast_time?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * One NOAA SWPC planetary K-index forecast entry.
+ */
+export interface KpForecastEntry {
+  time_tag?: string;
+  kp_index?: number;
+  estimated_kp?: number;
+  kp?: number;
+  [key: string]: unknown;
+}
+
+/**
  * NOAA SWPC OVATION aurora forecast (`ovation_aurora_latest.json`) through
- * /api/proxy/. Resolves to the parsed JSON untyped (`any`) for the globe layer
- * to map onto the poles. Returns `{ error: "Aurora data unavailable" }` on
+ * /api/proxy/. Resolves to an `AuroraForecast` for the globe layer
+ * to map onto the poles, nullable because `Response.json()` may resolve null
+ * and the consumer guards on nullish. Returns `{ error: "Aurora data unavailable" }` on
  * failure. Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchSWPCaurora(signal?: AbortSignal): Promise<any> {
+export async function fetchSWPCaurora(signal?: AbortSignal): Promise<AuroraForecast | null> {
   try {
     const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_latest.json", DEFAULT_TIMEOUT, signal);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as AuroraForecast | null;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchSWPCaurora", err);
     return { error: "Aurora data unavailable" };
@@ -343,18 +465,40 @@ export async function fetchSWPCaurora(signal?: AbortSignal): Promise<any> {
 
 /**
  * NOAA SWPC planetary K-index forecast (`planetary-k-index-forecast.json`)
- * through /api/proxy/. Resolves to the parsed JSON untyped (`any`) — an array
- * of time-tagged forecast entries, which is why the fallback is an array.
+ * through /api/proxy/. Resolves to the parsed `KpForecastEntry[]` — an array
+ * of time-tagged forecast entries, which is why the fallback is an array
+ * (nullable for the same `Response.json()` reason as `fetchSWPCaurora`).
  * Returns `[]` on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchSWPCkpForecast(signal?: AbortSignal): Promise<any> {
+export async function fetchSWPCkpForecast(signal?: AbortSignal): Promise<KpForecastEntry[] | null> {
   try {
     const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json", DEFAULT_TIMEOUT, signal);
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as KpForecastEntry[] | null;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchSWPCkpForecast", err);
     return [];
   }
+}
+
+/** Open-Meteo air-quality `current` block — the fields the request asks for. */
+export interface AirQualityCurrent {
+  time?: string;
+  us_aqi?: number;
+  pm10?: number;
+  pm2_5?: number;
+  nitrogen_dioxide?: number;
+  ozone?: number;
+  carbon_monoxide?: number;
+  [key: string]: unknown;
+}
+
+/** Open-Meteo air-quality response for the pinned mid-Atlantic point. */
+export interface AirQualityResponse {
+  latitude?: number;
+  longitude?: number;
+  current?: AirQualityCurrent;
+  [key: string]: unknown;
 }
 
 /**
@@ -362,18 +506,19 @@ export async function fetchSWPCkpForecast(signal?: AbortSignal): Promise<any> {
  * hard-coded point latitude=0, longitude=0 (mid-Atlantic) rather than the
  * viewer's location. Fields requested: `us_aqi` (dimensionless index) plus
  * `pm10`, `pm2_5`, `nitrogen_dioxide`, `ozone`, `carbon_monoxide` in µg/m³.
- * Resolves to the parsed JSON untyped (`any`); returns
+ * Resolves to an `AirQualityResponse`; returns
  * `{ error: "Air quality unavailable" }` on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle
  * controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchAirQuality(signal?: AbortSignal): Promise<any> {
+export async function fetchAirQuality(signal?: AbortSignal): Promise<AirQualityResponse> {
   try {
     const r = await dedupFetch(
       "/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=0&longitude=0&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,carbon_monoxide",
       DEFAULT_TIMEOUT,
       signal,
     );
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as AirQualityResponse;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchAirQuality", err);
     return { error: "Air quality unavailable" };
@@ -455,6 +600,19 @@ export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<VolcanoA
 }
 
 /**
+ * GDACS response probe fields. The public API is discontinued, so the stub
+ * below resolves an empty FeatureCollection and these stay open for the
+ * consumer's parser, which reads all three payload shapes. Nullable for the
+ * same `Response.json()` reason as `fetchSWPCaurora`.
+ */
+export interface GdacsResponse {
+  atom?: { entry?: unknown };
+  entries?: unknown;
+  events?: unknown;
+  [key: string]: unknown;
+}
+
+/**
  * Stub for the GDACS disaster feed: the public API was discontinued, so this
  * makes no network call and resolves to an empty FeatureCollection. It stays
  * promise-returning because every layer loader awaits its fetcher uniformly.
@@ -465,10 +623,28 @@ export function fetchGDACS(
   // empty without touching the network; the param survives so layer loaders
   // can pass their signal uniformly.
   _signal?: AbortSignal,
-): Promise<any> {
+): Promise<GdacsResponse | null> {
   // GDACS public API discontinued — return empty.
   // Promise-shaped because layer loaders await their fetchers.
   return Promise.resolve({ type: "FeatureCollection", features: [] });
+}
+
+/** Open-Meteo marine `current` block — the fields the request asks for. */
+export interface MarineWeatherCurrent {
+  time?: string;
+  wave_height?: number;
+  wind_wave_height?: number;
+  wind_wave_direction?: number;
+  sea_surface_temperature?: number;
+  [key: string]: unknown;
+}
+
+/** Open-Meteo marine response for the pinned mid-Atlantic point. */
+export interface MarineWeatherResponse {
+  latitude?: number;
+  longitude?: number;
+  current?: MarineWeatherCurrent;
+  [key: string]: unknown;
 }
 
 /**
@@ -476,22 +652,48 @@ export function fetchGDACS(
  * hard-coded point latitude=0, longitude=0 (mid-Atlantic) rather than the
  * viewer's position. Fields requested: `wave_height` and `wind_wave_height` in
  * metres, `wind_wave_direction` in degrees, `sea_surface_temperature` in °C.
- * Resolves to the parsed JSON untyped (`any`); returns
+ * Resolves to a `MarineWeatherResponse`; returns
  * `{ error: "Marine weather unavailable" }` on failure. Aborting `signal` abandons the caller's wait; layers pass their toggle
  * controller so a torn-down layer stops waiting on the network.
  */
-export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {
+export async function fetchMarineWeather(signal?: AbortSignal): Promise<MarineWeatherResponse> {
   try {
     const r = await dedupFetch(
       "/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=0&longitude=0&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature",
       DEFAULT_TIMEOUT,
       signal,
     );
-    return await r.json();
+    const body: unknown = await r.json();
+    return body as MarineWeatherResponse;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchMarineWeather", err);
     return { error: "Marine weather unavailable" };
   }
+}
+
+/**
+ * /api/wildfires GeoJSON feature. `properties` and `geometry` are declared
+ * required because the CSV loop below dereferences them unguarded — a missing
+ * field throws into the catch, exactly as it did when this was untyped.
+ */
+interface WildfireFeature {
+  properties: {
+    brightness?: number;
+    satellite?: string;
+    confidence?: number;
+    frp?: number;
+    daynight?: string;
+    [key: string]: unknown;
+  };
+  geometry: { coordinates: number[] };
+  [key: string]: unknown;
+}
+
+/** /api/wildfires response — GeoJSON FeatureCollection, or `{ error }`. */
+interface WildfiresPayload {
+  error?: unknown;
+  features?: WildfireFeature[];
+  [key: string]: unknown;
 }
 
 /**
@@ -505,10 +707,10 @@ export async function fetchMarineWeather(signal?: AbortSignal): Promise<any> {
  * Returns "" when the route reports an error or has no features. The signal
  * argument is unused.
  */
-export async function fetchFIRMS(signal?: AbortSignal): Promise<any> {
+export async function fetchFIRMS(signal?: AbortSignal): Promise<string> {
   try {
     const r = await dedupFetch("/api/wildfires", DEFAULT_TIMEOUT, signal);
-    const data = await r.json();
+    const data = (await r.json()) as WildfiresPayload;
     if (data.error) return "";
     const features = data.features || [];
     if (!features.length) return "";

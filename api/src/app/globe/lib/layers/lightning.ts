@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
@@ -7,6 +6,9 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
 const LIGHTNING_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`);
 
 const MAX_ACTIVE_STRIKES = 200;
+
+/** Structural view of the billboard surface the 5 s hide flips. */
+type StrikeBillboard = { show: boolean };
 
 // Module-level refs so cleanupLightning() can access them on unmount
 let ws: WebSocket | null = null;
@@ -46,8 +48,8 @@ export function cleanupLightning() {
  * pair with cleanupLightning() on unmount. Returns void.
  */
 export function loadLightning(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | undefined,
+  Cesium: typeof CesiumType | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   _removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
@@ -56,6 +58,8 @@ export function loadLightning(
   updateStatus("lightning", { error: null });
 
   const addStrike = (lat: number, lon: number) => {
+    // Strikes arrive from the socket, so this closure re-verifies the viewer
+    // globals rather than trusting the load-time dispatch.
     if (!Cesium || !viewer) return;
     if (activeStrikeIds.size >= MAX_ACTIVE_STRIKES) return;
 
@@ -97,7 +101,9 @@ export function loadLightning(
     const entity = viewer.entities.getById(id);
     setTimeout(() => {
       try {
-        if (entity?.billboard) entity.billboard.show = false;
+        // Entity.billboard is typed as an open record; only `show` is mutated.
+        const billboard = entity?.billboard as StrikeBillboard | undefined;
+        if (billboard) billboard.show = false;
       } catch {
         /* */
       }
@@ -120,7 +126,7 @@ export function loadLightning(
 
       ws.onmessage = (event) => {
         try {
-          const data = event.data;
+          const data: unknown = event.data;
           if (typeof data === "string") {
             const parts = data.split(";");
             if (parts.length >= 3) {

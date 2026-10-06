@@ -1,23 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
 import { fetchEONET, isAbort } from "../data-fetchers";;
+import type { EonetFeature } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
-
-interface EonetFeature {
-  geometry?: { coordinates?: [number, number] };
-  properties?: {
-    categories?: { id?: string }[];
-    title?: string;
-    description?: string;
-    updated?: number;
-    geometry_lastModified?: number;
-    [key: string]: unknown;
-  };
-}
 
 /** EONET category → SVG billboard icon */
 const CATEGORY_ICONS: Record<string, string> = {
@@ -57,8 +45,8 @@ const CATEGORY_LABELS: Record<string, string> = {
  * feed a 3-attempt retry guard reported as "Retrying (n/3)...".
  */
 export function loadEvents(
-  viewer: any,
-  Cesium: any,
+  viewer: CesiumType.Viewer | null | undefined,
+  Cesium: typeof CesiumType | null | undefined,
   updateStatus: (key: string, u: Partial<DataStatus>) => void,
   removeEntities: (prefix: string) => void,
   intervalsRef: LayerTimersRef,
@@ -69,6 +57,7 @@ export function loadEvents(
   const retry = createRetryGuard({ maxFailures: 3 });
 
   const addEventEntity = (f: EonetFeature, i: number) => {
+    if (!viewer || !Cesium) return;
     const cat = f.properties?.categories?.[0]?.id || "manmade";
     const colorStr = EONET_COLORS[cat] || "#888888";
     const coords = f.geometry?.coordinates;
@@ -159,7 +148,7 @@ export function loadEvents(
       if (!Cesium || !viewer) return;
       const features = data.features || [];
       updateStatus("events", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f: any, i: number) => { addEventEntity(f, i); });
+      features.forEach((f, i) => { addEventEntity(f, i); });
 
       const iv = setInterval(() => {
         void (async () => {
@@ -168,7 +157,7 @@ export function loadEvents(
             const d = await fetchEONET(signal);
             const fs = d.features || [];
             removeEntities("event-");
-            fs.forEach((f: any, i: number) => { addEventEntity(f, i); });
+            fs.forEach((f, i) => { addEventEntity(f, i); });
             updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
             retry.recordSuccess();
           } catch (err) {

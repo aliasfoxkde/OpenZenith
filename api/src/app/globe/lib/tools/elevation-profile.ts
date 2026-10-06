@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Globe Tool — Elevation Profile.
  *
@@ -27,7 +26,7 @@ interface ElevationProfileState {
   active: boolean;
   points: { lng: number; lat: number }[];
   profile: ProfilePoint[];
-  resultEntities: any[];
+  resultEntities: CesiumType.Entity[];
 }
 
 /**
@@ -50,7 +49,10 @@ interface ElevationProfileState {
  * tool or the overlay stays on the globe. Like the other tools it attaches no
  * input handlers of its own; page.tsx's LEFT_CLICK handler routes clicks here.
  */
-export function createElevationProfile(viewer: any, Cesium: any) {
+// The only caller (page.tsx viewer init) constructs this next to
+// createToolManager once both viewer and Cesium module are live, so neither
+// argument is optional here.
+export function createElevationProfile(viewer: CesiumType.Viewer, Cesium: typeof CesiumType) {
   const state: ElevationProfileState = {
     active: false,
     points: [],

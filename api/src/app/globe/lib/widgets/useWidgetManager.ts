@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ComponentType } from "react";
-import type { WidgetConfig, WidgetState } from "./types";
+import type { WidgetConfig, WidgetProps, WidgetState } from "./types";
 
 /**
  * One mounted widget: its static `config`, its live and persisted `state`, and
@@ -14,7 +13,7 @@ import type { WidgetConfig, WidgetState } from "./types";
 export interface WidgetEntry {
   config: WidgetConfig;
   state: WidgetState;
-  component: ComponentType<any>;
+  component: ComponentType<WidgetProps>;
 }
 
 /* Default positions stack the left column with no overlap. Basemaps opens
@@ -66,7 +65,10 @@ function loadSavedState(): Record<string, Partial<WidgetState>> | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    // localStorage boundary: a payload that is not a JSON object carries no
+    // per-widget state, so treat it as "nothing saved".
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, Partial<WidgetState>>) : null;
   } catch {
     return null;
   }
@@ -87,7 +89,7 @@ function loadSavedState(): Record<string, Partial<WidgetState>> | null {
  * max zIndex + 1, a no-op when already on top so saved values stay bounded),
  * and `resetLayout` (restores defaults and removes the storage key).
  */
-export function useWidgetManager(components: Record<string, ComponentType<any>>) {
+export function useWidgetManager(components: Record<string, ComponentType<WidgetProps>>) {
   const [widgets, setWidgets] = useState<Record<string, WidgetEntry>>(() => {
     const saved = loadSavedState();
     const entries: Record<string, WidgetEntry> = {};

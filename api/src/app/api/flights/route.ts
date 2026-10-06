@@ -17,7 +17,8 @@ export function OPTIONS() {
  * - Without bbox: request from OpenSky but strip heavy fields (callsign,
  *   velocity vectors, sensors) and return only position + basic info.
  *   This reduces response from ~6MB to ~1MB.
- * - Server-side cache: 120s TTL — OpenSky is slow from CF edge (~10-15s)
+ * - Server-side cache: 300s TTL (CACHE_TTL.FLIGHTS) + 900s stale-serve —
+ *   OpenSky is slow from CF edge (~10-20s cold, bounded by the 20s abort)
  * - 20s fetch timeout to accommodate CF edge latency
  * - With bbox: smaller response, much more likely to succeed
  */

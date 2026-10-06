@@ -642,8 +642,44 @@ AWS Terrain. Prod anchors after deploy: Mauna Kea 4199, Monadnock bench
 passed, coverage above all four floors; pytest 1525 passed/99.07%; tsc,
 eslint 0 errors, ruff, mypy clean). Known flake: the landing spec hit a
 30s goto timeout during the ship run and passed in 4.6s on immediate
-re-run (host-load transient, not a deploy regression). **Still open
-(D2):** `DecompressionStream("br")` is unsupported in browsers, so edge
-OZT2 brotli tiles never decode — /api/elevation answers come from the
-merged-chunk fallback while labeled `source:"ozt2"`; fix by reusing the
-WASM OZT2 decoder or re-encoding tiles zlib.
+re-run (host-load transient, not a deploy regression). **D2 (decoded below
+2026-10-04):** the premise "browsers can't brotli" was wrong — prod's
+edge runtime decodes brotli natively; the real gaps were zstd at the
+edge plus decoder parity. Closed by commit 2299f90.
+
+
+**D2 close — edge OZT2 decode (2026-10-04, commit 2299f90, deployed
+cba27b8c, prod-verified).**
+- **Corrected diagnosis.** The pre-existing prod edge answered brotli
+  tiles fine via native `DecompressionStream("br")` (~1.4s, honest
+  `source:"huggingface"` labels) — the "browsers can't brotli" premise
+  was false. The real defects: (a) zstd tiles (13% of the dataset,
+  flags byte `(flags>>2)&0b11 == 1`) always threw at the edge →
+  merged-chunk fallback, and (b) the wrangler-bundled local workerd
+  silently returns EMPTY output on some brotli payloads (all-zero
+  grids → 0m answers), so local verification was untrustworthy.
+- **Fix.** `api/src/lib/ozt2_decode.ts`: brotli decodes through a
+  base64-embedded WASM decoder (`brotli-dec-wasm/web`, `initSync`,
+  208KB wasm in `api/src/lib/brotli_wasm.ts`, lazy-initialized) with
+  the native path removed entirely; zstd via `fzstd` (honor
+  `byteOffset` — the output is a view into an over-allocated buffer).
+  `dequantize` now `Math.trunc`s (numpy `.astype(int16)` truncates
+  toward zero) — required for bit-exactness with the Python decoder.
+- **Parity gate.** New `ozt2-real-tiles.test.ts`: 12 Python-reference
+  tiles (min/max/mean/center/corners) + a 117-tile sweep across z7–z11
+  must match bit-exactly; skips on CI runners without the data/ mirror
+  (.gitforge.yml guard moved to parenthesized totals 102 files / 1499
+  tests, environment-independent).
+- **Gates.** vitest 102 files / 1494 passed + 5 skipped; coverage above
+  all four floors; tsc clean; eslint 0 errors (1887 warnings ≤ 1890);
+  bundle 646KB raw / 243KB gzipped; ship.sh 26 E2E green.
+- **Prod anchors (post-deploy, fresh coords):** NYC 19, Mauna Kea 4199,
+  Everest 8645, and — impossible pre-deploy — the zstd tile anchor
+  Mongolia `source:"ozt2"` 2000m. (Monadnock "FAIL" was a too-tight
+  probe band: 512m vs 401m bench is the 511m summit 17m away.)
+- **Lessons.** Base64 embedding: adjacent literals don't concatenate in
+  TS and a multi-thousand-term `+` chain overflows tsc/eslint — one
+  single-line literal is parser-safe. The elevation route edge-caches
+  answers 24h keyed to 7-decimal coords and wrangler persists Cache API
+  state across restarts (`.wrangler/state` at repo root AND api/) —
+  every verification probe needs never-probed coordinates.

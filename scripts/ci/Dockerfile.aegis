@@ -1,5 +1,6 @@
 # CI image for the `aegis` delta-gate job in .gitforge.yml
-# (tag: openzenith-ci-aegis:N, built by scripts/ci/build-ci-image.sh).
+# (published as localhost:5000/openzenith-ci-aegis:N by
+# scripts/ci/build-ci-image.sh).
 #
 # Why a dedicated image: the GitForge runner bind-mounts ONLY the job
 # workspace (at /workspace), so host-installed tooling is unreachable and
@@ -10,9 +11,11 @@
 # job only, leaving every other job's toolchain untouched.
 #
 # Rebuild after an aegis upgrade: scripts/ci/build-ci-image.sh <next-tag>,
-# then bump the `image:` line on the aegis job in .gitforge.yml. Images must
-# exist on the runner host before a push references them (60s acquisition
-# cap rules out pulls at run time — see the .gitforge.yml header).
+# then bump the `image:` line on the aegis job in .gitforge.yml. The script
+# pushes to the GitForge local OCI registry (127.0.0.1:5000) — the runner's
+# service context cannot see a developer's local docker store, so the
+# registry is the only distribution path; the pushed tag must exist BEFORE
+# a push references it.
 FROM node:22-trixie
 COPY aegis /usr/local/bin/aegis
 # Fail the build, not the first CI run, if the baked toolchain is broken.

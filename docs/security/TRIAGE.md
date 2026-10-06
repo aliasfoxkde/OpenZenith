@@ -11,14 +11,19 @@ security-scanner finding class in OpenZenith. It pairs with
   `core/src`, `core/tests`, `scripts/` — against the committed baseline.
 - **The gate fails only on NEW findings** (fingerprints not in the baseline).
   It never fails on triaged findings recorded here.
-- Fingerprints are `pattern:file:line:content-hash` and embed **absolute
-  paths**. Consequences:
+- Fingerprints are `pattern:file:line:content-hash` with **repo-relative
+  paths** (2026-10-06 — before this they embedded absolute paths and the
+  baseline was bound to the development checkout). The gate always passes
+  relative scopes from the repo root, so any checkout — including the
+  GitForge CI runner's `/workspace` mount (job image
+  `openzenith-ci-aegis:1`, `scripts/ci/Dockerfile.aegis`) — produces
+  identical fingerprints. Consequences:
   - Moving or editing a flagged line re-flags it. That is intended friction:
     re-triage before running `scripts/aegis_scan.sh update`.
-  - The baseline is machine-specific. CI (GitForge) runs on the same host as
-    development, so paths match. If the checkout path ever changes, regenerate
-    the baseline via `scripts/aegis_scan.sh update` **after** reviewing the
-    full finding list, not blindly.
+  - Upgrading the aegis binary can change detections or fingerprints
+    (tool-version drift — see the 2026-09-23 #110 entry). Rebuild the CI
+    image (`scripts/ci/build-ci-image.sh`) in the same change so the runner
+    and the dev host run the same scanner version.
 - Baseline updates are deliberate commits. Never regenerate as a way to make
   the gate pass; fix the finding or record its rationale here first.
 
@@ -1503,3 +1508,111 @@ file with the profile denylist applied: 344/359 flagged files UNCHANGED —
 Baseline 1,716 → written by the full-scope update scan (authoritative). The
 removed files (root tests/, examples/, Dockerfile) took their findings out
 of the population; no new fingerprint classes accepted.
+
+## Re-triage 2026-10-06 — full-delta sweep after the gate went un-run (1,049 → 0 new)
+
+The gate had not been re-run since 2026-10-03 while ~9 days of work landed:
+the globe no-unsafe-* graduations, the volcano USGS-HANS rework, +46 SDK
+tests, the core clippy-pedantic pass, the mcp-server gates, and the perf
+pass. Raw gate: **1,049 findings across 85 pattern classes**, none in the
+denylist. Per the checklist this time the **class inventory was proven, not
+spot-checked**: every finding was grouped by `(pattern, scope)` and every
+group was dispositioned against this document; the security-relevant groups
+were additionally sampled at the line level (sites enumerated below).
+
+**True positives: zero.** No code fix was required by any finding; the
+criticals re-verified as false positives (`git-credential-leak` ×9 = fixture
+URLs; `credit-card-number-generic` = the 16-digit float
+`104.4890520365092` in flow-path.test.ts; `aws-access-key` = substring
+inside the `BROTLI_WASM_B64` base64 constant).
+
+Security-relevant classes re-verified at source, 2026-10-06:
+
+- **XSS family (17: stored-xss, inner-html-assignment,
+  angular-innerhtml-xss, xss, xss-via-url)** — all 8 distinct sites
+  reviewed: five static `<style dangerouslySetInnerHTML={{ __html: S }}>`
+  constants (contribute/explore/globe/layout/Navbar), one
+  `container.innerHTML = ""` clearing before `appendChild(canvas)`, the
+  elevation-pin template interpolating only the internal `${T.green}` theme
+  constant (map-setup.ts), and `ShareUrlPanel` rendering `url` as a React
+  text child (textContent — no href/innerHTML sink). Dispositions unchanged
+  from 2026-09-22/#136; the single data-fed sink remains the escapeHtml-
+  protected tooltip fixed that day.
+- **Credential family (13)** — `bearer-token-url` ×4 = the `Bearer tok-1`
+  fixture assertions (#112); `hardcoded-credential` ×3 = `key`/`secret`
+  constructor dummies into a mocked OZT2R2Backend (#109, same sites);
+  `env-credential-assignment` ×6 = `STORAGE_KEY`/`ANNOTATIONS_KEY`/
+  `LAYER_STATE_KEY`/`BOOKMARKS_KEY`/`LS_KEY`/`GLOBE_BASEMAP_KEYS`
+  localStorage/basemap id constants (the `_KEY`-suffix heuristic, #139/#141).
+- **ssl-verification-disabled (2)** — `convert_tile(..., verify=False)` in
+  test_converter.py: the OZT1 roundtrip *data*-verification flag, no network
+  I/O (#107, same sites).
+- **ssrf / ssrf-localhost (92)** — 62 are `http://localhost` mock URLs in
+  route tests (standard class). The production-route hits re-read:
+  `space-weather/route.ts` fetches only the module constants `KP_URL`/
+  `AURORA_URL` (the `type` query param selects which constant, never builds
+  a URL); `data-fetchers.ts` `dedupFetch(url)` is a generic helper whose
+  callers all pass fixed upstream constants; `ozt2.py` runs every URL
+  through `_require_https_url()` with bandit `# noqa: S310` already
+  recorded. Allowlist/proxy disposition unchanged (2026-09-22).
+- **sync-in-async (34)** — the 5 non-test sites are the deliberate
+  synchronous decode pipeline: `unzlibSync` (merged-parser.ts, tile.ts,
+  ozt2_decode.ts), `initSync` (wasm-bindgen's only init entry in the
+  bundler-less web target), and `decodeOZT2Sync` (sync-by-contract API
+  variant; the name *is* the contract). 29 are test-fixture `readFileSync`.
+  #124/#131 dispositions unchanged.
+- **missing-limit (29)** — re-confirmed **zero SQL in the repo**: hits are
+  `searchParams.get("limit")` handlers that *implement* clamping
+  (`Math.min(rawLimit, 10000)` in collections items; clamp-to-10 in
+  geocode), the words "Rate limit exceeded", "Mercator limit" comments, and
+  the async_client semaphore docstring.
+- **code-injection-request (6)** — `write_bytes`/`write_all` on variables
+  named `payload` (merged-tile test builder; core CLI stdout/stderr JSON
+  writer). Write-grammar match, no dynamic code execution (runtime `eval`
+  family is ESLint error-level).
+- **a11y trio (missing-title / missing-skip-link / missing-main-landmark ×1
+  each, layout.tsx) — NEW disposition.** Static read of the root layout
+  only: the document title comes from the `metadata` export (scanner does
+  not model it), every page defines its own `<main>` landmark (all 10
+  content pages), and the axe best-practice audits over the real rendered
+  DOM (11 pages, 67 checks green vs prod) are the authority. WCAG 2.4.1
+  bypass-blocks is satisfied by the landmark structure per the W3C
+  understanding document. A dedicated skip link remains a worthwhile
+  enhancement and is tracked under the a11y phase of
+  `docs/planning/EXCELLENCE_PLAN_2026-10-06.md`, not as a scanner defect.
+- **evaluation-benchmark (13) — NEW disposition.** Differential probe: the
+  bare word "glue" triggers the pattern (a one-line `// glue code comment`
+  probe scans as `evaluation-benchmark`; the same line without it scans
+  clean). 12 hits are `# Safety`/SAFETY doc comments in `core/src/wasm.rs`
+  containing "wasm-bindgen glue"; 1 is a substring inside the 208 KB
+  `BROTLI_WASM_B64` base64 constant. Comment/blob grammar; no evaluation
+  harness exists in this repo.
+
+Line-drift mass (every group mapped to an existing disposition; counts are
+this scan): `try-catch-bulk` 104 (bulk catches + test-file bulk),
+`no-cache-headers` 97 (headers-object sets + test doubles),
+`cors-misconfiguration` 68 (the deliberate wildcard contract and its test
+assertions), `rust-unwrap-usage` 67 (core/tests `unwrap` with the file-level
+clippy allow — #110), `react-missing-key-prop` 54 (keys on the JSX line
+following the `.map(`), `hardcoded-internal-endpoint` 40 (mock URLs + the
+`edge-cache.openzenith.internal` Cache-API namespace),
+`expensive-computation-loop` 41 (per-pixel grid loops, particle animation —
+performance heuristic, CPU deliberately in Rust/WASM), `double-type-
+assertion` 37 (test doubles through `unknown`), `nested-callbacks` 27
+(NumPy nesting + fixture callbacks), `loose-equality` 26 (MapLibre style
+expressions + test fixtures), `unsafe-code`/`rust-unsafe-block` 36 (the
+documented WASM ABI with per-export safety contracts), `insecure-random` 18
+(Math.random particle seeds — not crypto), `return-await` 14,
+`semicolon-everywhere` 14, `console-log*` 23 (dev-gated diagnostics +
+`console.error` in catches), `debug-endpoint` 13 / `model-version-tracking`
+13 (endpoint-name prose and snapshot_download line-shifts),
+`git-credential-leak` 9 (fixture URLs), PII digit runs (`ssn-no-dashes`/
+`bank-routing-number`/`australian-tfn` on the OGC scale denominators and
+`Date.now() - 604800000`), `bearer-token-url` (above).
+
+Baseline regenerated via `scripts/aegis_scan.sh update`; the gate moves into
+GitForge CI as a delta job (fails only on fingerprints absent from the
+committed baseline) the same commit. The same commit also made the
+fingerprints repo-relative (checkout-path independent — proven by a green
+gate run from a second worktree and from inside the CI image with the
+workspace mounted at /workspace), which is what makes the CI job possible.

@@ -29,22 +29,37 @@
 #     flakiest step under box load; deploy stays a deliberate local act, not
 #     an automatic one (a red build must never block a hotfix deploy, and a
 #     green CI must never deploy unreviewed work).
-#   * aegis scan, cargo test (core/), pytest (openzenith/): host-binary /
-#     other-toolchain gates; run locally (no rust/python image pre-pulled).
-#     aegis specifically was evaluated for the kubix pattern (2026-10-05,
-#     task #183): kubix bakes it into a custom runner image
-#     (kubix-ci-python:1) — building/tagging such an image is runner-host
-#     infrastructure outside this repo, and the full-tree scan currently
-#     carries ~16k untriaged legacy findings, so a baseline gate would
-#     encode an un-dispositioned inventory as acceptable. Aegis stays a
-#     local feedback gate until the finding inventory is triaged down to a
-#     set worth freezing in a baseline.
+#   * cargo test (core/), pytest (openzenith/): other-toolchain gates; run
+#     locally (no rust/python image pre-pulled).
+#   * 2026-10-06: aegis MOVED INTO the pipeline once its finding inventory
+#     was fully triaged (docs/security/TRIAGE.md 2026-10-06 entry: 1,049
+#     findings dispositioned, 0 true positives) and the gate was made
+#     checkout-path independent (repo-relative fingerprints — before that
+#     the baseline was bound to the dev host's absolute paths, which the
+#     runner's /workspace mount can never reproduce). The job runs in the
+#     openzenith-ci-aegis image (node:22-trixie + the aegis binary baked in;
+#     the binary needs GLIBC_2.39 so bookworm is out). Rebuild/bump that
+#     image on aegis upgrades: scripts/ci/build-ci-image.sh — images must
+#     exist on the runner host before a push references them.
 name: openzenith-ci
 version: "1.0"
 trigger_on:
   - push
 environment: {}
 jobs:
+  - name: aegis
+    image: openzenith-ci-aegis:1
+    steps:
+      # Security delta gate: fails only on findings whose fingerprint
+      # (pattern + repo-relative path + line + content hash) is absent from
+      # the committed baseline. Every accepted class has a reviewed
+      # rationale in docs/security/TRIAGE.md — the baseline is regenerated
+      # ONLY after triage, never to make this job green.
+      - name: aegis delta gate
+        run: ./scripts/aegis_scan.sh
+    # Local full-scope scans run ~2-4m; headroom for shared-host load.
+    timeout: 20m
+
   - name: install
     image: node:22-bookworm
     steps:
@@ -53,6 +68,7 @@ jobs:
           cd api
           npm ci > /tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
           tail -3 /tmp/install.log
+    needs: [aegis]
     # 2026-10-03/04: three consecutive infra-class install failures under
     # co-tenant load (2x infrastructure_failure with empty logs, 1x
     # timed_out at 15m — npm ci never finished). Normal install is ~2-4m;

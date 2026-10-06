@@ -18,12 +18,21 @@
 # their own policy.
 #
 # Scopes are explicit (never repo root) so 65GB under data/ is never crawled.
+#
+# Paths in findings/fingerprints are REPO-RELATIVE: aegis echoes the scope
+# path it is given, so the gate always passes relative scopes from the repo
+# root. The baseline therefore works from any checkout path — the CI runner
+# (workspace mounted at /workspace in the job container) and this dev host
+# produce identical fingerprints (2026-10-06; before this the baseline was
+# absolute-path-bound to the development checkout).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASELINE="$REPO_ROOT/docs/security/aegis-baseline.json"
 PROFILE="$REPO_ROOT/docs/security/aegis-profile.json"
 SCOPES=(api/src openzenith core/src core/tests scripts)
+
+cd "$REPO_ROOT"
 
 # Load a findings array from a aegis JSON output file, dropping every
 # finding whose pattern is on the repo denylist. Used by both modes.
@@ -45,7 +54,7 @@ if [[ "${1:-check}" == "update" ]]; then
     mkdir -p "$(dirname "$BASELINE")"
     tmp="$(mktemp)"
     trap 'rm -f "$tmp"' EXIT
-    python3 - "$BASELINE" "$tmp" "${SCOPES[@]/#/$REPO_ROOT/}" <<'PY'
+    python3 - "$BASELINE" "$tmp" "${SCOPES[@]}" <<'PY'
 import json, sys
 out_path, tmp_path, *scopes = sys.argv[1:]
 merged = []
@@ -82,7 +91,7 @@ for scope in "${SCOPES[@]}"; do
     # filter; anything else is a tool failure and must abort the gate.
     # ($? must be captured outside `if !` — the negation clobbers it.)
     set +e
-    aegis --format json scan "$REPO_ROOT/$scope" \
+    aegis --format json scan "$scope" \
         --baseline "$BASELINE" --output-file "$tmp" -q >/dev/null
     rc=$?
     set -e

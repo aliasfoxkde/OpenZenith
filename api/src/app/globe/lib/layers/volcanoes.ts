@@ -34,9 +34,10 @@ function alertLabel(alert: string): string {
 }
 
 /**
- * Plots the Smithsonian/USGS weekly volcano report — a direct live fetch of
- * `https://volcano.si.edu/news/WeeklyVolcanoRSS.xml` parsed into point features
- * carrying alertLevel WARNING (erupting), WATCH (new unrest) or ADVISORY.
+ * Plots current USGS volcano alert statuses — fetched from the same-origin
+ * `/api/volcanoes` proxy (USGS HANS join; the Smithsonian RSS it replaced is
+ * CORS-blocked to browsers and bot-gated against server fetches) — into point
+ * features carrying alertLevel WARNING (erupting), WATCH (new unrest) or ADVISORY.
  * Normal and unknown alerts are skipped; the rest become a billboard plus
  * coloured point, truncated label and description card in `viewer.entities`
  * (ids `vol-<i>`), and warning/watch sites additionally get a 17.5 km-radius

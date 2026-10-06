@@ -749,12 +749,24 @@ more findings, all addressed:
   pinned it with a source invariant test (bare
   `map.removeLayer`/`map.removeSource` in any layer module fails the
   suite; types.ts exempt as the guard's home).
-- **Volcano Alerts could never load (CORS).** The layer fetched
-  volcano.si.edu's weekly RSS directly from the browser; the upstream
-  sends no Access-Control-Allow-Origin. New `/api/volcanoes` edge
-  route proxies the RSS (cachedFetch 1h, silent-200-empty-body on
-  upstream failure per the waterways convention); the client parses
-  the same XML through the proxy. 4 route tests.
+- **Volcano Alerts could never load — and a CORS proxy wasn't
+  enough.** The layer fetched volcano.si.edu's weekly RSS directly
+  from the browser (upstream sends no Access-Control-Allow-Origin),
+  so a same-origin proxy route was written first — and prod probing
+  showed the proxy returning empty bodies: volcano.si.edu also sits
+  behind a JavaScript bot-verification challenge that NO server-side
+  fetch can pass (403 challenge HTML even with a browser UA). The
+  authoritative, bot-friendly upstream is the USGS HANS API:
+  `/api/volcanoes` now joins `getCapElevated` (has coordinates) with
+  `getElevatedVolcanoes` (full elevated set), backfills missing
+  coordinates per-vnum (bounded at 8 lookups/request), and returns a
+  GeoJSON FeatureCollection with GVP-consistent colours
+  (WARNING red / WATCH orange / ADVISORY amber). Upstream failure =
+  silent-200 empty FeatureCollection + `x-volcano-status` header
+  (the waterways convention, plus a probeable truth signal). The map
+  client, the globe `fetchVolcanoAlerts` (previously "the one fetcher
+  that goes direct" — same defect), and 6 route tests all moved to
+  the new contract.
 - **Cloudflare Insights beacons** (`static.cloudflareinsights.com`)
   ERR_CONNECTION_REFUSED on prod = this LAN blocking the RUM script —
   attributed, benign, explains the earlier crawls' two mystery errors.

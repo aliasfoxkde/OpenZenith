@@ -425,57 +425,29 @@ export interface VolcanoAlertFeature {
   properties: VolcanoAlertProps;
 }
 
-/** GeoJSON FeatureCollection of alerted volcanoes as scraped from the SI/USGS weekly RSS feed. */
+/** GeoJSON FeatureCollection of alerted volcanoes from the /api/volcanoes proxy. */
 export interface VolcanoAlertCollection {
   type: "FeatureCollection";
   features: VolcanoAlertFeature[];
 }
 
 /**
- * Volcanoes currently on alert, scraped client-side from the Smithsonian /
- * USGS WeeklyVolcanoRSS.xml at volcano.si.edu. This is the one layer fetcher
- * that goes direct (no /api/proxy/ hop, no dedupFetch) and the only one whose
- * `signal` is actually honored. Items are regex-parsed: an entry becomes a
- * feature only if it carries a `georss:point`, whose "lat lon" pair is flipped
- * to GeoJSON [lon, lat], and the alert level is inferred from the title text —
- * "Erupting" maps to WARNING, "New Unrest"/"New Activity" to WATCH, anything
- * else to ADVISORY (the feed's real alert field is not read). Resolves to a
- * `VolcanoAlertCollection`; features come back empty on failure.
+ * Volcanoes currently on alert, from the same-origin /api/volcanoes proxy
+ * (USGS HANS alert statuses as GeoJSON). The feed this used to scrape
+ * client-side — Smithsonian WeeklyVolcanoRSS.xml — is CORS-blocked to
+ * browsers AND bot-gated against server fetches, so the proxy is the only
+ * viable path; it was previously the one layer fetcher that went direct.
+ * Resolves to a `VolcanoAlertCollection`; features come back empty on
+ * failure.
  */
 export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<VolcanoAlertCollection> {
   try {
-    const r = await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml", { signal });
-    const text = await r.text();
-
-    const features: VolcanoAlertFeature[] = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match: RegExpExecArray | null;
-
-    while ((match = itemRegex.exec(text)) !== null) {
-      const entry = match[1];
-      const title = entry.match(/<title>([^<]*)<\/title>/)?.[1] || "";
-      const pointMatch = entry.match(/<georss:point>([^<]*)<\/georss:point>/);
-
-      if (pointMatch) {
-        const [latStr, lonStr] = pointMatch[1].trim().split(/\s+/);
-        const lat = parseFloat(latStr);
-        const lon = parseFloat(lonStr);
-
-        if (!isNaN(lat) && !isNaN(lon)) {
-          const isErupting = /Erupting/i.test(title);
-          const isNew = /New Unrest|New Activity/i.test(title);
-          const alert = isErupting ? "WARNING" : isNew ? "WATCH" : "ADVISORY";
-
-          features.push({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [lon, lat] },
-            properties: { title, alertLevel: alert },
-          });
-        }
-      }
+    const r = await fetch("/api/volcanoes", { signal });
+    const data = (await r.json()) as VolcanoAlertCollection | null;
+    if (!r.ok || data?.type !== "FeatureCollection") {
+      return { type: "FeatureCollection", features: [] };
     }
-
-    return { type: "FeatureCollection", features };
+    return data;
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchVolcanoAlerts", err);
     return { type: "FeatureCollection", features: [] };

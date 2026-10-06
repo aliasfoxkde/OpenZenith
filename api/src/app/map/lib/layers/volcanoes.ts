@@ -4,14 +4,14 @@ import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError 
 /* ─── Volcano Alerts (Smithsonian GVP / USGS Weekly Report) ─── */
 
 /**
- * Add the volcano-alert layer, parsed from the Smithsonian GVP weekly-report
- * RSS via the same-origin /api/volcanoes proxy — volcano.si.edu sends no
- * CORS headers, so a direct browser fetch is always blocked. Each `<item>`
- * with a georss:point becomes a point feature whose colour and `alert`
- * property encode activity level: red/WARNING for erupting, orange/WATCH
- * for new activity, amber/ADVISORY otherwise. Rendered as a coloured 6px
- * circle plus a blurred glow behind it. Reports the parsed count ("empty"
- * when the RSS yields nothing) and re-fetches every 10 minutes.
+ * Add the volcano-alert layer from the same-origin /api/volcanoes proxy,
+ * which serves USGS alert statuses as GeoJSON (the Smithsonian GVP RSS it
+ * replaced sits behind a bot-verification challenge no server fetch can
+ * pass, and its direct browser fetch was CORS-blocked). Feature `color`/
+ * `alert` encode activity level: red/WARNING, orange/WATCH, amber/ADVISORY.
+ * Rendered as a coloured 6px circle plus a blurred glow behind it. Reports
+ * the feature count ("empty" when nothing is on alert or the upstream is
+ * unavailable) and re-fetches every 10 minutes.
  */
 export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("volcanoes")) return;
@@ -19,37 +19,8 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const res = await fetch("/api/volcanoes");
-      const text = await res.text();
-
-      // Parse RSS XML — extract volcano names and coordinates
-      const features: GeoJSON.Feature[] = [];
-      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-      let match: RegExpExecArray | null;
-
-      while ((match = itemRegex.exec(text)) !== null) {
-        const entry = match[1];
-        const title = entry.match(/<title>([^<]*)<\/title>/)?.[1] || "";
-        const pointMatch = entry.match(/<georss:point>([^<]*)<\/georss:point>/);
-
-        if (pointMatch) {
-          const [latStr, lonStr] = pointMatch[1].trim().split(/\s+/);
-          const lat = parseFloat(latStr);
-          const lon = parseFloat(lonStr);
-
-          if (!isNaN(lat) && !isNaN(lon)) {
-            // Determine color from activity type in title
-            const isNew = /New Unrest|New Activity/i.test(title);
-            const isErupting = /Erupting/i.test(title);
-            const color = isErupting ? "#ef4444" : isNew ? "#f97316" : "#fbbf24";
-
-            features.push({
-              type: "Feature",
-              geometry: { type: "Point", coordinates: [lon, lat] },
-              properties: { name: title, color, alert: isErupting ? "WARNING" : isNew ? "WATCH" : "ADVISORY" },
-            });
-          }
-        }
-      }
+      const data = (await res.json()) as GeoJSON.FeatureCollection | null;
+      const features = res.ok && data?.type === "FeatureCollection" ? data.features : [];
 
       setStatus(handle, "volcanoes", features.length ? "loaded" : "empty", features.length);
 

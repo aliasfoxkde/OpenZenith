@@ -151,8 +151,8 @@ jobs:
           # exit should mean a complete run — assert it. Assert the
           # PARENTHESIZED totals (environment-independent): with the local
           # data/ mirror present the ozt2-real-tiles cross-check runs
-          # (2026-10-05 wave 2: 107 files / 1517 passed + 5 skipped),
-          # on CI runners it skips (106+1 files / 1504+18 tests) — totals
+          # (2026-10-05 volcano HANS rework: 107 files / 1519 passed + 5 skipped),
+          # on CI runners it skips (106+1 files / 1506+18 tests) — totals
           # equal either way. Update BOTH numbers when the suite grows
           # (fail-loud beats fail-silent).
           clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
@@ -162,8 +162,8 @@ jobs:
           [ "${files:-0}" -eq 107 ] || {
             echo "INCOMPLETE: passing run covered ${files:-?}/107 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1522 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1522 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1524 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1524 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

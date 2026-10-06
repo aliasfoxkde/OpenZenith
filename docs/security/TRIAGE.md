@@ -1708,3 +1708,17 @@ TS source), `debug-endpoint` ("purchase" substring in an error message),
 
 Baseline regenerated via `scripts/aegis_scan.sh update` (also absorbing the
 skip-link files); gate re-run locally: 0 new.
+
+## Re-triage 2026-10-06d — ruff-format pass line-drift (3 → 0 new)
+
+The v0.9.1 release commit conformed 5 SDK files to `ruff format` (not a
+project gate; cosmetic drift cleanup). The parenthesized-with reflow in
+`openzenith/tests/test_tracing.py` shifted the file by +1 line, moving the
+three dispositioned `anchore`-substring findings (the variable `anchored`
+trips trivy-config's container-vuln-scanner heuristic — same class as the
+2026-10-06 word-trigger FPs) from lines 795/800/818 to 796/801/819.
+
+Triage: all 3 are content-identical re-fingerprints of the entry
+dispositioned in 2026-10-06b (the `anchored` fixture variable documents a
+fixed grid position; it names a test local, not a tool invocation). No new
+classes. Baseline re-generated; gate green locally before the re-push.

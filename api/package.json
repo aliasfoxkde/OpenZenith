@@ -23,7 +23,9 @@
     "test:e2e": "npx playwright test"
   },
   "dependencies": {
+    "brotli-dec-wasm": "^2.3.2",
     "fflate": "^0.8.2",
+    "fzstd": "^0.1.1",
     "next": "^15.5.26",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

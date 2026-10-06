@@ -1,7 +1,11 @@
 /**
- * OZT2 Tile Decoder — Pure TypeScript, No WASM Required
+ * OZT2 Tile Decoder
  *
- * Decodes OZT2 binary tiles in the browser using the native DecompressionStream API.
+ * Decodes OZT2 binary tiles in the browser and at the edge. The prediction
+ * and dequantization passes are pure TypeScript; the entropy coders are the
+ * only heavy part: brotli runs through a base64-embedded WASM decoder
+ * (brotli-dec-wasm) and zstd through fzstd, because DecompressionStream("br")
+ * is unusable in practice (see decompress()).
  * Decode time: ~1-2ms per 256x256 tile on modern hardware.
  *
  * Format layout:
@@ -18,6 +22,12 @@
  *   Bits 2-3: compressor (0=brotli, 1=zstd, 2=zlib)
  *   Bits 4-7: reserved (must be 0)
  */
+
+// ─── Imports ─────────────────────────────────────────────────────────────────
+
+import { decompress as brotliWasmDecompress, initSync } from "brotli-dec-wasm/web";
+import { decompress as fzstdDecompress } from "fzstd";
+import { BROTLI_WASM_B64 } from "./brotli_wasm";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -53,38 +63,43 @@ export interface OZT2DecodeResult {
 // ─── Decompression ────────────────────────────────────────────────────────────
 
 /**
- * Decompress data using browser-native APIs where possible.
- * - Brotli: DecompressionStream API (native in browsers/Workers)
- * - Zlib: fflate unzlib (Edge-compatible)
- * - ZSTD: fetch from HF API directly (server-side decode) or skip to fallback
- *
- * Note: ZSTD is used by ~30% of tiles. Without native ZSTD support,
- * these tiles fall back to merged chunks which may have lower resolution.
+ * Decode a brotli payload through the embedded WASM decoder. Instantiation is
+ * deferred to the first tile so runtimes that never see a brotli tile never
+ * pay for it (~208KB of wasm to compile).
+ */
+let brotliReady = false;
+function brotliDecoder(): (input: Uint8Array) => Uint8Array {
+  if (!brotliReady) {
+    const bin = atob(BROTLI_WASM_B64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    initSync({ module: bytes });
+    brotliReady = true;
+  }
+  return brotliWasmDecompress;
+}
+
+/**
+ * Decompress an OZT2 payload.
+ * - Brotli (87% of shipped tiles): embedded WASM decoder — the only path. The
+ *   native DecompressionStream("br") is not consulted: runtimes disagree on
+ *   it (Chromium and Node throw, the prod worker build decodes correctly, but
+ *   the wrangler-bundled workerd silently returns EMPTY output on some
+ *   payloads and errors on others), so "native first" yields zeros on a tile
+ *   sample that must either decode or throw.
+ * - Zstd (13%): fzstd (pure TypeScript).
+ * - Zlib (0% of shipped tiles, still produced by the Python encoder option):
+ *   fflate unzlib.
  */
 async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8Array> {
   if (compressor === COMP_BROTLI) {
-    // "br" is supported natively in browsers and Cloudflare Workers, but the
-    // DOM lib's CompressionFormat union does not list it yet, so the
-    // constructor is re-typed locally with the format it really accepts. Read
-    // off the global at call time so test stubs are picked up.
-    const BrotliDecompressionStream = DecompressionStream as unknown as new (format: string) => DecompressionStream;
-    const ds = new BrotliDecompressionStream("br");
-    const writer = ds.writable.getWriter();
-    // Await the writes — dropping these promises turns an invalid brotli
-    // payload into an unhandled rejection instead of a rejected decodeOZT2.
-    await writer.write(data);
-    await writer.close();
-    const result = await new Response(ds.readable).arrayBuffer();
-    return new Uint8Array(result);
+    return brotliDecoder()(new Uint8Array(data));
   } else if (compressor === COMP_ZLIB) {
     // Zlib: use fflate's unzlib (Edge-compatible, synchronous)
     const { unzlibSync } = await import("fflate");
     return unzlibSync(new Uint8Array(data));
   } else if (compressor === COMP_ZSTD) {
-    // ZSTD not natively supported in Workers. For API routes, we skip ZSTD
-    // tiles and rely on merged chunk fallback. The merged chunks have the
-    // same underlying SRTM data at full 30m resolution.
-    throw new Error("ZSTD not supported in Edge. Use merged chunks fallback.");
+    return fzstdDecompress(new Uint8Array(data));
   } else {
     throw new Error(`Unsupported compressor: ${compressor}`);
   }
@@ -177,7 +192,10 @@ function dequantize(
 
   for (let i = 0; i < out.length; i++) {
     const q = quantized[i];
-    out[i] = Math.round(q * scale + vmin);
+    // Truncate, don't round: the Python decoder dequantizes via numpy's
+    // `.astype(np.int16)`, which truncates toward zero. Keep the two
+    // implementations bit-exact.
+    out[i] = Math.trunc(q * scale + vmin);
   }
 
   return out;
@@ -294,10 +312,9 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
 // ─── Synchronous decode (for workers) ────────────────────────────────────────
 
 /**
- * Decode OZT2 synchronously using fflate for all compression formats.
- * Use this in Web Workers to avoid blocking the main thread.
- *
- * Requires: import { inflateSync } from "fflate";
+ * Decode OZT2 synchronously. Brotli and zstd are self-contained (embedded WASM
+ * decoder / fzstd); zlib needs an injected `inflateFn` (e.g. fflate's
+ * unzlibSync). Use this in Web Workers to avoid blocking the main thread.
  */
 export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8Array) => Uint8Array): OZT2DecodeResult {
   if (tileBytes.byteLength < HEADER_SIZE) {
@@ -320,13 +337,9 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
   let decompressed: Uint8Array;
 
   if (compressor === COMP_BROTLI) {
-    // Brotli: use DecompressionStream synchronously via fflate fallback
-    if (inflateFn) {
-      decompressed = inflateFn(compressedData);
-    } else {
-      // Fallback to sync decompress if no inflater provided
-      throw new Error("Brotli sync decode requires fflate. Provide inflateFn.");
-    }
+    // Brotli: an injected inflater (worker builds with their own coder) takes
+    // priority; otherwise decode through the embedded WASM decoder.
+    decompressed = inflateFn ? inflateFn(compressedData) : brotliDecoder()(compressedData);
   } else if (compressor === COMP_ZLIB) {
     // Zlib: use fflate or built-in (no native sync zlib in browsers)
     if (inflateFn) {
@@ -335,6 +348,8 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
       // Use async DecompressionStream — call sync wrapper
       throw new Error("Provide inflateFn for zlib decode in workers.");
     }
+  } else if (compressor === COMP_ZSTD) {
+    decompressed = fzstdDecompress(compressedData);
   } else {
     throw new Error(`Compressor ${compressor} not supported in sync mode`);
   }

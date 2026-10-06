@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { zlibSync, unzlibSync } from "fflate";
+import { brotliCompressSync, zstdCompressSync } from "node:zlib";
 import { decodeOZT2, decodeOZT2Sync, interpolateElevation } from "../ozt2_decode";
+import { BROTLI_WASM_B64, BROTLI_WASM_SIZE } from "../brotli_wasm";
 
 /**
  * OZT2 fixtures are synthesised inline: header (6 bytes LE) + compressed
@@ -72,8 +74,7 @@ function buildHeader(vmin: number, range: number, bits: number, predictor: numbe
 function compressBody(residuals: Int16Array, compressor: number): Uint8Array {
   const raw = new Uint8Array(residuals.buffer, residuals.byteOffset, residuals.byteLength);
   if (compressor === COMP_ZLIB) return zlibSync(raw, { level: 1 });
-  // Brotli fixtures rely on the passthrough DecompressionStream stub: bytes go
-  // in and come out unchanged, so the payload is stored uncompressed here.
+  // Real brotli/zstd fixtures go through buildRealCodecTile below.
   return raw.slice();
 }
 
@@ -89,6 +90,27 @@ interface TileOptions {
 function buildTile(opts: TileOptions): ArrayBuffer {
   const head = buildHeader(opts.vmin, opts.range, opts.bits, opts.predictor, opts.compressor);
   const body = compressBody(opts.residuals, opts.compressor);
+  const tile = new Uint8Array(head.length + body.length);
+  tile.set(head, 0);
+  tile.set(body, head.length);
+  return tile.buffer;
+}
+
+/** Residuals as the flat byte view the entropy coders take. */
+function residualBytes(residuals: Int16Array): Uint8Array {
+  return new Uint8Array(residuals.buffer, residuals.byteOffset, residuals.byteLength);
+}
+
+/**
+ * Build a tile whose body really is brotli/zstd-compressed — the inverse of
+ * what the embedded WASM decoder / fzstd do in production. (compressBody above
+ * stores brotli bodies raw because the passthrough stream stub never
+ * compresses.)
+ */
+function buildRealCodecTile(residuals: Int16Array, compressor: typeof COMP_BROTLI | typeof COMP_ZSTD): ArrayBuffer {
+  const head = buildHeader(0, 0, 16, PRED_NONE, compressor);
+  const body =
+    compressor === COMP_BROTLI ? brotliCompressSync(residualBytes(residuals)) : zstdCompressSync(residualBytes(residuals));
   const tile = new Uint8Array(head.length + body.length);
   tile.set(head, 0);
   tile.set(body, head.length);
@@ -136,6 +158,14 @@ class PassthroughDecompressionStream {
   }
 }
 
+/** Always-throws stand-in mirroring workerd's DecompressionStream("br"). */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- the stub's entire job is throwing
+class RejectingDecompressionStream {
+  constructor() {
+    throw new Error("Unsupported compression format");
+  }
+}
+
 beforeEach(() => {
   vi.spyOn(console, "debug").mockImplementation(() => {});
 });
@@ -146,6 +176,15 @@ afterEach(() => {
 });
 
 describe("decodeOZT2", () => {
+  it("embeds an intact brotli WASM binary", () => {
+    // Guards the base64 regeneration procedure: the declared size must match
+    // the decoded byte count and the bytes must start with the wasm magic.
+    const bin = atob(BROTLI_WASM_B64);
+    expect(bin.length).toBe(BROTLI_WASM_SIZE);
+    const head = Array.from(bin.slice(0, 4), (c) => c.charCodeAt(0));
+    expect(head).toEqual([0x00, 0x61, 0x73, 0x6d]); // "\0asm"
+  });
+
   it("round-trips a lossless 16-bit tile with no predictor", async () => {
     const elev = gridFrom(
       [
@@ -265,10 +304,12 @@ describe("decodeOZT2", () => {
     expect(Array.from(result.elevation)).toEqual(Array.from(elev));
   });
 
-  it("decodes brotli tiles through the native DecompressionStream", async () => {
+  it("decodes brotli tiles through the embedded WASM decoder, ignoring the native stream", async () => {
+    // The passthrough stub proves DecompressionStream is never consulted:
+    // a real brotli payload through that stub would come out as raw bytes.
     vi.stubGlobal("DecompressionStream", PassthroughDecompressionStream);
     const elev = Int16Array.from([11, 22, 33, 44]);
-    const tile = encodeTile(elev, 2, 2, { vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_BROTLI });
+    const tile = buildRealCodecTile(elev, COMP_BROTLI);
 
     const result = await decodeOZT2(tile);
 
@@ -295,23 +336,43 @@ describe("decodeOZT2", () => {
     await expect(decodeOZT2(tile)).rejects.toThrow("Invalid compressor: 3");
   });
 
-  it("rejects zstd tiles with the documented edge-runtime message", async () => {
-    const tile = buildTile({
-      vmin: 0,
-      range: 0,
-      bits: 16,
-      predictor: PRED_NONE,
-      compressor: COMP_ZSTD,
-      residuals: new Int16Array(4),
-    });
-    await expect(decodeOZT2(tile)).rejects.toThrow("ZSTD not supported in Edge. Use merged chunks fallback.");
+  it("decodes real brotli payloads through the embedded WASM decoder", async () => {
+    // The throwing stub mirrors workerd's broken "br": with wasm as the only
+    // brotli path the decode must not care what the native stream does.
+    vi.stubGlobal("DecompressionStream", RejectingDecompressionStream);
+    const elev = Int16Array.from([11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 122, 133, 144, 155, 166, 177]);
+    const tile = buildRealCodecTile(elev, COMP_BROTLI);
+
+    const result = await decodeOZT2(tile);
+
+    expect(Array.from(result.elevation)).toEqual(Array.from(elev));
+    expect(result.metadata.compressor).toBe("brotli");
+  });
+
+  it("rejects a corrupt brotli payload after both native and WASM attempts fail", async () => {
+    const head = buildHeader(0, 0, 16, PRED_NONE, COMP_BROTLI);
+    const body = new Uint8Array([1, 2, 3, 7, 7, 7, 7, 7]);
+    const tile = new Uint8Array(head.length + body.length);
+    tile.set(head, 0);
+    tile.set(body, head.length);
+
+    await expect(decodeOZT2(tile.buffer)).rejects.toThrow("Brotli decompress failed");
+  });
+
+  it("decodes real zstd payloads via fzstd", async () => {
+    const elev = Int16Array.from([-120, -60, 0, 60, 120, 180, 240, 300, -15, 45, 90, 150, -90, 30, 75, 210]);
+    const tile = buildRealCodecTile(elev, COMP_ZSTD);
+
+    const result = await decodeOZT2(tile);
+
+    expect(Array.from(result.elevation)).toEqual(Array.from(elev));
+    expect(result.metadata.compressor).toBe("zstd");
   });
 
   it("rejects payloads that are not aligned to 2 bytes", async () => {
-    // A 5-byte brotli body passes through the stubbed stream unchanged, so the
-    // decoder sees an odd number of bytes.
-    vi.stubGlobal("DecompressionStream", PassthroughDecompressionStream);
-    const payload = new Uint8Array([1, 2, 3, 4, 5]);
+    // A genuinely brotli-compressed 5-byte body decompresses to an odd byte
+    // count, which cannot be read as int16 residuals.
+    const payload = brotliCompressSync(new Uint8Array([1, 2, 3, 4, 5]));
     const raw = new Uint8Array(HEADER_SIZE + payload.length);
     raw.set(buildHeader(0, 0, 16, PRED_NONE, COMP_BROTLI), 0);
     raw.set(payload, HEADER_SIZE);
@@ -382,14 +443,24 @@ describe("decodeOZT2Sync", () => {
     expect(() => decodeOZT2Sync(tile)).toThrow("Provide inflateFn for zlib decode in workers.");
   });
 
-  it("requires an inflate function for brotli tiles", () => {
-    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_BROTLI, residuals: new Int16Array(4) });
-    expect(() => decodeOZT2Sync(tile)).toThrow("Brotli sync decode requires fflate. Provide inflateFn.");
+  it("decodes a real brotli tile through the embedded WASM decoder without an inflater", () => {
+    const elev = Int16Array.from([7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37]);
+    const tile = buildRealCodecTile(elev, COMP_BROTLI);
+
+    const result = decodeOZT2Sync(tile);
+
+    expect(Array.from(result.elevation)).toEqual(Array.from(elev));
+    expect(result.metadata).toMatchObject({ predictor: "none", compressor: "brotli", width: 4, height: 4 });
   });
 
-  it("rejects zstd tiles", () => {
-    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_ZSTD, residuals: new Int16Array(4) });
-    expect(() => decodeOZT2Sync(tile, unzlibSync)).toThrow("Compressor 1 not supported in sync mode");
+  it("decodes a real zstd tile without an inflater", () => {
+    const elev = Int16Array.from([50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]);
+    const tile = buildRealCodecTile(elev, COMP_ZSTD);
+
+    const result = decodeOZT2Sync(tile);
+
+    expect(Array.from(result.elevation)).toEqual(Array.from(elev));
+    expect(result.metadata).toMatchObject({ predictor: "none", compressor: "zstd", width: 4, height: 4 });
   });
 
   it("rejects payloads whose pixel count yields no known tile shape", () => {

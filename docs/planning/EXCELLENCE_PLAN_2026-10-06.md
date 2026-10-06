@@ -137,3 +137,33 @@ committed + pushed (gitforge first) and re-gated.
 
 - 2026-10-06: audit executed (all tables above); plan written; phases 1–4
   open.
+- 2026-10-06 (later): Phase 1 (task #201) — aegis triage completed (1,049
+  findings dispositioned, 0 true positives; TRIAGE.md 2026-10-06 entry) and
+  the gate moved INTO GitForge CI as the pipeline's first job
+  (`openzenith-ci-aegis:1` image, node:22-trixie + aegis baked in for
+  GLIBC_2.39; pushed to the local OCI registry by
+  `scripts/ci/build-ci-image.sh`; fingerprints made repo-relative so the
+  /workspace checkout produces identical baselines). The gate proved itself
+  in CI by tripping on 5 untriaged ssrf-localhost findings the registry
+  references introduced — triaged, re-baselined, green. CI-green status:
+  aegis/install/typecheck all pass on the swarmone-docker runner (runs
+  b6eec7b4, 2b31adc6); red runs since 963a50a are a PLATFORM defect, not
+  pipeline defects — the scheduler has no runner affinity and the
+  fedora-docker runner cannot exec workspace binaries (noexec:
+  "eslint: Operation not permitted"; npx falls back to fake tsc@2.0.4) nor
+  reach the loopback-only OCI registry. Diagnosed from job→runner_id
+  mapping + receipts; documented in .gitforge.yml header and memory; needs
+  a platform-level fix (fix that host's mount, or add runner pinning).
+  Phase 2 (task #202) — SDK print residue: elevation.py download-progress
+  prints and watersheds/tracing error prints converted to the `_logger`
+  idiom (return-None contracts unchanged; capsys tests moved to caplog);
+  merged.py `__main__` smoke-test KEPT (tested, deliberate diagnostic);
+  async_client `progress=True` print KEPT (tested flag contract). pytest
+  1,525 passed / 99.07% coverage, ruff clean; aegis re-triaged after the
+  line drift (TRIAGE.md 2026-10-06b: 11 findings = line-drift of 4
+  dispositioned classes, mapping table recorded). New: CONTRIBUTING.md
+  (documents the real gates only). CODEOWNERS deliberately deferred:
+  GitForge parses no CODEOWNERS (grep across crates/services — zero
+  references) and the GitHub mirror is inactive, so an ownership file
+  nothing enforces would be decoration; revisit if GitForge gains review
+  approval or the mirror wakes up.

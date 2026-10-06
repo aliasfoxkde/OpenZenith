@@ -1636,3 +1636,29 @@ correctly flagged before this entry existed:
   internal resources) does not apply to a fixed literal in build tooling.
   Same accepted class as the fixed-localhost tooling references triaged
   since 2026-09-22. Baselined; no code change.
+
+## Re-triage 2026-10-06b — SDK print→logging conversion line-drift (11 → 0 new)
+
+The logging-hygiene pass (`openzenith/elevation.py` download-progress prints
+and `openzenith/hydrology/watersheds.py` / `openzenith/tracing.py` error
+prints converted to the package's standard `_logger` idiom, plus their two
+test files moving from `capsys` to `caplog`) shifted lines in five files. The
+delta gate flagged 11 findings: **every one is a re-fingerprint of an
+already-triaged class** — same pattern, same file, baseline entry within ≤6
+lines (verified programmatically, mapping below). No new code constructs and
+no new classes.
+
+| New fingerprint | Baseline predecessor | Class disposition (see 2026-10-06 entry) |
+|---|---|---|
+| trivy-config test_tracing.py:795/800/818 | :789/:794/:812 | scanner word-trigger FP ("trivy" family) |
+| go-replace-directive watersheds.py:73 | :70 | Go-syntax pattern in Python source, FP |
+| missing-limit watersheds.py:168/253 | :165/:250 | "Query missing LIMIT" — zero SQL in repo, FP |
+| model-version-tracking elevation.py:258/599/618/626 | :257/:598/:616/:624 | word-trigger FP on zoom/version phrasing |
+| nested-callbacks elevation.py:490 | :488 | depth heuristic FP |
+
+The two `capsys`→`caplog` test conversions (test_hydrology.py
+`test_missing_elevation_loader_reports_and_returns_none`,
+`test_all_nodata_grid_reports_no_valid_data`; test_tracing.py
+`test_trace_downstream_reports_missing_backend`) pin the new logging
+behavior: warnings on the module logger, return `None` contract unchanged.
+Baseline regenerated; no code change beyond the conversion itself.

@@ -59,7 +59,7 @@ def trace_downstream(
     try:
         from openzenith.elevation import get_elevation
     except ImportError:
-        print("❌ Tracing requires elevation loading capability")
+        _logger.warning("Tracing requires elevation loading capability")
         return None
 
     # Check starting point

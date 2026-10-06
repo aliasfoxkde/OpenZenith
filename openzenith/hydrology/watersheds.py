@@ -8,6 +8,7 @@ This module was split out of the former single-module ``openzenith.hydrology``;
 the package ``__init__`` re-exports the unchanged public surface.
 """
 
+import logging
 from collections import deque
 
 import numpy as np
@@ -16,6 +17,8 @@ from .constants import D8_DC, D8_DR
 from .depressions import fill_depressions
 from .flow import d8_flow_direction, flow_accumulation_fast
 from .streams import _label_streams
+
+_logger = logging.getLogger(__name__)
 
 
 def delineate_watershed(
@@ -44,7 +47,7 @@ def delineate_watershed(
     try:
         from openzenith.elevation import load_elevation_grid
     except ImportError:
-        print("❌ Watershed delineation requires elevation loading capability")
+        _logger.warning("Watershed delineation requires elevation loading capability")
         return None
 
     # Load elevation grid centered on pour point
@@ -57,7 +60,7 @@ def delineate_watershed(
             cache_dir=tile_cache_dir,
         )
     except Exception as e:  # noqa: BLE001
-        print(f"❌ Could not load elevation data: {e}")
+        _logger.warning("Could not load elevation data: %s", e)
         return None
 
     dem = result["grid"]
@@ -82,7 +85,7 @@ def delineate_watershed(
                         best_dist = dist
                         center_r, center_c = r, c
         if best_dist == float("inf"):
-            print("❌ No valid elevation data in grid")
+            _logger.warning("No valid elevation data in grid")
             return None
 
     # Compute flow direction (with depression filling for better results)

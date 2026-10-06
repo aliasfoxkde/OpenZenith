@@ -736,13 +736,19 @@ class TestTraceDownstreamIntegration:
 class TestTracingWithoutElevationModule:
     """Both entry points degrade gracefully when the elevation backend is absent."""
 
-    def test_trace_downstream_reports_missing_backend(self, capsys):
+    def test_trace_downstream_reports_missing_backend(self, caplog):
         """An import failure is reported and yields None instead of raising."""
-        with patch.dict(sys.modules, {"openzenith.elevation": None}):
+        import logging
+
+        from openzenith import tracing as tracing_mod
+
+        with patch.dict(sys.modules, {"openzenith.elevation": None}), caplog.at_level(
+            logging.WARNING, logger=tracing_mod._logger.name
+        ):
             result = trace_downstream(40.0, -105.0, max_steps=5)
 
         assert result is None
-        assert "Tracing requires elevation" in capsys.readouterr().out
+        assert "Tracing requires elevation" in caplog.text
 
     def test_load_grid_at_without_backend_returns_none(self):
         """_load_grid_at returns None when load_elevation_grid is unavailable."""

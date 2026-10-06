@@ -1059,34 +1059,38 @@ class TestDelineateWatershedEdgeCases:
             "cell_size_deg": cell,
         }
 
-    def test_missing_elevation_loader_reports_and_returns_none(self, capsys):
-        """No elevation backend at all degrades to a printed error, not a raise."""
+    def test_missing_elevation_loader_reports_and_returns_none(self, caplog):
+        """No elevation backend at all degrades to a logged warning, not a raise."""
+        import logging
         import sys
         import types
         from unittest import mock
 
-        from openzenith.hydrology import delineate_watershed
+        from openzenith.hydrology import delineate_watershed, watersheds
 
         stub = types.ModuleType("openzenith.elevation")  # lacks load_elevation_grid
-        with mock.patch.dict(sys.modules, {"openzenith.elevation": stub}):
+        with mock.patch.dict(sys.modules, {"openzenith.elevation": stub}), caplog.at_level(
+            logging.WARNING, logger=watersheds._logger.name
+        ):
             result = delineate_watershed(40.0, -74.0, zoom=10)
         assert result is None
-        assert "elevation" in capsys.readouterr().out.lower()
+        assert "elevation" in caplog.text.lower()
 
-    def test_all_nodata_grid_reports_no_valid_data(self, capsys):
+    def test_all_nodata_grid_reports_no_valid_data(self, caplog):
         """A grid with no valid elevation anywhere cannot host a pour point."""
+        import logging
         import unittest.mock
 
-        from openzenith.hydrology import delineate_watershed
+        from openzenith.hydrology import delineate_watershed, watersheds
 
         dem = np.full((5, 5), np.nan, dtype=np.float32)
         with unittest.mock.patch(
             "openzenith.elevation.load_elevation_grid",
             return_value=self._grid(dem, 2, 2),
-        ):
+        ), caplog.at_level(logging.WARNING, logger=watersheds._logger.name):
             result = delineate_watershed(40.0, -74.0)
         assert result is None
-        assert "no valid elevation" in capsys.readouterr().out.lower()
+        assert "no valid elevation" in caplog.text.lower()
 
     def test_center_nodata_falls_back_to_nearest_valid_cell(self):
         """A NODATA pour point is relocated to the nearest valid cell."""

@@ -20,6 +20,35 @@
 #   * There is no secrets mechanism — this pipeline needs none (npm registry
 #     only, no tokens in repo per repo policy).
 #
+# PLATFORM HAZARD — two-runner scheduler, no affinity (diagnosed 2026-10-06):
+#   The scheduler hands jobs to ANY online runner (crates/gitforge-scheduler/
+#   src/policy.rs SimplePolicy: "most available capacity", no per-repo/per-job
+#   affinity; JobDefinition has no runner field and unknown YAML keys are
+#   silently ignored — there is no way to pin this pipeline from the repo).
+#   A second runner, fedora-docker (capacity 3), regularly takes jobs. On that
+#   host every job that EXECUTES a binary from the workspace fails:
+#     * `npm run lint` → "sh: 1: eslint: Operation not permitted" (run
+#       368fea3f, commit 963a50a) — an exec-permission denial (noexec-class
+#       mount on its /nas bind), not "file not found".
+#     * `npx tsc` → EPERM on node_modules/.bin/tsc → npx falls back to
+#       installing the fake `tsc@2.0.4` npm package ("This is not the tsc
+#       command you are looking for"; runs bde07b75/e0d2815, c783fb94/
+#       5158a61, b6eec7b4/6ce9a0d). npm ci itself always exits 0 — writes are
+#       fine, only exec is denied.
+#     * The aegis image pull fails with "dial tcp 127.0.0.1:5000: connect:
+#       connection refused" (run 03cd0db9/6ce9a0d) — the OCI registry
+#       publishes on swarmone's loopback only, so no other host can fetch
+#       openzenith-ci-aegis:1.
+#   Every observed red job sits on runner bdcc23ed (fedora-docker); every
+#   green job and the one fully-green run 46124e1d sat on 892f30f1
+#   (swarmone-docker). Until the platform either fixes that host's exec
+#   mount + registry reachability or gains runner pinning, a green run
+#   requires all jobs to land on swarmone-docker — re-trigger if a job
+#   lands on fedora-docker (job.runner_id in the run's /jobs response tells
+#   you where each job went; receipts make the failure mode unambiguous).
+#   This is a PLATFORM defect, not a pipeline defect: it equally poisons any
+#   multi-job pipeline on the shared scheduler.
+#
 # Deliberately NOT in the pipeline (documented decisions):
 #   * e2e (Playwright): the runner is this same shared NAS — load-band
 #     timeouts make browser suites a lottery here (StationAware 2026-09-30:

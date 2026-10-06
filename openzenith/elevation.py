@@ -253,7 +253,8 @@ def load_tiles(
     # Download specific zoom directories
     allow_patterns = [f"tiles/{z}/**" for z in zoom_levels]
 
-    print(f"Downloading tiles from {repo_id} (zoom {min(zoom_levels)}-{max(zoom_levels)})...")
+    zlo, zhi = min(zoom_levels), max(zoom_levels)
+    _logger.info("Downloading tiles from %s (zoom %d-%d)...", repo_id, zlo, zhi)
     local_dir = snapshot_download(
         repo_id=repo_id,
         repo_type="dataset",
@@ -262,7 +263,7 @@ def load_tiles(
     )
 
     DEFAULT_TILE_DIR = Path(local_dir)
-    print(f"Tiles cached at: {DEFAULT_TILE_DIR}")
+    _logger.info("Tiles cached at: %s", DEFAULT_TILE_DIR)
     return DEFAULT_TILE_DIR
 
 
@@ -610,8 +611,9 @@ def load_ozt2_tiles_from_hf(
     # Build allow patterns
     allow_patterns = [f"tiles/z{z}/**/*.ozt2" for z in zoom_levels]
 
-    print(f"Downloading OZT2 tiles from {repo_id} (zoom {min(zoom_levels)}-{max(zoom_levels)})...")
-    print(f"Cache directory: {cache_dir}")
+    zlo, zhi = min(zoom_levels), max(zoom_levels)
+    _logger.info("Downloading OZT2 tiles from %s (zoom %d-%d)...", repo_id, zlo, zhi)
+    _logger.info("Cache directory: %s", cache_dir)
 
     local_dir = snapshot_download(
         repo_id=repo_id,
@@ -625,7 +627,7 @@ def load_ozt2_tiles_from_hf(
     # and tiles are stored at tiles/z{z}/{x}/{y}.ozt2 inside that directory
     global DEFAULT_OZT2_DIR
     DEFAULT_OZT2_DIR = Path(local_dir) / "tiles"
-    print(f"OZT2 tiles cached at: {DEFAULT_OZT2_DIR}")
+    _logger.info("OZT2 tiles cached at: %s", DEFAULT_OZT2_DIR)
     return DEFAULT_OZT2_DIR
 
 

@@ -16,9 +16,12 @@
 > /workspace, both tenants affected, ~18:00 2026-10-05 onward — details
 > in the excellence plan's Phase 7 entry); quiet-host perf re-measure
 > (loadavg < 12 gate); Next16/OpenNext still user-gated. Done since:
-> layer-toggle crawl executed and its four defect classes fixed
-> (2026-10-05 — glyphs, dispatcher race, guarded removers, waterways
-> contract; see the excellence plan's "Map client layer fixes").
+> layer-toggle crawl executed and its defect classes fixed in two waves
+> (2026-10-05 — wave 1: glyphs, dispatcher race, guarded removers,
+> waterways contract; wave 2: all 24 remaining layer modules swept onto
+> the removers, pinned by an invariant test, and the Volcano Alerts
+> CORS defect fixed via a new `/api/volcanoes` proxy route; see the
+> excellence plan's "Map client layer fixes" entries).
 
 > **Update (2026-10-02):** the performance deep-dive
 > ([PERFORMANCE_PLAN_2026-10-02.md](PERFORMANCE_PLAN_2026-10-02.md)) is

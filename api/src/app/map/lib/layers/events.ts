@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Natural Events (NASA EONET) ─── */
 
@@ -89,13 +89,7 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
 
 /** Remove the EONET glow and point layers plus the `natural-events` source, ignoring "not found" errors. */
 export function removeNaturalEvents(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("natural-events-glow");
-  } catch {}
-  try {
-    map.removeLayer("natural-events-points");
-  } catch {}
-  try {
-    map.removeSource("natural-events");
-  } catch {}
+  removeLayerIfPresent(map, "natural-events-glow");
+  removeLayerIfPresent(map, "natural-events-points");
+  removeSourceIfPresent(map, "natural-events");
 }

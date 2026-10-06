@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Military ADS-B (ADSB Exchange) ─── */
 
@@ -107,11 +107,7 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the military-traffic circle layer and the `military` source, ignoring "not found" errors. */
 export function removeMilitary(map: maplibregl.Map): void {
   ["military-points"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("military");
-  } catch {}
+  removeSourceIfPresent(map, "military");
 }

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── GDACS Disaster Alerts ─── */
 
@@ -38,11 +38,7 @@ export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the gdacs-glow/gdacs-points layers and the `gdacs` source if a previous build of the layer left them behind. */
 export function removeGdacs(map: maplibregl.Map): void {
   ["gdacs-glow", "gdacs-points"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("gdacs");
-  } catch {}
+  removeSourceIfPresent(map, "gdacs");
 }

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus } from "./types";
 import { warnLayerError } from "@/lib/diagnostics";
 
 /**
@@ -79,10 +79,6 @@ export function addRasterLayer(map: maplibregl.Map, handle: LayerHandle, spec: R
 
 /** Remove a raster overlay's layer then source, ignoring "not found" errors. */
 export function removeRasterLayer(map: maplibregl.Map, sourceId: string, layerId?: string): void {
-  try {
-    map.removeLayer(layerId ?? `${sourceId}-raster`);
-  } catch {}
-  try {
-    map.removeSource(sourceId);
-  } catch {}
+  removeLayerIfPresent(map, layerId ?? `${sourceId}-raster`);
+  removeSourceIfPresent(map, sourceId);
 }

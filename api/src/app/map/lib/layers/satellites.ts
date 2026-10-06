@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Satellite Positions (Celestrak TLE → current lat/lon) ─── */
 
@@ -196,11 +196,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the satellite points, glow and label layers plus the `satellites` source, ignoring "not found" errors. */
 export function removeSatellites(map: maplibregl.Map): void {
   ["satellites-labels", "satellites-glow", "satellites-points"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("satellites");
-  } catch {}
+  removeSourceIfPresent(map, "satellites");
 }

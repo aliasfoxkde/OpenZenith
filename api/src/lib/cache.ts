@@ -189,4 +189,6 @@ export const CACHE_TTL = {
   WATERWAYS: 3600,
   /** Reverse geocode: 86400 seconds (rarely changes) */
   GEOCODE: 86400,
+  /** Volcano weekly-report RSS: 3600 seconds (weekly publication) */
+  VOLCANOES: 3600,
 } as const;

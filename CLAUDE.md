@@ -56,7 +56,7 @@ openzenith trace --lat 36.0 --lon -118.0
 ```
 /nas/Temp/repos/OpenZenith/
 ├── api/                          # Next.js 15 App Router (Cloudflare Pages)
-│   ├── src/app/                  # Pages and API routes (80 API routes)
+│   ├── src/app/                  # Pages and API routes (81 API routes)
 │   │   ├── api/                 # REST API endpoints (earthquakes, flights, elevation, etc.)
 │   │   ├── map/                 # 2D MapLibre map page
 │   │   ├── globe/               # 3D CesiumJS globe page

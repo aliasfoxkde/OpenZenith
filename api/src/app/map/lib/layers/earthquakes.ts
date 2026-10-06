@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Earthquakes (USGS) with time range filtering ─── */
 
@@ -197,11 +197,7 @@ export function refreshEarthquakeFilter(map: maplibregl.Map): void {
  */
 export function removeEarthquakes(map: maplibregl.Map): void {
   ["earthquakes-glow", "earthquakes-circles"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("earthquakes");
-  } catch {}
+  removeSourceIfPresent(map, "earthquakes");
 }

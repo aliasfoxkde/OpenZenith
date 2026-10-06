@@ -735,3 +735,35 @@ errors):
   pages:build green; local browser probe over NYC: bbox contract
   served 200, row reports `loaded` with real features. Guard bumped
   to parenthesized totals 105 files / 1515 tests.
+
+**Map client wave 2 (2026-10-05, prod crawl v4 follow-up).** The fixed
+crawl (v4, span-selector artifact removed) against prod verified the
+wave-1 fixes (26 layers reach loaded/empty cleanly; waterways' prod
+`error` rows are the known Overpass rate-limit transient — an in-page
+fetch seconds later returns 200 with real features) and surfaced three
+more findings, all addressed:
+- **Seven more unguarded removers** (volcanoes, gdacs, wildfires,
+  elevation-accuracy-edges...) still logged console ErrorEvents on
+  toggle-off. Swept all 24 remaining layer modules onto
+  `removeLayerIfPresent`/`removeSourceIfPresent` (60 call sites) and
+  pinned it with a source invariant test (bare
+  `map.removeLayer`/`map.removeSource` in any layer module fails the
+  suite; types.ts exempt as the guard's home).
+- **Volcano Alerts could never load (CORS).** The layer fetched
+  volcano.si.edu's weekly RSS directly from the browser; the upstream
+  sends no Access-Control-Allow-Origin. New `/api/volcanoes` edge
+  route proxies the RSS (cachedFetch 1h, silent-200-empty-body on
+  upstream failure per the waterways convention); the client parses
+  the same XML through the proxy. 4 route tests.
+- **Cloudflare Insights beacons** (`static.cloudflareinsights.com`)
+  ERR_CONNECTION_REFUSED on prod = this LAN blocking the RUM script —
+  attributed, benign, explains the earlier crawls' two mystery errors.
+- **One unreproduced pageerror** (`'container' must be a String or
+  HTMLElement`) — every plausible path (the only `new mlgl.Map` call)
+  is already guarded by a sync ref check, try/catch, and the cancelled
+  flag; no fix applied. Watch for recurrence in the next crawl.
+- **Gates.** vitest 107 files / 1517 passed + 5 skipped (coverage
+  above all four floors); tsc clean; eslint 0 errors / 1887 warnings;
+  docs-claims and OpenAPI drift gates caught the new route and forced
+  CLAUDE.md/README/spec regeneration — the route-count invariant
+  works. Guard bumped to 107 files / 1522 tests.

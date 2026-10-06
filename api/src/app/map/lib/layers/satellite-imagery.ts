@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus } from "./types";
 
 /* ─── GOES Satellite Imagery ─── */
 
@@ -63,10 +63,6 @@ export function addSatelliteImagery(map: maplibregl.Map, handle: LayerHandle): v
 
 /** Remove the satellite-imagery raster layer and its source, ignoring "not found" errors. */
 export function removeSatelliteImagery(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("satellite-imagery");
-  } catch {}
-  try {
-    map.removeSource("satellite-imagery");
-  } catch {}
+  removeLayerIfPresent(map, "satellite-imagery");
+  removeSourceIfPresent(map, "satellite-imagery");
 }

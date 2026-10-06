@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent } from "./types";
 
 /* ─── Equator Reference Line ─── */
 
@@ -40,10 +41,6 @@ export function addEquator(map: maplibregl.Map, _handle: LayerHandle): void {
 
 /** Remove the equator line layer and its `equator` GeoJSON source, ignoring "not found" errors. */
 export function removeEquator(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("equator-line");
-  } catch {}
-  try {
-    map.removeSource("equator");
-  } catch {}
+  removeLayerIfPresent(map, "equator-line");
+  removeSourceIfPresent(map, "equator");
 }

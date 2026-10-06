@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Buildings (OpenStreetMap via Overpass API) ─── */
 
@@ -166,12 +166,8 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the building fill/outline layers and the `buildings` source, and clear the memoised bounding-box key so the next add re-queries. */
 export function removeBuildings(map: maplibregl.Map): void {
   ["buildings-outline", "buildings-fill"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("buildings");
-  } catch {}
+  removeSourceIfPresent(map, "buildings");
   currentBounds = null;
 }

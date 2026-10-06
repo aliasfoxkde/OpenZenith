@@ -169,15 +169,17 @@ describe("removeRasterLayer", () => {
       return map as unknown as maplibregl.Map;
     };
 
-    // Nothing added yet: both removals are "not found" and must not throw.
+    // Nothing added yet: both removals are skipped (guarded — a bare remove
+    // would log a console ErrorEvent) and must not throw.
     const noopRemove = () => {
       removeRasterLayer(map as unknown as maplibregl.Map, "chlorophyll");
     };
     expect(noopRemove).not.toThrow();
-    expect(order).toEqual(["layer:chlorophyll-raster", "source:chlorophyll"]);
+    expect(order).toEqual([]);
 
     addRasterLayer(map as unknown as maplibregl.Map, createLayerHandle(), baseSpec);
     removeRasterLayer(map as unknown as maplibregl.Map, "chlorophyll");
+    expect(order).toEqual(["layer:chlorophyll-raster", "source:chlorophyll"]);
     expect(map.sources.size).toBe(0);
     expect(map.layers.size).toBe(0);
   });

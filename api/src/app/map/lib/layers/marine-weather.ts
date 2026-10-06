@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Marine Weather (Wave Height via Open-Meteo Marine API) ─── */
 
@@ -234,11 +234,7 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
 /** Remove the marine-weather point and label layers plus the `marineWeather` source, ignoring "not found" errors. */
 export function removeMarineWeather(map: maplibregl.Map): void {
   ["marineWeather-labels", "marineWeather-points"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("marineWeather");
-  } catch {}
+  removeSourceIfPresent(map, "marineWeather");
 }

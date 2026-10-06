@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError, domEventCause } from "./types";
+import { domEventCause, removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Vessels (AIS via AISstream.io) ─── */
 
@@ -227,13 +227,9 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the vessel point and glow layers plus the `vessels` source, and close the AIS WebSocket. */
 export function removeVessels(map: maplibregl.Map): void {
   ["vessels-points", "vessels-glow"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("vessels");
-  } catch {}
+  removeSourceIfPresent(map, "vessels");
   if (ws) {
     ws.close();
     ws = null;

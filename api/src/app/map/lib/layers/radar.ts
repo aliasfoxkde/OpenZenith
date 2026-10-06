@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Weather Radar (RainViewer) ─── */
 
@@ -66,10 +66,6 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
 
 /** Remove the radar raster layer and the `radar` source, ignoring "not found" errors. */
 export function removeRadar(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("radar-layer");
-  } catch {}
-  try {
-    map.removeSource("radar");
-  } catch {}
+  removeLayerIfPresent(map, "radar-layer");
+  removeSourceIfPresent(map, "radar");
 }

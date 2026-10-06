@@ -3247,6 +3247,22 @@
         ]
       }
     },
+    "/api/volcanoes": {
+      "get": {
+        "summary": "Query Volcanoes",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "400": {
+            "description": "Invalid parameters"
+          }
+        },
+        "tags": [
+          "Data"
+        ]
+      }
+    },
     "/api/watershed": {
       "post": {
         "summary": "Query Watershed",
@@ -3444,6 +3460,7 @@
       "/api/tiles/{tileMatrixSetId}",
       "/api/trace",
       "/api/twi",
+      "/api/volcanoes",
       "/api/watershed"
     ]
   },

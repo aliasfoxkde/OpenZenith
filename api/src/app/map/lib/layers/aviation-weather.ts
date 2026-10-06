@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Aviation Weather (SIGMETs / AIRMETs) ─── */
 
@@ -191,13 +191,9 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
 /** Remove all five aviation layers (SIGMET/AIRMET fills and outlines plus labels) and the `aviationWeather` source, ignoring "not found" errors. */
 export function removeAviationWeather(map: maplibregl.Map): void {
   ["aviationWeather-labels", "airmet-outline", "airmet-fill", "sigmet-outline", "sigmet-fill"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("aviationWeather");
-  } catch {}
+  removeSourceIfPresent(map, "aviationWeather");
 }
 
 /* ─── Helpers ─── */

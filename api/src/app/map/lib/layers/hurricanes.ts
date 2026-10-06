@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Hurricane Tracks ─── */
 
@@ -203,13 +203,9 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
 /** Remove all four hurricane layers (labels, glow, points, tracks) and the `hurricanes` source, ignoring "not found" errors. */
 export function removeHurricaneTracks(map: maplibregl.Map): void {
   ["hurricanes-labels", "hurricanes-glow", "hurricanes-points", "hurricane-tracks"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("hurricanes");
-  } catch {}
+  removeSourceIfPresent(map, "hurricanes");
 }
 
 /* ─── Hurricane Animation ─── */

@@ -1,3 +1,4 @@
+import { removeLayerIfPresent, removeSourceIfPresent } from "./types";
 /* ─── Annotation layer — user-drawn points, lines, polygons ─── */
 
 const ANNOTATIONS_KEY = "openzenith-annotations";
@@ -65,13 +66,9 @@ export function saveAnnotations(annotations: Annotation[]): void {
 export function renderAnnotations(map: maplibregl.Map, annotations: Annotation[]): void {
   // Remove existing layers/sources
   ["annotations-fill", "annotations-line", "annotations-point", "annotations-circle"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("annotations");
-  } catch {}
+  removeSourceIfPresent(map, "annotations");
 
   if (annotations.length === 0) return;
 
@@ -169,13 +166,9 @@ export function renderAnnotations(map: maplibregl.Map, annotations: Annotation[]
 /** Remove all four annotation layers and the `annotations` source, ignoring "not found" errors; localStorage is left untouched. */
 export function removeAnnotations(map: maplibregl.Map): void {
   ["annotations-point", "annotations-circle", "annotations-line", "annotations-fill"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("annotations");
-  } catch {}
+  removeSourceIfPresent(map, "annotations");
 }
 
 export { randomColor, uid };

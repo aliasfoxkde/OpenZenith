@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Space Weather (NOAA Aurora Forecast) ─── */
 
@@ -97,11 +97,7 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
 /** Remove the aurora point layer and the `spaceWeather` source, ignoring "not found" errors. */
 export function removeSpaceWeather(map: maplibregl.Map): void {
   ["spaceWeather-points"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("spaceWeather");
-  } catch {}
+  removeSourceIfPresent(map, "spaceWeather");
 }

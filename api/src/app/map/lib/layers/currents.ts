@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent } from "./types";
 
 /* ─── Ocean Currents — Windy.com-style Flow Particle Renderer ─── */
 
@@ -665,10 +666,6 @@ export function removeOceanCurrents(map: maplibregl.Map): void {
     } catch {}
   }
 
-  try {
-    map.removeLayer("ocean-currents-lines");
-  } catch {}
-  try {
-    map.removeSource("ocean-currents-paths");
-  } catch {}
+  removeLayerIfPresent(map, "ocean-currents-lines");
+  removeSourceIfPresent(map, "ocean-currents-paths");
 }

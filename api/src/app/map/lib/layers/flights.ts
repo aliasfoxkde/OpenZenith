@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Flights (ADS-B) ─── */
 
@@ -139,13 +139,7 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
 
 /** Remove the flight glow and circle layers plus the `flights` source, ignoring "not found" errors. */
 export function removeFlights(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("flights-glow");
-  } catch {}
-  try {
-    map.removeLayer("flights-circles");
-  } catch {}
-  try {
-    map.removeSource("flights");
-  } catch {}
+  removeLayerIfPresent(map, "flights-glow");
+  removeLayerIfPresent(map, "flights-circles");
+  removeSourceIfPresent(map, "flights");
 }

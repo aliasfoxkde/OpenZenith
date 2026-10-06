@@ -140,7 +140,7 @@ openzenith validate
 
 ## REST API
 
-Base URL: https://openzenith.cyopsys.com/api/ — 80 API routes under `api/src/app/api/`.
+Base URL: https://openzenith.cyopsys.com/api/ — 81 API routes under `api/src/app/api/`.
 
 ```
 GET /elevation?lat=40.7&lon=-74.0
@@ -174,7 +174,7 @@ Full API docs: https://openzenith.cyopsys.com/api/openapi.json
 ## Architecture
 
 ```
-Python SDK (local compute) ←→ REST API (cloud, 80 API routes)
+Python SDK (local compute) ←→ REST API (cloud, 81 API routes)
                                      ↓
                               Cloudflare Pages
                                      ↓

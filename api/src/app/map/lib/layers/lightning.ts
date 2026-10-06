@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError, domEventCause } from "./types";
+import { domEventCause, removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Lightning (Blitzortung.org WebSocket) ─── */
 
@@ -114,13 +114,9 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the lightning layers and source, close the WebSocket, and clear the accumulated strike buffer. */
 export function removeLightning(map: maplibregl.Map): void {
   ["lightning-glow", "lightning-points"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("lightning");
-  } catch {}
+  removeSourceIfPresent(map, "lightning");
   if (ws) {
     ws.close();
     ws = null;

@@ -1,4 +1,5 @@
 import type { LayerHandle } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent } from "./types";
 
 /* ─── Elevation Accuracy Heatmap ─── */
 
@@ -95,25 +96,11 @@ export function addElevationAccuracy(map: maplibregl.Map, _handle: LayerHandle):
 
 /** Remove the accuracy raster, zone-outline and coastline layers and their three sources (plus the legacy elevation-accuracy-edges id), ignoring "not found" errors. */
 export function removeElevationAccuracy(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("accuracy-zones-line");
-  } catch {}
-  try {
-    map.removeSource("accuracy-zones");
-  } catch {}
-  try {
-    map.removeLayer("accuracy-coastline-line");
-  } catch {}
-  try {
-    map.removeSource("accuracy-coastline");
-  } catch {}
-  try {
-    map.removeLayer("elevation-accuracy-edges");
-  } catch {}
-  try {
-    map.removeLayer("elevation-accuracy-layer");
-  } catch {}
-  try {
-    map.removeSource("elevation-accuracy");
-  } catch {}
+  removeLayerIfPresent(map, "accuracy-zones-line");
+  removeSourceIfPresent(map, "accuracy-zones");
+  removeLayerIfPresent(map, "accuracy-coastline-line");
+  removeSourceIfPresent(map, "accuracy-coastline");
+  removeLayerIfPresent(map, "elevation-accuracy-edges");
+  removeLayerIfPresent(map, "elevation-accuracy-layer");
+  removeSourceIfPresent(map, "elevation-accuracy");
 }

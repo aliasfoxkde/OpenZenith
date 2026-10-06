@@ -616,8 +616,12 @@ in memory as a platform blocker. The pipeline def itself is proven:
   green against prod (22 passed + 2 flaky-retried, 0 failed); the
   deployed bundle needed no redeploy.
 
-**Remaining (task #174):** quiet-host perf re-measure (loadavg < 12
-gate). **GitForge CI green run CLOSED 2026-10-06**: run 46124e1d for
+**Perf re-measure (2026-10-06, quiet host, loadavg 9.98):** budget
+gate PASS on all 12 checks with headroom won by this session's fixes
+(totalJs −1,407 B, map −448 B, globe −464 B vs the pre-wave baseline);
+baseline re-ratcheted to the improved numbers. **Task #174 closed** —
+typed abort slice, toggle crawl, and the re-measure are all done.
+**GitForge CI green run CLOSED 2026-10-06**: run 46124e1d for
 commit 957588f — all 7 jobs succeeded; the 2026-10-05 runner-workspace
 fault was episodic. Diagnostic lesson recorded: the
 `/api/pipeline-runs?pipeline_id=` filter is not honored, so run

@@ -1,9 +1,9 @@
 {
-  "totalJs": 2036711,
+  "totalJs": 2035304,
   "polyfills": 112594,
   "landing": 61400,
-  "map": 62216,
-  "globe": 429578,
+  "map": 61768,
+  "globe": 429114,
   "explore": 54800,
   "studio": 39198,
   "checks": {

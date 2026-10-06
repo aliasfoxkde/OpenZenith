@@ -24,6 +24,60 @@ export function basemapRasterSource(def: BasemapDef) {
 };
 
 /**
+ * Glyph (font) source for symbol layers — every text-bearing layer
+ * (`text-field`: air-quality labels, event labels, …) fails MapLibre's style
+ * validation without one, so this must be present in BOTH themes. It was
+ * dark-only until 2026-10-04, which made Air Quality labels fail to add
+ * under any light basemap ("use of text-field requires a style glyphs
+ * property"). demotiles.maplibre.org is MapLibre's public demo font server —
+ * the same dependency dark mode already carried; self-hosting the glyph
+ * PBFs would remove the third-party dependency and is tracked separately.
+ */
+export const MAP_GLYPHS_URL = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
+
+/**
+ * Root style for the 2D map: basemap raster + (dark basemaps only) the
+ * natural-earth land-contrast fill, plus the glyph source symbol layers
+ * need. Shared by map init and basemap switching so the two style builders
+ * cannot drift — they previously duplicated this object and only one of
+ * them grew a glyphs property.
+ */
+export function buildMapStyle(def: BasemapDef) {
+  const isDark = def.isDark;
+  return {
+    version: 8 as const,
+    sources: {
+      basemap: basemapRasterSource(def),
+      ...(isDark
+        ? {
+            land: {
+              type: "geojson" as const,
+              data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
+            },
+          }
+        : {}),
+    },
+    layers: [
+      { id: "basemap", type: "raster" as const, source: "basemap" },
+      ...(isDark
+        ? [
+            {
+              id: "land-contrast",
+              type: "fill" as const,
+              source: "land",
+              paint: {
+                "fill-color": "#1e3040",
+                "fill-opacity": 0.65,
+              },
+            },
+          ]
+        : []),
+    ],
+    glyphs: MAP_GLYPHS_URL,
+  };
+}
+
+/**
  * Add the shared `elevation` raster-DEM source (Terrarium-encoded 256px
  * tiles from `/api/dem-tile/{z}/{x}/{y}`, demTileSize 512, maxzoom 10) that
  * the hillshade layer and 3D terrain both consume. No-op when the source

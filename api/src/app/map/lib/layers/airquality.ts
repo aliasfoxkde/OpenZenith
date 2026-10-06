@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Air Quality ─── */
 
@@ -110,15 +110,9 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
   ); // 5 min
 }
 
-/** Remove the AQI label and circle layers plus the `air-quality` source, ignoring "not found" errors. */
+/** Remove the AQI label and circle layers plus the `air-quality` source. */
 export function removeAirQuality(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("air-quality-label");
-  } catch {}
-  try {
-    map.removeLayer("air-quality-circle");
-  } catch {}
-  try {
-    map.removeSource("air-quality");
-  } catch {}
+  removeLayerIfPresent(map, "air-quality-label");
+  removeLayerIfPresent(map, "air-quality-circle");
+  removeSourceIfPresent(map, "air-quality");
 }

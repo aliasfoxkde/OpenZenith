@@ -161,6 +161,38 @@ const LAYER_LOADERS: Partial<Record<string, () => Promise<LayerModule>>> = {
 const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cleanup?: () => void }>();
 
 /**
+ * Per-layer lifecycle serialization. add/remove both start with a dynamic
+ * import (and the module's add() itself defers most mutations behind a data
+ * fetch), so a quick toggle-off during that window previously ran remove
+ * BEFORE the pending add's mutations — "Cannot remove non-existing layer"
+ * noise at best, a ghost layer that outlived its switch at worst. Ops now
+ * queue per layer id in call order, and a queued add is dropped entirely if
+ * a remove for the same id is scheduled ahead of it.
+ */
+const layerOps = new Map<string, Promise<void>>();
+const lastOpToken = new Map<string, object>();
+
+/** True once a remove for `layerId` has been scheduled after `token`. */
+const isSuperseded = (layerId: string, token: object): boolean => lastOpToken.get(layerId) !== token;
+
+function enqueueLayerOp(layerId: string, op: () => Promise<void>): Promise<void> {
+  const token = {};
+  lastOpToken.set(layerId, token);
+  const run = layerOps.get(layerId) ?? Promise.resolve();
+  const next = run
+    .catch(() => {})
+    .then(() => (isSuperseded(layerId, token) ? undefined : op()))
+    .finally(() => {
+      if (lastOpToken.get(layerId) === token) {
+        layerOps.delete(layerId);
+        lastOpToken.delete(layerId);
+      }
+    });
+  layerOps.set(layerId, next);
+  return next;
+}
+
+/**
  * Add a data layer by registry id, resolving it through the lazy loader
  * table (dynamic import, so each module ships in its own chunk). Before the
  * module's add() runs, any previous registration of the same id is retired —
@@ -173,27 +205,29 @@ const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cl
 export async function addDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): Promise<void> {
   const load = LAYER_LOADERS[layerId];
   if (!load) return;
-  const mod = await load();
-  // Re-add over a live previous registration (e.g. tab-hide resume, which
-  // cleared timers but not cleanups): retire the old cleanup first so its
-  // listeners do not accumulate per hide/show cycle.
-  const existing = layerResources.get(layerId);
-  if (existing?.cleanup) existing.cleanup();
-  // Swap in fresh slots so whatever this add registers is attributable to
-  // this layer, then fold the ids back into the shared handle.intervals —
-  // page-level tab-hide and unmount pause everything through that array.
-  const prevIntervals = handle.intervals;
-  const prevCleanup = handle.cleanup;
-  handle.intervals = [];
-  handle.cleanup = undefined;
-  try {
-    mod.add(map, handle);
-  } finally {
-    const owned = { intervals: handle.intervals, cleanup: handle.cleanup };
-    handle.intervals = [...prevIntervals, ...owned.intervals];
-    handle.cleanup = prevCleanup;
-    layerResources.set(layerId, owned);
-  }
+  await enqueueLayerOp(layerId, async () => {
+    const mod = await load();
+    // Re-add over a live previous registration (e.g. tab-hide resume, which
+    // cleared timers but not cleanups): retire the old cleanup first so its
+    // listeners do not accumulate per hide/show cycle.
+    const existing = layerResources.get(layerId);
+    if (existing?.cleanup) existing.cleanup();
+    // Swap in fresh slots so whatever this add registers is attributable to
+    // this layer, then fold the ids back into the shared handle.intervals —
+    // page-level tab-hide and unmount pause everything through that array.
+    const prevIntervals = handle.intervals;
+    const prevCleanup = handle.cleanup;
+    handle.intervals = [];
+    handle.cleanup = undefined;
+    try {
+      mod.add(map, handle);
+    } finally {
+      const owned = { intervals: handle.intervals, cleanup: handle.cleanup };
+      handle.intervals = [...prevIntervals, ...owned.intervals];
+      handle.cleanup = prevCleanup;
+      layerResources.set(layerId, owned);
+    }
+  });
 }
 
 /**
@@ -204,20 +238,21 @@ export async function addDataLayer(map: maplibregl.Map, handle: LayerHandle, lay
  * which tolerates missing sources.
  */
 export async function removeDataLayer(map: maplibregl.Map, handle: LayerHandle, layerId: string): Promise<void> {
-  const owned = layerResources.get(layerId);
-  layerResources.delete(layerId);
-  if (owned) {
-    owned.intervals.forEach(clearInterval);
-    owned.cleanup?.();
-    // Drop the dead ids from the shared array (tab-hide iterates it).
-    const dead = new Set(owned.intervals);
-    handle.intervals = handle.intervals.filter((id) => !dead.has(id));
-  }
   const load = LAYER_LOADERS[layerId];
-  if (load) {
+  if (!load) return;
+  await enqueueLayerOp(layerId, async () => {
+    const owned = layerResources.get(layerId);
+    layerResources.delete(layerId);
+    if (owned) {
+      owned.intervals.forEach(clearInterval);
+      owned.cleanup?.();
+      // Drop the dead ids from the shared array (tab-hide iterates it).
+      const dead = new Set(owned.intervals);
+      handle.intervals = handle.intervals.filter((id) => !dead.has(id));
+    }
     const mod = await load();
     mod.remove(map);
-  }
+  });
 }
 
 /** Layer IDs that are available in MapLibre 2D context. */

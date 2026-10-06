@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { latLonToTile } from "./types";
+import { latLonToTile, removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Topo Contours ─── */
 
@@ -16,8 +16,10 @@ type ContourTile = { features?: GeoJSON.Feature[] };
  * pass, and skipped entirely below zoom 7 where DEM assembly is unreliable.
  * Features carry a `type` property split across two line layers: thin grey
  * `minor` contours and thicker, brighter `major` ones. Registers moveend/
- * zoomend listeners on the map and clears them through handle.cleanup; no
- * status is reported to the handle.
+ * zoomend listeners on the map and clears them through handle.cleanup. Each
+ * tile pass reports status on the handle: "error" when every tile in the
+ * pass failed, otherwise "loaded"/"empty" with the aggregated feature count;
+ * below zoom 7 (where contours are cleared) it reports "empty".
  */
 export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("contours")) return;
@@ -63,6 +65,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
         if (map.getSource("contours")) {
           map.getSource("contours")?.setData({ type: "FeatureCollection", features: [] });
         }
+        setStatus(handle, "contours", "empty", 0);
         return;
       }
 
@@ -75,6 +78,8 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
       // Fetch contours for all visible tiles
       const allFeatures: GeoJSON.Feature[] = [];
       const promises: Promise<void>[] = [];
+      let failed = 0;
+      let lastFailure: unknown = null;
 
       const nw = latLonToTile(nwLat, nwLon, zoom);
       const se = latLonToTile(swLat, seLon, zoom);
@@ -87,13 +92,22 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
 
           promises.push(
             fetch(`/api/contours/${zoom}/${tx}/${ty}`)
-              .then((r) => (r.ok ? (r.json() as Promise<ContourTile | null>) : null))
+              .then((r) => {
+                if (!r.ok) {
+                  failed += 1;
+                  lastFailure = new Error(`tile ${zoom}/${tx}/${ty} answered ${r.status}`);
+                }
+                return r.ok ? (r.json() as Promise<ContourTile | null>) : null;
+              })
               .then((data) => {
                 if (data?.features?.length) {
                   allFeatures.push(...data.features);
                 }
               })
-              .catch(() => {}),
+              .catch((err: unknown) => {
+                failed += 1;
+                lastFailure = err;
+              }),
           );
         }
       }
@@ -102,6 +116,16 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
 
       if (map.getSource("contours") && allFeatures.length > 0) {
         map.getSource("contours")?.setData({ type: "FeatureCollection", features: allFeatures });
+      }
+      // Only the passes that actually fetched report: an over-cap pass keeps
+      // the previous data (and status) on screen untouched.
+      if (promises.length > 0) {
+        if (failed === promises.length && failed > 0) {
+          warnLayerError("contours", lastFailure ?? new Error("all contour tiles failed"));
+          setStatus(handle, "contours", "error");
+        } else {
+          setStatus(handle, "contours", allFeatures.length ? "loaded" : "empty", allFeatures.length);
+        }
       }
     } catch {
       /* skip */
@@ -128,13 +152,7 @@ export function addContours(map: maplibregl.Map, handle: LayerHandle): void {
 
 /** Remove both contour line layers and the `contours` source, ignoring "not found" errors. */
 export function removeContours(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("contours-major");
-  } catch {}
-  try {
-    map.removeLayer("contours-minor");
-  } catch {}
-  try {
-    map.removeSource("contours");
-  } catch {}
+  removeLayerIfPresent(map, "contours-major");
+  removeLayerIfPresent(map, "contours-minor");
+  removeSourceIfPresent(map, "contours");
 }

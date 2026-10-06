@@ -616,10 +616,10 @@ in memory as a platform blocker. The pipeline def itself is proven:
   green against prod (22 passed + 2 flaky-retried, 0 failed); the
   deployed bundle needed no redeploy.
 
-**Remaining (task #174, next session):** quiet-host perf re-measure
-(loadavg < 12 gate) + live layer-toggle crawl now that the abort slice
-is complete; GitForge CI green run when the platform's workspace layer
-is restored.
+**Remaining (task #174):** quiet-host perf re-measure (loadavg < 12
+gate); GitForge CI green run when the platform's workspace layer is
+restored. The live layer-toggle crawl is done — findings fixed
+2026-10-05 (see "Map client layer fixes" below).
 
 **E2E validation fix (2026-10-05, commit 8b3e3f3, deployed + prod-verified).**
 The prod-readiness sweep found D1: `/api/elevation` returned wrong values
@@ -683,3 +683,55 @@ cba27b8c, prod-verified).**
   answers 24h keyed to 7-decimal coords and wrangler persists Cache API
   state across restarts (`.wrangler/state` at repo root AND api/) —
   every verification probe needs never-probed coordinates.
+
+
+**Map client layer fixes (2026-10-05, task #174 toggle crawl follow-up).**
+The live layer-toggle crawl surfaced four defect classes; all fixed and
+verified locally (browser-level crawl v3: 62 toggles, zero console
+errors):
+- **Light-theme symbol layers dead (glyphs).** The map style literal
+  existed twice (init + `switchBasemap`) and only one copy carried
+  `glyphs` — every `text-field` symbol layer failed MapLibre style
+  validation under light basemaps. Extracted `buildMapStyle()` in
+  `map-setup.ts` (single source, unconditional `MAP_GLYPHS_URL`;
+  demotiles.maplibre.org is a dependency dark mode already carried —
+  self-hosting tracked separately) and pinned it with tests for every
+  registry basemap.
+- **Layer dispatcher race.** `addDataLayer`/`removeDataLayer` begin
+  with dynamic imports while modules defer mutations behind fetches;
+  unserialized toggles inverted order (remove-before-add noise,
+  ghost-add after removal). Fix: per-layer latest-wins op queue —
+  superseded ops are dropped entirely, ops already started run to
+  completion (documented limitation). 9 unit tests cover
+  add→remove, remove→add, rapid sequences, remove-never-added.
+- **Unguarded removers.** MapLibre v5 logs a console ErrorEvent for
+  missing layer/source even inside try/catch; `removeLayerIfPresent`/
+  `removeSourceIfPresent` helpers now guard every remover
+  (hillshade legacy id, warnings, airquality, waterways, contours).
+- **Waterways layer could never draw (three stacked defects).**
+  (1) The client queried `?lat=&lon=&radius=50` but the route only
+  accepts `bbox` — every fetch 400'd and the non-features body was
+  dropped silently. Client now sends `bbox` via `waterwaysBbox()`
+  (50 km, cos-widened longitude, pole-guarded); the OGC collections
+  route's waterways entry carried the same dead URL and now sends a
+  bbox. (2) The route's default `type=all` built an Overpass
+  INTERSECTION (`["waterway"~...]["natural"="water"]` — near-zero
+  elements carry both tags), so even a correct bbox returned empty
+  everywhere; "all" is now a true union of the rivers+lakes filters,
+  byte-validated against live Overpass. (3) Success/error status was
+  never reported (error only on thrown fetch) — waterways now reports
+  loaded/empty with count, error on non-ok and on error bodies;
+  contours got the same per-pass reporting (error only when every
+  tile in a pass fails, warnLayerError per the error-diagnostics
+  invariant — which caught the first draft missing it).
+- **Crawl-harness lesson.** The crawl's "zero status spans" was a v3
+  selector artifact: `.first().evaluate()` on a not-yet-rendered span
+  throws → every row recorded "no-status-span". A single-layer probe
+  (Sea Surface Temp) showed `status: loaded` at t+5s — the raster
+  factory had been reporting all along. Verify the harness before
+  believing a sweep-wide negative.
+- **Gates.** vitest 105 files / 1510 passed + 5 skipped (coverage
+  above all four floors); tsc clean; eslint 0 errors / 1887 warnings;
+  pages:build green; local browser probe over NYC: bbox contract
+  served 200, row reports `loaded` with real features. Guard bumped
+  to parenthesized totals 105 files / 1515 tests.

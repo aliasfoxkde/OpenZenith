@@ -151,19 +151,19 @@ jobs:
           # exit should mean a complete run — assert it. Assert the
           # PARENTHESIZED totals (environment-independent): with the local
           # data/ mirror present the ozt2-real-tiles cross-check runs
-          # (2026-10-04, task #194 D2: 102 files / 1494 passed + 5 skipped),
-          # on CI runners it skips (101+1 files / 1481+18 tests) — totals
+          # (2026-10-05 map-layer fixes: 105 files / 1510 passed + 5 skipped),
+          # on CI runners it skips (104+1 files / 1497+18 tests) — totals
           # equal either way. Update BOTH numbers when the suite grows
           # (fail-loud beats fail-silent).
           clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
-          [ "${files:-0}" -eq 102 ] || {
-            echo "INCOMPLETE: passing run covered ${files:-?}/102 files"; exit 1;
+          [ "${files:-0}" -eq 105 ] || {
+            echo "INCOMPLETE: passing run covered ${files:-?}/105 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1499 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1499 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1515 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1515 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

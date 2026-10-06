@@ -40,7 +40,9 @@ const COLLECTION_SOURCES: Partial<Record<string, { url: string; cacheTtl: number
     cacheTtl: 120,
   },
   waterways: {
-    url: "/api/waterways?lat=40.7&lon=-74.0&radius=50",
+    // bbox form: /api/waterways only accepts bbox (lat/lon/radius 400s) —
+    // ~50km around New York, matching the original intent of this entry.
+    url: "/api/waterways?bbox=-74.5926,40.2508,-73.4074,41.1492",
     cacheTtl: 86400,
   },
 };

@@ -1,5 +1,5 @@
 import type { LayerHandle } from "./types";
-import { setStatus, warnLayerError } from "./types";
+import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError } from "./types";
 
 /* ─── Weather Warnings ─── */
 
@@ -99,11 +99,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
 /** Remove the warnings outline and fill layers plus the `warnings` source, ignoring "not found" errors. */
 export function removeWarnings(map: maplibregl.Map): void {
   ["warnings-outline", "warnings-fill"].forEach((id) => {
-    try {
-      map.removeLayer(id);
-    } catch {}
+    removeLayerIfPresent(map, id);
   });
-  try {
-    map.removeSource("warnings");
-  } catch {}
+  removeSourceIfPresent(map, "warnings");
 }

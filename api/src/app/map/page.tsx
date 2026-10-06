@@ -63,7 +63,7 @@ import {
   addPinMarker,
   addBoundaryLayers,
   addLabelLayer,
-  basemapRasterSource,
+  buildMapStyle,
   disable3DTerrain,
   enable3DTerrain,
   removeBoundaryLayers,
@@ -726,41 +726,9 @@ export default function MapPage() {
 
         const basemap = getBasemap(mapState.basemap);
 
-        const isDark = basemap.isDark;
-
         const map = new mlgl.Map({
           container: containerRef.current,
-          style: {
-            version: 8,
-            sources: {
-              basemap: basemapRasterSource(basemap),
-              ...(isDark
-                ? {
-                    land: {
-                      type: "geojson",
-                      data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
-                    },
-                  }
-                : {}),
-            },
-            layers: [
-              { id: "basemap", type: "raster", source: "basemap" },
-              ...(isDark
-                ? [
-                    {
-                      id: "land-contrast",
-                      type: "fill" as const,
-                      source: "land",
-                      paint: {
-                        "fill-color": "#1e3040",
-                        "fill-opacity": 0.65,
-                      },
-                    },
-                  ]
-                : []),
-            ],
-            ...(isDark ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" } : {}),
-          },
+          style: buildMapStyle(basemap),
           center: mapState.center,
           zoom: mapState.zoom,
           bearing: mapState.bearing || 0,
@@ -972,39 +940,7 @@ export default function MapPage() {
       if (!map || !mlgl) return;
       const bm = getBasemap(key);
 
-      const isDark = bm.isDark;
-
-      map.setStyle({
-        version: 8,
-        sources: {
-          basemap: basemapRasterSource(bm),
-          ...(isDark
-            ? {
-                land: {
-                  type: "geojson",
-                  data: `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson`,
-                },
-              }
-            : {}),
-        },
-        layers: [
-          { id: "basemap", type: "raster", source: "basemap" },
-          ...(isDark
-            ? [
-                {
-                  id: "land-contrast",
-                  type: "fill" as const,
-                  source: "land",
-                  paint: {
-                    "fill-color": "#1e3040",
-                    "fill-opacity": 0.65,
-                  },
-                },
-              ]
-            : []),
-        ],
-        ...(isDark ? { glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf" } : {}),
-      });
+      map.setStyle(buildMapStyle(bm));
 
       map.once("styledata", () => {
         addElevationSource(map, mlgl);

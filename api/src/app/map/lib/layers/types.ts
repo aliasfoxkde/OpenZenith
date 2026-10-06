@@ -42,6 +42,20 @@ export function setStatus(handle: LayerHandle, layerId: string, status: LayerSta
   handle.onStatusChange?.(layerId, status, count);
 }
 
+/**
+ * Tear-down helpers for layer removers. MapLibre fires a console-visible
+ * ErrorEvent for "cannot remove non-existing layer/source" even when the
+ * call sits in a try/catch, so removers check existence first — an add that
+ * early-returned or failed validation must not log noise on toggle-off.
+ */
+export function removeLayerIfPresent(map: maplibregl.Map, layerId: string): void {
+  if (map.getLayer(layerId)) map.removeLayer(layerId);
+}
+
+export function removeSourceIfPresent(map: maplibregl.Map, sourceId: string): void {
+  if (map.getSource(sourceId)) map.removeSource(sourceId);
+}
+
 // Lives in the shared lib so the globe's data fetchers use the same helpers.
 export { warnLayerError, domEventCause } from "@/lib/diagnostics";
 

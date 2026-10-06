@@ -157,10 +157,15 @@ describe("Waterways endpoint", () => {
     expect(query).not.toContain("waterway");
   });
 
-  it("combines both filters for the default type=all", async () => {
+  it("unions both filters for the default type=all (intersection matches nothing in OSM)", async () => {
     const { query } = await captureOverpassUrl("&type=all");
-    expect(query).toContain('["waterway"~"river|stream|canal"]["natural"="water"]');
-    expect(query).toContain("(40.6,-74.1,40.8,-73.9)");
+    // Rivers clause: waterway tag alone, no natural=water requirement.
+    expect(query).toContain('way["waterway"~"river|stream|canal"](40.6,-74.1,40.8,-73.9)');
+    // Lakes clause: natural=water alone, no waterway requirement.
+    expect(query).toContain('way["natural"="water"]["water"!="river"](40.6,-74.1,40.8,-73.9)');
+    // Union, not intersection: the two tag constraints never sit on the same
+    // element selector.
+    expect(query).not.toContain('["waterway"~"river|stream|canal"]["natural"="water"]');
   });
 
   it("requests geometry from Overpass — plain out body emits none", async () => {

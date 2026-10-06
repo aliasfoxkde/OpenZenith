@@ -1,3 +1,4 @@
+import { removeLayerIfPresent } from "./types";
 import type { LayerHandle } from "./types";
 
 /* ─── Hillshade (terrain overlay) ─── */
@@ -29,10 +30,8 @@ export function addHillshade(map: maplibregl.Map, _handle: LayerHandle): void {
 
 /** Remove the hillshade-base layer (and the legacy hillshade-detail id), leaving the `elevation` source in place for 3D terrain. */
 export function removeHillshade(map: maplibregl.Map): void {
-  try {
-    map.removeLayer("hillshade-base");
-  } catch {}
-  try {
-    map.removeLayer("hillshade-detail");
-  } catch {}
+  removeLayerIfPresent(map, "hillshade-base");
+  // Legacy id from a pre-2026-10 bundle; checked, not try/removed, because
+  // MapLibre logs an ErrorEvent (not an exception) for missing layers.
+  removeLayerIfPresent(map, "hillshade-detail");
 }

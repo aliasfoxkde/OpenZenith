@@ -45,21 +45,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Build Overpass QL query based on type
-  let filter = "";
-  if (type === "rivers") {
-    filter = '["waterway"~"river|stream|canal"]';
-  } else if (type === "lakes") {
-    filter = '["natural"="water"]["water"!="river"]';
-  } else {
-    filter = '["waterway"~"river|stream|canal"]["natural"="water"]';
-  }
+  // Build Overpass QL query based on type. "all" is a UNION of the rivers and
+  // lakes filters: the previous single filter
+  // (["waterway"~...]["natural"="water"]) demanded both tags on one element —
+  // a combination almost nothing in OSM carries — so the documented default
+  // returned an empty FeatureCollection everywhere.
+  const bboxClause = `(${minLat},${minLon},${maxLat},${maxLon})`;
+  const RIVERS = '["waterway"~"river|stream|canal"]';
+  const LAKES = '["natural"="water"]["water"!="river"]';
+  const filters = type === "rivers" ? [RIVERS] : type === "lakes" ? [LAKES] : [RIVERS, LAKES];
+  const union = filters
+    .map((f) => `way${f}${bboxClause};\n  relation${f}${bboxClause};`)
+    .join("\n  ");
 
   const query = `
     [out:json][timeout:25];
     (
-      way${filter}(${minLat},${minLon},${maxLat},${maxLon});
-      relation${filter}(${minLat},${minLon},${maxLat},${maxLon});
+      ${union}
     );
     out body geom;
     >;

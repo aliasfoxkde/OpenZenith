@@ -1616,3 +1616,23 @@ committed baseline) the same commit. The same commit also made the
 fingerprints repo-relative (checkout-path independent — proven by a green
 gate run from a second worktree and from inside the CI image with the
 workspace mounted at /workspace), which is what makes the CI job possible.
+
+### CI-job addendum (2026-10-06, same day): the gate tripped in CI on itself
+
+The first CI execution of the delta job proved it trips: the runner image
+must be published to the GitForge local OCI registry
+(`localhost:5000/openzenith-ci-aegis:1` — the runner's hardened service
+context cannot see a developer's local docker store), and adding those
+registry references to `scripts/ci/Dockerfile.aegis` +
+`scripts/ci/build-ci-image.sh` introduced 5 new findings, which CI
+correctly flagged before this entry existed:
+
+- `ssrf-localhost` ×5 (scripts/ci/Dockerfile.aegis:2,15,
+  scripts/ci/build-ci-image.sh:9,16,20) — documentation comments and the
+  build script's `docker tag/push` + registry-listing `curl` against
+  `localhost:5000`. `localhost:5000` is the GitForge local OCI registry
+  (gitforge-local-registry.service) and is the *intended* endpoint of an
+  operator-run image build; the ssrf class (attacker-influenced requests to
+  internal resources) does not apply to a fixed literal in build tooling.
+  Same accepted class as the fixed-localhost tooling references triaged
+  since 2026-09-22. Baselined; no code change.

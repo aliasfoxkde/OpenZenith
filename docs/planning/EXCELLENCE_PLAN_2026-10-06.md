@@ -227,7 +227,7 @@ committed + pushed (gitforge first) and re-gated.
   deployed (hash `99bab0c2`) and prod-verified via Playwright (curl is
   WAF-blocked): /api/health and /api/openapi.json report 0.9.1 on both
   the alias and hash URL, /api/volcanoes live (3 features), landing E2E
-  26 passed. Also notable: the fedora-docker runner executed every job
-  successfully this pass — the noexec defect from 2026-10-05/06 did not
-  recur (host-side fix or environment change; the runner-affinity gap
-  still exists).
+  26 passed. The green run's 8 jobs all landed on swarmone (892f30f1) —
+  the capacity-4 mitigation held; the runner list's `[offline]` markers
+  are unreliable display state (the swarmone agent was pulling jobs
+  throughout).

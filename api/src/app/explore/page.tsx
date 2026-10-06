@@ -451,7 +451,7 @@ export default function ExplorePage() {
         {/* Nav */}
         <Navbar dark breadcrumb="Explore" />
 
-        <main className="ex-body">
+        <main id="main-content" tabIndex={-1} className="ex-body">
           <h1>Data Explorer</h1>
           <p className="sub">
             Search, filter, and explore geospatial data from NOAA, USGS, NASA, OpenSky, Celestrak, and more

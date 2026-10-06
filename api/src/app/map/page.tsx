@@ -1154,7 +1154,7 @@ export default function MapPage() {
       {/* main landmark: the map canvas, its overlays and the status bar live
           here so axe's `region` rule (WCAG 1.3.6) is satisfied. The visually
           hidden h1 gives the landmark document context (WCAG 2.4.6). */}
-      <main style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
+      <main id="main-content" tabIndex={-1} style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
         <h1 className="oz-sr-only">OpenZenith Map</h1>
         {/* Toolbar overlay — one flow container: the toolbar, measure/draw
             rows and the measure readout stack vertically, so a wrapped

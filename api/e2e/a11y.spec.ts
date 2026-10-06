@@ -301,6 +301,44 @@ test.describe("Keyboard access (2.1.1 / 2.4.3 / 2.4.7)", () => {
   });
 });
 
+/* ─── Skip link (2.4.1 Bypass Blocks) ───
+ *
+ * The root layout renders a "Skip to content" anchor as the body's first
+ * focusable element, targeting that page's <main id="main-content"
+ * tabIndex={-1}>. Axe's `bypass` rule only samples static DOM for *some*
+ * bypass mechanism; these tests press the actual keys: the first Tab must
+ * land on the skip link, and activating it must move focus into main.
+ */
+test.describe("Skip link (2.4.1 Bypass Blocks)", () => {
+  test.setTimeout(120_000);
+
+  for (const { path, name } of [...PAGES, { path: GLOBE_PATH, name: "globe" }]) {
+    test(`skip link is first and lands in main on ${name} (${path})`, async ({ page }) => {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      // Late-hydrating pages can mount focusable elements after the initial
+      // paint; the skip link is written into the server HTML's body, so the
+      // first Tab lands on it either way once the DOM is interactive.
+      await page.waitForSelector("a.skip-to-content", { timeout: 15_000 });
+
+      const first = await tabOnce(page);
+      expect(
+        first.label.toLowerCase(),
+        `first Tab on ${name} must land on the skip link (got "${first.label}" on ${first.tag})`,
+      ).toContain("skip to content");
+
+      await page.keyboard.press("Enter");
+      const landed = await page.evaluate(() => {
+        const main = document.getElementById("main-content");
+        if (!main) return "no #main-content on page";
+        const el = document.activeElement;
+        if (el === main || (el && main.contains(el))) return "in-main";
+        return `focus outside main (${el ? el.tagName + (el.id ? "#" + el.id : "") : "none"})`;
+      });
+      expect(landed, `activating the skip link on ${name} must focus #main-content`).toBe("in-main");
+    });
+  }
+});
+
 test.describe("Target size (2.5.8 AA floor; AAA delta reported)", () => {
   test.setTimeout(120_000);
 

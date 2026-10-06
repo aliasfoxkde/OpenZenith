@@ -1516,7 +1516,7 @@ export default function Globe() {
   }, [currentTheme.css]);
 
   return (
-    <main className="wv-wrap" style={themeStyle}>
+    <main id="main-content" tabIndex={-1} className="wv-wrap" style={themeStyle}>
       {/* React 19 hoists these into <head> of the server HTML for THIS route
           only, so the ~1 MB Cesium entry script starts downloading at
           document parse instead of after hydration triggers cesium-init.ts.
@@ -1588,7 +1588,9 @@ export default function Globe() {
       />
 
       <ErrorBoundary>
-        <div ref={containerRef} className="wv-map" />
+        {/* Same application-region pattern as the 2D map page: the Cesium
+            canvas carries no text of its own, so the container names it. */}
+        <div ref={containerRef} className="wv-map" role="application" aria-label="Interactive 3D globe" />
       </ErrorBoundary>
 
       {/* Compass */}

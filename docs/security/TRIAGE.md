@@ -1662,3 +1662,49 @@ The two `capsys`→`caplog` test conversions (test_hydrology.py
 `test_trace_downstream_reports_missing_backend`) pin the new logging
 behavior: warnings on the module logger, return `None` contract unchanged.
 Baseline regenerated; no code change beyond the conversion itself.
+
+## Re-triage 2026-10-06c — globe typing waves line-drift (115 → 0 new)
+
+Phase 3 of EXCELLENCE_PLAN_2026-10-06 (task #199) typed the entire
+`api/src/app/globe` surface against the ambient Cesium declarations
+(1,909 eslint warnings → 0; 40 files rewritten across four wave commits'
+worth of edits) and added the WCAG 2.4.1 skip-link surface (task #200:
+`src/components/SkipLink.tsx`, root-layout/main-landmark ids). The delta
+gate flagged **115 new findings**: wholesale line/hash drift of 37 heavily
+edited files re-fingerprinted already-triaged classes. Three findings were
+real and are fixed in the same commit; the rest are re-fingerprints or
+word-trigger FPs of classes dispositioned in the 2026-09-22 / 2026-10-06
+entries.
+
+Real (fixed, not baselined as-is):
+
+- `semicolon-everywhere` ×8+ — the typing waves left `;;` on 14
+  data-fetcher import lines (`layers/*.ts`). Real sloppiness; all fixed.
+- `stub-implementation-marker` data-fetchers.ts:616 — the GDACS doc comment
+  began "Stub for the GDACS disaster feed". The fetcher is permanent by
+  design (public API discontinued; resolves empty, tested) — reworded to
+  "Disabled fetcher" so no shipped file reads as unfinished work.
+- `double-type-assertion` helpers.ts:320 — the documented structural bridge
+  for Cesium's private `ImageryLayerCollection._layers` (comment in place
+  at the cast). Accepted as written; no change.
+
+Re-fingerprint / word-trigger FPs mapped to existing dispositions:
+`try-catch-bulk` (fetcher/layer error-handling shape), `ssrf` ×6 (client-
+side `dedupFetch` callers — browser fetches, not server-side request
+forgery), `stored-xss`/`inner-html-assignment`/`angular-innerhtml-xss`
+(first-party-built tooltip HTML via `buildEntityTooltip` + the HUD tooltip
+container — no user-controlled source), `phone-number`/`ssn-no-dashes`/
+`australian-tfn`/`bank-routing-number` (space-scene numeric constants),
+`insecure-random` (Math.random visual jitter/particle seeds), `react-
+missing-key-prop` / `react-optimization` / `autocomplete-missing` /
+`loose-equality` / `return-await` / `superfluous-type-annotation`
+(heuristic FPs), `global-variable` (the documented `window.__oz*` E2E
+hooks), `missing-limit` (zero SQL in repo), `expensive-computation-loop`
+(deliberate per-entity geometry math), `console-log` (a `console.error` in
+the Cesium-init failure path), `go-replace-directive` (Go-syntax pattern in
+TS source), `debug-endpoint` ("purchase" substring in an error message),
+`env-credential-assignment` (a localStorage key literal `"globe-widgets"`),
+`model-version-tracking` / `ai-generated-marker` (word-trigger FPs).
+
+Baseline regenerated via `scripts/aegis_scan.sh update` (also absorbing the
+skip-link files); gate re-run locally: 0 new.

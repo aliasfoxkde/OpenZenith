@@ -706,6 +706,7 @@ export default function StudioPage() {
       {/* main landmark: contains the map, sidebar, status bar and onboarding
           overlay so axe's `region` rule (WCAG 1.3.6) is satisfied. */}
       <main
+        id="main-content" tabIndex={-1}
         style={{
           flex: 1,
           display: "flex",

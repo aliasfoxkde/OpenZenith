@@ -89,7 +89,7 @@ export default function AboutPage() {
 
         <Navbar dark breadcrumb="About" />
 
-        <main className="ab-body">
+        <main id="main-content" tabIndex={-1} className="ab-body">
           <h1>About OpenZenith</h1>
           <p className="sub">
             A free, open-source geospatial platform providing global elevation data, interactive maps, and geospatial

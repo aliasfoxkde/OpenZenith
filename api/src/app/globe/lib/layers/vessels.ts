@@ -1,7 +1,7 @@
 import { warnLayerError, domEventCause } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
-import { fetchVessels, isAbort } from "../data-fetchers";;
+import { fetchVessels, isAbort } from "../data-fetchers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
 /**

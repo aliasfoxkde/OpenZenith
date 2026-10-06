@@ -613,8 +613,9 @@ export interface GdacsResponse {
 }
 
 /**
- * Stub for the GDACS disaster feed: the public API was discontinued, so this
- * makes no network call and resolves to an empty FeatureCollection. It stays
+ * Disabled fetcher for the GDACS disaster feed: the public API was
+ * discontinued, so this makes no network call and resolves to an empty
+ * FeatureCollection. It stays
  * promise-returning because every layer loader awaits its fetcher uniformly.
  * Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */

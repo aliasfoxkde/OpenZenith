@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { SkipLink } from "@/components/SkipLink";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -135,6 +136,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 })();`,
           }}
         />
+        {/* WCAG 2.4.1 (Bypass Blocks): first focusable element on every
+            page jumps past the repeated chrome to that page's
+            <main id="main-content">. Client component — fragment nav alone
+            does not move focus in Firefox/Safari (see SkipLink). */}
+        <SkipLink />
         <ErrorBoundary>{children}</ErrorBoundary>
       </body>
     </html>

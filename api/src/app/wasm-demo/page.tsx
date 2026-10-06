@@ -466,7 +466,7 @@ export default function WasmDemo() {
          standard navigation (and its keyboard stop) back. It renders light —
          this page has no theme support. */}
       <Navbar dark={false} breadcrumb="WASM Demo" />
-      <main style={{ padding: "2rem", fontFamily: "monospace", maxWidth: 900, margin: "0 auto" }}>
+      <main id="main-content" tabIndex={-1} style={{ padding: "2rem", fontFamily: "monospace", maxWidth: 900, margin: "0 auto" }}>
         <h1>OpenZenith Core — WASM Decoder Demo</h1>
       <p style={{ color: "#555" }}>{status}</p>
 

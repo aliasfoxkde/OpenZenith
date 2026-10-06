@@ -126,7 +126,7 @@ export default function ContributePage() {
         {/* Shared Nav */}
         <Navbar dark={dark} breadcrumb="Contribute" />
 
-        <main className="ct-body">
+        <main id="main-content" tabIndex={-1} className="ct-body">
           <h1>Contribute Data</h1>
           <p className="sub">
             OpenZenith thrives on community-contributed data. Here&apos;s how you can add your geospatial datasets, data

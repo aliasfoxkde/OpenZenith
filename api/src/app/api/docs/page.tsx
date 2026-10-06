@@ -675,6 +675,7 @@ export default function DocsPage() {
   if (specError) {
     return (
       <main
+        id="main-content" tabIndex={-1}
         style={{
           minHeight: "100vh",
           background: bg,
@@ -696,6 +697,7 @@ export default function DocsPage() {
   if (!spec) {
     return (
       <main
+        id="main-content" tabIndex={-1}
         style={{
           minHeight: "100vh",
           background: bg,
@@ -728,7 +730,7 @@ export default function DocsPage() {
 
   return (
     <ErrorBoundary>
-      <main style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
+      <main id="main-content" tabIndex={-1} style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
         {/* Header */}
         <div
           style={{

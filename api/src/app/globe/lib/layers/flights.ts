@@ -1,7 +1,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { getAircraftIcon } from "../constants";
-import { fetchFlights, fetchFlightsAnonymous, isAbort } from "../data-fetchers";;
+import { fetchFlights, fetchFlightsAnonymous, isAbort } from "../data-fetchers";
 import type { OpenSkyResponse, OpenSkyState } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";

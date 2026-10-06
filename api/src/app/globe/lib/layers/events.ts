@@ -1,7 +1,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { EONET_COLORS } from "../constants";
-import { fetchEONET, isAbort } from "../data-fetchers";;
+import { fetchEONET, isAbort } from "../data-fetchers";
 import type { EonetFeature } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";

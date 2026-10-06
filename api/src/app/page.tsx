@@ -421,7 +421,7 @@ export default function Home() {
 
         {/* Primary page content. One `main` landmark wraps everything that is
             not the shared nav or footer (axe region / landmark-one-main). */}
-        <main>
+        <main id="main-content" tabIndex={-1}>
         {/* Hero: Map background + Elevation lookup */}
         <section
           id="hero"

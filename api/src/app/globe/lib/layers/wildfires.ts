@@ -1,6 +1,6 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchFIRMS, isAbort } from "../data-fetchers";;
+import { fetchFIRMS, isAbort } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";

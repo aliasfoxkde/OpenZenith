@@ -1,6 +1,6 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchMilitaryFlights, isAbort } from "../data-fetchers";;
+import { fetchMilitaryFlights, isAbort } from "../data-fetchers";
 import type { MilitaryAircraftRecord } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";

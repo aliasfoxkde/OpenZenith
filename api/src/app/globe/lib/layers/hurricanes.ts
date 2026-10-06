@@ -1,6 +1,6 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
-import { fetchHurricaneTracks, isAbort } from "../data-fetchers";;
+import { fetchHurricaneTracks, isAbort } from "../data-fetchers";
 
 interface StormTrackPoint {
   coordinates: [number, number];

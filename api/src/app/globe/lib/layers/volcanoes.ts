@@ -1,5 +1,5 @@
 import type { DataStatus } from "../types";
-import { fetchVolcanoAlerts, isAbort } from "../data-fetchers";;
+import { fetchVolcanoAlerts, isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";

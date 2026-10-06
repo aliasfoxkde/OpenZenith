@@ -117,6 +117,7 @@ export default function Demo() {
         {/* main landmark: header bar, map canvas and overlays are contained by
             it so axe's `region` rule (WCAG 1.3.6) is satisfied. */}
         <main
+          id="main-content" tabIndex={-1}
           style={{
             flex: 1,
             display: "flex",

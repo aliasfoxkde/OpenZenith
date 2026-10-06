@@ -22,7 +22,7 @@ StationAware), and the remaining register of the 2026-10-02 plan.
 | vitest (api/) | 107 files / 1,519 passed + 5 skipped, coverage floors met (earlier today, tree unchanged) | `vitest-full-volcano2.log` |
 | tsc (api/) | clean | same run |
 | eslint (api/) | **0 errors**; **1,909 warnings in 40 files** — 37 under `src/app/globe/**`, plus `e2e/ozt2-validate.spec.ts`, `e2e/production-verify.spec.ts`, `next.config.ts`. CI ratchet is ≤1890 (grep count via `npm run lint`) — **resolved 2026-10-06: 0 warnings / 0 errors; gate is now `eslint . --max-warnings=0` (progress log)** | `audit-eslint.log` |
-| a11y E2E | **67 passed + 3 flaky (all green on retry), exit 0** vs prod: 11 pages axe-audited (wcag2a+aa+aaa+best-practice), keyboard 2.1.1/2.4.3/2.4.7, focus-visible, focus-trap, target-size 2.5.8 + AAA delta | `audit-a11y.log` |
+| a11y E2E | **67 passed + 3 flaky (all green on retry), exit 0** vs prod: 11 pages axe-audited (wcag2a+aa+aaa+best-practice), keyboard 2.1.1/2.4.3/2.4.7, focus-visible, focus-trap, target-size 2.5.8 + AAA delta — **extended 2026-10-06: skip-link 2.4.1 tests (11 pages × 3 browsers), 91 passed local (1 known globe-axe flake, green on retry)** | `audit-a11y.log` |
 | prod-verify + globe-diag E2E | **32 passed, 0 failed** vs live prod | `audit-prod-verify.log` |
 | perf budget | PASS, 12/12 checks; baseline ratcheted down 2026-10-06 (totalJs −1,407 B vs pre-wave) | `perf-budget-baseline.json` |
 | mcp-server | tsc clean · 8/8 tests · CI job green (run 46124e1d) | live |
@@ -192,3 +192,17 @@ committed + pushed (gitforge first) and re-gated.
   Gates: tsc clean; vitest 106/107 files green — the one failure is an
   ozt2-real-tiles NAS timeout that passes in isolation (13/13; same flake
   class the CI job's three-retry pattern absorbs).
+- 2026-10-06 (later): Phase 2 of the a11y workstream (task #200) — the
+  remaining WCAG 2.4.1 gap closed: a root-layout skip link (new
+  `src/components/SkipLink.tsx`, revealed by the `.skip-to-content:focus`
+  rule in globals.css; explicit `target.focus()` on click because fragment
+  navigation alone leaves `document.activeElement` on body in
+  Firefox/Safari) plus `id="main-content" tabIndex={-1}` on all 13 page
+  `<main>` landmarks, and the globe's Cesium container now names itself the
+  way the 2D map already did (`role="application"
+  aria-label="Interactive 3D globe"` — the canvas carries no text). New
+  E2E describe "Skip link (2.4.1 Bypass Blocks)" presses the actual keys
+  on all 11 audited pages + globe × chromium/firefox: first Tab must land
+  on the link, Enter must focus main. Local run vs dev server: **91
+  passed, exit 0** (1 known globe-axe flake green on retry); tsc + eslint
+  clean.

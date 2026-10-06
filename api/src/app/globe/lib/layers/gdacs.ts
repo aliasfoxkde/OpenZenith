@@ -1,5 +1,5 @@
 import type { DataStatus } from "../types";
-import { fetchGDACS, isAbort } from "../data-fetchers";;
+import { fetchGDACS, isAbort } from "../data-fetchers";
 import { warnLayerError } from "@/lib/diagnostics";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";

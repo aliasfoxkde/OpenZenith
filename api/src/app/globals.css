@@ -638,3 +638,21 @@ pre[tabindex="0"]:focus-visible {
   text-decoration: underline;
   color: inherit;
 }
+
+/* WCAG 2.4.1 skip link (root layout): off-canvas until keyboard-focused,
+   then pinned top-left above every page's chrome. Fixed #fff/#000 = 21:1
+   on both themes; the control only exists while focused, so no theme
+   tokens are needed. */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10000;
+  background: #fff;
+  color: #000;
+  padding: 8px 16px;
+  font-weight: 600;
+}
+.skip-to-content:focus {
+  left: 0;
+}

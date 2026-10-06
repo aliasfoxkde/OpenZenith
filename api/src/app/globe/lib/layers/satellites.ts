@@ -1,7 +1,7 @@
 import { warnLayerError } from "@/lib/diagnostics";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
-import { fetchCelestrak, isAbort, type TleRecord } from "../data-fetchers";;
+import { fetchCelestrak, isAbort, type TleRecord } from "../data-fetchers";
 import { createRetryGuard } from "../helpers";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 

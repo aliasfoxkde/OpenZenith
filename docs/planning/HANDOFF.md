@@ -9,8 +9,16 @@
 > record — five latent runtime bugs fell out of the typing), WCAG 2.4.1
 > skip links on all 13 pages, SDK print residue moved to `_logger`,
 > ruff strict groups + mypy clean, core clippy-pedantic clean at 99%
-> line coverage. **v0.9.1 cut in this commit** (tag + release notes
-> pushed with it; deploy + prod-verify follow via `scripts/ship.sh`).
+> line coverage. **v0.9.1 cut, tagged (verified on both remotes),
+> GitHub-released, deployed via ship.sh, and prod-verified** (hash URL
+> `99bab0c2` serves 0.9.1 on /api/health and /api/openapi.json;
+> /api/volcanoes live; landing E2E 26 passed on prod; GitForge run
+> `22f68805` 8/8 jobs green). Two platform episodes during the cut, both
+> documented in the plan log: the first release push tripped the aegis
+> delta gate on 3 content-identical `anchore`-substring line-drift
+> re-fingerprints (re-baselined in e33fd46, TRIAGE.md 2026-10-06d), and
+> the b9a2fd6 run before it stranded in `running` with no jobs ever
+> created — the episodic stuck-run behavior (healthy runs take ~12 min).
 > Known platform debt (not ours to fix in-repo): the GitForge scheduler
 > has no runner affinity and the fedora-docker runner's workspace is
 > noexec — red jobs with `runner_id` on that host are a platform defect;

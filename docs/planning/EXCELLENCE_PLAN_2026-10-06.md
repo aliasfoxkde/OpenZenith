@@ -214,7 +214,20 @@ committed + pushed (gitforge first) and re-gated.
   project gate — the lint contract is `ruff check`; drift fixed anyway,
   formatter gate left as a policy decision for the user). Release:
   v0.9.1 (18 commits since v0.9.0 — map/globe crawl-defect fixes, Aegis
-  CI gate, globe typed to 0, skip links) cut in this commit; tag goes to
-  both remotes explicitly (lightweight-tag `--follow-tags` gotcha),
-  then deploy via `scripts/ship.sh` and prod-verify via Playwright
-  (curl is WAF-blocked).
+  CI gate, globe typed to 0, skip links) cut, tagged on both remotes
+  (ls-remote verified), GitHub-released; GitForge run `22f68805` green
+  (8/8 jobs). Two platform episodes en route: the first push (d00f4fc)
+  tripped the aegis delta gate on 3 content-identical `anchore`-substring
+  re-fingerprints from the format pass (TRIAGE.md 2026-10-06d;
+  re-baselined in e33fd46 — the gate proved itself a third time), and
+  the preceding b9a2fd6 run (79b14a8b) stranded in `running` with no
+  jobs ever created — episodic stuck-run behavior on the instance
+  (healthy runs take ~12 min; several runs from multiple projects sat
+  `running` for hours; re-push is the reliable recovery). ship.sh
+  deployed (hash `99bab0c2`) and prod-verified via Playwright (curl is
+  WAF-blocked): /api/health and /api/openapi.json report 0.9.1 on both
+  the alias and hash URL, /api/volcanoes live (3 features), landing E2E
+  26 passed. Also notable: the fedora-docker runner executed every job
+  successfully this pass — the noexec defect from 2026-10-05/06 did not
+  recur (host-side fix or environment change; the runner-affinity gap
+  still exists).

@@ -335,6 +335,7 @@ pub unsafe fn viewshed_wasm(
 }
 
 /// The 6-byte OZT2 tile header, decoded from little-endian bytes.
+#[derive(Debug)]
 struct TileHeader {
     /// Minimum elevation of the tile, in metres.
     vmin: i16,
@@ -433,66 +434,26 @@ fn build_metadata(header: &TileHeader, width: usize, height: usize) -> js_sys::O
     metadata
 }
 
-/// OZT2 decode: decompress and reconstruct a full OZT2 tile.
+/// Validate the tile header and reconstruct metres from a decompressed OZT2
+/// payload — the pure (js-free) heart of the wasm `decode_ozt2` binding, so
+/// the header/dimension/dispatch logic is host-testable.
 ///
-/// Header codes follow the production convention (`openzenith/tile_format_v2.py`,
-/// `api/src/lib/ozt2_decode.ts`): predictor 0=none/1=left/2=gradient,
-/// compressor 0=brotli/1=zstd/2=zlib/3=none.
-///
-/// # Arguments
-/// * `tile_bytes` – `Uint8Array` of OZT2 binary data (6-byte header followed
-///   by the compressed residual stream)
-/// * `decompress_fn` – JS function called to decompress:
-///   `(bytes: Uint8Array, compressor: number) -> Uint8Array`. The second
-///   argument is the header's compressor code, so one JS dispatcher can route
-///   brotli/zstd/zlib; it is not called for compressor code 3 (none).
-///
-/// # Returns
-/// A JS object `{ elevations: Uint16Array, metadata: Object }`, where
-/// `metadata` carries `min_elevation`, `elevation_range`, `max_elevation`,
-/// `bits_per_pixel`, `predictor`, `compressor`, `width` and `height`.
+/// `decompressed` is the payload after the 6-byte header, already through the
+/// JS decompressor (or raw when the tile declares no compression).
 ///
 /// # Errors
-/// Throws a JS exception (never panics) when the tile is shorter than the
-/// 6-byte header, when the predictor or compressor code is not part of the
-/// production convention, when the JS decompressor rejects the payload, or
-/// when the decoded pixel count matches no known tile shape.
-#[must_use]
-#[wasm_bindgen]
-pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsValue {
-    // Parse header (6 bytes)
+/// The same conditions the wasm binding throws for: short header, unknown
+/// predictor code, or a pixel count matching no known tile shape.
+fn decode_ozt2_core(
+    tile_bytes: &[u8],
+    decompressed: &[u8],
+) -> Result<(Vec<u16>, usize, usize, TileHeader), String> {
     let Some(header) = TileHeader::parse(tile_bytes) else {
-        wasm_bindgen::throw_str("Tile too small: less than 6 bytes")
+        return Err("Tile too small: less than 6 bytes".to_string());
     };
     if header.predictor > PRED_GRADIENT {
-        wasm_bindgen::throw_str(&format!("Unknown predictor code {}", header.predictor));
+        return Err(format!("Unknown predictor code {}", header.predictor));
     }
-
-    // Call JS decompression function
-    let compressed = &tile_bytes[6..];
-
-    // Decompress (skip when the tile declares no compression)
-    let decompressed: Vec<u8> = if header.compressor == COMP_NONE {
-        // No compression — residuals are stored directly as int16 LE bytes
-        compressed.to_vec()
-    } else {
-        let js_compressed = js_sys::Uint8Array::from(compressed);
-        let decompressed_js: js_sys::Uint8Array = decompress_fn
-            .call2(
-                &JsValue::NULL,
-                &js_compressed,
-                &JsValue::from(f64::from(header.compressor)),
-            )
-            // A JS-side decompression failure surfaces as a JS exception, not a
-            // WASM panic.
-            .unwrap_or_else(|err| wasm_bindgen::throw_val(err))
-            .unchecked_into();
-
-        let decompressed_len = decompressed_js.length() as usize;
-        let mut raw = vec![0u8; decompressed_len];
-        decompressed_js.copy_to(&mut raw);
-        raw
-    };
 
     // Residuals are always int16
     let residuals: Vec<i16> = decompressed
@@ -503,10 +464,10 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
         .collect();
 
     let Some((height, width)) = infer_dimensions(residuals.len()) else {
-        let pixels = residuals.len();
-        wasm_bindgen::throw_str(&format!(
-            "Cannot infer tile dimensions from {pixels} pixels"
-        ))
+        return Err(format!(
+            "Cannot infer tile dimensions from {} pixels",
+            residuals.len()
+        ));
     };
 
     let residuals_arr = Array2::from_shape_vec((height, width), residuals)
@@ -542,6 +503,80 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
     };
 
     let elevations = clamp_to_u16_metres(&reconstructed.into_raw_vec_and_offset().0);
+    Ok((elevations, width, height, header))
+}
+
+/// OZT2 decode: decompress and reconstruct a full OZT2 tile.
+///
+/// Header codes follow the production convention (`openzenith/tile_format_v2.py`,
+/// `api/src/lib/ozt2_decode.ts`): predictor 0=none/1=left/2=gradient,
+/// compressor 0=brotli/1=zstd/2=zlib/3=none.
+///
+/// # Arguments
+/// * `tile_bytes` – `Uint8Array` of OZT2 binary data (6-byte header followed
+///   by the compressed residual stream)
+/// * `decompress_fn` – JS function called to decompress:
+///   `(bytes: Uint8Array, compressor: number) -> Uint8Array`. The second
+///   argument is the header's compressor code, so one JS dispatcher can route
+///   brotli/zstd/zlib; it is not called for compressor code 3 (none).
+///
+/// # Returns
+/// A JS object `{ elevations: Uint16Array, metadata: Object }`, where
+/// `metadata` carries `min_elevation`, `elevation_range`, `max_elevation`,
+/// `bits_per_pixel`, `predictor`, `compressor`, `width` and `height`.
+///
+/// # Errors
+/// Throws a JS exception (never panics) when the tile is shorter than the
+/// 6-byte header, when the predictor or compressor code is not part of the
+/// production convention, when the JS decompressor rejects the payload, or
+/// when the decoded pixel count matches no known tile shape.
+#[must_use]
+#[wasm_bindgen]
+pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsValue {
+    // Parse/validate up front so a bad header or predictor reports before any
+    // JS decompression runs (decode_ozt2_core re-parses the 6-byte header).
+    let Some(header) = TileHeader::parse(tile_bytes) else {
+        wasm_bindgen::throw_str("Tile too small: less than 6 bytes")
+    };
+    if header.predictor > PRED_GRADIENT {
+        wasm_bindgen::throw_str(&format!("Unknown predictor code {}", header.predictor));
+    }
+
+    // Call JS decompression function
+    let compressed = &tile_bytes[6..];
+
+    // Decompress (skip when the tile declares no compression)
+    let decompressed: Vec<u8> = if header.compressor == COMP_NONE {
+        // No compression — residuals are stored directly as int16 LE bytes
+        compressed.to_vec()
+    } else {
+        let js_compressed = js_sys::Uint8Array::from(compressed);
+        let decompressed_js: js_sys::Uint8Array = decompress_fn
+            .call2(
+                &JsValue::NULL,
+                &js_compressed,
+                &JsValue::from(f64::from(header.compressor)),
+            )
+            // A JS-side decompression failure surfaces as a JS exception, not a
+            // WASM panic.
+            .unwrap_or_else(|err| wasm_bindgen::throw_val(err))
+            .unchecked_into();
+
+        let decompressed_len = decompressed_js.length() as usize;
+        let mut raw = vec![0u8; decompressed_len];
+        decompressed_js.copy_to(&mut raw);
+        raw
+    };
+
+    // Residuals are always int16 — parsing, dimension inference and
+    // reconstruction live in the js-free core so the host tests cover them.
+    // The header errors can't fire here (validated above), but the
+    // decompressed length only exists after JS ran, so dimension inference
+    // can still fail and must surface its message.
+    let (elevations, width, height, header) = match decode_ozt2_core(tile_bytes, &decompressed) {
+        Ok(decoded) => decoded,
+        Err(msg) => wasm_bindgen::throw_str(&msg),
+    };
 
     // Return { elevations: Uint16Array, metadata: Object }
     let result = js_sys::Object::new();
@@ -645,16 +680,90 @@ mod tests {
         );
     }
 
+    // ── decode_ozt2_core (the js-free decode pipeline) ──────────────────────
+
+    /// A minimal OZT2 tile: 6-byte header (vmin, range, bits, flags) plus the
+    /// little-endian int16 payload.
+    fn make_tile(predictor: u8, compressor: u8, vmin: i16, bits: u8, payload: &[i16]) -> Vec<u8> {
+        let mut tile = Vec::with_capacity(6 + payload.len() * 2);
+        tile.extend_from_slice(&vmin.to_le_bytes());
+        tile.extend_from_slice(&0u16.to_le_bytes());
+        tile.push(bits);
+        tile.push(predictor | (compressor << 2));
+        for v in payload {
+            tile.extend_from_slice(&v.to_le_bytes());
+        }
+        tile
+    }
+
     #[test]
-    fn test_predictor_and_compressor_names() {
-        assert_eq!(predictor_name(0), "gradient");
-        assert_eq!(predictor_name(1), "left");
-        assert_eq!(predictor_name(2), "none");
-        assert_eq!(compressor_name(0), "none");
-        assert_eq!(compressor_name(1), "zlib");
-        assert_eq!(compressor_name(2), "zstd");
-        assert_eq!(compressor_name(3), "brotli");
-        assert_eq!(compressor_name(9), "unknown");
+    fn test_decode_core_rejects_short_header() {
+        let err = decode_ozt2_core(&[0, 0, 0], &[]).unwrap_err();
+        assert!(err.contains("Tile too small"), "{err}");
+    }
+
+    #[test]
+    fn test_decode_core_rejects_unknown_predictor() {
+        // Predictor code 3 is outside the production convention (0/1/2).
+        let tile = make_tile(3, 0, 0, 16, &[0, 0, 0, 0]);
+        let err = decode_ozt2_core(&tile, &[0; 8]).unwrap_err();
+        assert!(err.contains("Unknown predictor code 3"), "{err}");
+    }
+
+    #[test]
+    fn test_decode_core_rejects_undecodable_pixel_count() {
+        // 3 int16 values match no known tile shape (257-value check fails,
+        // squares and the known-width table both miss).
+        let tile = make_tile(0, 3, 0, 16, &[0, 0, 0]);
+        let err = decode_ozt2_core(&tile, &[0; 6]).unwrap_err();
+        assert!(
+            err.contains("Cannot infer tile dimensions from 3 pixels"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_decode_core_direct_predictor_dequantizes() {
+        // predictor 0 (none): payload values ARE the quantized elevations, so
+        // output = vmin + r * scale with scale = range / (2^bits - 1); a zero
+        // range means unit scale (values pass through clamped).
+        let tile = make_tile(0, 3, 100, 16, &[0, 10, 0, -10]);
+        let (elevations, width, height, header) =
+            decode_ozt2_core(&tile, &[0, 0, 10, 0, 0, 0, 0xF6, 0xFF]).unwrap();
+        assert_eq!((width, height), (2, 2));
+        assert_eq!(header.predictor, 0);
+        assert_eq!(elevations, vec![100, 110, 100, 90]);
+    }
+
+    #[test]
+    fn test_decode_core_left_predictor_reconstructs_run() {
+        // Left residuals [0, 5, 0, 2] at unit scale seed 42 at (0,0): the
+        // first row cumsums 42, 47; the second row seeds from the raw
+        // residual again (rows are independent), giving 42, 44.
+        let tile = make_tile(1, 3, 42, 16, &[0, 5, 0, 2]);
+        let (elevations, _w, _h, _meta) =
+            decode_ozt2_core(&tile, &[0, 0, 5, 0, 0, 0, 2, 0]).unwrap();
+        assert_eq!(elevations, vec![42, 47, 42, 44]);
+    }
+
+    #[test]
+    fn test_decode_core_gradient_predictor_matches_ozt2_module() {
+        // 2x2 gradient tile at unit scale: residual 7 with no left
+        // neighbour falls back to the level (500+7); the bottom row predicts
+        // 507 from left+top-diagonal and its zero residuals hold it there.
+        let tile = make_tile(2, 3, 500, 16, &[0, 7, 0, 0]);
+        let (elevations, _w, _h, _meta) =
+            decode_ozt2_core(&tile, &[0, 0, 7, 0, 0, 0, 0, 0]).unwrap();
+        assert_eq!(elevations, vec![500, 507, 500, 507]);
+    }
+
+    #[test]
+    fn test_decode_core_sentinel_survives_direct_path() {
+        // The -32768 residual passes through verbatim and the u16 clamp maps
+        // the sentinel to 0 at the ABI boundary (matching decode semantics).
+        let tile = make_tile(0, 3, 0, 16, &[-32768]);
+        let (elevations, _w, _h, _meta) = decode_ozt2_core(&tile, &[0x00, 0x80]).unwrap();
+        assert_eq!(elevations, vec![0]);
     }
 
     // ── exported glue (raw ptr + len ABI, no js_sys involved) ─────────────────

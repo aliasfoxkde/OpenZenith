@@ -74,7 +74,7 @@ for (const route of GIBS_ROUTES) {
       expect(resp.status).toBe(400);
     });
 
-    it("returns 200 on upstream failure (never 5xx)", async () => {
+    it("returns 502 with a JSON error on upstream failure", async () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network error"));
 
       const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
@@ -82,7 +82,26 @@ for (const route of GIBS_ROUTES) {
       const resp = await GET(new Request(`http://localhost/api/${route.prefix}/${midZoom}/1/1`), {
         params: Promise.resolve({ z: String(midZoom), x: "1", y: "1" }),
       });
-      expect(resp.status).toBe(200);
+      expect(resp.status).toBe(502);
+      const body = (await resp.json()) as { error: string };
+      expect(body.error).toContain("GIBS");
+    });
+
+    it("returns 404 for x/y outside the 2^z grid", async () => {
+      const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
+      const midZoom = Math.floor((route.minZoom + route.maxZoom) / 2);
+      const resp = await GET(new Request(`http://localhost/api/${route.prefix}/${midZoom}/99/99`), {
+        params: Promise.resolve({ z: String(midZoom), x: "99", y: "99" }),
+      });
+      expect(resp.status).toBe(404);
+    });
+
+    it("rejects non-integer coordinates with 400", async () => {
+      const { GET } = (await import(`@/app/api/${route.prefix}/[z]/[x]/[y]/route`)) as GibsRouteModule;
+      const resp = await GET(new Request(`http://localhost/api/${route.prefix}/3/1abc/0`), {
+        params: Promise.resolve({ z: "3", x: "1abc", y: "0" }),
+      });
+      expect(resp.status).toBe(400);
     });
 
     it("exposes CORS preflight OPTIONS", async () => {

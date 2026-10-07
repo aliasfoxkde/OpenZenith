@@ -39,12 +39,13 @@ describe("Earthquakes API", () => {
     expect(data.error).toContain("Invalid period");
   });
 
-  it("returns error on upstream failure", async () => {
+  it("returns 502 with the upstream status on USGS failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/earthquakes/route");
     const resp = await GET(mockRequest("/api/earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "USGS API returned 500" });
   });
 });
 
@@ -76,7 +77,8 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
+    // Allow-Methods is the shared CORS grant, not an enumeration of this route.
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS, POST");
   });
 
   it("defaults to all_day and forwards the period, UA header and abort signal upstream", async () => {
@@ -159,31 +161,31 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reports the upstream status as a 200 error payload on non-OK responses", async () => {
+  it("returns 502 naming the upstream status on non-OK responses", async () => {
     vi.stubGlobal("fetch", vi.fn(() => new Response("unavailable", { status: 503 })));
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "USGS API returned 503" });
   });
 
-  it("propagates the thrown message when the upstream request rejects", async () => {
+  it("returns 502 with the thrown message when the upstream request rejects", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("usgs unreachable"))));
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "usgs unreachable" });
   });
 
-  it("falls back to a generic message when the cache layer throws a non-Error", async () => {
+  it("returns 502 with a generic message when the cache layer throws a non-Error", async () => {
     const { edgeGetJson } = await r2Json();
     (edgeGetJson as Mock).mockRejectedValueOnce("boom");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(await bodyAs<QuakeBody>(resp)).toEqual({ error: "Earthquake data fetch failed" });
     expect(fetchMock).not.toHaveBeenCalled();
   });

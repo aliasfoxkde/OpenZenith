@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CORS_HEADERS } from "@/lib/cors";
+import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 /**
  * DEM terrain provider metadata + health endpoint.
  *
  * GET /api/dem-tile — TileJSON metadata for CesiumJS/MapLibre
- * GET /api/dem-tile?health=1 — Tile source health check
+ * GET /api/dem-tile?health=1 — Tile source health check (200 ok / 200 degraded
+ * with a `status` field / 503 when the probe itself fails)
  *
- * Tile formats (use ?format= query param):
+ * Tile formats (use ?format= query param on /api/dem-tile/{z}/{x}/{y}):
  *   ?format=ozt2 — OZT2 binary (default for CesiumJS globe, ~93% smaller than PNG)
  *   ?format=png  — Terrarium PNG (MapLibre raster-dem, legacy)
  *
- * OZT2 tiles are pre-generated and stored in R2. If not in R2, the API falls back
+ * OZT2 tiles are pre-generated and hosted on HuggingFace
+ * (aliasfox/srtm30m-ozt2-v2); if a tile is missing there the route falls back
  * to PNG generation. CesiumJS terrain provider (terrain-ozt2.ts) auto-negotiates.
  *
  * CesiumJS usage (OZT2-first):
@@ -59,6 +61,10 @@ const TERRAIN_METADATA = {
     },
   },
 };
+
+export function OPTIONS() {
+  return corsPreflightResponse();
+}
 
 export async function GET(request: NextRequest) {
   // Health check mode
@@ -119,6 +125,9 @@ async function handleHealthCheck() {
       },
     );
   } catch (error) {
+    // The probe itself failed (network/timeout): report 503 so monitoring
+    // distinguishes "backend degraded" (200 + status field) from
+    // "health check could not run".
     return NextResponse.json(
       {
         status: "error",
@@ -126,7 +135,7 @@ async function handleHealthCheck() {
         message: error instanceof Error ? error.message : "Health check failed",
       },
       {
-        status: 200,
+        status: 503,
         headers: {
           ...CORS_HEADERS,
           "Cache-Control": "no-cache",

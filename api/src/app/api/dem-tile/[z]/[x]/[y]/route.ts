@@ -4,6 +4,7 @@ import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { RENDER_SCHEMA_VERSION } from "@/lib/storage/edge-cache";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { parseTileParams } from "@/lib/tile-params";
 
 // ─── Format constants ─────────────────────────────────────────────────────────
 
@@ -144,18 +145,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Strip .png extension from y parameter (Next.js includes it in the catch-all)
   const tileYStr = y.replace(/\.png$/, "");
 
-  // Validate zoom level
-  const zoom = parseInt(z, 10);
-  if (isNaN(zoom) || zoom < 0 || zoom > 14) {
-    return NextResponse.json({ error: "Invalid zoom level" }, { status: 400, headers: CORS_HEADERS });
+  // Strict parse + grid bounds: junk coordinates must not reach DEM assembly.
+  const parsed = parseTileParams(z, x, tileYStr, { minZoom: 0, maxZoom: 14 });
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.message }, { status: parsed.status, headers: CORS_HEADERS });
   }
-
-  // Validate tile coordinates
-  const tileX = parseInt(x, 10);
-  const tileY = parseInt(tileYStr, 10);
-  if (isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
-  }
+  const { z: zoom, x: tileX, y: tileY } = parsed;
 
   const format = getFormat(request);
 
@@ -283,18 +278,14 @@ async function servePNGTile(z: number, x: number, y: number): Promise<Response> 
         "X-Cache": "MISS",
       },
     });
-  } catch (error) {
-    console.error(`DEM tile assembly error: ${z}/${x}/${y}`, error);
-    // Return ocean tile for out-of-coverage or errors
-    const oceanPng = encodeTerrariumPNG(new Int16Array(256 * 256), 256, 256);
-    return new Response(oceanPng.buffer as ArrayBuffer, {
-      status: 200,
-      headers: {
-        ...CACHE_HEADERS,
-        "Content-Type": CONTENT_TYPE[FMT_PNG],
-        "X-Dem-Tile-Source": "fallback-ocean",
-        "X-Dem-Tile-Format": FMT_PNG,
-      },
-    });
+  } catch {
+    // getTileData returns an all-NODATA grid (HTTP 200) for genuine ocean /
+    // out-of-coverage tiles, so reaching this catch means assembly itself
+    // failed (HuggingFace outage, decode error). Report 502 instead of
+    // serving a flat 0m ocean tile that masks the outage.
+    return Response.json(
+      { error: "Failed to assemble DEM tile" },
+      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+    );
   }
 }

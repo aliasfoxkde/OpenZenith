@@ -13,6 +13,7 @@ import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { parseTileParams } from "@/lib/tile-params";
 
 export const runtime = "edge";
 
@@ -27,25 +28,11 @@ export function OPTIONS() {
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
-  const zoom = parseInt(z);
-  const tileX = parseInt(x);
-  const tileY = parseInt(y);
-
-  if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "z, x, y must be integers" }, { status: 400, headers: CORS_HEADERS });
+  const parsed = parseTileParams(z, x, y, { minZoom: 0, maxZoom: 15 });
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.message }, { status: parsed.status, headers: CORS_HEADERS });
   }
-
-  if (zoom < 0 || zoom > 15) {
-    return NextResponse.json({ error: "zoom must be between 0 and 15" }, { status: 400, headers: CORS_HEADERS });
-  }
-
-  const maxTile = Math.pow(2, zoom) - 1;
-  if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
-    return NextResponse.json(
-      { error: `x,y must be between 0 and ${maxTile} at zoom ${zoom}` },
-      { status: 400, headers: CORS_HEADERS },
-    );
-  }
+  const { z: zoom, x: tileX, y: tileY } = parsed;
 
   // R2 cache-aside
   try {
@@ -88,6 +75,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    // Assembly failures are upstream/infrastructure errors: a 200 octet-stream
+    // body of JSON would poison every binary decoder downstream.
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

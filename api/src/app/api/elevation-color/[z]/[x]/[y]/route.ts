@@ -5,6 +5,7 @@ import { edgeGetTile, edgePutTile, RENDER_SCHEMA_VERSION } from "@/lib/storage/e
 import { lerpColor } from "@/lib/hypsometric";
 import { zlibSync } from "fflate";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { parseTileParams } from "@/lib/tile-params";
 
 /**
  * Elevation color heatmap tile endpoint.
@@ -100,13 +101,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const { z, x, y } = await params;
 
   const tileYStr = y.replace(/\.png$/, "");
-  const zoom = parseInt(z, 10);
-  const tileX = parseInt(x, 10);
-  const tileY = parseInt(tileYStr, 10);
-
-  if (isNaN(zoom) || zoom < 0 || zoom > 14 || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
+  const parsed = parseTileParams(z, x, tileYStr, { minZoom: 0, maxZoom: 14 });
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.message }, { status: parsed.status, headers: CORS_HEADERS });
   }
+  const { z: zoom, x: tileX, y: tileY } = parsed;
 
   // Layer 1: Cloudflare Cache API (<10ms)
   try {

@@ -37,14 +37,32 @@ describe("Floods Tile API", () => {
     expect(resp.status).toBe(200);
   });
 
-  it("returns 200 on upstream failure (never 5xx)", async () => {
+  it("returns 502 with a JSON error when GIBS rejects the request", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network error"));
 
     const { GET } = await import("@/app/api/floods-tile/[z]/[x]/[y]/route");
     const resp = await GET(new Request("http://localhost/api/floods-tile/3/1/1"), {
       params: Promise.resolve({ z: "3", x: "1", y: "1" }),
     });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    const body = (await resp.json()) as { error: string };
+    expect(body.error).toContain("GIBS");
+  });
+
+  it("returns 404 for tile indices outside the 2^z grid", async () => {
+    const { GET } = await import("@/app/api/floods-tile/[z]/[x]/[y]/route");
+    const resp = await GET(new Request("http://localhost/api/floods-tile/3/99/99"), {
+      params: Promise.resolve({ z: "3", x: "99", y: "99" }),
+    });
+    expect(resp.status).toBe(404);
+  });
+
+  it("returns 400 for truncated garbage coordinates", async () => {
+    const { GET } = await import("@/app/api/floods-tile/[z]/[x]/[y]/route");
+    const resp = await GET(new Request("http://localhost/api/floods-tile/3/1abc/1"), {
+      params: Promise.resolve({ z: "3", x: "1abc", y: "1" }),
+    });
+    expect(resp.status).toBe(400);
   });
 
   it("exposes CORS preflight OPTIONS", async () => {

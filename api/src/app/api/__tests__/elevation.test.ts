@@ -307,7 +307,7 @@ describe("Elevation endpoint", () => {
 
     const { GET } = await import("@/app/api/elevation/route");
     const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);
@@ -335,7 +335,7 @@ describe("Elevation endpoint", () => {
 
     const { GET } = await import("@/app/api/elevation/route");
     const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<ElevationErrorBody>(resp);
     expect(data.ok).toBe(false);

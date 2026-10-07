@@ -91,18 +91,14 @@ export async function GET(
         "X-Dem-Tile-Source": "huggingface",
       },
     });
-  } catch (error) {
-    console.error(`OGC Tiles assembly error: ${z}/${x}/${y}`, error);
-
-    // Return ocean tile for out-of-coverage or errors
-    const oceanPng = encodeTerrariumPNG(new Int16Array(256 * 256), 256, 256);
-    return new Response(oceanPng.buffer as ArrayBuffer, {
-      status: 200,
-      headers: {
-        ...CACHE_HEADERS,
-        "Content-Type": "image/png",
-        "X-Dem-Tile-Source": "fallback-ocean",
-      },
-    });
+  } catch {
+    // getTileData / getTileDataCRS84 return all-NODATA grids (HTTP 200) for
+    // genuine ocean / out-of-coverage tiles, so reaching this catch means
+    // assembly itself failed (HuggingFace outage, decode error). Report 502
+    // instead of serving a flat 0m ocean tile that masks the outage.
+    return NextResponse.json(
+      { code: "NoApplicableCode", description: "Failed to assemble tile" },
+      { status: 502, headers: CORS_HEADERS },
+    );
   }
 }

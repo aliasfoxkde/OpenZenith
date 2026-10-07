@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
  * `cachedFetch` is the shared global test double that forwards to `fetch`, so
  * stubbing `fetch` is enough to control upstream. The suite covers the
  * collection registry, both upstream payload shapes, bbox/limit handling, and
- * the 200-with-error-payload failure contract.
+ * the honest-502 failure contract.
  */
 
 const USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson";
@@ -144,20 +144,20 @@ describe("STAC collection items — upstream payloads", () => {
     expect(body.numberMatched).toBe(0);
   });
 
-  it("returns a 200 error payload when upstream reports a non-OK status", async () => {
+  it("returns 502 when upstream reports a non-OK status", async () => {
     mockFetch.mockResolvedValueOnce(new Response("upstream down", { status: 502 }));
 
     const resp = await items("earthquakes");
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("Upstream returned 502");
   });
 
-  it("returns a 200 error payload when the cached fetch throws", async () => {
+  it("returns 502 with the thrown message when the cached fetch throws", async () => {
     mockFetch.mockRejectedValueOnce(new Error("connection reset"));
 
     const resp = await items("earthquakes");
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("connection reset");
   });

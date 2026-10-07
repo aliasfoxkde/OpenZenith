@@ -125,17 +125,16 @@ function catalogResponse(request: Request): Response {
   const baseUrl = url.origin;
   const path = url.pathname.replace("/api/stac", "");
 
+  // Catalog documents derive from static layer metadata — safe to cache.
+  const okHeaders = { "Content-Type": "application/json", ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" };
+
   if (path === "" || path === "/") {
-    return Response.json(rootCatalog(baseUrl), {
-      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-    });
+    return Response.json(rootCatalog(baseUrl), { headers: okHeaders });
   }
 
   if (path === "/collections") {
     const collections = LAYERS.map((l) => layerToCollection(l, baseUrl));
-    return Response.json(collections, {
-      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-    });
+    return Response.json(collections, { headers: okHeaders });
   }
 
   // Single collection: /collections/{id}
@@ -146,9 +145,7 @@ function catalogResponse(request: Request): Response {
     if (!layer) {
       return Response.json({ error: "Collection not found" }, { status: 404, headers: CORS_HEADERS });
     }
-    return Response.json(layerToCollection(layer, baseUrl), {
-      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-    });
+    return Response.json(layerToCollection(layer, baseUrl), { headers: okHeaders });
   }
 
   return Response.json({ error: "Not found" }, { status: 404, headers: CORS_HEADERS });

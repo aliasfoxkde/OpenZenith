@@ -247,7 +247,7 @@ export async function GET(request: NextRequest) {
     if (!resp.ok) {
       return NextResponse.json(
         { error: `NOAA IBTrACS returned ${resp.status}` },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -275,6 +275,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Hurricane data fetch failed";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

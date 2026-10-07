@@ -58,40 +58,41 @@ describe("BGP endpoint", () => {
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });
 
-  it("reports the upstream status as a silent 200 when NLNOG fails", async () => {
+  it("returns 502 naming the upstream status when NLNOG fails", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("upstream exploded", { status: 503 }));
 
     const { GET } = await import("@/app/api/bgp/route");
     const req = mockRequest("/api/bgp?prefix=8.8.8.0/24");
     const resp = await GET(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
 
     const data = await bodyAs<BgpBody>(resp);
     expect(data.error).toBe("NLNOG Looking Glass returned 503");
   });
 
-  it("reports the thrown message as a silent 200 when the payload is not JSON", async () => {
-    // A 200 with a non-JSON body makes resp.json() reject inside the try, so
-    // the handler's catch runs without leaving the 15s abort timer pending.
+  it("returns 502 when the upstream payload is not JSON", async () => {
+    // A non-JSON body makes resp.json() reject inside the try, so the
+    // handler's catch runs without leaving the 15s abort timer pending.
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("not-json{{", { status: 200 }));
 
     const { GET } = await import("@/app/api/bgp/route");
     const req = mockRequest("/api/bgp?prefix=8.8.8.0/24");
     const resp = await GET(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<BgpBody>(resp);
     expect(typeof data.error).toBe("string");
     expect(data.error.length).toBeGreaterThan(0);
   });
 
-  it("falls back to the default message for non-Error rejections", async () => {
+  it("returns 502 with the default message for non-Error rejections", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("nope");
 
     const { GET } = await import("@/app/api/bgp/route");
     const req = mockRequest("/api/bgp?prefix=8.8.8.0/24");
     const resp = await GET(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<BgpBody>(resp);
     expect(data.error).toBe("Failed to query BGP data");

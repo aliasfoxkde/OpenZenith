@@ -41,12 +41,15 @@ describe("OpenSky Flights API", () => {
     expect(resp.headers.get("X-Authenticated")).toBe("false");
   });
 
-  it("returns error when upstream fails", async () => {
+  it("returns 502 naming the upstream status when OpenSky fails", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    const data = await bodyAs<OpenSkyErrorBody>(resp);
+    expect(data.error).toBe("OpenSky API returned 500");
+    expect(data.authenticated).toBe(false);
   });
 });
 
@@ -76,10 +79,10 @@ describe("OpenSky Token API", () => {
     vi.useRealTimers();
   });
 
-  it("returns an error payload (still HTTP 200) when credentials are not configured", async () => {
+  it("returns a 502 error payload when credentials are not configured", async () => {
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toContain("token");
     expect(data.authenticated).toBe(false);
@@ -104,13 +107,13 @@ describe("OpenSky Token API", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
-  it("returns the error payload when the auth server responds non-2xx", async () => {
+  it("returns the 502 error payload when the auth server responds non-2xx", async () => {
     stubCredentials();
     stubFetch(vi.fn(() => new Response("invalid_credentials", { status: 401 })));
 
     const { GET } = await import("@/app/api/opensky/token/route");
     const resp = await GET();
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toContain("Failed to obtain OpenSky token");
     expect(data.authenticated).toBe(false);
@@ -241,12 +244,12 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
-  it("returns 200 with the thrown message when the upstream fetch rejects", async () => {
+  it("returns 502 with the thrown message when the upstream fetch rejects", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network unreachable"));
 
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toBe("network unreachable");
   });
@@ -286,7 +289,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     expect(secondFlightHeaders["Authorization"]).toBe("Bearer tok-1");
   });
 
-  it("drops the cached token after an upstream 401", async () => {
+  it("drops the cached token and returns 502 after an upstream 401", async () => {
     vi.stubEnv("OPENSKY_CLIENT_ID", "client-id");
     vi.stubEnv("OPENSKY_CLIENT_SECRET", "client-secret");
     // Credentials are still configured and the previous test left a valid
@@ -295,7 +298,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
 
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<OpenSkyErrorBody>(resp);
     expect(data.error).toBe("OpenSky API returned 401");
     expect(data.authenticated).toBe(true);

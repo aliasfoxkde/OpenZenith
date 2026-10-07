@@ -64,15 +64,18 @@ describe("Wildfires API", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns empty features when no API key is configured", async () => {
+  it("answers 200 with empty features when no API key is configured", async () => {
     // Temporarily remove the key (stubEnv restores even if an assertion fails)
     vi.stubEnv("FIRMS_MAP_KEY", "");
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
+    // A missing key is a capability answer, not an upstream failure — kept 200.
+    expect(resp.status).toBe(200);
     const data = await bodyAs<WildfireBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(0);
+    expect(data.count).toBe(0);
     expect(data.error).toContain("not configured");
   });
 
@@ -234,16 +237,17 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(data.features).toHaveLength(3000);
   });
 
-  it("returns a 200 error payload when FIRMS responds non-2xx", async () => {
+  it("returns 502 keeping the FeatureCollection shape when FIRMS responds non-2xx", async () => {
     stubKey();
     const longBody = "rate limit exceeded — please retry later and reference the FIRMS usage policy page for details.";
     stubFetch(vi.fn(() => new Response(longBody, { status: 429 })));
 
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(resp.status).toBe(502);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     const data = await bodyAs<WildfireBody>(resp);
+    expect(data.type).toBe("FeatureCollection");
     expect(data.count).toBe(0);
     expect(data.features).toHaveLength(0);
     expect(data.error).toContain("FIRMS API returned 429");
@@ -294,7 +298,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(data.bbox).toBe("-10,10,10,20");
   });
 
-  it("returns a 200 error payload when the cache layer throws", async () => {
+  it("returns 502 when the cache layer throws", async () => {
     stubKey();
     stubFetch(vi.fn());
     const { edgeGetJson } = await r2Json();
@@ -302,7 +306,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
 
     const GET = await getRoute();
     const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<WildfireBody>(resp);
     expect(data.error).toBe("R2 unavailable");
     expect(data.count).toBe(0);
@@ -310,14 +314,16 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to a generic message when a non-Error is thrown", async () => {
+  it("returns 502 with a generic message when a non-Error is thrown", async () => {
     stubKey();
     stubFetch(vi.fn());
     const { edgeGetJson } = await r2Json();
     (edgeGetJson as Mock).mockRejectedValueOnce("boom");
 
     const GET = await getRoute();
-    const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
+    const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
+    expect(resp.status).toBe(502);
+    const data = await bodyAs<WildfireBody>(resp);
     expect(data.error).toBe("Failed to fetch FIRMS data");
   });
 });

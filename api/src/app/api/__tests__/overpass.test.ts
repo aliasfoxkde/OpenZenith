@@ -3,7 +3,8 @@ import { mockRequest, bodyAs, stubFetchRecording } from "./helpers";
 
 /**
  * Overpass proxy response body — `elements` on success, `error` on any of the
- * route's silent-200 failure paths. Only asserted fields are declared.
+ * route's failure paths (all of which answer 502). Only asserted fields are
+ * declared.
  */
 interface OverpassBody {
   elements?: Array<{ type?: string; id?: number; lat?: number; lon?: number }>;
@@ -92,42 +93,42 @@ describe("Overpass API", () => {
     expect(data.elements).toEqual([]);
   });
 
-  it("returns a silent 200 with the error message when the upstream request throws", async () => {
+  it("returns 502 with the error message when the upstream request throws", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("upstream reset"));
 
     const { POST } = await import("@/app/api/overpass/route");
     const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "[out:json];" }));
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<OverpassBody>(resp);
     expect(data.error).toBe("upstream reset");
   });
 
-  it("falls back to the generic message for non-Error rejections", async () => {
+  it("returns 502 with the generic message for non-Error rejections", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("not an error object");
 
     const { POST } = await import("@/app/api/overpass/route");
     const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "[out:json];" }));
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<OverpassBody>(resp);
     expect(data.error).toBe("Overpass proxy error");
   });
 
-  it("returns a silent 200 when the request body is not JSON", async () => {
+  it("returns 502 when the request body is not JSON", async () => {
     const { POST } = await import("@/app/api/overpass/route");
     const req = mockRequest("/api/overpass", "POST", "{not json");
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<OverpassBody>(resp);
     expect(typeof data.error).toBe("string");
     expect(data.error).not.toBe("Missing query string");
   });
 
-  it("returns a silent 200 when upstream replies with non-JSON", async () => {
+  it("returns 502 when upstream replies with non-JSON", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("<html>too many requests</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
     );
@@ -135,10 +136,26 @@ describe("Overpass API", () => {
     const { POST } = await import("@/app/api/overpass/route");
     const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "[out:json];" }));
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<OverpassBody>(resp);
     expect(typeof data.error).toBe("string");
+  });
+
+  it("returns 502 when upstream responds non-OK with a parseable body", async () => {
+    // An Overpass error document (429/504 with JSON body) must not be relayed
+    // as a green 200.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ remark: "server load too high" }), { status: 429 }),
+    );
+
+    const { POST } = await import("@/app/api/overpass/route");
+    const req = mockRequest("/api/overpass", "POST", JSON.stringify({ query: "[out:json];" }));
+    const resp = await POST(req);
+    expect(resp.status).toBe(502);
+
+    const data = await bodyAs<OverpassBody>(resp);
+    expect(data.error).toBe("Overpass API returned 429");
   });
 
   it("passes an abort signal that is not yet fired", async () => {

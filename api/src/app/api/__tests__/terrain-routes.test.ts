@@ -197,7 +197,7 @@ function islandTile(): Int16Array {
 
 // A DEM payload whose pixel reads throw a plain string. That is the only way to
 // reach the routes' `err instanceof Error ? err.message : "Unknown error"`
-// fallback, which must still answer 200 rather than a 5xx.
+// fallback, which reports the failure as a 502.
 function hostileTileData(): Int16Array {
   return new Proxy(new Int16Array(256 * 256), {
     get(target, prop, receiver) {
@@ -409,11 +409,12 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
   });
 });
 
-describe("Terrain routes — DEM failure degrades to 200 with null/empty results", () => {
+describe("Terrain routes — DEM failure degrades to null/empty results", () => {
   it("slope returns stats:null grid when every tile fails", async () => {
     mockGetTileData.mockRejectedValue(new Error("chunk not found"));
     const resp = await slopeGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=5&zoom=10`));
-    // Never 5xx — the silent-catch contract
+    // Per-tile read failures are swallowed and surface as nodata, so the route
+    // still answers 200 — only an unwound computation reaches the 502 catch.
     expect(resp.status).toBe(200);
     const body = await slopeBody(resp);
     expect(body.stats).toBeNull();
@@ -823,15 +824,15 @@ describe("Terrain routes — trace flow-walk termination", () => {
     expect(resp.status).toBe(400);
     const body = await traceBody(resp);
     expect(body.error).toBe("No elevation data at starting point");
-    // The silent-200 contract only covers internal failures; a client asking
-    // for a lake-less coordinate still gets a real 400.
+    // A client asking for a lake-less coordinate gets a real 400 rather than a
+    // degraded payload.
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBeDefined();
   });
 
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     // A bigint tile payload explodes the first time it reaches the bilinear
-    // mix — that is the only route into the handler's catch, which must answer
-    // 200 with an error body rather than a 5xx.
+    // mix — that is the only route into the handler's catch, which reports the
+    // failure as a 502 with the thrown message.
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -839,16 +840,16 @@ describe("Terrain routes — trace flow-walk termination", () => {
       zoom: 10,
     });
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await traceBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.geojson).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(tracePOST, { lat: 40.7, lon: -74.0 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await traceBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.geojson).toBeUndefined();
@@ -944,7 +945,7 @@ describe("Terrain routes — twi grid emission", () => {
     expect((body.grid ?? []).flat().every((v: number | null) => v === null)).toBe(true);
   });
 
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -952,16 +953,16 @@ describe("Terrain routes — twi grid emission", () => {
       zoom: 10,
     });
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await twiBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.grid).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(twiPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await twiBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.grid).toBeUndefined();
@@ -1067,7 +1068,7 @@ describe("Terrain routes — aspect nodata handling", () => {
     expect((body.grid ?? []).flat().every((v: number | null) => v === null)).toBe(true);
   });
 
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -1075,16 +1076,16 @@ describe("Terrain routes — aspect nodata handling", () => {
       zoom: 10,
     });
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await aspectBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.grid).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await aspectBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.grid).toBeUndefined();
@@ -1235,9 +1236,9 @@ describe("Terrain routes — slope nodata and downsampling arms", () => {
     expect((await slopeBody(wide)).grid).toHaveLength(61); // 241 rows, step 4
   });
 
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     // BigInt pixel reads explode inside bilinear assembly — the route's outer
-    // catch must answer 200 with the error message, never a 5xx.
+    // catch reports the failure as a 502 with the error message.
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -1245,16 +1246,16 @@ describe("Terrain routes — slope nodata and downsampling arms", () => {
       zoom: 10,
     });
     const resp = await slopeGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await slopeBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.grid).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await slopeGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=2&zoom=10`));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await slopeBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.grid).toBeUndefined();
@@ -1266,7 +1267,7 @@ describe("Terrain routes — slope nodata and downsampling arms", () => {
 // wrap the whole computation in one outer catch whose arms were never reached.
 
 describe("Terrain routes — streams hostile DEM", () => {
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -1274,17 +1275,17 @@ describe("Terrain routes — streams hostile DEM", () => {
       zoom: 10,
     });
     const resp = await postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await streamsBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.features).toBeUndefined();
     expect(body.stats).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(streamsPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await streamsBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.features).toBeUndefined();
@@ -1323,7 +1324,7 @@ describe("Terrain routes — streams hostile DEM", () => {
 });
 
 describe("Terrain routes — watershed hostile DEM", () => {
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -1331,16 +1332,16 @@ describe("Terrain routes — watershed hostile DEM", () => {
       zoom: 10,
     });
     const resp = await postJSON(watershedPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await watershedBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.geojson).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(watershedPOST, { lat: 40.7, lon: -74.0, radius_cells: 10 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await watershedBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.geojson).toBeUndefined();
@@ -1446,7 +1447,7 @@ describe("Terrain routes — profile emission arms", () => {
     expect(body.stats).toMatchObject({ min: 300, max: 900, total_gain: 600 });
   });
 
-  it("returns a silent 200 error body for non-numeric tile data", async () => {
+  it("returns a 502 error body for non-numeric tile data", async () => {
     mockGetTileData.mockResolvedValue({
       data: new BigInt64Array(256 * 256) as unknown as Int16Array,
       width: 256,
@@ -1454,16 +1455,16 @@ describe("Terrain routes — profile emission arms", () => {
       zoom: 10,
     });
     const resp = await postJSON(profilePOST, { lat1: 40.7, lon1: -74.0, lat2: 40.75, lon2: -73.95 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await profileBody(resp);
     expect(body.error).toBe("Cannot mix BigInt and other types, use explicit conversions");
     expect(body.profile).toBeUndefined();
   });
 
-  it("reports an Unknown error when the DEM payload throws a non-Error", async () => {
+  it("reports an Unknown error with a 502 when the DEM payload throws a non-Error", async () => {
     mockGetTileData.mockResolvedValue({ data: hostileTileData(), width: 256, height: 256, zoom: 10 });
     const resp = await postJSON(profilePOST, { lat1: 40.7, lon1: -74.0, lat2: 40.75, lon2: -73.95 });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await profileBody(resp);
     expect(body.error).toBe("Unknown error");
     expect(body.profile).toBeUndefined();

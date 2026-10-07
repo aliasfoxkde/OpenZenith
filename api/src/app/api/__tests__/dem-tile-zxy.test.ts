@@ -67,13 +67,23 @@ describe("DEM Tile XYZ API", () => {
     expect(resp.status).toBe(400);
   });
 
-  it("returns fallback ocean tile on assembly error", async () => {
+  it("returns 502 when PNG assembly fails", async () => {
+    // getTileData answers all-NODATA (HTTP 200) for genuine ocean/out-of-coverage,
+    // so a thrown error here means assembly itself failed.
     vi.mocked(vi.mocked(await import("@/lib/tile")).getTileData).mockRejectedValueOnce(new Error("chunk not found"));
 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx("4", "8", "5.png"));
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("X-Dem-Tile-Source")).toBe("fallback-ocean");
+    expect(resp.status).toBe(502);
+    expect((await bodyAs<DemTileErrorBody>(resp)).error).toBe("Failed to assemble DEM tile");
+  });
+
+  it("returns 404 for integer coordinates outside the 2^z grid", async () => {
+    const { GET } = await route();
+    // z=4 allows x,y in 0..15
+    const resp = await GET(mockRequest("/api/dem-tile/4/99/99.png"), ctx("4", "99", "99.png"));
+    expect(resp.status).toBe(404);
+    expect((await bodyAs<DemTileErrorBody>(resp)).error).toBe("Tile out of range for zoom 4 (max 15)");
   });
 });
 
@@ -105,7 +115,7 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/dem-tile/-1/0/0.png"), ctx(-1, 0, "0.png"));
     expect(resp.status).toBe(400);
-    expect((await bodyAs<DemTileErrorBody>(resp)).error).toBe("Invalid zoom level");
+    expect((await bodyAs<DemTileErrorBody>(resp)).error).toBe("Zoom must be between 0 and 14");
   });
 
   it("rejects a non-numeric y coordinate with and without the .png suffix", async () => {

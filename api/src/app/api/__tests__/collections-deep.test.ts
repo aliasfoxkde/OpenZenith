@@ -70,6 +70,16 @@ describe("Collection by ID — extended", () => {
     expect(rels).toContain("items");
     expect(rels).toContain("root");
   });
+
+  it("serves catalog documents with an hour-long cache window", async () => {
+    const { GET } = await import("@/app/api/collections/[id]/route");
+    const resp = await GET(mockRequest("/api/collections/wildfires"), {
+      params: Promise.resolve({ id: "wildfires" }),
+    });
+    // Catalog bodies derive from static layer metadata — safe to cache.
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=3600");
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
 });
 
 describe("Collection Items — extended", () => {
@@ -132,17 +142,17 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     expect(await bodyAs<CollectionBody>(resp)).toMatchObject({ numberMatched: 0, numberReturned: 0 });
   });
 
-  it("returns a 200 error payload when the upstream source is unavailable", async () => {
+  it("returns 502 when the upstream source is unavailable", async () => {
     stubFetch([{ match: "earthquake.usgs.gov", respond: () => new Response("too many requests", { status: 429 }) }]);
 
     const GET = await getGET();
     const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<CollectionBody>(resp);
     expect(data.error).toBe("Upstream data source returned 429");
   });
 
-  it("returns a 200 error payload when the upstream fetch rejects", async () => {
+  it("returns 502 when the upstream fetch rejects", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => {
@@ -152,16 +162,16 @@ describe("Collection Items — upstream fetching and normalisation", () => {
 
     const GET = await getGET();
     const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect((await bodyAs<CollectionBody>(resp)).error).toBe("connection reset");
   });
 
-  it("returns a 200 error payload when the upstream body is not JSON", async () => {
+  it("returns 502 when the upstream body is not JSON", async () => {
     stubFetch([{ match: "earthquake.usgs.gov", respond: () => new Response("<html>boom</html>", { status: 200 }) }]);
 
     const GET = await getGET();
     const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect((await bodyAs<CollectionBody>(resp)).error).toBeTruthy();
   });
 

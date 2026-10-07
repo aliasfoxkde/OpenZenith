@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { parseTileParams } from "@/lib/tile-params";
 import { zlibSync } from "fflate";
 
 /**
@@ -225,14 +226,13 @@ export function OPTIONS() {
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
+  // ".png" suffix tolerated for raster-client convenience.
   const tileYStr = y.replace(/\.png$/, "");
-  const zoom = parseInt(z, 10);
-  const tileX = parseInt(x, 10);
-  const tileY = parseInt(tileYStr, 10);
-
-  if (isNaN(zoom) || zoom < 0 || zoom > 14 || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json({ error: "Invalid tile coordinates" }, { status: 400, headers: CORS_HEADERS });
+  const parsed = parseTileParams(z, x, tileYStr, { minZoom: 0, maxZoom: 14 });
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.message }, { status: parsed.status, headers: CORS_HEADERS });
   }
+  const { z: zoom, x: tileX, y: tileY } = parsed;
 
   try {
     const png = encodeAccuracyTile(zoom, tileX, tileY);
@@ -244,13 +244,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         "X-Tile-Type": "elevation-accuracy",
       },
     });
-  } catch (error) {
-    console.error(`Accuracy tile error: ${zoom}/${tileX}/${tileY}`, error);
-    const fallback = encodeAccuracyTile(0, 0, 0); // fallback
-    return new Response(fallback.buffer as ArrayBuffer, {
-      status: 200,
-      headers: { ...CACHE_HEADERS, "Content-Type": "image/png", "X-Tile-Type": "fallback" },
-    });
+  } catch {
+    // encodeAccuracyTile is pure computation (no I/O) — reaching this catch
+    // is a defect, not missing coverage. Report it instead of a mystery tile.
+    return NextResponse.json({ error: "Failed to encode accuracy tile" }, { status: 500, headers: CORS_HEADERS });
   }
 }
 

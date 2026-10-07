@@ -10,10 +10,15 @@ export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
-function parseCoord(val: string | null, fallback: number, min: number, max: number): number {
-  if (!val) return fallback;
+/**
+ * Absent/empty param → the documented default; present but malformed or
+ * out-of-range → null, which the caller reports as 400. Silently swapping a
+ * typo'd coordinate for the default used to query the wrong region.
+ */
+function parseCoord(val: string | null, fallback: number, min: number, max: number): number | null {
+  if (val === null || val === "") return fallback;
   const n = Number(val);
-  return isNaN(n) || n < min || n > max ? fallback : n;
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 
 /**
@@ -44,6 +49,12 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lat = parseCoord(searchParams.get("lat"), 30, -90, 90);
   const lon = parseCoord(searchParams.get("lon"), -90, -180, 180);
+  if (lat === null || lon === null) {
+    return NextResponse.json(
+      { error: "Invalid lat/lon — expected numeric coordinates in range", ac: [], count: 0 },
+      { status: 400, headers: CORS_HEADERS },
+    );
+  }
   // Default 500, clamped to the documented max; non-positive or non-numeric
   // radii fall back to the default rather than forwarding e.g. dist=-50.
   const rawDist = Number(searchParams.get("dist"));
@@ -78,7 +89,7 @@ export async function GET(request: NextRequest) {
         errorMsg = "ADSB Exchange rate limit exceeded — try again later";
       }
 
-      return NextResponse.json({ error: errorMsg, ac: [], count: 0 }, { status: 200, headers: CORS_HEADERS });
+      return NextResponse.json({ error: errorMsg, ac: [], count: 0 }, { status: 502, headers: CORS_HEADERS });
     }
 
     const data = (await resp.json()) as AdsbExchangeResponse | null;
@@ -97,6 +108,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Military flight fetch failed";
-    return NextResponse.json({ error: message, ac: [], count: 0 }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message, ac: [], count: 0 }, { status: 502, headers: CORS_HEADERS });
   }
 }

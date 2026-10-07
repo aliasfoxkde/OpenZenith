@@ -158,5 +158,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
     });
   }
 
-  return new Response("Imagery temporarily unavailable", { status: 200, headers: CORS_HEADERS });
+  // Both the Planetary Computer source and the GIBS fallback failed — report
+  // it instead of handing clients a text body that cannot decode as an image.
+  return Response.json(
+    { error: "Imagery temporarily unavailable (both sources failed)" },
+    { status: 502, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+  );
 }

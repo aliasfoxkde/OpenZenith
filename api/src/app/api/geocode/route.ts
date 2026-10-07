@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           results: [],
           count: 0,
         },
-        { status: 200, headers: { ...CORS_HEADERS, "Retry-After": retryAfter } },
+        { status: 429, headers: { ...CORS_HEADERS, "Retry-After": retryAfter } },
       );
     }
 
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
           results: [],
           count: 0,
         },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
         results: [],
         count: 0,
       },
-      { status: 200, headers: CORS_HEADERS },
+      { status: 502, headers: CORS_HEADERS },
     );
   }
 }

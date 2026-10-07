@@ -80,27 +80,37 @@ describe("Raw DEM tile API (/api/tile)", () => {
     const resp = await GET(req("http://localhost/api/tile/abc/1/1"), ctx);
     expect(resp.status).toBe(400);
     const body = await bodyAs<TileErrorBody>(resp);
-    expect(body.error).toContain("integers");
+    expect(body.error).toBe("Invalid tile coordinates");
+  });
+
+  it("rejects truncated garbage coordinates with 400 instead of parsing a prefix", async () => {
+    const ctx = { params: Promise.resolve({ z: "8", x: "72abc", y: "96" }) };
+    const resp = await GET(req("http://localhost/api/tile/8/72abc/96"), ctx);
+    expect(resp.status).toBe(400);
+    const body = await bodyAs<TileErrorBody>(resp);
+    expect(body.error).toBe("Invalid tile coordinates");
   });
 
   it("rejects out-of-range zoom with 400", async () => {
     const resp = await GET(req("http://localhost/api/tile/16/0/0"), routeCtx(16, 0, 0));
     expect(resp.status).toBe(400);
-  });
-
-  it("rejects tile indices beyond the zoom range with 400", async () => {
-    // z=1 allows x,y in {0,1} only
-    const resp = await GET(req("http://localhost/api/tile/1/5/0"), routeCtx(1, 5, 0));
-    expect(resp.status).toBe(400);
     const body = await bodyAs<TileErrorBody>(resp);
-    expect(body.error).toContain("between 0 and 1");
+    expect(body.error).toBe("Zoom must be between 0 and 15");
   });
 
-  it("returns 200 with error payload when assembly fails (never 5xx)", async () => {
+  it("returns 404 for tile indices outside the 2^z grid", async () => {
+    // z=1 allows x,y in {0,1} only — 5 is well-formed but does not exist
+    const resp = await GET(req("http://localhost/api/tile/1/5/0"), routeCtx(1, 5, 0));
+    expect(resp.status).toBe(404);
+    const body = await bodyAs<TileErrorBody>(resp);
+    expect(body.error).toBe("Tile out of range for zoom 1 (max 1)");
+  });
+
+  it("returns 502 with a JSON error when assembly fails", async () => {
     const { getTileData } = await import("@/lib/tile");
     (getTileData as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("chunk not found"));
     const resp = await GET(req("http://localhost/api/tile/8/72/96"), routeCtx(8, 72, 96));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = await bodyAs<TileErrorBody>(resp);
     expect(body.error).toContain("chunk not found");
   });

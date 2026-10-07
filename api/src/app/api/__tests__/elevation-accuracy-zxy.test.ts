@@ -115,7 +115,7 @@ describe("Elevation accuracy API validation (/api/elevation-accuracy)", () => {
     const resp = await getTile(15, 0, 0);
     expect(resp.status).toBe(400);
     const body = (await resp.json()) as { error: string };
-    expect(body.error).toBe("Invalid tile coordinates");
+    expect(body.error).toBe("Zoom must be between 0 and 14");
   });
 
   it("strips the .png extension from the y segment", async () => {
@@ -157,17 +157,14 @@ describe("Elevation accuracy API tile encoding", () => {
     expect(decoded.pixels[pixelIndex(0, 0, 0, lat, lon)]).toEqual(expected);
   });
 
-  it("returns 200 with a fallback tile when encoding fails (never 5xx)", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+  it("returns 500 when tile encoding fails", async () => {
     vi.mocked(zlibSync).mockImplementationOnce(() => {
       throw new Error("zlib failure");
     });
 
     const resp = await getTile(8, 100, 60);
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("X-Tile-Type")).toBe("fallback");
-    expect(resp.headers.get("Content-Type")).toBe("image/png");
-    const bytes = new Uint8Array(await resp.arrayBuffer());
-    expect(Array.from(bytes.slice(0, 8))).toEqual(PNG_SIGNATURE);
+    expect(resp.status).toBe(500);
+    const body = (await resp.json()) as { error: string };
+    expect(body.error).toBe("Failed to encode accuracy tile");
   });
 });

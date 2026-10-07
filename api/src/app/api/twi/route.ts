@@ -324,6 +324,6 @@ export async function POST(request: NextRequest) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

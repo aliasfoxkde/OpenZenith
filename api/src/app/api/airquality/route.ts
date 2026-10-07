@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
+import { apiCacheKey, edgeGetJson, edgePutJson } from "@/lib/storage/edge-cache";
 
 export const runtime = "edge";
 
@@ -31,18 +32,38 @@ interface OpenMeteoAirQuality {
   current?: OpenMeteoCurrent | null;
 }
 
-function parseCoord(val: string | null, fallback: number, min: number, max: number): number {
-  if (!val) return fallback;
+/**
+ * Absent/empty param → the documented default; present but malformed or
+ * out-of-range → null, which the caller reports as 400. Silently swapping a
+ * typo'd coordinate for the default used to answer "air quality at 40.7,-74"
+ * for any garbage input.
+ */
+function parseCoord(val: string | null, fallback: number, min: number, max: number): number | null {
+  if (val === null || val === "") return fallback;
   const n = Number(val);
-  return isNaN(n) || n < min || n > max ? fallback : n;
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const lat = parseCoord(url.searchParams.get("lat"), 40.7, -90, 90);
   const lon = parseCoord(url.searchParams.get("lon"), -74.0, -180, 180);
+  if (lat === null || lon === null) {
+    return NextResponse.json(
+      { error: "Invalid lat/lon — expected numeric coordinates in range" },
+      { status: 400, headers: CORS_HEADERS },
+    );
+  }
 
+  const cacheKey = apiCacheKey("airquality", { lat: lat.toFixed(2), lon: lon.toFixed(2) });
   try {
+    const cached = await edgeGetJson(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300", "X-Cache": "HIT" },
+      });
+    }
+
     // Open-Meteo Air Quality API
     const aqUrl = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
     aqUrl.searchParams.set("latitude", lat.toString());
@@ -54,7 +75,7 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      return corsError("Failed to fetch air quality data", 200);
+      return corsError("Failed to fetch air quality data", 502);
     }
 
     const data = (await res.json()) as OpenMeteoAirQuality;
@@ -82,9 +103,13 @@ export async function GET(request: Request) {
       },
     };
 
-    return NextResponse.json({ type: "FeatureCollection", features: [feature] }, { headers: CORS_HEADERS });
+    const result = { type: "FeatureCollection", features: [feature] };
+    edgePutJson(cacheKey, result, 300).catch(() => {});
+    return NextResponse.json(result, {
+      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300", "X-Cache": "MISS" },
+    });
   } catch {
-    return corsError("Internal server error", 200);
+    return corsError("Internal server error", 500);
   }
 }
 

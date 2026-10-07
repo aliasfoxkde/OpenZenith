@@ -103,14 +103,14 @@ describe("DEM Tile Metadata API", () => {
     fetchSpy.mockRestore();
   });
 
-  it("reports status error with the thrown message when the probe rejects", async () => {
+  it("reports 503 with the thrown message when the probe rejects", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValueOnce(new Error("HuggingFace request aborted"));
 
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(503);
     const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("error");
     expect(data.backend).toBe("huggingface");
@@ -118,12 +118,12 @@ describe("DEM Tile Metadata API", () => {
     fetchSpy.mockRestore();
   });
 
-  it("falls back to a generic message when the probe rejects with a non-Error", async () => {
+  it("reports 503 with a generic message when the probe rejects with a non-Error", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("network unreachable");
 
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(503);
     const data = await bodyAs<DemTileHealthBody>(resp);
     expect(data.status).toBe("error");
     expect(data.message).toBe("Health check failed");

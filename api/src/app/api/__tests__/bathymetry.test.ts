@@ -13,7 +13,7 @@ vi.mock("@/lib/gebco/cog-reader", () => ({
   getGebcoElevation: (...args: unknown[]) => mockGetGebcoElevation(...args),
 }));
 
-/** Body the bathymetry route returns (plus the silent-200 error variant). */
+/** Body the bathymetry route returns (plus the 502 `{ error }` variant). */
 interface BathymetryBody {
   elevation?: number | null;
   surface_type?: string;
@@ -143,14 +143,15 @@ describe("Bathymetry endpoint", () => {
     expect(data.location).toEqual({ lat: 0, lon: 0 });
   });
 
-  it("returns the thrown message when the SRTM read itself fails", async () => {
+  it("returns 502 with the thrown message when the SRTM read itself fails", async () => {
     mockGetElevationFromR2.mockRejectedValueOnce(new Error("r2 binding unavailable"));
 
     const { GET } = await import("@/app/api/bathymetry/route");
     const req = mockRequest("/api/bathymetry?lat=40.7&lon=-74.0");
     const resp = await GET(req);
-    // Silent-200 contract: reader failure never becomes a 5xx.
-    expect(resp.status).toBe(200);
+    // An internal reader failure is a real 5xx, not a silent empty answer.
+    expect(resp.status).toBe(502);
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
     const data = await bodyAs<BathymetryBody>(resp);
     expect(data.error).toBe("r2 binding unavailable");
   });
@@ -210,13 +211,13 @@ describe("Bathymetry endpoint", () => {
     expect(data.source).toBe("gebco2025");
   });
 
-  it("falls back to the default message for non-Error rejections", async () => {
+  it("returns 502 with the default message for non-Error rejections", async () => {
     mockGetElevationFromR2.mockRejectedValueOnce("total nonsense");
 
     const { GET } = await import("@/app/api/bathymetry/route");
     const req = mockRequest("/api/bathymetry?lat=40.7&lon=-74.0");
     const resp = await GET(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<BathymetryBody>(resp);
     expect(data.error).toBe("Bathymetry query failed");

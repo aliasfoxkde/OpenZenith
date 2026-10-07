@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
       { ok: false, error: { code: "ELEVATION_UNAVAILABLE", message, retryable: true }, requestId },
-      { status: 200, headers: CORS_HEADERS },
+      { status: 502, headers: CORS_HEADERS },
     );
   }
 }

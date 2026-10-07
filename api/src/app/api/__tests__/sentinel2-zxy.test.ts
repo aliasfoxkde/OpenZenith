@@ -145,7 +145,7 @@ describe("Sentinel-2 tile API", () => {
     expect(stacSearch.bbox).toEqual([-180, -60, 180, 70]);
   });
 
-  it("returns the unavailable notice when a STAC item carries no usable asset", async () => {
+  it("returns 502 when a STAC item carries no usable asset and GIBS also fails", async () => {
     vi.resetModules();
     const { GET: getFresh } = await import("@/app/api/sentinel2/[z]/[x]/[y]/route");
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
@@ -160,8 +160,8 @@ describe("Sentinel-2 tile API", () => {
     const resp = await getFresh(new Request("https://oz/api/sentinel2/10/163/390"), {
       params: Promise.resolve({ z: "10", x: "163", y: "390" }),
     });
-    expect(resp.status).toBe(200);
-    expect(await resp.text()).toContain("temporarily unavailable");
+    expect(resp.status).toBe(502);
+    expect(await resp.json()).toEqual({ error: "Imagery temporarily unavailable (both sources failed)" });
   });
 
   it("serves TiTiler imagery when the STAC search and TiTiler both succeed", async () => {
@@ -198,7 +198,7 @@ describe("Sentinel-2 tile API", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS-GIBS");
   });
 
-  it("returns a 200 notice when every upstream is unavailable", async () => {
+  it("returns a 502 JSON error when every upstream is unavailable", async () => {
     // The module-level asset URL from the first test is still within its
     // 1-hour TTL, so TiTiler is tried (and throws); GIBS also fails.
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
@@ -213,7 +213,7 @@ describe("Sentinel-2 tile API", () => {
     const resp = await GET(new Request("https://oz/api/sentinel2/10/163/397"), {
       params: Promise.resolve({ z: "10", x: "163", y: "397" }),
     });
-    expect(resp.status).toBe(200);
-    expect(await resp.text()).toContain("temporarily unavailable");
+    expect(resp.status).toBe(502);
+    expect(await resp.json()).toEqual({ error: "Imagery temporarily unavailable (both sources failed)" });
   });
 });

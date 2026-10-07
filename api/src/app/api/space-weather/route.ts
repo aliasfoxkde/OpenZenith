@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     if (type === "kp") {
       const kpResp = await fetch(KP_URL, requestInit);
       if (!kpResp.ok) {
-        return NextResponse.json({ error: `SWPC Kp API returned ${kpResp.status}` }, { status: 200, headers: CORS_HEADERS });
+        return NextResponse.json({ error: `SWPC Kp API returned ${kpResp.status}` }, { status: 502, headers: CORS_HEADERS });
       }
       headers.set("Cache-Control", `public, max-age=${KP_CACHE_TTL}`);
       // Relayed verbatim — `unknown` is the honest boundary type.
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       if (!auroraResp.ok) {
         return NextResponse.json(
           { error: `SWPC Aurora API returned ${auroraResp.status}` },
-          { status: 200, headers: CORS_HEADERS },
+          { status: 502, headers: CORS_HEADERS },
         );
       }
       headers.set("Cache-Control", `public, max-age=${AURORA_CACHE_TTL}`);
@@ -56,11 +56,12 @@ export async function GET(request: NextRequest) {
       return new Response(JSON.stringify(aurora), { status: 200, headers });
     }
 
-    // type === "all" (default) — tolerate a single source failing
+    // type === "all" (default) — tolerate a single source failing, but say
+    // which one: an empty stand-in alone is indistinguishable from "no data".
     const [kpResp, auroraResp] = await Promise.all([fetch(KP_URL, requestInit), fetch(AURORA_URL, requestInit)]);
 
     if (!kpResp.ok && !auroraResp.ok) {
-      return NextResponse.json({ error: "Both SWPC APIs unavailable" }, { status: 200, headers: CORS_HEADERS });
+      return NextResponse.json({ error: "Both SWPC APIs unavailable" }, { status: 502, headers: CORS_HEADERS });
     }
 
     headers.set("Cache-Control", `public, max-age=${Math.min(KP_CACHE_TTL, AURORA_CACHE_TTL)}`);
@@ -69,10 +70,17 @@ export async function GET(request: NextRequest) {
     // Same read order as before: Kp first, then aurora.
     const kp: unknown = kpResp.ok ? await kpResp.json() : [];
     const aurora: unknown = auroraResp.ok ? await auroraResp.json() : { coordinates: [] };
+    const errors = [
+      ...(kpResp.ok ? [] : [`kp: SWPC Kp API returned ${kpResp.status}`]),
+      ...(auroraResp.ok ? [] : [`aurora: SWPC Aurora API returned ${auroraResp.status}`]),
+    ];
 
-    return new Response(JSON.stringify({ kp_forecast: kp, aurora }), { status: 200, headers });
+    return new Response(JSON.stringify({ kp_forecast: kp, aurora, ...(errors.length ? { errors } : {}) }), {
+      status: 200,
+      headers,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Space weather fetch failed";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

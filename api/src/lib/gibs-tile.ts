@@ -10,9 +10,10 @@
  * This module centralizes that logic.
  */
 
-import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 import { tileToBboxString } from "@/lib/srtm/zoom-math";
+import { parseTileParams } from "@/lib/tile-params";
 
 const GIBS_WMS = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi";
 
@@ -42,28 +43,13 @@ export interface GIBSLayerConfig {
 export function createGIBSHandler(config: GIBSLayerConfig) {
   const { layer, cachePrefix, minZoom, maxZoom, cacheTtl } = config;
 
-  // Strict integer parsing: parseInt("3abc") yields 3, which would let
-  // malformed coordinates slip through as a truncated value. A leading minus
-  // still parses so negatives reach the range check and get a 404 rather
-  // than being lumped in with unparseable garbage (400).
-  const parseTileInt = (value: string): number =>
-    /^-?[0-9]+$/.test(value) ? Number.parseInt(value, 10) : Number.NaN;
-
   return async function GET(_request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
     const { z, x, y } = await params;
-    const zoom = parseTileInt(z);
-    const tileX = parseTileInt(x);
-    const tileY = parseTileInt(y);
+    const parsed = parseTileParams(z, x, y, { minZoom, maxZoom });
+    if (!parsed.ok) return corsError(parsed.message, parsed.status);
+    const { z: zoom, x: tileX, y: tileY } = parsed;
 
-    if (isNaN(zoom) || isNaN(tileX) || isNaN(tileY) || zoom < minZoom || zoom > maxZoom) {
-      return new Response("Invalid tile coordinates", { status: 400, headers: CORS_HEADERS });
-    }
-    const maxTile = Math.pow(2, zoom) - 1;
-    if (tileX < 0 || tileX > maxTile || tileY < 0 || tileY > maxTile) {
-      return new Response("Tile out of range", { status: 404, headers: CORS_HEADERS });
-    }
-
-    // Try R2 cache first
+    // Try edge cache first
     const cached = await edgeGetTile(cachePrefix, zoom, tileX, tileY);
     if (cached) {
       return new Response(cached, {
@@ -87,7 +73,15 @@ export function createGIBSHandler(config: GIBSLayerConfig) {
       });
 
       if (!res.ok) {
-        return new Response("Tile not available", { status: res.status, headers: CORS_HEADERS });
+        // A GIBS 404 means the layer has no coverage for this tile (normal for
+        // sparse products); anything else is an upstream failure we report as
+        // 502 so clients can distinguish "no data here" from "source down".
+        // The historical 200-on-failure contract made MapLibre try to decode a
+        // text body as a PNG and hid outages as "empty" layers.
+        if (res.status === 404) {
+          return corsError("Tile not available from GIBS", 404);
+        }
+        return corsError(`GIBS request failed (upstream ${res.status})`, 502);
       }
 
       const contentType = res.headers.get("content-type") || "image/png";
@@ -103,7 +97,7 @@ export function createGIBSHandler(config: GIBSLayerConfig) {
         },
       });
     } catch {
-      return new Response("Failed to fetch tile", { status: 200, headers: CORS_HEADERS });
+      return corsError("Failed to fetch tile from GIBS", 502);
     }
   };
 }

@@ -16,12 +16,14 @@ describe("GEBCO Tile API", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
-  it("returns 200 with an edge-runtime explanation for a valid GEBCO filename", async () => {
+  it("returns 501 with an edge-runtime explanation for a valid GEBCO filename", async () => {
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/gebco-tile/gebco_2025_sub_ice_n90.0_s0.0_w-180.0_e-90.0.tif"), {
       params: Promise.resolve({ name: "gebco_2025_sub_ice_n90.0_s0.0_w-180.0_e-90.0.tif" }),
     });
-    expect(resp.status).toBe(200);
+    // 501: the edge runtime structurally cannot read the NAS-resident COGs —
+    // a dev-only capability gap, not a client or upstream failure.
+    expect(resp.status).toBe(501);
     const data = await bodyAs<GebcoTileBody>(resp);
     expect(data.error).toContain("GEBCO COG tiles require Node.js runtime");
     expect(data.error).toContain("/api/dem-tile/{z}/{x}/{y}");
@@ -44,7 +46,7 @@ describe("GEBCO Tile API", () => {
     }
   });
 
-  it("accepts the documented filename character set", async () => {
+  it("accepts the documented filename character set and declines with 501", async () => {
     const { GET } = await route();
     for (const name of [
       "gebco_2025_sub_ice_n00.0_s00.0_w000.0_e000.0.tif",
@@ -54,7 +56,7 @@ describe("GEBCO Tile API", () => {
       const resp = await GET(mockRequest(`/api/gebco-tile/${encodeURIComponent(name)}`), {
         params: Promise.resolve({ name }),
       });
-      expect(resp.status, `expected 200 for ${JSON.stringify(name)}`).toBe(200);
+      expect(resp.status, `expected 501 for ${JSON.stringify(name)}`).toBe(501);
       expect(resp.headers.get("Cache-Control")).toBeNull();
     }
   });

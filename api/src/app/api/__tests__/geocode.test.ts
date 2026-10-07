@@ -113,14 +113,14 @@ describe("Geocode endpoint", () => {
     expect(data.requestId).toBeDefined();
   });
 
-  it("returns a structured retryable error for 429 rate limit", async () => {
+  it("returns 429 with a structured retryable error on an upstream rate limit", async () => {
     const headers = new Headers();
     headers.set("retry-after", "5");
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("rate limited", { status: 429, headers }));
 
     const { GET } = await import("@/app/api/geocode/route");
     const resp = await GET(mockRequest("/api/geocode?query=London"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(429);
 
     const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
@@ -141,12 +141,12 @@ describe("Geocode endpoint", () => {
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });
 
-  it("returns a structured retryable error when Nominatim is unavailable", async () => {
+  it("returns 502 with a structured retryable error when Nominatim is unavailable", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("upstream failed", { status: 503 }));
 
     const { GET } = await import("@/app/api/geocode/route");
     const resp = await GET(mockRequest("/api/geocode?query=London"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);
@@ -202,7 +202,11 @@ describe("Geocode endpoint", () => {
   });
 
   it("clamps limit into the 1-10 range and defaults to 5 when unparseable", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    // A fresh Response per call: a Response body is single-use, and a reused
+    // one makes the route's body read throw into the 502 catch.
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify([]), { status: 200 })));
 
     const { GET } = await import("@/app/api/geocode/route");
 
@@ -227,7 +231,7 @@ describe("Geocode endpoint", () => {
 
     const { GET } = await import("@/app/api/geocode/route");
     const resp = await GET(mockRequest("/api/geocode?query=London"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(429);
 
     const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.error.code).toBe("GEOCODE_RATE_LIMITED");
@@ -235,12 +239,12 @@ describe("Geocode endpoint", () => {
     expect(resp.headers.get("retry-after")).toBe("5");
   });
 
-  it("returns a retryable 200 payload when the upstream request rejects", async () => {
+  it("returns a retryable 502 when the upstream request rejects", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("socket hang up"));
 
     const { GET } = await import("@/app/api/geocode/route");
     const resp = await GET(mockRequest("/api/geocode?query=London"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<GeocodeErrorBody>(resp);
     expect(data.ok).toBe(false);

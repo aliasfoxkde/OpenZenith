@@ -5,8 +5,9 @@ import { NextRequest } from "next/server";
  * Tests for /api/space-weather — NOAA SWPC Kp index and aurora proxy.
  *
  * Outbound SWPC traffic is stubbed at `fetch`; the suite covers the type
- * selector, each upstream failure mode, and the route's 200-with-error-payload
- * contract (no 5xx is ever emitted).
+ * selector and each upstream failure mode. A single-source request that fails
+ * upstream answers 502; a combined request tolerates one source failing (200
+ * with an empty stand-in for the dead source) and only 502s when both fail.
  */
 
 const KP_URL = "https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json";
@@ -130,73 +131,97 @@ describe("Space weather API (/api/space-weather)", () => {
     expect(init.signal.aborted).toBe(false);
   });
 
-  it("returns a 200 error payload when the Kp upstream fails for type=kp", async () => {
+  it("returns a 502 error payload when the Kp upstream fails for type=kp", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     mockFetch.mockResolvedValueOnce(new Response("upstream down", { status: 503 }));
 
     const resp = await GET(request("kp"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("SWPC Kp API returned 503");
   });
 
-  it("returns a 200 error payload when the aurora upstream fails for type=aurora", async () => {
+  it("returns a 502 error payload when the aurora upstream fails for type=aurora", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     mockFetch.mockResolvedValueOnce(new Response("upstream down", { status: 500 }));
 
     const resp = await GET(request("aurora"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("SWPC Aurora API returned 500");
   });
 
-  it("reports when both upstreams fail for the combined request", async () => {
+  it("returns 502 when both upstreams fail for the combined request", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     const down = new Response("upstream down", { status: 503 });
     queueResponses(down, down);
 
     const resp = await GET(request());
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("Both SWPC APIs unavailable");
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it("degrades to an empty Kp list when only the Kp upstream fails", async () => {
+  it("stays 200, degrades to an empty Kp list, and names the dead source when only the Kp upstream fails", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     queueResponses(new Response("upstream down", { status: 503 }), jsonResponse(AURORA_PAYLOAD));
 
     const resp = await GET(request());
-    const body = (await resp.json()) as { kp_forecast: unknown[]; aurora: { coordinates: number[][] } };
+    // A combined request tolerates a single dead source rather than failing whole.
+    expect(resp.status).toBe(200);
+    const body = (await resp.json()) as {
+      kp_forecast: unknown[];
+      aurora: { coordinates: number[][] };
+      errors?: string[];
+    };
     expect(body.kp_forecast).toEqual([]);
     expect(body.aurora.coordinates).toEqual([[60, 0, 5]]);
+    expect(body.errors).toEqual(["kp: SWPC Kp API returned 503"]);
   });
 
-  it("degrades to empty aurora coordinates when only the aurora upstream fails", async () => {
+  it("stays 200, degrades to empty aurora coordinates, and names the dead source when only the aurora upstream fails", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     queueResponses(jsonResponse(KP_PAYLOAD), new Response("upstream down", { status: 500 }));
 
     const resp = await GET(request());
-    const body = (await resp.json()) as { kp_forecast: Array<{ kp_index: number }>; aurora: { coordinates: unknown[] } };
+    expect(resp.status).toBe(200);
+    const body = (await resp.json()) as {
+      kp_forecast: Array<{ kp_index: number }>;
+      aurora: { coordinates: unknown[] };
+      errors?: string[];
+    };
     expect(body.kp_forecast).toEqual(KP_PAYLOAD);
     expect(body.aurora.coordinates).toEqual([]);
+    expect(body.errors).toEqual(["aurora: SWPC Aurora API returned 500"]);
   });
 
-  it("returns a 200 error payload when a fetch rejects", async () => {
+  it("omits the errors field when both sources succeed", async () => {
+    const { GET } = await import("@/app/api/space-weather/route");
+    queueResponses(jsonResponse(KP_PAYLOAD), jsonResponse(AURORA_PAYLOAD));
+
+    const resp = await GET(request());
+    expect(resp.status).toBe(200);
+    const body = (await resp.json()) as { errors?: string[] };
+    expect(body.errors).toBeUndefined();
+  });
+
+  it("returns a 502 error payload when a fetch rejects", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     mockFetch.mockRejectedValue(new Error("network unreachable"));
 
     const resp = await GET(request());
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("network unreachable");
   });
 
-  it("uses the generic message for non-Error rejections", async () => {
+  it("uses the generic message with 502 for non-Error rejections", async () => {
     const { GET } = await import("@/app/api/space-weather/route");
     mockFetch.mockRejectedValue("boom");
 
     const resp = await GET(request());
+    expect(resp.status).toBe(502);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("Space weather fetch failed");
   });

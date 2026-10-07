@@ -71,6 +71,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ z: s
       },
     });
   } catch {
-    return new Response("Failed to fetch tile", { status: 200, headers: CORS_HEADERS });
+    return Response.json(
+      { error: "Failed to fetch population tile" },
+      { status: 502, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+    );
   }
 }

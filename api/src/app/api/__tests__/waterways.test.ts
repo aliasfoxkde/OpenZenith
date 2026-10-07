@@ -345,36 +345,37 @@ describe("Waterways endpoint", () => {
     });
   });
 
-  it("returns a silent 200 when Overpass is unavailable", async () => {
+  it("returns 502 when Overpass is unavailable", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("gateway timeout", { status: 504 }));
 
     const { GET } = await import("@/app/api/waterways/route");
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
 
     const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toBe("Overpass API unavailable");
   });
 
-  it("returns a silent 200 when the Overpass request throws", async () => {
+  it("returns 502 when the Overpass request throws", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network unreachable"));
 
     const { GET } = await import("@/app/api/waterways/route");
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toBe("Waterways query failed");
   });
 
-  it("returns a silent 200 when Overpass replies with non-JSON", async () => {
+  it("returns 502 when Overpass replies with non-JSON", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("<html>rate limited</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
     );
 
     const { GET } = await import("@/app/api/waterways/route");
     const resp = await GET(mockRequest("/api/waterways?bbox=-74.1,40.6,-73.9,40.8"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<WaterwayBody>(resp);
     expect(data.error).toBe("Waterways query failed");

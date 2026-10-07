@@ -21,7 +21,7 @@ interface AqBody {
   features: AqFeature[];
 }
 
-/** Failure body: the route answers upstream errors with a 200 + error field. */
+/** Failure body: the route answers upstream/internal errors with an error field. */
 interface AqErrorBody {
   error: string;
 }
@@ -69,6 +69,26 @@ describe("Air Quality API", () => {
     expect(data.features[0].properties.pm2_5).toBe(35.2);
     expect(data.features[0].properties.us_aqi).toBe(75);
     expect(data.features[0].properties.aqi_level).toBe("Moderate");
+    // Edge-cache JSON layer: fresh answers are stored and marked as a MISS.
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=300");
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
+
+  it("serves a cached HIT without touching the upstream", async () => {
+    const { edgeGetJson } = await import("@/lib/storage/edge-cache");
+    const cached = { type: "FeatureCollection", features: [] };
+    vi.mocked(edgeGetJson).mockResolvedValueOnce(cached);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET } = await import("@/app/api/airquality/route");
+    const resp = await GET(new Request("http://localhost/api/airquality?lat=40.7&lon=-74.0"));
+
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=300");
+    expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(await bodyAs<AqBody>(resp)).toEqual(cached);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns empty features when no current data", async () => {
@@ -82,12 +102,13 @@ describe("Air Quality API", () => {
     expect(data.features).toHaveLength(0);
   });
 
-  it("returns error when upstream fails", async () => {
+  it("returns 502 when upstream fails", async () => {
     vi.stubGlobal("fetch", vi.fn(() => new Response("error", { status: 500 })));
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Failed to fetch air quality data" });
   });
 
   it("uses default coordinates when none provided", async () => {
@@ -142,7 +163,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const resp = OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS, POST");
   });
 
   it("forwards non-default coordinates upstream and echoes them in the feature", async () => {
@@ -163,29 +184,31 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     expect(data.features[0].geometry.coordinates).toEqual([10.25, 45.5]);
   });
 
-  it("substitutes defaults for non-numeric coordinates", async () => {
+  it("returns 400 for non-numeric coordinates instead of substituting defaults", async () => {
     const fetchMock = aqFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality?lat=abc&lon=xyz"));
-    const url = fetchMock.mock.calls[0][0];
-    expect(url).toContain("latitude=40.7");
-    expect(url).toContain("longitude=-74");
-    const data = await bodyAs<AqBody>(resp);
-    expect(data.features[0].geometry.coordinates).toEqual([-74, 40.7]);
+    expect(resp.status).toBe(400);
+    expect(await bodyAs<AqErrorBody>(resp)).toEqual({
+      error: "Invalid lat/lon — expected numeric coordinates in range",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("substitutes defaults for out-of-range coordinates on both axes", async () => {
+  it("returns 400 for out-of-range coordinates on both axes", async () => {
     const fetchMock = aqFetch();
     vi.stubGlobal("fetch", fetchMock);
 
-    await (await getRoute())(new Request("http://localhost/api/airquality?lat=-95&lon=200"));
-    expect(fetchMock.mock.calls[0][0]).toContain("latitude=40.7");
-    expect(fetchMock.mock.calls[0][0]).toContain("longitude=-74");
+    const below = await (await getRoute())(new Request("http://localhost/api/airquality?lat=-95&lon=200"));
+    expect(below.status).toBe(400);
 
-    await (await getRoute())(new Request("http://localhost/api/airquality?lat=95&lon=-200"));
-    expect(fetchMock.mock.calls[1][0]).toContain("latitude=40.7");
-    expect(fetchMock.mock.calls[1][0]).toContain("longitude=-74");
+    const above = await (await getRoute())(new Request("http://localhost/api/airquality?lat=95&lon=-200"));
+    expect(above.status).toBe(400);
+
+    // A garbage coordinate must never be quietly answered with the default
+    // viewport's data — nothing reaches the upstream at all.
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps coordinates exactly on the lat/lon boundaries", async () => {
@@ -247,29 +270,29 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     expect(fetchMock).toHaveBeenCalledTimes(bands.length);
   });
 
-  it("returns a 200 error payload when upstream responds non-OK", async () => {
+  it("returns a 502 error payload when upstream responds non-OK", async () => {
     vi.stubGlobal("fetch", vi.fn(() => new Response("rate limited", { status: 429 })));
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Failed to fetch air quality data" });
   });
 
-  it("returns a 200 error payload when the upstream request throws", async () => {
+  it("returns 500 when the upstream request throws", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("dns failure"))));
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Internal server error" });
   });
 
-  it("returns a 200 error payload when the upstream body is not JSON", async () => {
+  it("returns 500 when the upstream body is not JSON", async () => {
     vi.stubGlobal("fetch", vi.fn(() => new Response("<html>gateway</html>", { status: 200 })));
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
     expect(await bodyAs<AqErrorBody>(resp)).toEqual({ error: "Internal server error" });
   });
 });

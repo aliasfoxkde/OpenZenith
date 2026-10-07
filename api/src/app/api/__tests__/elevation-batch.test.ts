@@ -154,19 +154,19 @@ describe("Elevation Batch API", () => {
     expect(typeof data.results?.[1].elevation).toBe("number");
   });
 
-  it("passes an Error's message through when tile math throws", async () => {
+  it("returns 500 with an Error's message when tile math throws", async () => {
     const { POST } = await import("@/app/api/elevation/batch/route");
     const req = mockRequest("/api/elevation/batch", "POST", JSON.stringify({ points: [{ lat: 77.77, lon: 0 }] }));
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
     expect(await bodyAs<ElevationBatchBody>(resp)).toEqual({ error: "tile math exploded" });
   });
 
-  it("reports Unknown error for non-Error throws", async () => {
+  it("reports 500 with Unknown error for non-Error throws", async () => {
     const { POST } = await import("@/app/api/elevation/batch/route");
     const req = mockRequest("/api/elevation/batch", "POST", JSON.stringify({ points: [{ lat: 77.78, lon: 0 }] }));
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
     expect(await bodyAs<ElevationBatchBody>(resp)).toEqual({ error: "Unknown error" });
   });
 });

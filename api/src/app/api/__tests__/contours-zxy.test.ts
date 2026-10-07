@@ -5,8 +5,9 @@ import { NextRequest } from "next/server";
  * Tests for /api/contours/[z]/[x]/[y] — marching-squares contour lines.
  *
  * DEM assembly (`getTileData`) and the R2 cache-aside pair are mocked so the
- * suite exercises validation, the contour generator, and the route's
- * never-5xx failure contract without touching HuggingFace or R2.
+ * suite exercises strict tile-param validation, the contour generator, and the
+ * graceful-degradation failure contract (an empty FeatureCollection, never a
+ * partial tile) without touching HuggingFace or the edge cache.
  */
 
 const r2Store = vi.hoisted(() => new Map<string, ArrayBuffer>());
@@ -86,7 +87,15 @@ describe("Contours API validation (/api/contours)", () => {
     const resp = await GET(new NextRequest("http://localhost/api/contours/abc/1/1"), routeCtx("abc", "1", "1"));
     expect(resp.status).toBe(400);
     const body = (await resp.json()) as { error: string };
-    expect(body.error).toBe("Invalid tile coordinates (z must be 4-14)");
+    expect(body.error).toBe("Invalid tile coordinates");
+    expect(mockGetTileData).not.toHaveBeenCalled();
+  });
+
+  it("rejects truncated garbage coordinates with 400 instead of parsing a prefix", async () => {
+    const resp = await GET(new NextRequest("http://localhost/api/contours/8/72abc/52"), routeCtx("8", "72abc", "52"));
+    expect(resp.status).toBe(400);
+    const body = (await resp.json()) as { error: string };
+    expect(body.error).toBe("Invalid tile coordinates");
     expect(mockGetTileData).not.toHaveBeenCalled();
   });
 
@@ -94,7 +103,21 @@ describe("Contours API validation (/api/contours)", () => {
     const resp = await GET(new NextRequest(`http://localhost/api/contours/${zoom}/1/1`), routeCtx(String(zoom), "1", "1"));
     expect(resp.status).toBe(400);
     const body = (await resp.json()) as { error: string };
-    expect(body.error).toContain("z must be 4-14");
+    expect(body.error).toBe("Zoom must be between 4 and 14");
+  });
+
+  it.each([
+    [8, 300, 52],
+    [8, 72, 300],
+  ])("returns 404 for an out-of-grid coordinate at zoom %i (%i/%i)", async (zoom, tileX, tileY) => {
+    const resp = await GET(
+      new NextRequest(`http://localhost/api/contours/${zoom}/${tileX}/${tileY}`),
+      routeCtx(String(zoom), String(tileX), String(tileY)),
+    );
+    expect(resp.status).toBe(404);
+    const body = (await resp.json()) as { error: string };
+    expect(body.error).toBe(`Tile out of range for zoom ${zoom} (max ${2 ** zoom - 1})`);
+    expect(mockGetTileData).not.toHaveBeenCalled();
   });
 
   it("exposes CORS preflight", async () => {
@@ -249,7 +272,7 @@ describe("Contours API generation", () => {
   });
 
   it("selects a coarser interval at middle zooms", async () => {
-    const resp = await GET(new NextRequest("http://localhost/api/contours/6/72/52"), routeCtx("6", "72", "52"));
+    const resp = await GET(new NextRequest("http://localhost/api/contours/6/40/24"), routeCtx("6", "40", "24"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     const body = (await resp.json()) as {
@@ -265,7 +288,7 @@ describe("Contours API generation", () => {
   });
 
   it("uses the coarsest interval below zoom 6", async () => {
-    const resp = await GET(new NextRequest("http://localhost/api/contours/4/72/52"), routeCtx("4", "72", "52"));
+    const resp = await GET(new NextRequest("http://localhost/api/contours/4/8/4"), routeCtx("4", "8", "4"));
     expect(resp.status).toBe(200);
     const body = (await resp.json()) as { features: unknown[] };
     // Zoom 4 evaluates only the 0m level, where every cell is above the level
@@ -274,15 +297,15 @@ describe("Contours API generation", () => {
 });
 
 describe("Contours API failure contract", () => {
-  it("returns 200 with an empty GeoJSON FeatureCollection when assembly fails (never 5xx)", async () => {
+  it("returns 502 with the FeatureCollection error shape when assembly fails", async () => {
     mockGetTileData.mockRejectedValueOnce(new Error("chunk not found"));
 
     const resp = await GET(new NextRequest("http://localhost/api/contours/8/72/52"), routeCtx("8", "72", "52"));
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("Content-Type")).toBe("application/geojson");
-    const body = (await resp.json()) as { type: string; features: unknown[] };
+    expect(resp.status).toBe(502);
+    const body = (await resp.json()) as { type: string; features: unknown[]; error: string };
     expect(body.type).toBe("FeatureCollection");
     expect(body.features).toHaveLength(0);
+    expect(body.error).toBe("Failed to assemble elevation data for contours");
     expect(mockR2PutTile).not.toHaveBeenCalled();
   });
 });

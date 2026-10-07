@@ -71,13 +71,14 @@ describe("NLNOG endpoint", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("names the upstream status when the NLNOG API fails", async () => {
+  it("returns 502 naming the upstream status when the NLNOG API fails", async () => {
     stubUpstream("service unavailable", 503);
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(resp.headers.get("x-cache")).toBeNull();
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
 
     const data = await bodyAs<NlnogBody>(resp);
     expect(data.error).toBe("NLNOG API returned 503");
@@ -131,24 +132,27 @@ describe("NLNOG endpoint", () => {
     ]);
   });
 
-  it("returns 200 with the thrown message when the upstream request rejects", async () => {
+  it("returns 502 with the thrown message when the upstream request rejects", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("nlnog unreachable"))));
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<NlnogBody>(resp);
     expect(data.error).toBe("nlnog unreachable");
   });
 
-  it("falls back to a generic message when the rejection is not an Error", async () => {
+  it("returns 502 with a generic message when the rejection is not an Error", async () => {
     // The route's catch maps any non-Error rejection reason to a generic string.
     // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject("aborted")));
 
     const { GET } = await import("@/app/api/nlnog/route");
-    const data = await bodyAs<NlnogBody>(await GET());
+    const resp = await GET();
+    expect(resp.status).toBe(502);
+
+    const data = await bodyAs<NlnogBody>(resp);
     expect(data.error).toBe("Failed to fetch NLNOG nodes");
   });
 

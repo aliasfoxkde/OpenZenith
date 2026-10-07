@@ -68,7 +68,9 @@ export async function GET(request: NextRequest) {
           count: 0,
           error: `FIRMS API returned ${resp.status}: ${statusText.slice(0, 100)}`,
         },
-        { status: 200, headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=60" } },
+        // 502 for a real upstream failure — the map layer checks res.ok and
+        // shows an error chip instead of silently rendering an empty world.
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -140,7 +142,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Failed to fetch FIRMS data";
     return NextResponse.json(
       { type: "FeatureCollection", features: [], count: 0, error: message },
-      { status: 200, headers: CORS_HEADERS },
+      { status: 502, headers: CORS_HEADERS },
     );
   }
 }

@@ -236,19 +236,19 @@ describe("Query API — parameter validation edges", () => {
     expect(days).toEqual([3, 1, 7, 3]);
   });
 
-  it("returns a 200 error payload when the elevation provider rejects", async () => {
+  it("returns 500 when the elevation provider rejects", async () => {
     vi.mocked(getElevationFromR2).mockRejectedValueOnce(new Error("tile unavailable"));
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
     const data = await bodyAs<QueryBody>(resp);
     expect(data.error).toBe("tile unavailable");
     expect(data.elevation).toBeUndefined();
   });
 
-  it("falls back to a generic message when a non-Error is thrown", async () => {
+  it("returns 500 with a generic message when a non-Error is thrown", async () => {
     vi.mocked(getElevationFromR2).mockRejectedValueOnce("boom");
     const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
     expect((await bodyAs<QueryBody>(resp)).error).toBe("Query failed");
   });
 });

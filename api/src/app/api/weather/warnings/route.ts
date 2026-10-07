@@ -37,7 +37,9 @@ export async function GET(_request: NextRequest) {
     const cacheKey = apiCacheKey("weather-warnings");
     const cached = await edgeGetJson(cacheKey);
     if (cached) {
-      return NextResponse.json(cached, { headers: { "X-Cache": "HIT", ...CORS_HEADERS } });
+      return NextResponse.json(cached, {
+        headers: { "X-Cache": "HIT", ...CORS_HEADERS, "Cache-Control": "public, max-age=60" },
+      });
     }
 
     const resp = await fetch("https://api.weather.gov/alerts/active", {
@@ -51,7 +53,7 @@ export async function GET(_request: NextRequest) {
     if (!resp.ok) {
       return NextResponse.json(
         { error: `Weather API returned ${resp.status}` },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -84,9 +86,11 @@ export async function GET(_request: NextRequest) {
     }
 
     edgePutJson(cacheKey, data, 120).catch(() => {});
-    return NextResponse.json(data, { headers: { "X-Cache": "MISS", ...CORS_HEADERS } });
+    return NextResponse.json(data, {
+      headers: { "X-Cache": "MISS", ...CORS_HEADERS, "Cache-Control": "public, max-age=60" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

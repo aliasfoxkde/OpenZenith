@@ -92,12 +92,13 @@ describe("Hurricanes API", () => {
     expect(data.features[0].properties.wind).toBe(50);
   });
 
-  it("returns error on upstream failure", async () => {
+  it("returns 502 naming the upstream status on IBTrACS failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    expect(await bodyAs<HurricaneCollectionBody>(resp)).toEqual({ error: "NOAA IBTrACS returned 500" });
   });
 
   it("handles empty CSV response", async () => {
@@ -144,12 +145,12 @@ describe("Hurricanes API", () => {
     }
   });
 
-  it("returns 200 with the thrown error message when upstream fetch rejects", async () => {
+  it("returns 502 with the thrown error message when upstream fetch rejects", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("boom"));
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.error).toBe("boom");
   });
@@ -368,12 +369,12 @@ describe("Hurricanes API", () => {
     expect(data.features.map((f) => f.properties.sid)).toEqual(["good"]);
   });
 
-  it("answers with the generic failure message when the rejection is not an Error", async () => {
+  it("answers 502 with the generic failure message when the rejection is not an Error", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("upstream socket reset");
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.error).toBe("Hurricane data fetch failed");
   });

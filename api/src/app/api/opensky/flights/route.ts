@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
       }
       return Response.json(
         { error: `OpenSky API returned ${resp.status}`, authenticated: !!token },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Flight data fetch failed";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }
 

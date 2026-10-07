@@ -93,15 +93,17 @@ describe("Flights API", () => {
     expect(calledUrl).toContain("lamax=42");
   });
 
-  it("returns empty array on upstream failure", async () => {
+  it("returns 502 keeping the time/states/error shape on upstream failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     const data = await bodyAs<FlightsBody>(resp);
+    expect(data.time).toBeDefined();
     expect(data.states).toEqual([]);
-    expect(data.error).toBeDefined();
+    expect(data.error).toBe("OpenSky API returned 500");
   });
 
   it("exposes CORS preflight", async () => {
@@ -169,23 +171,23 @@ describe("Flights API", () => {
     expect(data.states).toEqual([]);
   });
 
-  it("returns 200 with the thrown message when upstream fetch rejects", async () => {
+  it("returns 502 with the thrown message when upstream fetch rejects", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("socket hang up"));
 
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<FlightsBody>(resp);
     expect(data.states).toEqual([]);
     expect(data.error).toBe("socket hang up");
   });
 
-  it("falls back to a generic message when the rejection is not an Error", async () => {
+  it("returns 502 with a generic message when the rejection is not an Error", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("timed out");
 
     const { GET } = await import("@/app/api/flights/route");
     const resp = await GET(mockRequest("/api/flights"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<FlightsBody>(resp);
     expect(data.error).toBe("Flight data fetch failed");
   });

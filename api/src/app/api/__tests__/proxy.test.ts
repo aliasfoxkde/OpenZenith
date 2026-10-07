@@ -122,7 +122,7 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
     expect(await resp.text()).toBe("upstream exploded");
   });
 
-  it("answers 200 with the thrown error message when upstream fetch rejects", async () => {
+  it("answers 502 with the thrown error message when upstream fetch rejects", async () => {
     // Fake timers keep the route's 30s abort timer from holding the worker open.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("socket hang up"))));
@@ -132,7 +132,7 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
       params: Promise.resolve({ path: ["https://api.open-meteo.com/v1/forecast"] }),
     });
 
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(await resp.json()).toEqual({ error: "socket hang up" });
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     // The abort timer must be cleared even on the rejection path — a leaked
@@ -140,7 +140,7 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("answers 200 with the generic message for non-Error rejections", async () => {
+  it("answers 502 with the generic message for non-Error rejections", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     // The route's catch treats any non-Error rejection reason as "Proxy error".
     // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
@@ -151,17 +151,19 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
       params: Promise.resolve({ path: ["https://api.open-meteo.com/v1/forecast"] }),
     });
 
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(await resp.json()).toEqual({ error: "Proxy error" });
   });
 
-  it("answers 200 with the parse error when the joined path is not a URL", async () => {
+  it("answers 502 with the parse error when the joined path is not a URL", async () => {
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/proxy/not-a-url"), {
       params: Promise.resolve({ path: ["not-a-url"] }),
     });
 
-    expect(resp.status).toBe(200);
+    // An unparseable target is an upstream-addressing failure, not a success —
+    // it used to fall out of the try block as a silent 200.
+    expect(resp.status).toBe(502);
     expect(await resp.json()).toEqual({ error: "Invalid URL" });
   });
 });

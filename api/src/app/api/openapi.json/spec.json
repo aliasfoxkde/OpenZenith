@@ -77,11 +77,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–5 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 5
             }
           },
           {
@@ -341,11 +341,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -390,11 +390,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -439,11 +439,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–7 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 7
             }
           },
           {
@@ -569,11 +569,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (4–14 for this layer)",
             "schema": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 15
+              "minimum": 4,
+              "maximum": 14
             }
           },
           {
@@ -648,7 +648,8 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 14
-            }
+            },
+            "description": "Tile zoom level (0–14 for this layer)"
           },
           {
             "name": "x",
@@ -680,11 +681,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -738,11 +739,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -787,11 +788,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–9 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 9
             }
           },
           {
@@ -966,11 +967,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–14 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 14
             }
           },
           {
@@ -1015,11 +1016,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–14 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 14
             }
           },
           {
@@ -1110,11 +1111,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (1–9 for this layer)",
             "schema": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 15
+              "minimum": 1,
+              "maximum": 9
             }
           },
           {
@@ -1249,11 +1250,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -1298,11 +1299,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–9 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 9
             }
           },
           {
@@ -1701,8 +1702,11 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer"
-            }
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9
+            },
+            "description": "Tile zoom level (1–9 for this layer)"
           },
           {
             "name": "x",
@@ -1734,11 +1738,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -1819,11 +1823,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–9 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 9
             }
           },
           {
@@ -1938,11 +1942,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–5 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 5
             }
           },
           {
@@ -2086,11 +2090,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–5 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 5
             }
           },
           {
@@ -2161,8 +2165,11 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer"
-            }
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8
+            },
+            "description": "Tile zoom level (1–8 for this layer)"
           },
           {
             "name": "x",
@@ -2194,11 +2201,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -2504,11 +2511,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (1–10 for this layer)",
             "schema": {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 15
+              "minimum": 1,
+              "maximum": 10
             }
           },
           {
@@ -2572,11 +2579,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–6 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 6
             }
           },
           {
@@ -2621,11 +2628,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–5 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 5
             }
           },
           {
@@ -2671,8 +2678,11 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer"
-            }
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 22
+            },
+            "description": "Tile zoom level (0–22 for this layer)"
           },
           {
             "name": "x",
@@ -2720,11 +2730,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -2769,11 +2779,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–5 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 5
             }
           },
           {
@@ -2818,11 +2828,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–3 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 3
             }
           },
           {
@@ -2883,11 +2893,11 @@
             "name": "z",
             "in": "path",
             "required": true,
-            "description": "Tile zoom level",
+            "description": "Tile zoom level (0–8 for this layer)",
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 15
+              "maximum": 8
             }
           },
           {
@@ -3006,7 +3016,7 @@
               "minimum": 0,
               "maximum": 15
             },
-            "description": "Zoom level (0-15)",
+            "description": "Tile zoom level (0–15 for this layer)",
             "example": 10
           },
           {

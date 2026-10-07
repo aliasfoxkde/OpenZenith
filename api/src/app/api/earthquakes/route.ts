@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!resp.ok) {
-      return NextResponse.json({ error: `USGS API returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
+      return NextResponse.json({ error: `USGS API returned ${resp.status}` }, { status: 502, headers: CORS_HEADERS });
     }
 
     // USGS GeoJSON is relayed verbatim — `unknown` is the honest boundary type.
@@ -88,6 +88,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Earthquake data fetch failed";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

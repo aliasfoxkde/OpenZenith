@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     if (!resp.ok) {
       return NextResponse.json(
         { count: 0, truncated: false, satellites: [], error: `Celestrak returned ${resp.status}` },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -105,14 +105,14 @@ export async function GET(request: NextRequest) {
     } catch {
       return NextResponse.json(
         { count: 0, truncated: false, satellites: [], error: "Celestrak returned invalid response" },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
     if (typeof data === "string" && data.includes("Invalid query")) {
       return NextResponse.json(
         { count: 0, truncated: false, satellites: [], error: data },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Satellite data fetch failed";
     return NextResponse.json(
       { count: 0, truncated: false, satellites: [], error: message },
-      { status: 200, headers: CORS_HEADERS },
+      { status: 502, headers: CORS_HEADERS },
     );
   }
 }

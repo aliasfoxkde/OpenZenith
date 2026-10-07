@@ -3,6 +3,7 @@ import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { parseTileParams } from "@/lib/tile-params";
 
 /**
  * Elevation contour lines endpoint.
@@ -47,16 +48,11 @@ export function OPTIONS() {
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 
-  const zoom = parseInt(z, 10);
-  const tileX = parseInt(x, 10);
-  const tileY = parseInt(y, 10);
-
-  if (isNaN(zoom) || zoom < 4 || zoom > 14 || isNaN(tileX) || isNaN(tileY)) {
-    return NextResponse.json(
-      { error: "Invalid tile coordinates (z must be 4-14)" },
-      { status: 400, headers: CORS_HEADERS },
-    );
+  const parsed = parseTileParams(z, x, y, { minZoom: 4, maxZoom: 14 });
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.message }, { status: parsed.status, headers: CORS_HEADERS });
   }
+  const { z: zoom, x: tileX, y: tileY } = parsed;
 
   // R2 cache-aside: check R2 first
   try {
@@ -91,11 +87,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         "X-Cache": "MISS",
       },
     });
-  } catch (error) {
-    console.error(`Contour tile error: ${zoom}/${tileX}/${tileY}`, error);
+  } catch {
+    // Elevation assembly failures are infrastructure errors, not empty
+    // terrain — report 502 (keeping the FeatureCollection body shape) instead
+    // of a 200 empty-FC that reads as "no contours here".
     return NextResponse.json(
-      { type: "FeatureCollection", features: [] },
-      { headers: { ...CACHE_HEADERS, "Content-Type": "application/geojson" } },
+      { type: "FeatureCollection", features: [], error: "Failed to assemble elevation data for contours" },
+      { status: 502, headers: CORS_HEADERS },
     );
   }
 }

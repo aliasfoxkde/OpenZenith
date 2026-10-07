@@ -60,7 +60,7 @@ describe("Military API", () => {
 
     const { GET } = await import("@/app/api/military/route");
     const resp = await GET(mockRequest("/api/military"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<MilitaryBody>(resp);
     expect(data.error).toContain("API key");
   });
@@ -104,29 +104,56 @@ describe("Military API", () => {
     expect(spy.mock.calls[0][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
   });
 
-  it("falls back to defaults for out-of-range, non-numeric and zero params", async () => {
+  it("returns 400 with an empty aircraft list for out-of-range and non-numeric lat/lon", async () => {
+    // Fresh Response per call: a Response body is single-use.
     const spy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ ac: [] }), { status: 200 }));
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ac: [] }), { status: 200 })));
 
     const { GET } = await import("@/app/api/military/route");
 
-    // lat > max, lon < min, dist unparseable.
-    await GET(mockRequest("/api/military?lat=200&lon=-999&dist=abc"));
+    // lat above max, lon below min.
+    const above = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military?lat=200&lon=-999")));
+    expect(above.error).toBe("Invalid lat/lon — expected numeric coordinates in range");
+    expect(above.ac).toEqual([]);
+    expect(above.count).toBe(0);
+
+    // lat below min, lon above max.
+    const below = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military?lat=-91&lon=181")));
+    expect(below.error).toBe("Invalid lat/lon — expected numeric coordinates in range");
+
+    // Non-numeric latitude.
+    const nonNumeric = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military?lat=abc&lon=10")));
+    expect(nonNumeric.error).toBe("Invalid lat/lon — expected numeric coordinates in range");
+
+    // A typo'd coordinate is rejected rather than silently queried as the
+    // default viewport — nothing reaches the upstream.
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the default radius for non-positive and non-numeric dist", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ac: [] }), { status: 200 })));
+
+    const { GET } = await import("@/app/api/military/route");
+
+    // Unparseable radius.
+    await GET(mockRequest("/api/military?dist=abc"));
     expect(spy.mock.calls[0][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
 
-    // lat < min, lon > max, dist=0 (0 is falsy, so it falls back to 500).
-    await GET(mockRequest("/api/military?lat=-91&lon=181&dist=0"));
+    // dist=0 is not a usable radius.
+    await GET(mockRequest("/api/military?dist=0"));
     expect(spy.mock.calls[1][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
-
-    // Non-numeric latitude, in-range longitude kept as-is.
-    await GET(mockRequest("/api/military?lat=abc&lon=10&dist=250"));
-    expect(spy.mock.calls[2][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/10/dist/250");
 
     // Negative radii fall back to the default too — they used to be
     // forwarded verbatim, producing a nonsensical negative search radius.
     await GET(mockRequest("/api/military?dist=-50"));
-    expect(spy.mock.calls[3][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
+    expect(spy.mock.calls[2][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
+
+    // An in-range radius is forwarded as-is.
+    await GET(mockRequest("/api/military?dist=250"));
+    expect(spy.mock.calls[3][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/250");
   });
 
   it("maps 403 and 429 to dedicated messages and other statuses to the generic one", async () => {
@@ -148,6 +175,18 @@ describe("Military API", () => {
     const serverError = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(serverError.error).toBe("ADSB Exchange returned 500");
     expect(serverError.count).toBe(0);
+  });
+
+  it("answers every upstream non-OK status with 502", async () => {
+    const spy = vi.spyOn(globalThis, "fetch");
+
+    const { GET } = await import("@/app/api/military/route");
+
+    for (const status of [402, 403, 429, 500]) {
+      spy.mockResolvedValueOnce(new Response("upstream trouble", { status }));
+      const resp = await GET(mockRequest("/api/military"));
+      expect(resp.status, `upstream ${status}`).toBe(502);
+    }
   });
 
   it("accepts aircraft, results and empty payloads alike", async () => {
@@ -195,12 +234,12 @@ describe("Military API", () => {
     expect(withNeither.total).toBeNull();
   });
 
-  it("returns 200 with the thrown message when the upstream request rejects", async () => {
+  it("returns 502 with the thrown message when the upstream request rejects", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("adsb unreachable"));
 
     const { GET } = await import("@/app/api/military/route");
     const resp = await GET(mockRequest("/api/military"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
 
     const data = await bodyAs<MilitaryBody>(resp);
     expect(data.error).toBe("adsb unreachable");
@@ -208,11 +247,13 @@ describe("Military API", () => {
     expect(data.count).toBe(0);
   });
 
-  it("falls back to a generic message when the rejection is not an Error", async () => {
+  it("returns 502 with a generic message when the rejection is not an Error", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("timed out");
 
     const { GET } = await import("@/app/api/military/route");
-    const data = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
+    const resp = await GET(mockRequest("/api/military"));
+    expect(resp.status).toBe(502);
+    const data = await bodyAs<MilitaryBody>(resp);
     expect(data.error).toBe("Military flight fetch failed");
     expect(data.count).toBe(0);
   });

@@ -80,21 +80,22 @@ describe("Satellites API", () => {
     }
   });
 
-  it("returns an empty payload naming the status when Celestrak fails", async () => {
+  it("returns 502 with an empty payload naming the status when Celestrak fails", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("gone", { status: 503 }));
 
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({ count: 0, truncated: false, satellites: [], error: "Celestrak returned 503" });
   });
 
-  it("returns an empty payload when Celestrak returns a non-JSON body", async () => {
+  it("returns 502 when Celestrak returns a non-JSON body", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("<html>rate limited</html>", { status: 200 }));
 
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
+    expect(resp.status).toBe(502);
     const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({
       count: 0,
@@ -104,13 +105,14 @@ describe("Satellites API", () => {
     });
   });
 
-  it("surfaces Celestrak's plain-text rejection wrapped in a JSON string", async () => {
+  it("surfaces Celestrak's plain-text rejection as a 502 wrapped in a JSON string", async () => {
     const message = "No group found: Invalid query";
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(message), { status: 200 }));
 
     const { GET } = await import("@/app/api/satellites/route");
     // The group itself must be valid, or the route 400s before fetching.
     const resp = await GET(mockRequest("/api/satellites?group=stations"));
+    expect(resp.status).toBe(502);
     const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({ count: 0, truncated: false, satellites: [], error: message });
   });
@@ -142,12 +144,12 @@ describe("Satellites API", () => {
     expect(data).toEqual({ error: "no such catalogue" });
   });
 
-  it("returns 200 with the thrown message when upstream fetch rejects", async () => {
+  it("returns 502 with the thrown message when upstream fetch rejects", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("celestrak unreachable"));
 
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     const data = await bodyAs<SatellitesBody>(resp);
     expect(data).toEqual({
       count: 0,
@@ -157,11 +159,12 @@ describe("Satellites API", () => {
     });
   });
 
-  it("falls back to a generic message when the rejection is not an Error", async () => {
+  it("returns 502 with a generic message when the rejection is not an Error", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(42);
 
     const { GET } = await import("@/app/api/satellites/route");
     const resp = await GET(mockRequest("/api/satellites"));
+    expect(resp.status).toBe(502);
     const data = await bodyAs<SatellitesBody>(resp);
     expect(data.error).toBe("Satellite data fetch failed");
   });

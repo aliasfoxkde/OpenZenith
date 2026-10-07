@@ -82,7 +82,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
 
     if (!resp.ok) {
-      return NextResponse.json({ error: `Upstream returned ${resp.status}` }, { status: 200, headers: CORS_HEADERS });
+      return NextResponse.json({ error: `Upstream returned ${resp.status}` }, { status: 502, headers: CORS_HEADERS });
     }
 
     // Upstream payloads are untyped JSON and can legitimately be `null`.
@@ -142,6 +142,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

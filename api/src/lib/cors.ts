@@ -1,7 +1,10 @@
 /** Standard CORS headers for all API responses. */
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  // POST is listed because seven routes export POST handlers
+  // (elevation/batch, overpass, profile, streams, trace, twi, watershed) and
+  // Allow-Methods is a permission grant, not an enumeration of this route.
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, POST",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 

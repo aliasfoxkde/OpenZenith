@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     if (!resp.ok) {
       return NextResponse.json(
         { time: Math.floor(Date.now() / 1000), states: [], error: `OpenSky API returned ${resp.status}` },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -114,10 +114,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Flight data fetch failed";
-    // Return empty result instead of 502 so the map doesn't break
+    // 502 keeps the { time, states, error } body shape; the map's flights
+    // layer checks res.ok and shows an error state rather than a silent empty map.
     return NextResponse.json(
       { time: Math.floor(Date.now() / 1000), states: [], error: message },
-      { status: 200, headers: CORS_HEADERS },
+      { status: 502, headers: CORS_HEADERS },
     );
   }
 }

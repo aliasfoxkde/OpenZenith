@@ -32,12 +32,12 @@ describe("Weather Warnings API", () => {
     expect(data.features).toHaveLength(1);
   });
 
-  it("returns error on upstream failure", async () => {
+  it("returns 502 on upstream failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("error", { status: 500 }));
 
     const { GET } = await import("@/app/api/weather/warnings/route");
     const resp = await GET(mockRequest("/api/weather/warnings"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
   });
 });
 
@@ -64,7 +64,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     const resp = await OPTIONS();
     expect(resp.status).toBe(204);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS, POST");
   });
 
   it("serves an R2 cache hit without calling the NWS", async () => {
@@ -80,6 +80,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await resp.json()).toEqual(cached);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -123,6 +124,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
+    expect(resp.headers.get("Cache-Control")).toBe("public, max-age=60");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
 
     const data = await bodyAs<WarningsBody>(resp);
@@ -177,45 +179,45 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
     expect(stored).toEqual({ status: "ok" });
   });
 
-  it("reports the upstream status as a 200 error payload on non-OK responses", async () => {
+  it("reports the upstream status as a 502 on non-OK responses", async () => {
     vi.stubGlobal("fetch", vi.fn(() => new Response("service unavailable", { status: 503 })));
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await resp.json()).toEqual({ error: "Weather API returned 503" });
   });
 
-  it("propagates the thrown message when the upstream request rejects", async () => {
+  it("propagates the thrown message as a 502 when the upstream request rejects", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("nws timeout"))));
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(await resp.json()).toEqual({ error: "nws timeout" });
   });
 
-  it("falls back to a generic message when the upstream call throws a non-Error", async () => {
+  it("falls back to a generic message as a 502 when the upstream call throws a non-Error", async () => {
     const fetchMock = vi.fn();
     fetchMock.mockRejectedValueOnce("boom");
     vi.stubGlobal("fetch", fetchMock);
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await resp.json()).toEqual({ error: "Unknown error" });
   });
 
-  it("resolves a rejecting cache read to the 200 error payload", async () => {
+  it("resolves a rejecting cache read to the 502 error payload", async () => {
     // Regression: the edgeGetJson await used to sit outside the try block, so
     // a rejecting cache layer escaped the handler as an unhandled 500
-    // instead of reaching the route's 200-error contract.
+    // instead of reaching the route's error contract.
     const { edgeGetJson } = await r2Json();
     (edgeGetJson as Mock).mockRejectedValueOnce(new Error("cache offline"));
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(502);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await resp.json()).toEqual({ error: "cache offline" });
     expect(fetchMock).not.toHaveBeenCalled();

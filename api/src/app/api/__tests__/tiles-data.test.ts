@@ -205,25 +205,17 @@ describe("OGC Tile Data API — tile assembly and fallback", () => {
     expect(vi.mocked(getTileData)).not.toHaveBeenCalled();
   });
 
-  it("returns an ocean PNG with status 200 when tile assembly fails", async () => {
+  it("returns a 502 OGC exception when tile assembly fails", async () => {
+    // getTileData returns all-NODATA (HTTP 200) for genuine ocean / out-of-range
+    // tiles, so a throw here means assembly itself failed.
     vi.mocked(getTileData).mockRejectedValue(new Error("chunk not found"));
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { GET } = await route();
 
-    try {
-      const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/8/5"), tileParams("4", "5", "8"));
-      expect(resp.status).toBe(200);
-      expect(resp.headers.get("Content-Type")).toBe("image/png");
-      expect(resp.headers.get("X-Dem-Tile-Source")).toBe("fallback-ocean");
-      expect(resp.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
-
-      const ocean = new Uint8Array(await resp.arrayBuffer());
-      expect(ocean.byteLength).toBeGreaterThan(0);
-      expect(ocean.slice(0, 8)).toEqual(PNG_SIGNATURE);
-
-      expect(errorSpy).toHaveBeenCalledWith("OGC Tiles assembly error: 4/8/5", expect.any(Error));
-    } finally {
-      errorSpy.mockRestore();
-    }
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/4/8/5"), tileParams("4", "5", "8"));
+    expect(resp.status).toBe(502);
+    const data = await bodyAs<TileErrorBody>(resp);
+    expect(data.code).toBe("NoApplicableCode");
+    expect(data.description).toBe("Failed to assemble tile");
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });

@@ -71,7 +71,7 @@ describe("createGIBSHandler — parameter validation", () => {
     ]) {
       const resp = await call(coords.z, coords.x, coords.y);
       expect(resp.status).toBe(400);
-      expect(await resp.text()).toBe("Invalid tile coordinates");
+      expect(((await resp.json()) as { error: string }).error).toBe("Invalid tile coordinates");
       expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
@@ -85,7 +85,8 @@ describe("createGIBSHandler — parameter validation", () => {
     // z=3 → maxTile 7
     expect((await call("3", "8", "0")).status).toBe(404);
     expect((await call("3", "-1", "0")).status).toBe(404);
-    expect(await (await call("3", "8", "0")).text()).toBe("Tile out of range");
+    const body = (await (await call("3", "8", "0")).json()) as { error: string };
+    expect(body.error).toBe("Tile out of range for zoom 3 (max 7)");
   });
 
   it("returns 404 for a row outside 0..2^z-1", async () => {
@@ -211,23 +212,27 @@ describe("createGIBSHandler — WMS proxy", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("passes the upstream status through when GIBS cannot serve the tile", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("no imagery", { status: 503 }));
+  it("returns 404 for a GIBS 404 (no coverage) and 502 for other upstream failures", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("no imagery", { status: 404 }));
+    const notFound = await call(3, 0, 0);
+    expect(notFound.status).toBe(404);
+    expect(((await notFound.json()) as { error: string }).error).toBe("Tile not available from GIBS");
+    expect(edgeState.puts).toHaveLength(0);
 
-    const resp = await call(3, 0, 0);
-    expect(resp.status).toBe(503);
-    expect(await resp.text()).toBe("Tile not available");
-    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("boom", { status: 503 }));
+    const upstreamDown = await call(3, 0, 0);
+    expect(upstreamDown.status).toBe(502);
+    expect(((await upstreamDown.json()) as { error: string }).error).toBe("GIBS request failed (upstream 503)");
+    expect(upstreamDown.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(edgeState.puts).toHaveLength(0);
   });
 
-  it("returns 200 with a diagnostic body when the WMS request fails (silent-200)", async () => {
+  it("returns 502 when the WMS request fails", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network unreachable"));
 
     const resp = await call(3, 0, 0);
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("Content-Type")).toBe("text/plain;charset=UTF-8");
-    expect(await resp.text()).toBe("Failed to fetch tile");
+    expect(resp.status).toBe(502);
+    expect(((await resp.json()) as { error: string }).error).toBe("Failed to fetch tile from GIBS");
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(edgeState.puts).toHaveLength(0);
   });
@@ -247,12 +252,12 @@ describe("gibs-tile re-exports", () => {
   it("exposes the CORS preflight handler and headers for the route modules", () => {
     expect(CORS_HEADERS).toEqual({
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, POST",
       "Access-Control-Allow-Headers": "Content-Type",
     });
 
     const resp = OPTIONS_HANDLER();
     expect(resp.status).toBe(204);
-    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
+    expect(resp.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS, POST");
   });
 });

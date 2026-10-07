@@ -168,30 +168,75 @@ function leadingDocComment(source) {
   return undefined;
 }
 
-const ZXYY_PARAM = {
-  z: {
-    description: "Tile zoom level",
-    schema: { type: "integer", minimum: 0, maximum: 15 },
-  },
-  x: {
-    description: "Tile x coordinate (slippy map)",
-    schema: { type: "integer", minimum: 0 },
-  },
-  y: {
-    description: "Tile y coordinate (slippy map)",
-    schema: { type: "integer", minimum: 0 },
-  },
-};
+// Slippy-map fallback for routes whose source doesn't expose explicit bounds.
+const DEFAULT_Z_BOUNDS = { min: 0, max: 15 };
 
-function pathParameters(template) {
+// Per-route zoom bounds, derived from the route source so the spec cannot
+// drift from the validation the route actually performs. Two source idioms
+// exist: config/literal style (`minZoom: 4, maxZoom: 14`, covering both GIBS
+// layer configs and parseTileParams call sites) and hand-rolled comparisons
+// (`zoom < 1 || zoom > 9`, `z < 0 || z > 14`). The published spec used to
+// hardcode 0..15 for every tile route, which understated e.g. Sentinel-2
+// (0..22) and overstated contours (4..14).
+function zoomBoundsFromSource(source) {
+  const patterns = [
+    /minZoom:\s*(\d+),\s*maxZoom:\s*(\d+)/,
+    /\bzoom\s*<\s*(\d+)\s*\|\|\s*zoom\s*>\s*(\d+)/,
+    /[^a-zA-Z]z\s*<\s*(\d+)\s*\|\|\s*z\s*>\s*(\d+)/,
+  ];
+  for (const re of patterns) {
+    const m = re.exec(source);
+    if (m) return { min: Number(m[1]), max: Number(m[2]) };
+  }
+  return DEFAULT_Z_BOUNDS;
+}
+
+function zxyyParams(bounds) {
+  return {
+    z: {
+      description: `Tile zoom level (${bounds.min}–${bounds.max} for this layer)`,
+      schema: { type: "integer", minimum: bounds.min, maximum: bounds.max },
+    },
+    x: {
+      description: "Tile x coordinate (slippy map)",
+      schema: { type: "integer", minimum: 0 },
+    },
+    y: {
+      description: "Tile y coordinate (slippy map)",
+      schema: { type: "integer", minimum: 0 },
+    },
+  };
+}
+
+function pathParameters(template, source) {
+  const zxy = zxyyParamsFor(template, source);
   const names = [...template.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
   return names.map((name) => ({
     name,
     in: "path",
     required: true,
-    ...(ZXYY_PARAM[name] ?? { schema: { type: "string" } }),
-    ...(ZXYY_PARAM[name] ? {} : { description: `${name} path parameter` }),
+    ...(zxy[name] ?? { schema: { type: "string" } }),
+    ...(zxy[name] ? {} : { description: `${name} path parameter` }),
   }));
+}
+
+function zxyyParamsFor(template, source) {
+  if (!/\{(z|x|y)\}/.test(template)) return {};
+  return zxyyParams(zoomBoundsFromSource(source));
+}
+
+// Documented (base.json) entries may carry a z path parameter without a
+// schema — stamp the source-derived bounds onto it so hand-authored docs get
+// the same drift protection as generated skeletons.
+function normalizeZBounds(operation, template, source) {
+  if (!operation.parameters || !/\{(z|x|y)\}/.test(template)) return;
+  const bounds = zoomBoundsFromSource(source);
+  for (const param of operation.parameters) {
+    if (param.name === "z") {
+      param.description = `Tile zoom level (${bounds.min}–${bounds.max} for this layer)`;
+      param.schema = { type: "integer", minimum: bounds.min, maximum: bounds.max };
+    }
+  }
 }
 
 function skeletonFor(template, source) {
@@ -200,7 +245,7 @@ function skeletonFor(template, source) {
   const name = humanize(first);
   const hit = SKELETON_SUMMARIES.find((s) => s.match.test(template));
   const summary = hit ? hit.summary(name) : fallbackSummary(name);
-  const params = pathParameters(template);
+  const params = pathParameters(template, source);
   const operation = {
     summary,
     ...(source ? { description: leadingDocComment(source) } : {}),
@@ -247,6 +292,7 @@ function buildSpec() {
     for (const method of methods) {
       const documented = baseEntry?.[method];
       if (documented) {
+        normalizeZBounds(documented, template, source);
         entry[method] = documented;
       } else {
         entry[method] = skeletonFor(template, source);

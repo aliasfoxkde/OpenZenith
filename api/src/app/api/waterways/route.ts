@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ error: "Overpass API unavailable" }, { status: 200, headers: CORS_HEADERS });
+      return NextResponse.json({ error: "Overpass API unavailable" }, { status: 502, headers: CORS_HEADERS });
     }
 
     // `out body geom` makes Overpass attach per-way geometry as
@@ -132,6 +132,6 @@ export async function GET(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=604800" } },
     );
   } catch {
-    return NextResponse.json({ error: "Waterways query failed" }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Waterways query failed" }, { status: 502, headers: CORS_HEADERS });
   }
 }

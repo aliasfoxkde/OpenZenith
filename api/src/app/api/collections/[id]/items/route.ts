@@ -124,7 +124,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!res.ok) {
       return NextResponse.json(
         { error: `Upstream data source returned ${res.status}` },
-        { status: 200, headers: CORS_HEADERS },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -246,6 +246,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch features";
-    return NextResponse.json({ error: message }, { status: 200, headers: CORS_HEADERS });
+    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
   }
 }

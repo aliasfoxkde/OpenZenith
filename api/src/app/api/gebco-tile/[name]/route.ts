@@ -11,8 +11,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 // Edge runtime — GEBCO COG files are on NAS (local dev only).
-// Terrain tiles are served from R2 via /api/dem-tile/{z}/{x}/{y}.
-// Elevation queries use /api/elevation with R2-backed terrarium tiles.
+// Terrain tiles are served from HuggingFace via /api/dem-tile/{z}/{x}/{y}.
+// Elevation queries use /api/elevation.
 export const runtime = "edge";
 
 export function OPTIONS() {
@@ -34,6 +34,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       error:
         "GEBCO COG tiles require Node.js runtime (local dev only). Use /api/dem-tile/{z}/{x}/{y} for terrain tiles.",
     },
-    { status: 200, headers: CORS_HEADERS },
+    // 501: the edge runtime structurally cannot serve COGs — a dev-only
+    // capability gap, not an upstream or client failure.
+    { status: 501, headers: CORS_HEADERS },
   );
 }

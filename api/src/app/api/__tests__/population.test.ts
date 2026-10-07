@@ -134,15 +134,16 @@ describe("Population Tile API — param, cache and upstream branches", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
-  it("answers 200 with a failure body when upstream fetch rejects", async () => {
+  it("answers 502 with a JSON error body when upstream fetch rejects", async () => {
     // Fake timers keep the route's 30s abort timer from holding the worker open.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network down"));
 
     const { GET } = await route();
     const resp = await GET(req("/api/population/3/4/5"), ctx("3", "4", "5"));
-    expect(resp.status).toBe(200);
-    expect(await resp.text()).toBe("Failed to fetch tile");
+    expect(resp.status).toBe(502);
+    expect(await resp.json()).toEqual({ error: "Failed to fetch population tile" });
+    expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(vi.mocked(edgePutTile)).not.toHaveBeenCalled();
   });
 });

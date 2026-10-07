@@ -46,8 +46,15 @@ export function OvertureTab({
         {OVERTURE_THEMES.map((t) => (
           <div
             key={t.id}
+            role="button"
+            tabIndex={0}
             className={`ex-ds-card ${theme === t.id ? "selected" : ""}`}
             onClick={() => {
+              onSelectTheme(t.id, t.types[0]);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
               onSelectTheme(t.id, t.types[0]);
             }}
           >

@@ -82,6 +82,39 @@ import {
 import { exportMapScreenshot } from "@/lib/map-export";
 import { getClientElevation } from "@/lib/client-elevation";
 import { getBasemap } from "@/lib/basemaps";
+import { identifyAt, type IdentifyResult } from "./lib/identify";
+// Shared escaper: feed-sourced values must never reach innerHTML unescaped,
+// and the globe already owns the single implementation.
+import { escapeHtml } from "@/app/globe/lib/tooltip";
+
+/* ─── Identify popup HTML ─── */
+
+/**
+ * Render an identify result as the popup's HTML body. Popup content sits
+ * outside React, so styling is inline with the shared surveillance tokens;
+ * the class names are stable hooks for tests and CSS overrides. Field values
+ * come from third-party feeds and are escaped, never trusted as HTML.
+ */
+function buildIdentifyHtml(hit: IdentifyResult): string {
+  const rows = hit.rows
+    .map(
+      ([label, value]) =>
+        `<tr><th scope="row" style="text-align:left;padding:2px 10px 2px 0;vertical-align:top;font-weight:400;color:${T.textMuted};white-space:nowrap;">${escapeHtml(label)}</th>` +
+        `<td style="padding:2px 0;vertical-align:top;color:${T.text};word-break:break-word;">${escapeHtml(value)}</td></tr>`,
+    )
+    .join("");
+  // MapLibre paints .maplibregl-popup-content white with 10px/10px/15px
+  // padding; the negative margin plus this panel's own padding covers the
+  // whole content box so no light frame shows against the dark map.
+  return (
+    `<div class="oz-identify-popup" style="margin:-10px -10px -15px;padding:10px 12px;border-radius:8px;background:${T.panel};` +
+    `border:1px solid ${T.border};box-shadow:${T.glow};font-family:${T.fontMono};font-size:11px;line-height:1.5;color:${T.text};">` +
+    `<div class="oz-identify-title" style="font-family:${T.fontSans};font-size:12px;font-weight:700;letter-spacing:0.04em;` +
+    `text-transform:uppercase;color:${T.accent};margin-bottom:6px;">${escapeHtml(hit.title)}</div>` +
+    `<div class="oz-identify-rows"><table style="border-collapse:collapse;width:100%;">${rows}</table></div>` +
+    `</div>`
+  );
+}
 
 /* ─── Component ─── */
 
@@ -165,6 +198,9 @@ export default function MapPage() {
   const [cursorPos, setCursorPos] = useState<{ lat: number; lon: number } | null>(null);
   const mlglRef = useRef<MapLibreGL | null>(null);
   const pinsRef = useRef<maplibregl.Marker[]>([]);
+  // The open identify popup, when one is on screen. Both the Escape handler
+  // and the popup's own close event go through this ref.
+  const identifyPopupRef = useRef<maplibregl.Popup | null>(null);
   const updateHashTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [layerStatus, setLayerStatus] = useState<Record<string, LayerStatusEntry | undefined>>({});
 
@@ -732,6 +768,15 @@ export default function MapPage() {
     if (!containerRef.current || mapRef.current) return;
     let cancelled = false;
 
+    // Escape closes an open identify popup; the ref guard keeps the listener
+    // inert whenever no popup is on screen.
+    const onIdentifyKeydown = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      identifyPopupRef.current?.remove();
+      identifyPopupRef.current = null;
+    };
+    document.addEventListener("keydown", onIdentifyKeydown);
+
     const initMap = async () => {
       try {
         const mlgl = await waitForMapLibre();
@@ -786,7 +831,7 @@ export default function MapPage() {
         });
 
         map.on("click", async (e: unknown) => {
-          const ev = e as { lngLat: { lat: number; lng: number } };
+          const ev = e as { lngLat: { lat: number; lng: number }; point: { x: number; y: number } };
           const { lat, lng } = ev.lngLat;
 
           // Measure mode: add point instead of elevation pin
@@ -849,6 +894,22 @@ export default function MapPage() {
             }
             return;
           }
+          // Feature identify: a rendered data-layer feature takes the click
+          // before the elevation probe, so only empty map drops a pin.
+          const hit = identifyAt(map, ev.point);
+          if (hit) {
+            identifyPopupRef.current?.remove();
+            const popup = new mlgl.Popup({ closeOnClick: true, closeButton: true, maxWidth: "300px" })
+              .setLngLat(hit.lngLat)
+              .setHTML(buildIdentifyHtml(hit))
+              .addTo(map);
+            popup.on("close", () => {
+              if (identifyPopupRef.current === popup) identifyPopupRef.current = null;
+            });
+            identifyPopupRef.current = popup;
+            return;
+          }
+
           setFetchingElevation(true);
           setCtxMenu(null);
 
@@ -927,6 +988,8 @@ export default function MapPage() {
     return () => {
       cancelled = true;
       // Clear data layer refresh intervals
+      document.removeEventListener("keydown", onIdentifyKeydown);
+      identifyPopupRef.current = null;
 
       // Reading the ref here is intentional: the handle accumulates refresh
       // intervals for the map's whole lifetime, so cleanup must see the

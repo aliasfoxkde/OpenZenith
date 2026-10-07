@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -443,6 +443,31 @@ export default function ExplorePage() {
     return () => { window.removeEventListener("keydown", handler); };
   }, []);
 
+  // WAI-ARIA tabs pattern: the arrow keys move focus AND selection together
+  // (automatic activation), wrapping at both ends; Home/End jump to the ends.
+  // Focus follows the active tab, so the roving tabindex stays in step.
+  const tablistRef = useRef<HTMLDivElement | null>(null);
+  const onTablistKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const idx = TABS.findIndex((t) => t.id === tab);
+      if (idx < 0) return;
+      let next = idx;
+      if (e.key === "ArrowRight") next = (idx + 1) % TABS.length;
+      else if (e.key === "ArrowLeft") next = (idx - 1 + TABS.length) % TABS.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = TABS.length - 1;
+      else return;
+      e.preventDefault();
+      const target = TABS[next];
+      if (target.id === tab) return;
+      setTab(target.id);
+      tablistRef.current
+        ?.querySelector<HTMLButtonElement>(`#ex-tab-${target.id}`)
+        ?.focus();
+    },
+    [tab],
+  );
+
   return (
     <ErrorBoundary>
       <div className="ex-wrap">
@@ -458,12 +483,15 @@ export default function ExplorePage() {
           </p>
 
           {/* Tabs */}
-          <div className="ex-tabs" role="tablist">
+          <div className="ex-tabs" role="tablist" ref={tablistRef} onKeyDown={onTablistKeyDown}>
             {TABS.map((t) => (
               <button
                 key={t.id}
                 role="tab"
+                id={`ex-tab-${t.id}`}
                 aria-selected={tab === t.id}
+                aria-controls="ex-tabpanel"
+                tabIndex={tab === t.id ? 0 : -1}
                 className={`ex-tab ${tab === t.id ? "active" : ""}`}
                 onClick={() => { setTab(t.id); }}
               >
@@ -472,7 +500,7 @@ export default function ExplorePage() {
             ))}
           </div>
 
-          <div role="tabpanel" aria-label="Explore data panel">
+          <div role="tabpanel" id="ex-tabpanel" aria-labelledby={`ex-tab-${tab}`}>
             {/* ═══ NOAA & USGS TAB ═══ */}
             {tab === "noaa" && (
               <NoaaTab

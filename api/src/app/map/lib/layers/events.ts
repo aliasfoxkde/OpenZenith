@@ -7,6 +7,32 @@ import { removeLayerIfPresent, removeSourceIfPresent, setStatus, warnLayerError 
 type EonetFeed = { features?: GeoJSON.Feature[] };
 
 /**
+ * Flatten EONET's `categories: [{id, title}]` array onto scalar properties.
+ * The colour match keys on the machine id ("severeStorms"), which only exists
+ * inside the array, so a raw EONET feature paints every event the amber
+ * fallback; `category` carries that id and `categoryLabel` the display title
+ * (mirroring the hurricane layer's pair) for identify to show.
+ */
+function withCategory(feature: GeoJSON.Feature): GeoJSON.Feature {
+  // GeoJSON types properties as `any`; the cast restores a known index
+  // signature while keeping the runtime-absent case, and the guards below are
+  // the real check.
+  const props = feature.properties as Record<string, unknown> | null;
+  const list: unknown = props?.categories;
+  const first = Array.isArray(list) ? (list[0] as { id?: unknown; title?: unknown } | undefined) : undefined;
+  const id = first && typeof first === "object" ? first.id : undefined;
+  const title = first && typeof first === "object" ? first.title : undefined;
+  return {
+    ...feature,
+    properties: {
+      ...props,
+      category: typeof id === "string" && id ? id : "Event",
+      categoryLabel: typeof title === "string" && title ? title : "Event",
+    },
+  };
+}
+
+/**
  * Add the NASA EONET natural-events layer: open events (limit 200) fetched
  * from eonet.gsfc.nasa.gov as GeoJSON and rendered as a 6px circle layer
  * over a 14px blurred glow, coloured by event category — red for
@@ -27,13 +53,15 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
       }
       const data = (await res.json()) as EonetFeed;
       if (!data.features) return;
-      setStatus(handle, "events", "loaded", data.features.length);
+      const features = data.features.map(withCategory);
+      setStatus(handle, "events", "loaded", features.length);
 
       try {
+        const geojson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
         if (!map.getSource("natural-events")) {
-          map.addSource("natural-events", { type: "geojson", data });
+          map.addSource("natural-events", { type: "geojson", data: geojson });
         } else {
-          map.getSource("natural-events")?.setData(data);
+          map.getSource("natural-events")?.setData(geojson);
         }
 
         if (!map.getLayer("natural-events-points")) {

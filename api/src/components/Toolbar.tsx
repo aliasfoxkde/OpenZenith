@@ -78,6 +78,7 @@ export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
       {/* Coordinate input */}
       <button
         onClick={() => { setShowCoords(!showCoords); }}
+        aria-label="Toggle coordinate display"
         style={{
           background: showCoords ? T.accent : "transparent",
           border: `1px solid ${T.border}`,
@@ -157,6 +158,7 @@ export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
       {onScreenshot && (
         <button
           onClick={onScreenshot}
+          aria-label="Take screenshot"
           style={{
             background: "transparent",
             border: `1px solid ${T.border}`,

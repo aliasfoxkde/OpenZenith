@@ -13,7 +13,7 @@ type WarningsResponse = { features?: GeoJSON.Feature[] };
  * Add the active weather-warning polygons (NWS alerts relayed by
  * /api/weather/warnings as a GeoJSON FeatureCollection). Renders two layers
  * over one `warnings` source: a 0.15-opacity fill and a dashed 2px outline,
- * both coloured by the alert's `Event` property — red for tornado/extreme
+ * both coloured by the alert's `event` property — red for tornado/extreme
  * wind, orange for severe thunderstorm/flash flood, amber otherwise. The
  * fetch re-runs every 5 minutes via an interval on handle.intervals and calls
  * setData on the existing source rather than recreating it; a missing
@@ -50,7 +50,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
             paint: {
               "fill-color": [
                 "match",
-                ["downcase", ["get", "Event"]],
+                ["downcase", ["get", "event"]],
                 ["tornado warning", "extreme wind warning"],
                 "#ef4444",
                 ["severe thunderstorm warning", "flash flood warning"],
@@ -71,7 +71,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
             paint: {
               "line-color": [
                 "match",
-                ["downcase", ["get", "Event"]],
+                ["downcase", ["get", "event"]],
                 ["tornado warning", "extreme wind warning"],
                 "#ef4444",
                 ["severe thunderstorm warning", "flash flood warning"],

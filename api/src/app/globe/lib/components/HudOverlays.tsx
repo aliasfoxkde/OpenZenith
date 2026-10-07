@@ -116,6 +116,7 @@ export function HudOverlays({
         <div className="wv-sat-info">
           <button
             className="sat-close"
+            aria-label="Close satellite panel"
             onClick={() => {
               setSelectedSat(null);
               setFollowSat(false);

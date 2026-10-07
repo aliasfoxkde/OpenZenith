@@ -577,6 +577,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
                     </td>
                     <td style={{ padding: "3px 4px" }}>
                       <button
+                        aria-label={`Delete path ${i + 1}`}
                         onClick={() => {
                           const newPaths = paths.filter((_, idx) => idx !== i);
                           setPaths(newPaths);

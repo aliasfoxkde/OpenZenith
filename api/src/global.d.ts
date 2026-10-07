@@ -108,7 +108,11 @@ declare namespace maplibregl {
 
   class Popup {
     constructor(options?: Record<string, unknown>);
+    setLngLat(lnglat: [number, number]): this;
     setHTML(html: string): this;
+    addTo(map: Map): this;
+    remove(): this;
+    on(type: "close", listener: () => void): this;
   }
 
   // Constructor-only controls — declared as bare constructor types (a

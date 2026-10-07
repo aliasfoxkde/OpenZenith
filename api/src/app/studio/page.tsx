@@ -130,6 +130,12 @@ export default function StudioPage() {
     setImperial(s.imperial);
     setZoom(s.zoom);
     setBasemap(s.basemap);
+    // The seed above reads the viewport once; sidebar/backdrop geometry keeps
+    // deriving from isMobile, so track resizes from here on (same pattern as
+    // the map page).
+    const check = () => { setIsMobile(window.innerWidth < 768); };
+    window.addEventListener("resize", check);
+    return () => { window.removeEventListener("resize", check); };
   }, []);
 
   /* ─── Keyboard shortcuts ─── */

@@ -44,8 +44,19 @@ export function NoaaTab({
         {NOAA_DATASETS.map((ds, i) => (
           <div
             key={i}
+            role="button"
+            tabIndex={0}
             className={`ex-ds-card ${selected === i ? "selected" : ""}`}
             onClick={() => {
+              onSelectDataset(i);
+            }}
+            onKeyDown={(e) => {
+              // Keyboard activation for the div-as-button card; ignore keys
+              // raised inside the card's NWS lat/lon inputs so typing Enter
+              // there does not re-select the dataset.
+              if (e.target !== e.currentTarget) return;
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
               onSelectDataset(i);
             }}
           >

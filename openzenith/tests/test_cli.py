@@ -18,10 +18,12 @@ from openzenith.cli import (
     _filename_to_bbox,
     _latlon_to_grid_coords,
     _latlon_to_tile,
+    _load_batch_points,
     _load_merged,
     _load_rawint16,
     _parse_zoom_levels,
     cmd_aspect,
+    cmd_batch,
     cmd_color_relief,
     cmd_contour,
     cmd_curvature,
@@ -55,6 +57,7 @@ from openzenith.cli import (
     main,
 )
 from openzenith.merged import MAGIC
+from openzenith.rest import RestError
 
 
 class TestParseZoomLevels:
@@ -2138,3 +2141,100 @@ class TestModuleEntryPoint:
 
         assert exc.value.code == 0
         assert "usage:" in capsys.readouterr().out
+
+
+class TestLoadBatchPoints:
+    """Tests for the JSON point-file reader behind `openzenith batch`."""
+
+    def test_pair_list(self, tmp_path):
+        path = tmp_path / "pairs.json"
+        path.write_text(json.dumps([[40.7, -74.0], [35.6, 139.6]]))
+        assert _load_batch_points(str(path)) == [(40.7, -74.0), (35.6, 139.6)]
+
+    def test_points_envelope(self, tmp_path):
+        path = tmp_path / "envelope.json"
+        path.write_text(json.dumps({"points": [{"lat": 1.5, "lon": 2.5}]}))
+        assert _load_batch_points(str(path)) == [(1.5, 2.5)]
+
+    def test_unwrapped_shape_raises(self, tmp_path):
+        path = tmp_path / "bad.json"
+        path.write_text(json.dumps({"lat": 1.0, "lon": 2.0}))
+        with pytest.raises(TypeError):
+            _load_batch_points(str(path))
+
+    def test_missing_file_raises_oserror(self, tmp_path):
+        with pytest.raises(OSError):
+            _load_batch_points(str(tmp_path / "absent.json"))
+
+
+class TestCmdBatch:
+    """Tests for cmd_batch (REST-backed batch elevation)."""
+
+    def _args(self, **kwargs):
+        """Build a Namespace carrying the batch subcommand's arguments."""
+        defaults = {"file": None, "lat": None, "lon": None, "json": False}
+        return MagicMock(**{**defaults, **kwargs})
+
+    def test_no_input_exits(self, capsys):
+        with pytest.raises(SystemExit) as exc:
+            cmd_batch(self._args())
+        assert exc.value.code == 1
+        assert "--file" in capsys.readouterr().out
+
+    def test_single_point_table(self, capsys):
+        results = [{"id": None, "lat": 40.7, "lon": -74.0, "elevation": 10.5}]
+        with patch("openzenith.rest.elevation_batch", return_value=results) as batch:
+            cmd_batch(self._args(lat=40.7, lon=-74.0))
+        batch.assert_called_once_with([(40.7, -74.0)])
+
+        out = capsys.readouterr().out
+        assert "40.700000" in out
+        assert "-74.000000" in out
+        assert "10.5m" in out
+        assert " ok" in out
+
+    def test_file_points_reported_as_no_data(self, tmp_path, capsys):
+        path = tmp_path / "points.json"
+        path.write_text(json.dumps([[40.7, -74.0], [0.0, 0.0]]))
+        results = [
+            {"id": None, "lat": 40.7, "lon": -74.0, "elevation": 10.5},
+            {"id": None, "lat": 0.0, "lon": 0.0, "elevation": None},
+        ]
+        with patch("openzenith.rest.elevation_batch", return_value=results) as batch:
+            cmd_batch(self._args(file=str(path)))
+        batch.assert_called_once_with([(40.7, -74.0), (0.0, 0.0)])
+
+        out = capsys.readouterr().out
+        assert "Queried 2 point(s)" in out
+        assert "no data" in out
+
+    def test_json_output(self, capsys):
+        results = [{"id": "a", "lat": 1.0, "lon": 2.0, "elevation": 3.0}]
+        with patch("openzenith.rest.elevation_batch", return_value=results):
+            cmd_batch(self._args(lat=1.0, lon=2.0, json=True))
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["count"] == 1
+        assert payload["results"][0]["elevation"] == 3.0
+
+    def test_api_error_exits_with_message(self, capsys):
+        err = RestError(400, "Each point must have valid lat (-90..90)", "https://api.test")
+        with (
+            patch("openzenith.rest.elevation_batch", side_effect=err),
+            pytest.raises(SystemExit) as exc,
+        ):
+            cmd_batch(self._args(lat=95.0, lon=0.0))
+        assert exc.value.code == 1
+
+        out = capsys.readouterr().out
+        assert "HTTP 400" in out
+        assert "valid lat" in out
+
+    def test_batch_parser_registered(self):
+        """`openzenith batch --help` parses and exits cleanly."""
+        with (
+            patch.object(sys, "argv", ["openzenith", "batch", "--help"]),
+            pytest.raises(SystemExit) as exc,
+        ):
+            main()
+        assert exc.value.code == 0

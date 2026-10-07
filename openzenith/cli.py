@@ -3,6 +3,7 @@
 Usage:
     openzenith download --region europe --zoom-levels 0-10
     openzenith query --lat 40.7128 --lon -74.0060
+    openzenith batch --file points.json
     openzenith trace --lat 40.7 --lon -74.0
     openzenith watershed --lat 40.7 --lon -74.0
     openzenith slope --lat 40.7 --lon -74.0
@@ -111,6 +112,81 @@ def cmd_query(args: argparse.Namespace) -> None:
         elev = get_elevation(args.lat, args.lon)
         status = f"{elev:.1f}m" if elev is not None else "N/A (ocean/no data)"
         print(f"📍 ({args.lat:.6f}, {args.lon:.6f}) → {status}")
+
+
+def _emit(lines: list[str] | str) -> None:
+    """Write CLI output lines to stdout in a single write."""
+    if isinstance(lines, str):
+        lines = [lines]
+    sys.stdout.write("\n".join(lines) + "\n")
+
+
+def _load_batch_points(path: str) -> list[tuple[float, float]]:
+    """Read batch points from a JSON file.
+
+    Accepts a top-level list of ``[lat, lon]`` pairs, a list of
+    ``{"lat": ..., "lon": ...}`` objects, or an object holding a ``points``
+    array of either shape.
+
+    Raises:
+        TypeError: If the JSON is not one of the accepted shapes.
+        ValueError: If a row is malformed.
+        OSError: If the file cannot be read.
+
+    """
+    with Path(path).open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    rows = payload.get("points") if isinstance(payload, dict) else payload
+    if not isinstance(rows, list):
+        raise TypeError('expected a list of [lat, lon] pairs or {"points": [...]}')
+
+    points: list[tuple[float, float]] = []
+    for row in rows:
+        if isinstance(row, dict):
+            points.append((float(row["lat"]), float(row["lon"])))
+        else:
+            lat, lon = row
+            points.append((float(lat), float(lon)))
+    return points
+
+
+def cmd_batch(args: argparse.Namespace) -> None:
+    """Query elevation for many points through the REST API."""
+    from openzenith.rest import RestError, elevation_batch
+
+    try:
+        if args.file:
+            points = _load_batch_points(args.file)
+        elif args.lat is not None and args.lon is not None:
+            points = [(args.lat, args.lon)]
+        else:
+            _emit(["❌ Provide --file, or --lat and --lon"])
+            sys.exit(1)
+    except (OSError, ValueError, KeyError, TypeError) as err:
+        _emit([f"❌ Could not read points: {err}"])
+        sys.exit(1)
+
+    try:
+        results = elevation_batch(points)
+    except (RestError, ValueError) as err:
+        detail = err.message if isinstance(err, RestError) else str(err)
+        status = f"HTTP {err.status}" if isinstance(err, RestError) else "request"
+        _emit([f"❌ API {status} failed: {detail}"])
+        sys.exit(1)
+
+    if args.json:
+        _emit(json.dumps({"count": len(results), "results": results}, indent=2))
+        return
+
+    lines = [f"📊 Queried {len(results)} point(s) via the OpenZenith API"]
+    lines.append(f"{'lat':>12}  {'lon':>12}  {'elev':>10}  status")
+    for row in results:
+        elev = row.get("elevation")
+        elev_text = f"{elev:.1f}m" if elev is not None else "—"
+        status = "ok" if elev is not None else "no data"
+        lines.append(f"{row['lat']:12.6f}  {row['lon']:12.6f}  {elev_text:>10}  {status}")
+    _emit(lines)
 
 
 def cmd_trace(args: argparse.Namespace) -> None:
@@ -1294,6 +1370,15 @@ def main() -> None:
         "--batch", type=str, default=None, help='Batch points: "lat1,lon1 lat2,lon2 ..."'
     )
 
+    # batch
+    bt = sub.add_parser("batch", help="Batch elevation query through the REST API")
+    bt.add_argument(
+        "--file", type=str, default=None, help="JSON file: [lat, lon] pairs or {points: [...]}",
+    )
+    bt.add_argument("--lat", type=float, default=None, help="Single-point latitude")
+    bt.add_argument("--lon", type=float, default=None, help="Single-point longitude")
+    bt.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+
     # trace
     tr = sub.add_parser("trace", help="Trace downstream path from a point")
     tr.add_argument("--lat", type=float, required=True)
@@ -1560,6 +1645,7 @@ def main() -> None:
     commands = {
         "download": cmd_download,
         "query": cmd_query,
+        "batch": cmd_batch,
         "trace": cmd_trace,
         "watershed": cmd_watershed,
         "info": cmd_info,

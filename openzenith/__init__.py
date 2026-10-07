@@ -9,6 +9,7 @@ Provides:
 - Downstream tracing (point → river mouth/ocean)
 - Watershed delineation from pour points
 - Terrain analysis: slope, aspect, hillshade, viewshed
+- REST client for the deployed OpenZenith API (ZenithClient)
 - CLI: openzenith download/query/trace/watershed/slope/hillshade/viewshed/info
 
 For compute-intensive applications, the local SDK is recommended over the web API
@@ -58,6 +59,20 @@ from openzenith.elevation import (
     load_ozt2_tiles,
     load_ozt2_tiles_from_hf,
     load_tiles,
+)
+from openzenith.rest import (
+    RestError,
+    ZenithClient,
+    contours,
+    contours_bbox,
+    elevation_at,
+    elevation_batch,
+    geocode,
+    profile,
+    query,
+    slope_aspect,
+    trace,
+    watershed_at,
 )
 from openzenith.terrarium import decode_tile, encode_tile
 from openzenith.tile_format import (
@@ -707,10 +722,12 @@ __all__ = [
     "OZT2HFBackend",
     "OZT2R2Backend",
     "OpenZenithError",
+    "RestError",
     "TileDecodeError",
     "TileError",
     "TileErrorV2",
     "TileNotFoundError",
+    "ZenithClient",
     "adaptive_filter",
     "annual_heinardh",
     "aspect",
@@ -728,6 +745,8 @@ __all__ = [
     "color_relief",
     "contour_to_geojson",
     "contour_to_kml",
+    "contours",
+    "contours_bbox",
     "convergence_index",
     "cost_distance",
     "cross_section",
@@ -757,6 +776,8 @@ __all__ = [
     "edge_contamination_check",
     "edge_density",
     "elevation_above_stream",
+    "elevation_at",
+    "elevation_batch",
     "elevation_percentile",
     "elevation_relief_ratio",
     "encode",
@@ -779,6 +800,7 @@ __all__ = [
     "gage_watershed",
     "gaussian_curvature",
     "gdb_to_geojson",
+    "geocode",
     "get_elevation",
     "get_elevation_along_path",
     "get_elevation_along_path_async",
@@ -827,7 +849,9 @@ __all__ = [
     "plot_contours",
     "plot_hillshade",
     "plot_terrain",
+    "profile",
     "profile_curvature",
+    "query",
     "rasterize_lines",
     "relative_elevation",
     "remove_off_terrain",
@@ -838,6 +862,7 @@ __all__ = [
     "sky_view_factor",
     "slope",
     "slope_area_ratio",
+    "slope_aspect",
     "slope_fast",
     "slope_leq",
     "snap_pour_point",
@@ -856,6 +881,7 @@ __all__ = [
     "terrain_to_png",
     "total_curvature",
     "tpi",
+    "trace",
     "trace_downstream",
     "tri",
     "twi",
@@ -865,5 +891,6 @@ __all__ = [
     "viewshed",
     "visibility_index",
     "watershed",
+    "watershed_at",
     "zonal_stats",
 ]

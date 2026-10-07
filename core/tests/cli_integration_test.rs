@@ -2,8 +2,10 @@
 //!
 //! Tests JSON I/O by piping input to stdin and checking stdout output.
 
-// In integration tests an unwrap/expect failure IS the test failing.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+// In integration tests an unwrap/expect failure IS the test failing; float
+// equality is deliberate where the asserted value is a sentinel or an exact
+// copy of an input cell.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
 // Process-spawning tests are host-only; wasm-pack test --node compiles every
 // test target for wasm32, where this file must become an empty crate.
 #![cfg(not(target_arch = "wasm32"))]
@@ -415,6 +417,62 @@ fn test_gradient_predict_command_invalid_json() {
 }
 
 #[test]
+fn test_gradient_predict_reconstruct_roundtrip_across_nodata() {
+    // Encoder and decoder must agree on the nodata fallback: a sentinel on the
+    // first row used to leak -32768 into the three-neighbour predictor and
+    // corrupt every cell below it in that column.
+    let side = 4;
+    let mut data: Vec<f32> = Vec::with_capacity(side * side);
+    for i in 0..side {
+        for j in 0..side {
+            data.push(1000.0 + 7.0 * (i + j) as f32);
+        }
+    }
+    data[3] = -32768.0; // (0,3) — the sentinel sits on the first row
+
+    let predicted = run_json(
+        "gradient-predict",
+        &json!({ "rows": side, "cols": side, "nodata": -32768.0, "data": data }),
+    );
+    assert_eq!(
+        predicted["data"][3], -32768,
+        "the sentinel must encode verbatim"
+    );
+
+    let decoded = run_json(
+        "reconstruct",
+        &json!({
+            "rows": side,
+            "cols": side,
+            "nodata": -32768,
+            "dequant_min": 0.0,
+            "dequant_scale": 1.0,
+            "data": predicted["data"]
+        }),
+    );
+
+    let cells = decoded["data"].as_array().unwrap();
+    assert_eq!(cells.len(), side * side);
+    for i in 0..side {
+        for j in 0..side {
+            if (i, j) == (0, 3) {
+                assert_eq!(
+                    cells[i * side + j].as_f64().unwrap(),
+                    -32768.0,
+                    "the sentinel stays the sentinel"
+                );
+                continue;
+            }
+            assert_close(
+                cells[i * side + j].as_f64().unwrap(),
+                f64::from(1000.0 + 7.0 * (i + j) as f32),
+                &format!("cell ({i},{j}) round-trips past the sentinel"),
+            );
+        }
+    }
+}
+
+#[test]
 fn test_non_utf8_stdin_fails_cleanly() {
     // stdin that is not valid UTF-8 must produce the JSON error shape, not a
     // panic — read_to_string fails before any command dispatch.
@@ -490,6 +548,483 @@ fn test_d8_data_length_mismatch_message_is_preserved() {
         .assert()
         .failure()
         .stderr(predicates::str::contains("data length 3 != rows*cols 2*2"));
+}
+
+// ─── cut/fill volumes ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_cutfill_command_constant_mode_hand_totals() {
+    // DEM [[10, 20], [30, 40]] against a 25 m plane over 2 m cells: the two
+    // cells below the plane give fill 15 + 5 = 20 m, the two above give cut
+    // 5 + 15 = 20 m, each over 4 m² of area — balanced, so the net is zero.
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "cell_size": 2.0,
+        "mode": "constant:25",
+        "data": [10.0, 20.0, 30.0, 40.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"cut_volume\":80.0"))
+        .stdout(predicates::str::contains("\"fill_volume\":80.0"))
+        .stdout(predicates::str::contains("\"net_volume\":0.0"))
+        .stdout(predicates::str::contains("\"area\":16.0"))
+        .stdout(predicates::str::contains("\"cell_count\":4"));
+}
+
+#[test]
+fn test_cutfill_command_tilted_mode_against_itself_is_zero() {
+    // The tilted plane with these four corners is exactly the DEM, so no cut
+    // and no fill anywhere.
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "cell_size": 1.0,
+        "mode": "tilted:10,20,30,40",
+        "data": [10.0, 20.0, 30.0, 40.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"cut_volume\":0.0"))
+        .stdout(predicates::str::contains("\"fill_volume\":0.0"))
+        .stdout(predicates::str::contains("\"cell_count\":4"));
+}
+
+#[test]
+fn test_cutfill_command_dem_mode_with_reference_grid() {
+    // DEM minus reference, cell by cell: (10-0) + (20-5) = 25 m of cut over
+    // 1 m² cells, and the reference hole at (1,0) excludes that cell.
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "cell_size": 1.0,
+        "mode": "dem",
+        "data": [10.0, 20.0, 30.0, 40.0],
+        "reference": [0.0, 5.0, -32768.0, 45.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"cut_volume\":25.0"))
+        .stdout(predicates::str::contains("\"fill_volume\":5.0"))
+        .stdout(predicates::str::contains("\"cell_count\":3"));
+}
+
+#[test]
+fn test_cutfill_command_unknown_mode() {
+    let input = json!({
+        "rows": 1,
+        "cols": 1,
+        "nodata": -32768.0,
+        "mode": "slope:30",
+        "data": [10.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid mode"));
+}
+
+#[test]
+fn test_cutfill_command_tilted_mode_needs_four_corners() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "mode": "tilted:1,2,3",
+        "data": [10.0, 20.0, 30.0, 40.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("4 corner elevations"));
+}
+
+#[test]
+fn test_cutfill_command_dem_mode_without_reference_grid() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "mode": "dem",
+        "data": [10.0, 20.0, 30.0, 40.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("needs a reference grid"));
+}
+
+#[test]
+fn test_cutfill_command_reference_length_mismatch() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "mode": "dem",
+        "data": [10.0, 20.0, 30.0, 40.0],
+        "reference": [0.0, 5.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "reference length 2 != rows*cols 2*2",
+        ));
+}
+
+#[test]
+fn test_cutfill_command_data_length_mismatch() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "mode": "constant:0",
+        "data": [10.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length 1 != rows*cols 2*2"));
+}
+
+#[test]
+fn test_cutfill_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin("{\"mode\":")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+#[test]
+fn test_cutfill_command_cell_size_defaults_to_one() {
+    // Omitting cell_size keeps the volumes in metres of depth rather than
+    // scaling them — pinned so a serde default change is a visible break.
+    let input = json!({
+        "rows": 1,
+        "cols": 2,
+        "nodata": -32768.0,
+        "mode": "constant:0",
+        "data": [10.0, 0.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("cutfill")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"cut_volume\":10.0"))
+        .stdout(predicates::str::contains("\"area\":2.0"));
+}
+
+// ─── D-infinity flow direction ────────────────────────────────────────────────
+
+/// Run a CLI command with a JSON payload and return its parsed stdout.
+fn run_json(command: &str, payload: &serde_json::Value) -> serde_json::Value {
+    let output = Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg(command)
+        .write_stdin(serde_json::to_string(payload).unwrap())
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&output).unwrap()
+}
+
+/// Assert two floats agree to the grid's f32 precision.
+fn assert_close(actual: f64, expected: f64, what: &str) {
+    assert!(
+        (actual - expected).abs() < 1e-5,
+        "{what}: {actual} != {expected}"
+    );
+}
+
+#[test]
+fn test_dinf_command_uniform_east_slope() {
+    // Elevation drops 10 m per column: the whole flow goes east (π/2), and
+    // the east edge has no downhill neighbour left. The first row brackets E
+    // with SE (dir 0, proportion 1); the last row has no SE, so the same
+    // eastward flow is encoded as dir 7 (NE) with proportion 0 — the boundary
+    // encoding the contract calls out.
+    let input = json!({
+        "rows": 2,
+        "cols": 3,
+        "nodata": -32768.0,
+        "data": [0.0, -10.0, -20.0, 0.0, -10.0, -20.0]
+    });
+
+    let out = run_json("dinf", &input);
+    assert_eq!(out["rows"], 2);
+    assert_eq!(out["cols"], 3);
+    let dir = out["dir"].as_array().unwrap();
+    let proportions = out["proportions"].as_array().unwrap();
+    let angles = out["angles"].as_array().unwrap();
+    for i in 0..6 {
+        if i % 3 == 2 {
+            assert_eq!(dir[i], -1, "cell {i} east edge is a pit");
+            assert_eq!(angles[i].as_f64().unwrap(), -1.0);
+            continue;
+        }
+        assert_close(
+            angles[i].as_f64().unwrap(),
+            std::f64::consts::FRAC_PI_2,
+            "angle",
+        );
+        let d = dir[i].as_i64().unwrap();
+        assert!(d == 0 || d == 7, "cell {i} pair must bracket E, got {d}");
+        let east_share = if d == 0 {
+            proportions[i].as_f64().unwrap()
+        } else {
+            1.0 - proportions[i].as_f64().unwrap()
+        };
+        assert!(
+            (east_share - 1.0).abs() < 1e-6,
+            "cell {i} sends all flow east"
+        );
+    }
+}
+
+#[test]
+fn test_dinf_command_pits_carry_the_sentinels() {
+    // A flat grid has no descent anywhere: dir -1, angle -1, proportion 0.
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "data": [100.0, 100.0, 100.0, 100.0]
+    });
+
+    let out = run_json("dinf", &input);
+    assert_eq!(out["dir"], json!([-1, -1, -1, -1]));
+    assert_eq!(out["angles"], json!([-1.0, -1.0, -1.0, -1.0]));
+    assert_eq!(out["proportions"], json!([0.0, 0.0, 0.0, 0.0]));
+}
+
+#[test]
+fn test_dinf_command_splits_flow_between_two_neighbours() {
+    // E drops 10 m, SE drops 5 m more: the descent lands inside the (E, SE)
+    // sector at atan(0.5) = 0.4636 rad from east, so E keeps ~41% of the flow
+    // and SE the rest.
+    let input = json!({
+        "rows": 3,
+        "cols": 3,
+        "nodata": -32768.0,
+        "data": [100.0, 100.0, 100.0, 100.0, 100.0, 90.0, 100.0, 100.0, 85.0]
+    });
+
+    let out = run_json("dinf", &input);
+    assert_eq!(out["dir"][4], 0, "the (E, SE) facet wins");
+    let phi = 5.0_f64.atan2(10.0);
+    assert_close(
+        out["angles"][4].as_f64().unwrap(),
+        std::f64::consts::FRAC_PI_2 + phi,
+        "descent bearing",
+    );
+    assert_close(
+        out["proportions"][4].as_f64().unwrap(),
+        1.0 - phi / std::f64::consts::FRAC_PI_4,
+        "share routed to E",
+    );
+}
+
+#[test]
+fn test_dinf_command_data_length_mismatch() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "data": [1.0, 2.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("dinf")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length 2 != rows*cols 2*2"));
+}
+
+#[test]
+fn test_dinf_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("dinf")
+        .write_stdin("{oops")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
+}
+
+// ─── Solar insolation ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_solar_command_flat_grid_is_uniform_and_positive() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "latitude_deg": 40.0,
+        "day_of_year": 172,
+        "cell_size": 30.0,
+        "data": [0.0, 0.0, 0.0, 0.0]
+    });
+
+    let out = run_json("solar", &input);
+    assert_eq!(out["rows"], 2);
+    assert_eq!(out["cols"], 2);
+    let cells = out["data"].as_array().unwrap();
+    let first = cells[0].as_f64().unwrap();
+    assert!(
+        (5.0..=11.0).contains(&first),
+        "clear-sky June day at 40N was {first} kWh/m2/day"
+    );
+    assert_eq!(
+        cells[1].as_f64().unwrap(),
+        first,
+        "flat grid must be uniform"
+    );
+}
+
+#[test]
+fn test_solar_command_south_wall_shades_northern_winter() {
+    // A 1000 m wall filling the row immediately south of the targets, over
+    // 1 m cells, at 60°N on day 5. The wall can only ever remove sun steps,
+    // so every cell north of it must end up strictly below the same cell on
+    // an otherwise identical open grid, and the wall top — which looks down
+    // on everything and so cannot be shaded by it — keeps the full open-grid
+    // day. Exact zeros are not asserted because a corner cell's ray toward a
+    // low winter sun can leave this small grid before it reaches the wall;
+    // that is the documented local-march behaviour, not a defect.
+    let base = json!({
+        "rows": 3,
+        "cols": 3,
+        "nodata": -32768.0,
+        "latitude_deg": 60.0,
+        "day_of_year": 5,
+        "cell_size": 1.0,
+        "horizon_cells": 10
+    });
+
+    let mut open = base.clone();
+    open["data"] = json!([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    let mut walled = base.clone();
+    walled["data"] = json!([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000.0, 1000.0, 1000.0]);
+
+    let open_cells = run_json("solar", &open)["data"].clone();
+    let walled_cells = run_json("solar", &walled)["data"].clone();
+
+    let wall_top = walled_cells[8].as_f64().unwrap();
+    assert!(wall_top > 0.0, "wall top {wall_top} still sees the sky");
+    for i in 0..6 {
+        let shaded = walled_cells[i].as_f64().unwrap();
+        let unshaded = open_cells[i].as_f64().unwrap();
+        assert!(
+            shaded < unshaded,
+            "cell {i}: wall must cost energy ({shaded} vs {unshaded})"
+        );
+        assert!(
+            shaded < wall_top,
+            "cell {i}: no northern cell can out-see the wall top ({shaded} vs {wall_top})"
+        );
+    }
+}
+
+#[test]
+fn test_solar_command_nodata_is_copied_through() {
+    let input = json!({
+        "rows": 1,
+        "cols": 2,
+        "nodata": -32768.0,
+        "latitude_deg": 40.0,
+        "day_of_year": 172,
+        "cell_size": 30.0,
+        "data": [-32768.0, 0.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("solar")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("-32768.0"));
+}
+
+#[test]
+fn test_solar_command_data_length_mismatch() {
+    let input = json!({
+        "rows": 2,
+        "cols": 2,
+        "nodata": -32768.0,
+        "latitude_deg": 40.0,
+        "day_of_year": 172,
+        "cell_size": 30.0,
+        "data": [0.0]
+    });
+
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("solar")
+        .write_stdin(serde_json::to_string(&input).unwrap())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("data length 1 != rows*cols 2*2"));
+}
+
+#[test]
+fn test_solar_command_invalid_json() {
+    Command::cargo_bin("openzenith_core_cli")
+        .unwrap()
+        .arg("solar")
+        .write_stdin("[[[")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid JSON"));
 }
 
 // ─── stdout write failure (main's last error path) ───────────────────────────

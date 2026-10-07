@@ -1,7 +1,12 @@
 /* @ts-self-types="./openzenith_core.d.ts" */
 
 /**
- * D8 flow direction (WASM) — returns a Uint8Array of direction values (0-7 or 255 for nodata).
+ * D8 flow direction (WASM) — returns a `Uint8Array` of direction values
+ * (0-7, or 255 for nodata).
+ *
+ * # Safety
+ * `dem_ptr` must point to `len` readable `f32` elements in WASM linear memory
+ * and stay valid for the duration of the call.
  * @param {number} dem_ptr
  * @param {number} len
  * @param {number} rows
@@ -19,11 +24,28 @@ export function d8_flow_direction_wasm(dem_ptr, len, rows, cols, nodata) {
 /**
  * OZT2 decode: decompress and reconstruct a full OZT2 tile.
  *
- * # Arguments
- * * `tile_bytes` – Uint8Array of OZT2 binary data
- * * `decompress_fn` – JS function to call for decompression: `(bytes: Uint8Array, decompressor: str) -> Uint8Array`
+ * Header codes follow the production convention (`openzenith/tile_format_v2.py`,
+ * `api/src/lib/ozt2_decode.ts`): predictor 0=none/1=left/2=gradient,
+ * compressor 0=brotli/1=zstd/2=zlib/3=none.
  *
- * Returns a JS object: { elevations: Uint16Array, metadata: JsValue }
+ * # Arguments
+ * * `tile_bytes` – `Uint8Array` of OZT2 binary data (6-byte header followed
+ *   by the compressed residual stream)
+ * * `decompress_fn` – JS function called to decompress:
+ *   `(bytes: Uint8Array, compressor: number) -> Uint8Array`. The second
+ *   argument is the header's compressor code, so one JS dispatcher can route
+ *   brotli/zstd/zlib; it is not called for compressor code 3 (none).
+ *
+ * # Returns
+ * A JS object `{ elevations: Uint16Array, metadata: Object }`, where
+ * `metadata` carries `min_elevation`, `elevation_range`, `max_elevation`,
+ * `bits_per_pixel`, `predictor`, `compressor`, `width` and `height`.
+ *
+ * # Errors
+ * Throws a JS exception (never panics) when the tile is shorter than the
+ * 6-byte header, when the predictor or compressor code is not part of the
+ * production convention, when the JS decompressor rejects the payload, or
+ * when the decoded pixel count matches no known tile shape.
  * @param {Uint8Array} tile_bytes
  * @param {Function} decompress_fn
  * @returns {any}
@@ -36,7 +58,11 @@ export function decode_ozt2(tile_bytes, decompress_fn) {
 }
 
 /**
- * Flow accumulation (WASM) — returns a Uint32Array of upstream counts.
+ * Flow accumulation (WASM) — returns a `Uint32Array` of upstream counts.
+ *
+ * # Safety
+ * `flow_dir_ptr` must point to `len` readable `i8` elements in WASM linear
+ * memory and stay valid for the duration of the call.
  * @param {number} flow_dir_ptr
  * @param {number} len
  * @param {number} rows
@@ -52,6 +78,29 @@ export function flow_accumulation_wasm(flow_dir_ptr, len, rows, cols, nodata_dir
 }
 
 /**
+ * Gradient prediction (encode direction) — compute residuals from elevation grid (WASM).
+ *
+ * # Returns
+ * A `Uint16Array` of int16 residuals (as unsigned for WASM compatibility).
+ *
+ * # Safety
+ * `elevation_ptr` must point to `len` readable `f32` elements in WASM linear
+ * memory and stay valid for the duration of the call.
+ * @param {number} elevation_ptr
+ * @param {number} len
+ * @param {number} rows
+ * @param {number} cols
+ * @param {number} nodata
+ * @returns {Int16Array}
+ */
+export function gradient_predict_wasm(elevation_ptr, len, rows, cols, nodata) {
+    const ret = wasm.gradient_predict_wasm(elevation_ptr, len, rows, cols, nodata);
+    var v1 = getArrayI16FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 2, 2);
+    return v1;
+}
+
+/**
  * Reconstruct elevation from OZT2 gradient residuals (WASM).
  *
  * # Arguments
@@ -63,7 +112,14 @@ export function flow_accumulation_wasm(flow_dir_ptr, len, rows, cols, nodata_dir
  * * `dequant_min` – minimum dequantization value
  * * `dequant_scale` – dequantization scale
  *
- * Returns a Uint16Array of reconstructed elevations.
+ * # Returns
+ * A `Uint16Array` of reconstructed elevations in whole metres, clamped to
+ * `0..=65535`.
+ *
+ * # Safety
+ * `residuals_ptr` must point to `len` readable `i16` elements in WASM linear
+ * memory (as produced by the JS glue's `__wbindgen_malloc` + typed-array
+ * copy) and must stay valid for the duration of the call.
  * @param {number} residuals_ptr
  * @param {number} len
  * @param {number} height
@@ -82,6 +138,10 @@ export function gradient_reconstruct_wasm(residuals_ptr, len, height, width, nod
 
 /**
  * Left-predict reconstruction (WASM).
+ *
+ * # Safety
+ * Same contract as [`gradient_reconstruct_wasm`]: `residuals_ptr` must point
+ * to `len` readable `i16` elements and stay valid for the call.
  * @param {number} residuals_ptr
  * @param {number} len
  * @param {number} height
@@ -99,7 +159,39 @@ export function left_reconstruct_wasm(residuals_ptr, len, height, width, nodata,
 }
 
 /**
- * Viewshed (WASM) — returns a Uint8Array of visibility (0/1).
+ * Stream order (Strahler) (WASM) — returns a `Uint8Array` of orders.
+ *
+ * Mirrors the CLI's `stream-order` contract exactly: `streams` holds
+ * 1 for a stream cell and 0 otherwise, `flow_dir` holds D8 compass indices
+ * with `nodata_dir` marking "no flow" (-1 for `d8_flow_direction` output),
+ * and the result carries the Strahler order per cell — 0 = non-stream,
+ * 1 = headwater, n = order n. Unlike the D8 export there is no two's
+ * -complement remapping here: orders are already unsigned.
+ *
+ * # Safety
+ * `streams_ptr` and `flow_dir_ptr` must each point to `len` readable `i8`
+ * elements in WASM linear memory and stay valid for the duration of the call.
+ * @param {number} streams_ptr
+ * @param {number} flow_dir_ptr
+ * @param {number} len
+ * @param {number} rows
+ * @param {number} cols
+ * @param {number} nodata_dir
+ * @returns {Uint8Array}
+ */
+export function stream_order_wasm(streams_ptr, flow_dir_ptr, len, rows, cols, nodata_dir) {
+    const ret = wasm.stream_order_wasm(streams_ptr, flow_dir_ptr, len, rows, cols, nodata_dir);
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
+ * Viewshed (WASM) — returns a `Uint8Array` of visibility (0/1).
+ *
+ * # Safety
+ * `dem_ptr` must point to `len` readable `f32` elements in WASM linear memory
+ * and stay valid for the duration of the call.
  * @param {number} dem_ptr
  * @param {number} len
  * @param {number} rows
@@ -109,10 +201,11 @@ export function left_reconstruct_wasm(residuals_ptr, len, height, width, nodata,
  * @param {number} observer_height
  * @param {number} cell_size
  * @param {number} nodata
+ * @param {number | null} [max_distance_cells]
  * @returns {Uint8Array}
  */
-export function viewshed_wasm(dem_ptr, len, rows, cols, observer_row, observer_col, observer_height, cell_size, nodata) {
-    const ret = wasm.viewshed_wasm(dem_ptr, len, rows, cols, observer_row, observer_col, observer_height, cell_size, nodata);
+export function viewshed_wasm(dem_ptr, len, rows, cols, observer_row, observer_col, observer_height, cell_size, nodata, max_distance_cells) {
+    const ret = wasm.viewshed_wasm(dem_ptr, len, rows, cols, observer_row, observer_col, observer_height, cell_size, nodata, isLikeNone(max_distance_cells) ? Number.MAX_SAFE_INTEGER : (max_distance_cells) >>> 0);
     var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v1;
@@ -120,49 +213,45 @@ export function viewshed_wasm(dem_ptr, len, rows, cols, observer_row, observer_c
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_debug_string_a57024b9c6e4a48b: function(arg0, arg1) {
-            const ret = debugString(arg1);
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len1 = WASM_VECTOR_LEN;
-            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
-            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+        __wbg___wbindgen_rethrow_cb2e88c6b2a16733: function(arg0) {
+            throw arg0;
         },
-        __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
+        __wbg___wbindgen_throw_41e9ee4f547fc59a: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_call_35dba3c747ad7521: function() { return handleError(function (arg0, arg1, arg2) {
-            const ret = arg0.call(arg1, arg2);
+        __wbg_call_1875a20c43a36133: function() { return handleError(function (arg0, arg1, arg2, arg3) {
+            const ret = arg0.call(arg1, arg2, arg3);
             return ret;
         }, arguments); },
-        __wbg_length_36bd29c6848c2144: function(arg0) {
+        __wbg_length_7f3c00c40364105e: function(arg0) {
             const ret = arg0.length;
             return ret;
         },
-        __wbg_new_ebe3e0f6837f0879: function() {
+        __wbg_new_617a8cdb8bb1130e: function() {
             const ret = new Object();
             return ret;
         },
-        __wbg_new_from_slice_3eea173078478cfe: function(arg0, arg1) {
-            const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
-            return ret;
-        },
-        __wbg_new_from_slice_af1eb765183f5cf0: function(arg0, arg1) {
+        __wbg_new_from_slice_23f60f47cde8d664: function(arg0, arg1) {
             const ret = new Uint16Array(getArrayU16FromWasm0(arg0, arg1));
             return ret;
         },
-        __wbg_prototypesetcall_de8e0d9553586985: function(arg0, arg1, arg2) {
+        __wbg_new_from_slice_9a868026ffa4208a: function(arg0, arg1) {
+            const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
+            return ret;
+        },
+        __wbg_prototypesetcall_bc27214492979395: function(arg0, arg1, arg2) {
             Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), arg2);
         },
-        __wbg_set_8155bb79a948541b: function() { return handleError(function (arg0, arg1, arg2) {
+        __wbg_set_145a351398b48c65: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = Reflect.set(arg0, arg1, arg2);
             return ret;
         }, arguments); },
-        __wbindgen_cast_0000000000000001: function(arg0) {
+        __wbindgen_generic_0000000000000001: function(arg0) {
             // Cast intrinsic for `F64 -> Externref`.
             const ret = arg0;
             return ret;
         },
-        __wbindgen_cast_0000000000000002: function(arg0, arg1) {
+        __wbindgen_generic_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
             return ret;
@@ -189,69 +278,9 @@ function addToExternrefTable0(obj) {
     return idx;
 }
 
-function debugString(val) {
-    // primitive types
-    const type = typeof val;
-    if (type == 'number' || type == 'boolean' || val == null) {
-        return  `${val}`;
-    }
-    if (type == 'string') {
-        return `"${val}"`;
-    }
-    if (type == 'symbol') {
-        const description = val.description;
-        if (description == null) {
-            return 'Symbol';
-        } else {
-            return `Symbol(${description})`;
-        }
-    }
-    if (type == 'function') {
-        const name = val.name;
-        if (typeof name == 'string' && name.length > 0) {
-            return `Function(${name})`;
-        } else {
-            return 'Function';
-        }
-    }
-    // objects
-    if (Array.isArray(val)) {
-        const length = val.length;
-        let debug = '[';
-        if (length > 0) {
-            debug += debugString(val[0]);
-        }
-        for(let i = 1; i < length; i++) {
-            debug += ', ' + debugString(val[i]);
-        }
-        debug += ']';
-        return debug;
-    }
-    // Test for built-in
-    const builtInMatches = /\[object ([^\]]+)\]/.exec(toString.call(val));
-    let className;
-    if (builtInMatches && builtInMatches.length > 1) {
-        className = builtInMatches[1];
-    } else {
-        // Failed to match the standard '[object ClassName]'
-        return toString.call(val);
-    }
-    if (className == 'Object') {
-        // we're a user defined class or Object
-        // JSON.stringify avoids problems with cycles, and is generally much
-        // easier than looping through ownProperties of `val`.
-        try {
-            return 'Object(' + JSON.stringify(val) + ')';
-        } catch (_) {
-            return 'Object';
-        }
-    }
-    // errors
-    if (val instanceof Error) {
-        return `${val.name}: ${val.message}\n${val.stack}`;
-    }
-    // TODO we could test for more things here, like `Set`s and `Map`s.
-    return className;
+function getArrayI16FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getInt16ArrayMemory0().subarray(ptr / 2, ptr / 2 + len);
 }
 
 function getArrayU16FromWasm0(ptr, len) {
@@ -269,12 +298,12 @@ function getArrayU8FromWasm0(ptr, len) {
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
-let cachedDataViewMemory0 = null;
-function getDataViewMemory0() {
-    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
-        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+let cachedInt16ArrayMemory0 = null;
+function getInt16ArrayMemory0() {
+    if (cachedInt16ArrayMemory0 === null || cachedInt16ArrayMemory0.byteLength === 0) {
+        cachedInt16ArrayMemory0 = new Int16Array(wasm.memory.buffer);
     }
-    return cachedDataViewMemory0;
+    return cachedInt16ArrayMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -314,47 +343,14 @@ function handleError(f, args) {
     }
 }
 
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1, 1) >>> 0;
     getUint8ArrayMemory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function passStringToWasm0(arg, malloc, realloc) {
-    if (realloc === undefined) {
-        const buf = cachedTextEncoder.encode(arg);
-        const ptr = malloc(buf.length, 1) >>> 0;
-        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
-        WASM_VECTOR_LEN = buf.length;
-        return ptr;
-    }
-
-    let len = arg.length;
-    let ptr = malloc(len, 1) >>> 0;
-
-    const mem = getUint8ArrayMemory0();
-
-    let offset = 0;
-
-    for (; offset < len; offset++) {
-        const code = arg.charCodeAt(offset);
-        if (code > 0x7F) break;
-        mem[ptr + offset] = code;
-    }
-    if (offset !== len) {
-        if (offset !== 0) {
-            arg = arg.slice(offset);
-        }
-        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
-        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
-        const ret = cachedTextEncoder.encodeInto(arg, view);
-
-        offset += ret.written;
-        ptr = realloc(ptr, len, offset, 1) >>> 0;
-    }
-
-    WASM_VECTOR_LEN = offset;
     return ptr;
 }
 
@@ -372,19 +368,6 @@ function decodeText(ptr, len) {
     return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 
-const cachedTextEncoder = new TextEncoder();
-
-if (!('encodeInto' in cachedTextEncoder)) {
-    cachedTextEncoder.encodeInto = function (arg, view) {
-        const buf = cachedTextEncoder.encode(arg);
-        view.set(buf);
-        return {
-            read: arg.length,
-            written: buf.length
-        };
-    };
-}
-
 let WASM_VECTOR_LEN = 0;
 
 let wasmModule, wasmInstance, wasm;
@@ -392,7 +375,7 @@ function __wbg_finalize_init(instance, module) {
     wasmInstance = instance;
     wasm = instance.exports;
     wasmModule = module;
-    cachedDataViewMemory0 = null;
+    cachedInt16ArrayMemory0 = null;
     cachedUint16ArrayMemory0 = null;
     cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;

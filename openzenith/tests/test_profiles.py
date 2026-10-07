@@ -103,29 +103,28 @@ class TestHillslopeProfile:
         assert [p["elevation"] for p in out] == [50.0, 40.0, 30.0]
         assert out[-1]["distance_m"] == pytest.approx(2 * CELL_M)
 
-    def test_d8_deliberately_treats_below_sentinel_values_as_valid_data(self):
-        # Contract pin for the documented predicate divergence: terrain/
-        # profiles.py cuts its walks at `dem <= nodata` while hydrology/flow.py
-        # tests validity with `!= nodata`. At the default sentinel the two
-        # agree exactly; they only diverge for values *below* the caller's
-        # sentinel — there D8 keeps the cell as real terrain (a pit that
-        # captures flow) while the profile walk refuses to enter it. Both are
-        # deliberate: the `<=` predicate protects profile walks from voids,
-        # and harmonizing flow.py would silently change every downslope
-        # product (accumulation, watersheds, channels) and break Rust-core
-        # parity. Any change here must be a conscious cross-module decision.
+    def test_d8_treats_at_or_below_sentinel_values_as_void(self):
+        # Contract pin, harmonized 2026-10-07: hydrology/flow.py now tests
+        # validity with `> nodata`, matching the `<=`-void predicate in
+        # terrain/profiles.py and the Rust core (pinned by parity in
+        # test_core_parity.py). At the default sentinel the modules already
+        # agreed exactly; only values *below* the caller's sentinel ever
+        # diverged — there D8 used to keep the cell as real terrain (a
+        # flow-capturing pit), which contradicted the void handling of every
+        # downslope product (accumulation, watersheds, channels).
         dem = np.full((3, 3), 100.0, dtype=np.float32)
-        dem[1, 1] = NODATA - 1.0  # below the sentinel: the divergence zone
+        dem[1, 1] = NODATA - 1.0  # below the sentinel: the former divergence zone
         fd = d8_flow_direction(dem)  # default nodata=-32768
 
-        # The below-sentinel cell is valid terrain — neighbours drain INTO it:
-        assert fd[0, 1] == 2  # north neighbour flows south into the pit
-        assert fd[1, 0] == 0  # west neighbour flows east into the pit
-        assert fd[0, 0] == 1  # NW corner flows southeast into the pit
-        assert fd[1, 1] == -1  # the cell itself is a pit, not a void
+        # The below-sentinel cell is void — neighbours refuse to drain into
+        # it and pit out, exactly as the Rust core computes:
+        assert fd[0, 1] == -1  # north neighbour has no valid downhill cell
+        assert fd[1, 0] == -1
+        assert fd[0, 0] == -1
+        assert fd[1, 1] == -1  # the cell itself is a pit, not terrain
 
-        # The profiles predicate would have called the same cell void, so the
-        # divergence is observable and pinned on both sides.
+        # The profiles predicate calls the same cell void, so both sides of
+        # the former divergence now agree.
         assert dem[1, 1] <= NODATA
 
 

@@ -7,10 +7,15 @@
 use ndarray::{Array2, ArrayView2, Axis};
 use rayon::prelude::*;
 
-// Direction offset tables (matches Python D8_DR, D8_DC)
-const DR: [isize; 8] = [0, 1, 1, 1, 0, -1, -1, -1];
-const DC: [isize; 8] = [1, 1, 0, -1, -1, -1, 0, 1];
-const DIST: [f32; 8] = [
+// Direction offset tables (matches Python D8_DR, D8_DC). Shared with the
+// D-infinity module, which needs the same compass ordering for its neighbour
+// pairs.
+/// Row offset of each compass direction (0 = E … 7 = NE).
+pub(crate) const DR: [isize; 8] = [0, 1, 1, 1, 0, -1, -1, -1];
+/// Column offset of each compass direction (0 = E … 7 = NE).
+pub(crate) const DC: [isize; 8] = [1, 1, 0, -1, -1, -1, 0, 1];
+/// Centre-to-centre distance of each compass direction, in cell units.
+pub(crate) const DIST: [f32; 8] = [
     1.0,
     std::f32::consts::SQRT_2,
     1.0,

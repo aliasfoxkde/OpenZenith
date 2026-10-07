@@ -2,10 +2,12 @@
 //!
 //! Exposes gradient reconstruction and related functions to JavaScript via wasm-bindgen.
 //!
-//! Build with:
+//! Build with (the `wasm` feature gates this whole module, so it must be
+//! passed explicitly — a plain `wasm-pack build` produces bindings with no
+//! exported functions):
 //!
 //! ```text
-//! wasm-pack build --target web
+//! wasm-pack build --target web --out-dir ../api/public/pkg core -- --features wasm
 //! ```
 //!
 //! Usage in JS:
@@ -28,6 +30,22 @@ use wasm_bindgen::prelude::*;
 /// Residual value that marks "no data" in an OZT2 tile; identical to the
 /// elevation nodata sentinel used by the encoder.
 const RESIDUAL_NODATA: i16 = -32768;
+
+/// Header predictor/compressor codes — the OZT2 production convention, shared
+/// with the Python encoder (`openzenith/tile_format_v2.py`) and the edge
+/// decoder (`api/src/lib/ozt2_decode.ts`). Every shipped tile uses these
+/// codes, so this module must not invent its own.
+const PRED_NONE: u8 = 0;
+const PRED_LEFT: u8 = 1;
+const PRED_GRADIENT: u8 = 2;
+
+const COMP_BROTLI: u8 = 0;
+const COMP_ZSTD: u8 = 1;
+const COMP_ZLIB: u8 = 2;
+/// Reserved for tiles that ship an uncompressed residual stream; the Python
+/// encoder never emits it, but decoding must not route it through a
+/// decompressor.
+const COMP_NONE: u8 = 3;
 
 /// Set a property on a freshly created JS object.
 ///
@@ -59,19 +77,20 @@ fn clamp_to_u16_metres(values: &[f32]) -> Vec<u16> {
 /// Human-readable name for an OZT2 header predictor code.
 fn predictor_name(predictor: u8) -> &'static str {
     match predictor {
-        0 => "gradient",
-        1 => "left",
-        _ => "none",
+        PRED_NONE => "none",
+        PRED_LEFT => "left",
+        PRED_GRADIENT => "gradient",
+        _ => "unknown",
     }
 }
 
 /// Human-readable name for an OZT2 header compressor code.
 fn compressor_name(compressor: u8) -> &'static str {
     match compressor {
-        0 => "none",
-        1 => "zlib",
-        2 => "zstd",
-        3 => "brotli",
+        COMP_BROTLI => "brotli",
+        COMP_ZSTD => "zstd",
+        COMP_ZLIB => "zlib",
+        COMP_NONE => "none",
         _ => "unknown",
     }
 }
@@ -230,6 +249,44 @@ pub unsafe fn flow_accumulation_wasm(
     raw.into_iter().map(|x| x as u32).collect()
 }
 
+/// Stream order (Strahler) (WASM) — returns a `Uint8Array` of orders.
+///
+/// Mirrors the CLI's `stream-order` contract exactly: `streams` holds
+/// 1 for a stream cell and 0 otherwise, `flow_dir` holds D8 compass indices
+/// with `nodata_dir` marking "no flow" (-1 for `d8_flow_direction` output),
+/// and the result carries the Strahler order per cell — 0 = non-stream,
+/// 1 = headwater, n = order n. Unlike the D8 export there is no two's
+/// -complement remapping here: orders are already unsigned.
+///
+/// # Safety
+/// `streams_ptr` and `flow_dir_ptr` must each point to `len` readable `i8`
+/// elements in WASM linear memory and stay valid for the duration of the call.
+#[must_use]
+#[wasm_bindgen]
+pub unsafe fn stream_order_wasm(
+    streams_ptr: *const i8,
+    flow_dir_ptr: *const i8,
+    len: usize,
+    rows: usize,
+    cols: usize,
+    nodata_dir: i8,
+) -> Vec<u8> {
+    // SAFETY: pointer/length pairs come from the JS glue for two live i8
+    // buffers; the caller guarantees they outlive the call with matching
+    // lengths.
+    let streams_slice = unsafe { std::slice::from_raw_parts(streams_ptr, len) };
+    let flow_dir_slice = unsafe { std::slice::from_raw_parts(flow_dir_ptr, len) };
+
+    let streams = Array2::from_shape_vec((rows, cols), streams_slice.to_vec())
+        .unwrap_or_else(|_| Array2::zeros((rows, cols)));
+    let flow_dir = Array2::from_shape_vec((rows, cols), flow_dir_slice.to_vec())
+        .unwrap_or_else(|_| Array2::zeros((rows, cols)));
+
+    super::d8::stream_order(&streams.view(), &flow_dir.view(), nodata_dir)
+        .into_raw_vec_and_offset()
+        .0
+}
+
 /// Viewshed (WASM) — returns a `Uint8Array` of visibility (0/1).
 ///
 /// # Safety
@@ -285,9 +342,9 @@ struct TileHeader {
     elev_range: i32,
     /// Bits per quantized residual (16 means unquantized).
     bits: u8,
-    /// Predictor code: 0 = gradient, 1 = left, anything else = none.
+    /// Predictor code: 0 = none, 1 = left, 2 = gradient (production codes).
     predictor: u8,
-    /// Compressor code: 0 = none, 1 = zlib, 2 = zstd, 3 = brotli.
+    /// Compressor code: 0 = brotli, 1 = zstd, 2 = zlib, 3 = none.
     compressor: u8,
 }
 
@@ -378,11 +435,17 @@ fn build_metadata(header: &TileHeader, width: usize, height: usize) -> js_sys::O
 
 /// OZT2 decode: decompress and reconstruct a full OZT2 tile.
 ///
+/// Header codes follow the production convention (`openzenith/tile_format_v2.py`,
+/// `api/src/lib/ozt2_decode.ts`): predictor 0=none/1=left/2=gradient,
+/// compressor 0=brotli/1=zstd/2=zlib/3=none.
+///
 /// # Arguments
 /// * `tile_bytes` – `Uint8Array` of OZT2 binary data (6-byte header followed
 ///   by the compressed residual stream)
 /// * `decompress_fn` – JS function called to decompress:
-///   `(bytes: Uint8Array) -> Uint8Array`
+///   `(bytes: Uint8Array, compressor: number) -> Uint8Array`. The second
+///   argument is the header's compressor code, so one JS dispatcher can route
+///   brotli/zstd/zlib; it is not called for compressor code 3 (none).
 ///
 /// # Returns
 /// A JS object `{ elevations: Uint16Array, metadata: Object }`, where
@@ -391,8 +454,9 @@ fn build_metadata(header: &TileHeader, width: usize, height: usize) -> js_sys::O
 ///
 /// # Errors
 /// Throws a JS exception (never panics) when the tile is shorter than the
-/// 6-byte header, when the JS decompressor rejects the payload, or when the
-/// decoded pixel count matches no known tile shape.
+/// 6-byte header, when the predictor or compressor code is not part of the
+/// production convention, when the JS decompressor rejects the payload, or
+/// when the decoded pixel count matches no known tile shape.
 #[must_use]
 #[wasm_bindgen]
 pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsValue {
@@ -400,18 +464,25 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
     let Some(header) = TileHeader::parse(tile_bytes) else {
         wasm_bindgen::throw_str("Tile too small: less than 6 bytes")
     };
+    if header.predictor > PRED_GRADIENT {
+        wasm_bindgen::throw_str(&format!("Unknown predictor code {}", header.predictor));
+    }
 
     // Call JS decompression function
     let compressed = &tile_bytes[6..];
 
-    // Decompress (skip if compressor=0 / "none")
-    let decompressed: Vec<u8> = if header.compressor == 0 {
+    // Decompress (skip when the tile declares no compression)
+    let decompressed: Vec<u8> = if header.compressor == COMP_NONE {
         // No compression — residuals are stored directly as int16 LE bytes
         compressed.to_vec()
     } else {
         let js_compressed = js_sys::Uint8Array::from(compressed);
         let decompressed_js: js_sys::Uint8Array = decompress_fn
-            .call1(&JsValue::NULL, &js_compressed)
+            .call2(
+                &JsValue::NULL,
+                &js_compressed,
+                &JsValue::from(f64::from(header.compressor)),
+            )
             // A JS-side decompression failure surfaces as a JS exception, not a
             // WASM panic.
             .unwrap_or_else(|err| wasm_bindgen::throw_val(err))
@@ -444,20 +515,30 @@ pub fn decode_ozt2(tile_bytes: &[u8], decompress_fn: &js_sys::Function) -> JsVal
     // Reconstructed values are already in metres (dequantized during
     // reconstruction); clamp to the valid elevation range on the way out.
     let (dequant_min, dequant_scale) = header.dequant_params();
-    let reconstructed = if header.predictor == 0 {
-        super::ozt2::gradient_reconstruct(
+    let reconstructed = match header.predictor {
+        PRED_NONE => {
+            // No predictor: the residual stream already holds the quantized
+            // elevations, so dequantization is the whole reconstruction.
+            residuals_arr.map(|&r| {
+                if r == RESIDUAL_NODATA {
+                    f32::from(RESIDUAL_NODATA)
+                } else {
+                    dequant_min + f32::from(r) * dequant_scale
+                }
+            })
+        }
+        PRED_LEFT => super::ozt2::left_reconstruct(
             &residuals_arr.view(),
             RESIDUAL_NODATA,
             dequant_min,
             dequant_scale,
-        )
-    } else {
-        super::ozt2::left_reconstruct(
+        ),
+        _ => super::ozt2::gradient_reconstruct(
             &residuals_arr.view(),
             RESIDUAL_NODATA,
             dequant_min,
             dequant_scale,
-        )
+        ),
     };
 
     let elevations = clamp_to_u16_metres(&reconstructed.into_raw_vec_and_offset().0);
@@ -494,13 +575,33 @@ mod tests {
     #[test]
     fn test_header_parse_decodes_fields() {
         // vmin = -32768 (LE 0x00,0x80), range = 1 (LE 0x01,0x00), bits = 16,
-        // flags = 0x04 → predictor 0 (gradient), compressor 1 (zlib).
-        let header = TileHeader::parse(&[0x00, 0x80, 0x01, 0x00, 16, 0x04]).unwrap();
+        // flags = 0x0A → predictor 2 (gradient), compressor 2 (zlib) — the
+        // codes a Python-encoded gradient/zlib tile carries.
+        let header = TileHeader::parse(&[0x00, 0x80, 0x01, 0x00, 16, 0x0A]).unwrap();
         assert_eq!(header.vmin, -32768);
         assert_eq!(header.elev_range, 1);
         assert_eq!(header.bits, 16);
-        assert_eq!(header.predictor, 0);
-        assert_eq!(header.compressor, 1);
+        assert_eq!(header.predictor, PRED_GRADIENT);
+        assert_eq!(header.compressor, COMP_ZLIB);
+
+        // A default production tile (gradient predictor + brotli, the encoder's
+        // default compressor) parses the same way it does in
+        // api/src/lib/ozt2_decode.ts.
+        let header = TileHeader::parse(&[0x00, 0x80, 0x01, 0x00, 16, 0x02]).unwrap();
+        assert_eq!(header.predictor, PRED_GRADIENT);
+        assert_eq!(header.compressor, COMP_BROTLI);
+    }
+
+    #[test]
+    fn test_predictor_and_compressor_names_match_production() {
+        assert_eq!(predictor_name(PRED_NONE), "none");
+        assert_eq!(predictor_name(PRED_LEFT), "left");
+        assert_eq!(predictor_name(PRED_GRADIENT), "gradient");
+        assert_eq!(predictor_name(9), "unknown");
+        assert_eq!(compressor_name(COMP_BROTLI), "brotli");
+        assert_eq!(compressor_name(COMP_ZSTD), "zstd");
+        assert_eq!(compressor_name(COMP_ZLIB), "zlib");
+        assert_eq!(compressor_name(COMP_NONE), "none");
     }
 
     #[test]
@@ -681,6 +782,42 @@ mod tests {
         let flow_dir: Vec<i8> = vec![2, -1, -1, -1];
         let out = unsafe { flow_accumulation_wasm(flow_dir.as_ptr(), flow_dir.len(), 2, 2, -1) };
         assert_eq!(out, vec![1, 1, 2, 1]);
+    }
+
+    #[test]
+    fn test_stream_order_wasm_abi() {
+        // Two order-1 headwaters — (0,0) draining S and (0,1) draining S —
+        // converge on (1,1) from (1,0) via E and from (0,1) via S, so (1,1)
+        // is promoted to order 2. Row-major expected: [1, 1, 0, 1, 2, 0].
+        let streams: Vec<i8> = vec![1, 1, 0, 1, 1, 0];
+        let flow_dir: Vec<i8> = vec![2, 2, -1, 0, -1, -1];
+        let out = unsafe {
+            stream_order_wasm(streams.as_ptr(), flow_dir.as_ptr(), streams.len(), 2, 3, -1)
+        };
+        assert_eq!(out, vec![1, 1, 0, 1, 2, 0]);
+    }
+
+    #[test]
+    fn test_stream_order_wasm_custom_nodata_dir() {
+        // nodata_dir is part of the ABI, not hardwired: with 7 as the
+        // sentinel the NE-pointing middle cell is a pit, so nothing is
+        // promoted past order 1.
+        let streams: Vec<i8> = vec![1, 1, 1];
+        let flow_dir: Vec<i8> = vec![0, 7, -1];
+        let out = unsafe {
+            stream_order_wasm(streams.as_ptr(), flow_dir.as_ptr(), streams.len(), 1, 3, 7)
+        };
+        assert_eq!(out, vec![1, 1, 1]);
+    }
+
+    #[test]
+    fn test_stream_order_wasm_shape_mismatch_yields_zero_grid() {
+        // A len that fits no shape falls back to a zero-filled grid rather
+        // than panicking inside WASM, matching the other raw-pointer exports.
+        let streams: Vec<i8> = vec![1, 1, 1];
+        let flow_dir: Vec<i8> = vec![0, 0, 0];
+        let out = unsafe { stream_order_wasm(streams.as_ptr(), flow_dir.as_ptr(), 3, 2, 2, -1) };
+        assert_eq!(out, vec![0, 0, 0, 0]);
     }
 
     #[test]

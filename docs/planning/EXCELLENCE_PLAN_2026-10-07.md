@@ -53,6 +53,7 @@ liberate that capability.
 | B8 | CLI/SDK surface holes: viz module (6 fns), filters (17), raster (9), inundation, zonal_stats, KML export — zero commands. `async_client` half-covered. | audit §2d |
 | B9 | Python floor 3.10 declared, only 3.13 exercised (GH mirror only; GitForge runs no Python — surface, don't invent). | `pyproject.toml:11` |
 | B10 | MCP cache-key inconsistencies (`weather` ignores `forecast_days` in key; `geocode` never cached). | `index.ts:198,241` |
+| B11 | **OZT2 Python encoder destroys nodata cells** (found 2026-10-07 while probing the Rust gradient fix): `_quantize` clips the −32768 sentinel into the quantized range, so at the auto-selected bit depth (<16 for every plausible terrain range — 4000 m → 12 bits) a nodata cell decodes as a valid elevation near `vmin` (measured: −32768 → 100). Mirror image of the Rust primitive defect fixed in Wave 6 (sentinel preserved, downstream corrupted); Python's predictor is exactly inverted so only the sentinel cell is lost. Fix belongs in `encode` (preserve sentinel verbatim — reserved quantized value or forced-lossless path when sentinels present) + roundtrip tests; `bits=16` path already correct. | `tile_format_v2.py:210-222,288-294` (probe: 8×8 sentinel grid → decode returns 100) |
 
 ### C. Frontend
 
@@ -154,7 +155,9 @@ slope_area_ratio collision resolution, exception hierarchy wiring (raise TileErr
 subclasses where decoders fail), fiona extra or GDB removal, package artifact removal,
 coverage-gate contradiction resolution (single floor, enforced where it runs), CLI viz/
 inundation/zonal-stats/KML commands, stale R2 script removal, DATASET_MANIFEST fix, root
-tests/ disposition, README 26→31, docs floor 95→99.
+tests/ disposition, README 26→31, docs floor 95→99, OZT2 encoder sentinel
+preservation (B11 — reserved-value or forced-lossless when sentinels present,
+roundtrip + bits-16 compat tests).
 *Accept: `pip install openzenith[all]` clean; mypy strict green on a downstream consumer
 using py.typed; no stale references (grep-verified).*
 

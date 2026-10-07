@@ -1,12 +1,33 @@
+# Packaging for `openzenith-core` — the Python *wrapper*, not a Python
+# extension module.
+#
+# The crate in this directory has no pyo3 dependency, so there is no native
+# Python binding to build and maturin is the wrong tool: the previous
+# declaration here (`build-backend = "maturin"` with `features =
+# ["pyo3/numpy"]`) asked for a pyo3 feature the crate cannot enable and every
+# `pip install` of it failed at build time. The shipping mechanism is the
+# pure-Python subprocess wrapper in `python/openzenith_core/__init__.py`, which
+# shells out to the `openzenith_core_cli` binary produced by
+# `cargo build --release` (see README.md).
+#
+# This file therefore declares only that wrapper. It is a separate
+# distribution from the `openzenith` SDK (the root pyproject ships just the
+# `openzenith` package), so the SDK's own tests import the wrapper from this
+# directory rather than assuming it is installed.
+
 [build-system]
-requires = ["maturin>=1.0"]
-build-backend = "maturin"
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "openzenith-core"
-dynamic = ["version"]
+version = "0.1.0"
+description = "Python wrapper for the openzenith-core Rust terrain CLI"
 requires-python = ">=3.10"
+license = { text = "MIT" }
 
-[tool.maturin]
-manifest-path = "Cargo.toml"
-features = ["pyo3/numpy"]
+[tool.setuptools]
+package-dir = { "" = "python" }
+
+[tool.setuptools.packages.find]
+where = ["python"]

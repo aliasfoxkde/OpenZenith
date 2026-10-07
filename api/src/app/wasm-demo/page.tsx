@@ -1,11 +1,17 @@
 /**
  * WASM Decoder Demo — OpenZenith OZT2 terrain analysis in the browser.
  *
- * Demonstrates:
- *   - Loading the openzenith-core WASM module
+ * Demonstrates the shipped `openzenith_core` module (api/public/pkg):
  *   - D8 flow direction + flow accumulation on a synthetic DEM
- *   - OZT2 tile decode (gradient reconstruction from residuals)
+ *   - OZT2 tile encode (real gradient residuals + zlib) and decode
  *   - Viewshed analysis
+ *   - Decode of a real production tile fetched from the HuggingFace dataset
+ *
+ * The demo tile uses the production layout — 6-byte header, gradient
+ * residuals, zlib payload — and is decoded by the module's `decode_ozt2`
+ * export, which parses the header, calls back into JS for the entropy coder
+ * and reconstructs in Rust. The real-tile step exercises the same path with
+ * the production compressors (brotli/zstd) the shipped tiles actually carry.
  *
  * Run locally (from api/):
  *   npm run dev
@@ -15,22 +21,44 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { unzlibSync, zlibSync } from "fflate";
+import { decompress as fzstdDecompress } from "fzstd";
+import { decompress as brotliWasmDecompress, initSync } from "brotli-dec-wasm/web";
+import { BROTLI_WASM_B64 } from "@/lib/brotli_wasm";
 import { Navbar } from "@/components/Navbar";
 
-// ─── Types (mirroring wasm.rs) ────────────────────────────────────────────────
+// ─── Types (mirroring api/public/pkg/openzenith_core.d.ts) ───────────────────
 
-interface WasmExports {
-  d8_flow_direction_wasm: (demPtr: number, len: number, rows: number, cols: number, nodata: number) => number;
-  flow_accumulation_wasm: (fdPtr: number, len: number, rows: number, cols: number, nodataDir: number) => number;
-  gradient_reconstruct_wasm: (
-    residualsPtr: number,
-    len: number,
-    height: number,
-    width: number,
-    nodata: number,
-    dequantMin: number,
-    dequantScale: number,
-  ) => number;
+/** Raw instance exports — needed only to allocate input buffers. */
+interface WasmInstance {
+  __wbindgen_malloc: (size: number, align: number) => number;
+  __wbindgen_free: (ptr: number, size: number, align: number) => void;
+  memory: WebAssembly.Memory;
+}
+
+/** Metadata object returned by the module's OZT2 decoder. */
+interface OZT2Metadata {
+  min_elevation: number;
+  elevation_range: number;
+  max_elevation: number;
+  bits_per_pixel: number;
+  predictor: string;
+  compressor: string;
+  width: number;
+  height: number;
+}
+
+/** Decoded tile payload plus the header fields it was reconstructed from. */
+interface OZT2Tile {
+  elevations: Uint16Array;
+  metadata: OZT2Metadata;
+}
+
+/** Generated glue entry points — they marshal typed arrays in and out. */
+interface CoreApi {
+  d8_flow_direction_wasm: (demPtr: number, len: number, rows: number, cols: number, nodata: number) => Uint8Array;
+  flow_accumulation_wasm: (fdPtr: number, len: number, rows: number, cols: number, nodataDir: number) => Uint32Array;
+  gradient_predict_wasm: (elevPtr: number, len: number, rows: number, cols: number, nodata: number) => Int16Array;
   viewshed_wasm: (
     demPtr: number,
     len: number,
@@ -41,19 +69,17 @@ interface WasmExports {
     observerHeight: number,
     cellSize: number,
     nodata: number,
-  ) => number;
+    maxDistanceCells: number | null,
+  ) => Uint8Array;
   decode_ozt2: (
     tileBytes: Uint8Array,
-    decompressFn: (bytes: Uint8Array, codec: string) => Uint8Array,
-  ) => {
-    elevations: Uint16Array;
-    metadata: Record<string, unknown>;
-  };
-  initSync: (module: { module: Uint8Array }) => void;
-  default: () => Promise<unknown>;
-  __wbindgen_malloc: (size: number) => number;
-  __wbindgen_free: (ptr: number, size: number) => void;
-  memory: WebAssembly.Memory;
+    decompressFn: (bytes: Uint8Array, compressor: number) => Uint8Array,
+  ) => OZT2Tile;
+}
+
+/** The glue module: every entry point plus the async initialiser. */
+interface WasmGlue extends CoreApi {
+  default: (moduleOrPath?: Request | URL | string | ArrayBuffer) => Promise<WasmInstance>;
 }
 
 interface BenchmarkResult {
@@ -97,46 +123,35 @@ function makePitDEM(): Float32Array {
 
 // ─── WASM helpers ────────────────────────────────────────────────────────────
 
-/** Instantiate the WASM module — fetch binary and init with explicit URL path. */
-async function loadWasm(): Promise<WasmExports> {
-  const initModule = await import("@/lib/wasm/openzenith_core.js");
-  const init = initModule.default as (module_or_path?: Request | URL | string | ArrayBuffer) => Promise<WasmExports>;
-  // ~ prefix resolves via webpack — use fetchable URL so init loads from same dir
+/** Elevation sentinel every DEM the demo feeds WASM agrees on. */
+const DEM_NODATA = -32768;
+/** Flow-direction sentinel the D8 export reports for pits and nodata cells. */
+const FLOW_NODATA = 255;
+/** Signed flow-direction sentinel `flow_accumulation_wasm` consumes. */
+const FLOW_NODATA_SIGNED = -1;
+
+/** Instantiate the WASM module from the committed pkg directory. */
+async function loadWasm(): Promise<{ instance: WasmInstance; core: WasmGlue }> {
+  // webpackIgnore keeps this a native browser import: the glue lives in
+  // public/pkg as a static asset, not as a bundleable source module.
+  const glue = (await import(/* webpackIgnore: true */ "/pkg/openzenith_core.js")) as unknown as WasmGlue;
+  // Explicit URL so the glue fetches the binary sitting beside it in /pkg.
   const wasmUrl = new URL("/pkg/openzenith_core_bg.wasm", window.location.origin);
-  return (await init(wasmUrl));
+  return { instance: await glue.default(wasmUrl), core: glue };
 }
 
-/** Copy a Float32Array into WASM linear memory, return pointer + length. */
-function demToWasm(wasm: WasmExports, dem: Float32Array): [number, number] {
-  const ptr = wasm.__wbindgen_malloc(dem.byteLength);
+/** Copy a Float32Array into WASM linear memory; returns its pointer. */
+function demToWasm(wasm: WasmInstance, dem: Float32Array): number {
+  const ptr = wasm.__wbindgen_malloc(dem.byteLength, 4);
   new Float32Array(wasm.memory.buffer).set(dem, ptr / 4);
-  return [ptr, dem.length];
+  return ptr;
 }
 
-/** Copy an Int8Array into WASM linear memory, return pointer + length. */
-function fdToWasm(wasm: WasmExports, fd: Int8Array): [number, number] {
-  const ptr = wasm.__wbindgen_malloc(fd.byteLength);
+/** Copy an Int8Array into WASM linear memory; returns its pointer. */
+function fdToWasm(wasm: WasmInstance, fd: Int8Array): number {
+  const ptr = wasm.__wbindgen_malloc(fd.byteLength, 1);
   new Int8Array(wasm.memory.buffer).set(fd, ptr / 1);
-  return [ptr, fd.length];
-}
-
-/** Read a Vec<u8> result written by wasm-bindgen (meta at ptr-16). */
-function readVecU8(wasm: WasmExports, ptr: number): Uint8Array {
-  const view = new Uint32Array(wasm.memory.buffer);
-  const metaPtr = ptr - 16;
-  const dataPtr = view[metaPtr / 4];
-  const dataLen = view[metaPtr / 4 + 1];
-  return new Uint8Array(wasm.memory.buffer).slice(dataPtr, dataPtr + dataLen);
-}
-
-/** Read a Vec<u32> result from WASM memory. */
-function readVecU32(wasm: WasmExports, ptr: number): Uint32Array {
-  // wasm-bindgen stores [ptr, len] at ptr-16 for Vec<T>
-  const view = new Uint32Array(wasm.memory.buffer);
-  const metaPtr = ptr - 16;
-  const dataPtr = view[metaPtr / 4];
-  const dataLen = view[metaPtr / 4 + 1];
-  return new Uint32Array(wasm.memory.buffer).slice(dataPtr / 4, dataPtr / 4 + dataLen);
+  return ptr;
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
@@ -160,21 +175,6 @@ function flowDirColour(d: number): [number, number, number] {
 function flowAccColour(v: number, max: number): [number, number, number] {
   const t = Math.log1p(v) / Math.log1p(max);
   return [Math.round(255 * (1 - t)), Math.round(255 * t), Math.round(100 * t)];
-}
-
-function elevationColour(v: number, minE: number, maxE: number): [number, number, number] {
-  const t = Math.max(0, Math.min(1, (v - minE) / (maxE - minE)));
-  // Green → Brown → White
-  if (t < 0.4) {
-    const s = t / 0.4;
-    return [Math.round(60 + s * 80), Math.round(140 - s * 60), Math.round(60 - s * 60)];
-  } else if (t < 0.8) {
-    const s = (t - 0.4) / 0.4;
-    return [Math.round(140 + s * 80), Math.round(80 + s * 80), Math.round(40 + s * 120)];
-  } else {
-    const s = (t - 0.8) / 0.2;
-    return [Math.round(220 + s * 35), Math.round(160 + s * 85), Math.round(160 + s * 90)];
-  }
 }
 
 // ─── Canvas renderers ────────────────────────────────────────────────────────
@@ -212,46 +212,6 @@ function renderFlowAcc(canvas: HTMLCanvasElement, acc: Uint32Array, rows: number
   ctx.putImageData(img, 0, 0);
 }
 
-function _renderDEM(
-  canvas: HTMLCanvasElement,
-  dem: Float32Array,
-  rows: number,
-  cols: number,
-  minE: number,
-  maxE: number,
-  highlightCell?: [number, number],
-) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  canvas.width = cols;
-  canvas.height = rows;
-  const img = ctx.createImageData(cols, rows);
-  for (let i = 0; i < dem.length; i++) {
-    const [r, g, b] = elevationColour(dem[i], minE, maxE);
-    img.data[i * 4] = r;
-    img.data[i * 4 + 1] = g;
-    img.data[i * 4 + 2] = b;
-    img.data[i * 4 + 3] = 255;
-  }
-  // Highlight observer cell
-  if (highlightCell) {
-    const [cr, cc] = highlightCell;
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        const r = cr + dr;
-        const c = cc + dc;
-        if (r >= 0 && r < rows && c >= 0 && c < cols) {
-          const idx = (r * cols + c) * 4;
-          img.data[idx] = 255;
-          img.data[idx + 1] = 255;
-          img.data[idx + 2] = 0;
-        }
-      }
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
 function renderViewshed(canvas: HTMLCanvasElement, vis: Uint8Array, rows: number, cols: number) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -268,51 +228,77 @@ function renderViewshed(canvas: HTMLCanvasElement, vis: Uint8Array, rows: number
   ctx.putImageData(img, 0, 0);
 }
 
-// ─── OZT2 synthetic encoder (for demo — creates a real tile to decode) ───────
+// ─── OZT2 tile encoder + entropy coder (production layout) ───────────────────
 
-/** Encode a 16-bit elevation grid into OZT2 binary format for demo purposes. */
-function encodeOZT2Demo(elevations: Uint16Array, _width: number, _height: number): Uint8Array {
-  // Use a simplified encoding: store raw 16-bit values with zlib compression
-  // This matches the OZT2 header format expected by decode_ozt2
-  const HEADER = 6;
-  const rawBytes = new Uint8Array(elevations.length * 2);
-  for (let i = 0; i < elevations.length; i++) {
-    const v = elevations[i];
-    rawBytes[i * 2] = v & 0xff;
-    rawBytes[i * 2 + 1] = (v >> 8) & 0xff;
-  }
+/** Header size: vmin (i16), elev_range (u16), bits (u8), flags (u8). */
+const OZT2_HEADER_BYTES = 6;
 
-  // No compression — raw int16 LE bytes (compressor=0)
-  const compressed = encodeOZT2Raw(elevations);
+// Flags-byte codes production tiles carry — identical to what the core decoder
+// now reads (core/src/wasm.rs) and what the edge decoder dispatches on
+// (api/src/lib/ozt2_decode.ts).
+const COMP_BROTLI = 0;
+const COMP_ZSTD = 1;
+const COMP_ZLIB = 2;
+const COMP_NONE = 3;
 
-  const tile = new Uint8Array(HEADER + compressed.length);
-  // vmin = 0 (little-endian)
-  tile[0] = 0;
-  tile[1] = 0;
-  // elev_range = 10000 (maps to ~0-10000m)
-  const elevRange = 10000;
-  tile[2] = elevRange & 0xff;
-  tile[3] = (elevRange >> 8) & 0xff;
-  // bits = 16
-  tile[4] = 16;
-  // flags: predictor=0 (gradient), compressor=0 (none)
-  // The wasm handles compressor=0 as raw bytes (no decompression)
-  tile[5] = 0;
+/** Lossless 16-bit pixels, as the Python encoder writes them. */
+const OZT2_BITS_LOSSLESS = 16;
 
-  tile.set(compressed, HEADER);
+/**
+ * Encode an elevation grid the way the Python encoder does — gradient
+ * residuals over the raw grid, 16-bit lossless, zlib payload. `vmin` stays 0
+ * so the residuals the WASM predictor produces are absolute elevations.
+ */
+function encodeOZT2Demo(
+  instance: WasmInstance,
+  core: CoreApi,
+  dem: Float32Array,
+  rows: number,
+  cols: number,
+): Uint8Array {
+  const demPtr = demToWasm(instance, dem);
+  const residuals = core.gradient_predict_wasm(demPtr, dem.length, rows, cols, DEM_NODATA);
+  instance.__wbindgen_free(demPtr, dem.byteLength, 4);
+
+  let maxElevation = 0;
+  for (let i = 0; i < dem.length; i++) maxElevation = Math.max(maxElevation, dem[i]);
+  const elevRange = Math.round(maxElevation);
+
+  const payload = zlibSync(new Uint8Array(residuals.buffer, residuals.byteOffset, residuals.byteLength));
+  const tile = new Uint8Array(OZT2_HEADER_BYTES + payload.length);
+  const view = new DataView(tile.buffer);
+  view.setInt16(0, 0, true);
+  view.setUint16(2, elevRange, true);
+  tile[4] = OZT2_BITS_LOSSLESS;
+  // PRED_GRADIENT = 2 in the flags low bits; zlib = 2 in the high bits.
+  tile[5] = 2 | (COMP_ZLIB << 2);
+  tile.set(payload, OZT2_HEADER_BYTES);
   return tile;
 }
 
-// Demo encoder — for compressor=0 (none) the wasm expects raw int16 LE bytes
-// so no actual compression is needed here.
-function encodeOZT2Raw(elevations: Uint16Array): Uint8Array {
-  const rawBytes = new Uint8Array(elevations.length * 2);
-  for (let i = 0; i < elevations.length; i++) {
-    const v = elevations[i];
-    rawBytes[i * 2] = v & 0xff;
-    rawBytes[i * 2 + 1] = (v >> 8) & 0xff;
+/**
+ * Decompress an OZT2 payload the way the edge decoder does, keyed by the
+ * header code `decode_ozt2` passes through: brotli through the embedded WASM
+ * decoder (87% of shipped tiles), zstd through fzstd (13%), zlib through
+ * fflate, and the reserved no-compression code as identity. The brotli wasm
+ * (~208KB) compiles lazily on the first brotli tile.
+ */
+let brotliReady = false;
+function decompressOZT2(bytes: Uint8Array, compressor: number): Uint8Array {
+  if (compressor === COMP_BROTLI) {
+    if (!brotliReady) {
+      const bin = atob(BROTLI_WASM_B64);
+      const moduleBytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) moduleBytes[i] = bin.charCodeAt(i);
+      initSync({ module: moduleBytes });
+      brotliReady = true;
+    }
+    return brotliWasmDecompress(bytes);
   }
-  return rawBytes;
+  if (compressor === COMP_ZSTD) return fzstdDecompress(bytes);
+  if (compressor === COMP_ZLIB) return unzlibSync(bytes);
+  if (compressor === COMP_NONE) return bytes;
+  throw new Error(`Unsupported compressor code: ${compressor}`);
 }
 
 // ─── Main demo component ─────────────────────────────────────────────────────
@@ -323,21 +309,21 @@ export default function WasmDemo() {
   const canvasViewshed = useRef<HTMLCanvasElement>(null);
 
   const [status, setStatus] = useState("Loading WASM...");
-  const [_wasm, setWasm] = useState<WasmExports | null>(null);
+  const [_wasm, setWasm] = useState<WasmInstance | null>(null);
   const [benchmarks, setBenchmarks] = useState<BenchmarkResult[]>([]);
   const [ozeTileInfo, setOzeTileInfo] = useState<string>("");
 
   useEffect(() => {
     loadWasm()
-      .then((m) => {
-        setWasm(m);
+      .then(({ instance, core }) => {
+        setWasm(instance);
         setStatus("WASM loaded — running demos...");
-        runDemos(m);
+        runDemos(instance, core);
       })
       .catch((e: unknown) => { setStatus(`Error: ${String(e)}`); });
   }, []);
 
-  function runDemos(w: WasmExports) {
+  function runDemos(instance: WasmInstance, core: WasmGlue) {
     const results: BenchmarkResult[] = [];
 
     // ── 1. D8 Flow Direction (pit DEM) ──────────────────────────────────────
@@ -345,115 +331,137 @@ export default function WasmDemo() {
       const SIZE = 3;
       const dem = makePitDEM();
       const t0 = performance.now();
-      const [demPtr, demLen] = demToWasm(w, dem);
-      const fdPtr = w.d8_flow_direction_wasm(demPtr, demLen, SIZE, SIZE, -9999);
-      const fdRaw = readVecU8(w, fdPtr);
+      const demPtr = demToWasm(instance, dem);
+      const fd = core.d8_flow_direction_wasm(demPtr, dem.length, SIZE, SIZE, DEM_NODATA);
       const ms = performance.now() - t0;
-      results.push({ label: "D8 flow direction (3×3)", ms, details: Array.from(fdRaw).join(", ") });
-      w.__wbindgen_free(demPtr, dem.byteLength);
-      w.__wbindgen_free(fdPtr, fdRaw.byteLength);
+      results.push({ label: "D8 flow direction (3×3)", ms, details: Array.from(fd).join(", ") });
+      instance.__wbindgen_free(demPtr, dem.byteLength, 4);
 
-      if (canvasD8.current) {
-        const fd = new Uint8Array(fdRaw);
-        renderFlowDir(canvasD8.current, fd, SIZE, SIZE);
-      }
+      if (canvasD8.current) renderFlowDir(canvasD8.current, fd, SIZE, SIZE);
     }
 
     // ── 2. Flow Accumulation ─────────────────────────────────────────────────
     {
       const SIZE = 3;
       const dem = makePitDEM();
-      const [demPtr, demLen] = demToWasm(w, dem);
-      const fdPtr = w.d8_flow_direction_wasm(demPtr, demLen, SIZE, SIZE, -9999);
-      const fdRaw = readVecU8(w, fdPtr);
-      const fdArr = new Int8Array(fdRaw.length);
-      for (let i = 0; i < fdRaw.length; i++) fdArr[i] = fdRaw[i] === 255 ? -1 : fdRaw[i];
-      const [fdWasmPtr, fdWasmLen] = fdToWasm(w, fdArr);
-      const t0 = performance.now();
-      const accPtr = w.flow_accumulation_wasm(fdWasmPtr, fdWasmLen, SIZE, SIZE, -1);
-      const accRaw = readVecU32(w, accPtr);
-      const ms = performance.now() - t0;
-      const acc = Array.from(accRaw);
-      results.push({ label: "Flow accumulation (3×3)", ms, details: `[${acc.join(", ")}]` });
-      w.__wbindgen_free(demPtr, dem.byteLength);
-      w.__wbindgen_free(fdPtr, fdRaw.byteLength);
-      w.__wbindgen_free(fdWasmPtr, fdArr.byteLength);
-      w.__wbindgen_free(accPtr, accRaw.byteLength);
-
-      if (canvasAcc.current) {
-        const accU32 = new Uint32Array(accRaw.buffer.slice(accRaw.byteOffset, accRaw.byteOffset + accRaw.byteLength));
-        renderFlowAcc(canvasAcc.current, accU32, SIZE, SIZE);
+      const demPtr = demToWasm(instance, dem);
+      const fdBytes = core.d8_flow_direction_wasm(demPtr, dem.length, SIZE, SIZE, DEM_NODATA);
+      // Accumulation consumes the signed grid, so the D8 sentinel maps to -1.
+      const fd = new Int8Array(fdBytes.length);
+      for (let i = 0; i < fdBytes.length; i++) {
+        fd[i] = fdBytes[i] === FLOW_NODATA ? FLOW_NODATA_SIGNED : fdBytes[i];
       }
+      const fdPtr = fdToWasm(instance, fd);
+      const t0 = performance.now();
+      const acc = core.flow_accumulation_wasm(fdPtr, fd.length, SIZE, SIZE, FLOW_NODATA_SIGNED);
+      const ms = performance.now() - t0;
+      results.push({ label: "Flow accumulation (3×3)", ms, details: `[${Array.from(acc).join(", ")}]` });
+      instance.__wbindgen_free(demPtr, dem.byteLength, 4);
+      instance.__wbindgen_free(fdPtr, fd.byteLength, 1);
+
+      if (canvasAcc.current) renderFlowAcc(canvasAcc.current, acc, SIZE, SIZE);
     }
 
     // ── 3. Viewshed (Everest DEM) ─────────────────────────────────────────────
     {
       const SIZE = 30;
       const dem = makeEverestDEM();
-      const [demPtr, demLen] = demToWasm(w, dem);
+      const demPtr = demToWasm(instance, dem);
       const t0 = performance.now();
-      const visPtr = w.viewshed_wasm(demPtr, demLen, SIZE, SIZE, 12, 10, 2.0, 30.0, -9999);
-      const visRaw = readVecU8(w, visPtr);
+      // No maximum distance: every cell is tested.
+      const vis = core.viewshed_wasm(demPtr, dem.length, SIZE, SIZE, 12, 10, 2.0, 30.0, DEM_NODATA, null);
       const ms = performance.now() - t0;
-      results.push({ label: "Viewshed 30×30", ms, details: `${visRaw.filter((v) => v).length} visible cells` });
-      w.__wbindgen_free(demPtr, dem.byteLength);
-      w.__wbindgen_free(visPtr, visRaw.byteLength);
+      results.push({ label: "Viewshed 30×30", ms, details: `${vis.filter((v) => v).length} visible cells` });
+      instance.__wbindgen_free(demPtr, dem.byteLength, 4);
 
-      if (canvasViewshed.current) {
-        const vis = new Uint8Array(visRaw);
-        renderViewshed(canvasViewshed.current, vis, SIZE, SIZE);
-      }
+      if (canvasViewshed.current) renderViewshed(canvasViewshed.current, vis, SIZE, SIZE);
     }
 
-    // ── 4. Decode OZT2 (real binary format demo) ─────────────────────────────
+    // ── 4. OZT2 tile: encode, then decode through the WASM decoder ───────────
     {
-      // Build a synthetic OZT2 tile (256×256 flat-ish terrain)
       const W = 256;
       const H = 256;
-      const elevs = new Uint16Array(W * H);
-      let minE = Infinity,
-        maxE = -Infinity;
-      for (let i = 0; i < elevs.length; i++) {
-        const row = Math.floor(i / W);
-        const col = i % W;
-        // Simulate a ridge running NW→SE
-        const v = Math.round(1500 + row * 5 + col * 2 + (Math.random() - 0.5) * 50);
-        elevs[i] = Math.max(0, Math.min(65535, v));
-        minE = Math.min(minE, v);
-        maxE = Math.max(maxE, v);
+      const dem = new Float32Array(W * H);
+      for (let r = 0; r < H; r++) {
+        for (let c = 0; c < W; c++) {
+          // A ridge running NW→SE, in whole metres like the source DEM.
+          dem[r * W + c] = Math.round(1500 + r * 5 + c * 2 + (Math.random() - 0.5) * 50);
+        }
       }
 
-      // Encode to OZT2-like binary
-      const tileBytes = encodeOZT2Demo(elevs, W, H);
+      const tileBytes = encodeOZT2Demo(instance, core, dem, H, W);
 
       const t0 = performance.now();
-      // decode_ozt2 always calls the decompress function.
-      // Our demo encoder uses compressor=0 (none), so we return data as-is.
-      const result = w.decode_ozt2(tileBytes, (bytes: Uint8Array, _codec: string) => bytes);
+      // The tile is written in the production codes and the decoder reads
+      // production codes — the callback is the entropy half of the production
+      // decoder, keyed by the header's compressor field.
+      const result = core.decode_ozt2(tileBytes, decompressOZT2);
       const ms = performance.now() - t0;
-      const decodedElevs = result.elevations;
+
+      const decoded = result.elevations;
+      let mismatches = 0;
+      let maxElevation = 0;
+      for (let i = 0; i < dem.length; i++) {
+        if (decoded[i] !== dem[i]) mismatches++;
+        maxElevation = Math.max(maxElevation, decoded[i]);
+      }
+      const roundTrip =
+        mismatches === 0 ? `all ${dem.length} cells round-trip exactly` : `${mismatches} cells differ`;
       setOzeTileInfo(
-        `Decoded ${W}×${H} tile in ${ms.toFixed(1)}ms — ` +
-          `range: [${decodedElevs[0]}, ${Math.max(...decodedElevs)}]m`,
+        `Decoded ${W}×${H} tile (${result.metadata.compressor}, ${result.metadata.predictor}) in ${ms.toFixed(1)}ms — ` +
+          `range: [${decoded[0]}, ${maxElevation}]m, ${result.metadata.bits_per_pixel}-bit, ${roundTrip}`,
       );
       results.push({ label: `OZT2 decode ${W}×${H}`, ms });
     }
 
-    // ── 5. Benchmark: D8 on larger terrain ───────────────────────────────────
+    // ── 5. Real production tile: fetch from the HuggingFace dataset ──────────
+    {
+      // Everest summit tile (z10, slippy math on 27.9881°N 86.9250°E). Shipped
+      // tiles are brotli (the Python encoder's default) or zstd, so this
+      // exercises the production entropy path the synthetic zlib tile above
+      // cannot.
+      const url =
+        "https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2/resolve/main/tiles/z10/758/428.ozt2";
+      fetch(url, { signal: AbortSignal.timeout(15000) })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          const t0 = performance.now();
+          const tile = core.decode_ozt2(bytes, decompressOZT2);
+          const ms = performance.now() - t0;
+          let min = Number.POSITIVE_INFINITY;
+          let max = 0;
+          for (let i = 0; i < tile.elevations.length; i++) {
+            min = Math.min(min, tile.elevations[i]);
+            max = Math.max(max, tile.elevations[i]);
+          }
+          setOzeTileInfo(
+            (prev) =>
+              `${prev} | Real tile z10/758/428 (${bytes.length} B, ${tile.metadata.compressor}, ` +
+              `${tile.metadata.predictor}): ${tile.metadata.width}×${tile.metadata.height} decoded in ` +
+              `${ms.toFixed(1)}ms — range [${min}, ${max}]m`,
+          );
+        })
+        .catch((e: unknown) => {
+          setOzeTileInfo(
+            (prev) => `${prev} | Real tile fetch unavailable: ${String(e instanceof Error ? e.message : e)}`,
+          );
+        });
+    }
+
+    // ── 6. Benchmark: D8 on larger terrain ───────────────────────────────────
     {
       const SIZE = 256;
       const dem = new Float32Array(SIZE * SIZE);
       for (let i = 0; i < dem.length; i++) {
         dem[i] = Math.random() * 5000;
       }
-      const [demPtr, demLen] = demToWasm(w, dem);
+      const demPtr = demToWasm(instance, dem);
       const t0 = performance.now();
-      const fdPtr = w.d8_flow_direction_wasm(demPtr, demLen, SIZE, SIZE, -9999);
-      const fdRaw = readVecU8(w, fdPtr);
+      core.d8_flow_direction_wasm(demPtr, dem.length, SIZE, SIZE, DEM_NODATA);
       const ms = performance.now() - t0;
       results.push({ label: `D8 flow direction ${SIZE}×${SIZE}`, ms });
-      w.__wbindgen_free(demPtr, dem.byteLength);
-      w.__wbindgen_free(fdPtr, fdRaw.byteLength);
+      instance.__wbindgen_free(demPtr, dem.byteLength, 4);
     }
 
     setBenchmarks(results);
@@ -493,7 +501,8 @@ export default function WasmDemo() {
       <h2>D8 Flow Direction (3×3 pit DEM)</h2>
       <p style={{ fontSize: "0.8em", color: "#555" }}>
         Direction colours: White=E, LightBlue=SE, Cyan=S, Green=SW, Lime=W, Yellow=NW, Orange=N, Red=NE. Pit cell
-        (top-left) = black.
+        (top-left) = black. DEMs use -32768 as their nodata sentinel and flow direction reports 255 (mapped to -1 for
+        accumulation) where no downslope neighbour exists.
       </p>
       <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
         <canvas
@@ -533,33 +542,43 @@ export default function WasmDemo() {
       {ozeTileInfo && (
         <>
           <h2>OZT2 Tile Decode</h2>
+          <p style={{ fontSize: "0.8em", color: "#555", marginBottom: 0 }}>
+            The synthetic tile is encoded here with the production layout — 6-byte header, gradient residuals from the
+            module, zlib payload — then handed to the module&apos;s own decoder, which parses the header, calls back
+            into JavaScript for the entropy half (brotli/zstd/zlib, keyed by the header&apos;s compressor code) and
+            reconstructs the grid in Rust. A real production tile fetched from the HuggingFace dataset runs the same
+            path with the compressors shipped tiles actually carry.
+          </p>
           <p style={{ color: "#166534" }}>{ozeTileInfo}</p>
         </>
       )}
 
       <h2>Exported Functions</h2>
       <pre style={{ background: "#f5f5f5", padding: "1rem", overflowX: "auto", fontSize: "0.8em" }}>
-        {`// Load WASM from CDN
-import init from '@/lib/wasm/openzenith_core.js';
+        {`// Load the module from the pkg directory
+import init, { decode_ozt2 } from '/pkg/openzenith_core.js';
 const wasm = await init('/pkg/openzenith_core_bg.wasm');
 
-// D8 flow direction — returns Uint8Array of 0-7 direction codes
-const fdPtr = d8_flow_direction_wasm(demPtr, len, rows, cols, nodata);
+// D8 flow direction — Uint8Array of 0-7 direction codes, 255 = no flow
+const fd = d8_flow_direction_wasm(demPtr, len, rows, cols, -32768);
 
-// Flow accumulation — returns Uint32Array of upstream counts
-const accPtr = flow_accumulation_wasm(fdPtr, len, rows, cols, nodataDir);
+// Flow accumulation — Uint32Array of upstream counts (takes the signed grid)
+const acc = flow_accumulation_wasm(fdPtr, len, rows, cols, -1);
 
-// Gradient reconstruction from OZT2 residuals
-const elevPtr = gradient_reconstruct_wasm(residualsPtr, len, h, w,
-                                          nodata, dequantMin, dequantScale);
+// Stream order from accumulated flow — Uint8Array of Strahler orders
+const order = stream_order_wasm(streamsPtr, fdPtr, len, rows, cols, -1);
 
-// Viewshed from DEM
-const visPtr = viewshed_wasm(demPtr, len, rows, cols,
-                              observerRow, observerCol,
-                              observerHeight, cellSize, nodata);
+// Gradient prediction — Int16Array of OZT2 residuals
+const residuals = gradient_predict_wasm(elevPtr, len, rows, cols, -32768);
 
-// Full OZT2 tile decode (header parsing + decompress + reconstruct)
-const { elevations, metadata } = decode_ozt2(tileBytes, decompressFn);`}
+// Viewshed — Uint8Array of 0/1 visibility, null = no distance cap
+const vis = viewshed_wasm(demPtr, len, rows, cols, obsRow, obsCol,
+                            obsHeight, cellSize, -32768, null);
+
+// Full OZT2 tile decode (header parsing + decompress callback + reconstruct).
+// The callback receives the header's compressor code:
+// 0 = brotli, 1 = zstd, 2 = zlib, 3 = none — route accordingly.
+const { elevations, metadata } = decode_ozt2(tileBytes, decompressOZT2);`}
         </pre>
       </main>
     </>

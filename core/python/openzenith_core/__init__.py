@@ -1,6 +1,27 @@
 """OpenZenith-core: high-performance Rust primitives for terrain analysis.
 
-Wraps the openzenith-core CLI binary for Python.
+Pure-Python subprocess wrapper around the ``openzenith_core_cli`` binary built
+from this crate. There is no native Python extension here — the Rust crate has
+no pyo3 dependency, so the binding is a JSON-over-stdin/stdout round trip per
+call. That makes this module the whole story:
+
+1. Build the CLI once from the repo root::
+
+       cd core && cargo build --release   # -> core/target/release/openzenith_core_cli
+
+2. Make it importable. Either install this directory as its own distribution
+   (``pip install core`` — see ``core/pyproject.toml``) or leave it in place;
+   the resolution order below finds an uninstalled checkout.
+
+Binary resolution (``_cli_path``), first match wins:
+
+1. ``OPENZENITH_CORE_CLI`` — explicit path, used when the file exists.
+2. ``<this package>/../../target/release/openzenith_core_cli`` — a checkout
+   that has been built in place.
+3. Otherwise ``RuntimeError`` with the build instruction.
+
+Every function takes plain nested lists and returns plain nested lists, so the
+wrapper has no numpy dependency; callers pass ``arr.tolist()`` from an ndarray.
 
 Usage:
     from openzenith_core import d8_flow_direction, flow_accumulation
@@ -14,26 +35,24 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import struct
-import sys
 from pathlib import Path
-from typing import Optional
 
 __all__ = [
     "d8_flow_direction",
     "flow_accumulation",
-    "gradient_reconstruct",
     "gradient_predict",
+    "gradient_reconstruct",
     "stream_order",
     "viewshed",
 ]
 
 # ─── Locate the CLI binary ──────────────────────────────────────────────────────
 
-_CLI: Optional[Path] = None
+_CLI: Path | None = None
 
 
 def _cli_path() -> Path:
+    """Resolve the CLI binary; see the module docstring for the search order."""
     global _CLI
     if _CLI is not None:
         return _CLI
@@ -54,7 +73,7 @@ def _cli_path() -> Path:
     raise RuntimeError(
         "openzenith-core CLI not found. "
         "Set OPENZENITH_CORE_CLI env var, or build with: "
-        "cd openzenith-core && cargo build --release"
+        "cd core && cargo build --release"
     )
 
 
@@ -70,13 +89,13 @@ def _run(cmd: str, payload: dict) -> dict:
             timeout=300,
         )
     except subprocess.TimeoutExpired:
-        raise RuntimeError(f"openzenith-core CLI timed out (command={cmd})")
+        raise RuntimeError(f"openzenith-core CLI timed out (command={cmd})") from None
     except FileNotFoundError:
         raise RuntimeError(
             f"openzenith-core CLI not found at {cli}. "
             "Set OPENZENITH_CORE_CLI or build with: "
-            "cd openzenith-core && cargo build --release"
-        )
+            "cd core && cargo build --release"
+        ) from None
 
     if proc.returncode != 0:
         raise RuntimeError(
@@ -90,7 +109,7 @@ def _run(cmd: str, payload: dict) -> dict:
         raise RuntimeError(
             f"openzenith-core CLI returned invalid JSON: {e}\n"
             f"stdout (first 500 bytes): {proc.stdout[:500]!r}"
-        )
+        ) from None
 
 
 def _to_2d(flat: list, rows: int, cols: int) -> list[list]:
@@ -205,7 +224,7 @@ def viewshed(
     observer_height: float = 1.75,
     cell_size: float = 0.001,
     nodata: float = -32768.0,
-    max_distance_cells: Optional[int] = None,
+    max_distance_cells: int | None = None,
 ) -> list[list[int]]:
     """Compute viewshed (visible cells) from an observer point.
 

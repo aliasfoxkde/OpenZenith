@@ -36,7 +36,7 @@ def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
     padded = np.full((rows + 2, cols + 2), nodata)
     padded[1:-1, 1:-1] = dem
 
-    valid = padded[1:-1, 1:-1] != nodata
+    valid = padded[1:-1, 1:-1] > nodata
 
     for d in range(8):
         # Get neighbor elevation
@@ -45,8 +45,9 @@ def d8_flow_direction(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
         ]
         # Compute slope (drop per unit distance)
         slope = (dem - neighbor_elev) / D8_DISTANCE[d]
-        # Only downhill to valid cells
-        downhill = valid & (neighbor_elev != nodata) & (slope > 0)
+        # Only downhill to valid cells (at-or-below the sentinel is nodata,
+        # matching the Rust core's `<=` convention)
+        downhill = valid & (neighbor_elev > nodata) & (slope > 0)
 
         # Update if steeper than current best
         if d == 0:
@@ -65,7 +66,11 @@ def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
 
     Each cell's value is the count of upstream cells (including itself).
 
-    Uses iterative priority-flood approach for efficiency.
+    Cells are processed in topological order (Kahn's algorithm over the
+    flow edges), so a cell's accumulation is final before it propagates —
+    a fixed-point sweep over directions cannot guarantee that and
+    under-counts braided sub-catchments (parity-tested against the Rust
+    core in openzenith/tests/test_core_parity.py).
 
     Args:
         flow_dir: 2D int8 array from d8_flow_direction
@@ -75,64 +80,14 @@ def flow_accumulation(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
         2D int32 array of accumulation counts
 
     """
-    rows, cols = flow_dir.shape
-    accum = np.ones((rows, cols), dtype=np.int32)
-    visited = np.zeros((rows, cols), dtype=bool)
-
-    # Find pit cells (no outgoing flow) and edge cells
-    pits = flow_dir == nodata_dir
-    edge = np.zeros_like(pits)
-    edge[0, :] = True
-    edge[-1, :] = True
-    edge[:, 0] = True
-    edge[:, -1] = True
-
-    # Start from pits and edge cells
-    # Use simple iterative propagation
-    changed = True
-    iterations = 0
-    max_iterations = rows * cols * 4  # safety limit
-
-    while changed and iterations < max_iterations:
-        changed = False
-        iterations += 1
-
-        for d in range(8):
-            # Source cells are those whose flow goes in direction d
-            # They contribute to the cell at (r + dr[d], c + dc[d])
-            dr, dc = int(D8_DR[d]), int(D8_DC[d])
-
-            # For each cell that flows in direction d, add its accumulation to the neighbor
-            src_mask = (flow_dir == d) & ~visited
-
-            if not src_mask.any():
-                continue
-
-            # Target row/col indices
-            src_r, src_c = np.where(src_mask)
-            tgt_r = src_r + dr
-            tgt_c = src_c + dc
-
-            # Only process valid targets
-            valid = (tgt_r >= 0) & (tgt_r < rows) & (tgt_c >= 0) & (tgt_c < cols)
-            tgt_r = tgt_r[valid]
-            tgt_c = tgt_c[valid]
-            src_r = src_r[valid]
-            src_c = src_c[valid]
-
-            # Add accumulation (numpy advanced indexing with addition)
-            np.add.at(accum, (tgt_r, tgt_c), accum[src_r, src_c])
-            visited[src_r, src_c] = True
-            changed = True
-
-    return accum
+    return _flow_accumulation_toposort(flow_dir, nodata_dir)
 
 
 def flow_accumulation_fast(flow_dir: np.ndarray, nodata_dir: int = -1) -> np.ndarray:
     """Fast flow accumulation using topological sort.
 
-    More efficient than iterative for large grids.
-    Falls back to iterative if topo-sort fails.
+    Same exact engine as flow_accumulation; retained under its own name
+    for callers that predate the unification.
     """
     try:
         return _flow_accumulation_toposort(flow_dir, nodata_dir)

@@ -210,7 +210,23 @@ baseline regenerated 1,840 → 2,025 (+724 new, −539 stale fingerprints from
 refactored/deleted files); gate green locally. Along the way the openzenith-ci
 pipeline turned out to be a registry ghost (listed but unresolvable — the
 reason pushes stopped triggering runs on the canonical id); re-registered as
-`bigdata-ci/OpenZenith` and re-triggered manually, which worked (the old
-"manual trigger never materializes" note is stale for the current build).
+`bigdata-ci/OpenZenith`.
+
+CI outcome on the re-baseline commit (2b38976): run `1fff9f99` — **aegis
+SUCCEEDED** (the substantive signal: the triage holds in CI) and install
+succeeded, on swarmone; `typecheck` then failed with the documented
+npx-tsc@2.0.4 node_modules-loss fault. Every subsequent red traces to the
+fedora-docker runner `bdcc23ed` (noexec workspace, no loopback registry —
+memory: gitforge-two-runner-noexec-defect), which re-registered itself after
+retirement (registration is tokenless) and failed each run it touched:
+`aegis infrastructure_failure`, 0 log chunks, sub-minute runtime,
+`runner_id=bdcc23ed…` as the only tell. Retire → `systemctl restart
+gitforge@ci.service` → re-trigger produced one clean-pool run (1fff9f99);
+afterwards the agent resurrected again and `retire_if_idle` now 409s on a
+stuck lease. The full-green CI run is therefore blocked by a platform defect
+outside this repo (being worked on the GitForge side), not by repo content —
+the same pipeline definition ran fully green on 2026-10-06 (run 46124e1d).
+Local gates remain the validation of record; the last fully-local battery
+and the prod verification above are the acceptance evidence for these waves.
 
 Deferred register above is unchanged.

@@ -52,7 +52,7 @@ jobs:
         run: pip install -e .[all,dev]
 
       - name: Pytest with coverage
-        run: python3 -m pytest openzenith/tests/ --cov=openzenith --cov-fail-under=70 --cov-report=term-missing
+        run: python3 -m pytest openzenith/tests/ --cov=openzenith --cov-fail-under=99 --cov-report=term-missing
 
   rust-test:
     runs-on: ubuntu-latest

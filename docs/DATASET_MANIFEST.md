@@ -100,8 +100,8 @@ This document describes the elevation datasets used by the OpenZenith platform, 
 | Coverage | Global ocean |
 | Status | **Not yet created** |
 
-**Build pipeline:** not yet written — needs `scripts/convert_gebco_to_ozt2.py`
-(modeled on `scripts/convert_to_ozt2.py`); see V2_DATASET_IMPLEMENTATION_PLAN.md §2.3
+**Build pipeline:** not yet written — needs a `scripts/convert_gebco_to_ozt2.py`
+(modeled on `scripts/convert_to_ozt2.py`); see `docs/archive/V2_DATASET_IMPLEMENTATION_PLAN.md` §2.3
 
 ---
 
@@ -156,7 +156,7 @@ OpenZenith uses a unified surface type taxonomy across all elevation sources:
 - [x] NODATA policy: preserve -32768 via `noDataValue` in Cesium HeightmapTerrainData
 - [x] OZT2 tiles generated for z7–z11 on local machine (z10: 151,988; z11: 595,149; z7–z9: 53,565)
 - [x] OZT2 z7–z11 uploaded to HuggingFace (`aliasfox/srtm30m-ozt2-v2` — planned ID was never created; z7–z10 validated 2026-09-24, z11 2026-09-28)
-- [ ] OZT2 bathymetry tiles generated via `convert_gebco_to_ozt2.py`
+- [ ] OZT2 bathymetry tiles generated via a GEBCO converter (script not yet written — see §Bathymetry v2 above)
 - [ ] OZT2 bathymetry uploaded to HuggingFace `openzenith/bathymetry-v2-ozt2`
 - [ ] API switched to v2 dataset as primary, v1 as fallback
 - [ ] SDK updated to cascade: V2 → SRTM → GEBCO

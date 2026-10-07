@@ -524,24 +524,6 @@ export interface AirQualityResponse {
   [key: string]: unknown;
 }
 
-/**
- * Current air quality from Open-Meteo through /api/proxy/, pinned to the
- * hard-coded point latitude=0, longitude=0 (mid-Atlantic) rather than the
- * viewer's location. Fields requested: `us_aqi` (dimensionless index) plus
- * `pm10`, `pm2_5`, `nitrogen_dioxide`, `ozone`, `carbon_monoxide` in µg/m³.
- * Resolves to an `AirQualityResponse`. A transport failure resolves to
- * `{ error: "Air quality unavailable" }`; an HTTP error status throws. Aborting `signal` abandons the caller's wait; layers pass their toggle
- * controller so a torn-down layer stops waiting on the network.
- */
-export async function fetchAirQuality(signal?: AbortSignal): Promise<AirQualityResponse> {
-  return fetchJsonOrFallback<AirQualityResponse>(
-    "fetchAirQuality",
-    "/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=0&longitude=0&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,carbon_monoxide",
-    { error: "Air quality unavailable" },
-    signal,
-  );
-}
-
 /** aviationweather.gov serves a bare array for sigmet/airmet, but the shape
  * has varied historically — consumers normalize via unknown. */
 export async function fetchSigmets(signal?: AbortSignal): Promise<unknown> {
@@ -662,25 +644,6 @@ export interface MarineWeatherResponse {
   longitude?: number;
   current?: MarineWeatherCurrent;
   [key: string]: unknown;
-}
-
-/**
- * Current marine conditions from Open-Meteo through /api/proxy/, pinned to the
- * hard-coded point latitude=0, longitude=0 (mid-Atlantic) rather than the
- * viewer's position. Fields requested: `wave_height` and `wind_wave_height` in
- * metres, `wind_wave_direction` in degrees, `sea_surface_temperature` in °C.
- * Resolves to a `MarineWeatherResponse`. A transport failure resolves to
- * `{ error: "Marine weather unavailable" }`; an HTTP error status throws.
- * Aborting `signal` abandons the caller's wait; layers pass their toggle
- * controller so a torn-down layer stops waiting on the network.
- */
-export async function fetchMarineWeather(signal?: AbortSignal): Promise<MarineWeatherResponse> {
-  return fetchJsonOrFallback<MarineWeatherResponse>(
-    "fetchMarineWeather",
-    "/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=0&longitude=0&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature",
-    { error: "Marine weather unavailable" },
-    signal,
-  );
 }
 
 /**

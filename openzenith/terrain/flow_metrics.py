@@ -111,10 +111,15 @@ def slope_area_ratio(
     cell_size_deg: float = 0.001,
     nodata: float = -32768.0,
 ) -> np.ndarray:
-    """Compute slope-area ratio.
+    """Compute slope-area ratio (hillslope form).
 
     SAR = tan(slope) / sqrt(accum * cell_area)
     Used for distinguishing hillslope processes from channel processes.
+
+    Distinct from ``openzenith.hydrology.slope_area_ratio`` (the WhiteboxTools
+    form ``(slope^m) / (area^n)`` with configurable exponents) — same name,
+    different formula. Both are exported from the package root; this terrain
+    variant is the one the lazy ``__init__`` map binds under that name.
 
     Args:
         dem: 2D elevation grid

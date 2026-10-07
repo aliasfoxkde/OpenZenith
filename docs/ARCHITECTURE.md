@@ -107,7 +107,7 @@ openzenith/
 ├── backends/
 │   └── ozt2.py       — OZT2HFBackend (HuggingFace), OZT2Backend (local files),
 │                       OZT2R2Backend (S3-compatible)
-└── cli.py            — argparse CLI, 27 subcommands (download, query, batch, trace, etc.)
+└── cli.py            — argparse CLI, 36 subcommands (download, query, batch, trace, etc.)
 ```
 
 ---

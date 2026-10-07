@@ -902,6 +902,124 @@ def cmd_color_relief(args: argparse.Namespace) -> None:
             print(f"💾 Saved array to {args.output} (install Pillow for RGBA PNG)")
 
 
+def cmd_viz(args: argparse.Namespace) -> None:
+    """Render the terrain grid as a 3D GLB mesh or a contour plot."""
+    from openzenith.elevation import load_elevation_grid
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+    if not args.output:
+        print("❌ Provide --output (file to write)")
+        sys.exit(1)
+
+    print(f"🖼️  Rendering {args.kind} at ({args.lat:.4f}, {args.lon:.4f})...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    transform = (grid["lat_min"], grid["lon_min"], grid["cell_size_deg"], grid["cell_size_deg"])
+
+    if args.kind == "glb":
+        from openzenith.viz import terrain_to_glb
+
+        data = terrain_to_glb(grid["grid"], transform, scale=args.scale)
+        Path(args.output).write_bytes(data)
+    else:
+        from openzenith.viz import plot_contours
+
+        fig, _ax = plot_contours(grid["grid"], transform, interval=args.interval)
+        fig.savefig(args.output, dpi=150, bbox_inches="tight")
+        try:
+            import matplotlib.pyplot as plt
+
+            plt.close(fig)
+        except ImportError:
+            pass
+    elapsed = time.time() - t0
+
+    print(f"✅ {args.kind} written to {args.output} ({elapsed:.1f}s)")
+
+
+def cmd_inundation(args: argparse.Namespace) -> None:
+    """Flood a grid at a water level and report inundated area and depth."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.hydrology import flood_inundation, inundation_depth
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+
+    print(f"🌊 Flooding ({args.lat:.4f}, {args.lon:.4f}) to {args.level} m...")
+    t0 = time.time()
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    mask = flood_inundation(grid["grid"], args.level, fill_depressions_first=not args.no_fill)
+    depth = inundation_depth(grid["grid"], args.level, fill_depressions_first=not args.no_fill)
+    elapsed = time.time() - t0
+
+    cells = int(mask.sum())
+    total = mask.size
+    flooded_depths = depth[depth > 0]
+    print(f"✅ Inundation at {args.level} m ({elapsed:.1f}s)")
+    print(f"   Flooded: {cells}/{total} cells ({100.0 * cells / total:.1f}%)")
+    if flooded_depths.size:
+        print(
+            f"   Depth over flooded cells: mean={np.mean(flooded_depths):.1f} m  "
+            f"max={np.max(flooded_depths):.1f} m"
+        )
+    else:
+        print("   No cells inundated at this level")
+
+    if args.output:
+        np.save(args.output, depth)
+        print(f"💾 Saved depth grid to {args.output}")
+
+
+def cmd_zonal_stats(args: argparse.Namespace) -> None:
+    """Compute zonal statistics for polygons overlaid on the terrain grid."""
+    import json
+
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.overlay import zonal_stats
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+    if not args.geojson:
+        print("❌ Provide --geojson (FeatureCollection of Polygons)")
+        sys.exit(1)
+
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    transform = (grid["lat_min"], grid["lon_min"], grid["cell_size_deg"], grid["cell_size_deg"])
+    with Path(args.geojson).open(encoding="utf-8") as fh:
+        collection = json.load(fh)
+
+    stats = zonal_stats(collection, grid["grid"], transform=transform, stats=args.stats)
+    print(f"📐 Zonal statistics over {len(stats)} feature(s):")
+    for i, row in enumerate(stats):
+        props = {k: v for k, v in row.items() if not k.startswith("stat_")}
+        parts = [f"{name}={row.get(f'stat_{name}')}" for name in args.stats]
+        label = props.get("id", props.get("name", i))
+        print(f"   [{label}] {'  '.join(parts)}")
+
+
+def cmd_kml(args: argparse.Namespace) -> None:
+    """Export the terrain grid as a KML file of point features."""
+    from openzenith.elevation import load_elevation_grid
+    from openzenith.export import grid_to_kml
+
+    if args.lat is None or args.lon is None:
+        print("❌ Provide --lat and --lon")
+        sys.exit(1)
+    if not args.output:
+        print("❌ Provide --output (file to write)")
+        sys.exit(1)
+
+    grid = load_elevation_grid(args.lat, args.lon, args.radius)
+    transform = (grid["lat_min"], grid["lon_min"], grid["cell_size_deg"], grid["cell_size_deg"])
+    kml = grid_to_kml(grid["grid"], transform, name=args.name, value_name="elevation_m")
+    Path(args.output).write_text(kml, encoding="utf-8")
+    print(f"💾 Saved KML ({grid['grid'].size} points) to {args.output}")
+
+
 # ─── Helper functions for encode/ingest ───────────────────────────────────────
 
 
@@ -1640,6 +1758,52 @@ def main() -> None:
     cr.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
     cr.add_argument("--output", type=str, default=None, help="Output RGBA PNG file")
 
+    viz_p = sub.add_parser(
+        "viz", help="Render the terrain grid as a 3D GLB mesh or contour plot"
+    )
+    viz_p.add_argument("--lat", type=float, help="Center latitude")
+    viz_p.add_argument("--lon", type=float, help="Center longitude")
+    viz_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    viz_p.add_argument("--kind", choices=["glb", "contours"], default="glb", help="Render type")
+    viz_p.add_argument("--scale", type=float, default=1.0, help="Vertical exaggeration (GLB)")
+    viz_p.add_argument("--interval", type=float, default=50.0, help="Contour interval in metres")
+    viz_p.add_argument("--output", type=str, required=True, help="Output file")
+
+    ind = sub.add_parser("inundation", help="Flood the grid at a water level")
+    ind.add_argument("--lat", type=float, help="Center latitude")
+    ind.add_argument("--lon", type=float, help="Center longitude")
+    ind.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    ind.add_argument("--level", type=float, required=True, help="Water surface elevation (m)")
+    ind.add_argument(
+        "--no-fill",
+        action="store_true",
+        help="Skip depression filling (plain below-level masking)",
+    )
+    ind.add_argument("--output", type=str, default=None, help="Save depth grid as .npy")
+
+    zs = sub.add_parser(
+        "zonal-stats", help="Zonal statistics for polygons over the terrain grid"
+    )
+    zs.add_argument("--lat", type=float, help="Center latitude")
+    zs.add_argument("--lon", type=float, help="Center longitude")
+    zs.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    zs.add_argument(
+        "--geojson", type=str, required=True, help="GeoJSON FeatureCollection of Polygons"
+    )
+    zs.add_argument(
+        "--stats",
+        type=str,
+        default="mean,max,min",
+        help="Comma-separated stats (mean, max, min, sum, std, count)",
+    )
+
+    kml_p = sub.add_parser("kml", help="Export the terrain grid as KML points")
+    kml_p.add_argument("--lat", type=float, help="Center latitude")
+    kml_p.add_argument("--lon", type=float, help="Center longitude")
+    kml_p.add_argument("--radius", type=int, default=10, help="Grid radius in tiles")
+    kml_p.add_argument("--name", type=str, default="Elevation grid", help="KML folder name")
+    kml_p.add_argument("--output", type=str, required=True, help="Output .kml file")
+
     args = parser.parse_args()
 
     commands = {
@@ -1675,6 +1839,10 @@ def main() -> None:
         "drainage-density": cmd_drainage_density,
         "multi-hillshade": cmd_multi_hillshade,
         "color-relief": cmd_color_relief,
+        "viz": cmd_viz,
+        "inundation": cmd_inundation,
+        "zonal-stats": cmd_zonal_stats,
+        "kml": cmd_kml,
     }
 
     if args.command in commands:

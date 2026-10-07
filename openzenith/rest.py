@@ -43,6 +43,7 @@ import requests
 from typing_extensions import Self
 
 from .elevation import check_elevation_params, latlon_to_tile
+from .exceptions import RestError
 
 __all__ = [
     "BASE_URL_ENV",
@@ -78,32 +79,6 @@ _VALID_INCLUDES = ("elevation", "address", "weather", "tides", "waterways")
 Point = tuple[float, float] | dict[str, Any]
 """A batch point: either a ``(lat, lon)`` tuple or a dict with ``lat``/``lon``
 and an optional string ``id`` echoed back in the matching result."""
-
-
-class RestError(Exception):
-    """Raised when an OpenZenith API call fails.
-
-    Attributes:
-        status: HTTP status code of the response, or ``0`` when the request
-            never produced one (DNS failure, timeout, connection reset).
-        message: Server-supplied message when the body carried one, otherwise
-            a synthesized description of the failure.
-        url: Full request URL that produced the error.
-
-    Note:
-        ``RestError`` is deliberately not part of the ``OpenZenithError``
-        hierarchy defined in ``openzenith/__init__.py`` — that hierarchy is not
-        importable from a leaf module without a circular import, mirroring the
-        per-module ``TileError`` convention in ``tile_format.py``.
-
-    """
-
-    def __init__(self, status: int, message: str, url: str):
-        """Record the status, message and request URL for the failed call."""
-        super().__init__(message)
-        self.status = status
-        self.message = message
-        self.url = url
 
 
 # ─── Request helpers ──────────────────────────────────────────────────────────

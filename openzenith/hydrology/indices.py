@@ -196,6 +196,10 @@ def slope_area_ratio(
 
     Equivalent to WhiteboxTools SlopeAreaRatio.
 
+    Distinct from ``openzenith.terrain.slope_area_ratio`` (the hillslope form
+    ``tan(slope) / sqrt(accum * cell_area)``) — same name, different formula;
+    both are reachable from the package root.
+
     Args:
         dem: 2D elevation grid
         cell_size_deg: Cell size in degrees

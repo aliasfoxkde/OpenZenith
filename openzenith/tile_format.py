@@ -45,6 +45,12 @@ from typing import Any
 
 import numpy as np
 
+# TileError/TileDecodeError live in the leaf exceptions module; imported (and
+# re-exported) here so `tile_format.TileError` keeps resolving, decode-time
+# structural failures raise TileDecodeError, and `except TileError` catches
+# encode- and decode-side failures from both tile modules.
+from openzenith.exceptions import TileDecodeError, TileError
+
 try:
     import zstandard as zstd
 
@@ -63,10 +69,6 @@ COMP_NONE = 0
 COMP_ZSTD = 1
 COMP_ZSTD_DELTA = 2
 COMP_ZSTD_PREDICT = 3
-
-
-class TileError(Exception):
-    """Error in tile encoding/decoding."""
 
 
 def encode(
@@ -166,7 +168,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
 
     """
     if len(tile_bytes) < HEADER_SIZE:
-        raise TileError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
+        raise TileDecodeError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
 
     # Parse header
     (magic, version, width, height, bits, nodata, min_e, max_e, compression, zstd_level) = (
@@ -174,9 +176,9 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
     )
 
     if magic != MAGIC:
-        raise TileError(f"Invalid magic: {magic}")
+        raise TileDecodeError(f"Invalid magic: {magic}")
     if version != VERSION:
-        raise TileError(f"Unsupported version: {version}")
+        raise TileDecodeError(f"Unsupported version: {version}")
 
     data = tile_bytes[HEADER_SIZE:]
 
@@ -188,7 +190,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
     elif compression in (COMP_ZSTD_DELTA, COMP_ZSTD_PREDICT):
         raw = data  # Will be handled in reconstruction
     else:
-        raise TileError(f"Unknown compression: {compression}")
+        raise TileDecodeError(f"Unknown compression: {compression}")
 
     # Reconstruct array
     if compression == COMP_ZSTD_DELTA:

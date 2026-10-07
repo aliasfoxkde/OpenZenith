@@ -180,13 +180,68 @@ class TestEdgeCases:
         np.testing.assert_allclose(data, decoded, atol=ATOL)
 
     def test_mixed_nodata_and_valid(self):
-        """Tile with some nodata cells should handle correctly."""
+        """A tile with nodata holes round-trips exactly, sentinel included.
+
+        Regression pin for the encoder's sentinel destruction: ``_quantize``
+        folds every value into ``[0, 2^bits - 1]``, so before the fix a tile
+        with holes at auto-selected bit depths decoded its sentinels as
+        ``~vmin`` — D8/viewshed downstream read the holes as terrain. The
+        encoder now forces the 16-bit lossless path whenever a sentinel is
+        present, and the shift-by-vmin path carries ``-32768`` through
+        exactly (the int16 wrap in the residual stream is modular and
+        self-inverse).
+        """
         data = np.full((10, 10), -32768, dtype=np.int16)
         data[3:7, 3:7] = 500  # valid patch in center
         encoded = encode(data)
         decoded, _ = decode(encoded)
-        # Center values should be preserved
         assert decoded[5, 5] == 500
+        assert (decoded == -32768).sum() == 84, "every hole stays a hole"
+
+    def test_sentinel_forces_lossless_path(self):
+        """A reduced-bit request is overridden when the grid carries nodata.
+
+        The 4000 m range of this grid would auto-select 12 bits, which is the
+        mainline production case and exactly where the old encoder silently
+        turned holes into ``~vmin`` terrain.
+        """
+        data = (4605 + np.arange(64, dtype=np.int16).reshape(8, 8) * 12).astype(np.int16)
+        data[3, 5] = -32768
+        data[6, 2] = -32768
+
+        encoded = encode(data, bits_per_pixel=8)
+        decoded, meta = decode(encoded)
+
+        assert meta["bits_per_pixel"] == 16, "sentinel forces the lossless path"
+        assert (decoded == -32768).sum() == 2
+        valid = data != -32768
+        np.testing.assert_array_equal(decoded[valid], data[valid])
+
+    def test_sentinel_survives_negative_vmin(self):
+        """Bathymetry-range tiles keep their holes too (vmin is negative)."""
+        data = (-8000 + np.arange(36, dtype=np.int16).reshape(6, 6) * 7).astype(np.int16)
+        data[2, 2] = -32768
+
+        decoded, _ = decode(encode(data))
+
+        assert decoded[2, 2] == -32768
+        valid = data != -32768
+        np.testing.assert_array_equal(decoded[valid], data[valid])
+
+    def test_sentinel_at_origin_roundtrips(self):
+        """A hole in the top-left corner — the predictor's seed cell — is exact.
+
+        Worst case for prediction seeding: there is no left/above neighbour,
+        so the sentinel value itself enters the residual stream. The gradient
+        predict/reconstruct pair is an exact integer inverse, so the whole
+        grid (sentinel included) must come back verbatim.
+        """
+        data = (500 + np.arange(25, dtype=np.int16).reshape(5, 5) * 9).astype(np.int16)
+        data[0, 0] = -32768
+
+        decoded, _ = decode(encode(data))
+
+        np.testing.assert_array_equal(decoded, data)
 
     def test_large_range_16bit(self):
         """Large elevation range uses 16-bit."""

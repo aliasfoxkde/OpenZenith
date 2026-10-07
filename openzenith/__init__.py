@@ -24,26 +24,9 @@ __version__ = "0.9.1"
 # ─── Exception hierarchy ───────────────────────────────────────────────────────
 
 
-class OpenZenithError(Exception):
-    """Base exception for OpenZenith SDK errors."""
-
-
-class TileNotFoundError(OpenZenithError):
-    """Raised when a tile file or resource is not found."""
-
-
-class TileDecodeError(OpenZenithError):
-    """Raised when tile data cannot be decoded."""
-
-
-class NetworkError(OpenZenithError):
-    """Raised when a network request fails."""
-
-
-class DataError(OpenZenithError):
-    """Raised when data validation fails."""
-
-
+# The hierarchy itself lives in the leaf module `openzenith.exceptions` so
+# submodules can raise these without a circular import; re-exported here for
+# the public `from openzenith import OpenZenithError` surface.
 from openzenith.async_client import (
     ElevationBatchProcessor,
     ElevationClient,
@@ -60,8 +43,16 @@ from openzenith.elevation import (
     load_ozt2_tiles_from_hf,
     load_tiles,
 )
-from openzenith.rest import (
+from openzenith.exceptions import (
+    DataError,
+    NetworkError,
+    OpenZenithError,
     RestError,
+    TileDecodeError,
+    TileError,
+    TileNotFoundError,
+)
+from openzenith.rest import (
     ZenithClient,
     contours,
     contours_bbox,
@@ -80,7 +71,6 @@ from openzenith.tile_format import (
     COMP_ZSTD,
     COMP_ZSTD_DELTA,
     COMP_ZSTD_PREDICT,
-    TileError,
     decode,
     encode,
     validate_roundtrip,
@@ -316,6 +306,9 @@ def __getattr__(name: str) -> Any:
 
         return mstp
     if name == "slope_area_ratio":
+        # Deliberate: this binds the *terrain* hillslope form
+        # (tan(slope)/sqrt(accum*A)); the WhiteboxTools form
+        # (slope^m / area^n) lives at openzenith.hydrology.slope_area_ratio.
         from openzenith.terrain import slope_area_ratio
 
         return slope_area_ratio

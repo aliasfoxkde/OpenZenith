@@ -22,7 +22,7 @@ Works entirely offline after installing the Python SDK and optional local data. 
 - **Offline-first**: Local SRTM .merged tiles — no network required for elevation queries
 - **Low-latency**: Rust/WASM compute kernels for D8 flow, viewshed, OZT2 decode — runs in-browser or subprocess
 - **Complete terrain analysis**: slope, aspect, hillshade, viewshed, TPI, roughness, curvature, watersheds, stream extraction, downstream tracing
-- **Production-ready**: Type hints, 1,516 pytest tests (99% coverage gate; last measured 99.06%), clippy-clean Rust, typed TypeScript API
+- **Production-ready**: Fully typed (py.typed), 1,629 pytest tests (99% coverage gate; last measured 99.09%), clippy-clean Rust, typed TypeScript API
 
 ---
 
@@ -120,7 +120,7 @@ export HF_TOKEN=your_token_here
 
 ---
 
-## CLI Commands (26 total — highlights below)
+## CLI Commands (36 total — highlights below)
 
 ```
 openzenith query --lat 40.7 --lon -74.0
@@ -190,7 +190,7 @@ Python SDK (local compute) ←→ REST API (cloud, 81 API routes)
 | SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
 | API | Next.js 15, TypeScript, Cloudflare Edge |
 | Data | SRTM 30m (HuggingFace), GEBCO 2025 |
-| Tests | 1,516 pytest @ 99% gate (Python), 73 cargo test (Rust), 1,446 vitest across 99 files (TypeScript) |
+| Tests | 1,629 pytest @ 99% gate (Python), 136 cargo test (Rust core), 1,657 vitest across 113 files (TypeScript) |
 
 ---
 

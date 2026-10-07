@@ -46,6 +46,12 @@ from typing import Any
 
 import numpy as np
 
+# TileError/TileDecodeError live in the leaf exceptions module; imported (and
+# re-exported) here so `tile_format_v2.TileError` keeps resolving, decode-time
+# structural failures raise TileDecodeError, and `except TileError` catches
+# encode- and decode-side failures from both tile modules.
+from openzenith.exceptions import TileDecodeError, TileError
+
 try:
     import brotli
 
@@ -80,10 +86,6 @@ PRED_GRADIENT = 2
 COMP_BROTLI = 0
 COMP_ZSTD = 1
 COMP_ZLIB = 2  # fallback
-
-
-class TileError(Exception):
-    """Error in OZT2 tile encoding/decoding."""
 
 
 # ─── Prediction ───
@@ -189,7 +191,7 @@ def _decompress(data: bytes, compressor: int = COMP_BROTLI) -> bytes:
         return zstd.ZstdDecompressor().decompress(data)
     if HAS_ZLIB:
         return zlib.decompress(data)
-    raise TileError(f"No decompressor available for type {compressor}")
+    raise TileDecodeError(f"No decompressor available for type {compressor}")
 
 
 # ─── Adaptive Quantization ───
@@ -285,6 +287,15 @@ def encode(
     else:
         bits = max(8, min(16, bits_per_pixel))
 
+    # A sentinel cell forces the lossless path: _quantize folds every value
+    # into [0, 2^bits - 1] (clipping), so at reduced bit depths the nodata
+    # sentinel lands mid-code-range and decodes as ~vmin — the tile's holes
+    # become fake terrain. At 16 bits the shift-by-vmin path carries the
+    # sentinel through exactly. Cost: tiles with holes lose the size win of
+    # reduced-bit quantization.
+    if (arr == nodata_value).any():
+        bits = 16
+
     # Quantize
     if bits < 16 and elev_range > 0:
         quantized = _quantize(arr, vmin, bits)
@@ -334,7 +345,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
 
     """
     if len(tile_bytes) < HEADER_SIZE:
-        raise TileError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
+        raise TileDecodeError(f"Tile too small: {len(tile_bytes)} bytes (min {HEADER_SIZE})")
 
     # Parse header (6 bytes)
     vmin = struct.unpack_from("<h", tile_bytes, 0)[0]
@@ -346,7 +357,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
     compressor = (flags >> 2) & 0x03
 
     if bits < 8 or bits > 16:
-        raise TileError(f"Invalid bits_per_pixel: {bits}")
+        raise TileDecodeError(f"Invalid bits_per_pixel: {bits}")
 
     # Decompress
     data = _decompress(tile_bytes[HEADER_SIZE:], compressor)
@@ -368,7 +379,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
                 width = w
                 break
         else:
-            raise TileError(f"Cannot infer tile dimensions from {total_pixels} pixels")
+            raise TileDecodeError(f"Cannot infer tile dimensions from {total_pixels} pixels")
 
     residuals = residuals.reshape(height, width)
 

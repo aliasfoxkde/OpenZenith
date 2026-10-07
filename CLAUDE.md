@@ -128,7 +128,7 @@ openzenith trace --lat 36.0 --lon -118.0
 - **geotiff.py**: GeoTIFF/COG export of elevation grids
 - **viz.py**: Hillshade, contour lines, 3D mesh generation
 - **backends/ozt2.py**: `OZT2HFBackend` — direct access to HuggingFace OZT2 tile dataset
-- **cli.py**: `argparse`-based CLI with 26 subcommands (download, query, trace, watershed, slope, hillshade, viewshed, profile, contour, geojson, encode, ingest, tiles, fill-depressions, flow-accum, streams, export-geotiff, export-cog, twi, tpi, tri, drainage-density, multi-hillshade, color-relief, info, validate)
+- **cli.py**: `argparse`-based CLI with 36 subcommands (terrain: slope, aspect, hillshade, multi-hillshade, viewshed, profile, contour, tri, tpi, roughness, curvature, profile-curvature, planform-curvature, color-relief, viz; hydrology: watershed, trace, fill-depressions, flow-accum, streams, drainage-density, twi, inundation, zonal-stats; data: download, tiles, query, batch, info, validate, encode, ingest, geojson, export-geotiff, export-cog, kml)
 
 ### Rust Core (core)
 
@@ -233,5 +233,5 @@ Browser-based terrain analysis at `/wasm-demo` — D8 flow direction, flow accum
 - `scripts/convert_to_ozt2.py` — Convert SRTM .merged files to OZT2 tiles
 - `scripts/upload_ozt2_to_hf.py` — Upload local OZT2 tiles to HuggingFace dataset
 - `scripts/validate_hf_ozt2.py` — Byte-validate the HuggingFace OZT2 copy against local tiles
-- `scripts/core_coverage_gate.sh` — Rust line-coverage gate (`cargo llvm-cov`, floor 95%)
+- `scripts/core_coverage_gate.sh` — Rust line-coverage gate (`cargo llvm-cov`; two-pass: 99% default features, 95% with the wasm feature)
 - `scripts/ship.sh` — Local ship gate: `pages:build` → bundle-marker check → `pages:deploy` → prod E2E verification

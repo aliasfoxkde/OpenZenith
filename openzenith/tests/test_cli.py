@@ -38,6 +38,8 @@ from openzenith.cli import (
     cmd_hillshade,
     cmd_info,
     cmd_ingest,
+    cmd_inundation,
+    cmd_kml,
     cmd_multi_hillshade,
     cmd_planform_curvature,
     cmd_profile,
@@ -53,7 +55,9 @@ from openzenith.cli import (
     cmd_twi,
     cmd_validate,
     cmd_viewshed,
+    cmd_viz,
     cmd_watershed,
+    cmd_zonal_stats,
     main,
 )
 from openzenith.merged import MAGIC
@@ -219,6 +223,8 @@ def _mock_grid():
         "center_col": 10,
         "cell_size_deg": 0.001,
         "nodata": -32768.0,
+        "lat_min": 39.99,
+        "lon_min": -74.01,
     }
 
 
@@ -2235,6 +2241,220 @@ class TestCmdBatch:
         with (
             patch.object(sys, "argv", ["openzenith", "batch", "--help"]),
             pytest.raises(SystemExit) as exc,
+        ):
+            main()
+        assert exc.value.code == 0
+
+
+# ─── viz ───────────────────────────────────────────────────────────────────────
+
+
+class TestCmdViz:
+    """Tests for cmd_viz (GLB mesh / contour plot rendering)."""
+
+    def test_glb_success(self):
+        """GLB kind writes a file with mesh bytes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out = str(Path(tmp) / "terrain.glb")
+            args = MagicMock(
+                lat=40.0, lon=-74.0, radius=5, kind="glb", scale=1.0, output=out
+            )
+            with patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()):
+                cmd_viz(args)
+            assert Path(out).stat().st_size > 0
+
+    def test_contours_success(self):
+        """Contours kind saves a PNG via matplotlib (skipped without it)."""
+        pytest.importorskip("matplotlib")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = str(Path(tmp) / "contours.png")
+            args = MagicMock(
+                lat=40.0, lon=-74.0, radius=5, kind="contours", interval=50.0, output=out
+            )
+            with patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()):
+                cmd_viz(args)
+            assert Path(out).stat().st_size > 0
+
+    def test_missing_coords_exits(self):
+        args = MagicMock(lat=None, lon=None, output="x.glb")
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_viz(args)
+        assert exc_info.value.code == 1
+
+    def test_missing_output_exits(self):
+        args = MagicMock(lat=40.0, lon=-74.0, output=None)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_viz(args)
+        assert exc_info.value.code == 1
+
+    def test_viz_help(self):
+        with (
+            pytest.raises(SystemExit) as exc,
+            patch.object(sys, "argv", ["openzenith", "viz", "--help"]),
+        ):
+            main()
+        assert exc.value.code == 0
+
+
+# ─── inundation ────────────────────────────────────────────────────────────────
+
+
+class TestCmdInundation:
+    """Tests for cmd_inundation."""
+
+    def test_flood_report(self):
+        """Reports flooded fraction and depth stats for a mocked grid."""
+        args = MagicMock(lat=40.0, lon=-74.0, radius=5, level=500.0, no_fill=False, output=None)
+        with patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()):
+            cmd_inundation(args)
+
+    def test_no_fill_flag_reaches_engine(self):
+        """--no-fill skips depression filling (mock asserts the kwarg)."""
+        args = MagicMock(lat=40.0, lon=-74.0, radius=5, level=500.0, no_fill=True, output=None)
+        grid = _mock_grid()
+        with (
+            patch("openzenith.elevation.load_elevation_grid", return_value=grid),
+            patch("openzenith.hydrology.flood_inundation", return_value=np.zeros((20, 20), bool)),
+            patch(
+                "openzenith.hydrology.inundation_depth",
+                return_value=np.zeros((20, 20), np.float32),
+            ) as depth_mock,
+        ):
+            cmd_inundation(args)
+        assert depth_mock.call_args.kwargs["fill_depressions_first"] is False
+
+    def test_depth_grid_saved(self):
+        """--output saves the depth grid as .npy."""
+        with tempfile.NamedTemporaryFile(suffix=".npy", delete=False) as f:
+            args = MagicMock(
+                lat=40.0, lon=-74.0, radius=5, level=500.0, no_fill=False, output=f.name
+            )
+            with patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()):
+                cmd_inundation(args)
+            saved = np.load(f.name)
+            assert saved.shape == (20, 20)
+            Path(f.name).unlink()
+
+    def test_missing_coords_exits(self):
+        args = MagicMock(lat=None, lon=None, level=500.0)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_inundation(args)
+        assert exc_info.value.code == 1
+
+    def test_inundation_help(self):
+        with (
+            pytest.raises(SystemExit) as exc,
+            patch.object(sys, "argv", ["openzenith", "inundation", "--help"]),
+        ):
+            main()
+        assert exc.value.code == 0
+
+
+# ─── zonal-stats ───────────────────────────────────────────────────────────────
+
+
+class TestCmdZonalStats:
+    """Tests for cmd_zonal_stats."""
+
+    @staticmethod
+    def _square_collection() -> dict:
+        """One square polygon near the grid's south-west origin."""
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": "plot-a"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [-74.01, 39.99],
+                                [-74.005, 39.99],
+                                [-74.005, 39.995],
+                                [-74.01, 39.995],
+                                [-74.01, 39.99],
+                            ]
+                        ],
+                    },
+                }
+            ],
+        }
+
+    def test_stats_report(self):
+        """Prints one line per feature with the requested stats."""
+        with tempfile.NamedTemporaryFile(
+            suffix=".json", mode="w", delete=False
+        ) as f:
+            json.dump(self._square_collection(), f)
+            f.flush()
+            args = MagicMock(
+                lat=40.0,
+                lon=-74.0,
+                radius=5,
+                geojson=f.name,
+                stats=["mean", "max"],
+            )
+            with patch(
+                "openzenith.elevation.load_elevation_grid", return_value=_mock_grid()
+            ):
+                cmd_zonal_stats(args)
+            Path(f.name).unlink()
+
+    def test_missing_geojson_exits(self):
+        args = MagicMock(lat=40.0, lon=-74.0, geojson=None)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_zonal_stats(args)
+        assert exc_info.value.code == 1
+
+    def test_missing_coords_exits(self):
+        args = MagicMock(lat=None, lon=None, geojson="x.json")
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_zonal_stats(args)
+        assert exc_info.value.code == 1
+
+    def test_zonal_help(self):
+        with (
+            pytest.raises(SystemExit) as exc,
+            patch.object(sys, "argv", ["openzenith", "zonal-stats", "--help"]),
+        ):
+            main()
+        assert exc.value.code == 0
+
+
+# ─── kml ───────────────────────────────────────────────────────────────────────
+
+
+class TestCmdKml:
+    """Tests for cmd_kml."""
+
+    def test_kml_written(self):
+        """Writes a KML document with one Placemark per grid cell."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out = str(Path(tmp) / "grid.kml")
+            args = MagicMock(lat=40.0, lon=-74.0, radius=5, name="Test grid", output=out)
+            with patch("openzenith.elevation.load_elevation_grid", return_value=_mock_grid()):
+                cmd_kml(args)
+            text = Path(out).read_text(encoding="utf-8")
+            assert "<kml" in text
+            assert text.count("<Placemark>") == _mock_grid()["grid"].size
+
+    def test_missing_coords_exits(self):
+        args = MagicMock(lat=None, lon=None, output="x.kml")
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_kml(args)
+        assert exc_info.value.code == 1
+
+    def test_missing_output_exits(self):
+        args = MagicMock(lat=40.0, lon=-74.0, output=None)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_kml(args)
+        assert exc_info.value.code == 1
+
+    def test_kml_help(self):
+        with (
+            pytest.raises(SystemExit) as exc,
+            patch.object(sys, "argv", ["openzenith", "kml", "--help"]),
         ):
             main()
         assert exc.value.code == 0

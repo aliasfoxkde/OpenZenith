@@ -10,6 +10,11 @@ Whether the CLI *binary* exists is a separate question: it only appears after
 ``cargo build --release`` inside ``core/``, which a CI checkout does not do, so
 every test that executes it goes through the ``core_cli`` fixture and is skipped
 (with the wrapper's own error text as the reason) when it is absent.
+
+Stale-binary trap: the fixture resolves the *release* build, but plain
+``cargo test`` only rebuilds the *debug* profile. After any change to
+``core/src/``, run ``cargo build --release`` before the parity/wrapper suites
+or they will happily pass — or fail — against the previous binary.
 """
 
 from __future__ import annotations

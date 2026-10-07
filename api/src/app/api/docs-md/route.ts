@@ -161,13 +161,39 @@ All individual endpoints remain available for backward compatibility.
 
 ### \`GET /api/elevation\`
 
-Elevation data with dataset selection.
+Elevation at a point, from OZT2/SRTM 30m (GEBCO 2025 bathymetry over ocean).
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | \`lat\` | Yes | Latitude |
 | \`lon\` | Yes | Longitude |
-| \`dataset\` | No | \`auto\`, \`srtm30m\`, \`copernicus-glo30\`, \`gebco2025\` |
+| \`interpolation\` | No | \`bilinear\` (default, 4-pixel blend) or \`nearest\` (single pixel). Sources without a 4-pixel neighbourhood always sample nearest and say so in \`metadata.interpolation\`. |
+| \`units\` | No | \`meters\` (default) or \`feet\`. \`metadata.elevation_m\` always carries the raw metres. |
+| \`datum\` | No | \`egm96\` (default) or \`ellipsoid\`. SRTM heights are already EGM96 orthometric, so \`ellipsoid\` is what changes the value: it returns h = H + N from the bundled 30' EGM96 grid (within ~1.5 m of the 5' model) and reports N in \`metadata.geoid_undulation_m\`. |
+
+The response keeps every historical key and adds a \`metadata\` object:
+
+\`\`\`json
+{
+  "elevation": 8790,
+  "unit": "meters",
+  "metadata": {
+    "resolution_m": 30,
+    "vertical_datum": "egm96",
+    "interpolation": "bilinear",
+    "units": "meters",
+    "source": "ozt2",
+    "elevation_m": 8790,
+    "geoid_undulation_m": 0
+  }
+}
+\`\`\`
+
+Unknown values return \`400 INVALID_PARAM\`.
+
+### \`POST /api/elevation/batch\`
+
+Up to 2000 points per request. Takes the same \`interpolation\`, \`units\` and \`datum\` query parameters as \`GET /api/elevation\`; each result carries the raw sample in \`elevation_m\` and the response carries one \`metadata\` block for the whole batch.
 
 ### \`GET /api/bathymetry\`
 
@@ -234,6 +260,24 @@ No parameters required.
 ### \`GET /api/tile/{z}/{x}/{y}\`
 
 SRTM elevation tiles in Terrarium encoding (PNG).
+
+### \`GET /api/dem-tile/{z}/{x}/{y}\`
+
+Global DEM terrain tile. Two independent query parameters select the container and the pixel encoding:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| \`format\` | No | \`ozt2\` (native OZT2 binary, default) or \`png\` (256x256 PNG) |
+| \`encoding\` | No | PNG pixel encoding: \`terrarium\` (default) or \`mapbox\` |
+
+Precedence: \`encoding\` wins over the encoding \`format\` implies, so \`format=png&encoding=mapbox\` returns Mapbox Terrain-RGB v1 while plain \`format=png\` stays Terrarium. \`encoding=mapbox\` with \`format=ozt2\` is a \`400\`, because OZT2 carries no pixel encoding.
+
+The two encodings differ in their nodata story:
+
+- **Terrarium** — \`(R*256 + G + B/256) - 32768\` metres; code 0 is reserved for nodata.
+- **Mapbox Terrain-RGB v1** — \`(R*65536 + G*256 + B) / 10 - 10000\` metres at 0.1 m resolution; the format has no nodata, so anything below -10,000 m (deep bathymetry, nodata) clamps to code 0.
+
+Tiles are immutable and cached at the edge per format/encoding combination; PNG responses carry \`X-Dem-Tile-Encoding\` so a client can confirm which encoding it received.
 
 ### \`GET /api/gebco-tile/{name}\`
 

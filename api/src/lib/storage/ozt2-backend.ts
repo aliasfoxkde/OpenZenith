@@ -114,15 +114,23 @@ export class OZT2HuggingFaceBackend {
 
   /**
    * Get elevation at a single lat/lon point.
-   * Returns null if the point has no data in any source.
+   *
+   * @param interpolation - Grid sampling mode. Defaults to bilinear, which is
+   * what this backend has always done; `nearest` reads the single pixel the
+   * point falls in (`/api/elevation?interpolation=nearest`).
+   * @returns null if the point has no data in any source.
    */
-  async getElevation(lat: number, lon: number): Promise<number | null> {
+  async getElevation(
+    lat: number,
+    lon: number,
+    interpolation: "nearest" | "bilinear" = "bilinear",
+  ): Promise<number | null> {
     // Try OZT2 first
     const { x, y } = latLonToTile(lat, lon, this.zoom);
     const tile = await this.fetchAndDecodeTile(this.zoom, x, y);
 
     if (tile) {
-      const elevation = this.sampleTile(tile, lat, lon);
+      const elevation = this.sampleTile(tile, lat, lon, interpolation);
       if (elevation !== null && elevation !== -32768) {
         return elevation;
       }
@@ -162,10 +170,21 @@ export class OZT2HuggingFaceBackend {
   }
 
   /**
-   * Bilinearly sample a 256×256 decoded OZT2 tile at the given lat/lon.
+   * Sample a 256×256 decoded OZT2 tile at the given lat/lon.
+   *
+   * `nearest` returns the single pixel under the point; `bilinear` (the
+   * default, and the pre-existing behaviour) blends the four surrounding
+   * pixels, renormalising over the valid ones when a corner is NODATA so a
+   * coastline does not get pulled towards 0.
+   *
    * Returns null if the sample is NODATA.
    */
-  private sampleTile(tile: Int16Array, lat: number, lon: number): number | null {
+  private sampleTile(
+    tile: Int16Array,
+    lat: number,
+    lon: number,
+    interpolation: "nearest" | "bilinear" = "bilinear",
+  ): number | null {
     // Get tile's geographic bounds at the backend's zoom level
     const { north, south, east, west } = tileToLatLon(
       this.zoom,
@@ -176,6 +195,12 @@ export class OZT2HuggingFaceBackend {
     // Normalize lat/lon into tile pixel space [0, 256)
     const xFrac = Math.max(0, Math.min(255.999, ((lon - west) / (east - west)) * 256));
     const yFrac = Math.max(0, Math.min(255.999, ((north - lat) / (north - south)) * 256));
+
+    if (interpolation === "nearest") {
+      // Rounding can reach 256 at the 255.999 clamp, which is out of bounds.
+      const value = tile[Math.min(255, Math.round(yFrac)) * 256 + Math.min(255, Math.round(xFrac))];
+      return value === -32768 ? null : value;
+    }
 
     const x0 = Math.floor(xFrac);
     const y0 = Math.floor(yFrac);

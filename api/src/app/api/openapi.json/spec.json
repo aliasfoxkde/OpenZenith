@@ -638,7 +638,7 @@
     "/api/dem-tile/{z}/{x}/{y}": {
       "get": {
         "summary": "DEM terrain tile",
-        "description": "Returns a Terrarium-encoded PNG elevation tile at the given z/x/y coordinates.",
+        "description": "Returns an elevation tile at the given z/x/y coordinates: Terrarium PNG by default, Mapbox Terrain-RGB v1 with `encoding=mapbox`, or the native OZT2 binary with `format=ozt2`. Tiles are immutable and cached at the edge per format/encoding combination.",
         "parameters": [
           {
             "name": "z",
@@ -666,6 +666,34 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "png",
+                "ozt2"
+              ],
+              "default": "ozt2"
+            },
+            "description": "Container: `ozt2` (native OZT2 binary, default) or `png` (256x256 PNG)."
+          },
+          {
+            "name": "encoding",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "terrarium",
+                "mapbox"
+              ],
+              "default": "terrarium"
+            },
+            "description": "PNG pixel encoding: `terrarium` ((R*256+G+B/256)-32768 m, code 0 reserved for nodata) or `mapbox` (Terrain-RGB v1: (R*65536+G*256+B)/10-10000 m, no nodata — values below -10,000 m clamp to 0). Requires `format=png`; overrides the encoding `format` implies."
           }
         ],
         "tags": [
@@ -857,7 +885,7 @@
     "/api/elevation": {
       "get": {
         "summary": "Get elevation at a point",
-        "description": "Returns the elevation in meters at the given latitude/longitude coordinates using NASA SRTM 30m data with bilinear interpolation.",
+        "description": "Returns elevation at the given latitude/longitude from OZT2/SRTM 30m data (GEBCO 2025 bathymetry over ocean). Sampling, unit and vertical datum are selectable via query parameters; an additive `metadata` object always reports what was applied and repeats the raw sample in metres.",
         "parameters": [
           {
             "name": "lat",
@@ -882,6 +910,48 @@
             },
             "description": "Longitude (-180 to 180)",
             "example": 86.9
+          },
+          {
+            "name": "interpolation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "nearest",
+                "bilinear"
+              ],
+              "default": "bilinear"
+            },
+            "description": "Grid sampling: `bilinear` blends the 4 neighbouring pixels (default), `nearest` returns the single containing pixel. Sources without a 4-pixel neighbourhood (merged chunks, GEBCO) always sample nearest and report it in `metadata.interpolation`."
+          },
+          {
+            "name": "units",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "meters",
+                "feet"
+              ],
+              "default": "meters"
+            },
+            "description": "Unit of `elevation`. The raw EGM96 orthometric sample stays in metres in `metadata.elevation_m`."
+          },
+          {
+            "name": "datum",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "egm96",
+                "ellipsoid"
+              ],
+              "default": "egm96"
+            },
+            "description": "Vertical datum. `egm96` (default) returns the orthometric height SRTM already carries; `ellipsoid` returns h = H + N using the bundled 30' EGM96 grid and reports N in `metadata.geoid_undulation_m`."
           }
         ],
         "responses": {
@@ -902,7 +972,11 @@
                     },
                     "unit": {
                       "type": "string",
-                      "example": "meters"
+                      "example": "meters",
+                      "enum": [
+                        "meters",
+                        "feet"
+                      ]
                     },
                     "location": {
                       "type": "object",
@@ -930,6 +1004,56 @@
                       "type": "number",
                       "example": 30,
                       "description": "Resolution in meters"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "description": "Additive: the effective parameters plus the raw sample, so a `feet`/`ellipsoid` answer can always be re-derived.",
+                      "properties": {
+                        "resolution_m": {
+                          "type": "number",
+                          "example": 30,
+                          "description": "Source ground sampling in metres (0 when no source answered)"
+                        },
+                        "vertical_datum": {
+                          "type": "string",
+                          "enum": [
+                            "egm96",
+                            "ellipsoid"
+                          ],
+                          "example": "egm96"
+                        },
+                        "interpolation": {
+                          "type": "string",
+                          "enum": [
+                            "nearest",
+                            "bilinear"
+                          ],
+                          "description": "The mode actually used, which `nearest`-only sources override"
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "meters",
+                            "feet"
+                          ],
+                          "example": "meters"
+                        },
+                        "source": {
+                          "type": "string",
+                          "example": "ozt2"
+                        },
+                        "elevation_m": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "description": "Raw EGM96 orthometric sample in metres, whatever `units` asked for"
+                        },
+                        "geoid_undulation_m": {
+                          "type": "number",
+                          "description": "EGM96 undulation N in metres (0 unless `datum=ellipsoid`)"
+                        }
+                      }
                     }
                   }
                 },
@@ -942,7 +1066,16 @@
                   },
                   "source": "srtm30m",
                   "srtmTile": "N28E086.tif",
-                  "resolution": 30
+                  "resolution": 30,
+                  "metadata": {
+                    "resolution_m": 30,
+                    "vertical_datum": "egm96",
+                    "interpolation": "bilinear",
+                    "units": "meters",
+                    "source": "ozt2",
+                    "elevation_m": 8848,
+                    "geoid_undulation_m": 0
+                  }
                 }
               }
             }
@@ -1060,7 +1193,7 @@
     "/api/elevation/batch": {
       "post": {
         "summary": "Batch elevation lookup",
-        "description": "Returns elevation for up to 2000 geographic points in a single request.",
+        "description": "Returns elevation for up to 2000 geographic points in a single request. Accepts the same `interpolation`, `units` and `datum` query parameters as `/api/elevation`; each result carries the raw sample in `elevation_m` and the response carries a `metadata` block.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1100,7 +1233,136 @@
         },
         "tags": [
           "Elevation"
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "interpolation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "nearest",
+                "bilinear"
+              ],
+              "default": "bilinear"
+            },
+            "description": "Grid sampling: `bilinear` blends the 4 neighbouring pixels (default), `nearest` returns the single containing pixel. Sources without a 4-pixel neighbourhood (merged chunks, GEBCO) always sample nearest and report it in `metadata.interpolation`."
+          },
+          {
+            "name": "units",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "meters",
+                "feet"
+              ],
+              "default": "meters"
+            },
+            "description": "Unit of `elevation`. The raw EGM96 orthometric sample stays in metres in `metadata.elevation_m`."
+          },
+          {
+            "name": "datum",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "egm96",
+                "ellipsoid"
+              ],
+              "default": "egm96"
+            },
+            "description": "Vertical datum. `egm96` (default) returns the orthometric height SRTM already carries; `ellipsoid` returns h = H + N using the bundled 30' EGM96 grid and reports N in `metadata.geoid_undulation_m`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch elevation data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "lat": {
+                            "type": "number"
+                          },
+                          "lon": {
+                            "type": "number"
+                          },
+                          "elevation": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "description": "In the requested `units` and `datum`"
+                          },
+                          "elevation_m": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "description": "Raw EGM96 orthometric sample in metres"
+                          }
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "resolution_m": {
+                          "type": "number",
+                          "example": 30
+                        },
+                        "vertical_datum": {
+                          "type": "string",
+                          "enum": [
+                            "egm96",
+                            "ellipsoid"
+                          ]
+                        },
+                        "interpolation": {
+                          "type": "string",
+                          "enum": [
+                            "nearest",
+                            "bilinear"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "meters",
+                            "feet"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "example": "huggingface"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
       }
     },
     "/api/fire-temperature/{z}/{x}/{y}": {

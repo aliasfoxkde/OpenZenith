@@ -42,7 +42,7 @@ from typing import Any
 import requests
 from typing_extensions import Self
 
-from .elevation import latlon_to_tile
+from .elevation import check_elevation_params, latlon_to_tile
 
 __all__ = [
     "BASE_URL_ENV",
@@ -318,12 +318,26 @@ class ZenithClient:
         result: dict[str, Any] = self._get("/api/query", _params(**params))
         return result
 
-    def elevation(self, lat: float, lon: float) -> dict[str, Any]:
+    def elevation(
+        self,
+        lat: float,
+        lon: float,
+        datum: str | None = None,
+        interpolation: str | None = None,
+        units: str | None = None,
+    ) -> dict[str, Any]:
         """Call ``GET /api/elevation`` — point elevation in meters.
 
         Args:
             lat: Latitude (-90 to 90).
             lon: Longitude (-180 to 180).
+            datum: Vertical datum, ``"egm96"`` (orthometric, the SRTM native
+                datum) or ``"ellipsoid"`` (heights above the WGS84 ellipsoid).
+                Sent only when set.
+            interpolation: Resampling method, ``"nearest"`` or ``"bilinear"``.
+                Sent only when set.
+            units: Response units, ``"meters"`` or ``"feet"``. Sent only when
+                set.
 
         Returns:
             The response body::
@@ -337,6 +351,7 @@ class ZenithClient:
                   "source": "ozt2" | "huggingface" | "gebco2025" | "none",
                   "tile": "<tile path or empty>",
                   "resolution": <30 | 450 | 0>,
+                  "metadata": {"datum": ..., "interpolation": ..., "units": ...},
                   "ok": true | false,
                 }
 
@@ -346,11 +361,22 @@ class ZenithClient:
         Raises:
             RestError: On a non-OK response (400 invalid coords, 502 when the
                 sources are unavailable).
-            ValueError: If lat/lon are out of range.
+            ValueError: If lat/lon are out of range, or a datum/interpolation/
+                units value is not one the route defines.
+
+        Note:
+            The three optional parameters are validated locally and sent only
+            when set. The route echoes the options it actually applied in the
+            response's ``metadata`` object, so a caller can confirm the server
+            honored the request rather than a default.
 
         """
         _check_latlon(lat, lon)
-        result: dict[str, Any] = self._get("/api/elevation", {"lat": lat, "lon": lon})
+        check_elevation_params(datum=datum, interpolation=interpolation, units=units)
+        result: dict[str, Any] = self._get(
+            "/api/elevation",
+            _params(lat=lat, lon=lon, datum=datum, interpolation=interpolation, units=units),
+        )
         return result
 
     def elevation_batch(self, points: Sequence[Point]) -> list[dict[str, Any]]:
@@ -367,6 +393,11 @@ class ZenithClient:
             "elevation": <number | null>}``. ``elevation`` is ``null`` where no
             tile data was available. Points are sampled at zoom 12 server-side
             and rounded to 0.1 m.
+
+        Note:
+            No ``datum``/``interpolation``/``units`` here: the batch route's
+            body contract is ``{points}`` only — it takes no options object,
+            always samples at zoom 12 and always returns meters.
 
         Raises:
             ValueError: If ``points`` is empty or exceeds
@@ -754,13 +785,20 @@ def query(
     return (client or _shared_client()).query(lat, lon, include, units, forecast_days)
 
 
-def elevation_at(lat: float, lon: float, client: ZenithClient | None = None) -> dict[str, Any]:
+def elevation_at(
+    lat: float,
+    lon: float,
+    datum: str | None = None,
+    interpolation: str | None = None,
+    units: str | None = None,
+    client: ZenithClient | None = None,
+) -> dict[str, Any]:
     """Module-level :meth:`ZenithClient.elevation`.
 
     Suffixed ``_at`` because the bare name ``openzenith.elevation`` is the
     package's local-tile elevation module.
     """
-    return (client or _shared_client()).elevation(lat, lon)
+    return (client or _shared_client()).elevation(lat, lon, datum, interpolation, units)
 
 
 def elevation_batch(

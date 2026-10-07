@@ -12,9 +12,13 @@ import pytest
 from PIL import Image
 
 from openzenith.elevation import (
+    VALID_DATUMS,
+    VALID_INTERPOLATION,
+    VALID_UNITS,
     _get_elevation_from_ozt2,
     _interpolate_from_tile,
     _log_tile_error,
+    check_elevation_params,
     download_tiles,
     get_elevation,
     get_elevation_along_path,
@@ -51,6 +55,45 @@ def _make_tile_dir(tile_dir: Path, zoom: int, x: int, y: int, height: int = 1000
     png_path = tile_path / f"{y}.png"
     png_path.write_bytes(_make_terrarium_png(height))
     return png_path
+
+
+# ─── elevation query option vocabulary ───────────────────────────────────────
+
+
+def test_elevation_option_vocabularies_are_non_empty():
+    """Every accepted-value set is a non-empty, duplicate-free tuple of strings."""
+    for vocab in (VALID_DATUMS, VALID_INTERPOLATION, VALID_UNITS):
+        assert len(vocab) > 0
+        assert len(set(vocab)) == len(vocab)
+        assert all(isinstance(v, str) and v for v in vocab)
+
+
+def test_check_elevation_params_accepts_none_and_valid_values():
+    """Unset params stay unset, and every documented value passes."""
+    assert check_elevation_params() is None
+    assert check_elevation_params(datum="egm96", interpolation="bilinear", units="meters") is None
+    for datum in VALID_DATUMS:
+        assert check_elevation_params(datum=datum) is None
+    for method in VALID_INTERPOLATION:
+        assert check_elevation_params(interpolation=method) is None
+    for unit in VALID_UNITS:
+        assert check_elevation_params(units=unit) is None
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "name"),
+    [
+        ({"datum": "NAVD88"}, "datum"),
+        ({"datum": ""}, "datum"),
+        ({"interpolation": "cubic"}, "interpolation"),
+        ({"units": "fathoms"}, "units"),
+        ({"datum": "egm96", "interpolation": "bicubic", "units": "meters"}, "interpolation"),
+    ],
+)
+def test_check_elevation_params_rejects_unknown_values(kwargs, name):
+    """An unknown value raises naming the parameter and the accepted set."""
+    with pytest.raises(ValueError, match=rf"{name} must be one of"):
+        check_elevation_params(**kwargs)
 
 
 # ─── latlon_to_tile ─────────────────────────────────────────────────────────────

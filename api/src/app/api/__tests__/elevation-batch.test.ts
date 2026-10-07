@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockRequest, bodyAs } from "./helpers";
 import { getTileData } from "@/lib/tile";
 
@@ -27,7 +27,14 @@ vi.mock("@/lib/srtm/zoom-math", async (importOriginal) => {
 
 /** Success/error union the batch route can return. */
 interface ElevationBatchBody {
-  results?: Array<{ id?: string; lat: number; lon: number; elevation: number | null }>;
+  results?: Array<{
+    id?: string;
+    lat: number;
+    lon: number;
+    elevation: number | null;
+    /** Raw EGM96 orthometric sample in metres. */
+    elevation_m?: number | null;
+  }>;
   error?: string;
 }
 
@@ -168,5 +175,109 @@ describe("Elevation Batch API", () => {
     const resp = await POST(req);
     expect(resp.status).toBe(500);
     expect(await bodyAs<ElevationBatchBody>(resp)).toEqual({ error: "Unknown error" });
+  });
+});
+
+describe("Elevation Batch API — interpolation, units and datum", () => {
+  /** Success body including the additive `elevation_m` and `metadata` keys. */
+  interface ParamBody extends ElevationBatchBody {
+    metadata?: {
+      resolution_m: number;
+      vertical_datum: string;
+      interpolation: string;
+      units: string;
+      source: string;
+    };
+  }
+
+  /** Round to the 0.1 step the endpoints present values at. */
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+
+  beforeEach(() => {
+    vi.mocked(getTileData).mockResolvedValue({
+      data: new Int16Array([100, 200, 150, 250, 300, 350, 400, 450, 500]),
+      width: 3,
+      height: 3,
+      zoom: 12,
+    });
+  });
+
+  const post = async (query: string, points: Array<{ lat: number; lon: number; id?: string }>) => {
+    const { POST } = await import("@/app/api/elevation/batch/route");
+    const req = mockRequest(`/api/elevation/batch${query}`, "POST", JSON.stringify({ points }));
+    return bodyAs<ParamBody>(await POST(req));
+  };
+
+  it("adds elevation_m and a metadata block without changing elevation", async () => {
+    const data = await post("", [{ lat: 40.7, lon: -74.0 }]);
+
+    expect(typeof data.results?.[0].elevation_m).toBe("number");
+    // meters + egm96 is the identity, so both spellings agree.
+    expect(data.results?.[0].elevation).toBe(data.results?.[0].elevation_m);
+    expect(data.metadata).toEqual({
+      resolution_m: 30,
+      vertical_datum: "egm96",
+      interpolation: "bilinear",
+      units: "meters",
+      source: "huggingface",
+    });
+  });
+
+  it("threads interpolation=nearest to the sampler", async () => {
+    const data = await post("?interpolation=nearest", [{ lat: 40.7, lon: -74.0 }]);
+
+    expect(data.metadata?.interpolation).toBe("nearest");
+    // Nearest can only ever return a pixel value from the mocked 3x3 grid.
+    expect([100, 200, 150, 250, 300, 350, 400, 450, 500]).toContain(data.results?.[0].elevation);
+  });
+
+  it("reports a mixed batch in feet against the raw metres", async () => {
+    const data = await post("?units=feet", [
+      { lat: 40.7, lon: -74.0 },
+      { lat: 51.5, lon: -0.1 },
+    ]);
+
+    expect(data.metadata?.units).toBe("feet");
+    for (const r of data.results ?? []) {
+      expect(typeof r.elevation_m).toBe("number");
+      expect(r.elevation).toBe(round1((r.elevation_m as number) / 0.3048));
+    }
+  });
+
+  it("adds the undulation per point for ellipsoidal heights", async () => {
+    const { egm96UndulationAt } = await import("@/lib/egm96");
+    const spots = [
+      { lat: 40.7, lon: -74.0 },
+      { lat: 51.5, lon: -0.1 },
+    ];
+    const data = await post("?datum=ellipsoid", spots);
+
+    expect(data.metadata?.vertical_datum).toBe("ellipsoid");
+    for (const [i, r] of (data.results ?? []).entries()) {
+      const undulation = await egm96UndulationAt(spots[i].lat, spots[i].lon);
+      expect(r.elevation).toBe(round1((r.elevation_m as number) + undulation));
+    }
+  });
+
+  it("leaves a nodata result null in every presentation", async () => {
+    vi.mocked(getTileData).mockResolvedValueOnce({
+      data: new Int16Array(9).fill(-32768),
+      width: 3,
+      height: 3,
+      zoom: 12,
+    });
+    const data = await post("?units=feet&datum=ellipsoid", [{ lat: 40.7, lon: -74.0 }]);
+
+    expect(data.results?.[0].elevation).toBeNull();
+    expect(data.results?.[0].elevation_m).toBeNull();
+  });
+
+  it.each([
+    ["interpolation=cubic", "interpolation must be 'nearest' or 'bilinear'"],
+    ["units=metres", "units must be 'meters' or 'feet'"],
+    ["datum=wgs84", "datum must be 'egm96' or 'ellipsoid'"],
+  ])("rejects %s before reading the body", async (query, message) => {
+    const data = await post(`?${query}`, [{ lat: 40.7, lon: -74.0 }]);
+    expect(data).toEqual({ error: message });
   });
 });

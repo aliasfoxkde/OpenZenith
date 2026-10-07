@@ -4,9 +4,14 @@
  * Accepts multiple lat/lon points and returns elevations in a single request.
  * Uses HuggingFace merged chunks for edge deployment.
  *
- * POST /api/elevation/batch
+ * POST /api/elevation/batch?units=feet&datum=ellipsoid&interpolation=nearest
  * Body: { points: [{lat, lon, id?}, ...] }
- * Response: { results: [{lat, lon, elevation, id?}, ...] }
+ * Response: { results: [{lat, lon, elevation, elevation_m, id?}, ...], metadata }
+ *
+ * Query params match /api/elevation: `interpolation` (default bilinear, the
+ * sampling this endpoint has always used), `units` (default meters) and
+ * `datum` (default egm96 — SRTM heights are already EGM96 orthometric, so
+ * `ellipsoid` is what actually changes the value).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,11 +19,19 @@ import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import {
+  parseElevationParams,
+  presentElevation,
+  type Interpolation,
+} from "@/lib/elevation-params";
 
 export const runtime = "edge";
 
 // HuggingFace backend (edge-compatible)
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
+
+// Source DEM ground sampling — the z12 tile grid is built from 30 m SRTM.
+const BATCH_RESOLUTION_M = 30;
 
 export function OPTIONS() {
   return corsPreflightResponse();
@@ -35,6 +48,8 @@ interface BatchResult {
   lat: number;
   lon: number;
   elevation: number | null;
+  /** Raw EGM96 orthometric sample, unaffected by `units`/`datum`. */
+  elevation_m: number | null;
 }
 
 /** Client request body. Every field is validated explicitly after parsing. */
@@ -47,6 +62,7 @@ function sampleElevation(
   lat: number,
   lon: number,
   zoom: number,
+  interpolation: Interpolation,
 ): number | null {
   const { x, y } = latLonToTile(lat, lon, zoom);
   const n = 2 ** zoom;
@@ -58,6 +74,13 @@ function sampleElevation(
   const h = tileData.height;
   const px = xFrac * (w - 1);
   const py = yFrac * (h - 1);
+
+  if (interpolation === "nearest") {
+    // Rounding can reach w/h at the far edge, which is out of bounds.
+    const value = tileData.data[Math.min(h - 1, Math.round(py)) * w + Math.min(w - 1, Math.round(px))];
+    return value === -32768 ? null : value;
+  }
+
   const x0 = Math.floor(px);
   const y0 = Math.floor(py);
   const x1 = Math.min(x0 + 1, w - 1);
@@ -78,6 +101,11 @@ function sampleElevation(
 }
 
 export async function POST(request: NextRequest) {
+  const params = parseElevationParams(request.nextUrl.searchParams);
+  if (!params.ok) {
+    return NextResponse.json({ error: params.message }, { status: 400, headers: CORS_HEADERS });
+  }
+
   let body: BatchRequestBody;
   try {
     body = (await request.json()) as BatchRequestBody;
@@ -113,6 +141,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const zoom = 12;
+    // The geoid grid is only paid for when a caller actually asked for
+    // ellipsoidal heights; `egm96` (the default) is the identity.
+    const egm96 = params.params.datum === "ellipsoid" ? await import("@/lib/egm96") : null;
     const results: BatchResult[] = new Array<BatchResult>(points.length);
     const tileCache = new Map<string, { data: Int16Array; width: number; height: number } | null>();
 
@@ -142,17 +173,35 @@ export async function POST(request: NextRequest) {
       const tileData = tileCache.get(tileKey);
       for (const idx of indices) {
         const p = points[idx];
-        const elevation = tileData ? sampleElevation(tileData, p.lat, p.lon, zoom) : null;
+        const raw = tileData ? sampleElevation(tileData, p.lat, p.lon, zoom, params.params.interpolation) : null;
+        // `raw` carries the 0.1 m rounding the endpoint has always applied.
+        const elevation_m = raw !== null ? Math.round(raw * 10) / 10 : null;
+        // The grid is resident after the first lookup, so an await per point is
+        // a microtask, not a decode.
+        const undulation =
+          elevation_m === null || !egm96 ? 0 : await egm96.egm96UndulationAt(p.lat, p.lon);
         results[idx] = {
           id: p.id,
           lat: p.lat,
           lon: p.lon,
-          elevation: elevation !== null ? Math.round(elevation * 10) / 10 : null,
+          elevation: elevation_m === null ? null : presentElevation(elevation_m, undulation, params.params),
+          elevation_m,
         };
       }
     }
 
-    return NextResponse.json({ results }, { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } });
+    const metadata = {
+      resolution_m: BATCH_RESOLUTION_M,
+      vertical_datum: params.params.datum,
+      interpolation: params.params.interpolation,
+      units: params.params.units,
+      source: "huggingface",
+    };
+
+    return NextResponse.json(
+      { results, metadata },
+      { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });

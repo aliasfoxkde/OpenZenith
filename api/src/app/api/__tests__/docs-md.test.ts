@@ -36,4 +36,22 @@ describe("API Docs Markdown", () => {
     expect(text).toContain("GET /api/query");
     expect(text).toContain("Rate Limits");
   });
+
+  it("documents the elevation sampling, unit and datum parameters", async () => {
+    const { GET } = await import("@/app/api/docs-md/route");
+    const text = await GET().text();
+    expect(text).toContain("`interpolation`");
+    expect(text).toContain("`units`");
+    expect(text).toContain("`datum`");
+    expect(text).toContain("geoid_undulation_m");
+    expect(text).toContain("POST /api/elevation/batch");
+  });
+
+  it("documents both dem-tile pixel encodings and their precedence", async () => {
+    const { GET } = await import("@/app/api/docs-md/route");
+    const text = await GET().text();
+    expect(text).toContain("`encoding=mapbox`");
+    // The example block must render as a fenced code block, not a leaked escape.
+    expect(text).toContain("```json\n{\n  \"elevation\": 8790,");
+  });
 });

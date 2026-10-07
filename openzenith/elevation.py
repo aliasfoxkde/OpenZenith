@@ -57,6 +57,47 @@ def _log_tile_error(path: Path, operation: str, err: Exception) -> None:
     _logger.debug("tile %s failed (%s): %s: %s", path, operation, type(err).__name__, err)
 
 
+#: Vertical datums accepted for the elevation query ``datum=`` parameter.
+#: SRTM is sampled on the EGM96 geoid, so ``egm96`` is the native (orthometric)
+#: datum; ``ellipsoid`` asks for heights above the WGS84 ellipsoid.
+VALID_DATUMS = ("egm96", "ellipsoid")
+
+#: Resampling methods accepted for the elevation query ``interpolation=``.
+VALID_INTERPOLATION = ("nearest", "bilinear")
+
+#: Units accepted for the elevation query ``units=``.
+VALID_UNITS = ("meters", "feet")
+
+
+def check_elevation_params(
+    datum: str | None = None,
+    interpolation: str | None = None,
+    units: str | None = None,
+) -> None:
+    """Validate the optional elevation query parameters.
+
+    Client-side gate on the ``GET /api/elevation`` query parameters, so a typo
+    raises locally with the accepted values instead of riding along in the URL
+    and quietly getting the server default.
+
+    Args:
+        datum: Vertical datum — one of :data:`VALID_DATUMS`.
+        interpolation: Resampling method — one of :data:`VALID_INTERPOLATION`.
+        units: Response units — one of :data:`VALID_UNITS`.
+
+    Raises:
+        ValueError: If any given value is outside its accepted set.
+
+    """
+    for name, value, valid in (
+        ("datum", datum, VALID_DATUMS),
+        ("interpolation", interpolation, VALID_INTERPOLATION),
+        ("units", units, VALID_UNITS),
+    ):
+        if value is not None and value not in valid:
+            raise ValueError(f"{name} must be one of {', '.join(valid)}, got {value!r}")
+
+
 # Default HuggingFace dataset
 HF_REPO = "aliasfox/openzenith-dem"
 DEFAULT_TILE_DIR = None  # Set via load_tiles()

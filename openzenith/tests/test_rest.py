@@ -235,6 +235,54 @@ class TestElevation:
         assert rest.elevation_at(1.0, 2.0, client=client)["elevation"] == 3.0
         assert session.get.call_args.args[0] == "https://api.test/api/elevation"
 
+    def test_optional_params_are_sent_when_set(self):
+        client, session = _stub_client()
+        session.get.return_value = _stub_response({"elevation": 10.5})
+        client.elevation(40.7, -74.0, datum="ellipsoid", interpolation="nearest", units="feet")
+        assert session.get.call_args.kwargs["params"] == {
+            "lat": 40.7,
+            "lon": -74.0,
+            "datum": "ellipsoid",
+            "interpolation": "nearest",
+            "units": "feet",
+        }
+
+    def test_partial_params_do_not_send_defaults(self):
+        client, session = _stub_client()
+        session.get.return_value = _stub_response({"elevation": 10.5})
+        client.elevation(40.7, -74.0, units="feet")
+        assert session.get.call_args.kwargs["params"] == {
+            "lat": 40.7,
+            "lon": -74.0,
+            "units": "feet",
+        }
+
+    def test_module_level_alias_forwards_options(self):
+        client, session = _stub_client()
+        session.get.return_value = _stub_response({"elevation": 10.5})
+        rest.elevation_at(40.7, -74.0, datum="egm96", units="meters", client=client)
+        assert session.get.call_args.kwargs["params"] == {
+            "lat": 40.7,
+            "lon": -74.0,
+            "datum": "egm96",
+            "units": "meters",
+        }
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"datum": "NAVD88"},
+            {"interpolation": "cubic"},
+            {"units": "fathoms"},
+            {"datum": "egm96", "interpolation": "bicubic"},
+        ],
+    )
+    def test_rejects_unknown_values_before_the_request(self, kwargs):
+        client, session = _stub_client()
+        with pytest.raises(ValueError, match="must be one of"):
+            client.elevation(40.7, -74.0, **kwargs)
+        session.get.assert_not_called()
+
 
 # ─── elevation_batch ──────────────────────────────────────────────────────────
 

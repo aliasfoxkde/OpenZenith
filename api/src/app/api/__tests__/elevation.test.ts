@@ -350,3 +350,149 @@ describe("Elevation endpoint", () => {
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
   });
 });
+
+describe("Elevation endpoint — interpolation, units and datum", () => {
+  /** Body the parameter tests assert on; `metadata` is additive and optional. */
+  interface ParamsBody extends ElevationBody {
+    metadata?: {
+      resolution_m: number;
+      vertical_datum: string;
+      interpolation: string;
+      units: string;
+      source: string;
+      elevation_m: number | null;
+      geoid_undulation_m: number;
+    };
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockOZT2GetElevation.mockResolvedValue(8790);
+  });
+
+  it("returns the existing keys unchanged plus an additive metadata block", async () => {
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9"));
+    const data = await bodyAs<ParamsBody>(resp);
+
+    // Pre-existing contract: the raw orthometric sample in metres.
+    expect(data.elevation).toBe(8790);
+    expect(data.unit).toBe("meters");
+    expect(data.source).toBe("ozt2");
+    expect(data.resolution).toBe(30);
+    expect(data.ok).toBe(true);
+
+    expect(data.metadata).toEqual({
+      resolution_m: 30,
+      vertical_datum: "egm96",
+      interpolation: "bilinear",
+      units: "meters",
+      source: "ozt2",
+      elevation_m: 8790,
+      geoid_undulation_m: 0,
+    });
+  });
+
+  it("reports nearest when the OZT2 source was asked to point-sample", async () => {
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9&interpolation=nearest"));
+    const data = await bodyAs<ParamsBody>(resp);
+    expect(mockOZT2GetElevation).toHaveBeenCalledWith(28, 86.9, "nearest");
+    expect(data.metadata?.interpolation).toBe("nearest");
+  });
+
+  it("reports nearest for the merged-chunk source, which samples one pixel", async () => {
+    mockOZT2GetElevation.mockRejectedValueOnce(new Error("no ozt2 tile"));
+    mockGetPointElevation.mockResolvedValueOnce({ elevation: 8790, surfaceType: "land", tile: "N28E086" });
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9"));
+    const data = await bodyAs<ParamsBody>(resp);
+    expect(data.source).toBe("huggingface");
+    expect(data.metadata?.interpolation).toBe("nearest");
+  });
+
+  it("converts to feet and keeps the raw metres in metadata", async () => {
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9&units=feet"));
+    const data = await bodyAs<ParamsBody>(resp);
+    expect(data.elevation).toBe(28838.6); // 8790 m -> 28,838.6 ft
+    expect(data.unit).toBe("feet");
+    expect(data.metadata?.units).toBe("feet");
+    expect(data.metadata?.elevation_m).toBe(8790);
+  });
+
+  it("adds the geoid undulation for ellipsoidal heights", async () => {
+    const { egm96UndulationAt } = await import("@/lib/egm96");
+    const undulation = await egm96UndulationAt(28, 86.9);
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9&datum=ellipsoid"));
+    const data = await bodyAs<ParamsBody>(resp);
+
+    expect(data.metadata?.vertical_datum).toBe("ellipsoid");
+    expect(data.metadata?.geoid_undulation_m).toBeCloseTo(undulation, 2);
+    expect(data.elevation).toBeCloseTo(8790 + undulation, 1);
+    // SRTM is EGM96 already, so the raw sample is the orthometric height.
+    expect(data.metadata?.elevation_m).toBe(8790);
+  });
+
+  it("converts a cached raw sample with the parameters of the current request", async () => {
+    const { edgeGetJson } = await import("@/lib/storage/edge-cache");
+    // A pre-parameters deployment cached the raw sample with no metadata.
+    vi.mocked(edgeGetJson).mockResolvedValueOnce({ elevation: 8790, unit: "meters", source: "ozt2", resolution: 30 });
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=28&lon=86.9&units=feet"));
+    const data = await bodyAs<ParamsBody>(resp);
+
+    expect(resp.headers.get("X-Cache")).toBe("HIT");
+    expect(data.elevation).toBe(28838.6);
+    expect(data.unit).toBe("feet");
+    expect(data.metadata?.elevation_m).toBe(8790);
+  });
+
+  it("still reports metadata when no source answered", async () => {
+    mockOZT2GetElevation.mockRejectedValue(new Error("ozt2 down"));
+    mockGetPointElevation.mockRejectedValue(new Error("merged down"));
+    mockGetGebcoElevation.mockRejectedValue(new Error("gebco down"));
+
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest("/api/elevation?lat=0.5&lon=0.5&datum=ellipsoid"));
+    const data = await bodyAs<ParamsBody>(resp);
+
+    expect(data.ok).toBe(false);
+    expect(data.elevation).toBeNull();
+    expect(data.metadata?.source).toBe("none");
+    expect(data.metadata?.resolution_m).toBe(0);
+    expect(data.metadata?.elevation_m).toBeNull();
+  });
+
+  it.each([
+    ["interpolation=cubic", "interpolation must be 'nearest' or 'bilinear'"],
+    ["units=metres", "units must be 'meters' or 'feet'"],
+    ["datum=wgs84", "datum must be 'egm96' or 'ellipsoid'"],
+  ])("rejects %s with INVALID_PARAM", async (search, message) => {
+    const { GET } = await import("@/app/api/elevation/route");
+    const resp = await GET(mockRequest(`/api/elevation?lat=28&lon=86.9&${search}`));
+    expect(resp.status).toBe(400);
+
+    const data = await bodyAs<ElevationErrorBody>(resp);
+    expect(data.error.code).toBe("INVALID_PARAM");
+    expect(data.error.message).toBe(message);
+  });
+
+  it("keeps the raw sample in the edge cache regardless of the requested presentation", async () => {
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    const { GET } = await import("@/app/api/elevation/route");
+    await GET(mockRequest("/api/elevation?lat=28&lon=86.9&units=feet&datum=ellipsoid"));
+
+    // One cached sample serves every parameter combination, so the cache
+    // stores what the source returned rather than the converted answer.
+    expect(edgePutJson).toHaveBeenCalledWith(
+      "api/elevation?lat=28.0000000&lon=86.9000000",
+      expect.objectContaining({ elevation: 8790 }),
+      86400,
+    );
+  });
+});

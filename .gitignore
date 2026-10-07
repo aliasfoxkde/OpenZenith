@@ -80,3 +80,7 @@ elevation.geojson
 # Local smoke-test wrangler state + package probes (regenerated per run)
 .smoke-persist-*/
 .pkgprobe/
+
+# PMTiles archives built by scripts/build_pmtiles_z7.py (regenerable, uploaded
+# to the aliasfox/srtm30m-terrain-pmtiles HF dataset)
+pmtiles/

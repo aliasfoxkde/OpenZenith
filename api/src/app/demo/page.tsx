@@ -162,7 +162,7 @@ export default function Demo() {
               </svg>
               OpenZenith
             </Link>
-            /* #a3a3a3 = 7.85:1 on the #0a0a0a header bar (AAA); #333 and #888 were not */
+            {/* #a3a3a3 = 7.85:1 on the #0a0a0a header bar (AAA); #333 and #888 were not */}
             <span style={{ color: "#a3a3a3" }}>/</span>
             <span style={{ color: "#a3a3a3", fontSize: "0.9rem" }}>Elevation Map</span>
           </div>

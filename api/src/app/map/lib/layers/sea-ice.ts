@@ -1,21 +1,25 @@
 import type { LayerHandle } from "./types";
 import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raster-factory";
 
-/* ─── Sea Ice (OSI SAF — Ocean and Sea Ice Satellite Application Facility) ─── */
+/* ─── Sea Ice (NASA GIBS — AMSRU2 sea ice concentration) ─── */
 
 const seaIceSpec: RasterLayerSpec = {
   sourceId: "seaIce",
-  tiles: ["https://polar.nsidc.org/thredds/wms/NSIDC0051_SEAICE_PS_N25km/agger?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=sic&FORMAT=image/png&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}"],
+  tiles: [
+    "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=AMSRU2_Sea_Ice_Concentration_12km&STYLES=&FORMAT=image/png&TRANSPARENT=true&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}",
+  ],
   opacity: 0.7,
   minzoom: 0,
   maxzoom: 8,
-  reportStatus: false,
-  attribution: "NSIDC Sea Ice / OSI SAF",
+  attribution: "© NASA GIBS / AMSRU2 Sea Ice Concentration",
 };
 
 /**
  * Add the seaIce raster overlay via the shared raster factory
- * (tiles/zooms/opacity in the spec above). No status is written to the handle; failures are logged, not thrown.
+ * (tiles/zooms/opacity in the spec above), reporting "loaded"/"error" on the
+ * handle under the source id. The WMS request omits TIME, so GIBS serves the
+ * latest day in the product's coverage — the tile URL stays a static template
+ * MapLibre can fill per tile.
  */
 export function addSeaIce(map: maplibregl.Map, handle: LayerHandle): void {
   addRasterLayer(map, handle, seaIceSpec);

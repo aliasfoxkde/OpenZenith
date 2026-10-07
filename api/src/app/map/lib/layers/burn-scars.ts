@@ -15,7 +15,8 @@ interface WildfireResponse {
  * (fire radiative power) property — a wide 4-20px orange glow and a 2-8px
  * core whose colour ramps from amber to deep red across `confidence` 0-80.
  * Reports "loaded"/"empty" with the feature count, refreshes every 10
- * minutes, and reports "error" on timeout or fetch failure.
+ * minutes, and reports "error" on a non-ok response, timeout or fetch
+ * failure.
  */
 export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("burnScars")) return;
@@ -26,6 +27,10 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
       const res = await fetch("/api/wildfires", {
         signal: AbortSignal.timeout(15000),
       });
+      if (!res.ok) {
+        setStatus(handle, "burnScars", "error");
+        return;
+      }
       const data = (await res.json()) as WildfireResponse | null;
       const features = data?.features || [];
 

@@ -25,6 +25,10 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+      if (!res.ok) {
+        setStatus(handle, "radar", "error");
+        return;
+      }
       const data = (await res.json()) as RainViewerMaps;
       const past = data.radar?.past;
       const latest = past ? past[past.length - 1] : undefined;

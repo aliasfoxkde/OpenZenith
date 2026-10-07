@@ -11,12 +11,12 @@ const populationdensitySpec: RasterLayerSpec = {
   maxzoom: 14,
   layerId: "population-density-layer",
   paint: { "raster-color-mix": ["multiply", ["rgba(0,0,0,0.7)"], ["rgba(255,200,0,1)"]] },
-  reportStatus: false,
 };
 
 /**
  * Add the population-density raster overlay via the shared raster factory
- * (tiles/zooms/opacity in the spec above). No status is written to the handle; failures are logged, not thrown.
+ * (tiles/zooms/opacity in the spec above), reporting "loaded"/"error" on the
+ * handle under the layer id.
  */
 export function addPopulationDensity(map: maplibregl.Map, handle: LayerHandle): void {
   addRasterLayer(map, handle, populationdensitySpec);

@@ -141,14 +141,25 @@ export function LayerControls({
           </div>
         </div>
       ))}
+      {/* Terrain 3D — a view mode (MapLibre `setTerrain`), not a registry
+          layer, so it has no registry row to read a label from; hardcoded
+          here next to the hillshade row. page.tsx routes this id to
+          enable/disable3DTerrain instead of the data-layer dispatcher. */}
+      <div style={{ padding: "0.3rem 0.35rem", borderBottom: "1px solid rgba(0,229,255,0.15)" }}>
+        <LayerToggle
+          label="Terrain 3D"
+          checked={layers.terrain3d}
+          onChange={(checked) => { onToggle("terrain3d", checked); }}
+          color={T.accent}
+        />
+        <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
+          Render the elevation DEM as 3D terrain (1.5× vertical exaggeration)
+        </div>
+      </div>
       {/* Layer toggles — accordion groups */}
       {CATEGORY_ORDER.map((cat) => {
         if (cat === "hillshade") return null;
-        const catLayers = LAYERS.filter(
-          (l) =>
-            l.category === cat &&
-            (MAP_2D_LAYER_IDS.has(l.id) || ["hillshade", "terrain3d", "boundaries", "contour"].includes(l.id)),
-        );
+        const catLayers = LAYERS.filter((l) => l.category === cat && MAP_2D_LAYER_IDS.has(l.id));
         if (catLayers.length === 0) return null;
         const isOpen = expandedCategory === cat;
         const enabledCount = catLayers.filter((l) => layers[l.id]).length;

@@ -17,7 +17,8 @@ type WarningsResponse = { features?: GeoJSON.Feature[] };
  * wind, orange for severe thunderstorm/flash flood, amber otherwise. The
  * fetch re-runs every 5 minutes via an interval on handle.intervals and calls
  * setData on the existing source rather than recreating it; a missing
- * `features` field aborts silently, while a fetch failure reports "error".
+ * `features` field aborts silently, while a non-ok response or a fetch
+ * failure reports "error".
  */
 export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("warnings")) return;
@@ -25,6 +26,10 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const res = await fetch("/api/weather/warnings");
+      if (!res.ok) {
+        setStatus(handle, "warnings", "error");
+        return;
+      }
       const data = (await res.json()) as WarningsResponse;
       if (!data.features) return;
       setStatus(handle, "warnings", "loaded", data.features.length);

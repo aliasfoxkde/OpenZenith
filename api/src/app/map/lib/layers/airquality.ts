@@ -24,6 +24,10 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const center = map.getCenter();
       const res = await fetch(`/api/airquality?lat=${center.lat.toFixed(2)}&lon=${center.lng.toFixed(2)}`);
+      if (!res.ok) {
+        setStatus(handle, "airQuality", "error");
+        return;
+      }
       const data = (await res.json()) as AirQualityResponse;
       if (!data?.features) return;
 

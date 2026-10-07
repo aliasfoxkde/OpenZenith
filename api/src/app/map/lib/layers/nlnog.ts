@@ -30,8 +30,8 @@ type NlnogResponse = { nodes?: NlnogNode[]; features?: NlnogNode[]; error?: stri
  * `features`) are converted to point features carrying hostname, ASN, city
  * and country. Rendered as 4px orange circles with a thin white stroke on
  * the `nlnog-nodes` source — setData in place on refresh. An empty node list
- * is ignored silently; only a failed fetch reports "error" under
- * "nlnogNodes".
+ * is ignored silently; a non-ok response or a thrown fetch reports "error"
+ * under "nlnogNodes".
  */
 export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("nlnog-nodes")) return;
@@ -39,6 +39,10 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const res = await fetch("/api/nlnog");
+      if (!res.ok) {
+        setStatus(handle, "nlnogNodes", "error");
+        return;
+      }
       const data = (await res.json()) as NlnogResponse;
 
       // API returns {nodes: [...], count: N}, not GeoJSON — convert

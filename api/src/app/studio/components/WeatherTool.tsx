@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 interface Props {
   dark: boolean;
   onToggleLayer: (id: string, enabled: boolean) => void;
@@ -9,8 +7,6 @@ interface Props {
 }
 
 export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
-  const [autoRefresh, setAutoRefresh] = useState(false);
-
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
 // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
@@ -37,28 +33,13 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
       >
         <input
           type="checkbox"
-          checked={layers.weather_warnings}
-          onChange={(e) => { onToggleLayer("weather_warnings", e.target.checked); }}
+          checked={layers.warnings}
+          onChange={(e) => { onToggleLayer("warnings", e.target.checked); }}
         />
         <div>
           <div style={{ color: text, fontSize: 12, fontWeight: 600 }}>Weather Warnings</div>
           <div style={{ color: textSec, fontSize: 10 }}>NOAA/NWS active warnings</div>
         </div>
-      </label>
-
-      {/* Auto refresh */}
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          cursor: "pointer",
-          color: textSec,
-          fontSize: 11,
-        }}
-      >
-        <input type="checkbox" checked={autoRefresh} onChange={(e) => { setAutoRefresh(e.target.checked); }} />
-        Auto-refresh (2 min)
       </label>
 
       {/* Info */}

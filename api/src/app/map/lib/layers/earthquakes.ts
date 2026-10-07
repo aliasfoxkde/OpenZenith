@@ -87,6 +87,10 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       const url = FEEDS[currentFeed] || FEEDS["7d"];
       const res = await fetch(url);
+      if (!res.ok) {
+        setStatus(handle, "earthquakes", "error");
+        return;
+      }
       const data = (await res.json()) as UsgsFeed | null;
       allFeatures = data?.features || [];
       const filtered = filterByTime(allFeatures);

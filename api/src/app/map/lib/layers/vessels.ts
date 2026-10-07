@@ -93,6 +93,10 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
     try {
       setStatus(handle, "vessels", "loading");
       const res = await fetch("/api/vessels");
+      if (!res.ok) {
+        setStatus(handle, "vessels", "error");
+        return;
+      }
       const config = (await res.json()) as VesselsConfig;
 
       if (!config.configured || !config.wsUrl || !config.apiKey) {

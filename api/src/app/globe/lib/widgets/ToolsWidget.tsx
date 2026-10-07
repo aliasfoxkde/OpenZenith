@@ -52,21 +52,28 @@ export function ToolsWidget({ globe }: WidgetProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  /** Outcome of the last completed search — an empty hit list and a failure
+   * must not look the same, so the note carries which one it was. */
+  const [searchNote, setSearchNote] = useState<{ kind: "error" | "empty"; text: string } | null>(null);
 
   const doSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
+    setSearchNote(null);
     try {
       const res = await fetch(`/api/geocode?query=${encodeURIComponent(searchQuery)}&limit=5`, {
         signal: AbortSignal.timeout(6_000),
       });
+      if (!res.ok) throw new Error(`Geocoder unavailable (HTTP ${res.status})`);
       // JSON boundary: the route returns `{ results }`; the rendered hits are
       // the validation, so only the container shape is asserted here.
       const body: unknown = await res.json();
       const results = (body as { results?: SearchResult[] | null } | null)?.results;
       setSearchResults(results ?? []);
-    } catch {
+      setSearchNote(results?.length ? null : { kind: "empty", text: "No results" });
+    } catch (err) {
       setSearchResults([]);
+      setSearchNote({ kind: "error", text: err instanceof Error ? err.message : "Search failed" });
     }
     setSearchLoading(false);
   }, [searchQuery]);
@@ -127,6 +134,29 @@ export function ToolsWidget({ globe }: WidgetProps) {
     }
   }, [viewerRef, cesiumRef]);
 
+  // While "Place Rings" is armed, the next globe click becomes the ring centre.
+  // The handler lives only for the armed window — created on arm, destroyed on
+  // disarm or unmount — because page.tsx's own LEFT_CLICK routes to the measure
+  // tools and the elevation profile only (its activeTool branch never reaches
+  // this widget's tools). Re-arming re-places; a click off the globe is ignored.
+  useEffect(() => {
+    if (!ringPlacing) return;
+    const v = viewerRef.current;
+    const C = cesiumRef.current;
+    if (!v || !C) return;
+    const handler = new C.ScreenSpaceEventHandler(v.scene.canvas);
+    handler.setInputAction((click: CesiumType.ScreenSpaceEvent) => {
+      const cart = v.camera.pickEllipsoid(click.position, v.scene.globe.ellipsoid);
+      if (!cart) return;
+      const rings = ringRef.current;
+      if (!rings) return;
+      const cg = C.Cartographic.fromCartesian(cart);
+      rings.placeAt(C.Math.toDegrees(cg.latitude), C.Math.toDegrees(cg.longitude));
+      setRingCount(rings.state.entities.length);
+    }, C.ScreenSpaceEventType.LEFT_CLICK);
+    return () => { handler.destroy(); };
+  }, [ringPlacing, viewerRef, cesiumRef]);
+
   // ─── BGP ───
   const [bgpPrefix, setBgpPrefix] = useState("");
   const [bgpResult, setBgpResult] = useState<string | null>(null);
@@ -156,8 +186,12 @@ export function ToolsWidget({ globe }: WidgetProps) {
     if (dataUrl) downloadScreenshot(dataUrl);
   };
 
-  // ─── Toggle annotation/range ring click handlers on globe ───
-  // These are handled via the activeTool mechanism in page.tsx
+  // ─── Globe click handling for this widget's tools ───
+  // page.tsx's activeTool branch routes clicks to the measure tools and the
+  // elevation profile only. Range rings therefore arm their own
+  // ScreenSpaceEventHandler for as long as ringPlacing is set (effect below).
+  // Annotations have no click wiring: AnnotationManager.handleClick has no
+  // caller, so a shape cannot be started from the globe.
 
   const sectionToggle = (key: SectionKey) => { setOpenSections((p) => ({ ...p, [key]: !p[key] })); };
 
@@ -307,6 +341,18 @@ export function ToolsWidget({ globe }: WidgetProps) {
                   {r.display_name}
                 </button>
               ))}
+            </div>
+          )}
+          {searchNote && !searchLoading && (
+            <div
+              role={searchNote.kind === "error" ? "alert" : undefined}
+              style={{
+                color: searchNote.kind === "error" ? "var(--err)" : "var(--text-muted)",
+                fontSize: "10px",
+                padding: "4px 0",
+              }}
+            >
+              {searchNote.text}
             </div>
           )}
           <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />

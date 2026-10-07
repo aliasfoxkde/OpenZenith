@@ -11,12 +11,12 @@ const sentinel2Spec: RasterLayerSpec = {
   maxzoom: 14,
   layerId: "sentinel2-layer",
   paint: { "raster-saturation": 0.3 },
-  reportStatus: false,
 };
 
 /**
  * Add the sentinel2 raster overlay via the shared raster factory
- * (tiles/zooms/opacity in the spec above). No status is written to the handle; failures are logged, not thrown.
+ * (tiles/zooms/opacity in the spec above), reporting "loaded"/"error" on the
+ * handle under the layer id.
  */
 export function addSentinel2(map: maplibregl.Map, handle: LayerHandle): void {
   addRasterLayer(map, handle, sentinel2Spec);

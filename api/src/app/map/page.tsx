@@ -85,6 +85,20 @@ import { getBasemap } from "@/lib/basemaps";
 
 /* ─── Component ─── */
 
+/**
+ * Registry id -> the MapLibre source id its layer module actually registers,
+ * for the five layers whose module source id differs from the registry id.
+ * GeoJSON export reads sources by id, so the lookup must follow the module,
+ * not the registry key.
+ */
+const EXPORT_SOURCE_IDS: Record<string, string> = {
+  nlnogNodes: "nlnog-nodes",
+  militaryFlights: "military",
+  airQuality: "air-quality",
+  events: "natural-events",
+  hurricaneTracks: "hurricanes",
+};
+
 export default function MapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -1104,19 +1118,23 @@ export default function MapPage() {
     for (const layerId of MAP_2D_LAYER_IDS) {
       if (!mapState.layers[layerId]) continue;
       try {
-        const src = map.getSource(layerId);
+        const src = map.getSource(EXPORT_SOURCE_IDS[layerId] ?? layerId);
         if (src && "_data" in src && src._data?.features) {
           geojson.features.push(...src._data.features);
         }
       } catch {}
     }
-    if (geojson.features.length === 0) return;
+    if (geojson.features.length === 0) {
+      showToast("No features to export", "error");
+      return;
+    }
     const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/geo+json" });
     const link = document.createElement("a");
     link.download = `openzenith-layers-${Date.now()}.geojson`;
     link.href = URL.createObjectURL(blob);
     link.click();
-  }, [mapState.layers]);
+    showToast(`Exported ${geojson.features.length} features`, "info");
+  }, [mapState.layers, showToast]);
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg, overflow: "hidden" }}>

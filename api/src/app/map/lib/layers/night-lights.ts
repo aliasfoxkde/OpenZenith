@@ -10,13 +10,13 @@ const nightLightsSpec: RasterLayerSpec = {
   minzoom: 0,
   maxzoom: 8,
   paint: { "raster-brightness-max": 1.2 },
-  reportStatus: false,
   attribution: "NASA Black Marble",
 };
 
 /**
  * Add the nightLights raster overlay via the shared raster factory
- * (tiles/zooms/opacity in the spec above). No status is written to the handle; failures are logged, not thrown.
+ * (tiles/zooms/opacity in the spec above), reporting "loaded"/"error" on the
+ * handle under the source id.
  */
 export function addNightLights(map: maplibregl.Map, handle: LayerHandle): void {
   addRasterLayer(map, handle, nightLightsSpec);

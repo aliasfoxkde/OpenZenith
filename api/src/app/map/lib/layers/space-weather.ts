@@ -18,7 +18,8 @@ interface AuroraForecast {
  * cell on the `spaceWeather` GeoJSON source. Rendered as a single blurred
  * circle layer whose colour ramps from faint to solid green as intensity
  * rises from 0 to 8. Reports "loaded" (with the grid count) or "empty" when
- * the forecast is empty, and refreshes every 10 minutes.
+ * the forecast is empty, "error" on a non-ok or failed request, and
+ * refreshes every 10 minutes.
  */
 export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("spaceWeather")) return;
@@ -26,6 +27,10 @@ export function addSpaceWeather(map: maplibregl.Map, handle: LayerHandle): void 
   const doLoad = async () => {
     try {
       const res = await fetch("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
+      if (!res.ok) {
+        setStatus(handle, "spaceWeather", "error");
+        return;
+      }
       const data = (await res.json()) as AuroraForecast | null;
       const coords = data?.coordinates || [];
       setStatus(handle, "spaceWeather", coords.length ? "loaded" : "empty", coords.length);

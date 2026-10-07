@@ -19,7 +19,7 @@ const DATA_LAYERS = [
   { id: "earthquakes", label: "Earthquakes", category: "Seismic", accent: "#ef4444" },
   { id: "warnings", label: "Weather Warnings", category: "Weather", accent: "#f97316" },
   { id: "waterways", label: "Waterways", category: "Geographic", accent: "#06b6d4" },
-  { id: "nlnog", label: "NLNOG Nodes", category: "Network", accent: "#22c55e" },
+  { id: "nlnogNodes", label: "NLNOG Nodes", category: "Network", accent: "#22c55e" },
   { id: "radar", label: "Weather Radar", category: "Weather", accent: "#8b5cf6" },
   { id: "buildings", label: "Building Footprints", category: "Infrastructure", accent: "#d4c5a9" },
   { id: "wildfires", label: "Wildfires", category: "Disasters", accent: "#ff6600" },

@@ -13,7 +13,7 @@ type EonetFeed = { features?: GeoJSON.Feature[] };
  * volcanoes/severe storms/icebergs, orange for wildfires/sea-lake ice, blue
  * for floods/landslides, amber for everything else. Reports the feature
  * count on the handle and refreshes every 5 minutes; the glow layer is only
- * created alongside the point layer, and a failed fetch reports "error".
+ * created alongside the point layer, and a failed request reports "error".
  */
 export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("natural-events")) return;
@@ -21,6 +21,10 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
   const doLoad = async () => {
     try {
       const res = await fetch("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=200");
+      if (!res.ok) {
+        setStatus(handle, "events", "error");
+        return;
+      }
       const data = (await res.json()) as EonetFeed;
       if (!data.features) return;
       setStatus(handle, "events", "loaded", data.features.length);

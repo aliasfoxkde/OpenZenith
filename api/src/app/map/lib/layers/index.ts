@@ -148,6 +148,10 @@ const LAYER_LOADERS: Partial<Record<string, () => Promise<LayerModule>>> = {
     import("./aod").then((m) => ({ add: m.addAOD, remove: m.removeAOD })),
   equator: () =>
     import("./equator").then((m) => ({ add: m.addEquator, remove: m.removeEquator })),
+  canopyHeight: () =>
+    import("./canopy-height").then((m) => ({ add: m.addCanopyHeight, remove: m.removeCanopyHeight })),
+  biomass: () =>
+    import("./biomass").then((m) => ({ add: m.addBiomass, remove: m.removeBiomass })),
 };
 
 /**

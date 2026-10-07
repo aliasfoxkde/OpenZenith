@@ -14,9 +14,9 @@ type WildfiresResponse = { features?: GeoJSON.Feature[] } | null;
  * heatmap (up to zoom 9, weighted by the `confidence` property, black→orange→
  * red ramp) plus a confidence-scaled circle layer that appears at zoom 6+ so
  * individual detections become readable as you zoom in. The fetch re-runs
- * hourly (FIRMS cadence) via an interval on handle.intervals; an empty or
- * malformed payload leaves the previous data in place, and only a thrown
- * fetch reports "error" on the handle.
+ * hourly (FIRMS cadence) via an interval on handle.intervals; a non-ok
+ * response or a thrown fetch reports "error" on the handle, while an empty or
+ * malformed payload leaves the previous data in place.
  */
 export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("wildfires")) return;
@@ -24,6 +24,10 @@ export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const res = await fetch("/api/wildfires");
+      if (!res.ok) {
+        setStatus(handle, "wildfires", "error");
+        return;
+      }
       const data = (await res.json()) as WildfiresResponse;
       if (!data?.features?.length) return;
 

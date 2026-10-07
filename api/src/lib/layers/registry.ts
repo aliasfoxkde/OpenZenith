@@ -550,10 +550,10 @@ export const LAYERS: readonly LayerDefinition[] = [
     id: "seaIce",
     name: "Sea Ice",
     category: "ocean",
-    description: "Sea ice concentration from NSIDC and OSI SAF satellite observations",
+    description: "AMSRU2 daily sea ice concentration — polar ice extent from NASA GIBS",
     defaultEnabled: false,
     accent: "#93c5fd",
-    dataSource: "https://nsidc.org/",
+    dataSource: "https://gibs.earthdata.nasa.gov/",
   },
   {
     id: "burnScars",

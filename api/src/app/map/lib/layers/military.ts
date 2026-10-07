@@ -33,7 +33,8 @@ interface MilitaryResponse {
  * geometric) altitude in feet, ground speed in knots, track in degrees and
  * the `mil` flag. Reports "loaded"/"empty" with the aircraft count and
  * re-polls every 2 minutes — the fastest cadence in this directory, since
- * the underlying positions move quickly.
+ * the underlying positions move quickly. A non-ok response or thrown fetch
+ * reports "error".
  */
 export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
   if (map.getSource("military")) return;
@@ -41,6 +42,10 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const res = await fetch("/api/military");
+      if (!res.ok) {
+        setStatus(handle, "militaryFlights", "error");
+        return;
+      }
       const data = (await res.json()) as MilitaryResponse | null;
       const ac = data?.ac || [];
       setStatus(handle, "militaryFlights", ac.length ? "loaded" : "empty", ac.length);

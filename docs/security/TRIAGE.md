@@ -1754,3 +1754,41 @@ already-dispositioned classes:
 
 No new classes, no severity upgrades. Baseline re-generated; gate green
 locally before the re-push.
+
+## Re-baseline 2026-10-07 — excellence-plan waves 1–7: 724 new findings, all dispositioned FP classes
+
+The eight-wave excellence plan (API error contract, new route tests, MCP
+tools, EGM96 grid payload, Rust D∞/cut-fill/solar + wasm decode core, SDK
+exception hierarchy + 4 CLI commands, protocol expansion) added ~40 test
+files and several data-bearing modules. The first CI run over the finished
+waves (run fb4065f5) failed the delta gate on 724 new findings
+(api/src 471, openzenith 66, core/src 95, core/tests 89, scripts 3).
+Severity census: 7 critical, 68 high, 325 medium, 321 low, 3 info.
+
+Every critical was inspected at the source line — none is a secret:
+
+- `connection-string-with-password` api/src/lib/egm96-grid.ts:50 — the
+  bundled EGM96 undulation grid is a single base64 gzip payload constant
+  (public geodetic data); the scanner matched a connection-string pattern
+  inside the base64 alphabet. No credentials anywhere in the module.
+- `credit-card-number-generic`/`credit-card-visa` core/src/dinf.rs:413 —
+  the comment literal `0.4636476090008061` (atan2(5,10) in the D∞
+  azimuth test) matches the card-number digit heuristic.
+- `git-credential-leak` ×4 api/src/app/api/__tests__/arcgis.test.ts
+  (:81/:110/:122/:134) — mocked request URLs (`https://services[9].arcgis.com/…`)
+  in fetch-stub tests; no userinfo component, no credentials.
+
+The bulk classes are the established fixture-only FP families, now on the
+new wave-1 test files: ssrf/ssrf-localhost + hardcoded-internal-endpoint +
+debug-endpoint (localhost URLs and stubbed internal endpoints in vitest
+route tests), cors-misconfiguration (wildcard-origin assertions on the
+arcgis/CORS fixtures — the tests pin the API's real CORS contract),
+rust-unwrap-usage/rust-unsafe-block/unsafe-code (`#[cfg(test)]` modules
+and the cli integration suite, where unwrap/unsafe are the house test
+idiom; production code stays unwrap/unsafe-free by the Cargo lint gates),
+try-catch-bulk, no-cache-headers, react-missing-key-prop, evaluation-
+benchmark, and the openzenith/ 66 (pattern-literal FPs on numeric fixtures
+in the new CLI command tests).
+
+No new classes, no production-code findings. Baseline re-generated
+(`scripts/aegis_scan.sh update`); gate green locally before the re-push.

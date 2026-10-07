@@ -169,3 +169,48 @@ Deferred (recorded, not dropped): quantized-mesh/3D Tiles (E6), OGC API — Cove
 COG-over-HTTP serving, geomorphons, least-cost path, GLO-30/FABDEM/ArcticDEM data
 integrations (E8) — these are sizeable data-pipeline efforts to schedule after the waves
 above land; each has a written rationale here so "exhausted" is explicit, not implied.
+
+## Progress log — closeout 2026-10-07
+
+All eight waves executed; every commit pushed to gitforge first, then origin.
+
+| Wave | Commit(s) | Outcome |
+|------|-----------|---------|
+| 1 — API truthfulness | `dbe81b8` | 200-on-error contract retired via shared error responder; gibs-tile returns JSON + real status; vitest per changed route |
+| 2 — Frontend defects | `db26334` | placebo controls wired, layer errors surfaced, sea-ice repaired, dead code removed |
+| 3 — Identify + a11y | `eacf76e`, `e780723` | click-to-identify across the layer registry (query only layers present on the style — MapLibre throws otherwise); a11y batch |
+| 4 — MCP + SDK client | `8d24b61` | terrain_profile/watershed/flow_trace/contours/slope_aspect/elevation tools with bounded outputs; SDK `rest.py` |
+| 5 — Protocol expansion | `1182081` | Terrain-RGB encoding param, `interpolation`/`units`/metadata, EGM96 orthometric option, PMTiles serving (GDAL's PMTiles driver is vector-only — raster verification uses the `pmtiles` CLI) |
+| 6 — Analysis primitives | `a3d3d91` | D-infinity flow, cut/fill, solar insolation + CLI exposure; OZT2 decode parity Python↔Rust↔edge; real-tile wasm decode |
+| 7 — SDK hygiene | `7a81c02` | exception hierarchy (leaf `exceptions.py`), py.typed, B11 sentinel fix (forced 16-bit lossless when nodata present), 4 CLI commands (viz/inundation/zonal-stats/kml), measured-truth docs sweep |
+| 8 — Validation | `646f3d0` | coverage gate caught a stale wasm-gated test pinning the old permuted flag table; fixed by extracting the js-free `decode_ozt2_core` (84.4%→96.4% lines on the wasm pass) rather than lowering any floor |
+
+Gate battery at closeout (measured): eslint 0w/0e across 444 files; vitest 1,657
+across 113 files; pytest 1,650 @ 99.09% lines; ruff + mypy clean; core cargo 136
+default-feature tests (86 lib + 50 CLI integration) + 111 lib tests with
+`--features wasm`; core coverage gate two-pass green (99.38% default ≥ 99 floor,
+96.42% wasm ≥ 95 floor); aegis baseline 1,840 unchanged.
+
+Deployment: `scripts/ship.sh` (marker skipped — wasm bytes changed, not JS) →
+deployment `53434f71`; prod verified via Playwright (curl is WAF-blocked from this
+host): wasm-demo real tile z10/758/428 (zstd, gradient) decodes 256×256 to
+[4605, 8162] m with 0 page errors on the new deployment, plus the full prod E2E
+suite (chromium: 12 passed, 1 flaky-on-retry; the lone firefox failure is the
+documented host breakage).
+
+GitForge CI: the pushes DID trigger runs (each under a churned pipeline id),
+but every wave run failed on the `aegis` job with the rest cancelled — run
+`fb4065f5` reproduced it deterministically, turning it from infra noise into a
+real gate signal: the waves added 724 scanner findings, all test-fixture FP
+classes (localhost test URLs, wildcard-origin CORS fixtures, unwrap in Rust
+test modules) plus 7 criticals each inspected at the source line and confirmed
+benign (base64 EGM96 grid payload, a trig constant in a comment, mocked
+ArcGIS URLs). Dispositioned in `docs/security/TRIAGE.md` (2026-10-07 entry);
+baseline regenerated 1,840 → 2,025 (+724 new, −539 stale fingerprints from
+refactored/deleted files); gate green locally. Along the way the openzenith-ci
+pipeline turned out to be a registry ghost (listed but unresolvable — the
+reason pushes stopped triggering runs on the canonical id); re-registered as
+`bigdata-ci/OpenZenith` and re-triggered manually, which worked (the old
+"manual trigger never materializes" note is stale for the current build).
+
+Deferred register above is unchanged.

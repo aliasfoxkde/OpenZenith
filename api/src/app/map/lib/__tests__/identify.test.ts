@@ -22,12 +22,22 @@ function hit(
   };
 }
 
-/** In-memory map stand-in covering the two members identifyAt touches. */
-function mockMap(hits: GeoJSON.Feature[]) {
+/**
+ * In-memory map stand-in covering the members identifyAt touches. `loaded`
+ * models the real map: only layers added to the style answer `getLayer`, and
+ * the real queryRenderedFeatures throws when the layer list names an absent
+ * id — the default stub mirrors both.
+ */
+function mockMap(hits: GeoJSON.Feature[], loaded: readonly string[] = Object.keys(IDENTIFY_LAYERS)) {
   const queries: Array<{ point: unknown; layers: unknown }> = [];
   return {
     queries,
+    getLayer(id: string) {
+      return loaded.includes(id) ? {} : undefined;
+    },
     queryRenderedFeatures(point: unknown, params?: Record<string, unknown>) {
+      const requested = (params?.layers as string[] | undefined) ?? [];
+      if (requested.some((id) => !loaded.includes(id))) throw new Error(`${requested.join(", ")}: layer not found`);
       queries.push({ point, layers: params?.layers });
       return hits;
     },
@@ -94,6 +104,22 @@ describe("identifyAt", () => {
     const map = mockMap([hit("wildfires-heat", { confidence: 80 })]);
     expect(identify(map, { x: 3, y: 4 })).toBeNull();
     expect(map.queries[0]?.layers).toEqual(Object.keys(IDENTIFY_LAYERS));
+  });
+
+  it("narrows the query to layers actually on the style before querying", () => {
+    // The prod defect this pins: the real queryRenderedFeatures throws when
+    // the layer list names an absent id, so an unfiltered table-wide query
+    // would throw on every click (swallowed → identify silently dead).
+    const map = mockMap([hit("earthquakes-circles", { mag: 5.5 })], ["earthquakes-circles", "earthquakes-glow"]);
+    const res = identify(map, { x: 3, y: 4 });
+    expect(map.queries[0]?.layers).toEqual(["earthquakes-circles"]);
+    expect(res?.registryId).toBe("earthquakes");
+  });
+
+  it("returns null without querying when no table layer is loaded", () => {
+    const map = mockMap([], []);
+    expect(identify(map, { x: 3, y: 4 })).toBeNull();
+    expect(map.queries).toHaveLength(0);
   });
 
   it("shows the topmost hit only and dedupes by registry id", () => {

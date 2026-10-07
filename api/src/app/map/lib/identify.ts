@@ -407,12 +407,18 @@ function toIdentifyFeature(feature: GeoJSON.Feature): IdentifyFeature {
  * click handler can fall through to the elevation probe.
  */
 export function identifyAt(
-  map: Pick<maplibregl.Map, "queryRenderedFeatures" | "unproject">,
+  map: Pick<maplibregl.Map, "queryRenderedFeatures" | "unproject" | "getLayer">,
   point: { x: number; y: number },
 ): IdentifyResult | null {
+  // Only layers actually on the style can be queried — queryRenderedFeatures
+  // throws when the list names a layer that is not loaded, and every table
+  // entry beyond the toggled-on layers is exactly that.
+  const layers = Object.keys(IDENTIFY_LAYERS).filter((id) => map.getLayer(id));
+  if (layers.length === 0) return null;
+
   let hits: GeoJSON.Feature[];
   try {
-    hits = map.queryRenderedFeatures(point, { layers: Object.keys(IDENTIFY_LAYERS) });
+    hits = map.queryRenderedFeatures(point, { layers });
   } catch {
     // A style mid-swap can make the query throw; that is "nothing to identify".
     return null;

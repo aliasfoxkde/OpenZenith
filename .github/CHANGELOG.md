@@ -3,6 +3,55 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.2 (2026-10-08)
+
+32 commits since v0.9.1: excellence-cycle IV — strictness gates
+graduated across all four language surfaces, the two hottest analysis
+paths extracted into shared kernels, new analysis primitives in the
+Rust core, terrain tooling in the SDK and MCP server, and
+click-to-identify on the map. No breaking changes.
+
+### Added
+- API: Terrain-RGB tile encoding, configurable elevation params, EGM96
+  undulation correction, and PMTiles archive serving.
+- Rust core: D∞ flow direction, cut/fill, and solar-radiation analysis;
+  the OZT2 decoder moved to a host-testable core that is parity-tested
+  against the WASM binding.
+- Python SDK: documented exception hierarchy, `py.typed` marker,
+  sentinel-safe OZT2 decode, four new CLI subcommands; mypy strict
+  bundle and ruff FURB110 adopted.
+- MCP server: terrain analysis tools backed by the REST API.
+- Map: click-to-identify surfaces the features under the cursor for
+  the layers present on the current style.
+- Globe: Cesium and satellite.js vendor assets are self-hosted — no
+  runtime CDN dependency.
+
+### Fixed
+- API routes return honest status codes — the 200-on-error contract is
+  gone.
+- Explore: dataset/theme cards are real buttons (a nested-interactive
+  controls defect), placebo controls are wired to real behavior, layer
+  fetch errors surface, and the sea-ice layer is repaired.
+- Studio: the tab-switch E2E race (a click landing before React
+  hydration) is fixed with a retry-until-hydrated pattern; a functional
+  E2E suite now covers the click-paths behind each surface.
+- Root configs (next/playwright/vitest) documented to the same JSDoc
+  bar as `src/` — found by CI because the local gate check had been
+  scoped to `src/`.
+
+### Gates
+- TypeScript: `no-unsafe-*` promoted to error; zero-warning,
+  zero-error `eslint .` over the full directory (444 files).
+- eslint-plugin-jsdoc requires export docstrings at error, with a
+  measured 186-file grandfather block and a documented ratchet
+  protocol.
+- Python: interrogate docstring coverage >= 99% (422/422 exports).
+- Rust: clippy nursery fixed classes adopted; pedantic lint continues.
+- Receipts: 99.53% statement coverage (1,704 vitest tests, 31 thin
+  arms closed with real tests), E2E 95 passed, bundle budget
+  re-baselined with documented rationale, aegis re-baselined with a
+  triage log (docs/security/TRIAGE.md).
+
 ## v0.9.1 (2026-10-06)
 
 18 commits since v0.9.0: the map/globe defect backlog from a layer-crawl

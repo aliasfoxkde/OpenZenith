@@ -1,6 +1,12 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
 
+/**
+ * Vitest config: node-environment unit tests over `src/**` with the 99%
+ * statement / 96% branch coverage floors (ratchet history inline), the
+ * `@` alias, and the edge-runtime test stubs that keep route tests off a
+ * real Cloudflare request context.
+ */
 export default defineConfig({
   test: {
     setupFiles: ["./src/test-setup.ts"],

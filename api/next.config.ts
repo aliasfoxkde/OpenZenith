@@ -36,4 +36,9 @@ const nextConfig: NextConfig = {
   },
 };
 
+/**
+ * Next.js config: browser bundles alias `zstd-wasm` to a no-op polyfill
+ * (the real zstd WASM only loads in Node/Edge runtimes), images are
+ * unoptimized (static export), and ESLint errors fail the build.
+ */
 export default nextConfig;

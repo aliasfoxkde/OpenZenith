@@ -4,6 +4,11 @@ import { defineConfig } from "@playwright/test";
 // production is the default target.
 const baseURL = process.env.E2E_BASE_URL ?? "https://openzenith.cyopsys.com";
 
+/**
+ * Playwright config: E2E specs live in ./e2e and default to production
+ * (`E2E_BASE_URL` retargets); chromium + firefox projects, one retry with
+ * a trace for diagnosis.
+ */
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30000,

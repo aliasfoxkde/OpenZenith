@@ -193,6 +193,7 @@ class ElevationClient:
         raise RuntimeError(f"Request failed after {self._max_retries + 1} attempts: {last_err}")
 
     def _get_session(self) -> aiohttp.ClientSession:
+        """Return the shared session, creating it on first use if unowned."""
         if self._external_session is not None:
             return self._external_session
         session = self._session
@@ -402,6 +403,7 @@ class ElevationBatchProcessor:
         self._semaphore: asyncio.Semaphore | None = None
 
     def _ensure_semaphore(self) -> asyncio.Semaphore:
+        """Return the concurrency limiter, creating it on first use."""
         if self._semaphore is None:
             self._semaphore = asyncio.Semaphore(self._max_concurrency)
         return self._semaphore

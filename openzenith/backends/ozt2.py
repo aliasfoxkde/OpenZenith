@@ -430,6 +430,7 @@ class OZT2HFBackend:
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def _fetch_one(z: int, x: int, y: int) -> bool:
+            """Fetch one tile into the local cache; True when it is present after."""
             cached = self._cached_path(z, x, y)
             if cached and cached.exists():
                 return True

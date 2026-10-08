@@ -645,6 +645,7 @@ def highland(
     result = np.full(dem.shape, np.nan, dtype=np.float32)
 
     def _range(x: np.ndarray) -> float:
+        """Return the valid-cell elevation range of one neighborhood."""
         v = x[x != nodata]
         return np.max(v) - np.min(v) if len(v) > 0 else np.nan
 

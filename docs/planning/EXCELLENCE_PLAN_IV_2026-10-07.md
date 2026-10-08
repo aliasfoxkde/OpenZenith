@@ -270,3 +270,23 @@ GitForge-CI green, a tagged release, and a prod-verified deploy.
   `_v2` (VERSIONED_PATTERNS substring match) — `tile_format_v2.py` is the
   documented OZT2 module name, not a versioned copy; a git-tracked
   exemption in the hook would close this false-positive class.
+- 2026-10-08 (D close): **D1** interrogate docstring-presence gate adopted —
+  `[tool.interrogate]` (fail-under=99, tests excluded, same rationale as the
+  mypy test exclusion), `interrogate>=1.7` in the dev extra, commands
+  documented in CLAUDE.md. Measured **100% (422/422)** against the 99 floor;
+  the four private helpers that lacked docstrings got them. **D2**
+  eslint-plugin-jsdoc export-documentation gate adopted at **error** (CI lint
+  is a hard `--max-warnings=0` gate, so warn-level would be a red pipeline):
+  `require-jsdoc` scoped `publicOnly` + export contexts (interfaces, type
+  aliases, default/named export declarations) and `require-description`.
+  Measured backlog — **705 warnings across 186 files** — grandfathered in a
+  dated graduation block with the same ratchet protocol as the no-unsafe-*
+  ladder (document a file's exports, delete its line; block deleted at zero;
+  individual file entries, so new files are gated from first commit). Two
+  block-authoring defects found and fixed before commit: a greedy path strip
+  had dropped the `src/app/api/` prefix from route entries (345 errors
+  leaked through), and minimatch reads a dynamic segment's `[z]` as a
+  one-char character class, so bracket paths need `\[z\]` escaping —
+  static-segment entries matched while every dynamic-segment route silently
+  stayed gated. Gate verified green in the CI shape (`eslint src/` with the
+  zero-warnings flag).

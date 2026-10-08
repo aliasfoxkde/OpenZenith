@@ -42,6 +42,10 @@ pytest openzenith/tests/test_elevation.py::test_get_elevation -v  # Single test
 
 # Lint
 ruff check openzenith/
+mypy openzenith/                   # strict bundle incl. warn_return_any, warn_unreachable
+
+# Docstring coverage (non-test; floor 99 in pyproject [tool.interrogate])
+interrogate -c pyproject.toml openzenith/
 
 # CLI
 openzenith info

@@ -1451,6 +1451,7 @@ def _parse_zoom_levels(s: str) -> list[int]:
 
 
 def _latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
+    """Convert lat/lon to Web Mercator tile coordinates at a zoom level."""
     n = 2**zoom
     x = int(((lon + 180) / 360) * n)
     lat_rad = (lat * math.pi) / 180

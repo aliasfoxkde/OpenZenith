@@ -90,6 +90,7 @@ def shapefile_to_geojson(
 
 
 def _shape_points_to_coords(shape: Any, geom_type: str) -> list[Any]:
+    """Convert a pyshp shape point list to GeoJSON coordinate pairs."""
     pts = shape.points
     if geom_type == "Point":
         return list(pts[0]) if pts else []
@@ -110,6 +111,7 @@ def _shape_points_to_coords(shape: Any, geom_type: str) -> list[Any]:
 def _bbox_intersects(
     a: tuple[float, float, float, float], b: tuple[float, float, float, float]
 ) -> bool:
+    """Report whether two (lon_min, lat_min, lon_max, lat_max) boxes overlap."""
     return not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
 
 

@@ -102,6 +102,7 @@ from openzenith.tile_format_v2 import (
 
 # Lazy imports for optional heavy dependencies
 def __getattr__(name: str) -> Any:
+    """Resolve lazy imports for optional heavy dependencies on first access."""
     # OZT2 backends
     if name == "OZT2Backend":
         from openzenith.backends.ozt2 import OZT2Backend

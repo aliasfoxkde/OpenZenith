@@ -55,6 +55,7 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "ruff>=0.1",
+    "interrogate>=1.7",
     "hatchling",
 ]
 all = [
@@ -183,6 +184,14 @@ module = [
     "fiona",
 ]
 ignore_missing_imports = true
+
+# Docstring-presence gate (D1 of cycle IV). Presence only — style is ruff's
+# D-rules job. Tests are excluded: fixture doubles document themselves through
+# their names, same rationale as the mypy test exclusion.
+[tool.interrogate]
+fail-under = 99
+exclude = ["openzenith/tests/"]
+omit-covered = false
 
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]

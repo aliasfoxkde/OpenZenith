@@ -237,6 +237,7 @@ _MISSING_ZSTD = (
 
 
 def _compress_zstd(data: bytes, level: int) -> bytes:
+    """Compress raw bytes with zstd, requiring the zstandard extra."""
     if not HAS_ZSTD:
         raise ImportError(_MISSING_ZSTD)
     cctx = zstd.ZstdCompressor(level=level)
@@ -244,6 +245,7 @@ def _compress_zstd(data: bytes, level: int) -> bytes:
 
 
 def _decompress_zstd(data: bytes) -> bytes:
+    """Decompress zstd bytes, requiring the zstandard extra."""
     if not HAS_ZSTD:
         raise ImportError(_MISSING_ZSTD)
     dctx = zstd.ZstdDecompressor()

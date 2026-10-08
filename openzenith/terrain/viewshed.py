@@ -214,6 +214,7 @@ def _viewshed_numba(
         nodata_val: float,
         max_dist: int,
     ) -> np.ndarray:
+        """Numba-compiled ray march shared by the accel and numpy paths."""
         rows, cols = dem.shape
         visible = np.zeros((rows, cols), dtype=np.bool_)
         visible[obs_r, obs_c] = True

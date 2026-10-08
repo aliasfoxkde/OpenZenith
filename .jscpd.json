@@ -1,0 +1,19 @@
+{
+  "min-tokens": 50,
+  "reporters": [
+    "consoleFull"
+  ],
+  "ignore": [
+    "**/node_modules/**",
+    "**/coverage/**",
+    "**/public/pkg/**",
+    "**/openapi.json/spec.json",
+    "**/openapi/base.json",
+    "**/package-lock.json"
+  ],
+  "path": [
+    "api/src",
+    "openzenith",
+    "core/src"
+  ]
+}

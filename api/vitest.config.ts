@@ -16,6 +16,13 @@ export default defineConfig({
       include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
       exclude: [
         "src/lib/**/__tests__/**",
+        // Test-support code under the api/__tests__ tree (mockRequest,
+        // bodyAs, stubFetchRoutes) is test code, not production surface —
+        // mirror the lib-side __tests__ exclusion. Without this the only
+        // non-*.test.ts file in the tree lands in the denominator; its
+        // stubFetchRoutes body dragged statements to 98.99% (below the 99
+        // floor) in Oct-2026 despite zero production regression.
+        "src/app/api/__tests__/**",
         // Type-only modules carry no runtime statements; counting them at 0%
         // would make the floor reward artificial runtime imports.
         "src/lib/layers/types.ts",

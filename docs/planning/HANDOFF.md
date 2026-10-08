@@ -1,5 +1,37 @@
 # OpenZenith handoff
 
+> **Update (2026-10-08, v0.9.2):** the third excellence plan
+> ([EXCELLENCE_PLAN_IV_2026-10-07.md](EXCELLENCE_PLAN_IV_2026-10-07.md),
+> tasks #217–#230, phases A–F) is executed end to end. Strictness
+> graduated everywhere at once: TS `no-unsafe-*` now errors and
+> `eslint-plugin-jsdoc` requires export docstrings (186-file measured
+> grandfather, ratchet protocol in-repo); Python runs the mypy strict
+> bundle, ruff FURB110, and interrogate >= 99% (422/422 exports); Rust
+> adopts clippy nursery fixed classes under pedantic. Two hot paths
+> extracted into shared kernels (terrain routes' shared kernel across 5
+> routes; SDK `gradients.py`), the Rust core gained D∞ flow direction,
+> cut/fill, and solar radiation, the SDK and MCP server gained terrain
+> tooling, and the map gained click-to-identify. **v0.9.2 cut, tagged
+> (verified on both remotes), GitHub-released, deployed via ship.sh,
+> and prod-verified** (`/api/health` and `/api/openapi.json` both
+> report 0.9.2; GitForge run `87d98fa5` 8/8 green on `892f30f1`;
+> chromium prod E2E passed — the 4 firefox failures in the ship log are
+> the documented host-level firefox `page.goto` breakage, not page
+> regressions). Two of the run's failures were the CI gates catching
+> real local-gate scoping gaps: the full-directory `eslint .` found 3
+> undocumented root configs (fixed), and the unit-test count guard was
+> stale after phase E (updated to 115 files / 1,709 tests). The
+> fedora-docker runner hazard is root-caused and mitigated — remote
+> agent on 192.168.1.202, scheduler binds 0.0.0.0 with no affinity,
+> capacity-0 DB surgery + runtime iptables drop of :42781 from that
+> host guard the cycle (details in the plan's progress log; the rule
+> reverts on reboot and the durable fix is upstream: bind-address env,
+> runner pinning, runner admin API). The trigger API's 202-with-null-id
+> response still creates the run — check
+> `journalctl -u gitforge@ci.service | grep "started with"` before
+> retrying, or you multiply runs (cancelled one stray this cycle).
+> Open: platform items above; Next16/OpenNext still user-gated.
+
 > **Update (2026-10-06, v0.9.1):** the second excellence plan
 > ([EXCELLENCE_PLAN_2026-10-06.md](EXCELLENCE_PLAN_2026-10-06.md), gaps
 > G-1…G-5) is executed end to end: Aegis wired into GitForge CI as the

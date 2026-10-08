@@ -5,7 +5,7 @@ Format follows Keep a Changelog; versions match git tags. Fuller history
 
 ## v0.9.2 (2026-10-08)
 
-32 commits since v0.9.1: excellence-cycle IV — strictness gates
+33 commits since v0.9.1: excellence-cycle IV — strictness gates
 graduated across all four language surfaces, the two hottest analysis
 paths extracted into shared kernels, new analysis primitives in the
 Rust core, terrain tooling in the SDK and MCP server, and

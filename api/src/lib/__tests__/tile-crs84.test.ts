@@ -66,6 +66,65 @@ function constantElevationPng(elevation: number): Response {
   );
 }
 
+/** A 404 from the AWS Terrain source, as a missing tile answers. */
+function notFoundResponse(): Response {
+  return new Response("not found", { status: 404 });
+}
+
+/**
+ * Terrarium PNG carrying only `rows` of the usual 256 — the shape the sampler
+ * sees when an upstream payload is truncated, where reading past it would be
+ * an out-of-bounds access.
+ */
+function shortElevationPng(elevation: number, rows: number): Response {
+  const r = Math.floor((elevation + 32768) / 256);
+  const g = elevation + 32768 - r * 256;
+  return awsResponse(
+    buildTerrariumPNG({
+      width: TILE_SIZE,
+      height: rows,
+      colorType: 2,
+      pixel: () => [r, g, 0],
+    }),
+  );
+}
+
+/** The 3857 zoom level the assembler samples a z4 CRS84 tile at. */
+const ZA = 4 + 1;
+/** Bounds of the z4 CRS84 tile the partial-coverage tests use. */
+const TILE_BOUNDS = crs84TileBounds(4, 0, 4);
+
+/** Fractional Web Mercator y of a latitude, the assembler's own transform. */
+function mercatorY(lat: number): number {
+  const latRad = (lat * Math.PI) / 180;
+  return (2 ** ZA * (1 - Math.asinh(Math.tan(latRad)) / Math.PI)) / 2;
+}
+
+/**
+ * Rows of TILE_BOUNDS whose pixel centres land inside Web Mercator source row
+ * `sourceRow` — the tiles that row of pixels is sampled from.
+ */
+function rowsSamplingMercatorRow(sourceRow: number): number[] {
+  return rowsSamplingWithinMercatorRow(sourceRow, TILE_SIZE);
+}
+
+/**
+ * Rows of TILE_BOUNDS whose pixel centres land within the first `storedRows`
+ * pixel rows of Web Mercator source row `sourceRow`, i.e. the cells a source
+ * tile truncated to `storedRows` rows can still serve.
+ */
+function rowsSamplingWithinMercatorRow(sourceRow: number, storedRows: number): number[] {
+  const latStep = (TILE_BOUNDS.north - TILE_BOUNDS.south) / TILE_SIZE;
+  const rows: number[] = [];
+  for (let py = 0; py < TILE_SIZE; py++) {
+    const lat = TILE_BOUNDS.north - (py + 0.5) * latStep;
+    const ty = mercatorY(lat);
+    if (Math.floor(ty) !== sourceRow) continue;
+    if (Math.floor((ty - sourceRow) * TILE_SIZE) < storedRows) rows.push(py);
+  }
+  return rows;
+}
+
 describe("WorldCRS84Quad matrix geometry (OGC 17-083r2)", () => {
   it("uses a 2x1 root matrix that doubles in one dimension per level", () => {
     expect(crs84MatrixSize(0)).toEqual({ matrixWidth: 2, matrixHeight: 1 });
@@ -161,6 +220,55 @@ describe("getTileDataCRS84 — AWS resample path (z <= 10)", () => {
 
     expect((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
     expect(Array.from(result.data).every((v) => v === -2500)).toBe(true);
+  });
+
+  it("leaves the rows of a missing 3857 tile nodata while its sibling still renders", async () => {
+    // za = 5 cover for the z4 tile is rows 11 and 12; only row 11 answers, so
+    // every pixel whose source row is 12 has no tile to sample from.
+    stubFetch((url) => (url.endsWith("/12.png") ? notFoundResponse() : constantElevationPng(100)));
+    const storage = failingStorage("AWS is the primary source here");
+
+    const result = await getTileDataCRS84(4, 0, 4, storage);
+
+    const values = Array.from(result.data);
+    const servedRows = rowsSamplingMercatorRow(11);
+    const missingRows = rowsSamplingMercatorRow(12);
+    expect(servedRows.length).toBeGreaterThan(0);
+    expect(missingRows.length).toBeGreaterThan(0);
+    for (const py of servedRows) {
+      for (let px = 0; px < TILE_SIZE; px++) expect(values[py * TILE_SIZE + px]).toBe(EL100);
+    }
+    for (const py of missingRows) {
+      for (let px = 0; px < TILE_SIZE; px++) expect(values[py * TILE_SIZE + px]).toBe(NODATA);
+    }
+  });
+
+  it("keeps a degraded short 3857 tile from being sampled past its buffer", async () => {
+    // Both source tiles report only 8 of their 256 rows: the sampler must skip
+    // the pixel centres that index past the truncated payload instead of
+    // reading out of bounds, leaving those cells nodata.
+    stubFetch((url) => (url.includes("/terrarium/5/0/1") ? shortElevationPng(100, 8) : null));
+    const storage = failingStorage("AWS is the primary source here");
+
+    const result = await getTileDataCRS84(4, 0, 4, storage);
+
+    const values = Array.from(result.data);
+    let servedRows = 0;
+    let nodataRows = 0;
+    for (let py = 0; py < TILE_SIZE; py++) {
+      const rowValues = values.slice(py * TILE_SIZE, py * TILE_SIZE + TILE_SIZE);
+      if (rowValues.every((v) => v === EL100)) servedRows++;
+      else if (rowValues.every((v) => v === NODATA)) nodataRows++;
+      else throw new Error(`row ${py} is a mix of served and nodata cells`);
+    }
+    // Exactly the pixel rows whose source row is one of the 8 stored ones.
+    const expected = new Set<number>();
+    for (const sourceRow of [11, 12]) {
+      for (const py of rowsSamplingWithinMercatorRow(sourceRow, 8)) expected.add(py);
+    }
+    expect(servedRows).toBe(expected.size);
+    expect(servedRows).toBeGreaterThan(0);
+    expect(servedRows + nodataRows).toBe(TILE_SIZE);
   });
 });
 

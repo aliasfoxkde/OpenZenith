@@ -63,6 +63,27 @@ describe("quadNameToBounds", () => {
     }
   });
 
+  it("parses all 8 quadrant names latLonToQuadName can emit, exhaustively", () => {
+    // Both latitude bands x four longitude bands: the emitter only ever
+    // produces these literals, so every name it emits must resolve to bounds
+    // (this is the invariant that keeps the cog-reader's null-bounds guard
+    // unreachable from getGebcoElevation).
+    const names = new Set<string>();
+    for (const lat of [10, -10]) {
+      for (const lon of [-100, -50, 50, 100]) {
+        names.add(latLonToQuadName(lat, lon));
+      }
+    }
+    expect(names).toHaveLength(8);
+
+    for (const name of names) {
+      const bounds = quadNameToBounds(name);
+      expect(bounds).not.toBeNull();
+      expect(bounds?.latMin).toBeLessThan(bounds?.latMax ?? 0);
+      expect(bounds?.lonMin).toBeLessThan(bounds?.lonMax ?? 0);
+    }
+  });
+
   it("returns null for a name that is not a GEBCO quadrant", () => {
     expect(quadNameToBounds("N41W074.tif")).toBeNull();
     expect(quadNameToBounds("gebco_2024_n90.0_s0.0_w-90.0_e0.0.tif")).toBeNull();

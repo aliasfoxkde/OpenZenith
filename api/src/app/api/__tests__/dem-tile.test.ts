@@ -118,6 +118,14 @@ describe("DEM Tile Metadata API", () => {
     fetchSpy.mockRestore();
   });
 
+  it("answers CORS preflight on the metadata endpoint", async () => {
+    const { OPTIONS } = await import("@/app/api/dem-tile/route");
+    const resp = OPTIONS();
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("access-control-allow-origin")).toBe("*");
+    expect(resp.headers.get("access-control-allow-methods")).toContain("GET");
+  });
+
   it("reports 503 with a generic message when the probe rejects with a non-Error", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce("network unreachable");
 

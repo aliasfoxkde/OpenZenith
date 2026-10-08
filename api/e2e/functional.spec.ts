@@ -232,8 +232,13 @@ test.describe("Studio interactions", () => {
     await page.addInitScript(() => { localStorage.setItem("openzenith-studio-onboarded", "1"); });
     await page.goto("/studio");
     const geocode = page.getByRole("tab", { name: /Geocode/ });
-    await geocode.click({ timeout: 30_000 });
-    await expect(page.getByRole("tabpanel", { name: /Geocode/ })).toBeVisible();
+    // The tab renders in SSR HTML, so the first click can land before React
+    // attaches its handlers and be swallowed. Retry the click+assert pair
+    // until one lands post-hydration (the landing-spec hydration pattern).
+    await expect(async () => {
+      await geocode.click();
+      await expect(page.getByRole("tabpanel", { name: /Geocode/ })).toBeVisible();
+    }).toPass({ timeout: 30_000 });
   });
 
   test("onboarding dismisses and persists", async ({ page }) => {

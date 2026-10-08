@@ -60,6 +60,20 @@ function payload(bytes: Array<number>): ArrayBuffer {
 }
 
 /**
+ * Fetch stand-in for a stalled origin: the promise settles only when the
+ * request's abort signal fires, which makes the 8-second timeouts under test
+ * observable through fake timers.
+ */
+function hangUntilAborted(url: string, init?: RequestInit): Promise<Response> {
+  const signal = init?.signal;
+  return new Promise<Response>((_resolve, reject) => {
+    signal?.addEventListener("abort", () => {
+      reject(new Error(`${url} aborted after 8000ms`));
+    });
+  });
+}
+
+/**
  * Build an OZCHNK01 merged file. Payloads are keyed by chunk index
  * (row * cols + col); entries without a payload point at an empty range.
  */
@@ -393,5 +407,45 @@ describe("HuggingFaceChunkBackend", () => {
     const chunk = await makeBackend(true).fetchChunk(tile.name, 0, 0);
 
     expect(Array.from(new Uint8Array(chunk))).toEqual(Array.from(new Uint8Array(chunkBytes)));
+  });
+
+  it("aborts a stalled merged download and falls back to the .deflate file", async () => {
+    vi.useFakeTimers();
+    const tile = nextTile();
+    const chunkBytes = payload([3, 1, 4]);
+    fetchMock.mockImplementation((input: string, init?: RequestInit) => {
+      requestedUrls.push(input);
+      if (input.includes(`${tile.base}.merged`)) {
+        // Stalled origin: the promise only settles when the 8s timer aborts it.
+        return hangUntilAborted(input, init);
+      }
+      return Promise.resolve(new Response(chunkBytes, { status: 200 }));
+    });
+
+    const pending = makeBackend(true).fetchChunk(tile.name, 0, 0);
+    await vi.advanceTimersByTimeAsync(8_000);
+
+    expect(Array.from(new Uint8Array(await pending))).toEqual(Array.from(new Uint8Array(chunkBytes)));
+    expect(requestedUrls).toEqual([tile.mergedUrl, tile.deflateUrl(0, 0)]);
+    // The aborted download left nothing behind to cache.
+    expect(cachePutMock).not.toHaveBeenCalled();
+  });
+
+  it("aborts a stalled .deflate fetch once the timeout elapses", async () => {
+    vi.useFakeTimers();
+    const tile = nextTile();
+    fetchMock.mockImplementation((input: string, init?: RequestInit) => {
+      requestedUrls.push(input);
+      return hangUntilAborted(input, init);
+    });
+
+    // Attach the rejection assertion before the timer fires so the abort
+    // rejection never surfaces as an unhandled rejection.
+    const pending = makeBackend(false).fetchChunk(tile.name, 2, 1);
+    const rejected = expect(pending).rejects.toThrow(`${tile.deflateUrl(2, 1)} aborted after 8000ms`);
+    await vi.advanceTimersByTimeAsync(8_000);
+
+    await rejected;
+    expect(requestedUrls).toEqual([tile.deflateUrl(2, 1)]);
   });
 });

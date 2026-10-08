@@ -481,6 +481,27 @@ describe("decodeOZT2Sync", () => {
     expect(result.metadata).toMatchObject({ predictor: "none", compressor: "brotli", width: 2, height: 2 });
   });
 
+  it("rejects a compressor the sync decoder cannot dispatch", () => {
+    // The sync entry point performs no header validation (unlike decodeOZT2),
+    // so an unknown compressor code reaches its own guard instead.
+    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: 3, residuals: new Int16Array(4) });
+    expect(() => decodeOZT2Sync(tile, unzlibSync)).toThrow("Compressor 3 not supported in sync mode");
+  });
+
+  it("fills vmin when the bit depth leaves no quantization levels", async () => {
+    // bits = 0 makes vmaxQuant 0, so there is no scale to dequantize against
+    // and every pixel collapses to vmin. The async decoder rejects this header
+    // outright; the sync decoder (no validation) falls back to the guard.
+    const residuals = Int16Array.from([5, 6, 7, 8]);
+    const tile = buildTile({ vmin: 33, range: 100, bits: 0, predictor: PRED_NONE, compressor: COMP_ZLIB, residuals });
+
+    const result = decodeOZT2Sync(tile, unzlibSync);
+
+    expect(Array.from(result.elevation)).toEqual([33, 33, 33, 33]);
+    expect(result.metadata).toMatchObject({ minElevation: 33, elevationRange: 100, bitsPerPixel: 0 });
+    await expect(decodeOZT2(tile)).rejects.toThrow("Invalid bits_per_pixel: 0");
+  });
+
   it("fills vmin across a sync tile when the range is zero at low bit depth", () => {
     const residuals = Int16Array.from([1, 2, 3, 4]);
     const tile = buildTile({ vmin: 9, range: 0, bits: 8, predictor: PRED_NONE, compressor: COMP_ZLIB, residuals });

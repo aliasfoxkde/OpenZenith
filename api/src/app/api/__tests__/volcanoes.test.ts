@@ -122,4 +122,30 @@ describe("Volcanoes proxy endpoint", () => {
     const { OPTIONS } = await import("@/app/api/volcanoes/route");
     expect(OPTIONS().headers.get("Access-Control-Allow-Origin")).not.toBeNull();
   });
+
+  it("reports upstream-malformed when a feed answers 200 with a non-array body", async () => {
+    // A 200 proxy page or error envelope is not a volcano list — the join must
+    // bail to the silent-200 empty body rather than emit a broken FeatureCollection.
+    upstream = (url) => {
+      if (url.endsWith("getCapElevated")) return new Response(JSON.stringify({ error: "not a list" }), { status: 200 });
+      return new Response(JSON.stringify([]), { status: 200 });
+    };
+    const resp = await GETViaUpstream();
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("x-volcano-status")).toBe("upstream-malformed");
+    const fc = (await resp.json()) as { features: unknown[] };
+    expect(fc.features).toEqual([]);
+  });
+
+  it("reports upstream-unavailable when the feed connection itself fails", async () => {
+    // A rejected fetch escapes the per-feed status checks and lands in the
+    // handler's catch, which uses the same silent-200 empty body.
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("dns resolution failed"));
+    const { GET } = await import("@/app/api/volcanoes/route");
+    const resp = await GET();
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("x-volcano-status")).toBe("upstream-unavailable");
+    const fc = (await resp.json()) as { features: unknown[] };
+    expect(fc.features).toEqual([]);
+  });
 });

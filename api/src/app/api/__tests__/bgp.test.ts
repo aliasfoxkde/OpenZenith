@@ -114,4 +114,34 @@ describe("BGP endpoint", () => {
     expect((init.headers as Record<string, string>).Accept).toBe("application/json");
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
+
+  it("aborts the looking-glass request once the 15s timer lapses", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      let capturedInit: RequestInit | undefined;
+      let release: ((resp: Response) => void) | undefined;
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => {
+        capturedInit = init;
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      });
+
+      const { GET } = await import("@/app/api/bgp/route");
+      const pending = GET(mockRequest("/api/bgp?prefix=8.8.8.0/24"));
+
+      // The handler is parked on the pending fetch, so advancing the clock is
+      // what fires the route's abort callback.
+      await vi.advanceTimersByTimeAsync(15000);
+      const signal = capturedInit?.signal as AbortSignal;
+      expect(signal.aborted).toBe(true);
+
+      release?.(new Response(JSON.stringify(mockBgpResponse), { status: 200 }));
+      const resp = await pending;
+      expect(resp.status).toBe(200);
+      expect((await bodyAs<BgpBody>(resp)).prefix).toBe("8.8.8.0/24");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

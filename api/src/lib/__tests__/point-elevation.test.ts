@@ -300,6 +300,25 @@ describe("getPointElevation — AWS terrarium fallback", () => {
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
   });
 
+  it("rejects a PNG whose IHDR declares zero height instead of sampling it", async () => {
+    // Only width is checked before the pixel math, so a zero-height header
+    // (py = floor(yFrac * 0) = 0) is the degenerate case the sample-site
+    // bounds guard exists for — without it the decoder would read scanline 0
+    // of an image that has none.
+    const bytes = [
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ...pngChunk("IHDR", [...be32(256), ...be32(0), 8, 2, 0, 0, 0]),
+      ...pngChunk("IDAT", [...zlibSync(new Uint8Array([0, 0, 0]))]),
+      ...pngChunk("IEND", []),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array(bytes).buffer, { status: 200 }))),
+    );
+
+    expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
+  });
+
   it("returns null when the response body is not a PNG", async () => {
     vi.stubGlobal(
       "fetch",

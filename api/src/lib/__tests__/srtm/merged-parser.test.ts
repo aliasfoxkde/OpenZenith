@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { deflateSync, inflateSync } from "fflate";
 import {
+  MERGED_CHUNK_STRIDE,
   MERGED_EDGE_EXTENT,
   chunkRealExtent,
   decodeMergedChunk,
@@ -115,6 +116,14 @@ describe("parseMergedHeader", () => {
     expect(parseMergedHeader(data)).toEqual({ rows: 0, cols: 0, entries: [] });
   });
 
+  it("returns null when the declared index does not fit in the buffer", () => {
+    // A 15x15 grid needs 12 + 225*8 = 1812 bytes; cutting the buffer to 40
+    // leaves the header intact but truncates the index array itself.
+    const data = new MergedBuilder(1, 15, 15).addChunk("x").build();
+    expect(data.length).toBeGreaterThan(1812);
+    expect(parseMergedHeader(data.subarray(0, 40))).toBeNull();
+  });
+
   it("parses a subarray view without swallowing its byte offset", () => {
     const full = new MergedBuilder(1, 1, 1).addChunk("payload").build();
     const padded = new Uint8Array(4 + full.length);
@@ -226,6 +235,14 @@ describe("decodeMergedChunk", () => {
     const short = new Int16Array(MERGED_EDGE_EXTENT * MERGED_EDGE_EXTENT).fill(400);
     const compressed = deflateSync(new Uint8Array(short.buffer, short.byteOffset, short.byteLength));
     expect(decodeMergedChunk(compressed, 14, 14)).toBeNull();
+  });
+
+  it("rejects an interior chunk stored with fewer rows than the stride", () => {
+    // Full-width but a single row: the predictor pass would read 255 rows
+    // past the buffer, so the truncation guard rejects it outright.
+    const oneRow = new Int16Array(MERGED_CHUNK_STRIDE);
+    const compressed = deflateSync(new Uint8Array(oneRow.buffer, oneRow.byteOffset, oneRow.byteLength));
+    expect(decodeMergedChunk(compressed, 0, 0)).toBeNull();
   });
 
   it("rejects a payload that is not valid zlib", () => {

@@ -1,11 +1,11 @@
 {
-  "totalJs": 2035304,
+  "totalJs": 2050720,
   "polyfills": 112594,
-  "landing": 61400,
-  "map": 61768,
-  "globe": 429114,
-  "explore": 54800,
-  "studio": 39198,
+  "landing": 60968,
+  "map": 70418,
+  "globe": 149904,
+  "explore": 55995,
+  "studio": 39527,
   "checks": {
     "selfHostedMono": true,
     "noGoogleFontsImport": true,

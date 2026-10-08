@@ -39,7 +39,7 @@ vi.mock("@/lib/storage/huggingface-backend", () => {
 });
 
 import { OZT2HuggingFaceBackend } from "@/lib/storage/ozt2-backend";
-import { latLonToTile } from "@/lib/srtm/zoom-math";
+import { latLonToTile, tileToLatLon } from "@/lib/srtm/zoom-math";
 import { chunkRealExtent } from "@/lib/srtm/merged-parser";
 import { latLonToPixel, latLonToSrtmName, srtmNameToBounds } from "@/lib/srtm/tile-math";
 
@@ -290,6 +290,39 @@ describe("OZT2HuggingFaceBackend", () => {
     const backend = new OZT2HuggingFaceBackend();
 
     expect(await backend.getElevation(lat, lon)).toBe(100);
+  });
+
+  it("returns the exact pixel under the point in nearest mode", async () => {
+    const lat = 41.8781;
+    const lon = -87.6298; // Chicago — tile untouched by the other tests
+    // One hot pixel inside the tile: nearest must read it exactly, while the
+    // default bilinear mode blends it with its neighbours.
+    const { x, y } = latLonToTile(lat, lon, 10);
+    const { north, south, east, west } = tileToLatLon(10, x, y);
+    const xFrac = Math.max(0, Math.min(255.999, ((lon - west) / (east - west)) * 256));
+    const yFrac = Math.max(0, Math.min(255.999, ((north - lat) / (north - south)) * 256));
+    const row = Math.min(255, Math.round(yFrac));
+    const col = Math.min(255, Math.round(xFrac));
+    const grid = new Int16Array(256 * 256).fill(500);
+    grid[row * 256 + col] = 777;
+    serveTile(lat, lon, buildOzt2Tile(grid));
+    const backend = new OZT2HuggingFaceBackend();
+
+    expect(await backend.getElevation(lat, lon, "nearest")).toBe(777);
+    // Bilinear blends the hot pixel into its three 500 m neighbours.
+    const blended = await backend.getElevation(lat, lon);
+    expect(blended).not.toBeNull();
+    expect(blended as number).toBeGreaterThan(500);
+    expect(blended as number).toBeLessThan(777);
+  });
+
+  it("reports NoData as null in nearest mode", async () => {
+    const lat = 64.1466;
+    const lon = -21.9426; // Reykjavik — tile untouched by the other tests
+    serveTile(lat, lon, flatTile(NODATA));
+    const backend = new OZT2HuggingFaceBackend();
+
+    expect(await backend.getElevation(lat, lon, "nearest")).toBeNull();
   });
 
   it("falls back to merged chunks when the OZT2 tile is missing", async () => {

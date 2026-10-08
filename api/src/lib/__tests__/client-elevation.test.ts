@@ -355,6 +355,28 @@ describe("getClientElevation — GEBCO fallback", () => {
     const result = await getClientElevation(39.94, -73.99);
     expect(result).toMatchObject({ elevation: 3, status: "ok", source: undefined });
   });
+
+  it("treats an error-status GEBCO strip request as unusable and asks the server", async () => {
+    const nodataMerged = mergedFile(
+      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
+      15,
+      15,
+    );
+    const { calls } = installFixtures({
+      merged: { N37W074: nodataMerged },
+      // CEDA answers the range request with a server error: the strip is
+      // neither a 206 partial nor a 200 full body, so it cannot be decoded.
+      strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": 503 },
+      pointEndpoint: () => jsonResponse({ elevation: 5, surface_type: "land", tile: "N37W074" }),
+    });
+
+    const result = await getClientElevation(37.95, -73.99);
+
+    expect(result).toMatchObject({ elevation: 5, status: "ok", source: undefined });
+    // Exactly one strip attempt was made — a failed strip is not cached, but
+    // the lookup also does not retry it.
+    expect(calls.filter((c) => CEDA_STRIP.test(c.url))).toHaveLength(1);
+  });
 });
 
 describe("getClientElevation — corrupt and failing merged files", () => {
@@ -799,5 +821,58 @@ describe("getClientTileData", () => {
     const tile = await getClientTileData(13, 2412, 2852);
 
     expect(tile).toBeNull();
+  });
+});
+
+describe("getClientTileData — SRTM cell overlap guard", () => {
+  it("skips a sampled cell whose overlap with the slippy tile is empty", async () => {
+    const { calls } = installFixtures();
+
+    // z18/138342/81630 spans lat 55.99915..55.99992 — narrower than the 0.001°
+    // sampling epsilon. `south + 0.001` reaches past the tile's north edge into
+    // the N56 row, whose cell starts at lat 56 (above the whole tile), so the
+    // north/south overlap of that sampled cell is empty and it must be dropped
+    // before any chunk is requested for it.
+    const tile = await getClientTileData(18, 138342, 81630);
+
+    expect(tile?.width).toBe(256);
+    expect(tile?.height).toBe(256);
+    expect([...(tile?.heights as Float32Array)].every((h) => h === NODATA)).toBe(true);
+    const requested = calls.map((c) => c.url.match(HF_MERGED)?.[1]).filter((name) => name !== undefined);
+    // The tile still assembles from the cell it genuinely overlaps...
+    expect(requested).toContain("N55E009");
+    // ...but never touches the cell whose overlap was empty.
+    expect(requested).not.toContain("N56E009");
+  });
+
+  it("keeps tile rows outside the sampled cell nodata instead of wrapping them", async () => {
+    // z6/18/23 spans 45.09N..40.98N over 5.6° of longitude, so it overlaps nine
+    // SRTM cells. Serving only chunk rows 0..2 / cols 0..2 of every cell fills
+    // the rows that genuinely fall inside a sampled cell; the rest of the tile
+    // (including the 68 rows north of lat 44) must stay NODATA.
+    const servedChunks = mergedFile(
+      [0, 1, 2].flatMap((chunkRow) =>
+        [0, 1, 2].map((chunkCol) => ({ slot: slot(chunkRow, chunkCol), data: chunkPayload(() => 500, 256, 256) })),
+      ),
+      15,
+      15,
+    );
+    installFixtures({ mergedFor: () => servedChunks });
+
+    const tile = await getClientTileData(6, 18, 23);
+    const heights = [...(tile?.heights as Float32Array)];
+
+    // The first 68 tile rows lie north of every cell whose chunks decoded —
+    // the per-row cell guard keeps them nodata instead of inheriting the
+    // served chunks' values.
+    const firstFilled = heights.findIndex((h) => h !== NODATA);
+    expect(firstFilled).toBeGreaterThan(-1);
+    expect(Math.floor(firstFilled / 256)).toBe(68);
+    expect(heights.slice(0, 68 * 256).every((h) => h === NODATA)).toBe(true);
+    // Only the rows that genuinely fall inside a sampled cell carry values —
+    // a sliver of the 256x256 tile, not a wrap of the served chunk.
+    const filled = heights.filter((h) => h !== NODATA).length;
+    expect(filled).toBeGreaterThan(0);
+    expect(filled).toBeLessThan(heights.length / 100);
   });
 });

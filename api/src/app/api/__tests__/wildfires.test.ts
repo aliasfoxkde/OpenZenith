@@ -298,6 +298,30 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(data.bbox).toBe("-10,10,10,20");
   });
 
+  it("summarises a 502 whose error body cannot even be read as text", async () => {
+    stubKey();
+    // An upstream body stream that errors mid-read makes resp.text() reject;
+    // the route's .catch(() => "") fallback must still produce the FIRMS error
+    // envelope rather than bubble a 500.
+    const broken = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.error(new Error("body stream interrupted"));
+        },
+      }),
+      { status: 500 },
+    );
+    stubFetch(vi.fn(() => Promise.resolve(broken)));
+
+    const GET = await getRoute();
+    const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
+    expect(resp.status).toBe(502);
+    const data = await bodyAs<WildfireBody>(resp);
+    expect(data.type).toBe("FeatureCollection");
+    expect(data.count).toBe(0);
+    expect(data.error).toBe("FIRMS API returned 500: ");
+  });
+
   it("returns 502 when the cache layer throws", async () => {
     stubKey();
     stubFetch(vi.fn());

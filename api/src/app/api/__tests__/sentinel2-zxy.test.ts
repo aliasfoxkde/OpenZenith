@@ -198,6 +198,27 @@ describe("Sentinel-2 tile API", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS-GIBS");
   });
 
+  it("returns 502 when the GIBS fallback request itself throws", async () => {
+    // Cold module: a fresh import starts with an empty asset cache, so the
+    // STAC search runs and yields no usable asset, and the failure then
+    // propagates out of the GIBS fetch rather than through a non-OK status.
+    vi.resetModules();
+    const { GET: getFresh } = await import("@/app/api/sentinel2/[z]/[x]/[y]/route");
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac")) return stacResponse(null);
+      if (url.includes("gibs.earthdata.nasa.gov")) throw new Error("gibs connection reset");
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await getFresh(new Request("https://oz/api/sentinel2/10/163/389"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "389" }),
+    });
+    expect(resp.status).toBe(502);
+    expect(await resp.json()).toEqual({ error: "Imagery temporarily unavailable (both sources failed)" });
+  });
+
   it("returns a 502 JSON error when every upstream is unavailable", async () => {
     // The module-level asset URL from the first test is still within its
     // 1-hour TTL, so TiTiler is tried (and throws); GIBS also fails.

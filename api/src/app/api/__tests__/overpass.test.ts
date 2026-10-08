@@ -184,4 +184,33 @@ describe("Overpass API", () => {
     expect(resp.headers.get("access-control-allow-origin")).toBe("*");
     expect(resp.headers.get("access-control-allow-methods")).toContain("GET");
   });
+
+  it("aborts the upstream request once the 30s timer lapses", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      let capturedInit: RequestInit | undefined;
+      let release: ((resp: Response) => void) | undefined;
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => {
+        capturedInit = init;
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      });
+
+      const { POST } = await import("@/app/api/overpass/route");
+      const pending = POST(mockRequest("/api/overpass", "POST", JSON.stringify({ query: "[out:json];" })));
+
+      // The handler is parked on the pending fetch, so advancing the clock is
+      // what fires the route's abort callback.
+      await vi.advanceTimersByTimeAsync(30000);
+      const signal = capturedInit?.signal as AbortSignal;
+      expect(signal.aborted).toBe(true);
+
+      release?.(new Response(JSON.stringify({ elements: [] }), { status: 200 }));
+      const resp = await pending;
+      expect(resp.status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

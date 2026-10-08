@@ -152,6 +152,35 @@ describe("ArcGIS Proxy API", () => {
     expect(signal.aborted).toBe(false);
   });
 
+  it("aborts the upstream request once the 15s timer lapses", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      let capturedInit: RequestInit | undefined;
+      let release: ((resp: Response) => void) | undefined;
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => {
+        capturedInit = init;
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      });
+
+      const { GET } = await import("@/app/api/arcgis/route");
+      const pending = GET(mockRequest("/api/arcgis?url=https://services9.arcgis.com/test"));
+
+      // The handler is parked on the pending fetch, so advancing the clock is
+      // what fires the route's abort callback.
+      await vi.advanceTimersByTimeAsync(15000);
+      const signal = capturedInit?.signal as AbortSignal;
+      expect(signal.aborted).toBe(true);
+
+      release?.(new Response(JSON.stringify({ currentVersion: 10.81 }), { status: 200 }));
+      const resp = await pending;
+      expect(resp.status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("answers CORS preflight", async () => {
     const { OPTIONS } = await import("@/app/api/arcgis/route");
     const resp = OPTIONS();

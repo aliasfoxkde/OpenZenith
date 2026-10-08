@@ -60,4 +60,15 @@ describe("flowAccumulation", () => {
     const accum = flowAccumulation(flowDir, 3, 3);
     expect(Array.from(accum)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1]);
   });
+
+  it("drops a flow direction that points off the grid", () => {
+    // Hand-built direction table — d8FlowDirection never emits an off-grid
+    // direction (it bounds-checks before coding one), but the accumulator is
+    // a standalone kernel and must not read past the row when handed one.
+    // Cell 0 drains east into cell 1; cell 1's eastward direction leaves the
+    // grid and contributes nothing.
+    const flowDir = Int8Array.from([0, 0]);
+    const accum = flowAccumulation(flowDir, 1, 2);
+    expect(Array.from(accum)).toEqual([1, 2]);
+  });
 });

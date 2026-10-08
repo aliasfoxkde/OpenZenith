@@ -155,6 +155,42 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
     expect(await resp.json()).toEqual({ error: "Proxy error" });
   });
 
+  it("aborts the forwarded request once the 30s timer lapses", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      let capturedInit: RequestInit | undefined;
+      let release: ((resp: Response) => void) | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+          capturedInit = init;
+          return new Promise<Response>((resolve) => {
+            release = resolve;
+          });
+        }),
+      );
+
+      const { GET } = await route();
+      const pending = GET(mockRequest("/api/proxy/https://earthquake.usgs.gov/fdsnws/event/1/query"), {
+        params: Promise.resolve({ path: ["https://earthquake.usgs.gov/fdsnws/event/1/query"] }),
+      });
+
+      // The handler is parked on the pending fetch, so advancing the clock is
+      // what fires the route's abort callback; the upstream reply still
+      // determines the answer, since the route never inspects the signal.
+      await vi.advanceTimersByTimeAsync(30000);
+      const signal = capturedInit?.signal as AbortSignal;
+      expect(signal.aborted).toBe(true);
+
+      release?.(new Response(bytes("late-reply"), { status: 200 }));
+      const resp = await pending;
+      expect(resp.status).toBe(200);
+      expect(await resp.text()).toBe("late-reply");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("answers 502 with the parse error when the joined path is not a URL", async () => {
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/proxy/not-a-url"), {

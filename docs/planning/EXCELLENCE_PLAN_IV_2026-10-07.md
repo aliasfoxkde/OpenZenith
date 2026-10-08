@@ -289,4 +289,29 @@ GitForge-CI green, a tagged release, and a prod-verified deploy.
   one-char character class, so bracket paths need `\[z\]` escaping —
   static-segment entries matched while every dynamic-segment route silently
   stayed gated. Gate verified green in the CI shape (`eslint src/` with the
-  zero-warnings flag).
+  zero-warnings flag). **D3** OpenAPI receipt: `openapi:check` green (committed
+  spec current); counted **81 route handlers ↔ 81 spec paths ↔ 81 operations**
+  — exact 1:1, no undocumented or spec-ghost routes.
+- 2026-10-08 (E close): **coverage floor cleared** — the 51 uncovered
+  statements across 25 files were dispositioned one by one: 31 now covered by
+  40+ new tests (abort-timer paths via fake timers, CORS preflight, empty
+  coordinate trees, non-array upstream bodies, unreadable error bodies,
+  zero-height PNG IHDR, off-grid flow directions, nearest-mode hot pixels,
+  stalled-download timeouts, truncated chunk headers), and 19 proven
+  structurally unreachable through their public entry points (single-call-site
+  heap guards behind `isEmpty` checks, loop-invariant `seen`/`visited` guards,
+  switch defaults whose input domain is exhausted by explicit cases,
+  bounds guards whose inputs are pre-clamped by their only producers) —
+  recorded here as the census rather than forced with test hooks. Full-suite
+  receipt: **1,704 passed @ 99.53% stmts / 97.83% branches / 95.18% funcs /
+  99.95% lines** (floor 99 stmts). **E2E**: full chromium suite 95 passed,
+  1 skipped (heavy opt-in). Two flakes diagnosed separately: landing
+  elevation-lookup was host contention (3/3 green quiet, coverage ran
+  concurrently), and studio tab-switch was a real hydration race — the SSR
+  tab accepts a click before React attaches handlers — fixed with the
+  repo's toPass click+assert retry pattern, verified 8/8 across two
+  repeat runs. **Bundle budget**: re-baselined per the deliberate-move
+  protocol — map +8.6KB is shipped functionality since the Oct-5 baseline
+  (click-to-identify `identify.ts` +445 lines, EGM96 datum +127,
+  elevation params +105), globe −279KB is the vendored-wasm removal; net
+  totalJs +15KB. Budget: PASS.

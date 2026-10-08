@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getTileData } from "../tile";
+import { fetchAWSTerrainTile, fillTileFromSrtm, getTileData } from "../tile";
 import { tileToLatLon } from "../srtm/zoom-math";
 import { latLonToPixel } from "../srtm/tile-math";
 import type { ChunkBackend } from "../storage/backend";
@@ -58,6 +58,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -569,5 +570,114 @@ describe("getTileData — Terrarium PNG decoding", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(Array.from(result.data).every((v) => v === NODATA)).toBe(true);
+  });
+});
+
+describe("getTileData — slow assembly diagnostics", () => {
+  it("logs an assembly that exceeds the slow-assembly budget", async () => {
+    stubFetch(() => null);
+    const storage = constantStorage(() => 800);
+    // The assembler brackets the fill with Date.now(); a monotonic fake that
+    // steps 3s per read puts the measured assembly past the 2s log threshold
+    // without actually stalling the test.
+    let tick = 0;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => ++tick * 3000);
+
+    await getTileData(INSIDE_TILE.z, INSIDE_TILE.x, INSIDE_TILE.y, storage);
+
+    expect(nowSpy).toHaveBeenCalledTimes(2);
+    expect(console.debug).toHaveBeenCalledWith(expect.stringContaining("slow assembly 11/370/802"));
+    expect(console.debug).toHaveBeenCalledWith(expect.stringContaining("3000ms"));
+    expect(console.debug).toHaveBeenCalledWith(expect.stringContaining("1 cells"));
+  });
+
+  it("stays quiet for assemblies inside the budget", async () => {
+    stubFetch(() => null);
+    const storage = constantStorage(() => 800);
+    vi.spyOn(Date, "now").mockReturnValue(0);
+
+    await getTileData(INSIDE_TILE.z, INSIDE_TILE.x, INSIDE_TILE.y, storage);
+
+    expect(console.debug).not.toHaveBeenCalledWith(expect.stringContaining("slow assembly"));
+  });
+});
+
+describe("fillTileFromSrtm — overlap guard", () => {
+  /** A 0.1° window fully inside the N36W115 cell (lat [36,37], lon [-115,-114]). */
+  const INSIDE_CELL = { north: 36.5, south: 36.4, east: -114.6, west: -114.7 };
+
+  it("returns without fetching when the cell lies north of the tile", async () => {
+    const output = new Int16Array(TILE_SIZE * TILE_SIZE).fill(7);
+    const storage = constantStorage(() => 900);
+
+    await fillTileFromSrtm(output, "N36W115", { north: 10, south: 9, east: -115.4, west: -115.5 }, storage);
+
+    expect((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect(Array.from(output).every((v) => v === 7)).toBe(true);
+  });
+
+  it("returns without fetching when the cell lies east of the tile", async () => {
+    const output = new Int16Array(TILE_SIZE * TILE_SIZE).fill(7);
+    const storage = constantStorage(() => 900);
+
+    // The tile is east of the cell: the overlap's west edge (tile.west) sits
+    // at/after the overlap's east edge (cell lonMax -115).
+    await fillTileFromSrtm(output, "N36W115", { north: 36.5, south: 36.4, east: -113, west: -114 }, storage);
+
+    expect((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect(Array.from(output).every((v) => v === 7)).toBe(true);
+  });
+
+  it("rejects with a RangeError when a fetched chunk cannot be decoded", async () => {
+    const output = new Int16Array(TILE_SIZE * TILE_SIZE);
+    let attempted = 0;
+    const storage: ChunkBackend = {
+      fetchChunk: vi.fn(() => {
+        attempted += 1;
+        return Promise.resolve(new TextEncoder().encode("not a zlib stream").buffer);
+      }),
+    };
+
+    await expect(fillTileFromSrtm(output, "N36W115", INSIDE_CELL, storage)).rejects.toThrow(RangeError);
+    // Every requested chunk (2x2 here) was attempted before the first decode
+    // failure won — the fetches run concurrently, not fail-fast.
+    expect(attempted).toBe(4);
+    expect(Array.from(output).every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("fetchAWSTerrainTile — request timeout", () => {
+  it("aborts a hanging AWS request at the 8 second budget and returns null", async () => {
+    vi.useFakeTimers();
+    // A fetch that never settles on its own and rejects when the assembler
+    // fires its AbortController — the observable effect of the 8s timeout.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit): Promise<Response> => {
+        const signal = init?.signal;
+        return new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => {
+            reject(new Error("The operation was aborted"));
+          });
+        });
+      }),
+    );
+
+    const pending = fetchAWSTerrainTile(11, 0, 0);
+    await vi.advanceTimersByTimeAsync(8_000);
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it("cancels the timeout timer once the AWS tile arrives", async () => {
+    vi.useFakeTimers();
+    stubFetch(() => awsResponse(buildTerrariumPNG({ width: 1, height: 1, colorType: 2, pixel: () => [64, 0, 0] })));
+
+    const pending = fetchAWSTerrainTile(11, 0, 0);
+    await vi.advanceTimersByTimeAsync(8_000);
+
+    // The decode succeeded, so the abort timer was cleared rather than fired.
+    const decoded = await pending;
+    expect(decoded).not.toBeNull();
+    expect(decoded?.[0]).toBe(terrariumElevation(64, 0, 0));
   });
 });

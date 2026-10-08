@@ -12,6 +12,133 @@ the package ``__init__`` re-exports the unchanged public surface.
 import numpy as np
 
 
+def _metric_cell_sizes(
+    dem: np.ndarray, cell_size_deg: float, nodata: float
+) -> tuple[float, float]:
+    """Cell size in meters as ``(x, y)`` for the derivative kernels.
+
+    y is the latitude-degree scale (111320 m/deg). x applies a cos scaling
+    over the grid's mean elevation value — preserved verbatim from the
+    historical per-function copies. The scale input is the elevation mean,
+    not latitude; changing it would alter every derivative's output.
+    """
+    valid = dem > nodata
+    cell_y = cell_size_deg * 111320.0
+    cell_x = cell_y * np.cos(np.radians(np.nanmean(dem[valid]) if np.any(valid) else 0.0))
+    return cell_x, cell_y
+
+
+def _horn_window(padded: np.ndarray) -> tuple[np.ndarray, ...]:
+    """Return the eight 3×3 neighborhood slices of a 1-cell-padded grid.
+
+    Layout::
+
+        a b c
+        d e f
+        g h i
+
+    (the center slice ``e`` is not needed by Horn's method and is not returned)
+    """
+    return (
+        padded[:-2, :-2],
+        padded[:-2, 1:-1],
+        padded[:-2, 2:],
+        padded[1:-1, :-2],
+        padded[1:-1, 2:],
+        padded[2:, :-2],
+        padded[2:, 1:-1],
+        padded[2:, 2:],
+    )
+
+
+def _horn_nodata_mask(window: tuple[np.ndarray, ...], nodata: float) -> np.ndarray:
+    """Mask of cells with any nodata neighbor in the 3×3 window."""
+    a, b, c, d, f, g, h, i = window
+    return (
+        (a <= nodata)
+        | (b <= nodata)
+        | (c <= nodata)
+        | (d <= nodata)
+        | (f <= nodata)
+        | (g <= nodata)
+        | (h <= nodata)
+        | (i <= nodata)
+    )
+
+
+def _horn_dz(
+    window: tuple[np.ndarray, ...], cell_x: float, cell_y: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Horn-weighted first derivatives ``(dz/dx, dz/dy)`` from the 3×3 window."""
+    a, b, c, d, f, g, h, i = window
+    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell_x)
+    dz_dy = ((a + 2 * b + c) - (g + 2 * h + i)) / (8 * cell_y)
+    return dz_dx, dz_dy
+
+
+def _central_d2z(
+    z: np.ndarray, padded: np.ndarray, cell_m: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Central-difference second derivatives ``(d²z/dx², d²z/dy²)``."""
+    d2z_dx2 = (padded[1:-1, 2:] - 2 * z + padded[1:-1, :-2]) / (cell_m**2)
+    d2z_dy2 = (padded[2:, 1:-1] - 2 * z + padded[:-2, 1:-1]) / (cell_m**2)
+    return d2z_dx2, d2z_dy2
+
+
+def _curvature_terms(
+    padded: np.ndarray, cell_m: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return the derivative set shared by the profile and planform kernels.
+
+    Expects a float64 grid padded with NaN. Returns ``(dz_dx, dz_dy,
+    d2z_dx2, d2z_dy2, d2z_dxdy, p, q)`` where ``p`` is the gradient
+    magnitude (floored at 1e-10) and ``q = p + 1``.
+    """
+    z = padded[1:-1, 1:-1]
+
+    # First derivatives (Horn's 3x3 weighted)
+    dz_dx = (
+        padded[2:, 2:]
+        + 2 * padded[1:-1, 2:]
+        + padded[:-2, 2:]
+        - padded[2:, :-2]
+        - 2 * padded[1:-1, :-2]
+        - padded[:-2, :-2]
+    ) / (8 * cell_m)
+    dz_dy = (
+        padded[:-2, 2:]
+        + 2 * padded[:-2, 1:-1]
+        + padded[:-2, :-2]
+        - padded[2:, 2:]
+        - 2 * padded[2:, 1:-1]
+        - padded[2:, :-2]
+    ) / (8 * cell_m)
+
+    d2z_dx2, d2z_dy2 = _central_d2z(z, padded, cell_m)
+    d2z_dxdy = (padded[2:, 2:] - padded[2:, :-2] - padded[:-2, 2:] + padded[:-2, :-2]) / (
+        4 * cell_m**2
+    )
+
+    p = dz_dx**2 + dz_dy**2
+    p = np.where(p < 1e-10, 1e-10, p)  # avoid division by zero
+    q = p + 1.0
+    return dz_dx, dz_dy, d2z_dx2, d2z_dy2, d2z_dxdy, p, q
+
+
+def _masked_result(
+    values: np.ndarray, valid: np.ndarray, nodata: float
+) -> np.ndarray:
+    """float32 output grid: computed values where valid, nodata elsewhere.
+
+    Shared tail of the curvature/index kernels — NaN inside ``valid``
+    (flat cells, zero-gradient guards) passes through untouched.
+    """
+    result = np.full(values.shape, np.nan, dtype=np.float32)
+    result[valid] = values[valid]
+    result[~valid] = nodata
+    return result
+
+
 def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
     """Compute terrain slope in degrees using Horn's method (3×3 window).
 
@@ -29,47 +156,19 @@ def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.
     """
     # Approximate cell size in meters (WGS84 ellipsoid approximation)
     valid_mask = dem > nodata
-    cell_y = cell_size_deg * 111320.0  # meters per degree latitude
-    cell_x = (
-        cell_size_deg
-        * 111320.0
-        * np.cos(np.radians(np.nanmean(dem[valid_mask]) if np.any(valid_mask) else 0.0))
-    )
+    cell_x, cell_y = _metric_cell_sizes(dem, cell_size_deg, nodata)
 
     # Pad with NODATA for edge handling
     padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
 
     # Extract all 9 cells of the 3×3 window simultaneously
-    # Layout:  a b c
-    #         d e f
-    #         g h i
-    a = padded[:-2, :-2]
-    b = padded[:-2, 1:-1]
-    c = padded[:-2, 2:]
-    d = padded[1:-1, :-2]
-    # The center slice is not needed for Horn's method.
-    f = padded[1:-1, 2:]
-    g = padded[2:, :-2]
-    h = padded[2:, 1:-1]
-    i = padded[2:, 2:]
+    window = _horn_window(padded)
 
     # Cells with any NODATA neighbor → NaN output
-    nodata_mask = (
-        (a <= nodata)
-        | (b <= nodata)
-        | (c <= nodata)
-        | (d <= nodata)
-        | (f <= nodata)
-        | (g <= nodata)
-        | (h <= nodata)
-        | (i <= nodata)
-    )
+    nodata_mask = _horn_nodata_mask(window, nodata)
 
     # Horn's method: weighted average of 4 3×3 neighborhoods
-    # x-direction (EW): (c + 2f + i) - (a + 2d + g) / 8*cell_x
-    # y-direction (NS): (a + 2b + c) - (g + 2h + i) / 8*cell_y
-    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell_x)
-    dz_dy = ((a + 2 * b + c) - (g + 2 * h + i)) / (8 * cell_y)
+    dz_dx, dz_dy = _horn_dz(window, cell_x, cell_y)
 
     result = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2)))
     result[nodata_mask | ~valid_mask] = np.nan
@@ -93,12 +192,7 @@ def slope_fast(
         2D float32 array of slope in degrees
 
     """
-    cell_y = cell_size_deg * 111320.0
-    cell_x = (
-        cell_size_deg
-        * 111320.0
-        * np.cos(np.radians(np.nanmean(dem[dem > nodata]) if np.any(dem > nodata) else 0.0))
-    )
+    cell_x, cell_y = _metric_cell_sizes(dem, cell_size_deg, nodata)
 
     valid = dem > nodata
     padded = np.pad(dem.astype(np.float64), 1, mode="edge")
@@ -127,12 +221,7 @@ def aspect(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768
         2D float32 array of aspect in degrees
 
     """
-    cell_y = cell_size_deg * 111320.0
-    cell_x = (
-        cell_size_deg
-        * 111320.0
-        * np.cos(np.radians(np.nanmean(dem[dem > nodata]) if np.any(dem > nodata) else 0.0))
-    )
+    cell_x, cell_y = _metric_cell_sizes(dem, cell_size_deg, nodata)
 
     valid = dem > nodata
     padded = np.pad(dem.astype(np.float64), 1, mode="edge")
@@ -174,26 +263,12 @@ def aspect_slope(
 
     """
     valid = dem > nodata
-    cell_y = cell_size_deg * 111320.0
-    cell_x = (
-        cell_size_deg
-        * 111320.0
-        * np.cos(np.radians(np.nanmean(dem[valid]) if np.any(valid) else 0.0))
-    )
+    cell_x, cell_y = _metric_cell_sizes(dem, cell_size_deg, nodata)
 
     padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
 
-    a = padded[:-2, :-2]
-    b = padded[:-2, 1:-1]
-    c = padded[:-2, 2:]
-    d = padded[1:-1, :-2]
-    f = padded[1:-1, 2:]
-    g = padded[2:, :-2]
-    h = padded[2:, 1:-1]
-    i = padded[2:, 2:]
-
-    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell_x)
-    dz_dy = ((a + 2 * b + c) - (g + 2 * h + i)) / (8 * cell_y)
+    window = _horn_window(padded)
+    dz_dx, dz_dy = _horn_dz(window, cell_x, cell_y)
 
     slope_rad = np.arctan(np.sqrt(dz_dx**2 + dz_dy**2))
     slope_deg = np.degrees(slope_rad)
@@ -235,8 +310,7 @@ def curvature(
     padded = np.pad(dem, 1, mode="constant", constant_values=np.nan)
 
     z = padded[1:-1, 1:-1].astype(np.float64)
-    d2z_dx2 = (padded[1:-1, 2:] - 2 * z + padded[1:-1, :-2]) / (cell_m**2)
-    d2z_dy2 = (padded[2:, 1:-1] - 2 * z + padded[:-2, 1:-1]) / (cell_m**2)
+    d2z_dx2, d2z_dy2 = _central_d2z(z, padded, cell_m)
 
     result = (d2z_dx2 + d2z_dy2) / 2.0
 
@@ -268,36 +342,8 @@ def profile_curvature(
     """
     cell_m = cell_size_deg * 111320.0
     padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=np.nan)
-    z = padded[1:-1, 1:-1]
 
-    # First derivatives (Horn's 3x3 weighted)
-    dz_dx = (
-        padded[2:, 2:]
-        + 2 * padded[1:-1, 2:]
-        + padded[:-2, 2:]
-        - padded[2:, :-2]
-        - 2 * padded[1:-1, :-2]
-        - padded[:-2, :-2]
-    ) / (8 * cell_m)
-    dz_dy = (
-        padded[:-2, 2:]
-        + 2 * padded[:-2, 1:-1]
-        + padded[:-2, :-2]
-        - padded[2:, 2:]
-        - 2 * padded[2:, 1:-1]
-        - padded[2:, :-2]
-    ) / (8 * cell_m)
-
-    # Second derivatives
-    d2z_dx2 = (padded[1:-1, 2:] - 2 * z + padded[1:-1, :-2]) / (cell_m**2)
-    d2z_dy2 = (padded[2:, 1:-1] - 2 * z + padded[:-2, 1:-1]) / (cell_m**2)
-    d2z_dxdy = (padded[2:, 2:] - padded[2:, :-2] - padded[:-2, 2:] + padded[:-2, :-2]) / (
-        4 * cell_m**2
-    )
-
-    p = dz_dx**2 + dz_dy**2
-    p = np.where(p < 1e-10, 1e-10, p)  # avoid division by zero
-    q = p + 1.0
+    dz_dx, dz_dy, d2z_dx2, d2z_dy2, d2z_dxdy, p, q = _curvature_terms(padded, cell_m)
 
     result = -(d2z_dx2 * dz_dx**2 + 2 * d2z_dxdy * dz_dx * dz_dy + d2z_dy2 * dz_dy**2) / (
         p * np.sqrt(q)
@@ -327,34 +373,8 @@ def planform_curvature(
     """
     cell_m = cell_size_deg * 111320.0
     padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=np.nan)
-    z = padded[1:-1, 1:-1]
 
-    dz_dx = (
-        padded[2:, 2:]
-        + 2 * padded[1:-1, 2:]
-        + padded[:-2, 2:]
-        - padded[2:, :-2]
-        - 2 * padded[1:-1, :-2]
-        - padded[:-2, :-2]
-    ) / (8 * cell_m)
-    dz_dy = (
-        padded[:-2, 2:]
-        + 2 * padded[:-2, 1:-1]
-        + padded[:-2, :-2]
-        - padded[2:, 2:]
-        - 2 * padded[2:, 1:-1]
-        - padded[2:, :-2]
-    ) / (8 * cell_m)
-
-    d2z_dx2 = (padded[1:-1, 2:] - 2 * z + padded[1:-1, :-2]) / (cell_m**2)
-    d2z_dy2 = (padded[2:, 1:-1] - 2 * z + padded[:-2, 1:-1]) / (cell_m**2)
-    d2z_dxdy = (padded[2:, 2:] - padded[2:, :-2] - padded[:-2, 2:] + padded[:-2, :-2]) / (
-        4 * cell_m**2
-    )
-
-    p = dz_dx**2 + dz_dy**2
-    p = np.where(p < 1e-10, 1e-10, p)
-    q = p + 1.0
+    dz_dx, dz_dy, d2z_dx2, d2z_dy2, d2z_dxdy, p, q = _curvature_terms(padded, cell_m)
 
     result = (d2z_dx2 * dz_dy**2 - 2 * d2z_dxdy * dz_dx * dz_dy + d2z_dy2 * dz_dx**2) / (
         p * np.sqrt(q)
@@ -390,14 +410,7 @@ def tangent_curvature(
     azm = aspect(dem, cell_size_deg, nodata)
 
     padded = np.pad(dem.astype(np.float64), 1, mode="constant", constant_values=nodata)
-    a = padded[:-2, :-2]
-    b = padded[:-2, 1:-1]
-    c = padded[:-2, 2:]
-    d = padded[1:-1, :-2]
-    f = padded[1:-1, 2:]
-    g = padded[2:, :-2]
-    h = padded[2:, 1:-1]
-    i = padded[2:, 2:]
+    a, b, c, d, f, g, h, i = _horn_window(padded)
 
     # Second derivative in east-west direction (d²z/dx²)
     d2z_dx2 = (a + 2 * d + g) / 4 - (c + 2 * f + i) / 4
@@ -421,10 +434,7 @@ def tangent_curvature(
         + np.sin(2 * azm_rad) * np.sin(2 * slope_rad) / 4 * (d2z_dx2 - d2z_dy2)
     )
 
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = tc[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(tc, valid, nodata)
 
 
 def total_curvature(
@@ -460,10 +470,7 @@ def total_curvature(
 
     tc = d2z_dx2 + d2z_dy2
 
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = tc[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(tc, valid, nodata)
 
 
 def gaussian_curvature(
@@ -503,10 +510,7 @@ def gaussian_curvature(
 
     k = d2z_dx2 * d2z_dy2 - d2z_dxdy**2
 
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = k[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(k, valid, nodata)
 
 
 def horizontal_curvature(
@@ -535,7 +539,6 @@ def horizontal_curvature(
     cell_m = cell_size_deg * 111320.0
 
     padded = np.pad(dem.astype(np.float64), 1, mode="edge")
-    padded[:-2, :-2]
     d = padded[1:-1, :-2]
     f = padded[1:-1, 2:]
     n = padded[:-2, 1:-1]
@@ -547,10 +550,7 @@ def horizontal_curvature(
     asp_rad = np.radians(asp)
     hc = (-np.sin(2 * asp_rad) / 2) * (d2z_dx2 - d2z_dy2)
 
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = hc[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(hc, valid, nodata)
 
 
 def convergence_index(
@@ -580,10 +580,7 @@ def convergence_index(
     tan_slope = np.tan(np.deg2rad(np.maximum(slp, 0.01)))
 
     tci = np.log(tan_slope) + np.radians(asp)
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = tci[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(tci, valid, nodata)
 
 
 def edge_density(
@@ -614,10 +611,7 @@ def edge_density(
     max_diff = np.maximum(max_diff, np.abs(padded[1:-1, 1:-1] - padded[:-2, 1:-1]))  # N
     max_diff = np.maximum(max_diff, np.abs(padded[1:-1, 1:-1] - padded[2:, 1:-1]))  # S
 
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = max_diff[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(max_diff, valid, nodata)
 
 
 def downslope_index(
@@ -645,7 +639,4 @@ def downslope_index(
 
     di = np.log(np.tan(slope_rad))
 
-    result = np.full(dem.shape, np.nan, dtype=np.float32)
-    result[valid] = di[valid]
-    result[~valid] = nodata
-    return result.astype(np.float32)
+    return _masked_result(di, valid, nodata)

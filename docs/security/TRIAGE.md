@@ -1792,3 +1792,41 @@ in the new CLI command tests).
 
 No new classes, no production-code findings. Baseline re-generated
 (`scripts/aegis_scan.sh update`); gate green locally before the re-push.
+
+## Re-baseline 2026-10-08 — excellence cycle IV line drift
+
+Trigger: the cycle-IV commits (C1 core FMA/const-fn edits, the B1
+terrain-grid kernel, the explore a11y buttons, and the E coverage-arm test
+wave) shifted enough lines that 134 triaged fingerprints moved; the CI aegis
+gate failed on b6d7b32 with them as "new". Baseline re-generated
+(`scripts/aegis_scan.sh update`): 2,025 → 2,036 findings; 145 added /
+134 removed, all line-drift churn of existing classes (added and removed
+per-pattern counts are symmetric: try-catch-bulk 14/14, unsafe 12/12,
+unwrap 6/6, missing-limit 8/8).
+
+Seven findings are genuinely new fingerprints; all triaged false positive:
+
+- `cors-misconfiguration` api/src/app/api/__tests__/dem-tile.test.ts:125 —
+  the new CORS-preflight test pins the route's real wildcard-origin contract
+  (public tile metadata, no credentials); same class as the arcgis fixtures.
+- `debug-endpoint` terrain-grid.test.ts:2 / hypsometric.test.ts:5 and
+  `console-log-production` tile.test.ts:589 — pattern hits on test imports
+  and a test that spies on the slow-assembly `console.debug` payload; test
+  files, not production logging.
+- `expensive-computation-loop` ×3 api/src/lib/terrain-grid.ts (:109, :294,
+  :317) — the B1 kernel's D8/accumulation/decimation cell loops; the whole
+  point of the kernel is a bounded O(n) sweep over a 3600² grid. Same class
+  as the existing core-loop dispositions.
+- `git-credential-leak` ×2 arcgis.test.ts (:147, :168 — `/test` URL
+  substrings in mocked request URLs) and `credit-card-*` ×2 core/src/dinf.rs
+  (:422 — the `0.4636476090008061` atan2 literal moved from :413): both
+  families were already triaged at their old lines; the fingerprints moved.
+
+No new production findings, no secrets. Platform note recorded the same
+morning: the gitforge-release-auto pass at 03:48 swapped the GitForge
+binaries mid-cycle and the new api binary crash-looped on a SQLite
+migration (`idx_jobs_running_started`) that could not get the DB lock while
+the ci/git-server units were running — recovery was stop ci/git-server/
+runner, let api migrate (~2 min), start the others. The bbc9208 push fired
+no run during that window; the re-push after this commit is the run that
+validates cycle IV.

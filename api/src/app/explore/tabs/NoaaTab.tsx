@@ -42,31 +42,27 @@ export function NoaaTab({
 
       <div className="ex-ds-grid" style={{ marginBottom: "1.25rem" }}>
         {NOAA_DATASETS.map((ds, i) => (
-          <div
-            key={i}
-            role="button"
-            tabIndex={0}
-            className={`ex-ds-card ${selected === i ? "selected" : ""}`}
-            onClick={() => {
-              onSelectDataset(i);
-            }}
-            onKeyDown={(e) => {
-              // Keyboard activation for the div-as-button card; ignore keys
-              // raised inside the card's NWS lat/lon inputs so typing Enter
-              // there does not re-select the dataset.
-              if (e.target !== e.currentTarget) return;
-              if (e.key !== "Enter" && e.key !== " ") return;
-              e.preventDefault();
-              onSelectDataset(i);
-            }}
-          >
-            <div className="ex-row" style={{ marginBottom: "0.4rem" }}>
-              <span className={`ex-badge ${ds.source === "USGS" ? "usgs" : ds.source === "NASA" ? "nasa" : "noaa"}`}>
-                {ds.source}
-              </span>
-            </div>
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{ds.label}</div>
-            <div style={{ fontSize: "0.78rem", color: "#a3a3a3", lineHeight: 1.45 }}>{ds.desc}</div>
+          <div key={i} className={`ex-ds-card ${selected === i ? "selected" : ""}`}>
+            {/* Real button for selection: a div[role=button] wrapping the NWS
+                lat/lon inputs is a nested-interactive axe violation (serious)
+                — inputs cannot live inside a button. aria-pressed carries the
+                .selected state to assistive tech. */}
+            <button
+              type="button"
+              className="ex-ds-select"
+              aria-pressed={selected === i}
+              onClick={() => {
+                onSelectDataset(i);
+              }}
+            >
+              <div className="ex-row" style={{ marginBottom: "0.4rem" }}>
+                <span className={`ex-badge ${ds.source === "USGS" ? "usgs" : ds.source === "NASA" ? "nasa" : "noaa"}`}>
+                  {ds.source}
+                </span>
+              </div>
+              <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{ds.label}</div>
+              <div style={{ fontSize: "0.78rem", color: "#a3a3a3", lineHeight: 1.45 }}>{ds.desc}</div>
+            </button>
             {ds.url === null && (
               <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
                 <input
@@ -74,7 +70,6 @@ export function NoaaTab({
                   placeholder="lat"
                   aria-label="NWS alert latitude"
                   value={nwsLat}
-                  onClick={(e) => { e.stopPropagation(); }}
                   onChange={(e) => { onNwsLatChange(e.target.value); }}
                 />
                 <input
@@ -82,7 +77,6 @@ export function NoaaTab({
                   placeholder="lon"
                   aria-label="NWS alert longitude"
                   value={nwsLon}
-                  onClick={(e) => { e.stopPropagation(); }}
                   onChange={(e) => { onNwsLonChange(e.target.value); }}
                 />
               </div>

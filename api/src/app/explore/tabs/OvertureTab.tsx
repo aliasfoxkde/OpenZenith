@@ -44,29 +44,29 @@ export function OvertureTab({
 
       <div className="ex-ds-grid" style={{ marginBottom: "1rem" }}>
         {OVERTURE_THEMES.map((t) => (
-          <div
-            key={t.id}
-            role="button"
-            tabIndex={0}
-            className={`ex-ds-card ${theme === t.id ? "selected" : ""}`}
-            onClick={() => {
-              onSelectTheme(t.id, t.types[0]);
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" && e.key !== " ") return;
-              e.preventDefault();
-              onSelectTheme(t.id, t.types[0]);
-            }}
-          >
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{t.label}</div>
-            <div style={{ fontSize: "0.78rem", color: "#a3a3a3", lineHeight: 1.45 }}>{t.desc}</div>
-            <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
-              {t.types.map((tt) => (
-                <span key={tt} className="ex-tag">
-                  {tt}
-                </span>
-              ))}
-            </div>
+          // Real button (not div[role=button]): same pattern as NoaaTab — a
+          // native button keeps keyboard activation for free and can never
+          // become a nested-interactive violation if interactive content is
+          // ever added to a card. aria-pressed carries .selected to AT.
+          <div key={t.id} className={`ex-ds-card ${theme === t.id ? "selected" : ""}`}>
+            <button
+              type="button"
+              className="ex-ds-select"
+              aria-pressed={theme === t.id}
+              onClick={() => {
+                onSelectTheme(t.id, t.types[0]);
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{t.label}</div>
+              <div style={{ fontSize: "0.78rem", color: "#a3a3a3", lineHeight: 1.45 }}>{t.desc}</div>
+              <div className="ex-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
+                {t.types.map((tt) => (
+                  <span key={tt} className="ex-tag">
+                    {tt}
+                  </span>
+                ))}
+              </div>
+            </button>
           </div>
         ))}
       </div>

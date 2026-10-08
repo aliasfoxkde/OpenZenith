@@ -114,6 +114,12 @@ const S = `
 .ex-ds-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
 .ex-ds-card:hover{border-color:rgba(74,158,255,0.3);background:rgba(74,158,255,0.03)}
 .ex-ds-card.selected{border-color:rgba(74,158,255,0.5);background:rgba(74,158,255,0.06)}
+/* Selection control inside a dataset card: reset the button chrome so the
+   card looks exactly as it did as a div[role=button], keep the pointer
+   cursor, and give keyboard users a visible focus ring (the old div carried
+   no focus style at all). */
+.ex-ds-select{display:block;width:100%;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.ex-ds-select:focus-visible{outline:2px solid rgba(74,158,255,0.6);outline-offset:2px;border-radius:6px}
 .ex-flight-table{width:100%;border-collapse:collapse;font-size:0.78rem}
 .ex-flight-table th{text-align:left;padding:0.4rem 0.6rem;color:#a3a3a3;font-weight:500;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#0a0e17} /* 7.65:1 */
 .ex-flight-table td{padding:0.35rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);color:#c9c9c9;font-family:'JetBrains Mono',monospace} /* 11.2:1 on #0f131c */

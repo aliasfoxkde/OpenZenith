@@ -20,7 +20,8 @@ from typing import Any
 
 import numpy as np
 
-from ..tile_format_v2 import TileError, decode
+from ..exceptions import TileError
+from ..tile_format_v2 import decode
 
 _logger = logging.getLogger(__name__)
 
@@ -187,7 +188,8 @@ class OZT2R2Backend:
         """Store the bucket/prefix and resolve R2 credentials from arguments or env."""
         self.bucket_name = bucket_name
         self.prefix = prefix.rstrip("/") + "/"
-        self._client = None
+        # boto3 S3 client once lazily created by _get_client; None before that.
+        self._client: Any = None
 
         import os
 
@@ -375,7 +377,8 @@ class OZT2HFBackend:
         try:
             req = urllib.request.Request(url, headers=headers)  # noqa: S310
             with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-                data = resp.read()
+                # urllib returns an untyped body here; the payload is bytes.
+                data: bytes = resp.read()
             if cached:
                 cached.parent.mkdir(parents=True, exist_ok=True)
                 cached.write_bytes(data)
@@ -397,7 +400,9 @@ class OZT2HFBackend:
         try:
             req = urllib.request.Request(url, method="HEAD", headers=headers)  # noqa: S310
             with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
-                return resp.status == 200
+                # urllib returns an untyped response object; status is an int.
+                status: int = resp.status
+                return status == 200
         except (urllib.error.URLError, OSError) as err:
             _logger.debug(
                 "HF tile exists check failed (url=%s): %s: %s", url, type(err).__name__, err

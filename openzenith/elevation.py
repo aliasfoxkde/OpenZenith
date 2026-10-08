@@ -27,7 +27,7 @@ import logging
 import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import cast
+from typing import Any
 
 import numpy as np
 
@@ -100,8 +100,8 @@ def check_elevation_params(
 
 # Default HuggingFace dataset
 HF_REPO = "aliasfox/openzenith-dem"
-DEFAULT_TILE_DIR = None  # Set via load_tiles()
-DEFAULT_OZT2_DIR = None  # Set via load_ozt2_tiles()
+DEFAULT_TILE_DIR: str | Path | None = None  # Set via load_tiles()
+DEFAULT_OZT2_DIR: str | Path | None = None  # Set via load_ozt2_tiles()
 
 
 def latlon_to_tile(lat: float, lon: float, zoom: int) -> tuple[int, int]:
@@ -140,7 +140,7 @@ def get_elevation(
     """
     # Try OZT2 backend if available
     if use_ozt2 and DEFAULT_OZT2_DIR is not None:
-        elev = _get_elevation_from_ozt2(lat, lon, DEFAULT_OZT2_DIR, zoom_levels)
+        elev = _get_elevation_from_ozt2(lat, lon, Path(DEFAULT_OZT2_DIR), zoom_levels)
         if elev is not None:
             return elev
 
@@ -303,9 +303,10 @@ def load_tiles(
         allow_patterns=allow_patterns,
     )
 
-    DEFAULT_TILE_DIR = Path(local_dir)
+    tile_path = Path(local_dir)
+    DEFAULT_TILE_DIR = tile_path
     _logger.info("Tiles cached at: %s", DEFAULT_TILE_DIR)
-    return DEFAULT_TILE_DIR
+    return tile_path
 
 
 def load_elevation_grid(
@@ -314,7 +315,7 @@ def load_elevation_grid(
     zoom: int,
     radius_cells: int = 100,
     cache_dir: str | Path | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Load a rectangular elevation grid centered on a point.
 
     Loads all tiles needed to cover the requested area and assembles
@@ -466,7 +467,7 @@ def load_elevation_grid(
             Longitude in degrees in [-180, 180]; the pixel's left edge.
 
         """
-        n = 2**z * 256
+        n: int = 2**z * 256
         return (px / n) * 360.0 - 180.0
 
     lat_min = pixel_to_lat(min_pixel_y + grid_rows, zoom)
@@ -587,7 +588,9 @@ def get_elevation_from_ozt2(
     _ozt2_dir = ozt2_dir if ozt2_dir is not None else DEFAULT_OZT2_DIR
     if _ozt2_dir is None:
         raise ValueError("No OZT2 directory. Call load_ozt2_tiles() or pass ozt2_dir.")
-    return _get_elevation_from_ozt2(lat, lon, cast("Path", _ozt2_dir), zoom_levels)
+    # Path() accepts str | Path, so a string ozt2_dir (as the docstring shows)
+    # works instead of crashing on `str / str` downstream.
+    return _get_elevation_from_ozt2(lat, lon, Path(_ozt2_dir), zoom_levels)
 
 
 def load_ozt2_tiles(tile_dir: str | Path) -> Path:
@@ -601,8 +604,9 @@ def load_ozt2_tiles(tile_dir: str | Path) -> Path:
 
     """
     global DEFAULT_OZT2_DIR
-    DEFAULT_OZT2_DIR = Path(tile_dir)
-    return DEFAULT_OZT2_DIR
+    tile_path = Path(tile_dir)
+    DEFAULT_OZT2_DIR = tile_path
+    return tile_path
 
 
 def load_ozt2_tiles_from_hf(
@@ -667,9 +671,10 @@ def load_ozt2_tiles_from_hf(
     # snapshot_download returns {cache}/datasets--{repo}/snapshots/{hash}/
     # and tiles are stored at tiles/z{z}/{x}/{y}.ozt2 inside that directory
     global DEFAULT_OZT2_DIR
-    DEFAULT_OZT2_DIR = Path(local_dir) / "tiles"
+    tile_path = Path(local_dir) / "tiles"
+    DEFAULT_OZT2_DIR = tile_path
     _logger.info("OZT2 tiles cached at: %s", DEFAULT_OZT2_DIR)
-    return DEFAULT_OZT2_DIR
+    return tile_path
 
 
 def get_tile_count(tile_dir: str | Path) -> dict[int, int]:
@@ -702,7 +707,7 @@ def download_tiles(
     radius: float = 0.5,
     zoom_levels: list[int] | None = None,
     cache_dir: str | Path | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Download elevation tiles for a specific region.
 
     Provides a Python API equivalent to the CLI ``openzenith tiles`` command.
@@ -783,7 +788,7 @@ def get_elevation_along_path(
     points: list[tuple[float, float]],
     zoom_levels: list[int] | None = None,
     cache_dir: str | Path | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Get elevation profile along a geographic path.
 
     Queries elevation at multiple points along a path (great-circle or rhumb-line
@@ -881,7 +886,7 @@ async def get_elevation_along_path_async(
     points: list[tuple[float, float]],
     zoom_levels: list[int] | None = None,
     cache_dir: str | Path | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Async version of get_elevation_along_path.
 
     Point interpolation and distance/slope math run on the event loop; the

@@ -9,6 +9,8 @@ This module was split out of the former single-module ``openzenith.terrain``;
 the package ``__init__`` re-exports the unchanged public surface.
 """
 
+from typing import Any
+
 import numpy as np
 
 from .gradients import slope
@@ -52,7 +54,7 @@ def drainage_density(
     ) / (kernel_size**2)
     # Trim padding to match input shape
     result = smoothed[: flow_accum.shape[0], : flow_accum.shape[1]] / cell_area_km2
-    return np.maximum(result, 0).astype(np.float32)
+    return np.asarray(np.maximum(result, 0).astype(np.float32))
 
 
 def flow_width(
@@ -194,7 +196,7 @@ def hack_integral(
     flow_accum: np.ndarray | None = None,
     cell_size_deg: float = 0.001,
     nodata: float = -32768.0,
-) -> dict:
+) -> dict[str, Any]:
     """Compute Hack integral for stream profile analysis.
 
     The Hack integral characterizes the scaling relationship between
@@ -395,7 +397,7 @@ def depth_in_sink(
     depth = filled - dem
     result = np.maximum(depth, 0).astype(np.float32)
     result[~valid] = nodata
-    return result
+    return np.asarray(result)
 
 
 def clean_dem(
@@ -450,4 +452,4 @@ def clean_dem(
                         min_neighbor = min(neighbors, key=lambda x: x[0])
                         result[r, c] = min_neighbor[0]
 
-    return result
+    return np.asarray(result)

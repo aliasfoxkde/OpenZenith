@@ -36,6 +36,7 @@ import math
 import struct
 import zlib
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from cachetools import LRUCache
@@ -56,7 +57,9 @@ def get_merged_file(path: str | Path) -> "MergedFile":
     """Get a MergedFile, using a cache to avoid re-reading files."""
     key = str(path)
     if key in _merged_cache:
-        return _merged_cache[key]
+        # cachetools ships no py.typed, so the hit comes back as Any.
+        cached: MergedFile = _merged_cache[key]
+        return cached
     mf = MergedFile(path)
     _merged_cache[key] = mf
     return mf
@@ -110,7 +113,9 @@ class MergedFile:
         # Check global chunk cache first
         cache_key = (str(self.path), row, col)
         if cache_key in _chunk_cache:
-            return _chunk_cache[cache_key]
+            # cachetools ships no py.typed, so the hit comes back as Any.
+            cached: np.ndarray = _chunk_cache[cache_key]
+            return cached
 
         idx = row * self.cols + col
         entry = self.index[idx]
@@ -217,10 +222,10 @@ def read_elevation_from_merged(
 
 # ─── SRTM tile index ─────────────────────────────────────────────────────────
 
-_INDEX_CACHE: dict[str, dict[tuple[int, int], dict]] = {}
+_INDEX_CACHE: dict[str, dict[tuple[int, int], dict[str, Any]]] = {}
 
 
-def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
+def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict[str, Any]]:
     """Build or load the SRTM tile index for a merged SRTM directory.
 
     Scans the directory for ``.merged`` files and returns a dict mapping
@@ -240,7 +245,7 @@ def discover_srtm_tiles(srtm_dir: Path) -> dict[tuple[int, int], dict]:
 
         try:
             raw = _json.loads(index_path.read_text())
-            result: dict[tuple[int, int], dict] = {}
+            result: dict[tuple[int, int], dict[str, Any]] = {}
             for k, v in raw.items():
                 parts = k.split(",")
                 result[(int(parts[0]), int(parts[1]))] = v

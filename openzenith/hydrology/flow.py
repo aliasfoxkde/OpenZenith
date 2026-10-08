@@ -205,7 +205,9 @@ def flow_accumulation_max(
             result[nr, nc] = max(result[nr, nc], result[r, c])
 
     result[~valid] = 0
-    return result.astype(np.float32)
+    # asarray is an identity for the ndarray astype returns; it only fixes the
+    # inferred type (numpy-stub Any propagation through the accumulation loop).
+    return np.asarray(result.astype(np.float32))
 
 
 def extract_streams(accum: np.ndarray, threshold: int = 100) -> np.ndarray:

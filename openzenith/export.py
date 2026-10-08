@@ -5,6 +5,8 @@ to GeoJSON FeatureCollections for visualization in GIS applications,
 MapLibre, QGIS, or any GeoJSON-compatible viewer.
 """
 
+from typing import Any
+
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -15,7 +17,7 @@ def grid_to_geojson(
     name: str = "terrain",
     decimals: int = 2,
     max_points: int = 50000,
-) -> dict:
+) -> dict[str, Any]:
     """Convert a 2D grid to GeoJSON Point features.
 
     Each grid cell becomes a Point feature with the cell value as a property.
@@ -84,7 +86,7 @@ def contour_to_geojson(
     min_elev: float | None = None,
     max_elev: float | None = None,
     decimals: int = 1,
-) -> dict:
+) -> dict[str, Any]:
     """Extract contour lines from a DEM as GeoJSON LineString features.
 
     Uses vectorized marching squares to trace elevation contour lines.
@@ -250,7 +252,7 @@ def grid_to_kml(
 
 
 def _geojson_to_kml(
-    geojson: dict,
+    geojson: dict[str, Any],
     name: str = "OpenZenith",
     altitude_mode: str = "clampToGround",
 ) -> str:

@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -20,7 +21,7 @@ def convert_tile(
     zstd_level: int = 9,
     quantize_bits: int | None = None,
     verify: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Convert a single GeoTIFF tile to OZT1 format.
 
     Returns metadata dict with compression stats.
@@ -106,7 +107,7 @@ def convert_directory(
     quantize_bits: int | None = None,
     max_tiles: int | None = None,
     pattern: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Convert all GeoTIFF files in a directory.
 
     Args:
@@ -139,7 +140,7 @@ def convert_directory(
         src_dir,
         dst_dir,
         zstd_level,
-        quantize_bits if quantize_bits else "lossless",
+        quantize_bits or "lossless",
     )
 
     for i, fname in enumerate(files):

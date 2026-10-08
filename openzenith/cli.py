@@ -21,7 +21,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 
@@ -529,7 +529,9 @@ def cmd_curvature(args: argparse.Namespace) -> None:
         print(f"💾 Saved to {args.output}")
 
 
-def _latlon_to_grid_coords(lat: float, lon: float, grid: dict) -> tuple[int, int]:
+def _latlon_to_grid_coords(
+    lat: float, lon: float, grid: dict[str, Any]
+) -> tuple[int, int]:
     """Convert lat/lon to grid (row, col) within an elevation grid."""
     dlat = grid["center_lat"] - lat
     dlon = lon - grid["center_lon"]
@@ -1064,7 +1066,7 @@ def _load_rawint16(path: str) -> np.ndarray:
     return data.reshape(side, side)
 
 
-def _filename_to_bbox(filename: str) -> dict | None:
+def _filename_to_bbox(filename: str) -> dict[str, Any] | None:
     """Parse a SRTM-style filename to get coverage bbox.
 
     Supports: N00E006, N00E006.tif, Copernicus_DSM_COG_10_N22_00_E016_DEM.tif
@@ -1102,14 +1104,14 @@ class EncodeResult(TypedDict):
 
 def cmd_encode(args: argparse.Namespace) -> None:
     """Encode a DEM file or directory of DEM files to OZT2 format."""
+    from openzenith.exceptions import (
+        TileError as TileErrorV2,
+    )
     from openzenith.tile_format_v2 import (
         PRED_GRADIENT,
         auto_encode,
         encode,
         validate_roundtrip,
-    )
-    from openzenith.tile_format_v2 import (
-        TileError as TileErrorV2,
     )
 
     predictor_map = {"none": 0, "left": 1, "gradient": 2}
@@ -1225,7 +1227,7 @@ def cmd_encode(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _encode_dem_tile(src: Path, dataset_path: Path, tiles_dir: Path) -> dict:
+def _encode_dem_tile(src: Path, dataset_path: Path, tiles_dir: Path) -> dict[str, Any]:
     """Encode one DEM file into an OZT2 tile and return its manifest entry.
 
     Lets any loader/encoder error propagate so cmd_ingest can isolate a single
@@ -1260,7 +1262,7 @@ def cmd_ingest(args: argparse.Namespace) -> None:
     """Prepare a contributed dataset for submission to OpenZenith."""
     import json as _json
 
-    from openzenith.tile_format_v2 import TileError as TileErrorV2
+    from openzenith.exceptions import TileError as TileErrorV2
 
     dataset_path = Path(args.dataset)
     if not dataset_path.is_dir():

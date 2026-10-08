@@ -18,7 +18,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import shapefile  # pyshp - pure Python, no GDAL
 
@@ -29,7 +29,7 @@ def shapefile_to_geojson(
     shp_path: str,
     bbox: tuple[float, float, float, float] | None = None,
     filter_fields: list[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Read a shapefile and return a GeoJSON FeatureCollection.
 
     Args:
@@ -89,7 +89,7 @@ def shapefile_to_geojson(
     return {"type": "FeatureCollection", "features": features}
 
 
-def _shape_points_to_coords(shape: Any, geom_type: str) -> list:
+def _shape_points_to_coords(shape: Any, geom_type: str) -> list[Any]:
     pts = shape.points
     if geom_type == "Point":
         return list(pts[0]) if pts else []
@@ -107,14 +107,16 @@ def _shape_points_to_coords(shape: Any, geom_type: str) -> list:
     return [list(p) for p in pts]
 
 
-def _bbox_intersects(a: tuple, b: tuple) -> bool:
+def _bbox_intersects(
+    a: tuple[float, float, float, float], b: tuple[float, float, float, float]
+) -> bool:
     return not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
 
 
 # ─── GDB (requires fiona + GDAL) ──────────────────────────────────────────────
 
 
-def gdb_to_geojson(gdb_path: str, layer: str | None = None) -> dict:
+def gdb_to_geojson(gdb_path: str, layer: str | None = None) -> dict[str, Any]:
     """Read an Esri File Geodatabase feature class as GeoJSON.
 
     Requires: pip install fiona
@@ -156,11 +158,12 @@ def list_gdb_layers(gdb_path: str) -> list[str]:
         raise ImportError(
             "Listing GDB layers requires fiona. Install with: pip install fiona"
         ) from err
-    return fiona.listlayers(gdb_path)
+    # fiona is an optional untyped import; listlayers returns a list of names.
+    return cast("list[str]", fiona.listlayers(gdb_path))
 
 
 def export_to_gdb(
-    geojson: dict,
+    geojson: dict[str, Any],
     output_path: str,
     layer_name: str = "features",
     geometry_type: str | None = None,

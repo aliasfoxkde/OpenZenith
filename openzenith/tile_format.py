@@ -108,7 +108,7 @@ def encode(
         min_e, max_e = 0, 0
 
     # Quantize if requested
-    actual_bits = quantize_bits if quantize_bits else bits_per_sample
+    actual_bits = quantize_bits or bits_per_sample
     if quantize_bits and quantize_bits < 16 and valid_mask.any():
         scale = (2**quantize_bits - 1) / max(max_e - min_e, 1)
         offset = min_e
@@ -157,7 +157,7 @@ def encode(
     return header + data
 
 
-def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
+def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict[str, Any]]:
     """Decode an OZT1 binary tile.
 
     Args:
@@ -349,7 +349,9 @@ def _decompress_predict(compressed: bytes, width: int, height: int) -> np.ndarra
     return arr.astype(np.int16)
 
 
-def validate_roundtrip(elevation: np.ndarray, **encode_kwargs: Any) -> tuple[bool, float, dict]:
+def validate_roundtrip(
+    elevation: np.ndarray, **encode_kwargs: Any
+) -> tuple[bool, float, dict[str, Any]]:
     """Validate that encode→decode produces identical output."""
     encoded = encode(elevation, **encode_kwargs)
     decoded, meta = decode(encoded)

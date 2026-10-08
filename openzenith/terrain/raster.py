@@ -79,7 +79,7 @@ def dem_mask(
     """
     result = dem.astype(np.float32).copy()
     result[condition] = mask_value
-    return result
+    return np.asarray(result)
 
 
 def dem_reclassify(

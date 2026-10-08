@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -45,7 +45,7 @@ def grid_to_gtiff_metadata(
     cell_size: float = 0.001,
     nodata: float = -32768.0,
     crs: str = "EPSG:4326",
-) -> dict:
+) -> dict[str, Any]:
     """Build GeoTIFF transform and metadata dict for a grid.
 
     Args:

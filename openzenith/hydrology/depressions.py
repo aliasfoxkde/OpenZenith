@@ -68,7 +68,7 @@ def fill_depressions(dem: np.ndarray, nodata: float = -32768.0) -> np.ndarray:
                 heapq.heappush(heap, (float(filled[nr, nc]), nr, nc))
                 processed[nr, nc] = True
 
-    return filled
+    return np.asarray(filled)
 
 
 def breach_depressions(
@@ -151,7 +151,7 @@ def breach_depressions(
                 heapq.heappush(heap, (float(breached[nr, nc]), nr, nc))
                 processed[nr, nc] = True
 
-    return breached.astype(np.float32)
+    return np.asarray(breached.astype(np.float32))
 
 
 def breach_least_cost_path(
@@ -192,7 +192,7 @@ def breach_least_cost_path(
             outlet_mask[r, c] = True
 
     if not outlet_mask.any():
-        return result
+        return np.asarray(result)
 
     # Distance from nearest outlet
     dist_outlet = distance_transform_edt(~outlet_mask)
@@ -225,7 +225,7 @@ def breach_least_cost_path(
             # Lower the cell to match outlet
             result[r, c] = min_outlet_elev
 
-    return result
+    return np.asarray(result)
 
 
 def fill_burn(
@@ -318,4 +318,4 @@ def breach_bridges(
                     # Carve down to stream bed
                     result[r, c] = min_elev
 
-    return result
+    return np.asarray(result)

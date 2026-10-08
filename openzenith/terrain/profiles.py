@@ -7,12 +7,14 @@ This module was split out of the former single-module ``openzenith.terrain``;
 the package ``__init__`` re-exports the unchanged public surface.
 """
 
+from typing import Any
+
 import numpy as np
 
 
 def profile(
     dem: np.ndarray, points: list[tuple[int, int]], cell_size_deg: float = 0.001
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Extract elevation profile along a line of cells.
 
     Args:
@@ -60,7 +62,7 @@ def hillslope_profile(
     outlet_row: int,
     outlet_col: int,
     nodata: float = -32768.0,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Extract hillslope profile from outlet to ridge.
 
     Traces upslope from the outlet to the divide, returning elevation

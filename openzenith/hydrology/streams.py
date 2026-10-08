@@ -27,7 +27,9 @@ def stream_order(streams: np.ndarray, flow_dir: np.ndarray, nodata_dir: int = -1
 
     """
     rows, cols = streams.shape
-    order = np.where(streams, np.int32(1), np.int32(0))
+    # asarray is an identity for the ndarray np.where returns; it only fixes
+    # the inferred type (numpy stubs type np.where as Any-typed).
+    order = np.asarray(np.where(streams, np.int32(1), np.int32(0)))
 
     # Count inflowing streams for each cell
     # Iterate until stable

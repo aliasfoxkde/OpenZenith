@@ -199,7 +199,7 @@ def adaptive_filter(
     result = dem.astype(np.float32).copy()
     result[valid] = f_mean[valid] + k[valid] * (dem[valid] - f_mean[valid])
     result[~valid] = nodata
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def elevation_percentile(
@@ -237,7 +237,7 @@ def elevation_percentile(
     )
     result = ranked / np.maximum(valid_count, 1)
     result[~valid] = nodata
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def opening(
@@ -371,7 +371,7 @@ def sieve(
                         if neighbor_label > 0 and neighbor_label != feat_id:
                             result[r, c] = dem[nr, nc]
                             break
-    return result
+    return np.asarray(result)
 
 
 def remove_off_terrain(
@@ -404,7 +404,7 @@ def remove_off_terrain(
     result = dem.astype(np.float32).copy()
     result[(valid) & (diff > threshold)] = local_med[(valid) & (diff > threshold)]
     result[~valid] = nodata
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def feature_preserving_smooth(
@@ -487,7 +487,7 @@ def feature_preserving_smooth(
                     sum(w * v for w, v in zip(weights, window_vals, strict=False)) / total_weight
                 )
 
-    return smoothed.astype(np.float32)
+    return np.asarray(smoothed.astype(np.float32))
 
 
 def tpi(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
@@ -531,7 +531,7 @@ def tpi(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0)
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan
 
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def roughness(
@@ -574,7 +574,7 @@ def roughness(
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan
 
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def tri(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0) -> np.ndarray:
@@ -615,7 +615,7 @@ def tri(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.0)
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan
 
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def highland(

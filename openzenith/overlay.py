@@ -15,15 +15,17 @@ Usage:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 
 def extract_at_points(
-    geojson: dict,
+    geojson: dict[str, Any],
     dem: np.ndarray,
     transform: tuple[float, float, float, float] | None = None,
     fields: list[str] | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Extract DEM values at point locations from a GeoJSON FeatureCollection.
 
     For each Point feature, computes row/col indices and samples the DEM.
@@ -101,12 +103,12 @@ def extract_at_points(
 
 
 def zonal_stats(
-    geojson: dict,
+    geojson: dict[str, Any],
     dem: np.ndarray,
     transform: tuple[float, float, float, float] | None = None,
     stats: list[str] | None = None,
     stat_name: str = "dem_value",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Compute zonal statistics for polygons overlaid on a DEM.
 
     For each Polygon feature, computes statistics (mean, max, min, sum,
@@ -237,7 +239,7 @@ def _points_in_polygon(
 
 
 def rasterize_lines(
-    geojson: dict,
+    geojson: dict[str, Any],
     dem: np.ndarray,
     transform: tuple[float, float, float, float] | None = None,
     burn_value: float = 1.0,

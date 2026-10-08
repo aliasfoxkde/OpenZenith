@@ -482,7 +482,7 @@ def validate_coverage(step: float = 5.0):
 
 # ─── Main ───
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="OpenZenith Elevation Validation")
     parser.add_argument("--mode", choices=["spot", "sample", "tile", "coverage"], default="spot", help="Validation mode")
     parser.add_argument("--n", type=int, default=500, help="Number of sample points (sample mode)")

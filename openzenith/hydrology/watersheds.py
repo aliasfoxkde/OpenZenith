@@ -10,6 +10,7 @@ the package ``__init__`` re-exports the unchanged public surface.
 
 import logging
 from collections import deque
+from typing import Any
 
 import numpy as np
 
@@ -27,7 +28,7 @@ def delineate_watershed(
     zoom: int = 10,
     radius_cells: int = 200,
     tile_cache_dir: str | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Delineate watershed upstream from a pour point.
 
     Loads elevation tiles around the point, computes D8 flow directions,

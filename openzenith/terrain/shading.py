@@ -60,7 +60,9 @@ def hillshade(
     # Mark NODATA areas as 0
     shade[dem <= nodata] = 0
 
-    return (shade * 255).astype(np.uint8)
+    # asarray is an identity here; the numpy-stub Any on the trig chain is
+    # what mypy otherwise sees in the return type.
+    return np.asarray((shade * 255).astype(np.uint8))
 
 
 def multi_hillshade(

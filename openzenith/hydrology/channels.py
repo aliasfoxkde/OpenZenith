@@ -7,6 +7,8 @@ This module was split out of the former single-module ``openzenith.hydrology``;
 the package ``__init__`` re-exports the unchanged public surface.
 """
 
+from typing import Any
+
 import numpy as np
 
 from .constants import D8_DC, D8_DISTANCE, D8_DR
@@ -19,7 +21,7 @@ def cross_section(
     flow_dir: np.ndarray,
     half_width: int = 10,
     nodata: float = -32768.0,
-) -> dict:
+) -> dict[str, Any]:
     """Extract a cross-section perpendicular to a stream at a given point.
 
     Returns the elevation profile across the channel perpendicular to the
@@ -304,7 +306,7 @@ def elevation_above_stream(
     nearest_stream_elev = dem[ir, ic].astype(np.float32)
 
     result = np.where(valid, dem.astype(np.float32) - nearest_stream_elev, np.float32(nodata))
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def depth_to_water(
@@ -338,4 +340,4 @@ def depth_to_water(
     nearest_stream_elev = dem[ir, ic].astype(np.float32)
 
     result = np.where(valid, dem.astype(np.float32) - nearest_stream_elev, np.float32(nodata))
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))

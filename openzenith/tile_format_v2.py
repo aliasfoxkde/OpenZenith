@@ -186,7 +186,9 @@ def _compress(data: bytes, compressor: int = COMP_BROTLI, level: int = 11) -> tu
 def _decompress(data: bytes, compressor: int = COMP_BROTLI) -> bytes:
     """Decompress data with the specified compressor."""
     if compressor == COMP_BROTLI and HAS_BROTLI:
-        return brotli.decompress(data)
+        # brotli ships no py.typed; pin the payload type mypy cannot see.
+        decompressed: bytes = brotli.decompress(data)
+        return decompressed
     if compressor == COMP_ZSTD and HAS_ZSTD:
         return zstd.ZstdDecompressor().decompress(data)
     if HAS_ZLIB:
@@ -221,7 +223,9 @@ def _quantize(elevation: np.ndarray, vmin: int, bits: int) -> np.ndarray:
 
     scale = vrange / elev_range
     quantized = np.round((elevation.astype(np.float32) - vmin) * scale)
-    return np.clip(quantized, 0, vrange).astype(np.int32)
+    # np.clip loses the element type on a dtype-Any array; pin it before astype.
+    clipped: np.ndarray = np.clip(quantized, 0, vrange)
+    return clipped.astype(np.int32)
 
 
 def _dequantize(quantized: np.ndarray, vmin: int, bits: int, original_range: int) -> np.ndarray:
@@ -334,7 +338,7 @@ def encode(
     return header + compressed
 
 
-def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict]:
+def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict[str, Any]]:
     """Decode an OZT2 binary tile.
 
     Args:
@@ -425,7 +429,7 @@ def validate_roundtrip(
     elevation: np.ndarray,
     nodata_value: int = -32768,
     **encode_kwargs: Any,
-) -> tuple[bool, float, dict]:
+) -> tuple[bool, float, dict[str, Any]]:
     """Validate that encode → decode produces acceptable output.
 
     For lossless (16-bit): checks exact roundtrip.
@@ -470,7 +474,7 @@ def auto_encode(
     nodata_value: int = -32768,
     max_rmse: float = 1.0,
     compress_level: int = 11,
-) -> tuple[bytes, dict]:
+) -> tuple[bytes, dict[str, Any]]:
     """Automatically select the best encoding parameters.
 
     Tries adaptive quantization from 8-bit upward until RMSE is within threshold.

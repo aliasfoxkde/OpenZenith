@@ -281,8 +281,12 @@ def _viewshed_numba(
     obs_elev = float(dem[observer_row, observer_col]) + observer_height
     cell_m = cell_size_deg * 111320.0
 
-    return _viewshed_core(
-        dem, observer_row, observer_col, obs_elev, cell_m, nodata, max_distance_cells
+    # asarray is an identity for the ndarray the numba-jitted core returns
+    # (the untyped @jit decorator makes mypy read the call as Any).
+    return np.asarray(
+        _viewshed_core(
+            dem, observer_row, observer_col, obs_elev, cell_m, nodata, max_distance_cells
+        )
     )
 
 

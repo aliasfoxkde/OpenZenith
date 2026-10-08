@@ -30,7 +30,7 @@ import asyncio
 import logging
 import math
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import aiohttp
@@ -154,7 +154,7 @@ class FusedDEM:
         gebco_dir: str | Path | None = None,
         *,
         gebco_url: str = GEBCO_BASE_URL,
-        srtm_tiles: dict | None = None,
+        srtm_tiles: dict[tuple[int, int], dict[str, Any]] | None = None,
         use_http_fallback: bool = True,
     ) -> None:
         """Store data directories and the HTTP fallback policy for fused queries."""
@@ -538,7 +538,7 @@ class FusedDEM:
         col = round((lon - bounds[1]) * GEBCO_PIXELS_PER_DEG)
         row = max(0, min(21600 - 1, row))
         col = max(0, min(21600 - 1, col))
-        elev = quad_data[row, col]
+        elev: int = quad_data[row, col]
 
         # GEBCO nodata check
         if elev < -11000 or elev > 9000:
@@ -551,7 +551,9 @@ class FusedDEM:
             import rasterio
 
             with rasterio.open(path) as src:
-                return src.read(1)  # shape: (21600, 21600)
+                # rasterio ships no py.typed; the band read is an ndarray.
+                band: np.ndarray = src.read(1)  # shape: (21600, 21600)
+                return band
         except ImportError:
             # Fallback: use PIL for geotiff
             from PIL import Image

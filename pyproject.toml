@@ -91,6 +91,16 @@ target-version = "py310"
 extend-select = [
     "E", "W", "F", "I", "B", "C4", "UP", "SIM", "RUF", "PTH", "D",
     "PERF", "RET", "N", "TC", "S",
+    # C4 of cycle IV probe: the only green-able addition from TRY/FURB/ARG/ANN.
+    # FURB110 was fixed (3 sites) before adoption. Measured non-adoptions,
+    # 2026-10-07: TRY 82 (71 TRY003 raise-vanilla-args conflict with the
+    # exceptions-hierarchy message style; 11 TRY300), ARG 163 (unused args are
+    # mostly interface conformance on the public SDK surface — excising them is
+    # an API break, not a lint fix; census recorded for a design pass),
+    # ANN 1,946 (production signatures are already gated by mypy
+    # disallow_untyped_defs; the bulk of ANN's count is the test files that
+    # mypy deliberately excludes).
+    "FURB110",
 ]
 ignore = [
     "D203", "D213",
@@ -126,6 +136,20 @@ python_version = "3.10"
 disallow_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
+# Strict bundle, adopted 2026-10-07 (C2 of cycle IV). Every flag below was
+# probe-measured at 0 errors before adoption; the classes that measured
+# non-zero (41 no-any-return, 46 type-arg, 3 unreachable, 4 implicit
+# re-exports, 1 untyped call) were fixed structurally first — asarray/np
+# typing wraps, parameterized generics, two annotation corrections, one dead
+# branch deleted — not suppressed. Reachable via any public entry point.
+disallow_incomplete_defs = true
+warn_return_any = true
+disallow_any_generics = true
+warn_unreachable = true
+disallow_untyped_calls = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
 
 # Third-party imports mypy cannot resolve, split by why. Everything listed here
 # is imported lazily inside the function that needs it (optional accelerator or

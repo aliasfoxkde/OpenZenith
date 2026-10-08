@@ -125,7 +125,7 @@ def twi(
     # Clip to reasonable range
     result = np.clip(result, 0, 25)
 
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def ls_factor(
@@ -179,7 +179,7 @@ def ls_factor(
     ls = sca_factor * slope_factor
 
     ls[~valid] = np.nan
-    return ls.astype(np.float32)
+    return np.asarray(ls.astype(np.float32))
 
 
 def slope_area_ratio(

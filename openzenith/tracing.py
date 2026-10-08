@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     # Annotation-only: numpy is a heavy import and this module lazy-loads it
@@ -39,7 +39,7 @@ def trace_downstream(
     max_steps: int = 10000,
     step_size_m: float = 90.0,  # ~3 arcsec at equator for zoom 10
     tile_cache_dir: str | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Trace downstream path from a point to the ocean or flat area.
 
     Loads elevation tiles on-demand as the path progresses across tile boundaries.
@@ -117,11 +117,8 @@ def trace_downstream(
             elevation_cache[(round(current_lat, 6), round(current_lon, 6))] = current_elev
 
     for _step in range(max_steps):
-        # Load grid if needed
-        if grid_info is None:
-            grid_info = _load_grid_at(current_lat, current_lon, zoom, tile_cache_dir)
-            if grid_info is None:
-                break
+        # grid_info is non-None from here on: the initial load above returns
+        # None on failure, and the mid-trace reload below breaks on failure.
 
         dem = grid_info["grid"]
         center_r = grid_info["center_row"]
@@ -299,7 +296,7 @@ def trace_downstream(
 
 def _load_grid_at(
     lat: float, lon: float, zoom: int, cache_dir: str | None = None, radius: int = 100
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Load elevation grid centered on a point."""
     try:
         from openzenith.elevation import load_elevation_grid

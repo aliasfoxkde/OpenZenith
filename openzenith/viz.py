@@ -320,7 +320,7 @@ def terrain_to_3d_mesh(
     scale: float = 1.0,
     flat: bool = False,
     max_vertices: int = 100_000,
-) -> dict:
+) -> dict[str, Any]:
     """Convert a DEM to a 3D mesh suitable for Three.js or Mapbox.
 
     The output is a GeoJSON-like FeatureCollection with elevation baked into Z.

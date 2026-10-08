@@ -1,5 +1,7 @@
 """Geospatial utilities for working with SRTM and other DEM data."""
 
+from typing import Any
+
 import numpy as np
 from PIL import Image
 
@@ -69,10 +71,12 @@ def compute_slope(elevation: np.ndarray, pixel_size_m: float = 30.0) -> np.ndarr
     """
     dy, dx = np.gradient(elevation.astype(np.float64), pixel_size_m)
     slope_rad = np.arctan(np.sqrt(dx**2 + dy**2))
-    return np.degrees(slope_rad)
+    return np.asarray(np.degrees(slope_rad))
 
 
-def compute_rmse(original: np.ndarray, reconstructed: np.ndarray, nodata: int = -32768) -> dict:
+def compute_rmse(
+    original: np.ndarray, reconstructed: np.ndarray, nodata: int = -32768
+) -> dict[str, Any]:
     """Compute error metrics between original and reconstructed elevation."""
     valid = (original != nodata) & (reconstructed != nodata)
     if not valid.any():
@@ -99,7 +103,7 @@ def compute_slope_deviation(
     reconstructed: np.ndarray,
     pixel_size_m: float = 30.0,
     nodata: int = -32768,
-) -> dict:
+) -> dict[str, Any]:
     """Compute slope deviation between original and reconstructed."""
     valid = (original != nodata) & (reconstructed != nodata)
     if not valid.any():

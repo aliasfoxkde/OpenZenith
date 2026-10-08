@@ -135,14 +135,14 @@ class ElevationClient:
         self._owns_session = session is None
         self._session: aiohttp.ClientSession | None = None
         # HTTP caching: URL -> (etag, cached_json_response)
-        self._etag_cache: dict[str, tuple[str, dict]] = {}
+        self._etag_cache: dict[str, tuple[str, dict[str, Any]]] = {}
 
     async def _request(
         self,
         method: str,
         path: str,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Make an HTTP request with retry logic and ETag caching."""
         import aiohttp
 
@@ -169,7 +169,7 @@ class ElevationClient:
                     if resp.status == 200:
                         # Cache ETag for future requests
                         resp_etag = resp.headers.get("ETag") or resp.headers.get("etag")
-                        data = await resp.json()
+                        data: dict[str, Any] = await resp.json()
                         if resp_etag:
                             self._etag_cache[url] = (resp_etag, data)
                         return data
@@ -298,7 +298,7 @@ class ElevationClient:
                 ]
             }
             data = await self._request("POST", "/api/elevation/batch", json=payload)
-            api_results: list[dict] = data.get("results", [])
+            api_results: list[dict[str, Any]] = data.get("results", [])
 
             # Map back to original indices
             results_by_idx: dict[int, ElevationResult] = {}

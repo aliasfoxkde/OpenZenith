@@ -173,7 +173,7 @@ def slope(dem: np.ndarray, cell_size_deg: float = 0.001, nodata: float = -32768.
     result = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2)))
     result[nodata_mask | ~valid_mask] = np.nan
 
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def slope_fast(
@@ -317,7 +317,7 @@ def curvature(
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan
 
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def profile_curvature(
@@ -350,7 +350,7 @@ def profile_curvature(
     )
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def planform_curvature(
@@ -381,7 +381,7 @@ def planform_curvature(
     )
     valid = padded[1:-1, 1:-1] != nodata
     result[~valid] = np.nan
-    return result.astype(np.float32)
+    return np.asarray(result.astype(np.float32))
 
 
 def tangent_curvature(

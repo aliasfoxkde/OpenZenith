@@ -7,6 +7,8 @@ This module was split out of the former single-module ``openzenith.hydrology``;
 the package ``__init__`` re-exports the unchanged public surface.
 """
 
+from typing import Any
+
 import numpy as np
 
 from .depressions import fill_depressions
@@ -73,7 +75,7 @@ def inundation_depth(
 def depression_depth_stats(
     dem: np.ndarray,
     nodata: float = -32768.0,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Compute statistics for each depression in the DEM.
 
     Uses the fill-depression difference to identify depressions and

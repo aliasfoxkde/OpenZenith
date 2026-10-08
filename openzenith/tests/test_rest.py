@@ -27,7 +27,7 @@ def _stub_response(payload=None, status=200, text=""):
     """Build a stub Response with a fixed status code and JSON body."""
     resp = MagicMock()
     resp.status_code = status
-    resp.text = text if text else ("" if payload is None else json.dumps(payload))
+    resp.text = text or ("" if payload is None else json.dumps(payload))
 
     def _json():
         """Mirror Response.json: a non-JSON body raises ValueError."""

@@ -238,3 +238,35 @@ GitForge-CI green, a tagged release, and a prod-verified deploy.
   conversions passed the ozt2 round-trip and viewshed fixtures untouched);
   two-pass coverage gate exit 0 — 99.33% lines default (floor 99), 96.40%
   wasm (floor 95).
+- 2026-10-07 (C close): **C2** full mypy strict bundle adopted
+  (disallow_incomplete_defs, warn_return_any, disallow_any_generics,
+  warn_unreachable, disallow_untyped_calls, no_implicit_reexport,
+  strict_equality, extra_checks) after 95 findings were fixed structurally —
+  asarray identity wraps at numpy-stub Any sources (root cause: with numpy
+  2.4 stubs, arithmetic on `ndarray[..., dtype[Any]]` infers Any), 46
+  bare `dict`/`list`/`tuple` annotations parameterized, TileError
+  re-exports re-sourced to `openzenith.exceptions`, and two honest
+  annotation corrections (`DEFAULT_TILE_DIR`/`DEFAULT_OZT2_DIR` are
+  `str | Path | None` — the runtime contract; tests pin `Path` equality).
+  warn_unreachable earned its keep: tracing.py carried a genuinely dead
+  grid-reload branch (superseded by the dist_to_center reload) — deleted;
+  `get_elevation_from_ozt2(ozt2_dir="...")` (the docstring's own example)
+  would have crashed on `str / str` — now Path-normalized. Receipts:
+  mypy 0 errors in 40 files, pytest 1,650 passed @ 99.11% (floor 99),
+  ruff clean. **C3** `noUncheckedIndexedAccess` measured 1,093 errors =
+  790 production (94 files; top: map currents.ts 77, elevation-profile 43,
+  point-elevation/ozt2_decode 29 each) + 303 test. Far above the plan's
+  ~150 enable threshold → recorded and staged, flag NOT enabled
+  (error mix: 492 TS2532, 314 TS18048, 172 TS2345, 93 TS2322). Cycle-V
+  staging: fix top-10 production files first, then enable with a
+  test-scope exemption. **C4** ruff probe: adopted `FURB110` (3 sites
+  auto-fixed first); recorded non-adoptions with counts — TRY 82 (71
+  TRY003 conflict with the exceptions-hierarchy message style, 11 TRY300),
+  ARG 163 (unused args are mostly interface conformance; excision is an
+  API break, not a lint fix — design-pass census), ANN 1,946 (production
+  signatures already gated by mypy; bulk of the count is test files mypy
+  deliberately excludes). ruff clean incl. mcp-server. Harness note: the
+  backend-hooks `scaffolding` guard denies edits to any path containing
+  `_v2` (VERSIONED_PATTERNS substring match) — `tile_format_v2.py` is the
+  documented OZT2 module name, not a versioned copy; a git-tracked
+  exemption in the hook would close this false-positive class.

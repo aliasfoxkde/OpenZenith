@@ -52,6 +52,9 @@ from openzenith.exceptions import (
     TileError,
     TileNotFoundError,
 )
+from openzenith.exceptions import (
+    TileError as TileErrorV2,
+)
 from openzenith.rest import (
     ZenithClient,
     contours,
@@ -85,9 +88,6 @@ from openzenith.tile_format_v2 import (
 )
 from openzenith.tile_format_v2 import (
     COMP_ZSTD as COMP_ZSTD_V2,
-)
-from openzenith.tile_format_v2 import (
-    TileError as TileErrorV2,
 )
 from openzenith.tile_format_v2 import (
     decode as decode_v2,

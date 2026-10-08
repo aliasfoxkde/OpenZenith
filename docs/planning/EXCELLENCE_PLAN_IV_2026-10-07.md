@@ -225,3 +225,16 @@ GitForge-CI green, a tagged release, and a prod-verified deploy.
   point-grid kernel, needs its own `sampleElevationAt` kernel API; the
   POST-body parse/validate/gate prologue repeats across twi/streams/
   watershed (222 tok) — small, visible, each slightly different.
+- 2026-10-07 (C1 close): all 41 nursery findings fixed (FMA/hypot chains in
+  cutfill/dinf/solar/viewshed/ozt2 tests, 9 `const fn`, integer half-step
+  ray march, `unwrap_or_else`). Adopted at warn in `core/Cargo.toml`:
+  `suboptimal_flops`, `missing_const_for_fn`, `while_float`, `or_fun_call`.
+  Two measured exemptions: wasm.rs PRED_NONE dequant keeps two-rounding
+  arithmetic (codec contract — must round bit-identically to ozt2.rs and the
+  Python/numpy decoder; a single-rounding fma drifts a ULP); redundant_clone
+  not adopted (still fires in CLI test plumbing). Verification: clippy
+  `--all-targets --all-features -D warnings` green with the adopted set;
+  cargo test 86 default + 111 wasm + 50 CLI integration green (the FMA
+  conversions passed the ozt2 round-trip and viewshed fixtures untouched);
+  two-pass coverage gate exit 0 — 99.33% lines default (floor 99), 96.40%
+  wasm (floor 95).

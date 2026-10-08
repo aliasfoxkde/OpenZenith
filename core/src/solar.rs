@@ -143,10 +143,20 @@ struct SunStep {
 pub fn solar_declination_rad(day_of_year: u32) -> f64 {
     let day = f64::from(day_of_year.clamp(1, 366));
     let gamma = std::f64::consts::TAU * (day - 1.0) / 365.0;
-    0.006_918 - 0.399_912 * gamma.cos() + 0.070_257 * gamma.sin() - 0.006_758 * (2.0 * gamma).cos()
-        + 0.000_907 * (2.0 * gamma).sin()
-        - 0.002_697 * (3.0 * gamma).cos()
-        + 0.001_480 * (3.0 * gamma).sin()
+    0.001_480f64.mul_add(
+        (3.0 * gamma).sin(),
+        0.002_697f64.mul_add(
+            -(3.0 * gamma).cos(),
+            0.000_907f64.mul_add(
+                (2.0 * gamma).sin(),
+                0.006_758f64.mul_add(
+                    -(2.0 * gamma).cos(),
+                    0.070_257f64
+                        .mul_add(gamma.sin(), 0.399_912f64.mul_add(-gamma.cos(), 0.006_918)),
+                ),
+            ),
+        ),
+    )
 }
 
 /// Earth–Sun distance correction for a day of year (dimensionless).
@@ -163,11 +173,13 @@ pub fn solar_declination_rad(day_of_year: u32) -> f64 {
 pub fn earth_sun_distance_factor(day_of_year: u32) -> f64 {
     let day = f64::from(day_of_year.clamp(1, 366));
     let gamma = std::f64::consts::TAU * (day - 1.0) / 365.0;
-    1.000_110
-        + 0.034_221 * gamma.cos()
-        + 0.001_280 * gamma.sin()
-        + 0.000_719 * (2.0 * gamma).cos()
-        + 0.000_077 * (2.0 * gamma).sin()
+    0.000_077f64.mul_add(
+        (2.0 * gamma).sin(),
+        0.000_719f64.mul_add(
+            (2.0 * gamma).cos(),
+            0.001_280f64.mul_add(gamma.sin(), 0.034_221f64.mul_add(gamma.cos(), 1.000_110)),
+        ),
+    )
 }
 
 /// Solar altitude for a latitude, day and local solar time, in radians.
@@ -230,8 +242,8 @@ pub fn solar_azimuth_rad(latitude_deg: f64, day_of_year: u32, solar_time_hours: 
         return 0.0;
     }
 
-    let cos_azimuth =
-        (declination.sin() - altitude.sin() * latitude.sin()) / (cos_altitude * latitude.cos());
+    let cos_azimuth = altitude.sin().mul_add(-latitude.sin(), declination.sin())
+        / (cos_altitude * latitude.cos());
     let azimuth = cos_azimuth.clamp(-1.0, 1.0).acos();
     if hour_angle > 0.0 {
         std::f64::consts::TAU - azimuth
@@ -328,8 +340,8 @@ fn horizon_angle(
     let mut best = -1.0_f64;
     for step in 1..=horizon_cells {
         let distance = step as f64;
-        let sample_row = (r as isize as f64 + distance * north_step).round() as isize;
-        let sample_col = (c as isize as f64 + distance * east_step).round() as isize;
+        let sample_row = distance.mul_add(north_step, r as isize as f64).round() as isize;
+        let sample_col = distance.mul_add(east_step, c as isize as f64).round() as isize;
         if sample_row < 0 || sample_row >= rows || sample_col < 0 || sample_col >= cols {
             break;
         }
@@ -389,7 +401,7 @@ fn sun_steps(config: &SolarConfig) -> Vec<SunStep> {
 }
 
 /// Latitude in degrees clamped into ±90, as radians.
-fn clamp_latitude(latitude_deg: f64) -> f64 {
+const fn clamp_latitude(latitude_deg: f64) -> f64 {
     latitude_deg.clamp(-90.0, 90.0).to_radians()
 }
 
@@ -486,7 +498,7 @@ mod tests {
             "noon azimuth {noon} should be due south"
         );
         assert!(
-            (evening - 3.0 * FRAC_PI_2).abs() < 0.3,
+            3.0f64.mul_add(-FRAC_PI_2, evening).abs() < 0.3,
             "evening azimuth {evening} should be near west"
         );
     }

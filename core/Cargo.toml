@@ -41,6 +41,21 @@ cast_precision_loss = "allow"
 # unit-test module, where integer-valued f32 arithmetic is exact.
 # Deliberately NOT enabled: arithmetic_side_effects (restriction lint, outside
 # pedantic) — same neighbour-indexing rationale as the cast family above.
+# Nursery classes fixed and adopted 2026-10-07 (C1 of cycle IV), measured on
+# --all-targets --all-features: suboptimal_flops (27 — every derivative and
+# slope now goes through fused multiply-add or hypot), missing_const_for_fn
+# (9 — constructors and pure name/param helpers are const), while_float (1 —
+# the viewshed ray march terminates on an integer half-step counter), and
+# or_fun_call (1 — default distances evaluate lazily via unwrap_or_else).
+# One suboptimal_flops site is exempted in source, not here: wasm.rs
+# PRED_NONE dequantization must round bit-identically to ozt2.rs and the
+# Python/numpy decoder, so it keeps two-rounding arithmetic. Remaining
+# nursery lints stay off: redundant_clone still fires in CLI test plumbing,
+# and nursery lints can change semantics between compiler releases.
+suboptimal_flops = { level = "warn", priority = -1 }
+missing_const_for_fn = { level = "warn", priority = -1 }
+while_float = { level = "warn", priority = -1 }
+or_fun_call = { level = "warn", priority = -1 }
 
 [lib]
 name = "openzenith_core"

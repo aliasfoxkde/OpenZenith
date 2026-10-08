@@ -296,7 +296,7 @@ struct StreamOrderInput {
     flow_dir: Vec<i8>,
 }
 
-fn default_nodata_dir() -> i8 {
+const fn default_nodata_dir() -> i8 {
     -1
 }
 
@@ -450,7 +450,7 @@ struct CutFillInput {
     reference: Option<Vec<f32>>,
 }
 
-fn default_cell_size() -> f32 {
+const fn default_cell_size() -> f32 {
     1.0
 }
 
@@ -570,11 +570,11 @@ struct SolarInput {
     data: Vec<f32>,
 }
 
-fn default_interval_hours() -> f64 {
+const fn default_interval_hours() -> f64 {
     0.5
 }
 
-fn default_horizon_cells() -> usize {
+const fn default_horizon_cells() -> usize {
     10
 }
 

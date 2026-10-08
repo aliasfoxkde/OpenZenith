@@ -56,7 +56,7 @@ impl Predictor {
     /// order the first-row and first-column arms always used, so a grid with
     /// no nodata selects exactly the predictor it selected before the nodata
     /// fallback existed.
-    fn select(left: Option<f32>, top: Option<f32>, diagonal: Option<f32>) -> Self {
+    const fn select(left: Option<f32>, top: Option<f32>, diagonal: Option<f32>) -> Self {
         match (left, top, diagonal) {
             (Some(left), Some(top), Some(diagonal)) => Self::Gradient {
                 left,
@@ -416,7 +416,10 @@ mod tests {
         let vmin = 4605.0_f32;
         let scale = 3557.0_f32 / 4095.0; // 12-bit tile, 3557 m of relief
         let dem = Array2::from_shape_fn((16, 16), |(i, j)| {
-            vmin + 3000.0 * ((i % 4) as f32 / 3.0) + 500.0 * ((j % 5) as f32 / 4.0)
+            500.0f32.mul_add(
+                (j % 5) as f32 / 4.0,
+                3000.0f32.mul_add((i % 4) as f32 / 3.0, vmin),
+            )
         });
 
         let quantized = ((&dem - vmin) / scale).mapv(f32::round);
@@ -498,7 +501,7 @@ mod tests {
         let side = 16;
         let nodata = -32768.0_f32;
         let mut elevation = Array2::from_shape_fn((side, side), |(i, j)| {
-            1000.0 + 7.0 * (i + j) as f32 + 13.0 * ((i + j) % 2) as f32
+            13.0f32.mul_add(((i + j) % 2) as f32, 7.0f32.mul_add((i + j) as f32, 1000.0))
         });
         elevation[[0, side - 1]] = nodata;
 

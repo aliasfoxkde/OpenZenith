@@ -206,6 +206,9 @@ fn write_row(
 }
 
 /// D-infinity direction for a single cell: `(dir, angle, proportion)`.
+// ndarray's 2D indexing is `dem[[r, c]]` — an array-literal index, not a
+// tuple→array conversion; the nursery lint misreads it here.
+#[allow(clippy::tuple_array_conversions)]
 fn dinf_cell(dem: &ArrayView2<f32>, r: usize, c: usize, nodata: f32) -> (i8, f32, f32) {
     let rows = dem.nrows() as isize;
     let cols = dem.ncols() as isize;
@@ -260,7 +263,7 @@ fn dinf_cell(dem: &ArrayView2<f32>, r: usize, c: usize, nodata: f32) -> (i8, f32
         }
         let phi_unconstrained = (-b).atan2(-a);
         if (0.0..=std::f64::consts::FRAC_PI_4).contains(&phi_unconstrained) {
-            let rate_unconstrained = (a * a + b * b).sqrt();
+            let rate_unconstrained = a.hypot(b);
             if rate_unconstrained > rate_best {
                 rate_best = rate_unconstrained;
                 phi_best = phi_unconstrained;
@@ -287,7 +290,13 @@ fn dinf_cell(dem: &ArrayView2<f32>, r: usize, c: usize, nodata: f32) -> (i8, f32
 }
 
 /// Neighbour cell of `(r, c)` in compass direction `d`, if it is on-grid.
-fn neighbour(r: usize, c: usize, d: usize, rows: isize, cols: isize) -> Option<(usize, usize)> {
+const fn neighbour(
+    r: usize,
+    c: usize,
+    d: usize,
+    rows: isize,
+    cols: isize,
+) -> Option<(usize, usize)> {
     let nr = r as isize + DR[d];
     let nc = c as isize + DC[d];
     if nr < 0 || nr >= rows || nc < 0 || nc >= cols {

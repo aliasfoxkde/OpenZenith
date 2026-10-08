@@ -74,9 +74,9 @@ impl Corners {
         } else {
             0.0
         };
-        let top = self.north_west + (self.north_east - self.north_west) * fc;
-        let bottom = self.south_west + (self.south_east - self.south_west) * fc;
-        top + (bottom - top) * fr
+        let top = (self.north_east - self.north_west).mul_add(fc, self.north_west);
+        let bottom = (self.south_east - self.south_west).mul_add(fc, self.south_west);
+        (bottom - top).mul_add(fr, top)
     }
 }
 

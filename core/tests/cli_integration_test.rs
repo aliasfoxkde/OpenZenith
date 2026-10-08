@@ -425,7 +425,7 @@ fn test_gradient_predict_reconstruct_roundtrip_across_nodata() {
     let mut data: Vec<f32> = Vec::with_capacity(side * side);
     for i in 0..side {
         for j in 0..side {
-            data.push(1000.0 + 7.0 * (i + j) as f32);
+            data.push(7.0f32.mul_add((i + j) as f32, 1000.0));
         }
     }
     data[3] = -32768.0; // (0,3) — the sentinel sits on the first row
@@ -465,7 +465,7 @@ fn test_gradient_predict_reconstruct_roundtrip_across_nodata() {
             }
             assert_close(
                 cells[i * side + j].as_f64().unwrap(),
-                f64::from(1000.0 + 7.0 * (i + j) as f32),
+                f64::from(7.0f32.mul_add((i + j) as f32, 1000.0)),
                 &format!("cell ({i},{j}) round-trips past the sentinel"),
             );
         }
@@ -952,7 +952,7 @@ fn test_solar_command_south_wall_shades_northern_winter() {
 
     let mut open = base.clone();
     open["data"] = json!([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-    let mut walled = base.clone();
+    let mut walled = base;
     walled["data"] = json!([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000.0, 1000.0, 1000.0]);
 
     let open_cells = run_json("solar", &open)["data"].clone();

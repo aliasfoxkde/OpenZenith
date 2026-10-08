@@ -75,7 +75,7 @@ fn clamp_to_u16_metres(values: &[f32]) -> Vec<u16> {
 }
 
 /// Human-readable name for an OZT2 header predictor code.
-fn predictor_name(predictor: u8) -> &'static str {
+const fn predictor_name(predictor: u8) -> &'static str {
     match predictor {
         PRED_NONE => "none",
         PRED_LEFT => "left",
@@ -85,7 +85,7 @@ fn predictor_name(predictor: u8) -> &'static str {
 }
 
 /// Human-readable name for an OZT2 header compressor code.
-fn compressor_name(compressor: u8) -> &'static str {
+const fn compressor_name(compressor: u8) -> &'static str {
     match compressor {
         COMP_BROTLI => "brotli",
         COMP_ZSTD => "zstd",
@@ -476,6 +476,10 @@ fn decode_ozt2_core(
     // Reconstructed values are already in metres (dequantized during
     // reconstruction); clamp to the valid elevation range on the way out.
     let (dequant_min, dequant_scale) = header.dequant_params();
+    // Not fused: dequantization is a codec contract shared with `ozt2.rs` and
+    // the Python/numpy decoder — all three must round identically, and a
+    // single-rounding fma would drift a ULP away from both.
+    #[allow(clippy::suboptimal_flops)]
     let reconstructed = match header.predictor {
         PRED_NONE => {
             // No predictor: the residual stream already holds the quantized

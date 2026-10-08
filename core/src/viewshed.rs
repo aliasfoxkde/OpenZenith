@@ -56,8 +56,8 @@ pub fn viewshed(
         return Array2::from_elem((rows, cols), false);
     }
 
-    let max_dist =
-        max_distance_cells.unwrap_or(((rows * rows + cols * cols) as f32).sqrt().ceil() as usize);
+    let max_dist = max_distance_cells
+        .unwrap_or_else(|| ((rows * rows + cols * cols) as f32).sqrt().ceil() as usize);
 
     let obs_elev = dem[[observer_row, observer_col]];
     if obs_elev <= nodata {
@@ -87,13 +87,20 @@ pub fn viewshed(
         // March along ray: we step by 1 cell in the dominant direction
         // Use Bresenham-style step decisions based on cos/sin ratio.
         // For smooth sampling, we step by 0.5 cells and interpolate.
-        let step_size = 0.5_f32; // half-cell steps for smooth terrain following
-        let mut t = 1.0_f32; // start 1 cell away from observer (skip observer's own cell)
+        // Half-steps are exact in f32, so the ray marches on an integer
+        // half-step counter — exact termination, no float loop bound.
+        // t runs 1.0, 1.5, … max_dist inclusive (1 cell away from the
+        // observer; the observer's own cell is skipped).
+        let steps = match max_dist {
+            0 => 0,
+            md => (md - 1) * 2 + 1,
+        };
 
-        while t <= max_dist as f32 {
+        for step in 0..steps {
+            let t = 0.5f32.mul_add(step as f32, 1.0);
             // Ray position in grid space
-            let ray_r = observer_row as f32 + t * sin_a;
-            let ray_c = observer_col as f32 + t * cos_a;
+            let ray_r = t.mul_add(sin_a, observer_row as f32);
+            let ray_c = t.mul_add(cos_a, observer_col as f32);
 
             // Bilinear interpolation of terrain height at (ray_r, ray_c)
             let (r0, c0) = (ray_r.floor() as usize, ray_c.floor() as usize);
@@ -122,7 +129,7 @@ pub fn viewshed(
                 let mut weight_sum = 0.0_f32;
                 for (h, w) in [(h00, w00), (h10, w10), (h01, w01), (h11, w11)] {
                     if h > nodata {
-                        total += h * w;
+                        total = h.mul_add(w, total);
                         weight_sum += w;
                     }
                 }
@@ -135,7 +142,6 @@ pub fn viewshed(
             };
 
             if elev <= nodata {
-                t += step_size;
                 continue;
             }
 
@@ -154,8 +160,6 @@ pub fn viewshed(
                 }
                 max_slope_seen = slope;
             }
-
-            t += step_size;
         }
     }
 

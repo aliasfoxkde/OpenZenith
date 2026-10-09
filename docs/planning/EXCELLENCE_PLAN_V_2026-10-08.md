@@ -121,3 +121,25 @@ measurement exposed — unpatched CVEs and an install command that 404s —
 then finishes the largest staged lint adoption in the repo's history
 (1,094 indexed-access errors) and the three recorded duplication
 clusters, and ships it all GitForge-green as v0.9.3.
+
+## Progress log
+
+- 2026-10-09 — Phase A complete: A1 CVE lockfile fix (010ac0a), A2+A3
+  distribution truth (8116157).
+- 2026-10-09 — **Phase B complete** (6843cb5, 0366bb3): all 1,037
+  `noUncheckedIndexedAccess` error sites fixed and the flag enabled in
+  tsconfig.json (B1–B6; the test wave B5 was absorbed into the four
+  scope waves — final tsc is 0 across src AND tests). Fix grammar held:
+  honest guards where absence is genuine, bounded `!` + `// bounds:`
+  comments where arithmetic proves the index, truncation guards ahead of
+  parser reads; codec paths (ozt2, PNG decode) assertion-only and
+  bit-identical. B7 ratchet landed: functions floor 92 → 94 against
+  post-B measured 99.47 stmts / 97.29 branches / 95.21 functions /
+  99.93 lines (1,704 tests / 115 files, identical pass count to
+  baseline). `no-non-null-assertion` retired with documented rationale
+  (no comment-scoped opt-out exists; bounds-comment discipline is the
+  compensating control). Prettier drift (204 files, pre-dating this
+  cycle) swept in a separate mechanical commit; generated OpenAPI spec
+  added to .prettierignore to protect the openapi:generate round-trip.
+  Gates at close: eslint 0w/0e, tsc 0, prettier clean, coverage green
+  at the new floor.

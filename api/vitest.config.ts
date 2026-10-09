@@ -61,9 +61,12 @@ export default defineConfig({
         // value because the remainder is concentrated in thin route
         // handlers whose only unexercised lines are error envelopes
         // reached solely through upstream fetch failure injection.
+        // 2026-10-09 (task #235 B7, cycle V): measured 99.47 / 97.29 /
+        // 95.21 / 99.93 after the noUncheckedIndexedAccess adoption
+        // (1,704 tests / 115 files) — functions ratcheted 92 → 94.
         statements: 99,
         branches: 96,
-        functions: 92,
+        functions: 94,
         lines: 99,
       },
     },

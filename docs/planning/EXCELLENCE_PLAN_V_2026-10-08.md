@@ -219,3 +219,16 @@ clusters, and ships it all GitForge-green as v0.9.3.
   at 0.9.1 through v0.9.2) + CHANGELOG entry + HANDOFF closeout.
   Post-bump verification: vitest 1,704/1,709 green (openapi contract
   tests included), mcp-server 21/21 contract tests green.
+- 2026-10-09 — **Phase F receipts — v0.9.3 shipped**: release commit
+  `13d8a23`; annotated tag `v0.9.3` pushed to BOTH remotes and
+  ls-remote-verified (identical tag object `e5347e1c`); GitHub release
+  published from the changelog section
+  (github.com/aliasfoxkde/OpenZenith/releases/tag/v0.9.3); ship gate
+  green — pages:build → bundle-marker → pages:deploy → prod E2E
+  **26/26 across chromium AND firefox** (first ship run where firefox
+  went green: the 150s cold-start window absorbed the warmup exactly
+  as diagnosed); prod verification `/api/health` and
+  `/api/openapi.json` both report **0.9.3**; the release commit's own
+  GitForge run `cc9d958c` went **8/8 green** (ghost-pipeline dance:
+  push created a fresh disabled id; create-from-yml → run → watch).
+  Cycle V closed: tasks #231–#239, 13 commits, both remotes in sync.

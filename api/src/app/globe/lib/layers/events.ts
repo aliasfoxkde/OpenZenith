@@ -64,7 +64,8 @@ export function loadEvents(
     if (!coords) return;
     const c = Cesium.Color.fromCssColorString(colorStr);
     const title = f.properties?.title || CATEGORY_LABELS[cat] || cat;
-    const icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS.manmade;
+    // bounds: CATEGORY_ICONS is a module constant that declares "manmade"
+    const icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS.manmade!;
     const now = Date.now();
 
     // Check if event was updated within last 24 hours
@@ -148,7 +149,9 @@ export function loadEvents(
       if (!Cesium || !viewer) return;
       const features = data.features || [];
       updateStatus("events", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f, i) => { addEventEntity(f, i); });
+      features.forEach((f, i) => {
+        addEventEntity(f, i);
+      });
 
       const iv = setInterval(() => {
         void (async () => {
@@ -157,7 +160,9 @@ export function loadEvents(
             const d = await fetchEONET(signal);
             const fs = d.features || [];
             removeEntities("event-");
-            fs.forEach((f, i) => { addEventEntity(f, i); });
+            fs.forEach((f, i) => {
+              addEventEntity(f, i);
+            });
             updateStatus("events", { lastUpdate: Date.now(), count: fs.length, error: null });
             retry.recordSuccess();
           } catch (err) {
@@ -175,7 +180,8 @@ export function loadEvents(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("events", err);
       updateStatus("events", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

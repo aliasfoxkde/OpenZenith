@@ -30,7 +30,8 @@ function stubFetch(buildStrip: (url: string) => { body: Uint8Array; status: numb
     const range = new Headers(init?.headers).get("Range") ?? "";
     calls.push({ url, range, status: 0 });
     const { body, status } = buildStrip(url);
-    calls[calls.length - 1].status = status;
+    // bounds: the call was pushed above, so length-1 is in range
+    calls[calls.length - 1]!.status = status;
     return Promise.resolve(new Response(body as unknown as BodyInit, { status }));
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -59,11 +60,11 @@ describe("getGebcoElevation", () => {
       resolution: 450,
     });
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(
+    expect(calls[0]!.url).toBe(
       "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff/gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif",
     );
     // 135948 + 12000 * 43200 = 518535948, one full strip of 43200 bytes
-    expect(calls[0].range).toBe("bytes=518535948-518579147");
+    expect(calls[0]!.range).toBe("bytes=518535948-518579147");
   });
 
   it("reads negative values as seafloor bathymetry", async () => {
@@ -73,7 +74,7 @@ describe("getGebcoElevation", () => {
 
     expect(result.elevation).toBe(-3380);
     expect(result.surface_type).toBe("seafloor");
-    expect(calls[0].range).toBe("bytes=518535948-518579147");
+    expect(calls[0]!.range).toBe("bytes=518535948-518579147");
   });
 
   it("reads sea level as land (0 is not negative)", async () => {
@@ -89,7 +90,7 @@ describe("getGebcoElevation", () => {
 
     const result = await getGebcoElevation(40, -74);
     expect(result.elevation).toBe(500);
-    expect(calls[0].status).toBe(200);
+    expect(calls[0]!.status).toBe(200);
   });
 
   it("selects the southern/eastern quadrant for southern hemisphere points", async () => {
@@ -99,7 +100,7 @@ describe("getGebcoElevation", () => {
 
     expect(result.tile).toBe("gebco_2025_n0.0_s-90.0_w0.0_e90.0.tif");
     // row (0 - -40) * 240 = 9600 -> 135948 + 9600*43200 = 414855948
-    expect(calls[0].range).toBe("bytes=414855948-414899147");
+    expect(calls[0]!.range).toBe("bytes=414855948-414899147");
     expect(result.elevation).toBe(-1200);
     expect(result.surface_type).toBe("seafloor");
   });
@@ -110,7 +111,7 @@ describe("getGebcoElevation", () => {
     const result = await getGebcoElevation(0, 0);
 
     // row (90-0)*240 = 21600 clamps to 21599 -> 135948 + 21599*43200 = 933212748
-    expect(calls[0].range).toBe("bytes=933212748-933255947");
+    expect(calls[0]!.range).toBe("bytes=933212748-933255947");
     expect(result.elevation).toBe(250);
   });
 
@@ -120,7 +121,7 @@ describe("getGebcoElevation", () => {
 
     const result = await getGebcoElevation(40, -74);
 
-    expect(calls[0].url).toBe("https://tiles.example.com/gebco/gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif");
+    expect(calls[0]!.url).toBe("https://tiles.example.com/gebco/gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif");
     expect(result.elevation).toBe(42);
   });
 

@@ -41,13 +41,14 @@ function delineateWatershed(
     const next = queue.shift();
     if (!next) break;
     const [r, c] = next;
+    // bounds: d < 8 === D8_DR/D8_DC length
     for (let d = 0; d < 8; d++) {
-      const nr = r + D8_DR[d];
-      const nc = c + D8_DC[d];
+      const nr = r + D8_DR[d]!;
+      const nc = c + D8_DC[d]!;
       if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
       const nIdx = nr * cols + nc;
       if (visited.has(nIdx)) continue;
-      if (dem[nIdx] <= TERRAIN_NODATA) continue;
+      if (dem[nIdx]! <= TERRAIN_NODATA) continue;
       // Does this neighbor flow into (r,c)?
       const opp = (d + 4) % 8;
       if (flowDir[nIdx] === opp) {
@@ -124,11 +125,12 @@ export async function POST(request: NextRequest) {
     // If center is nodata, find nearest valid cell
     let cr = centerRow,
       cc = centerCol;
-    if (dem[cr * gridCols + cc] <= TERRAIN_NODATA) {
+    // bounds: cr/cc <= radius and the grid is (2*radius+1)^2 row-major cells
+    if (dem[cr * gridCols + cc]! <= TERRAIN_NODATA) {
       let bestDist = Infinity;
       for (let r = 0; r < gridRows; r++) {
         for (let c = 0; c < gridCols; c++) {
-          if (dem[r * gridCols + c] > TERRAIN_NODATA) {
+          if (dem[r * gridCols + c]! > TERRAIN_NODATA) {
             const d = Math.abs(r - centerRow) + Math.abs(c - centerCol);
             if (d < bestDist) {
               bestDist = d;
@@ -149,7 +151,8 @@ export async function POST(request: NextRequest) {
 
     const elevations: number[] = [];
     for (let i = 0; i < watershed.length; i++) {
-      if (watershed[i] === 1 && dem[i] > TERRAIN_NODATA) elevations.push(dem[i]);
+      // bounds: i < watershed.length = gridRows*gridCols = dem.length
+      if (watershed[i]! === 1 && dem[i]! > TERRAIN_NODATA) elevations.push(dem[i]!);
     }
 
     const validElevs = elevations.filter((e) => e > TERRAIN_NODATA);
@@ -164,8 +167,8 @@ export async function POST(request: NextRequest) {
       for (let c = 0; c < gridCols; c++) {
         if (watershed[r * gridCols + c] !== 1) continue;
         const isEdge = [0, 1, 2, 3, 4, 5, 6, 7].some((d) => {
-          const nr = r + D8_DR[d];
-          const nc = c + D8_DC[d];
+          const nr = r + D8_DR[d]!; // bounds: d < 8 === D8_DR/D8_DC length
+          const nc = c + D8_DC[d]!;
           return nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols || watershed[nr * gridCols + nc] !== 1;
         });
         if (isEdge) {

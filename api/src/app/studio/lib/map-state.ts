@@ -51,10 +51,16 @@ export function decodeMapHash(hash: string): Partial<MapViewState> | null {
   const parts = raw.split("/");
   if (parts.length < 2) return null;
 
-  const [latLon, zoomStr, basemap] = parts;
-  const [latStr, lonStr] = latLon.split(",");
-  const lat = parseFloat(latStr);
-  const lon = parseFloat(lonStr);
+  // bounds: parts.length >= 2 checked above, so latLon and zoomStr exist;
+  // basemap is a genuinely optional third part
+  const latLon = parts[0]!;
+  const zoomStr = parts[1]!;
+  const basemap = parts[2];
+  // split() always yields at least one part; an absent lon part parses to
+  // NaN via "" exactly as the undefined value did before the flag
+  const latLonParts = latLon.split(",");
+  const lat = parseFloat(latLonParts[0]!);
+  const lon = parseFloat(latLonParts[1] ?? "");
   const zoom = parseFloat(zoomStr);
 
   if (isNaN(lat) || isNaN(lon) || isNaN(zoom)) return null;

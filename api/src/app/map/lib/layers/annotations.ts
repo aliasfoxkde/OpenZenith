@@ -23,7 +23,8 @@ export type Annotation = {
 const COLORS = ["#00ff88", "#ff6b35", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
 
 function randomColor(): string {
-  return COLORS[Math.floor(Math.random() * COLORS.length)];
+  // bounds: Math.floor(random * length) stays inside COLORS
+  return COLORS[Math.floor(Math.random() * COLORS.length)]!;
 }
 
 function uid(): string {

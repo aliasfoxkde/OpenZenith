@@ -117,9 +117,7 @@ describe("Reverse Geocode endpoint", () => {
   });
 
   it("returns 502 when the upstream is unavailable", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("down", { status: 503 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("down", { status: 503 }));
 
     const { GET } = await import("@/app/api/reverse-geocode/route");
     const resp = await GET(mockRequest("/api/reverse-geocode?lat=0&lon=0"));

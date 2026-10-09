@@ -71,10 +71,7 @@ interface CoreApi {
     nodata: number,
     maxDistanceCells: number | null,
   ) => Uint8Array;
-  decode_ozt2: (
-    tileBytes: Uint8Array,
-    decompressFn: (bytes: Uint8Array, compressor: number) => Uint8Array,
-  ) => OZT2Tile;
+  decode_ozt2: (tileBytes: Uint8Array, decompressFn: (bytes: Uint8Array, compressor: number) => Uint8Array) => OZT2Tile;
 }
 
 /** The glue module: every entry point plus the async initialiser. */
@@ -185,8 +182,9 @@ function renderFlowDir(canvas: HTMLCanvasElement, fd: Uint8Array, rows: number, 
   canvas.width = cols;
   canvas.height = rows;
   const img = ctx.createImageData(cols, rows);
+  // bounds: i < fd.length in the loop guard
   for (let i = 0; i < fd.length; i++) {
-    const [r, g, b] = flowDirColour(fd[i]);
+    const [r, g, b] = flowDirColour(fd[i]!);
     img.data[i * 4] = r;
     img.data[i * 4 + 1] = g;
     img.data[i * 4 + 2] = b;
@@ -202,8 +200,9 @@ function renderFlowAcc(canvas: HTMLCanvasElement, acc: Uint32Array, rows: number
   canvas.height = rows;
   const img = ctx.createImageData(cols, rows);
   const max = Math.max(...acc) || 1;
+  // bounds: i < acc.length in the loop guard
   for (let i = 0; i < acc.length; i++) {
-    const [r, g, b] = flowAccColour(acc[i], max);
+    const [r, g, b] = flowAccColour(acc[i]!, max);
     img.data[i * 4] = r;
     img.data[i * 4 + 1] = g;
     img.data[i * 4 + 2] = b;
@@ -261,7 +260,8 @@ function encodeOZT2Demo(
   instance.__wbindgen_free(demPtr, dem.byteLength, 4);
 
   let maxElevation = 0;
-  for (let i = 0; i < dem.length; i++) maxElevation = Math.max(maxElevation, dem[i]);
+  // bounds: i < dem.length in the loop guard
+  for (let i = 0; i < dem.length; i++) maxElevation = Math.max(maxElevation, dem[i]!);
   const elevRange = Math.round(maxElevation);
 
   const payload = zlibSync(new Uint8Array(residuals.buffer, residuals.byteOffset, residuals.byteLength));
@@ -320,7 +320,9 @@ export default function WasmDemo() {
         setStatus("WASM loaded — running demos...");
         runDemos(instance, core);
       })
-      .catch((e: unknown) => { setStatus(`Error: ${String(e)}`); });
+      .catch((e: unknown) => {
+        setStatus(`Error: ${String(e)}`);
+      });
   }, []);
 
   function runDemos(instance: WasmInstance, core: WasmGlue) {
@@ -348,8 +350,9 @@ export default function WasmDemo() {
       const fdBytes = core.d8_flow_direction_wasm(demPtr, dem.length, SIZE, SIZE, DEM_NODATA);
       // Accumulation consumes the signed grid, so the D8 sentinel maps to -1.
       const fd = new Int8Array(fdBytes.length);
+      // bounds: i < fdBytes.length in the loop guard, and fd is its length
       for (let i = 0; i < fdBytes.length; i++) {
-        fd[i] = fdBytes[i] === FLOW_NODATA ? FLOW_NODATA_SIGNED : fdBytes[i];
+        fd[i] = fdBytes[i] === FLOW_NODATA ? FLOW_NODATA_SIGNED : fdBytes[i]!;
       }
       const fdPtr = fdToWasm(instance, fd);
       const t0 = performance.now();
@@ -401,12 +404,12 @@ export default function WasmDemo() {
       const decoded = result.elevations;
       let mismatches = 0;
       let maxElevation = 0;
+      // bounds: i < dem.length in the loop guard; decoded is the same grid
       for (let i = 0; i < dem.length; i++) {
-        if (decoded[i] !== dem[i]) mismatches++;
-        maxElevation = Math.max(maxElevation, decoded[i]);
+        if (decoded[i] !== dem[i]!) mismatches++;
+        maxElevation = Math.max(maxElevation, decoded[i]!);
       }
-      const roundTrip =
-        mismatches === 0 ? `all ${dem.length} cells round-trip exactly` : `${mismatches} cells differ`;
+      const roundTrip = mismatches === 0 ? `all ${dem.length} cells round-trip exactly` : `${mismatches} cells differ`;
       setOzeTileInfo(
         `Decoded ${W}×${H} tile (${result.metadata.compressor}, ${result.metadata.predictor}) in ${ms.toFixed(1)}ms — ` +
           `range: [${decoded[0]}, ${maxElevation}]m, ${result.metadata.bits_per_pixel}-bit, ${roundTrip}`,
@@ -420,8 +423,7 @@ export default function WasmDemo() {
       // tiles are brotli (the Python encoder's default) or zstd, so this
       // exercises the production entropy path the synthetic zlib tile above
       // cannot.
-      const url =
-        "https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2/resolve/main/tiles/z10/758/428.ozt2";
+      const url = "https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2/resolve/main/tiles/z10/758/428.ozt2";
       fetch(url, { signal: AbortSignal.timeout(15000) })
         .then(async (res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -431,9 +433,10 @@ export default function WasmDemo() {
           const ms = performance.now() - t0;
           let min = Number.POSITIVE_INFINITY;
           let max = 0;
+          // bounds: i < tile.elevations.length in the loop guard
           for (let i = 0; i < tile.elevations.length; i++) {
-            min = Math.min(min, tile.elevations[i]);
-            max = Math.max(max, tile.elevations[i]);
+            min = Math.min(min, tile.elevations[i]!);
+            max = Math.max(max, tile.elevations[i]!);
           }
           setOzeTileInfo(
             (prev) =>
@@ -474,88 +477,92 @@ export default function WasmDemo() {
          standard navigation (and its keyboard stop) back. It renders light —
          this page has no theme support. */}
       <Navbar dark={false} breadcrumb="WASM Demo" />
-      <main id="main-content" tabIndex={-1} style={{ padding: "2rem", fontFamily: "monospace", maxWidth: 900, margin: "0 auto" }}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        style={{ padding: "2rem", fontFamily: "monospace", maxWidth: 900, margin: "0 auto" }}
+      >
         <h1>OpenZenith Core — WASM Decoder Demo</h1>
-      <p style={{ color: "#555" }}>{status}</p>
+        <p style={{ color: "#555" }}>{status}</p>
 
-      <h2>Benchmarks</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2rem" }}>
-        <thead>
-          <tr style={{ textAlign: "left", background: "#f5f5f5" }}>
-            <th style={{ padding: "0.5rem" }}>Operation</th>
-            <th style={{ padding: "0.5rem" }}>Time</th>
-            <th style={{ padding: "0.5rem" }}>Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          {benchmarks.map((b) => (
-            <tr key={b.label} style={{ borderBottom: "1px solid #eee" }}>
-              <td style={{ padding: "0.5rem" }}>{b.label}</td>
-              <td style={{ padding: "0.5rem", color: "#166534" }}>{b.ms.toFixed(2)} ms</td>
-              <td style={{ padding: "0.5rem", color: "#555", fontSize: "0.85em" }}>{b.details ?? ""}</td>
+        <h2>Benchmarks</h2>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2rem" }}>
+          <thead>
+            <tr style={{ textAlign: "left", background: "#f5f5f5" }}>
+              <th style={{ padding: "0.5rem" }}>Operation</th>
+              <th style={{ padding: "0.5rem" }}>Time</th>
+              <th style={{ padding: "0.5rem" }}>Details</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {benchmarks.map((b) => (
+              <tr key={b.label} style={{ borderBottom: "1px solid #eee" }}>
+                <td style={{ padding: "0.5rem" }}>{b.label}</td>
+                <td style={{ padding: "0.5rem", color: "#166534" }}>{b.ms.toFixed(2)} ms</td>
+                <td style={{ padding: "0.5rem", color: "#555", fontSize: "0.85em" }}>{b.details ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <h2>D8 Flow Direction (3×3 pit DEM)</h2>
-      <p style={{ fontSize: "0.8em", color: "#555" }}>
-        Direction colours: White=E, LightBlue=SE, Cyan=S, Green=SW, Lime=W, Yellow=NW, Orange=N, Red=NE. Pit cell
-        (top-left) = black. DEMs use -32768 as their nodata sentinel and flow direction reports 255 (mapped to -1 for
-        accumulation) where no downslope neighbour exists.
-      </p>
-      <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
-        <canvas
-          ref={canvasD8}
-          role="img"
-          aria-label="D8 flow direction raster of a 3 by 3 pit DEM: eight coloured direction cells around a black pit cell"
-          style={{ imageRendering: "pixelated" }}
-        />
-      </div>
+        <h2>D8 Flow Direction (3×3 pit DEM)</h2>
+        <p style={{ fontSize: "0.8em", color: "#555" }}>
+          Direction colours: White=E, LightBlue=SE, Cyan=S, Green=SW, Lime=W, Yellow=NW, Orange=N, Red=NE. Pit cell
+          (top-left) = black. DEMs use -32768 as their nodata sentinel and flow direction reports 255 (mapped to -1 for
+          accumulation) where no downslope neighbour exists.
+        </p>
+        <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
+          <canvas
+            ref={canvasD8}
+            role="img"
+            aria-label="D8 flow direction raster of a 3 by 3 pit DEM: eight coloured direction cells around a black pit cell"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
 
-      <h2>Flow Accumulation (3×3 pit DEM)</h2>
-      <p style={{ fontSize: "0.8em", color: "#555" }}>
-        Upstream cell count. White = no upstream (peaks/ridges). Red = high accumulation (streams).
-      </p>
-      <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
-        <canvas
-          ref={canvasAcc}
-          role="img"
-          aria-label="Flow accumulation raster of a 3 by 3 pit DEM: white ridge cells and a red high-accumulation stream cell"
-          style={{ imageRendering: "pixelated" }}
-        />
-      </div>
+        <h2>Flow Accumulation (3×3 pit DEM)</h2>
+        <p style={{ fontSize: "0.8em", color: "#555" }}>
+          Upstream cell count. White = no upstream (peaks/ridges). Red = high accumulation (streams).
+        </p>
+        <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
+          <canvas
+            ref={canvasAcc}
+            role="img"
+            aria-label="Flow accumulation raster of a 3 by 3 pit DEM: white ridge cells and a red high-accumulation stream cell"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
 
-      <h2>Viewshed — Mt. Everest (30×30 synthetic DEM)</h2>
-      <p style={{ fontSize: "0.8em", color: "#555" }}>
-        Observer at the yellow cell (2m eye height). Green = visible, Brown = hidden.
-      </p>
-      <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
-        <canvas
-          ref={canvasViewshed}
-          role="img"
-          aria-label="Viewshed raster of a 30 by 30 synthetic Everest DEM: green visible cells and brown hidden cells around a yellow observer cell"
-          style={{ imageRendering: "pixelated" }}
-        />
-      </div>
+        <h2>Viewshed — Mt. Everest (30×30 synthetic DEM)</h2>
+        <p style={{ fontSize: "0.8em", color: "#555" }}>
+          Observer at the yellow cell (2m eye height). Green = visible, Brown = hidden.
+        </p>
+        <div style={{ background: "#111", display: "inline-block", padding: "4px", borderRadius: 4 }}>
+          <canvas
+            ref={canvasViewshed}
+            role="img"
+            aria-label="Viewshed raster of a 30 by 30 synthetic Everest DEM: green visible cells and brown hidden cells around a yellow observer cell"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
 
-      {ozeTileInfo && (
-        <>
-          <h2>OZT2 Tile Decode</h2>
-          <p style={{ fontSize: "0.8em", color: "#555", marginBottom: 0 }}>
-            The synthetic tile is encoded here with the production layout — 6-byte header, gradient residuals from the
-            module, zlib payload — then handed to the module&apos;s own decoder, which parses the header, calls back
-            into JavaScript for the entropy half (brotli/zstd/zlib, keyed by the header&apos;s compressor code) and
-            reconstructs the grid in Rust. A real production tile fetched from the HuggingFace dataset runs the same
-            path with the compressors shipped tiles actually carry.
-          </p>
-          <p style={{ color: "#166534" }}>{ozeTileInfo}</p>
-        </>
-      )}
+        {ozeTileInfo && (
+          <>
+            <h2>OZT2 Tile Decode</h2>
+            <p style={{ fontSize: "0.8em", color: "#555", marginBottom: 0 }}>
+              The synthetic tile is encoded here with the production layout — 6-byte header, gradient residuals from the
+              module, zlib payload — then handed to the module&apos;s own decoder, which parses the header, calls back
+              into JavaScript for the entropy half (brotli/zstd/zlib, keyed by the header&apos;s compressor code) and
+              reconstructs the grid in Rust. A real production tile fetched from the HuggingFace dataset runs the same
+              path with the compressors shipped tiles actually carry.
+            </p>
+            <p style={{ color: "#166534" }}>{ozeTileInfo}</p>
+          </>
+        )}
 
-      <h2>Exported Functions</h2>
-      <pre style={{ background: "#f5f5f5", padding: "1rem", overflowX: "auto", fontSize: "0.8em" }}>
-        {`// Load the module from the pkg directory
+        <h2>Exported Functions</h2>
+        <pre style={{ background: "#f5f5f5", padding: "1rem", overflowX: "auto", fontSize: "0.8em" }}>
+          {`// Load the module from the pkg directory
 import init, { decode_ozt2 } from '/pkg/openzenith_core.js';
 const wasm = await init('/pkg/openzenith_core_bg.wasm');
 

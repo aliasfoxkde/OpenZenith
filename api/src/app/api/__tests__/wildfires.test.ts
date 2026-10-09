@@ -35,7 +35,7 @@ interface WildfireFeature {
 // fallback branch is reachable.
 vi.mock("@/lib/cache", () => ({
   cachedFetch: vi.fn(async (url: string, ...args: unknown[]) =>
-    fetch(url, ...(args.filter((a): a is RequestInit => typeof a === "object"))),
+    fetch(url, ...args.filter((a): a is RequestInit => typeof a === "object")),
   ),
   staleWhileRevalidate: vi.fn(),
   CACHE_TTL: { WARNINGS: 0 },
@@ -81,7 +81,10 @@ describe("Wildfires API", () => {
 
   it("accepts custom bbox and days parameters", async () => {
     vi.stubEnv("FIRMS_MAP_KEY", "test-key");
-    vi.stubGlobal("fetch", vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })),
+    );
 
     const { GET } = await import("@/app/api/wildfires/route");
     const resp = await GET(createMockRequest("https://example.com/api/wildfires?days=3&bbox=-130,25,-60,50"));
@@ -168,10 +171,17 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(data.apiKeyStatus).toBe("configured");
     expect(data.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-    const [first, second] = data.features;
+    const first = data.features[0]!; // bounds: count 2 asserted above
+    const second = data.features[1]!;
     expect(first.type).toBe("Feature");
     expect(first.geometry).toEqual({ type: "Point", coordinates: [-122.3, 37.5] });
-    expect(first.properties).toEqual({ confidence: 85, brightness: 333.4, frp: 42.7, daynight: "N", satellite: "VIIRS_SNPP_NRT" });
+    expect(first.properties).toEqual({
+      confidence: 85,
+      brightness: 333.4,
+      frp: 42.7,
+      daynight: "N",
+      satellite: "VIIRS_SNPP_NRT",
+    });
     // Blank brightness falls back to 0, VIIRS "l" confidence stays qualitative, blank daynight defaults to D
     expect(second.properties.brightness).toBe(0);
     expect(second.properties.confidence).toBe("l");
@@ -198,7 +208,7 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
 
     const GET = await getRoute();
     const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
-    const props = data.features[0].properties;
+    const props = data.features[0]!.properties; // bounds: one row in the stubbed CSV
     expect(props.frp).toBe(42.7);
     expect(props.daynight).toBe("N");
   });
@@ -292,7 +302,8 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
       await GET(createMockRequest("https://example.com/api/wildfires?satellite=MODIS_NRT&bbox=-10,10,10,20")),
     );
 
-    const url = fetchMock.mock.calls[0][0] as string;
+    // bounds: the route makes exactly one upstream call
+    const url = fetchMock.mock.calls[0]![0] as string;
     expect(url).toBe("https://firms.modaps.eosdis.nasa.gov/api/area/csv/test-key/MODIS_NRT/-10,10,10,20/1");
     expect(data.satellite).toBe("MODIS_NRT");
     expect(data.bbox).toBe("-10,10,10,20");

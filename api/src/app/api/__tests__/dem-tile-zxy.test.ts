@@ -152,7 +152,8 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(resp.headers.get("Content-Length")).toBe(String("ozt2-tile-bytes".length));
     expect(await resp.arrayBuffer()).toEqual(asciiBuf("ozt2-tile-bytes"));
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      // bounds: the route fetched once
       "https://huggingface.co/datasets/aliasfox/srtm30m-ozt2-v2/resolve/main/tiles/z10/163/395.ozt2",
     );
   });
@@ -205,20 +206,24 @@ describe("DEM Tile XYZ API — params, zoom bounds and format selection", () => 
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
 
-    await vi.waitFor(() => { expect(cachesMock.puts.length).toBe(1); });
-    expect(cachesMock.puts[0].key).toBe("/api/dem-tile/4/8/5?fmt=png&enc=terrarium");
-    expect(cachesMock.puts[0].bytes).toBeGreaterThan(0);
+    await vi.waitFor(() => {
+      expect(cachesMock.puts.length).toBe(1);
+    });
+    expect(cachesMock.puts[0]!.key).toBe("/api/dem-tile/4/8/5?fmt=png&enc=terrarium"); // bounds: length 1 asserted above
+    expect(cachesMock.puts[0]!.bytes).toBeGreaterThan(0);
   });
 });
 
 describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
   beforeEach(async () => {
-    vi.mocked(vi.mocked(await import("@/lib/tile")).getTileData).mockReset().mockResolvedValue({
-      data: new Int16Array(256 * 256).fill(100),
-      width: 256,
-      height: 256,
-      zoom: 4,
-    });
+    vi.mocked(vi.mocked(await import("@/lib/tile")).getTileData)
+      .mockReset()
+      .mockResolvedValue({
+        data: new Int16Array(256 * 256).fill(100),
+        width: 256,
+        height: 256,
+        zoom: 4,
+      });
   });
 
   it("serves a fresh PNG entry from the edge cache", async () => {
@@ -297,7 +302,9 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-    await vi.waitFor(() => { expect(open).toHaveBeenCalledTimes(2); });
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("keeps serving tiles when the cache write rejects asynchronously", async () => {
@@ -310,7 +317,9 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
     const resp = await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("huggingface");
-    await vi.waitFor(() => { expect(put).toHaveBeenCalledTimes(1); });
+    await vi.waitFor(() => {
+      expect(put).toHaveBeenCalledTimes(1);
+    });
   });
 });
 
@@ -320,9 +329,10 @@ describe("DEM Tile XYZ API — pixel encoding", () => {
     const png = new Uint8Array(await resp.arrayBuffer());
     const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
     const idat: Uint8Array[] = [];
-    for (let off = 8; off < png.length; ) {
+    for (let off = 8; off < png.length;) {
       const length = view.getUint32(off);
-      const type = String.fromCharCode(png[off + 4], png[off + 5], png[off + 6], png[off + 7]);
+      // bounds: every PNG chunk carries an 8-byte header, so off+4..off+7 are in range
+      const type = String.fromCharCode(png[off + 4]!, png[off + 5]!, png[off + 6]!, png[off + 7]!);
       if (type === "IDAT") idat.push(png.subarray(off + 8, off + 8 + length));
       off += 12 + length;
     }
@@ -339,24 +349,28 @@ describe("DEM Tile XYZ API — pixel encoding", () => {
   /** Terrarium decode of the scanline pixel at (px, py). */
   const terrariumAt = (raw: Uint8Array, width: number, px: number, py: number): number => {
     const off = py * (1 + width * 3) + 1 + px * 3;
-    return raw[off] * 256 + raw[off + 1] + raw[off + 2] / 256 - 32768;
+    // bounds: each scanline is 1 + width*3 filter+pixel bytes and px < width
+    return raw[off]! * 256 + raw[off + 1]! + raw[off + 2]! / 256 - 32768;
   };
 
   /** Terrain-RGB decode of the scanline pixel at (px, py). */
   const terrainRgbAt = (raw: Uint8Array, width: number, px: number, py: number): number => {
     const off = py * (1 + width * 3) + 1 + px * 3;
-    return (raw[off] * 65536 + raw[off + 1] * 256 + raw[off + 2]) / 10 - 10000;
+    // bounds: each scanline is 1 + width*3 filter+pixel bytes and px < width
+    return (raw[off]! * 65536 + raw[off + 1]! * 256 + raw[off + 2]!) / 10 - 10000;
   };
 
   beforeEach(async () => {
     // NODATA, a negative land height and a positive one — enough to tell the
     // two encodings apart, since they disagree on every one of these.
-    vi.mocked(vi.mocked(await import("@/lib/tile")).getTileData).mockReset().mockResolvedValue({
-      data: new Int16Array([-32768, -40, 0, 8848]),
-      width: 2,
-      height: 2,
-      zoom: 4,
-    });
+    vi.mocked(vi.mocked(await import("@/lib/tile")).getTileData)
+      .mockReset()
+      .mockResolvedValue({
+        data: new Int16Array([-32768, -40, 0, 8848]),
+        width: 2,
+        height: 2,
+        zoom: 4,
+      });
   });
 
   it("keeps the default response byte-identical to the Terrarium encoder", async () => {
@@ -418,7 +432,9 @@ describe("DEM Tile XYZ API — pixel encoding", () => {
     await GET(mockRequest("/api/dem-tile/4/8/5.png"), ctx(4, 8, "5.png"));
     await GET(mockRequest("/api/dem-tile/4/8/5.png?encoding=mapbox"), ctx(4, 8, "5.png"));
 
-    await vi.waitFor(() => { expect(cachesMock.puts.length).toBe(2); });
+    await vi.waitFor(() => {
+      expect(cachesMock.puts.length).toBe(2);
+    });
     expect(cachesMock.puts.map((put) => put.key).sort()).toEqual([
       "/api/dem-tile/4/8/5?fmt=png&enc=mapbox",
       "/api/dem-tile/4/8/5?fmt=png&enc=terrarium",
@@ -446,10 +462,7 @@ describe("DEM Tile XYZ API — pixel encoding", () => {
 
   it("rejects encoding=mapbox alongside format=ozt2, which has no pixel encoding", async () => {
     const { GET } = await route();
-    const resp = await GET(
-      mockRequest("/api/dem-tile/4/8/5?format=ozt2&encoding=mapbox"),
-      ctx(4, 8, "5"),
-    );
+    const resp = await GET(mockRequest("/api/dem-tile/4/8/5?format=ozt2&encoding=mapbox"), ctx(4, 8, "5"));
     expect(resp.status).toBe(400);
     expect((await bodyAs<DemTileErrorBody>(resp)).error).toContain("requires format=png");
   });

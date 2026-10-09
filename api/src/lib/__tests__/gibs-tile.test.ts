@@ -23,18 +23,20 @@ vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
     edgeGetTile: vi.fn((_type: string, _z: number, _x: number, _y: number) =>
       Promise.resolve(edgeState.cached === undefined ? null : edgeState.cached),
     ),
-    edgePutTile: vi.fn((
-      type: string,
-      z: number,
-      x: number,
-      y: number,
-      data: ArrayBuffer | Uint8Array,
-      contentType: string,
-    ): Promise<void> => {
-      if (edgeState.rejectPut) return Promise.reject(new Error("cache write failed"));
-      edgeState.puts.push({ type, z, x, y, bytes: data.byteLength, contentType });
-      return Promise.resolve();
-    }),
+    edgePutTile: vi.fn(
+      (
+        type: string,
+        z: number,
+        x: number,
+        y: number,
+        data: ArrayBuffer | Uint8Array,
+        contentType: string,
+      ): Promise<void> => {
+        if (edgeState.rejectPut) return Promise.reject(new Error("cache write failed"));
+        edgeState.puts.push({ type, z, x, y, bytes: data.byteLength, contentType });
+        return Promise.resolve();
+      },
+    ),
   };
 });
 
@@ -208,7 +210,7 @@ describe("createGIBSHandler — WMS proxy", () => {
     await vi.waitFor(() => {
       expect(edgeState.puts).toHaveLength(1);
     });
-    expect(edgeState.puts[0].contentType).toBe("image/png");
+    expect(edgeState.puts[0]!.contentType).toBe("image/png");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 

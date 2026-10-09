@@ -30,14 +30,14 @@ vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
     edgeGetTile: vi.fn((_prefix: string, z: number, x: number, y: number) =>
       Promise.resolve(r2Store.get(`${z}/${x}/${y}`) ?? null),
     ),
-  edgePutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
-    const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-    r2Store.set(
-      `${z}/${x}/${y}`,
-      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-    );
-    return Promise.resolve();
-  }),
+    edgePutTile: vi.fn((_prefix: string, z: number, x: number, y: number, buf: ArrayBuffer | Uint8Array) => {
+      const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+      r2Store.set(
+        `${z}/${x}/${y}`,
+        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+      );
+      return Promise.resolve();
+    }),
   };
 });
 
@@ -72,11 +72,13 @@ interface CfCacheStub {
  * Stub the Cloudflare Cache API. `open` is called once for the lookup and once
  * more for the write-back on every request that reaches generation.
  */
-function stubCfCache(options: {
-  entry?: Response | null;
-  matchThrows?: boolean;
-  openThrowsOn?: Array<"lookup" | "write">;
-} = {}): CfCacheStub {
+function stubCfCache(
+  options: {
+    entry?: Response | null;
+    matchThrows?: boolean;
+    openThrowsOn?: Array<"lookup" | "write">;
+  } = {},
+): CfCacheStub {
   const caches: CfCache[] = [];
   const putCalls: string[] = [];
   let openCount = 0;
@@ -122,7 +124,8 @@ function decodePng(bytes: Uint8Array, width: number, height: number): Array<[num
   while (offset < bytes.length) {
     const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 8);
     const length = view.getUint32(0);
-    const type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7]);
+    // bounds: every PNG chunk carries an 8-byte header, so offset+4..+7 are in range
+    const type = String.fromCharCode(bytes[offset + 4]!, bytes[offset + 5]!, bytes[offset + 6]!, bytes[offset + 7]!);
     if (type === "IDAT") idat.push(bytes.slice(offset + 8, offset + 8 + length));
     offset += 12 + length;
   }
@@ -141,7 +144,8 @@ function decodePng(bytes: Uint8Array, width: number, height: number): Array<[num
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const off = y * stride + 1 + x * 3;
-      pixels.push([raw[off], raw[off + 1], raw[off + 2]]);
+      // bounds: each scanline is 1 + width*3 filter+pixel bytes and x < width
+      pixels.push([raw[off]!, raw[off + 1]!, raw[off + 2]!]);
     }
   }
   return pixels;
@@ -204,7 +208,10 @@ describe("Elevation color API cache layers", () => {
     const bytes = pngBytes(16);
     stubCfCache({ entry: cachedResponse(bytes, Date.now()) });
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(resp.headers.get("Content-Length")).toBe("16");
@@ -218,7 +225,10 @@ describe("Elevation color API cache layers", () => {
     // allowed unbounded staleness. They must be treated as expired.
     stubCfCache({ entry: new Response(pngBytes(4), { headers: { "Content-Type": "image/png" } }) });
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(mockGetTileData).toHaveBeenCalled();
@@ -230,12 +240,17 @@ describe("Elevation color API cache layers", () => {
     const bytes = pngBytes(32);
     r2Store.set("8/100/60", bytes);
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(mockR2GetTile).toHaveBeenCalledWith("elevation-color", 8, 100, 60);
     // The R2 hit is written back into the edge cache
-    await vi.waitFor(() => { expect(cf.putCalls.length).toBeGreaterThan(0); });
+    await vi.waitFor(() => {
+      expect(cf.putCalls.length).toBeGreaterThan(0);
+    });
     expect(cf.putCalls[0]).toBe("/api/elevation-color/8/100/60");
   });
 
@@ -244,7 +259,10 @@ describe("Elevation color API cache layers", () => {
     const bytes = pngBytes(24);
     r2Store.set("8/100/60", bytes);
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(resp.headers.get("Content-Length")).toBe("24");
@@ -255,7 +273,10 @@ describe("Elevation color API cache layers", () => {
     stubCfCache();
     mockR2GetTile.mockRejectedValueOnce(new Error("R2 unavailable"));
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(mockGetTileData).toHaveBeenCalled();
@@ -264,10 +285,15 @@ describe("Elevation color API cache layers", () => {
   it("tolerates a failing edge-cache read and a failing edge-cache write", async () => {
     stubCfCache({ matchThrows: true, openThrowsOn: ["write"] });
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
-    await vi.waitFor(() => { expect(mockR2PutTile).toHaveBeenCalled(); });
+    await vi.waitFor(() => {
+      expect(mockR2PutTile).toHaveBeenCalled();
+    });
   });
 });
 
@@ -275,7 +301,10 @@ describe("Elevation color API generation", () => {
   it("renders a color-ramped PNG on a miss and writes both caches", async () => {
     const cf = stubCfCache();
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Tile-Type")).toBe("elevation-color");
     expect(resp.headers.get("X-Cache")).toBe("MISS");
@@ -287,14 +316,16 @@ describe("Elevation color API generation", () => {
     expect(Array.from(bytes.slice(0, 8))).toEqual(PNG_SIGNATURE);
     expect(resp.headers.get("Content-Length")).toBe(String(bytes.byteLength));
 
-    await vi.waitFor(() => { expect(mockR2PutTile.mock.calls.length).toBeGreaterThan(0); });
-    expect(mockR2PutTile.mock.calls[0].slice(0, 4)).toEqual(["elevation-color", 8, 100, 60]);
+    await vi.waitFor(() => {
+      expect(mockR2PutTile.mock.calls.length).toBeGreaterThan(0);
+    });
+    expect(mockR2PutTile.mock.calls[0]!.slice(0, 4)).toEqual(["elevation-color", 8, 100, 60]); // bounds: put count asserted above
     expect(cf.putCalls[0]).toBe("/api/elevation-color/8/100/60");
 
     // 500m of uniform elevation lands between the 200m and 800m ramp stops
     const pixels = decodePng(bytes, 8, 8);
     expect(new Set(pixels.map((p) => p.join(","))).size).toBe(1);
-    const [r, g, b] = pixels[0];
+    const [r, g, b] = pixels[0]!; // bounds: uniform single-pixel set asserted above
     expect(g).toBeGreaterThan(r);
     expect(g).toBeGreaterThan(b);
   });
@@ -304,7 +335,10 @@ describe("Elevation color API generation", () => {
     const data = new Int16Array(8 * 8).fill(-32768);
     mockGetTileData.mockImplementation(() => Promise.resolve({ data, width: 8, height: 8, zoom: 8 }));
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     const bytes = new Uint8Array(await resp.arrayBuffer());
     expect(decodePng(bytes, 8, 8)[0]).toEqual([5, 12, 30]);
   });
@@ -313,7 +347,10 @@ describe("Elevation color API generation", () => {
     stubCfCache();
     mockGetTileData.mockRejectedValueOnce(new Error("chunk not found"));
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Tile-Type")).toBe("fallback-ocean");
 
@@ -329,11 +366,16 @@ describe("Elevation color API generation", () => {
     // so the local-dev early returns in both cache helpers stay covered.
     vi.stubGlobal("caches", undefined);
 
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-color/8/100/60"), routeCtx("8", "100", "60"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
     expect(mockGetTileData).toHaveBeenCalled();
-    await vi.waitFor(() => { expect(mockR2PutTile).toHaveBeenCalled(); });
+    await vi.waitFor(() => {
+      expect(mockR2PutTile).toHaveBeenCalled();
+    });
   });
 });
 

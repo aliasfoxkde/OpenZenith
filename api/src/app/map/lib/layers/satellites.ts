@@ -182,7 +182,7 @@ export function addSatellites(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("satellites", err);
       setStatus(handle, "satellites", "error");
-      }
+    }
   };
 
   void doLoad();

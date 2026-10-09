@@ -3,7 +3,9 @@ import type { DataStatus } from "../types";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
-const LIGHTNING_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`);
+const LIGHTNING_ICON = svgIcon(
+  `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" fill="#ffff00" opacity="0.9"/></svg>`,
+);
 
 const MAX_ACTIVE_STRIKES = 200;
 
@@ -130,8 +132,9 @@ export function loadLightning(
           if (typeof data === "string") {
             const parts = data.split(";");
             if (parts.length >= 3) {
-              const lat = parseFloat(parts[1]);
-              const lon = parseFloat(parts[2]);
+              // bounds: the parts.length >= 3 guard above covers indices 0..2
+              const lat = parseFloat(parts[1]!);
+              const lon = parseFloat(parts[2]!);
               if (!isNaN(lat) && !isNaN(lon)) {
                 addStrike(lat, lon);
               }
@@ -157,7 +160,8 @@ export function loadLightning(
     } catch (err) {
       warnLayerError("lightning", err);
       updateStatus("lightning", {
-        error: "Unable to connect to Blitzortung WebSocket" });
+        error: "Unable to connect to Blitzortung WebSocket",
+      });
     }
   };
 

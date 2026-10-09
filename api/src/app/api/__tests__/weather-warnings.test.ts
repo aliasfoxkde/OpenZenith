@@ -129,7 +129,7 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
 
     const data = await bodyAs<WarningsBody>(resp);
     expect(data.features).toHaveLength(1);
-    const feature = data.features[0];
+    const feature = data.features[0]!; // bounds: length 1 asserted above
     expect(Object.keys(feature).sort()).toEqual(["geometry", "properties", "type"]);
     expect(feature.type).toBe("Feature");
     expect(feature.geometry).toEqual({ type: "Polygon", coordinates: [[[-97.5, 35.2]]] });
@@ -166,7 +166,10 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
   });
 
   it("passes a payload without a features array through untrimmed", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response(JSON.stringify({ status: "ok" }), { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response(JSON.stringify({ status: "ok" }), { status: 200 })),
+    );
     const { edgePutJson } = await r2Json();
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
@@ -180,7 +183,10 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
   });
 
   it("reports the upstream status as a 502 on non-OK responses", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("service unavailable", { status: 503 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("service unavailable", { status: 503 })),
+    );
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(502);
@@ -189,7 +195,10 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
   });
 
   it("propagates the thrown message as a 502 when the upstream request rejects", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("nws timeout"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("nws timeout"))),
+    );
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(502);
@@ -226,7 +235,10 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
   it("keeps serving the fresh payload when the R2 write fails", async () => {
     const { edgePutJson } = await r2Json();
     (edgePutJson as Mock).mockRejectedValueOnce(new Error("r2 write failed"));
-    vi.stubGlobal("fetch", vi.fn(() => new Response(JSON.stringify({ features: [] }), { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response(JSON.stringify({ features: [] }), { status: 200 })),
+    );
 
     const resp = await (await getRoute())(mockRequest("/api/weather/warnings"));
     expect(resp.status).toBe(200);

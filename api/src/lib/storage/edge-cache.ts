@@ -163,7 +163,11 @@ export async function edgePutTile(
  * @param data - JSON-serializable data
  * @param ttlSeconds - How long to cache (default 60s)
  */
-export async function edgePutJson(key: string, data: unknown, ttlSeconds: number = DEFAULT_JSON_TTL_SECONDS): Promise<void> {
+export async function edgePutJson(
+  key: string,
+  data: unknown,
+  ttlSeconds: number = DEFAULT_JSON_TTL_SECONDS,
+): Promise<void> {
   const store = getCacheStore();
   if (!store) return;
 

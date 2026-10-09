@@ -38,10 +38,14 @@ export function polygonArea(coords: number[][]): number {
   const rad = Math.PI / 180;
   let area = 0;
   for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
-    const xi = coords[i][0] * rad;
-    const yi = coords[i][1] * rad;
-    const xj = coords[j][0] * rad;
-    const yj = coords[j][1] * rad;
+    // bounds: i < coords.length in the loop guard and j walks [0, coords.length);
+    // entries are the [lon, lat] pairs of the documented input shape
+    const ci = coords[i]!;
+    const cj = coords[j]!;
+    const xi = ci[0]! * rad;
+    const yi = ci[1]! * rad;
+    const xj = cj[0]! * rad;
+    const yj = cj[1]! * rad;
     area += (xj - xi) * (2 + Math.sin(yi) + Math.sin(yj));
   }
   area = Math.abs((area * R * R) / 2);
@@ -55,7 +59,11 @@ export function polygonArea(coords: number[][]): number {
 export function polylineLength(coords: number[][]): number {
   let total = 0;
   for (let i = 1; i < coords.length; i++) {
-    total += haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
+    // bounds: i-1 and i are both < coords.length in the loop guard; entries are
+    // the [lon, lat] pairs of the documented input shape
+    const prev = coords[i - 1]!;
+    const cur = coords[i]!;
+    total += haversineDistance(prev[1]!, prev[0]!, cur[1]!, cur[0]!);
   }
   return total;
 }

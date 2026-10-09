@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  MAX_MERCATOR_LAT,
-  crs84MatrixSize,
-  crs84TileBounds,
-  getTileDataCRS84,
-} from "../tile-crs84";
+import { MAX_MERCATOR_LAT, crs84MatrixSize, crs84TileBounds, getTileDataCRS84 } from "../tile-crs84";
 import {
   buildChunk,
   buildTerrariumPNG,
@@ -321,10 +316,9 @@ describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
     expect(names.some((n: string) => n.includes("N36W116"))).toBe(false);
     // The blacklist triggered the AWS attempt even though chunks produced data
     const abortSignal = expect.any(AbortSignal) as AbortSignal;
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/elevation-tiles-prod/terrarium/12/"),
-      { signal: abortSignal },
-    );
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/elevation-tiles-prod/terrarium/12/"), {
+      signal: abortSignal,
+    });
     // Valid neighbours assemble; the corrupt-source share stays nodata
     const values = Array.from(result.data);
     expect(values).toContain(1234);

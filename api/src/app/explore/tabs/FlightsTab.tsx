@@ -50,24 +50,47 @@ export function FlightsTab({
         <input
           placeholder="west,south,east,north"
           value={bbox}
-          onChange={(e) => { onBboxChange(e.target.value); }}
+          onChange={(e) => {
+            onBboxChange(e.target.value);
+          }}
           style={{ width: 220 }}
         />
         <label>Callsign</label>
         <input
           placeholder="UAL, DAL, AAL..."
           value={callsign}
-          onChange={(e) => { onCallsignChange(e.target.value); }}
+          onChange={(e) => {
+            onCallsignChange(e.target.value);
+          }}
           style={{ width: 120 }}
         />
       </div>
       <div className="ex-filter-group">
         <label>Alt Min (m)</label>
-        <input placeholder="0" type="number" value={altMin} onChange={(e) => { onAltMinChange(e.target.value); }} />
+        <input
+          placeholder="0"
+          type="number"
+          value={altMin}
+          onChange={(e) => {
+            onAltMinChange(e.target.value);
+          }}
+        />
         <label>Alt Max (m)</label>
-        <input placeholder="15000" type="number" value={altMax} onChange={(e) => { onAltMaxChange(e.target.value); }} />
+        <input
+          placeholder="15000"
+          type="number"
+          value={altMax}
+          onChange={(e) => {
+            onAltMaxChange(e.target.value);
+          }}
+        />
         <label>Status</label>
-        <select value={onGround} onChange={(e) => { onStatusChange(e.target.value as "all" | "airborne" | "ground"); }}>
+        <select
+          value={onGround}
+          onChange={(e) => {
+            onStatusChange(e.target.value as "all" | "airborne" | "ground");
+          }}
+        >
           <option value="all">All</option>
           <option value="airborne">Airborne</option>
           <option value="ground">Ground</option>
@@ -136,12 +159,10 @@ export function FlightsTab({
                               : s[11] < 0
                                 ? "#fca5a5" /* 9.30:1 on #111925 */
                                 : "#a3a3a3"
-                            : "#a3a3a3", /* 7.0:1 on #111925 */
+                            : "#a3a3a3" /* 7.0:1 on #111925 */,
                       }}
                     >
-                      {s[11] != null && typeof s[11] === "number"
-                        ? (s[11] > 0 ? "+" : "") + s[11].toFixed(0)
-                        : "---"}
+                      {s[11] != null && typeof s[11] === "number" ? (s[11] > 0 ? "+" : "") + s[11].toFixed(0) : "---"}
                     </td>
                     <td>{s[14] || ""}</td>
                   </tr>

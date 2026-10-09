@@ -100,7 +100,10 @@ describe("Contours API validation (/api/contours)", () => {
   });
 
   it.each([3, 15])("rejects zoom %i outside the supported 4-14 range with 400", async (zoom) => {
-    const resp = await GET(new NextRequest(`http://localhost/api/contours/${zoom}/1/1`), routeCtx(String(zoom), "1", "1"));
+    const resp = await GET(
+      new NextRequest(`http://localhost/api/contours/${zoom}/1/1`),
+      routeCtx(String(zoom), "1", "1"),
+    );
     expect(resp.status).toBe(400);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("Zoom must be between 4 and 14");
@@ -165,7 +168,11 @@ describe("Contours API generation", () => {
 
     const body = (await resp.json()) as {
       type: string;
-      features: Array<{ type: string; geometry: { type: string; coordinates: number[][] }; properties: { elevation: number; type: string } }>;
+      features: Array<{
+        type: string;
+        geometry: { type: string; coordinates: number[][] };
+        properties: { elevation: number; type: string };
+      }>;
     };
     expect(body.type).toBe("FeatureCollection");
     expect(body.features.length).toBeGreaterThan(0);
@@ -179,8 +186,10 @@ describe("Contours API generation", () => {
       expect(feature.properties.elevation).toBeGreaterThanOrEqual(0);
     }
 
-    await vi.waitFor(() => { expect(mockR2PutTile).toHaveBeenCalled(); });
-    expect(mockR2PutTile.mock.calls[0].slice(0, 4)).toEqual(["contours", 8, 72, 52]);
+    await vi.waitFor(() => {
+      expect(mockR2PutTile).toHaveBeenCalled();
+    });
+    expect(mockR2PutTile.mock.calls[0]!.slice(0, 4)).toEqual(["contours", 8, 72, 52]); // bounds: called asserted above
   });
 
   it("marks levels at the major interval as major contours", async () => {
@@ -237,14 +246,8 @@ describe("Contours API generation", () => {
   });
 
   it.each([
-    [
-      "ridge and saddle mix",
-      [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0],
-    ],
-    [
-      "diagonal staircase mix",
-      [0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0],
-    ],
+    ["ridge and saddle mix", [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0]],
+    ["diagonal staircase mix", [0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0]],
   ])("extracts segments across every marching squares case (%s)", async (_name, pattern) => {
     // 0/1 pattern scaled to 0/200 so the 100m contour level cuts the grid
     mockGetTileData.mockImplementation(() =>

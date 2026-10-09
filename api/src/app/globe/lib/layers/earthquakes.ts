@@ -168,7 +168,9 @@ export function loadEarthquakes(
       const d = await fetchEarthquakes(signal);
       removeEntities("eq-");
       const fs = d.features ?? [];
-      fs.forEach((f, i) => { addQuakeEntity(f, i); });
+      fs.forEach((f, i) => {
+        addQuakeEntity(f, i);
+      });
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: fs.length, error: null });
       retry.recordSuccess();
     } catch (err) {
@@ -189,7 +191,9 @@ export function loadEarthquakes(
       if (!Cesium || !viewer) return;
       const features = data.features ?? [];
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: features.length });
-      features.forEach((f, i) => { addQuakeEntity(f, i); });
+      features.forEach((f, i) => {
+        addQuakeEntity(f, i);
+      });
 
       const iv = setInterval(() => {
         void refresh();

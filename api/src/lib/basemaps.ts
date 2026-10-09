@@ -176,6 +176,4 @@ export function getBasemap(key: string): BasemapDef {
  * registry entry is proxyable by construction instead of needing a
  * parallel edit to the proxy routes.
  */
-export const BASEMAP_TILE_HOSTS: string[] = [
-  ...new Set(Object.values(BASEMAPS).map((b) => new URL(b.url).hostname)),
-];
+export const BASEMAP_TILE_HOSTS: string[] = [...new Set(Object.values(BASEMAPS).map((b) => new URL(b.url).hostname))];

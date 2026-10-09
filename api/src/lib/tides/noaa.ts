@@ -161,11 +161,7 @@ async function fetchPredictions(
  * `fetchImpl` lets callers (tests, alternative runtimes) substitute the
  * transport; it defaults to the global fetch.
  */
-export async function getTides(
-  lat: number,
-  lon: number,
-  fetchImpl: typeof fetch = fetch,
-): Promise<TideData | null> {
+export async function getTides(lat: number, lon: number, fetchImpl: typeof fetch = fetch): Promise<TideData | null> {
   try {
     const station = await findNearestStation(lat, lon, fetchImpl);
     if (!station) return null;
@@ -177,7 +173,8 @@ export async function getTides(
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    // bounds: toISOString is always "YYYY-MM-DDTHH…", so the date part exists
+    const fmt = (d: Date) => d.toISOString().split("T")[0]!;
     const predictions = await fetchPredictions(station.id, fmt(today), fmt(tomorrow), fetchImpl);
 
     return {

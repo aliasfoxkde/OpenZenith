@@ -36,7 +36,12 @@ export function EarthquakesTab({
 
       <div className="ex-filter-group">
         <label>Min Magnitude</label>
-        <select value={minMag} onChange={(e) => { onMinMagChange(e.target.value); }}>
+        <select
+          value={minMag}
+          onChange={(e) => {
+            onMinMagChange(e.target.value);
+          }}
+        >
           <option value="0">All</option>
           <option value="1">M1.0+</option>
           <option value="2.5">M2.5+</option>
@@ -45,7 +50,12 @@ export function EarthquakesTab({
           <option value="6">M6.0+</option>
         </select>
         <label>Period</label>
-        <select value={period} onChange={(e) => { onPeriodChange(e.target.value); }}>
+        <select
+          value={period}
+          onChange={(e) => {
+            onPeriodChange(e.target.value);
+          }}
+        >
           <option value="hour">Past Hour</option>
           <option value="day">Past Day</option>
           <option value="week">Past Week</option>

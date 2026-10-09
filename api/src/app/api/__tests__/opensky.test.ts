@@ -145,15 +145,11 @@ describe("OpenSky Token API", () => {
     expect(data.token).toBe("tok-fresh");
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
-    );
+    expect(url).toBe("https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token");
     expect(init.method).toBe("POST");
     expect(init.body).toBe("grant_type=client_credentials");
     expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/x-www-form-urlencoded");
-    expect((init.headers as Record<string, string>)["Authorization"]).toBe(
-      `Basic ${btoa("client-id:client-secret")}`,
-    );
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe(`Basic ${btoa("client-id:client-secret")}`);
     // expires_at = now + (expires_in - 300) * 1000
     expect(data.expires_at).toBeLessThanOrEqual(Date.now() + 3300 * 1000);
     expect(data.expires_at).toBeGreaterThan(Date.now() + 3200 * 1000);
@@ -220,9 +216,11 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
 
   /** Route on the URL so one mock can serve both the token and states calls. */
   const stubByRole = (tokenResponse: () => Response) =>
-    vi.spyOn(globalThis, "fetch").mockImplementation((input): Promise<Response> =>
-      Promise.resolve(toUrl(input) === TOKEN_URL ? tokenResponse() : statesResponse()),
-    );
+    vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input): Promise<Response> =>
+        Promise.resolve(toUrl(input) === TOKEN_URL ? tokenResponse() : statesResponse()),
+      );
 
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -280,11 +278,12 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     // One token request total — the second flight call went out with the same
     // bearer token and no trip to the auth server.
     expect(spy).toHaveBeenCalledTimes(3);
-    expect(spy.mock.calls[0][0]).toBe(TOKEN_URL);
-    expect((spy.mock.calls[0][1] as RequestInit).method).toBe("POST");
-    expect(toUrl(spy.mock.calls[1][0])).toContain("opensky-network.org/api/states/all");
-    const firstFlightHeaders = (spy.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
-    const secondFlightHeaders = (spy.mock.calls[2][1] as RequestInit).headers as Record<string, string>;
+    // bounds: call count 3 asserted above
+    expect(spy.mock.calls[0]![0]).toBe(TOKEN_URL);
+    expect((spy.mock.calls[0]![1] as RequestInit).method).toBe("POST");
+    expect(toUrl(spy.mock.calls[1]![0])).toContain("opensky-network.org/api/states/all");
+    const firstFlightHeaders = (spy.mock.calls[1]![1] as RequestInit).headers as Record<string, string>;
+    const secondFlightHeaders = (spy.mock.calls[2]![1] as RequestInit).headers as Record<string, string>;
     expect(firstFlightHeaders["Authorization"]).toBe("Bearer tok-1");
     expect(secondFlightHeaders["Authorization"]).toBe("Bearer tok-1");
   });
@@ -313,9 +312,10 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     const { GET } = await import("@/app/api/opensky/flights/route");
     const resp = await GET(mockRequest("/api/opensky/flights"));
     expect(resp.headers.get("X-Authenticated")).toBe("false");
-    expect(spy.mock.calls[0][0]).toBe(TOKEN_URL);
+    // bounds: token call then flight call
+    expect(spy.mock.calls[0]![0]).toBe(TOKEN_URL);
     // The states request went out without credentials.
-    const flightHeaders = (spy.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
+    const flightHeaders = (spy.mock.calls[1]![1] as RequestInit).headers as Record<string, string>;
     expect(flightHeaders["Authorization"]).toBeUndefined();
   });
 
@@ -330,7 +330,7 @@ describe("OpenSky Flights API auth, credits and failure paths", () => {
     const resp = await GET(mockRequest("/api/opensky/flights"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Authenticated")).toBe("false");
-    expect(spy.mock.calls[0][0]).toBe(TOKEN_URL);
+    expect(spy.mock.calls[0]![0]).toBe(TOKEN_URL); // bounds: the auth call is recorded
   });
 
   it("charges credits by bbox area tier", async () => {

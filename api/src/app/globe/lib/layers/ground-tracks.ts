@@ -11,11 +11,7 @@ import type { TleRecord } from "../data-fetchers";
  * no cleanup of its own; a failed or short TLE fetch silently drops that
  * satellite.
  */
-export function loadGroundTracks(
-  viewer: CesiumType.Viewer,
-  Cesium: typeof CesiumType,
-  signal?: AbortSignal,
-) {
+export function loadGroundTracks(viewer: CesiumType.Viewer, Cesium: typeof CesiumType, signal?: AbortSignal) {
   // Caller (page.tsx loadLayerDynamic) guarantees viewer/Cesium; the CDN
   // satellite.js script is the one dependency this layer must verify itself.
   const satJs = window.satellite;
@@ -31,7 +27,9 @@ export function loadGroundTracks(
 
   const loadTrack = async (sat: (typeof notable)[0]) => {
     try {
-      const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`, { signal });
+      const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`, {
+        signal,
+      });
       const body: unknown = await r.json();
       if (!Array.isArray(body)) return;
       const tles = body as TleRecord[];

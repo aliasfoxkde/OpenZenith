@@ -83,25 +83,23 @@ export function loadMilitaryFlights(
           const d = await fetchMilitaryFlights(undefined, undefined, undefined, signal);
           if (d.ac) {
             removeEntities("mil-");
-            d.ac
-              .filter(hasCoordinates)
-              .forEach((a: LocatedAircraft, i: number) => {
-                viewer.entities.add({
-                  id: `mil-${i}`,
-                  position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, altitudeMetres(a)),
-                  point: { pixelSize: 5, color: Cesium.Color.MAGENTA },
-                  label: {
-                    text: a.call || "",
-                    font: "bold 10px monospace",
-                    fillColor: Cesium.Color.MAGENTA,
-                    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                    pixelOffset: new Cesium.Cartesian2(8, -8),
-                    showBackground: true,
-                    backgroundColor: Cesium.Color.BLACK.withAlpha(0.6),
-                    backgroundPadding: new Cesium.Cartesian2(3, 2),
-                  },
-                });
+            d.ac.filter(hasCoordinates).forEach((a: LocatedAircraft, i: number) => {
+              viewer.entities.add({
+                id: `mil-${i}`,
+                position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, altitudeMetres(a)),
+                point: { pixelSize: 5, color: Cesium.Color.MAGENTA },
+                label: {
+                  text: a.call || "",
+                  font: "bold 10px monospace",
+                  fillColor: Cesium.Color.MAGENTA,
+                  style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                  pixelOffset: new Cesium.Cartesian2(8, -8),
+                  showBackground: true,
+                  backgroundColor: Cesium.Color.BLACK.withAlpha(0.6),
+                  backgroundPadding: new Cesium.Cartesian2(3, 2),
+                },
               });
+            });
             updateStatus("militaryFlights", {
               lastUpdate: Date.now(),
               count: d.ac.filter(hasCoordinates).length,

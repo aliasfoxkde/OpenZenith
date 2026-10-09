@@ -1,4 +1,3 @@
- 
 "use client";
 
 import { useState } from "react";
@@ -30,8 +29,12 @@ export function LayersWidget({ globe }: WidgetProps) {
           <SectionHeader
             id={`wv-section-header-${section.key}`}
             title={section.title}
-            open={openSections[section.key]}
-            onToggle={() => { setOpenSections((p) => ({ ...p, [section.key]: !p[section.key] })); }}
+            // bounds: openSections is seeded from SIDEBAR_SECTIONS above and
+            // toggles only flip existing keys, so section.key is always set
+            open={openSections[section.key]!}
+            onToggle={() => {
+              setOpenSections((p) => ({ ...p, [section.key]: !p[section.key] }));
+            }}
             bodyId={`wv-section-body-${section.key}`}
           />
           <div
@@ -59,7 +62,9 @@ export function LayersWidget({ globe }: WidgetProps) {
                     id={`wv-layer-toggle-${layerId}`}
                     type="checkbox"
                     checked={checked}
-                    onChange={() => { globe.toggleLayer(layerId); }}
+                    onChange={() => {
+                      globe.toggleLayer(layerId);
+                    }}
                   />
                 </div>
               );

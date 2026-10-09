@@ -102,7 +102,9 @@ export function CtxSubMenu({ label, icon, children, expandedGroup, onToggle }: C
   return (
     <>
       <button
-        onClick={() => { onToggle(isOpen ? "" : label); }}
+        onClick={() => {
+          onToggle(isOpen ? "" : label);
+        }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -736,8 +738,7 @@ export function ContextMenu({
                   // A raw Cartesian3 is legal on assignment; resolve property
                   // wrappers through getValue (same idiom as the page).
                   const rawPos = found.position;
-                  const pos =
-                    rawPos instanceof C.Cartesian3 ? rawPos : rawPos?.getValue(C.JulianDate.now());
+                  const pos = rawPos instanceof C.Cartesian3 ? rawPos : rawPos?.getValue(C.JulianDate.now());
                   if (pos) {
                     const cg = C.Cartographic.fromCartesian(pos);
                     const altKm = +(cg.height / 1000).toFixed(1);

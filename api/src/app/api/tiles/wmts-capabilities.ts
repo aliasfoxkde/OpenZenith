@@ -12,8 +12,7 @@ import { CORS_HEADERS } from "@/lib/cors";
  * /api/dem-tile/{z}/{x}/{y} over the two supported tile matrix sets.
  */
 
-const WMTS_XSD =
-  "http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd";
+const WMTS_XSD = "http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd";
 
 const MAX_MATRIX_LEVEL = 12; // matches the terrain provider's MAX_TERRAIN_ZOOM
 

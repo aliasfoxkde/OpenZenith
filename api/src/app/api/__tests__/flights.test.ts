@@ -88,7 +88,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     await GET(mockRequest("/api/flights?lamin=40&lamax=42&lomin=-74&lomax=-72"));
 
-    const calledUrl = spy.mock.calls[0][0] as string;
+    const calledUrl = spy.mock.calls[0]![0] as string; // bounds: the route fetched once
     expect(calledUrl).toContain("lamin=40");
     expect(calledUrl).toContain("lamax=42");
   });
@@ -129,7 +129,7 @@ describe("Flights API", () => {
     const { GET } = await import("@/app/api/flights/route");
     await GET(mockRequest("/api/flights?bbox=eur"));
 
-    const calledUrl = spy.mock.calls[0][0] as string;
+    const calledUrl = spy.mock.calls[0]![0] as string; // bounds: the route fetched once
     expect(calledUrl).toContain("bbox=eur");
   });
 
@@ -147,8 +147,8 @@ describe("Flights API", () => {
     expect(data.time).toBe(1700000100);
     expect(data.states).toHaveLength(2);
     // time_position, last_contact, sensors, geo_altitude and spi are all gone.
-    expect(data.states[0]).toEqual(SLIMMED_FULL_STATE);
-    expect(data.states[1].callsign).toBeNull();
+    expect(data.states[0]!).toEqual(SLIMMED_FULL_STATE); // bounds: length 2 asserted above
+    expect(data.states[1]!.callsign).toBeNull();
   });
 
   it("slims state vectors for bbox-scoped requests too", async () => {

@@ -57,7 +57,9 @@ function hexagonVertices(centerLon: number, centerLat: number, edgeLenMeters: nu
     const lonOffset = (angularDist / Math.cos(latRad)) * Math.sin(angle) * degPerRad;
     vertices.push([centerLon + lonOffset, centerLat + latOffset]);
   }
-  vertices.push(vertices[0]); // Close the polygon
+  // Close the polygon
+  // bounds: the loop above pushed 6 vertices, so index 0 exists
+  vertices.push(vertices[0]!);
   return vertices;
 }
 
@@ -111,7 +113,10 @@ export function loadGpsJamming(
       viewer.entities.add({
         id: entityId,
         polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(vertices.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat))),
+          // bounds: hexagonVertices emits [lon, lat] pairs
+          hierarchy: new Cesium.PolygonHierarchy(
+            vertices.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon!, lat!)),
+          ),
           material: color.withAlpha(0.3 * hex.intensity + 0.1),
           outline: true,
           outlineColor: color.withAlpha(0.6),

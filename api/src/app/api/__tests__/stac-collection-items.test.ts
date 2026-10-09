@@ -76,7 +76,7 @@ describe("STAC collection items — collection resolution", () => {
       const resp = await items(id);
       expect(resp.status).toBe(200);
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url] = mockFetch.mock.calls[0];
+      const [url] = mockFetch.mock.calls[0]!; // bounds: one call recorded above
       expect(url).toMatch(/^https:\/\//);
       mockFetch.mockClear();
     }
@@ -99,8 +99,8 @@ describe("STAC collection items — upstream payloads", () => {
 
     const resp = await items("earthquakes");
     expect(resp.status).toBe(200);
-    expect(mockFetch.mock.calls[0][0]).toBe(USGS_URL);
-    const init = mockFetch.mock.calls[0][1] as { headers: Record<string, string>; signal: AbortSignal };
+    expect(mockFetch.mock.calls[0]![0]).toBe(USGS_URL); // bounds: the route fetched once
+    const init = mockFetch.mock.calls[0]![1] as { headers: Record<string, string>; signal: AbortSignal };
     expect(init.headers["User-Agent"]).toBe("OpenZenith/1.0");
     expect(init.signal.aborted).toBe(false);
 
@@ -118,10 +118,13 @@ describe("STAC collection items — upstream payloads", () => {
       jsonResponse({
         geometries: [
           { type: "Point", coordinates: [0, 0] },
-          { type: "LineString", coordinates: [
-            [0, 0],
-            [1, 1],
-          ] },
+          {
+            type: "LineString",
+            coordinates: [
+              [0, 0],
+              [1, 1],
+            ],
+          },
         ],
       }),
     );
@@ -175,7 +178,7 @@ describe("STAC collection items — bbox filtering", () => {
     const resp = await items("earthquakes", "?bbox=5,40,20,55");
     const body = (await resp.json()) as ItemsResponse;
     expect(body.features).toHaveLength(1);
-    expect((body.features[0].geometry as { coordinates: [number, number] }).coordinates).toEqual([10, 48]);
+    expect((body.features[0]!.geometry as { coordinates: [number, number] }).coordinates).toEqual([10, 48]);
     expect(body.numberMatched).toBe(1);
     expect(body.numberReturned).toBe(1);
   });
@@ -191,7 +194,7 @@ describe("STAC collection items — bbox filtering", () => {
     const resp = await items("earthquakes", "?bbox=-1,-1,1,1");
     const body = (await resp.json()) as ItemsResponse;
     expect(body.features).toHaveLength(1);
-    expect(body.features[0].id).toBe(2);
+    expect(body.features[0]!.id).toBe(2); // bounds: length 1 asserted above
   });
 
   it("recurses into multi-ring geometries when bbox filtering", async () => {
@@ -201,7 +204,17 @@ describe("STAC collection items — bbox filtering", () => {
         features: [
           {
             type: "Feature",
-            geometry: { type: "Polygon", coordinates: [[[10, 48], [11, 48], [11, 49], [10, 48]]] },
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [10, 48],
+                  [11, 48],
+                  [11, 49],
+                  [10, 48],
+                ],
+              ],
+            },
             properties: {},
           },
           { type: "Feature", geometry: { type: "Point" }, properties: {} }, // no coordinate array
@@ -214,7 +227,7 @@ describe("STAC collection items — bbox filtering", () => {
     // The polygon's first position ([10, 48]) is inside; the coordinate-less
     // geometry has no position and is dropped.
     expect(body.features).toHaveLength(1);
-    expect((body.features[0].geometry as { type: string }).type).toBe("Polygon");
+    expect((body.features[0]!.geometry as { type: string }).type).toBe("Polygon"); // bounds: length 1 asserted above
   });
 
   it("ignores a malformed bbox instead of filtering everything out", async () => {
@@ -244,7 +257,7 @@ describe("STAC collection items — bbox filtering", () => {
     const resp = await items("earthquakes", "?bbox=5,40,20,55");
     const body = (await resp.json()) as ItemsResponse;
     expect(body.features).toHaveLength(1);
-    expect(body.features[0].id).toBe(2);
+    expect(body.features[0]!.id).toBe(2); // bounds: length 1 asserted above
     expect(body.numberMatched).toBe(1);
   });
 

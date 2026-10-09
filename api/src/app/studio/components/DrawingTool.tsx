@@ -34,7 +34,7 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
   const bg = dark ? "#0f0f0f" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
 
   const handleExport = () => {
@@ -64,12 +64,12 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
         {MODES.map((m) => (
           <button
             key={m.id}
-            onClick={() =>
-              { onDrawStateChange({
+            onClick={() => {
+              onDrawStateChange({
                 ...createDrawState(),
                 mode: drawState.mode === m.id ? "none" : m.id,
-              }); }
-            }
+              });
+            }}
             style={{
               flex: 1,
               padding: "8px 4px",
@@ -131,7 +131,9 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
               Delete Vertex
             </button>
             <button
-              onClick={() => { onDrawStateChange(exitEditMode(drawState)); }}
+              onClick={() => {
+                onDrawStateChange(exitEditMode(drawState));
+              }}
               style={{
                 flex: 1,
                 padding: "5px",
@@ -152,7 +154,9 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
       {/* Actions */}
       <div style={{ display: "flex", gap: 4 }}>
         <button
-          onClick={() => { onDrawStateChange(undo(drawState)); }}
+          onClick={() => {
+            onDrawStateChange(undo(drawState));
+          }}
           disabled={drawState.history.length === 0}
           style={{
             flex: 1,
@@ -168,7 +172,9 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           Undo
         </button>
         <button
-          onClick={() => { onDrawStateChange(redo(drawState)); }}
+          onClick={() => {
+            onDrawStateChange(redo(drawState));
+          }}
           disabled={drawState.redoStack.length === 0}
           style={{
             flex: 1,
@@ -184,7 +190,9 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           Redo
         </button>
         <button
-          onClick={() => { onDrawStateChange(deleteSelected(drawState)); }}
+          onClick={() => {
+            onDrawStateChange(deleteSelected(drawState));
+          }}
           disabled={drawState.selectedFeatureIndex < 0}
           style={{
             flex: 1,
@@ -222,7 +230,9 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
           {drawState.mode === "edit" ? "Done" : "Edit"}
         </button>
         <button
-          onClick={() => { onDrawStateChange(createDrawState()); }}
+          onClick={() => {
+            onDrawStateChange(createDrawState());
+          }}
           style={{
             flex: 1,
             padding: "6px",
@@ -315,12 +325,14 @@ export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onIm
             {" "}
             (#<span style={{ color: text }}>{drawState.selectedFeatureIndex + 1}</span> selected)
             {(() => {
-              const m = measureFeature(drawState.features[drawState.selectedFeatureIndex]);
+              // bounds: selectedFeatureIndex >= 0 checked above and always
+              // indexes into features
+              const m = measureFeature(drawState.features[drawState.selectedFeatureIndex]!);
               if (!m) return null;
               if (m.type === "distance") return <span> &mdash; {formatDistance(m.value, imperial)}</span>;
               if (m.type === "area") return <span> &mdash; {formatArea(m.value, imperial)}</span>;
               // Remaining case is a point measurement ("distance"/"area" returned above).
-              const c = drawState.features[drawState.selectedFeatureIndex].geometry.coordinates as [number, number];
+              const c = drawState.features[drawState.selectedFeatureIndex]!.geometry.coordinates as [number, number];
               return (
                 <span>
                   {" "}

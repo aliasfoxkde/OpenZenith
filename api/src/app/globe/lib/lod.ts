@@ -112,7 +112,9 @@ for (const zone of LOD_ZONES) {
 
 /** Get the LOD zone for a given camera altitude */
 export function getZoneForAltitude(alt: number): LODZone {
-  return LOD_ZONES.find((z) => alt >= z.minAlt && alt < z.maxAlt) || LOD_ZONES[LOD_ZONES.length - 1];
+  // bounds: LOD_ZONES is a non-empty module constant (the deep-space zone's
+  // maxAlt is Infinity, so the find() above also always matches)
+  return LOD_ZONES.find((z) => alt >= z.minAlt && alt < z.maxAlt) || LOD_ZONES[LOD_ZONES.length - 1]!;
 }
 
 /**
@@ -170,7 +172,8 @@ export function applyLOD(
   // Uses startsWith on each managed prefix (n=16, fast enough)
   const entities = viewer.entities.values;
   for (let i = 0; i < entities.length; i++) {
-    const entity = entities[i];
+    // bounds: i < entities.length in the loop guard
+    const entity = entities[i]!;
     const id = entity.id || "";
 
     // Fast path: check if ID starts with any managed prefix

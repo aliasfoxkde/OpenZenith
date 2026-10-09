@@ -118,7 +118,7 @@ function generateContours(
   let minElev = Infinity;
   let maxElev = -Infinity;
   for (let i = 0; i < data.length; i++) {
-    const v = data[i];
+    const v = data[i]!; // bounds: i < data.length
     if (v !== NODATA) {
       if (v < minElev) minElev = v;
       if (v > maxElev) maxElev = v;
@@ -147,10 +147,12 @@ function generateContours(
     for (let row = 0; row < height - 1; row++) {
       for (let col = 0; col < width - 1; col++) {
         // Four corners of the cell (NW, NE, SW, SE)
-        const nw = data[row * width + col];
-        const ne = data[row * width + col + 1];
-        const sw = data[(row + 1) * width + col];
-        const se = data[(row + 1) * width + col + 1];
+        // bounds: row < height-1 and col < width-1, so every index stays inside
+        // the width*height (= data.length) grid
+        const nw = data[row * width + col]!;
+        const ne = data[row * width + col + 1]!;
+        const sw = data[(row + 1) * width + col]!;
+        const se = data[(row + 1) * width + col + 1]!;
 
         // Skip cells with any NODATA
         if (nw === NODATA || ne === NODATA || sw === NODATA || se === NODATA) continue;
@@ -276,9 +278,11 @@ function chainSegments(segments: [number, number][], _tolerance: number = 0.0005
   const pointStr = (lat: number, lon: number) => `${lat.toFixed(6)},${lon.toFixed(6)}`;
   const edgeMap = new Map<string, [number, number][]>();
 
+  // bounds: segments holds [lat,lon] pairs pushed two at a time, so the length
+  // is even and i / i+1 are always in range
   for (let i = 0; i < segments.length; i += 2) {
-    const a = segments[i];
-    const b = segments[i + 1];
+    const a = segments[i]!;
+    const b = segments[i + 1]!;
 
     const keyA = pointStr(a[0], a[1]);
     const keyB = pointStr(b[0], b[1]);
@@ -300,7 +304,8 @@ function chainSegments(segments: [number, number][], _tolerance: number = 0.0005
 
     // Start a new polyline from this point
     const startParts = key.split(",");
-    const polyline: [number, number][] = [[parseFloat(startParts[0]), parseFloat(startParts[1])]];
+    // bounds: key is "lat,lon" so split always yields both parts
+    const polyline: [number, number][] = [[parseFloat(startParts[0]!), parseFloat(startParts[1]!)]];
 
     // Extend in both directions
     // Forward

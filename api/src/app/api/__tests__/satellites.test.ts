@@ -51,7 +51,7 @@ describe("Satellites API", () => {
     const { GET } = await import("@/app/api/satellites/route");
     await GET(mockRequest("/api/satellites"));
 
-    const calledUrl = spy.mock.calls[0][0] as string;
+    const calledUrl = spy.mock.calls[0]![0] as string; // bounds: the route fetched once
     expect(calledUrl).toContain("GROUP=stations");
   });
 

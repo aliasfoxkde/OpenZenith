@@ -23,7 +23,9 @@ const DEFAULT_LON = "86.9";
 /** Plain-text form of each snippet — used for both copy and display. */
 function snippetText(tab: SnippetTab, lat: string, lon: string, result: SnippetResult | null): string {
   if (tab === "result" && result) {
-    return result.elevation !== null ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)` : "No data";
+    return result.elevation !== null
+      ? `${result.elevation}m (${(result.elevation * 3.28084).toFixed(2)} ft)`
+      : "No data";
   }
   switch (tab) {
     case "url":
@@ -80,23 +82,53 @@ export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, 
       <div className="oz-snippet-bar">
         <div className="oz-snippet-tabs">
           {result && (
-            <button className={`oz-snippet-tab ${tab === "result" ? "active" : ""}`} onClick={() => { setTab("result"); }}>
+            <button
+              className={`oz-snippet-tab ${tab === "result" ? "active" : ""}`}
+              onClick={() => {
+                setTab("result");
+              }}
+            >
               Result
             </button>
           )}
-          <button className={`oz-snippet-tab ${tab === "url" ? "active" : ""}`} onClick={() => { setTab("url"); }}>
+          <button
+            className={`oz-snippet-tab ${tab === "url" ? "active" : ""}`}
+            onClick={() => {
+              setTab("url");
+            }}
+          >
             API URL
           </button>
-          <button className={`oz-snippet-tab ${tab === "tile" ? "active" : ""}`} onClick={() => { setTab("tile"); }}>
+          <button
+            className={`oz-snippet-tab ${tab === "tile" ? "active" : ""}`}
+            onClick={() => {
+              setTab("tile");
+            }}
+          >
             Tile
           </button>
-          <button className={`oz-snippet-tab ${tab === "curl" ? "active" : ""}`} onClick={() => { setTab("curl"); }}>
+          <button
+            className={`oz-snippet-tab ${tab === "curl" ? "active" : ""}`}
+            onClick={() => {
+              setTab("curl");
+            }}
+          >
             cURL
           </button>
-          <button className={`oz-snippet-tab ${tab === "js" ? "active" : ""}`} onClick={() => { setTab("js"); }}>
+          <button
+            className={`oz-snippet-tab ${tab === "js" ? "active" : ""}`}
+            onClick={() => {
+              setTab("js");
+            }}
+          >
             JS
           </button>
-          <button className={`oz-snippet-tab ${tab === "python" ? "active" : ""}`} onClick={() => { setTab("python"); }}>
+          <button
+            className={`oz-snippet-tab ${tab === "python" ? "active" : ""}`}
+            onClick={() => {
+              setTab("python");
+            }}
+          >
             Python
           </button>
         </div>
@@ -106,7 +138,9 @@ export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, 
             // Best-effort: clipboard access can be denied without user focus.
             navigator.clipboard.writeText(snippetText(tab, la, lo, result)).catch(() => {});
             setCopied(true);
-            setTimeout(() => { setCopied(false); }, 1500);
+            setTimeout(() => {
+              setCopied(false);
+            }, 1500);
           }}
         >
           {copied ? "Copied" : "Copy"}
@@ -117,11 +151,13 @@ export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, 
           <div>
             <div className="oz-result-value">
               {result.elevation !== null ? `${result.elevation.toLocaleString()}m` : "No data"}
-              {result.elevation !== null && <span className="oz-result-ft">({(result.elevation * 3.28084).toFixed(2)} ft)</span>}
+              {result.elevation !== null && (
+                <span className="oz-result-ft">({(result.elevation * 3.28084).toFixed(2)} ft)</span>
+              )}
             </div>
             <div className="oz-result-meta">
-              {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot; {result.tile || result.srtmTile} &middot;{" "}
-              {result.resolution}m
+              {result.location.lat.toFixed(4)}, {result.location.lon.toFixed(4)} &middot;{" "}
+              {result.tile || result.srtmTile} &middot; {result.resolution}m
             </div>
             {placeName && (
               <div style={{ fontSize: "0.72rem", color: textSecondary, marginTop: "0.15rem", fontStyle: "italic" }}>
@@ -196,8 +232,8 @@ export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, 
               )
             </div>
             <div>
-              <span className="oz-syn-keyword">const</span> &#123; elevation &#125; = <span style={{ color: textSecondary }}>await</span>{" "}
-              res.json()
+              <span className="oz-syn-keyword">const</span> &#123; elevation &#125; ={" "}
+              <span style={{ color: textSecondary }}>await</span> res.json()
             </div>
           </>
         )}

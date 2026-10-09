@@ -65,11 +65,11 @@ describe("basemap registry", () => {
   });
 
   it("marks the dark variants dark and everything else light", () => {
-    expect(Object.entries(BASEMAPS).filter(([, d]) => d.isDark).map(([k]) => k)).toEqual([
-      "dark",
-      "dark_contrast",
-      "dark_nolabel",
-    ]);
+    expect(
+      Object.entries(BASEMAPS)
+        .filter(([, d]) => d.isDark)
+        .map(([k]) => k),
+    ).toEqual(["dark", "dark_contrast", "dark_nolabel"]);
   });
 
   it("falls back to dark for unknown keys", () => {

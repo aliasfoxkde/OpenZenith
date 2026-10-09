@@ -53,7 +53,9 @@ export function BasemapSelector({ current, onSelect, onMatchOsTheme }: BasemapSe
             return (
               <button
                 key={key}
-                onClick={() => { onSelect(key); }}
+                onClick={() => {
+                  onSelect(key);
+                }}
                 style={{
                   padding: "0.25rem 0.5rem",
                   borderRadius: 3,
@@ -132,8 +134,10 @@ export function LayerControls({
         <div key={layer.id} style={{ padding: "0.3rem 0.35rem", borderBottom: "1px solid rgba(0,229,255,0.15)" }}>
           <LayerToggle
             label={layer.name}
-            checked={layers[layer.id]}
-            onChange={(checked) => { onToggle(layer.id, checked); }}
+            checked={layers[layer.id] ?? false}
+            onChange={(checked) => {
+              onToggle(layer.id, checked);
+            }}
             color={layer.accent}
           />
           <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
@@ -148,8 +152,10 @@ export function LayerControls({
       <div style={{ padding: "0.3rem 0.35rem", borderBottom: "1px solid rgba(0,229,255,0.15)" }}>
         <LayerToggle
           label="Terrain 3D"
-          checked={layers.terrain3d}
-          onChange={(checked) => { onToggle("terrain3d", checked); }}
+          checked={layers.terrain3d ?? false}
+          onChange={(checked) => {
+            onToggle("terrain3d", checked);
+          }}
           color={T.accent}
         />
         <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
@@ -166,7 +172,9 @@ export function LayerControls({
         return (
           <div key={cat} style={{ marginBottom: "0.4rem" }}>
             <button
-              onClick={() => { onExpandCategory(isOpen ? null : cat); }}
+              onClick={() => {
+                onExpandCategory(isOpen ? null : cat);
+              }}
               style={{
                 width: "100%",
                 display: "flex",
@@ -208,8 +216,10 @@ export function LayerControls({
                     >
                       <LayerToggle
                         label={layer.name}
-                        checked={layers[layer.id]}
-                        onChange={(checked) => { onToggle(layer.id, checked); }}
+                        checked={layers[layer.id] ?? false}
+                        onChange={(checked) => {
+                          onToggle(layer.id, checked);
+                        }}
                         color={layer.accent}
                       />
                       <div style={{ color: T.textMuted, fontSize: "0.6rem", marginLeft: 18, marginTop: -2 }}>
@@ -251,7 +261,9 @@ export function LayerControls({
                               min={10}
                               max={100}
                               value={layerOpacity[layer.id] ?? 100}
-                              onChange={(e) => { onOpacity(layer.id, Number(e.target.value)); }}
+                              onChange={(e) => {
+                                onOpacity(layer.id, Number(e.target.value));
+                              }}
                               style={{ width: 70, height: 14, accentColor: layer.accent, cursor: "pointer" }}
                             />
                             <span

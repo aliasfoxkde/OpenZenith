@@ -100,7 +100,9 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
       onClick={() => {
         navigator.clipboard.writeText(text).catch(() => {});
         setCopied(true);
-        setTimeout(() => { setCopied(false); }, 1500);
+        setTimeout(() => {
+          setCopied(false);
+        }, 1500);
       }}
       title={label}
       style={{
@@ -285,7 +287,8 @@ function EndpointCard({
   const queryParams = endpoint.parameters
     ? endpoint.parameters
         .filter((p) => p.in === "query" && paramValues[p.name])
-        .map((p) => `${p.name}=${encodeURIComponent(paramValues[p.name])}`)
+        // bounds: the filter above keeps only names with a truthy value
+        .map((p) => `${p.name}=${encodeURIComponent(paramValues[p.name]!)}`)
         .join("&")
     : "";
   const previewUrl = serverUrl + path + (queryParams ? `?${queryParams}` : "");
@@ -326,7 +329,9 @@ function EndpointCard({
   return (
     <div style={{ border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", marginBottom: "0.75rem" }}>
       <button
-        onClick={() => { setOpen(!open); }}
+        onClick={() => {
+          setOpen(!open);
+        }}
         style={{
           width: "100%",
           display: "flex",
@@ -400,7 +405,9 @@ function EndpointCard({
               </h4>
               <textarea
                 value={bodyText}
-                onChange={(e) => { setBodyText(e.target.value); }}
+                onChange={(e) => {
+                  setBodyText(e.target.value);
+                }}
                 rows={5}
                 style={{
                   width: "100%",
@@ -502,7 +509,9 @@ function EndpointCard({
                       <input
                         type="text"
                         value={paramValues[p.name] || ""}
-                        onChange={(e) => { setParamValues({ ...paramValues, [p.name]: e.target.value }); }}
+                        onChange={(e) => {
+                          setParamValues({ ...paramValues, [p.name]: e.target.value });
+                        }}
                         placeholder={p.example !== undefined ? String(p.example) : p.description}
                         style={{
                           width: "100%",
@@ -542,7 +551,9 @@ function EndpointCard({
             </div>
 
             <button
-              onClick={() => { void tryEndpoint(); }}
+              onClick={() => {
+                void tryEndpoint();
+              }}
               disabled={loading}
               style={{
                 background: color,
@@ -668,14 +679,19 @@ export default function DocsPage() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((data) => { setSpec(data as OpenApiSpec); })
-      .catch((err: unknown) => { setSpecError(err instanceof Error ? err.message : "Failed to load API spec"); });
+      .then((data) => {
+        setSpec(data as OpenApiSpec);
+      })
+      .catch((err: unknown) => {
+        setSpecError(err instanceof Error ? err.message : "Failed to load API spec");
+      });
   }, []);
 
   if (specError) {
     return (
       <main
-        id="main-content" tabIndex={-1}
+        id="main-content"
+        tabIndex={-1}
         style={{
           minHeight: "100vh",
           background: bg,
@@ -697,7 +713,8 @@ export default function DocsPage() {
   if (!spec) {
     return (
       <main
-        id="main-content" tabIndex={-1}
+        id="main-content"
+        tabIndex={-1}
         style={{
           minHeight: "100vh",
           background: bg,
@@ -730,7 +747,11 @@ export default function DocsPage() {
 
   return (
     <ErrorBoundary>
-      <main id="main-content" tabIndex={-1} style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        style={{ minHeight: "100vh", background: bg, color: text, fontFamily: "inherit" }}
+      >
         {/* Header */}
         <div
           style={{
@@ -761,7 +782,9 @@ export default function DocsPage() {
             </svg>
             OpenZenith
           </Link>
-          <span aria-hidden="true" style={{ color: "#333" }}>/</span>
+          <span aria-hidden="true" style={{ color: "#333" }}>
+            /
+          </span>
           <span style={{ color: textDim, fontSize: "0.9rem" }}>API Docs</span>
         </div>
 
@@ -935,7 +958,9 @@ export default function DocsPage() {
           </h2>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <button
-              onClick={() => { setActiveTag(null); }}
+              onClick={() => {
+                setActiveTag(null);
+              }}
               style={{
                 background: !activeTag ? accent : "#161616",
                 color: !activeTag ? "#000" : textDim,
@@ -953,7 +978,9 @@ export default function DocsPage() {
             {spec.tags.map((tag) => (
               <button
                 key={tag.name}
-                onClick={() => { setActiveTag(tag.name); }}
+                onClick={() => {
+                  setActiveTag(tag.name);
+                }}
                 style={{
                   background: activeTag === tag.name ? accent : "#161616",
                   color: activeTag === tag.name ? "#000" : textDim,

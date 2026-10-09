@@ -95,7 +95,7 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
   const text = dark ? "#e5e5e5" : "#171717";
   // WCAG AAA (7:1) secondary text on both themes: #a3a3a3 on the #0a0a0a
   // app background, #525252 on #fafafa.
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
 
@@ -110,7 +110,9 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
         <input
           placeholder="lat"
           value={manualLat}
-          onChange={(e) => { setManualLat(e.target.value); }}
+          onChange={(e) => {
+            setManualLat(e.target.value);
+          }}
           style={{
             flex: 1,
             /* inputs refuse to shrink below their intrinsic width without this,
@@ -127,7 +129,9 @@ export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, pro
         <input
           placeholder="lon"
           value={manualLon}
-          onChange={(e) => { setManualLon(e.target.value); }}
+          onChange={(e) => {
+            setManualLon(e.target.value);
+          }}
           style={{
             flex: 1,
             minWidth: 0,

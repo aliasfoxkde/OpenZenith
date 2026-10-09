@@ -59,17 +59,19 @@ const ACCURACY_COLORS: Record<string, [number, number, number]> = {
  * Priority: ArcticDEM 2m > REMA 2m > EEA 10m > GLO-30 30m > GEBCO 450m (ocean,
  * applied by the caller via land detection).
  */
+// Every literal key below exists in ACCURACY_COLORS, so the record reads are
+// non-null by construction.
 function classifyResolution(lat: number, lon: number): [number, number, number] {
   // ArcticDEM covers most land above 60°N (Greenland, Alaska, Canada Arctic,
   // Scandinavia, Siberia). Rough heuristic: assume land — without a land mask
   // we accept that polar ocean is drawn as covered too.
   if (lat > ARCTIC_LAT_MIN) {
-    return ACCURACY_COLORS["2m_arctic"];
+    return ACCURACY_COLORS["2m_arctic"]!;
   }
 
   // REMA covers Antarctica
   if (lat < REMA_LAT_MAX) {
-    return ACCURACY_COLORS["2m_rema"];
+    return ACCURACY_COLORS["2m_rema"]!;
   }
 
   // EEA 10m coverage (Europe)
@@ -79,12 +81,12 @@ function classifyResolution(lat: number, lon: number): [number, number, number] 
     lon >= EEA10_BOUNDS.lonMin &&
     lon <= EEA10_BOUNDS.lonMax
   ) {
-    return ACCURACY_COLORS["10m_eea"];
+    return ACCURACY_COLORS["10m_eea"]!;
   }
 
   // SRTM / GLO-30 coverage (±60° latitude) — covers every remaining latitude
   // band, so this is also the classification fall-through.
-  return ACCURACY_COLORS["30m_srtm"];
+  return ACCURACY_COLORS["30m_srtm"]!;
 }
 
 /**
@@ -278,7 +280,7 @@ function encodeAccuracyTile(z: number, x: number, y: number): Uint8Array {
 
       if (!isLand) {
         // Ocean → GEBCO 450m blue
-        const [r, g, b] = ACCURACY_COLORS["450m_gebco"];
+        const [r, g, b] = ACCURACY_COLORS["450m_gebco"]!;
         raw[pixOff] = r;
         raw[pixOff + 1] = g;
         raw[pixOff + 2] = b;
@@ -335,7 +337,7 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
   for (let i = 0; i < data.length; i++) {
-    crc ^= data[i];
+    crc ^= data[i]!; // bounds: i < data.length
     for (let j = 0; j < 8; j++) {
       crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
     }

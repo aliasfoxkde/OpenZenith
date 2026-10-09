@@ -51,7 +51,7 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
     await GET(mockRequest("/api/military?dist=5000"));
 
-    const calledUrl = spy.mock.calls[0][0] as string;
+    const calledUrl = spy.mock.calls[0]![0] as string; // bounds: the route fetched once
     expect(calledUrl).toContain("/dist/1000");
   });
 
@@ -101,7 +101,7 @@ describe("Military API", () => {
     const { GET } = await import("@/app/api/military/route");
     const resp = await GET(mockRequest("/api/military"));
     expect(resp.status).toBe(200);
-    expect(spy.mock.calls[0][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
+    expect(spy.mock.calls[0]![0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500"); // bounds: one upstream call
   });
 
   it("returns 400 with an empty aircraft list for out-of-range and non-numeric lat/lon", async () => {
@@ -138,22 +138,23 @@ describe("Military API", () => {
 
     const { GET } = await import("@/app/api/military/route");
 
+    // bounds: each request above records exactly one upstream call
     // Unparseable radius.
     await GET(mockRequest("/api/military?dist=abc"));
-    expect(spy.mock.calls[0][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
+    expect(spy.mock.calls[0]![0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
 
     // dist=0 is not a usable radius.
     await GET(mockRequest("/api/military?dist=0"));
-    expect(spy.mock.calls[1][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
+    expect(spy.mock.calls[1]![0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
 
     // Negative radii fall back to the default too — they used to be
     // forwarded verbatim, producing a nonsensical negative search radius.
     await GET(mockRequest("/api/military?dist=-50"));
-    expect(spy.mock.calls[2][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
+    expect(spy.mock.calls[2]![0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/500");
 
     // An in-range radius is forwarded as-is.
     await GET(mockRequest("/api/military?dist=250"));
-    expect(spy.mock.calls[3][0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/250");
+    expect(spy.mock.calls[3]![0] as string).toBe("https://adsbexchange.com/api/aircraft/v2/lat/30/lon/-90/dist/250");
   });
 
   it("maps 403 and 429 to dedicated messages and other statuses to the generic one", async () => {
@@ -198,7 +199,9 @@ describe("Military API", () => {
     expect(viaAircraft.ac).toEqual([{ hex: "B1" }]);
     expect(viaAircraft.count).toBe(1);
 
-    spy.mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ hex: "R1" }, { hex: "R2" }] }), { status: 200 }));
+    spy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ results: [{ hex: "R1" }, { hex: "R2" }] }), { status: 200 }),
+    );
     const viaResults = await bodyAs<MilitaryBody>(await GET(mockRequest("/api/military")));
     expect(viaResults.count).toBe(2);
 

@@ -114,11 +114,14 @@ async function decompress(data: ArrayBuffer, compressor: number): Promise<Uint8A
  */
 function gradientReconstruct(residuals: Int16Array, height: number, width: number): Int16Array {
   const out = new Int16Array(height * width);
-  out[0] = residuals[0];
+  // bounds: both arrays are exactly height*width and every index below is a
+  // composition of loop variables held within [0, height*width). Bit-exact
+  // codec path — non-null assertions only, no arithmetic changes.
+  out[0] = residuals[0]!;
 
   // First row: left predictor
   for (let j = 1; j < width; j++) {
-    out[j] = out[j - 1] + residuals[j];
+    out[j] = out[j - 1]! + residuals[j]!;
   }
 
   // Subsequent rows: gradient predictor
@@ -127,12 +130,12 @@ function gradientReconstruct(residuals: Int16Array, height: number, width: numbe
     const prevRow = (i - 1) * width;
 
     // First column: above predictor
-    out[row] = out[prevRow] + residuals[row];
+    out[row] = out[prevRow]! + residuals[row]!;
 
     // Interior: gradient predictor
     for (let j = 1; j < width; j++) {
       const idx = row + j;
-      out[idx] = residuals[idx] + out[idx - 1] + out[prevRow + j] - out[prevRow + j - 1];
+      out[idx] = residuals[idx]! + out[idx - 1]! + out[prevRow + j]! - out[prevRow + j - 1]!;
     }
   }
 
@@ -146,21 +149,23 @@ function gradientReconstruct(residuals: Int16Array, height: number, width: numbe
  */
 function leftReconstruct(residuals: Int16Array, height: number, width: number): Int16Array {
   const out = new Int16Array(height * width);
-  out[0] = residuals[0];
+  // bounds: same invariant as gradientReconstruct — indices compose to
+  // [0, height*width). Bit-exact codec path.
+  out[0] = residuals[0]!;
 
   // First row: accumulate along columns
   for (let j = 1; j < width; j++) {
-    out[j] = out[j - 1] + residuals[j];
+    out[j] = out[j - 1]! + residuals[j]!;
   }
 
   // Subsequent rows: first col = above, rest = cumsum
   for (let i = 1; i < height; i++) {
     const row = i * width;
     const prevRow = (i - 1) * width;
-    out[row] = out[prevRow] + residuals[row]; // first col: above
+    out[row] = out[prevRow]! + residuals[row]!; // first col: above
 
     for (let j = 1; j < width; j++) {
-      out[row + j] = out[row + j - 1] + residuals[row + j];
+      out[row + j] = out[row + j - 1]! + residuals[row + j]!;
     }
   }
 
@@ -191,7 +196,8 @@ function dequantize(
   const scale = originalRange / vmaxQuant;
 
   for (let i = 0; i < out.length; i++) {
-    const q = quantized[i];
+    // bounds: quantized.length === out.length === height*width
+    const q = quantized[i]!;
     // Truncate, don't round: the Python decoder dequantizes via numpy's
     // `.astype(np.int16)`, which truncates toward zero. Keep the two
     // implementations bit-exact.
@@ -285,7 +291,8 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
     // Lossless: add vmin offset
     elevation = new Int16Array(nPixels);
     for (let i = 0; i < nPixels; i++) {
-      elevation[i] = quantized[i] + vmin;
+      // bounds: quantized.length === nPixels
+      elevation[i] = quantized[i]! + vmin;
     }
   } else {
     elevation = new Int16Array(nPixels);
@@ -322,12 +329,13 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
   }
 
   const bytes = new Uint8Array(tileBytes);
-  const vmin = bytes[0] | (bytes[1] << 8);
+  // bounds: byteLength >= HEADER_SIZE (6) checked at entry, so bytes[0..5] exist
+  const vmin = bytes[0]! | (bytes[1]! << 8);
   const isNeg = vmin & 0x8000;
   const vminVal = isNeg ? -(0x10000 - vmin) : vmin;
-  const elevRange = bytes[2] | (bytes[3] << 8);
-  const bits = bytes[4];
-  const flags = bytes[5];
+  const elevRange = bytes[2]! | (bytes[3]! << 8);
+  const bits = bytes[4]!;
+  const flags = bytes[5]!;
 
   const predictor = flags & 0x03;
   const compressor = (flags >> 2) & 0x03;
@@ -377,7 +385,8 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
     elevation = dequantize(quantized, vminVal, bits, elevRange, height, width);
   } else if (bits >= 16) {
     elevation = new Int16Array(nPixels);
-    for (let i = 0; i < nPixels; i++) elevation[i] = quantized[i] + vminVal;
+    // bounds: quantized.length === nPixels
+    for (let i = 0; i < nPixels; i++) elevation[i] = quantized[i]! + vminVal;
   } else {
     elevation = new Int16Array(nPixels);
     elevation.fill(vminVal);

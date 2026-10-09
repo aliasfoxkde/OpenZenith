@@ -49,8 +49,8 @@ describe("finishDrawing", () => {
 
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("LineString");
-    expect(result.features[0].geometry.coordinates).toEqual([
+    expect(result.features[0]!.geometry.type).toBe("LineString");
+    expect(result.features[0]!.geometry.coordinates).toEqual([
       [0, 0],
       [1, 1],
       [2, 2],
@@ -71,9 +71,9 @@ describe("finishDrawing", () => {
 
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("Polygon");
+    expect(result.features[0]!.geometry.type).toBe("Polygon");
     // Polygon should be closed
-    expect((result.features[0].geometry.coordinates as [number, number][][])[0]).toEqual([
+    expect((result.features[0]!.geometry.coordinates as [number, number][][])[0]).toEqual([
       [0, 0],
       [1, 0],
       [1, 1],
@@ -92,8 +92,8 @@ describe("finishDrawing", () => {
 
     const result = finishDrawing(state);
     expect(result.features).toHaveLength(2);
-    expect(result.features[0].geometry.type).toBe("Point");
-    expect(result.features[1].geometry.type).toBe("Point");
+    expect(result.features[0]!.geometry.type).toBe("Point");
+    expect(result.features[1]!.geometry.type).toBe("Point");
   });
 
   it("does nothing with empty currentCoords", () => {
@@ -378,7 +378,7 @@ describe("vertex editing", () => {
     it("moves a vertex", () => {
       const state = createLineState();
       const result = moveVertex(state, 1, [1.5, 1.5]);
-      const coords = result.features[0].geometry.coordinates as [number, number][];
+      const coords = result.features[0]!.geometry.coordinates as [number, number][];
       expect(coords[1]).toEqual([1.5, 1.5]);
     });
 
@@ -400,7 +400,7 @@ describe("vertex editing", () => {
     it("deletes a vertex", () => {
       const state = createLineState();
       const result = deleteVertex(state, 1);
-      const coords = result.features[0].geometry.coordinates as [number, number][];
+      const coords = result.features[0]!.geometry.coordinates as [number, number][];
       expect(coords).toHaveLength(2);
       expect(coords).toEqual([
         [0, 0],
@@ -414,7 +414,7 @@ describe("vertex editing", () => {
       const afterFirst = deleteVertex(state, 0);
       // Try to delete again (would leave 1 vertex)
       const result = deleteVertex(afterFirst, 0);
-      expect(result.features[0].geometry.coordinates).toHaveLength(2);
+      expect(result.features[0]!.geometry.coordinates).toHaveLength(2);
     });
   });
 
@@ -422,7 +422,7 @@ describe("vertex editing", () => {
     it("adds a vertex after specified index", () => {
       const state = createLineState();
       const result = addVertex(state, 1, [1.5, 0.5]);
-      const coords = result.features[0].geometry.coordinates as [number, number][];
+      const coords = result.features[0]!.geometry.coordinates as [number, number][];
       expect(coords).toHaveLength(4);
       expect(coords[2]).toEqual([1.5, 0.5]);
     });
@@ -430,7 +430,7 @@ describe("vertex editing", () => {
     it("adds to end when index is -1", () => {
       const state = createLineState();
       const result = addVertex(state, -1, [3, 1]);
-      const coords = result.features[0].geometry.coordinates as [number, number][];
+      const coords = result.features[0]!.geometry.coordinates as [number, number][];
       expect(coords).toHaveLength(4);
       expect(coords[3]).toEqual([3, 1]);
     });

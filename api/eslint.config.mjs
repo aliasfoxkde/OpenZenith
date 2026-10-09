@@ -51,6 +51,17 @@ const eslintConfig = [
       // strings). The strict default flags them; only allow that class —
       // string/number/boolean interpolation stays judged.
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
+      // no-non-null-assertion (inherited error from strictTypeChecked) is
+      // retired alongside the noUncheckedIndexedAccess adoption (excellence
+      // cycle V, 2026-10-09). Under that flag the bounded non-null assertion
+      // is THE sanctioned idiom for provably-in-range index reads — tsc
+      // itself demands it ~1,000× across the tree. Compensating discipline:
+      // every assertion carries a `// bounds: <why>` comment (grammar in
+      // EXCELLENCE_PLAN_V), forbidden escapes (@ts-ignore, `as any`,
+      // signature loosening) stay error'd, and the rule this replaces never
+      // permitted comment-scoped opt-outs, so "off" is the only coherent
+      // setting once the flag is on.
+      "@typescript-eslint/no-non-null-assertion": "off",
       // React Hooks 7 enables React Compiler migration rules in its recommended
       // preset. These rules currently flag established imperative MapLibre,
       // Cesium, and WASM integrations that are intentionally ref-backed. Keep

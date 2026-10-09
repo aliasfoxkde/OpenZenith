@@ -144,10 +144,11 @@ export async function POST(request: NextRequest) {
       const fx = px - x0,
         fy = py - y0;
 
-      const h00 = tile[y0 * 256 + x0];
-      const h10 = tile[y0 * 256 + x1];
-      const h01 = tile[y1 * 256 + x0];
-      const h11 = tile[y1 * 256 + x1];
+      // bounds: x0/x1 and y0/y1 clamped to [0,255]; tile is a 256x256 (65536) grid
+      const h00 = tile[y0 * 256 + x0]!;
+      const h10 = tile[y0 * 256 + x1]!;
+      const h01 = tile[y1 * 256 + x0]!;
+      const h11 = tile[y1 * 256 + x1]!;
 
       if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return NODATA;
       return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
@@ -171,19 +172,21 @@ export async function POST(request: NextRequest) {
       const fx = px - x0,
         fy = py - y0;
 
-      const h00 = tile[y0 * 256 + x0];
-      const h10 = tile[y0 * 256 + x1];
-      const h01 = tile[y1 * 256 + x0];
-      const h11 = tile[y1 * 256 + x1];
+      // bounds: x0/x1 and y0/y1 clamped to [0,255]; tile is a 256x256 (65536) grid
+      const h00 = tile[y0 * 256 + x0]!;
+      const h10 = tile[y0 * 256 + x1]!;
+      const h01 = tile[y1 * 256 + x0]!;
+      const h11 = tile[y1 * 256 + x1]!;
 
       if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return null;
       const centerElev = h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
 
       let bestDir = -1,
         bestDrop = 0;
+      // bounds: d < 8 and D8_DR/D8_DC are 8-entry literals
       for (let d = 0; d < 8; d++) {
-        const stepLat = cellSizeDeg * D8_DR[d];
-        const stepLon = (cellSizeDeg * D8_DC[d]) / Math.cos((latPt * Math.PI) / 180);
+        const stepLat = cellSizeDeg * D8_DR[d]!;
+        const stepLon = (cellSizeDeg * D8_DC[d]!) / Math.cos((latPt * Math.PI) / 180);
         const neighborLat = latPt + stepLat;
         const neighborLon = lonPt + stepLon;
 
@@ -191,24 +194,26 @@ export async function POST(request: NextRequest) {
         const nTile = tileDataMap.get(nKey);
         if (!nTile) continue;
 
-        const npx = ((neighborLon + 180) / 360) * n2 * 256 - parseInt(nKey.split("/")[0]) * 256;
+        // bounds: nKey is "<int>/<int>" so split always yields both parts
+        const npx = ((neighborLon + 180) / 360) * n2 * 256 - parseInt(nKey.split("/")[0]!) * 256;
         const npy =
           ((1 -
             Math.log(Math.tan((neighborLat * Math.PI) / 180) + 1 / Math.cos((neighborLat * Math.PI) / 180)) / Math.PI) /
             2) *
             n2 *
             256 -
-          parseInt(nKey.split("/")[1]) * 256;
+          parseInt(nKey.split("/")[1]!) * 256;
         const nx0 = Math.max(0, Math.min(255, Math.floor(npx)));
         const ny0 = Math.max(0, Math.min(255, Math.floor(npy)));
         const nx1 = Math.min(255, nx0 + 1),
           ny1 = Math.min(255, ny0 + 1);
         const nfx = npx - nx0,
           nfy = npy - ny0;
-        const nh00 = nTile[ny0 * 256 + nx0],
-          nh10 = nTile[ny0 * 256 + nx1];
-        const nh01 = nTile[ny1 * 256 + nx0],
-          nh11 = nTile[ny1 * 256 + nx1];
+        // bounds: nx0/nx1 and ny0/ny1 clamped to [0,255]; nTile is a 256x256 (65536) grid
+        const nh00 = nTile[ny0 * 256 + nx0]!,
+          nh10 = nTile[ny0 * 256 + nx1]!;
+        const nh01 = nTile[ny1 * 256 + nx0]!,
+          nh11 = nTile[ny1 * 256 + nx1]!;
         if (nh00 === NODATA && nh10 === NODATA && nh01 === NODATA && nh11 === NODATA) continue;
         const nElev = nh00 * (1 - nfx) * (1 - nfy) + nh10 * nfx * (1 - nfy) + nh01 * (1 - nfx) * nfy + nh11 * nfx * nfy;
         const drop = centerElev - nElev;
@@ -251,9 +256,10 @@ export async function POST(request: NextRequest) {
       const result = d8FromPoint(currentLat, currentLon);
       if (!result || result.dir === -1) break;
 
-      const stepDeg = cellSizeDeg * D8_DIST[result.dir];
-      const stepLat = stepDeg * D8_DR[result.dir];
-      const stepLon = (stepDeg * D8_DC[result.dir]) / Math.cos((currentLat * Math.PI) / 180);
+      // bounds: result.dir is 0..7 (d8 bestDir; -1 excluded above) and the D8_* tables are 8-entry literals
+      const stepDeg = cellSizeDeg * D8_DIST[result.dir]!;
+      const stepLat = stepDeg * D8_DR[result.dir]!;
+      const stepLon = (stepDeg * D8_DC[result.dir]!) / Math.cos((currentLat * Math.PI) / 180);
 
       currentLat += stepLat;
       currentLon += stepLon;
@@ -261,7 +267,8 @@ export async function POST(request: NextRequest) {
       const newElev = sampleElevation(currentLat, currentLon);
       if (newElev <= NODATA) break;
 
-      totalDist += haversineDistance(path[path.length - 1][0], path[path.length - 1][1], currentLat, currentLon);
+      const last = path[path.length - 1]!; // bounds: path always holds the seed point
+      totalDist += haversineDistance(last[0], last[1], currentLat, currentLon);
       path.push([Math.round(currentLat * 1e6) / 1e6, Math.round(currentLon * 1e6) / 1e6]);
       elevations.push(Math.round(newElev * 10) / 10);
       distances.push(Math.round(totalDist * 10) / 10);

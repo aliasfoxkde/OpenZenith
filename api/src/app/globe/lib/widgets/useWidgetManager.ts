@@ -104,7 +104,9 @@ export function useWidgetManager(components: Record<string, ComponentType<Widget
           visible: savedState?.visible ?? true,
           zIndex: savedState?.zIndex ?? ++zBase,
         },
-        component: components[config.id],
+        // bounds: callers build the components map from the WIDGET_CONFIGS ids
+        // (page.tsx supplies exactly these four)
+        component: components[config.id]!,
       };
     }
     return entries;
@@ -139,7 +141,7 @@ export function useWidgetManager(components: Record<string, ComponentType<Widget
   const updateWidget = useCallback((id: string, patch: Partial<WidgetState>) => {
     setWidgets((prev) => {
       // ids can be absent from the map even though Record indexing types as present
-      const entry = prev[id] as WidgetEntry | undefined;
+      const entry = prev[id]; // noUncheckedIndexedAccess: indexing already yields T | undefined
       if (!entry) return prev;
       return {
         ...prev,
@@ -153,7 +155,7 @@ export function useWidgetManager(components: Record<string, ComponentType<Widget
   // every mousedown inflated saved z-indexes without bound.
   const focusWidget = useCallback((id: string) => {
     setWidgets((prev) => {
-      const entry = prev[id] as WidgetEntry | undefined;
+      const entry = prev[id]; // noUncheckedIndexedAccess: indexing already yields T | undefined
       if (!entry) return prev;
       const top = Math.max(...Object.values(prev).map((w) => w.state.zIndex || 100));
       if ((entry.state.zIndex || 100) === top) return prev;
@@ -167,7 +169,7 @@ export function useWidgetManager(components: Record<string, ComponentType<Widget
   const toggleWidget = useCallback(
     (id: string) => {
       // ids can be absent from the map even though Record indexing types as present
-      const entry = widgets[id] as WidgetEntry | undefined;
+      const entry = widgets[id]; // noUncheckedIndexedAccess: indexing already yields T | undefined
       updateWidget(id, { visible: !entry?.state.visible });
     },
     [widgets, updateWidget],
@@ -193,7 +195,8 @@ export function useWidgetManager(components: Record<string, ComponentType<Widget
             visible: true,
             zIndex: ++zBase,
           },
-          component: components[config.id],
+          // bounds: same WIDGET_CONFIGS-id components map as above
+          component: components[config.id]!,
         };
       }
       return entries;

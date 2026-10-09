@@ -91,7 +91,8 @@ export function parseGeoJSON(text: string): GeoJSON.FeatureCollection {
   // Array of features or coordinates
   if (Array.isArray(data)) {
     const items = data as RawGeoJsonNode[];
-    if (items.length > 0 && items[0].type === "Feature") {
+    // bounds: items.length > 0 checked in this condition
+    if (items.length > 0 && items[0]!.type === "Feature") {
       return { type: "FeatureCollection", features: items as GeoJSON.Feature[] };
     }
     // Assume array of [lon, lat] coordinates
@@ -114,9 +115,10 @@ export function parseCSV(text: string): { data: GeoJSON.FeatureCollection; heade
   if (lines.length < 2) throw new Error("CSV must have at least a header and one data row");
 
   // Detect delimiter
-  const delimiter = lines[0].includes("\t") ? "\t" : ",";
+  // bounds: lines.length >= 2 checked above, so the header row exists
+  const delimiter = lines[0]!.includes("\t") ? "\t" : ",";
 
-  const headers = lines[0].split(delimiter).map((h) => h.trim().replace(/^["']|["']$/g, ""));
+  const headers = lines[0]!.split(delimiter).map((h) => h.trim().replace(/^["']|["']$/g, ""));
 
   // Find lat/lon columns (case-insensitive)
   const latIdx = headers.findIndex((h) => /^(lat|latitude|y)$/i.test(h));
@@ -127,19 +129,21 @@ export function parseCSV(text: string): { data: GeoJSON.FeatureCollection; heade
   }
 
   const features: GeoJSON.Feature[] = [];
+  // bounds: i < lines.length, and rows shorter than the header are skipped, so
+  // every vals[latIdx]/vals[lonIdx]/vals[j] below is inside vals
   for (let i = 1; i < lines.length; i++) {
-    const vals = lines[i].split(delimiter).map((v) => v.trim().replace(/^["']|["']$/g, ""));
+    const vals = lines[i]!.split(delimiter).map((v) => v.trim().replace(/^["']|["']$/g, ""));
     if (vals.length < headers.length) continue;
 
-    const lat = parseFloat(vals[latIdx]);
-    const lon = parseFloat(vals[lonIdx]);
+    const lat = parseFloat(vals[latIdx]!);
+    const lon = parseFloat(vals[lonIdx]!);
     if (isNaN(lat) || isNaN(lon)) continue;
 
     const props: Record<string, string | number> = {};
     for (let j = 0; j < headers.length; j++) {
       if (j === latIdx || j === lonIdx) continue;
-      const num = parseFloat(vals[j]);
-      props[headers[j]] = isNaN(num) ? vals[j] : num;
+      const num = parseFloat(vals[j]!);
+      props[headers[j]!] = isNaN(num) ? vals[j]! : num;
     }
 
     features.push({
@@ -249,8 +253,8 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
     // LineString
     const line = pm.querySelector("LineString coordinates");
     if (line) {
-      const coords = line
-        .textContent.trim()
+      const coords = line.textContent
+        .trim()
         .split(/\s+/)
         .reduce((acc: [number, number][], _, i, arr) => {
           if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -270,8 +274,8 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
     const outerRing = pm.querySelector("Polygon outerBoundaryIs LinearRing coordinates");
     if (outerRing) {
       const parseRing = (el: Element): [number, number][] =>
-        el
-          .textContent.trim()
+        el.textContent
+          .trim()
           .split(/\s+/)
           .reduce((acc: [number, number][], _, i, arr) => {
             if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -315,8 +319,8 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
           } else if (tag === "Polygon") {
             const outer = child.querySelector("outerBoundaryIs LinearRing coordinates");
             if (outer) {
-              const outerCoords = outer
-                .textContent.trim()
+              const outerCoords = outer.textContent
+                .trim()
                 .split(/\s+/)
                 .reduce((acc: [number, number][], _, i, arr) => {
                   if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -324,8 +328,8 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
                 }, []);
               const inners = [...child.querySelectorAll("innerBoundaryIs LinearRing coordinates")]
                 .map((el) =>
-                  el
-                    .textContent.trim()
+                  el.textContent
+                    .trim()
                     .split(/\s+/)
                     .reduce((acc: [number, number][], _, i, arr) => {
                       if (i % 3 === 0) acc.push([Number(arr[i]), Number(arr[i + 1])]);
@@ -347,7 +351,8 @@ export function parseKML(text: string): GeoJSON.FeatureCollection {
         // Determine unified type
         const types = new Set(geoms.map((g) => g.type));
         if (types.size === 1) {
-          const t = geoms[0].type as "Point" | "LineString" | "Polygon";
+          // bounds: geoms.length > 0 checked above
+          const t = geoms[0]!.type as "Point" | "LineString" | "Polygon";
           features.push({
             type: "Feature",
             geometry: {
@@ -448,7 +453,8 @@ export function createDataset(
     format,
     featureCount: data.features.length,
     visible: true,
-    color: DATASET_COLORS[colorIndex],
+    // bounds: colorIndex = counter % DATASET_COLORS.length and the palette is non-empty
+    color: DATASET_COLORS[colorIndex]!,
     data,
     visualization: { mode: "simple", property: null, colorRamp: "sequential" },
     ...(headers ? { headers } : {}),

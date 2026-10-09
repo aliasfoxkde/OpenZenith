@@ -117,7 +117,8 @@ export default function Demo() {
         {/* main landmark: header bar, map canvas and overlays are contained by
             it so axe's `region` rule (WCAG 1.3.6) is satisfied. */}
         <main
-          id="main-content" tabIndex={-1}
+          id="main-content"
+          tabIndex={-1}
           style={{
             flex: 1,
             display: "flex",
@@ -130,142 +131,142 @@ export default function Demo() {
               chrome is a full-viewport map, so the h1 is announced but not
               rendered. Inside <main> so axe's `region` rule stays satisfied. */}
           <h1 className="oz-sr-only">OpenZenith Elevation Map Demo</h1>
-        {/* Header bar */}
-        <div
-          style={{
-            padding: "0.7rem 1.5rem",
-            background: "#0a0a0a",
-            color: "#e5e5e5",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            zIndex: 10,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Link
-              href="/"
-              style={{
-                color: "#e5e5e5",
-                textDecoration: "none",
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-                <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
-                <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
-                <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
-              </svg>
-              OpenZenith
-            </Link>
-            {/* #a3a3a3 = 7.85:1 on the #0a0a0a header bar (AAA); #333 and #888 were not */}
-            <span style={{ color: "#a3a3a3" }}>/</span>
-            <span style={{ color: "#a3a3a3", fontSize: "0.9rem" }}>Elevation Map</span>
-          </div>
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <Link href="/" style={{ color: "#a3a3a3", textDecoration: "none", fontSize: "0.85rem" }}>
-              Home
-            </Link>
-            <a href="/api/docs" style={{ color: "#a3a3a3", textDecoration: "none", fontSize: "0.85rem" }}>
-              Docs
-            </a>
-            <a
-              href="https://github.com/aliasfoxkde/OpenZenith"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: "#a3a3a3",
-                textDecoration: "none",
-                fontSize: "0.85rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-              GitHub
-            </a>
-          </div>
-          {elevation && (
-            <span style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.9rem" }}>
-              {elevation.elevation !== null ? `${elevation.elevation.toLocaleString()}m` : "No data"}{" "}
-              <span style={{ color: "#a3a3a3" }}>
-                @ {elevation.lat.toFixed(4)}, {elevation.lon.toFixed(4)}
+          {/* Header bar */}
+          <div
+            style={{
+              padding: "0.7rem 1.5rem",
+              background: "#0a0a0a",
+              color: "#e5e5e5",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              zIndex: 10,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Link
+                href="/"
+                style={{
+                  color: "#e5e5e5",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                  <path d="M16 2L28 28H4L16 2Z" fill="#22c55e" opacity="0.9" />
+                  <path d="M16 2L22 15H10L16 2Z" fill="#22c55e" opacity="0.5" />
+                  <path d="M4 28L16 18L28 28H4Z" fill="#22c55e" opacity="0.3" />
+                </svg>
+                OpenZenith
+              </Link>
+              {/* #a3a3a3 = 7.85:1 on the #0a0a0a header bar (AAA); #333 and #888 were not */}
+              <span style={{ color: "#a3a3a3" }}>/</span>
+              <span style={{ color: "#a3a3a3", fontSize: "0.9rem" }}>Elevation Map</span>
+            </div>
+            <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+              <Link href="/" style={{ color: "#a3a3a3", textDecoration: "none", fontSize: "0.85rem" }}>
+                Home
+              </Link>
+              <a href="/api/docs" style={{ color: "#a3a3a3", textDecoration: "none", fontSize: "0.85rem" }}>
+                Docs
+              </a>
+              <a
+                href="https://github.com/aliasfoxkde/OpenZenith"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "#a3a3a3",
+                  textDecoration: "none",
+                  fontSize: "0.85rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                GitHub
+              </a>
+            </div>
+            {elevation && (
+              <span style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.9rem" }}>
+                {elevation.elevation !== null ? `${elevation.elevation.toLocaleString()}m` : "No data"}{" "}
+                <span style={{ color: "#a3a3a3" }}>
+                  @ {elevation.lat.toFixed(4)}, {elevation.lon.toFixed(4)}
+                </span>
               </span>
-            </span>
+            )}
+          </div>
+
+          {/* Map container */}
+          <div ref={mapRef} style={{ flex: 1, minHeight: 0 }} />
+
+          {/* Loading overlay */}
+          {!mapReady && !loadError && (
+            <div
+              style={{
+                position: "absolute",
+                top: "4rem",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(0,0,0,0.7)",
+                color: "#fff",
+                padding: "0.5rem 1rem",
+                borderRadius: 4,
+                fontSize: "0.85rem",
+                zIndex: 5,
+              }}
+            >
+              Loading map...
+            </div>
           )}
-        </div>
 
-        {/* Map container */}
-        <div ref={mapRef} style={{ flex: 1, minHeight: 0 }} />
+          {/* Error overlay */}
+          {loadError && (
+            <div
+              style={{
+                position: "absolute",
+                top: "4rem",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(180,0,0,0.8)",
+                color: "#fff",
+                padding: "0.75rem 1.25rem",
+                borderRadius: 6,
+                fontSize: "0.85rem",
+                zIndex: 5,
+                textAlign: "center",
+              }}
+            >
+              Failed to load MapLibre GL. Please refresh the page.
+            </div>
+          )}
 
-        {/* Loading overlay */}
-        {!mapReady && !loadError && (
-          <div
-            style={{
-              position: "absolute",
-              top: "4rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(0,0,0,0.7)",
-              color: "#fff",
-              padding: "0.5rem 1rem",
-              borderRadius: 4,
-              fontSize: "0.85rem",
-              zIndex: 5,
-            }}
-          >
-            Loading map...
-          </div>
-        )}
-
-        {/* Error overlay */}
-        {loadError && (
-          <div
-            style={{
-              position: "absolute",
-              top: "4rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(180,0,0,0.8)",
-              color: "#fff",
-              padding: "0.75rem 1.25rem",
-              borderRadius: 6,
-              fontSize: "0.85rem",
-              zIndex: 5,
-              textAlign: "center",
-            }}
-          >
-            Failed to load MapLibre GL. Please refresh the page.
-          </div>
-        )}
-
-        {/* Click hint */}
-        {mapReady && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "2rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(0,0,0,0.7)",
-              color: "#fff",
-              padding: "0.5rem 1rem",
-              borderRadius: 4,
-              fontSize: "0.85rem",
-              pointerEvents: "none",
-              zIndex: 5,
-            }}
-          >
-            Click anywhere to query elevation
-          </div>
-        )}
+          {/* Click hint */}
+          {mapReady && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: "2rem",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(0,0,0,0.7)",
+                color: "#fff",
+                padding: "0.5rem 1rem",
+                borderRadius: 4,
+                fontSize: "0.85rem",
+                pointerEvents: "none",
+                zIndex: 5,
+              }}
+            >
+              Click anywhere to query elevation
+            </div>
+          )}
         </main>
       </div>
     </ErrorBoundary>

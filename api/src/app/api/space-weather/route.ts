@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
     if (type === "kp") {
       const kpResp = await fetch(KP_URL, requestInit);
       if (!kpResp.ok) {
-        return NextResponse.json({ error: `SWPC Kp API returned ${kpResp.status}` }, { status: 502, headers: CORS_HEADERS });
+        return NextResponse.json(
+          { error: `SWPC Kp API returned ${kpResp.status}` },
+          { status: 502, headers: CORS_HEADERS },
+        );
       }
       headers.set("Cache-Control", `public, max-age=${KP_CACHE_TTL}`);
       // Relayed verbatim — `unknown` is the honest boundary type.

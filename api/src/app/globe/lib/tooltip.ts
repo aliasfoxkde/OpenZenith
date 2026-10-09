@@ -30,11 +30,16 @@ export interface TooltipEntity {
 export function escapeHtml(value: unknown): string {
   return String(value).replace(/[&<>"']/g, (ch) => {
     switch (ch) {
-      case "&": return "&amp;";
-      case "<": return "&lt;";
-      case ">": return "&gt;";
-      case '"': return "&quot;";
-      default: return "&#39;";
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
     }
   });
 }

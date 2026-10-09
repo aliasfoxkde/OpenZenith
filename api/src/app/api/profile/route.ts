@@ -120,10 +120,11 @@ export async function POST(request: NextRequest) {
       const fx = px - x0,
         fy = py - y0;
 
-      const h00 = tile[y0 * 256 + x0];
-      const h10 = tile[y0 * 256 + x1];
-      const h01 = tile[y1 * 256 + x0];
-      const h11 = tile[y1 * 256 + x1];
+      // bounds: x0/x1 and y0/y1 clamped to [0,255]; tile is a 256x256 (65536) grid
+      const h00 = tile[y0 * 256 + x0]!;
+      const h10 = tile[y0 * 256 + x1]!;
+      const h01 = tile[y1 * 256 + x0]!;
+      const h11 = tile[y1 * 256 + x1]!;
 
       if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return NODATA;
       return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
@@ -151,7 +152,8 @@ export async function POST(request: NextRequest) {
       const elev = sampleElevation(ptLat, ptLon);
 
       if (i > 0) {
-        totalDist += haversineDistance(profile[i - 1].lat, profile[i - 1].lon, ptLat, ptLon);
+        // bounds: i > 0 and profile already holds i entries
+        totalDist += haversineDistance(profile[i - 1]!.lat, profile[i - 1]!.lon, ptLat, ptLon);
       }
 
       profile.push({
@@ -171,7 +173,9 @@ export async function POST(request: NextRequest) {
             total_gain: Math.round(
               (profile
                 .filter(
-                  (_, i) => i > 0 && profile[i].elevation > NODATA && profile[i].elevation > profile[i - 1].elevation,
+                  (_, i) =>
+                    // bounds: filter runs over the completed profile; i > 0 above
+                    i > 0 && profile[i]!.elevation > NODATA && profile[i]!.elevation > profile[i - 1]!.elevation,
                 )
                 .reduce(
                   // Rise against the previous profile point. The lookup must run

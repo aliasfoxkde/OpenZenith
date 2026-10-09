@@ -180,7 +180,13 @@ describe("getTides — upstream failure handling", () => {
     const fetchMock = routeFetch([
       {
         match: STATIONS_URL,
-        respond: () => jsonResponse({ stations: [{ id: "x", name: "x" }, { id: "y", name: "y" }] }),
+        respond: () =>
+          jsonResponse({
+            stations: [
+              { id: "x", name: "x" },
+              { id: "y", name: "y" },
+            ],
+          }),
       },
     ]);
     vi.stubGlobal("fetch", fetchMock);
@@ -227,7 +233,8 @@ describe("getTides — upstream failure handling", () => {
       { match: STATIONS_URL, respond: () => jsonResponse({ stations: [station("A", "A", "0.1", "0.2")] }) },
       {
         match: PREDICTIONS_URL,
-        respond: () => new Response("<html>gateway error</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
+        respond: () =>
+          new Response("<html>gateway error</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
       },
     ]);
     vi.stubGlobal("fetch", fetchMock);
@@ -264,9 +271,9 @@ describe("getTides — request shape", () => {
     await getTides(0, 0);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const stationUrl = String(fetchMock.mock.calls[0][0]);
+    const stationUrl = String(fetchMock.mock.calls[0]![0]);
     expect(stationUrl).toContain("type=tidestations");
-    expect(String(fetchMock.mock.calls[1][0])).toContain("datagetter");
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("datagetter");
   });
 
   it("parses fractional and integer heights from the v field", async () => {

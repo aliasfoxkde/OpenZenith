@@ -77,7 +77,8 @@ test.describe("OZT2 Tile Format", () => {
       const vmin = view.getInt16(0, true);
       const vrange = view.getUint16(2, true);
       const bits = new Uint8Array(bytes.buffer, bytes.byteOffset + 4, 1)[0];
-      const flags = new Uint8Array(bytes.buffer, bytes.byteOffset + 5, 1)[0];
+      // bounds: bytes.length > 6 asserted above, so header bytes 4 and 5 exist
+      const flags = new Uint8Array(bytes.buffer, bytes.byteOffset + 5, 1)[0]!;
 
       // Header sanity checks
       expect(vmin).toBeGreaterThanOrEqual(-500);   // Dead Sea

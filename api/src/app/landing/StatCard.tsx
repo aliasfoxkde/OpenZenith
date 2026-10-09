@@ -37,9 +37,7 @@ export default function StatCard({ s }: { s: Stat }) {
         position: "relative",
       }}
     >
-      <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accentText, marginBottom: "0.15rem" }}>
-        {s.value}
-      </div>
+      <div style={{ fontSize: "1.3rem", fontWeight: 700, color: accentText, marginBottom: "0.15rem" }}>{s.value}</div>
       <div
         style={{
           fontSize: "0.75rem",
@@ -54,11 +52,21 @@ export default function StatCard({ s }: { s: Stat }) {
           type="button"
           aria-label={`What does "${s.label}" mean?`}
           aria-expanded={open}
-          onMouseEnter={() => { setOpen(true); }}
-          onMouseLeave={() => { setOpen(false); }}
-          onFocus={() => { setOpen(true); }}
-          onBlur={() => { setOpen(false); }}
-          onClick={() => { setOpen((v) => !v); }}
+          onMouseEnter={() => {
+            setOpen(true);
+          }}
+          onMouseLeave={() => {
+            setOpen(false);
+          }}
+          onFocus={() => {
+            setOpen(true);
+          }}
+          onBlur={() => {
+            setOpen(false);
+          }}
+          onClick={() => {
+            setOpen((v) => !v);
+          }}
           style={{
             display: "inline-flex",
             alignItems: "center",

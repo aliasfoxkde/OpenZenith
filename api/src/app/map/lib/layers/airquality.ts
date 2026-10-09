@@ -103,7 +103,7 @@ export function addAirQuality(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("airQuality", err);
       setStatus(handle, "airQuality", "error");
-      }
+    }
   };
 
   void doLoad();

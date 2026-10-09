@@ -147,7 +147,8 @@ export function loadWarnings(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("warnings", err);
       updateStatus("warnings", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

@@ -14,16 +14,13 @@ const CESIUM_CDNS = [
   "https://unpkg.com/cesium@1.119/Build/Cesium/",
 ];
 const SATELLITE_LOCAL = "/vendor/satellite.min.js";
-const SATELLITE_CDN =
-  "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
+const SATELLITE_CDN = "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";
 
 /**
  * Load CesiumJS from the first source that answers, local assets first.
  * If the local copy fails, tries the CDNs in order. If all fail, throws.
  */
-async function loadCesiumWithFallback(
-  timeoutMs = 15000,
-): Promise<typeof CesiumType | undefined> {
+async function loadCesiumWithFallback(timeoutMs = 15000): Promise<typeof CesiumType | undefined> {
   const w = window;
   if (w.Cesium) return w.Cesium;
 

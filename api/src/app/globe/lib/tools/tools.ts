@@ -128,7 +128,8 @@ export function createToolManager(viewer: CesiumType.Viewer, Cesium: typeof Cesi
 
     // Label at last point
     if (pts.length >= 2) {
-      const last = pts[pts.length - 1];
+      // bounds: pts.length >= 2 checked above
+      const last = pts[pts.length - 1]!;
       const label = viewer.entities.add({
         id: "tool-measure-label",
         position: Cesium.Cartesian3.fromDegrees(last.lng, last.lat),
@@ -153,10 +154,13 @@ export function createToolManager(viewer: CesiumType.Viewer, Cesium: typeof Cesi
 
     // Segment distances
     for (let i = 1; i < pts.length; i++) {
-      const segDist = haversineDistance(pts[i - 1].lat, pts[i - 1].lng, pts[i].lat, pts[i].lng);
+      // bounds: i-1 and i are both < pts.length in the loop guard
+      const prev = pts[i - 1]!;
+      const cur = pts[i]!;
+      const segDist = haversineDistance(prev.lat, prev.lng, cur.lat, cur.lng);
       const mid = {
-        lng: (pts[i - 1].lng + pts[i].lng) / 2,
-        lat: (pts[i - 1].lat + pts[i].lat) / 2,
+        lng: (prev.lng + cur.lng) / 2,
+        lat: (prev.lat + cur.lat) / 2,
       };
       const segLabel = viewer.entities.add({
         id: `tool-seg-${i}`,

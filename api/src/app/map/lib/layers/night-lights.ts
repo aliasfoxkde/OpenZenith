@@ -5,7 +5,9 @@ import { addRasterLayer, removeRasterLayer, type RasterLayerSpec } from "./raste
 
 const nightLightsSpec: RasterLayerSpec = {
   sourceId: "nightLights",
-  tiles: ["https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlackMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png"],
+  tiles: [
+    "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/BlackMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",
+  ],
   opacity: 0.85,
   minzoom: 0,
   maxzoom: 8,

@@ -7,8 +7,6 @@
  * must carry xmlns or the decode fails.
  */
 export function svgIcon(svg: string): string {
-  const withNs = svg.includes("xmlns=")
-    ? svg
-    : svg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+  const withNs = svg.includes("xmlns=") ? svg : svg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(withNs)}`;
 }

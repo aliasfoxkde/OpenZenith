@@ -30,7 +30,7 @@ describe("OpenAPI Spec API", () => {
     const { GET } = await import("@/app/api/openapi.json/route");
     const data = await bodyAs<OpenApiSpecBody>(GET(mockRequest("/api/openapi.json")));
     expect(data.paths["/api/elevation"]).toBeTruthy();
-    expect(data.paths["/api/elevation"].get).toBeTruthy();
+    expect(data.paths["/api/elevation"]!.get).toBeTruthy(); // bounds: truthiness asserted above
   });
 
   it("includes health endpoint", async () => {

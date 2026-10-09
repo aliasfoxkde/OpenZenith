@@ -125,17 +125,17 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
   it("accepts the full coordinate range at the highest zoom (z=14, maxTile=16383)", async () => {
     vi.mocked(getTileData).mockResolvedValue(TILE_100M);
     const { GET } = await route();
-    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/14/16383/16383"), tileParams("14", "16383", "16383"));
+    const resp = await GET(
+      mockRequest("/api/tiles/WebMercatorQuad/14/16383/16383"),
+      tileParams("14", "16383", "16383"),
+    );
     expect(resp.status).toBe(200);
     expect(vi.mocked(getTileData).mock.calls[0]).toEqual([14, 16383, 16383, expect.anything()]);
   });
 
   it("returns 404 one past the range at the highest zoom", async () => {
     const { GET } = await route();
-    const resp = await GET(
-      mockRequest("/api/tiles/WebMercatorQuad/14/16384/0"),
-      tileParams("14", "0", "16384"),
-    );
+    const resp = await GET(mockRequest("/api/tiles/WebMercatorQuad/14/16384/0"), tileParams("14", "0", "16384"));
     expect(resp.status).toBe(404);
     const data = await bodyAs<TileErrorBody>(resp);
     expect(data.code).toBe("TileOutOfRange");
@@ -149,11 +149,17 @@ describe("OGC Tile Data API — coordinate validation and CRS axis handling", ()
     const ok = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/0/1"), tileParams("0", "0", "1", "WorldCRS84Quad"));
     expect(ok.status).toBe(200);
     // col 2 is past matrixWidth
-    const badCol = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/0/2"), tileParams("0", "0", "2", "WorldCRS84Quad"));
+    const badCol = await GET(
+      mockRequest("/api/tiles/WorldCRS84Quad/0/0/2"),
+      tileParams("0", "0", "2", "WorldCRS84Quad"),
+    );
     expect(badCol.status).toBe(404);
     expect((await bodyAs<TileErrorBody>(badCol)).code).toBe("TileOutOfRange");
     // row 1 is past matrixHeight
-    const badRow = await GET(mockRequest("/api/tiles/WorldCRS84Quad/0/1/0"), tileParams("0", "1", "0", "WorldCRS84Quad"));
+    const badRow = await GET(
+      mockRequest("/api/tiles/WorldCRS84Quad/0/1/0"),
+      tileParams("0", "1", "0", "WorldCRS84Quad"),
+    );
     expect(badRow.status).toBe(404);
     expect(vi.mocked(getTileDataCRS84)).toHaveBeenCalledTimes(1);
   });
@@ -194,10 +200,7 @@ describe("OGC Tile Data API — tile assembly and fallback", () => {
     vi.mocked(getTileDataCRS84).mockResolvedValue(TILE_100M);
     const { GET } = await route();
 
-    const resp = await GET(
-      mockRequest("/api/tiles/WorldCRS84Quad/3/6/2"),
-      tileParams("3", "2", "6", "WorldCRS84Quad"),
-    );
+    const resp = await GET(mockRequest("/api/tiles/WorldCRS84Quad/3/6/2"), tileParams("3", "2", "6", "WorldCRS84Quad"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toBe("image/png");
     // (z, col, row, backend) — the route passes tileCol before tileRow

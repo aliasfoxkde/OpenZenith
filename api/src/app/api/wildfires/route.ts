@@ -96,12 +96,13 @@ export async function GET(request: NextRequest) {
     const maxFeatures = 3000;
 
     for (let i = 1; i < lines.length && i <= maxFeatures; i++) {
-      const cols = lines[i].split(",");
+      const cols = lines[i]!.split(","); // bounds: i < lines.length
       if (cols.length < 10) continue;
 
-      const lat = parseFloat(cols[0]);
-      const lon = parseFloat(cols[1]);
-      const brightness = parseFloat(cols[2]) || 0;
+      // bounds: cols.length >= 10, so columns 0-2 are present
+      const lat = parseFloat(cols[0]!);
+      const lon = parseFloat(cols[1]!);
+      const brightness = parseFloat(cols[2]!) || 0;
       // FIRMS area CSV is a fixed 14-column layout:
       // lat(0) lon(1) brightness(2) ... confidence(9) version(10)
       // bright_ti5(11) frp(12) daynight(13)
@@ -109,7 +110,9 @@ export async function GET(request: NextRequest) {
       const confidenceAsNum = parseFloat(rawConfidence);
       // VIIRS emits qualitative confidence (l/n/h); MODIS emits 0-100
       const confidence = isNaN(confidenceAsNum) ? rawConfidence : confidenceAsNum;
-      const frp = parseFloat(cols[12]) || 0;
+      // cols[12]/cols[13] sit past the length-10 gate; a short row parses
+      // undefined → NaN → 0 exactly as it did before.
+      const frp = parseFloat(cols[12] ?? "") || 0;
       const daynight = (cols[13] || "D").trim();
 
       if (isNaN(lat) || isNaN(lon)) continue;

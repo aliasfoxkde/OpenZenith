@@ -103,7 +103,7 @@ export function addWildfires(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("wildfires", err);
       setStatus(handle, "wildfires", "error");
-      }
+    }
   };
 
   void doLoad();

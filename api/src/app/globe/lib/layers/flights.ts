@@ -271,7 +271,9 @@ export function loadFlights(
         .filter((s) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
         .slice(0, MAX_FLIGHTS);
       updateStatus("flights", { lastUpdate: Date.now(), count: states.length });
-      states.forEach((s, i) => { addFlightEntity(s, i, states.length <= 300); });
+      states.forEach((s, i) => {
+        addFlightEntity(s, i, states.length <= 300);
+      });
 
       // Refresh interval
       const refresh = async () => {
@@ -313,7 +315,9 @@ export function loadFlights(
             const filtered = newData.states
               .filter((s) => s[SV.LON] != null && s[SV.LAT] != null && !s[SV.ON_GROUND])
               .slice(0, MAX_FLIGHTS);
-            filtered.forEach((s, i) => { addFlightEntity(s, i, filtered.length <= 300); });
+            filtered.forEach((s, i) => {
+              addFlightEntity(s, i, filtered.length <= 300);
+            });
             updateStatus("flights", {
               lastUpdate: Date.now(),
               count: filtered.length,
@@ -336,7 +340,8 @@ export function loadFlights(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("flights", err);
       updateStatus("flights", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

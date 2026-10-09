@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => { controller.abort(); }, 15000);
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 15000);
 
     const resp = await fetch(`${NLNOG_LG}/prefix?q=${encodeURIComponent(prefix)}`, {
       signal: controller.signal,

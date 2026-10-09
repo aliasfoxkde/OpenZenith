@@ -83,7 +83,8 @@ export function createAnnotationManager(viewer: CesiumType.Viewer, Cesium: typeo
     const entities: CesiumType.Entity[] = [];
 
     if (mode === "marker") {
-      const p = points[0];
+      // bounds: the early return above requires points.length > 0
+      const p = points[0]!;
       const entity = viewer.entities.add({
         id: `${id}-pt`,
         position: Cesium.Cartesian3.fromDegrees(p.lng, p.lat),
@@ -144,7 +145,8 @@ export function createAnnotationManager(viewer: CesiumType.Viewer, Cesium: typeo
       });
       entities.push(polygon);
     } else if (mode === "text") {
-      const p = points[0];
+      // bounds: the early return above requires points.length > 0
+      const p = points[0]!;
       const entity = viewer.entities.add({
         id: `${id}-text`,
         position: Cesium.Cartesian3.fromDegrees(p.lng, p.lat),
@@ -211,7 +213,9 @@ export function createAnnotationManager(viewer: CesiumType.Viewer, Cesium: typeo
       type: "Feature" as const,
       geometry:
         ann.type === "marker"
-          ? { type: "Point" as const, coordinates: [ann.points[0].lng, ann.points[0].lat] }
+          ? // bounds: marker annotations are only created from finish(), which
+            // requires at least one point
+            { type: "Point" as const, coordinates: [ann.points[0]!.lng, ann.points[0]!.lat] }
           : ann.type === "line"
             ? { type: "LineString" as const, coordinates: ann.points.map((p) => [p.lng, p.lat]) }
             : {

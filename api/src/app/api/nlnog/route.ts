@@ -57,7 +57,11 @@ export async function GET() {
     const nodes = rawNodes
       .filter((n): n is NlnogNode & { geo: string } => Boolean(n.geo))
       .map((n) => {
-        const [lat, lon] = n.geo.split(",").map(Number);
+        const parts = n.geo.split(",").map(Number);
+        // A missing part is undefined; ?? NaN makes isNaN() treat it exactly
+        // as it did before (undefined coerces to NaN).
+        const lat = parts[0] ?? NaN;
+        const lon = parts[1] ?? NaN;
         return {
           id: n.id,
           hostname: n.hostname,

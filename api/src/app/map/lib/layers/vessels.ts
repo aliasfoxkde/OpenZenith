@@ -215,7 +215,7 @@ export function addVessels(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("vessels", err);
       setStatus(handle, "vessels", "error");
-      }
+    }
   };
 
   void connect();

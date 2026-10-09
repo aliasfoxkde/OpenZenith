@@ -25,11 +25,12 @@ function quantize(elev: Int16Array, vmin: number, range: number, bits: number): 
   const vmax = (1 << bits) - 1;
   const out = new Int16Array(elev.length);
   for (let i = 0; i < elev.length; i++) {
+    // bounds: i < elev.length
     if (bits >= 16) {
-      out[i] = elev[i] - vmin;
+      out[i] = elev[i]! - vmin;
       continue;
     }
-    const q = Math.round(((elev[i] - vmin) * vmax) / range);
+    const q = Math.round(((elev[i]! - vmin) * vmax) / range);
     out[i] = Math.max(0, Math.min(vmax, q));
   }
   return out;
@@ -39,21 +40,23 @@ function quantize(elev: Int16Array, vmin: number, range: number, bits: number): 
 function encodeResiduals(quantized: Int16Array, height: number, width: number, predictor: Predictor): Int16Array {
   if (predictor === PRED_NONE) return quantized.slice();
 
+  // bounds: quantized is height*width and row/prevRow/idx/j all stay inside
+  // that extent
   const res = new Int16Array(quantized.length);
-  res[0] = quantized[0];
-  for (let j = 1; j < width; j++) res[j] = quantized[j] - quantized[j - 1];
+  res[0] = quantized[0]!;
+  for (let j = 1; j < width; j++) res[j] = quantized[j]! - quantized[j - 1]!;
 
   for (let i = 1; i < height; i++) {
     const row = i * width;
     const prevRow = (i - 1) * width;
-    res[row] = quantized[row] - quantized[prevRow];
+    res[row] = quantized[row]! - quantized[prevRow]!;
     for (let j = 1; j < width; j++) {
       const idx = row + j;
       if (predictor === PRED_LEFT) {
-        res[idx] = quantized[idx] - quantized[idx - 1];
+        res[idx] = quantized[idx]! - quantized[idx - 1]!;
       } else {
-        const predicted = quantized[idx - 1] + quantized[prevRow + j] - quantized[prevRow + j - 1];
-        res[idx] = quantized[idx] - predicted;
+        const predicted = quantized[idx - 1]! + quantized[prevRow + j]! - quantized[prevRow + j - 1]!;
+        res[idx] = quantized[idx]! - predicted;
       }
     }
   }
@@ -110,7 +113,9 @@ function residualBytes(residuals: Int16Array): Uint8Array {
 function buildRealCodecTile(residuals: Int16Array, compressor: typeof COMP_BROTLI | typeof COMP_ZSTD): ArrayBuffer {
   const head = buildHeader(0, 0, 16, PRED_NONE, compressor);
   const body =
-    compressor === COMP_BROTLI ? brotliCompressSync(residualBytes(residuals)) : zstdCompressSync(residualBytes(residuals));
+    compressor === COMP_BROTLI
+      ? brotliCompressSync(residualBytes(residuals))
+      : zstdCompressSync(residualBytes(residuals));
   const tile = new Uint8Array(head.length + body.length);
   tile.set(head, 0);
   tile.set(body, head.length);
@@ -131,7 +136,9 @@ function encodeTile(
 
 function gridFrom(values: number[][], width: number): Int16Array {
   const out = new Int16Array(values.length * width);
-  values.forEach((row, i) => { out.set(row, i * width); });
+  values.forEach((row, i) => {
+    out.set(row, i * width);
+  });
   return out;
 }
 
@@ -241,7 +248,13 @@ describe("decodeOZT2", () => {
       ],
       4,
     );
-    const tile = encodeTile(elev, 4, 4, { vmin: 0, range: 0, bits: 16, predictor: PRED_GRADIENT, compressor: COMP_ZLIB });
+    const tile = encodeTile(elev, 4, 4, {
+      vmin: 0,
+      range: 0,
+      bits: 16,
+      predictor: PRED_GRADIENT,
+      compressor: COMP_ZLIB,
+    });
 
     const result = await decodeOZT2(tile);
 
@@ -251,7 +264,13 @@ describe("decodeOZT2", () => {
 
   it("applies a negative min-elevation offset", async () => {
     const elev = Int16Array.from([-400, -300, -250, -100]);
-    const tile = encodeTile(elev, 2, 2, { vmin: -400, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_ZLIB });
+    const tile = encodeTile(elev, 2, 2, {
+      vmin: -400,
+      range: 0,
+      bits: 16,
+      predictor: PRED_NONE,
+      compressor: COMP_ZLIB,
+    });
 
     const result = await decodeOZT2(tile);
 
@@ -270,7 +289,13 @@ describe("decodeOZT2", () => {
       ],
       4,
     );
-    const tile = encodeTile(elev, 4, 4, { vmin: 1000, range: 255, bits: 8, predictor: PRED_NONE, compressor: COMP_ZLIB });
+    const tile = encodeTile(elev, 4, 4, {
+      vmin: 1000,
+      range: 255,
+      bits: 8,
+      predictor: PRED_NONE,
+      compressor: COMP_ZLIB,
+    });
 
     const result = await decodeOZT2(tile);
 
@@ -322,17 +347,38 @@ describe("decodeOZT2", () => {
   });
 
   it.each([7, 17])("rejects bits_per_pixel of %i", async (bits) => {
-    const tile = buildTile({ vmin: 0, range: 0, bits, predictor: PRED_NONE, compressor: COMP_ZLIB, residuals: new Int16Array(4) });
+    const tile = buildTile({
+      vmin: 0,
+      range: 0,
+      bits,
+      predictor: PRED_NONE,
+      compressor: COMP_ZLIB,
+      residuals: new Int16Array(4),
+    });
     await expect(decodeOZT2(tile)).rejects.toThrow(`Invalid bits_per_pixel: ${bits}`);
   });
 
   it("rejects an invalid predictor", async () => {
-    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: 3, compressor: COMP_ZLIB, residuals: new Int16Array(4) });
+    const tile = buildTile({
+      vmin: 0,
+      range: 0,
+      bits: 16,
+      predictor: 3,
+      compressor: COMP_ZLIB,
+      residuals: new Int16Array(4),
+    });
     await expect(decodeOZT2(tile)).rejects.toThrow("Invalid predictor: 3");
   });
 
   it("rejects an invalid compressor", async () => {
-    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: 3, residuals: new Int16Array(4) });
+    const tile = buildTile({
+      vmin: 0,
+      range: 0,
+      bits: 16,
+      predictor: PRED_NONE,
+      compressor: 3,
+      residuals: new Int16Array(4),
+    });
     await expect(decodeOZT2(tile)).rejects.toThrow("Invalid compressor: 3");
   });
 
@@ -397,7 +443,13 @@ describe("decodeOZT2Sync", () => {
       ],
       3,
     );
-    const tile = encodeTile(elev, 3, 3, { vmin: -40, range: 0, bits: 16, predictor: PRED_GRADIENT, compressor: COMP_ZLIB });
+    const tile = encodeTile(elev, 3, 3, {
+      vmin: -40,
+      range: 0,
+      bits: 16,
+      predictor: PRED_GRADIENT,
+      compressor: COMP_ZLIB,
+    });
 
     const result = decodeOZT2Sync(tile, unzlibSync);
 
@@ -425,7 +477,13 @@ describe("decodeOZT2Sync", () => {
     elev[5] = 21;
     elev[6] = 31;
     elev[7] = 41;
-    const tile = encodeTile(elev, 1, 128, { vmin: 10, range: 255, bits: 8, predictor: PRED_LEFT, compressor: COMP_ZLIB });
+    const tile = encodeTile(elev, 1, 128, {
+      vmin: 10,
+      range: 255,
+      bits: 8,
+      predictor: PRED_LEFT,
+      compressor: COMP_ZLIB,
+    });
 
     const result = decodeOZT2Sync(tile, unzlibSync);
 
@@ -439,7 +497,14 @@ describe("decodeOZT2Sync", () => {
   });
 
   it("requires an inflate function for zlib tiles", () => {
-    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: COMP_ZLIB, residuals: new Int16Array(4) });
+    const tile = buildTile({
+      vmin: 0,
+      range: 0,
+      bits: 16,
+      predictor: PRED_NONE,
+      compressor: COMP_ZLIB,
+      residuals: new Int16Array(4),
+    });
     expect(() => decodeOZT2Sync(tile)).toThrow("Provide inflateFn for zlib decode in workers.");
   });
 
@@ -484,7 +549,14 @@ describe("decodeOZT2Sync", () => {
   it("rejects a compressor the sync decoder cannot dispatch", () => {
     // The sync entry point performs no header validation (unlike decodeOZT2),
     // so an unknown compressor code reaches its own guard instead.
-    const tile = buildTile({ vmin: 0, range: 0, bits: 16, predictor: PRED_NONE, compressor: 3, residuals: new Int16Array(4) });
+    const tile = buildTile({
+      vmin: 0,
+      range: 0,
+      bits: 16,
+      predictor: PRED_NONE,
+      compressor: 3,
+      residuals: new Int16Array(4),
+    });
     expect(() => decodeOZT2Sync(tile, unzlibSync)).toThrow("Compressor 3 not supported in sync mode");
   });
 

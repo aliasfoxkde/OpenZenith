@@ -70,7 +70,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { dem, rows: gridRows, cols: gridCols, minPixelX, minPixelY } = await assembleTerrainGrid({
+    const {
+      dem,
+      rows: gridRows,
+      cols: gridCols,
+      minPixelX,
+      minPixelY,
+    } = await assembleTerrainGrid({
       lat,
       lon,
       radius,
@@ -87,7 +93,8 @@ export async function POST(request: NextRequest) {
     for (let r = 0; r < gridRows; r++) {
       for (let c = 0; c < gridCols; c++) {
         const idx = r * gridCols + c;
-        if (accum[idx] < thresh) continue;
+        // bounds: idx is a row-major cell of the gridRows*gridCols accum grid
+        if (accum[idx]! < thresh) continue;
 
         // Start of a stream segment — trace downhill
         const coords: [number, number][] = [];
@@ -96,7 +103,7 @@ export async function POST(request: NextRequest) {
 
         while (cr >= 0 && cr < gridRows && cc >= 0 && cc < gridCols) {
           const cidx = cr * gridCols + cc;
-          if (accum[cidx] < thresh || visited[cidx]) break;
+          if (accum[cidx]! < thresh || visited[cidx]) break; // bounds: cidx in range, as above
           visited[cidx] = 1;
 
           // Convert grid position to lat/lon via global pixel space —
@@ -104,10 +111,11 @@ export async function POST(request: NextRequest) {
           const { lat: cellLat, lon: cellLon } = pixelToLatLon(zoom, minPixelX + cc + 0.5, minPixelY + cr + 0.5);
           coords.push([Math.round(cellLon * 1e6) / 1e6, Math.round(cellLat * 1e6) / 1e6]);
 
-          const d = flowDir[cidx];
+          const d = flowDir[cidx]!; // bounds: cidx in range, as above
           if (d === -1) break;
-          cr += D8_DR[d];
-          cc += D8_DC[d];
+          // bounds: flowDir holds 0..7 (-1 excluded above); D8_* are 8-entry tables
+          cr += D8_DR[d]!;
+          cc += D8_DC[d]!;
         }
 
         if (coords.length >= 2) {

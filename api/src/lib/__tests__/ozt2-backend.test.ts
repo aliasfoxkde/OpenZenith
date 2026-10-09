@@ -191,7 +191,9 @@ describe("OZT2HuggingFaceBackend", () => {
     fetchMock.mockImplementation((_input: string, init?: RequestInit) => {
       const signal = init?.signal;
       return new Promise<Response>((_resolve, reject) => {
-        signal?.addEventListener("abort", () => { reject(new Error("The operation was aborted")); });
+        signal?.addEventListener("abort", () => {
+          reject(new Error("The operation was aborted"));
+        });
       });
     });
 
@@ -211,7 +213,7 @@ describe("OZT2HuggingFaceBackend", () => {
     await backend.getElevation(lat, lon);
 
     expect(cachePutMock).toHaveBeenCalledTimes(1);
-    const [key, data] = cachePutMock.mock.calls[0];
+    const [key, data] = cachePutMock.mock.calls[0]!;
     expect(key).toBe(tileKey(lat, lon, 10));
     expect(data.byteLength).toBeGreaterThan(0);
   });

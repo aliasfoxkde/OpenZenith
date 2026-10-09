@@ -533,10 +533,7 @@ interface SatelliteJsApi {
     positionEci: { x: number; y: number; z: number },
     gstime: number,
   ): { longitude: number; latitude: number; height: number };
-  eciToEcf(
-    positionEci: { x: number; y: number; z: number },
-    gstime: number,
-  ): { x: number; y: number; z: number };
+  eciToEcf(positionEci: { x: number; y: number; z: number }, gstime: number): { x: number; y: number; z: number };
   degreesLat(radians: number): number;
   degreesLong(radians: number): number;
 }

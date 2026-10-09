@@ -27,9 +27,7 @@ const KM_PER_DEG_LAT = 111.32;
 export function waterwaysBbox(lat: number, lon: number): string {
   const latHalf = RADIUS_KM / KM_PER_DEG_LAT;
   const lonHalf = latHalf / Math.max(Math.cos((lat * Math.PI) / 180), 0.1);
-  return [lon - lonHalf, lat - latHalf, lon + lonHalf, lat + latHalf]
-    .map((v) => v.toFixed(4))
-    .join(",");
+  return [lon - lonHalf, lat - latHalf, lon + lonHalf, lat + latHalf].map((v) => v.toFixed(4)).join(",");
 }
 
 /**

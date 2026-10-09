@@ -40,118 +40,79 @@ interface LayerModule {
 // fetched on first add; earthquakes resolves from the main chunk (still eager).
 // Partial: callers pass arbitrary registry ids, so lookup can miss.
 const LAYER_LOADERS: Partial<Record<string, () => Promise<LayerModule>>> = {
-  hillshade: () =>
-    import("./hillshade").then((m) => ({ add: m.addHillshade, remove: m.removeHillshade })),
+  hillshade: () => import("./hillshade").then((m) => ({ add: m.addHillshade, remove: m.removeHillshade })),
   elevationColor: () =>
     import("./elevation-color").then((m) => ({ add: m.addElevationColor, remove: m.removeElevationColor })),
   elevationAccuracy: () =>
     import("./elevation-accuracy").then((m) => ({ add: m.addElevationAccuracy, remove: m.removeElevationAccuracy })),
-  contours: () =>
-    import("./contours").then((m) => ({ add: m.addContours, remove: m.removeContours })),
-  earthquakes: () =>
-    import("./earthquakes").then((m) => ({ add: m.addEarthquakes, remove: m.removeEarthquakes })),
-  warnings: () =>
-    import("./warnings").then((m) => ({ add: m.addWarnings, remove: m.removeWarnings })),
-  events: () =>
-    import("./events").then((m) => ({ add: m.addNaturalEvents, remove: m.removeNaturalEvents })),
-  radar: () =>
-    import("./radar").then((m) => ({ add: m.addRadar, remove: m.removeRadar })),
-  waterways: () =>
-    import("./waterways").then((m) => ({ add: m.addWaterways, remove: m.removeWaterways })),
+  contours: () => import("./contours").then((m) => ({ add: m.addContours, remove: m.removeContours })),
+  earthquakes: () => import("./earthquakes").then((m) => ({ add: m.addEarthquakes, remove: m.removeEarthquakes })),
+  warnings: () => import("./warnings").then((m) => ({ add: m.addWarnings, remove: m.removeWarnings })),
+  events: () => import("./events").then((m) => ({ add: m.addNaturalEvents, remove: m.removeNaturalEvents })),
+  radar: () => import("./radar").then((m) => ({ add: m.addRadar, remove: m.removeRadar })),
+  waterways: () => import("./waterways").then((m) => ({ add: m.addWaterways, remove: m.removeWaterways })),
   hurricaneTracks: () =>
     import("./hurricanes").then((m) => ({ add: m.addHurricaneTracks, remove: m.removeHurricaneTracks })),
-  nlnogNodes: () =>
-    import("./nlnog").then((m) => ({ add: m.addNLNOGNodes, remove: m.removeNLNOGNodes })),
-  wildfires: () =>
-    import("./wildfires").then((m) => ({ add: m.addWildfires, remove: m.removeWildfires })),
-  buildings: () =>
-    import("./buildings").then((m) => ({ add: m.addBuildings, remove: m.removeBuildings })),
+  nlnogNodes: () => import("./nlnog").then((m) => ({ add: m.addNLNOGNodes, remove: m.removeNLNOGNodes })),
+  wildfires: () => import("./wildfires").then((m) => ({ add: m.addWildfires, remove: m.removeWildfires })),
+  buildings: () => import("./buildings").then((m) => ({ add: m.addBuildings, remove: m.removeBuildings })),
   populationDensity: () =>
     import("./population").then((m) => ({ add: m.addPopulationDensity, remove: m.removePopulationDensity })),
-  landCover: () =>
-    import("./landcover").then((m) => ({ add: m.addLandCover, remove: m.removeLandCover })),
-  sentinel2: () =>
-    import("./sentinel2").then((m) => ({ add: m.addSentinel2, remove: m.removeSentinel2 })),
-  airQuality: () =>
-    import("./airquality").then((m) => ({ add: m.addAirQuality, remove: m.removeAirQuality })),
-  flights: () =>
-    import("./flights").then((m) => ({ add: m.addFlights, remove: m.removeFlights })),
-  militaryFlights: () =>
-    import("./military").then((m) => ({ add: m.addMilitary, remove: m.removeMilitary })),
-  vessels: () =>
-    import("./vessels").then((m) => ({ add: m.addVessels, remove: m.removeVessels })),
+  landCover: () => import("./landcover").then((m) => ({ add: m.addLandCover, remove: m.removeLandCover })),
+  sentinel2: () => import("./sentinel2").then((m) => ({ add: m.addSentinel2, remove: m.removeSentinel2 })),
+  airQuality: () => import("./airquality").then((m) => ({ add: m.addAirQuality, remove: m.removeAirQuality })),
+  flights: () => import("./flights").then((m) => ({ add: m.addFlights, remove: m.removeFlights })),
+  militaryFlights: () => import("./military").then((m) => ({ add: m.addMilitary, remove: m.removeMilitary })),
+  vessels: () => import("./vessels").then((m) => ({ add: m.addVessels, remove: m.removeVessels })),
   marineWeather: () =>
     import("./marine-weather").then((m) => ({ add: m.addMarineWeather, remove: m.removeMarineWeather })),
-  spaceWeather: () =>
-    import("./space-weather").then((m) => ({ add: m.addSpaceWeather, remove: m.removeSpaceWeather })),
-  lightning: () =>
-    import("./lightning").then((m) => ({ add: m.addLightning, remove: m.removeLightning })),
-  nightLights: () =>
-    import("./night-lights").then((m) => ({ add: m.addNightLights, remove: m.removeNightLights })),
-  volcanoes: () =>
-    import("./volcanoes").then((m) => ({ add: m.addVolcanoes, remove: m.removeVolcanoes })),
-  gdacs: () =>
-    import("./gdacs").then((m) => ({ add: m.addGdacs, remove: m.removeGdacs })),
-  floods: () =>
-    import("./floods").then((m) => ({ add: m.addFloods, remove: m.removeFloods })),
+  spaceWeather: () => import("./space-weather").then((m) => ({ add: m.addSpaceWeather, remove: m.removeSpaceWeather })),
+  lightning: () => import("./lightning").then((m) => ({ add: m.addLightning, remove: m.removeLightning })),
+  nightLights: () => import("./night-lights").then((m) => ({ add: m.addNightLights, remove: m.removeNightLights })),
+  volcanoes: () => import("./volcanoes").then((m) => ({ add: m.addVolcanoes, remove: m.removeVolcanoes })),
+  gdacs: () => import("./gdacs").then((m) => ({ add: m.addGdacs, remove: m.removeGdacs })),
+  floods: () => import("./floods").then((m) => ({ add: m.addFloods, remove: m.removeFloods })),
   fireTemperature: () =>
     import("./fire-temperature").then((m) => ({ add: m.addFireTemperature, remove: m.removeFireTemperature })),
   sarBackscatter: () =>
     import("./sar-backscatter").then((m) => ({ add: m.addSarBackscatter, remove: m.removeSarBackscatter })),
-  seaIce: () =>
-    import("./sea-ice").then((m) => ({ add: m.addSeaIce, remove: m.removeSeaIce })),
-  burnScars: () =>
-    import("./burn-scars").then((m) => ({ add: m.addBurnScars, remove: m.removeBurnScars })),
+  seaIce: () => import("./sea-ice").then((m) => ({ add: m.addSeaIce, remove: m.removeSeaIce })),
+  burnScars: () => import("./burn-scars").then((m) => ({ add: m.addBurnScars, remove: m.removeBurnScars })),
   aviationWeather: () =>
     import("./aviation-weather").then((m) => ({ add: m.addAviationWeather, remove: m.removeAviationWeather })),
-  satellites: () =>
-    import("./satellites").then((m) => ({ add: m.addSatellites, remove: m.removeSatellites })),
-  bathymetry: () =>
-    import("./bathymetry").then((m) => ({ add: m.addBathymetry, remove: m.removeBathymetry })),
+  satellites: () => import("./satellites").then((m) => ({ add: m.addSatellites, remove: m.removeSatellites })),
+  bathymetry: () => import("./bathymetry").then((m) => ({ add: m.addBathymetry, remove: m.removeBathymetry })),
   satellite: () =>
     import("./satellite-imagery").then((m) => ({ add: m.addSatelliteImagery, remove: m.removeSatelliteImagery })),
   dynamicSurfaceWater: () =>
-    import("./dynamic-surface-water").then((m) => ({ add: m.addDynamicSurfaceWater, remove: m.removeDynamicSurfaceWater })),
+    import("./dynamic-surface-water").then((m) => ({
+      add: m.addDynamicSurfaceWater,
+      remove: m.removeDynamicSurfaceWater,
+    })),
   disturbanceAlerts: () =>
     import("./disturbance-alerts").then((m) => ({ add: m.addDisturbanceAlerts, remove: m.removeDisturbanceAlerts })),
-  so2Volcanic: () =>
-    import("./so2-volcanic").then((m) => ({ add: m.addSo2Volcanic, remove: m.removeSo2Volcanic })),
-  no2Pollution: () =>
-    import("./no2-pollution").then((m) => ({ add: m.addNo2Pollution, remove: m.removeNo2Pollution })),
+  so2Volcanic: () => import("./so2-volcanic").then((m) => ({ add: m.addSo2Volcanic, remove: m.removeSo2Volcanic })),
+  no2Pollution: () => import("./no2-pollution").then((m) => ({ add: m.addNo2Pollution, remove: m.removeNo2Pollution })),
   precipitation: () =>
     import("./precipitation").then((m) => ({ add: m.addPrecipitation, remove: m.removePrecipitation })),
-  soilMoisture: () =>
-    import("./soil-moisture").then((m) => ({ add: m.addSoilMoisture, remove: m.removeSoilMoisture })),
-  ndvi: () =>
-    import("./ndvi").then((m) => ({ add: m.addNdvi, remove: m.removeNdvi })),
-  sst: () =>
-    import("./sst").then((m) => ({ add: m.addSST, remove: m.removeSST })),
-  chlorophyll: () =>
-    import("./chlorophyll").then((m) => ({ add: m.addChlorophyll, remove: m.removeChlorophyll })),
-  snowCover: () =>
-    import("./snow-cover").then((m) => ({ add: m.addSnowCover, remove: m.removeSnowCover })),
-  seaSalinity: () =>
-    import("./sea-salinity").then((m) => ({ add: m.addSeaSalinity, remove: m.removeSeaSalinity })),
-  seaHeight: () =>
-    import("./sea-height").then((m) => ({ add: m.addSeaHeight, remove: m.removeSeaHeight })),
-  oceanCurrents: () =>
-    import("./currents").then((m) => ({ add: m.addOceanCurrents, remove: m.removeOceanCurrents })),
-  floodHazard: () =>
-    import("./flood-hazard").then((m) => ({ add: m.addFloodHazard, remove: m.removeFloodHazard })),
+  soilMoisture: () => import("./soil-moisture").then((m) => ({ add: m.addSoilMoisture, remove: m.removeSoilMoisture })),
+  ndvi: () => import("./ndvi").then((m) => ({ add: m.addNdvi, remove: m.removeNdvi })),
+  sst: () => import("./sst").then((m) => ({ add: m.addSST, remove: m.removeSST })),
+  chlorophyll: () => import("./chlorophyll").then((m) => ({ add: m.addChlorophyll, remove: m.removeChlorophyll })),
+  snowCover: () => import("./snow-cover").then((m) => ({ add: m.addSnowCover, remove: m.removeSnowCover })),
+  seaSalinity: () => import("./sea-salinity").then((m) => ({ add: m.addSeaSalinity, remove: m.removeSeaSalinity })),
+  seaHeight: () => import("./sea-height").then((m) => ({ add: m.addSeaHeight, remove: m.removeSeaHeight })),
+  oceanCurrents: () => import("./currents").then((m) => ({ add: m.addOceanCurrents, remove: m.removeOceanCurrents })),
+  floodHazard: () => import("./flood-hazard").then((m) => ({ add: m.addFloodHazard, remove: m.removeFloodHazard })),
   landslideHazard: () =>
     import("./landslide-hazard").then((m) => ({ add: m.addLandslideHazard, remove: m.removeLandslideHazard })),
   droughtHazard: () =>
     import("./drought-hazard").then((m) => ({ add: m.addDroughtHazard, remove: m.removeDroughtHazard })),
-  pm25: () =>
-    import("./pm25").then((m) => ({ add: m.addPM25, remove: m.removePM25 })),
-  aod: () =>
-    import("./aod").then((m) => ({ add: m.addAOD, remove: m.removeAOD })),
-  equator: () =>
-    import("./equator").then((m) => ({ add: m.addEquator, remove: m.removeEquator })),
-  canopyHeight: () =>
-    import("./canopy-height").then((m) => ({ add: m.addCanopyHeight, remove: m.removeCanopyHeight })),
-  biomass: () =>
-    import("./biomass").then((m) => ({ add: m.addBiomass, remove: m.removeBiomass })),
+  pm25: () => import("./pm25").then((m) => ({ add: m.addPM25, remove: m.removePM25 })),
+  aod: () => import("./aod").then((m) => ({ add: m.addAOD, remove: m.removeAOD })),
+  equator: () => import("./equator").then((m) => ({ add: m.addEquator, remove: m.removeEquator })),
+  canopyHeight: () => import("./canopy-height").then((m) => ({ add: m.addCanopyHeight, remove: m.removeCanopyHeight })),
+  biomass: () => import("./biomass").then((m) => ({ add: m.addBiomass, remove: m.removeBiomass })),
 };
 
 /**

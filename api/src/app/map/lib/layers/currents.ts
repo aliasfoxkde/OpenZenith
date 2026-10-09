@@ -3,7 +3,12 @@ import { removeLayerIfPresent, removeSourceIfPresent } from "./types";
 
 /* ─── Ocean Currents — Windy.com-style Flow Particle Renderer ─── */
 
-const OCEAN_CURRENTS = [
+interface OceanCurrent {
+  name: string;
+  path: [number, number][];
+}
+
+const OCEAN_CURRENTS: OceanCurrent[] = [
   {
     name: "Gulf Stream",
     path: [
@@ -244,9 +249,10 @@ function buildFlowField(): void {
 
   for (const current of OCEAN_CURRENTS) {
     const path = current.path;
+    // bounds: i < path.length - 1, so path[i] and path[i + 1] both exist
     for (let i = 0; i < path.length - 1; i++) {
-      const [x1, y1] = path[i];
-      const [x2, y2] = path[i + 1];
+      const [x1, y1] = path[i]!;
+      const [x2, y2] = path[i + 1]!;
       if (Math.abs(x2 - x1) > 180) continue;
 
       const dx = x2 - x1;
@@ -280,21 +286,24 @@ function buildFlowField(): void {
 
           const weight = Math.pow(1 - dist / 8, 1.5); // smooth falloff
           const idx = gy * GRID_W + gx;
-          flowField[idx].dx += ndx * weight;
-          flowField[idx].dy += ndy * weight;
+          // bounds: gx/gy range-checked against GRID_W/GRID_H above;
+          // flowField is GRID_W * GRID_H long
+          flowField[idx]!.dx += ndx * weight;
+          flowField[idx]!.dy += ndy * weight;
         }
       }
     }
   }
 
   // Normalize vectors and compute magnitudes
+  // bounds: i < flowField.length and flowField is GRID_W * GRID_H long
   for (let i = 0; i < flowField.length; i++) {
-    const v = flowField[i];
+    const v = flowField[i]!;
     const mag = Math.sqrt(v.dx * v.dx + v.dy * v.dy);
     flowMag[i] = mag;
     if (mag > 0.001) {
-      flowField[i].dx /= mag;
-      flowField[i].dy /= mag;
+      flowField[i]!.dx /= mag;
+      flowField[i]!.dy /= mag;
     }
   }
 }
@@ -319,6 +328,11 @@ interface FlowParticle {
 
 const PARTICLE_COUNT = 6000;
 const MAX_TRAIL = 50;
+
+// bounds: every trail index below is (k % MAX_TRAIL) * 2 (+1) with k in
+// [0, MAX_TRAIL), inside the Float32Array(MAX_TRAIL * 2) from createParticle.
+// Hot render loop — assertions only, no arithmetic changes.
+const trailAt = (t: Float32Array, i: number): number => t[i]!;
 
 let canvasEl: HTMLCanvasElement | null = null;
 let animFrame = 0;
@@ -350,16 +364,18 @@ function createParticle(): FlowParticle {
 
 function spawnParticle(p: FlowParticle): void {
   // Pick a random cell with flow above threshold
+  // bounds: gx/gy come from Math.floor(random * GRID_W/GRID_H), so idx stays
+  // in [0, GRID_W * GRID_H) for both flowMag and flowField
   for (let attempt = 0; attempt < 80; attempt++) {
     const gx = Math.floor(Math.random() * GRID_W);
     const gy = Math.floor(Math.random() * GRID_H);
     const idx = gy * GRID_W + gx;
-    const mag = flowMag[idx];
+    const mag = flowMag[idx]!;
     if (mag > 0.15) {
       const lon = gx - 180 + 0.5;
       const lat = 90 - gy - 0.5;
       // Perpendicular spread — tighter near path, wider away
-      const angle = Math.atan2(flowField[idx].dy, flowField[idx].dx);
+      const angle = Math.atan2(flowField[idx]!.dy, flowField[idx]!.dx);
       const spread = (Math.random() - 0.5) * 4;
       p.x = lon + Math.cos(angle + Math.PI / 2) * spread;
       p.y = lat + Math.sin(angle + Math.PI / 2) * spread;
@@ -373,8 +389,9 @@ function spawnParticle(p: FlowParticle): void {
     }
   }
   // Fallback on a path directly
-  const c = OCEAN_CURRENTS[Math.floor(Math.random() * OCEAN_CURRENTS.length)];
-  const pt = c.path[Math.floor(Math.random() * c.path.length)];
+  // bounds: random index over OCEAN_CURRENTS / c.path — always in range
+  const c = OCEAN_CURRENTS[Math.floor(Math.random() * OCEAN_CURRENTS.length)]!;
+  const pt = c.path[Math.floor(Math.random() * c.path.length)]!;
   p.x = pt[0] + (Math.random() - 0.5) * 3;
   p.y = pt[1] + (Math.random() - 0.5) * 3;
   p.age = 0;
@@ -390,7 +407,9 @@ function getFlowAt(lon: number, lat: number): { dx: number; dy: number; mag: num
   const gy = Math.floor(90 - lat + 0.5);
   if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) return { dx: 0, dy: 0, mag: 0 };
   const idx = gy * GRID_W + gx;
-  return { dx: flowField[idx].dx, dy: flowField[idx].dy, mag: flowMag[idx] };
+  // bounds: gx/gy range-checked above; both grids are GRID_W * GRID_H long
+  const cell = flowField[idx]!;
+  return { dx: cell.dx, dy: cell.dy, mag: flowMag[idx]! };
 }
 
 function renderFrame() {
@@ -423,8 +442,10 @@ function renderFrame() {
     G = 140,
     B = 255;
 
+  // bounds: i < particles.length; trail reads go through trailAt (ring-buffer
+  // indices mod MAX_TRAIL, array is MAX_TRAIL * 2 — see comment at trailAt)
   for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
+    const p = particles[i]!;
 
     // Advect
     const v = getFlowAt(p.x, p.y);
@@ -474,14 +495,14 @@ function renderFrame() {
     const startIdx = (p.trailHead - count + MAX_TRAIL) % MAX_TRAIL;
 
     ctx.beginPath();
-    let sx = p.trail[startIdx * 2];
-    let sy = p.trail[startIdx * 2 + 1];
+    let sx = trailAt(p.trail, startIdx * 2);
+    let sy = trailAt(p.trail, startIdx * 2 + 1);
     ctx.moveTo(sx, sy);
 
     for (let j = 1; j < count; j++) {
       const idx = (startIdx + j) % MAX_TRAIL;
-      const tx = p.trail[idx * 2];
-      const ty = p.trail[idx * 2 + 1];
+      const tx = trailAt(p.trail, idx * 2);
+      const ty = trailAt(p.trail, idx * 2 + 1);
       // Skip discontinuities (from map movement)
       if (Math.abs(tx - sx) > 200 || Math.abs(ty - sy) > 200) {
         ctx.moveTo(tx, ty);
@@ -503,13 +524,13 @@ function renderFrame() {
       const headStart = Math.max(0, count - Math.floor(count * 0.3));
       const headIdx = (startIdx + headStart) % MAX_TRAIL;
       ctx.beginPath();
-      sx = p.trail[headIdx * 2];
-      sy = p.trail[headIdx * 2 + 1];
+      sx = trailAt(p.trail, headIdx * 2);
+      sy = trailAt(p.trail, headIdx * 2 + 1);
       ctx.moveTo(sx, sy);
       for (let j = headStart + 1; j < count; j++) {
         const idx = (startIdx + j) % MAX_TRAIL;
-        const tx = p.trail[idx * 2];
-        const ty = p.trail[idx * 2 + 1];
+        const tx = trailAt(p.trail, idx * 2);
+        const ty = trailAt(p.trail, idx * 2 + 1);
         if (Math.abs(tx - sx) > 200 || Math.abs(ty - sy) > 200) {
           ctx.moveTo(tx, ty);
         } else {
@@ -590,7 +611,8 @@ export function addOceanCurrents(map: maplibregl.Map, _handle: LayerHandle): voi
   markers = [];
   for (const current of OCEAN_CURRENTS) {
     const midIdx = Math.floor(current.path.length / 2);
-    const [midLon, midLat] = current.path[midIdx];
+    // bounds: midIdx < path.length and every path has >= 2 points
+    const [midLon, midLat] = current.path[midIdx]!;
     const el = document.createElement("div");
     el.textContent = current.name;
     el.style.cssText = `

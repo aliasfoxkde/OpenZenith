@@ -214,9 +214,9 @@ describe("Query API — parameter validation edges", () => {
   });
 
   it("drops unknown include entries and normalises case and whitespace", async () => {
-    const resp = await (await GET())(
-      mockRequest("/api/query?lat=40.7&lon=-74.0&include= Elevation , bogus , WEATHER "),
-    );
+    const resp = await (
+      await GET()
+    )(mockRequest("/api/query?lat=40.7&lon=-74.0&include= Elevation , bogus , WEATHER "));
     expect(resp.status).toBe(200);
     const data = await bodyAs<QueryBody>(resp);
     expect(data.query?.includes).toEqual(["elevation", "weather"]);
@@ -227,10 +227,18 @@ describe("Query API — parameter validation edges", () => {
   it("clamps forecast_days into the 1..7 range", async () => {
     vi.mocked(getWeather).mockClear();
     // 0 is falsy so it falls through to the default rather than clamping to 1
-    await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=0"));
-    await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=-2"));
-    await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=99"));
-    await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=abc"));
+    await (
+      await GET()
+    )(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=0"));
+    await (
+      await GET()
+    )(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=-2"));
+    await (
+      await GET()
+    )(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=99"));
+    await (
+      await GET()
+    )(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&forecast_days=abc"));
 
     const days = vi.mocked(getWeather).mock.calls.map((call) => call[2]);
     expect(days).toEqual([3, 1, 7, 3]);
@@ -314,9 +322,7 @@ describe("Query API — reverse geocode (address) include", () => {
   });
 
   it("returns a null address on a non-2xx upstream response", async () => {
-    stubFetch([
-      { match: "nominatim.openstreetmap.org", respond: () => new Response("blocked", { status: 403 }) },
-    ]);
+    stubFetch([{ match: "nominatim.openstreetmap.org", respond: () => new Response("blocked", { status: 403 }) }]);
     const data = await bodyAs<QueryBody>(await (await GET())(mockRequest(QUERY)));
     expect(data.address).toBeNull();
   });
@@ -357,8 +363,10 @@ describe("Query API — reverse geocode (address) include", () => {
         respond: () => new Response(JSON.stringify({ display_name: "somewhere" }), { status: 200 }),
       },
     ]);
-    await (await GET())(mockRequest(`${QUERY}&address_zoom=${raw}`));
-    const url = fetchMock.mock.calls[0][0] as string;
+    await (
+      await GET()
+    )(mockRequest(`${QUERY}&address_zoom=${raw}`));
+    const url = fetchMock.mock.calls[0]![0] as string; // bounds: the matcher answered one fetch
     expect(url).toContain(`zoom=${expected}`);
     expect(url).toContain("addressdetails=1");
   });
@@ -369,9 +377,7 @@ describe("Query API — weather include", () => {
 
   it("converts metric values to imperial units", async () => {
     vi.mocked(getWeather).mockResolvedValueOnce(metricWeather());
-    const resp = await (
-      await GET()
-    )(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&units=imperial"));
+    const resp = await (await GET())(mockRequest("/api/query?lat=40.7&lon=-74.0&include=weather&units=imperial"));
     expect(resp.status).toBe(200);
     const data = await bodyAs<QueryBody>(resp);
 
@@ -509,7 +515,9 @@ describe("Query API — waterways include", () => {
         respond: () => new Response(JSON.stringify({ elements: [] }), { status: 200 }),
       },
     ]);
-    await (await GET())(mockRequest("/api/query?lat=10.5&lon=20.25&include=waterways"));
+    await (
+      await GET()
+    )(mockRequest("/api/query?lat=10.5&lon=20.25&include=waterways"));
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://overpass-api.de/api/interpreter");
     expect(init.method).toBe("POST");

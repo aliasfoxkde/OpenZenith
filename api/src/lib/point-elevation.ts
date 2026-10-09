@@ -75,10 +75,11 @@ export async function getPointElevation(
   const localRow = pixel.row - chunkRow * 256;
   const localCol = pixel.col - chunkCol * 256;
 
-  if (localRow >= chunkHeight || localCol >= chunkWidth) return null;
+  if (localRow < 0 || localCol < 0 || localRow >= chunkHeight || localCol >= chunkWidth) return null;
 
   const elevation = data[localRow * chunkWidth + localCol];
-  if (elevation === NODATA) return null;
+  // bounds: localRow/localCol checked against chunkHeight/chunkWidth above
+  if (elevation === undefined || elevation === NODATA) return null;
 
   return {
     elevation,
@@ -118,25 +119,16 @@ async function getPointElevationFromAWS(
       height = 0;
 
     while (offset < pngBytes.length) {
-      const chunkLen =
-        (pngBytes[offset] << 24) | (pngBytes[offset + 1] << 16) | (pngBytes[offset + 2] << 8) | pngBytes[offset + 3];
-      const chunkType = String.fromCharCode(
-        pngBytes[offset + 4],
-        pngBytes[offset + 5],
-        pngBytes[offset + 6],
-        pngBytes[offset + 7],
-      );
+      // A chunk we inspect needs len+type (+8 bytes of IHDR data); a
+      // truncated tail must stop the parse, not read zero-fill bytes.
+      // Every pngBytes[i]! below is covered by the offset+16 guard.
+      if (offset + 16 > pngBytes.length) break;
+      const b = (i: number) => pngBytes[i]!;
+      const chunkLen = (b(offset) << 24) | (b(offset + 1) << 16) | (b(offset + 2) << 8) | b(offset + 3);
+      const chunkType = String.fromCharCode(b(offset + 4), b(offset + 5), b(offset + 6), b(offset + 7));
       if (chunkType === "IHDR") {
-        width =
-          (pngBytes[offset + 8] << 24) |
-          (pngBytes[offset + 9] << 16) |
-          (pngBytes[offset + 10] << 8) |
-          pngBytes[offset + 11];
-        height =
-          (pngBytes[offset + 12] << 24) |
-          (pngBytes[offset + 13] << 16) |
-          (pngBytes[offset + 14] << 8) |
-          pngBytes[offset + 15];
+        width = (b(offset + 8) << 24) | (b(offset + 9) << 16) | (b(offset + 10) << 8) | b(offset + 11);
+        height = (b(offset + 12) << 24) | (b(offset + 13) << 16) | (b(offset + 14) << 8) | b(offset + 15);
       } else if (chunkType === "IDAT") {
         idatChunks.push(pngBytes.subarray(offset + 8, offset + 8 + chunkLen));
       }
@@ -199,34 +191,40 @@ async function getPointElevationFromAWS(
     // Apply row filters to get the target row
     const bpp = 3; // RGB
     const stride = width * bpp;
+    // Truncated IDAT must stop the decode here — the filter readers below
+    // assume a full-width row (a short subarray would read undefined→0).
+    if (raw.length < (py + 1) * (1 + stride)) return null;
     const prevRow = new Uint8Array(stride);
     const currRow = new Uint8Array(stride);
 
     for (let row = 0; row <= py; row++) {
       const rowStart = row * (1 + stride);
-      const filterType = raw[rowStart];
+      const filterType = raw[rowStart] ?? 0; // absent trailing byte: unfiltered (as `default` did)
       const rowData = raw.subarray(rowStart + 1, rowStart + 1 + stride);
+      // bounds: stride-guard above makes rowData full-length; currRow/prevRow
+      // are stride-sized allocations, so every index below is in [0, stride)
+      const rd = (arr: Uint8Array, i: number) => arr[i]!;
 
       switch (filterType) {
         case 0:
           currRow.set(rowData);
           break;
         case 1:
-          for (let i = 0; i < stride; i++) currRow[i] = (rowData[i] + (i >= bpp ? currRow[i - bpp] : 0)) & 0xff;
+          for (let i = 0; i < stride; i++) currRow[i] = (rd(rowData, i) + (i >= bpp ? rd(currRow, i - bpp) : 0)) & 0xff;
           break;
         case 2:
-          for (let i = 0; i < stride; i++) currRow[i] = (rowData[i] + prevRow[i]) & 0xff;
+          for (let i = 0; i < stride; i++) currRow[i] = (rd(rowData, i) + rd(prevRow, i)) & 0xff;
           break;
         case 4: {
           for (let i = 0; i < stride; i++) {
-            const a = i >= bpp ? currRow[i - bpp] : 0;
-            const b = prevRow[i];
-            const c = i >= bpp ? prevRow[i - bpp] : 0;
+            const a = i >= bpp ? rd(currRow, i - bpp) : 0;
+            const b = rd(prevRow, i);
+            const c = i >= bpp ? rd(prevRow, i - bpp) : 0;
             const p = a + b - c;
             const pa = Math.abs(p - a),
               pb = Math.abs(p - b),
               pc = Math.abs(p - c);
-            currRow[i] = (rowData[i] + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff;
+            currRow[i] = (rd(rowData, i) + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff;
           }
           break;
         }
@@ -237,9 +235,10 @@ async function getPointElevationFromAWS(
       prevRow.set(currRow);
     }
 
-    const r = currRow[px * 3];
-    const g = currRow[px * 3 + 1];
-    const b = currRow[px * 3 + 2];
+    // bounds: px < width checked above and currRow is width*3 bytes
+    const r = currRow[px * 3]!;
+    const g = currRow[px * 3 + 1]!;
+    const b = currRow[px * 3 + 2]!;
     const elevation = r === 0 && g === 0 && b === 0 ? NODATA : Math.round(r * 256 + g + b / 256 - 32768);
 
     if (elevation === NODATA) return null;

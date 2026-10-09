@@ -228,7 +228,9 @@ export const AIRCRAFT_ICONS: Record<string, string> = Object.fromEntries(
 /** Get aircraft icon SVG by OpenSky category code */
 export function getAircraftIcon(cat: number | string): string {
   const key = String(cat);
-  return AIRCRAFT_ICONS[key] || AIRCRAFT_ICONS["0"];
+  // bounds: RAW_AIRCRAFT_ICONS always declares the "0" fallback key and
+  // AIRCRAFT_ICONS maps the raw entries 1:1
+  return AIRCRAFT_ICONS[key] || AIRCRAFT_ICONS["0"]!;
 }
 
 /**
@@ -240,8 +242,16 @@ export function getAircraftIcon(cat: number | string): string {
  */
 export const ICONS = {
   flight: AIRCRAFT_ICONS["3"],
-  vessel: svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.21-1.66-3.5-2.68H7.5C6.22 18.21 5.21 19.53 4 19.68 2.78 20.53 1.39 21 0 21c2 0 2-2 2-2s0-2 2-2c1.39 0 2.78-.47 4-1.32 1.21-.15 2.22-1.47 3.5-2.68h9c1.28 1.21 2.29 2.53 3.5 2.68 1.22.85 2.61 1.32 4 1.32 2 0 2 2 2 2s0 2-2 2zM12 2l4 4h-3l-1 7H12l-1-7H8l4-4z" fill="currentColor"/></svg>`),
-  satellite: svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="none" stroke="currentColor" stroke-width="1"/><path d="M3.51 9h17M3.51 15h17" fill="none" stroke="currentColor" stroke-width="1" transform="rotate(45 12 12)"/></svg>`),
-  eq: svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M16 2L8 22M12 2l8 20M2 12h20" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`),
-  storm: svgIcon(`<svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01z" fill="currentColor"/></svg>`),
+  vessel: svgIcon(
+    `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.21-1.66-3.5-2.68H7.5C6.22 18.21 5.21 19.53 4 19.68 2.78 20.53 1.39 21 0 21c2 0 2-2 2-2s0-2 2-2c1.39 0 2.78-.47 4-1.32 1.21-.15 2.22-1.47 3.5-2.68h9c1.28 1.21 2.29 2.53 3.5 2.68 1.22.85 2.61 1.32 4 1.32 2 0 2 2 2 2s0 2-2 2zM12 2l4 4h-3l-1 7H12l-1-7H8l4-4z" fill="currentColor"/></svg>`,
+  ),
+  satellite: svgIcon(
+    `<svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="none" stroke="currentColor" stroke-width="1"/><path d="M3.51 9h17M3.51 15h17" fill="none" stroke="currentColor" stroke-width="1" transform="rotate(45 12 12)"/></svg>`,
+  ),
+  eq: svgIcon(
+    `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M16 2L8 22M12 2l8 20M2 12h20" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`,
+  ),
+  storm: svgIcon(
+    `<svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01z" fill="currentColor"/></svg>`,
+  ),
 };

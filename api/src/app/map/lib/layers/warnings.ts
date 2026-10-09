@@ -90,7 +90,7 @@ export function addWarnings(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("warnings", err);
       setStatus(handle, "warnings", "error");
-      }
+    }
   };
 
   void doLoad();

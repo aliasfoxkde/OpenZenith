@@ -31,10 +31,8 @@ describe("Tiles OGC API", () => {
     const data = await bodyAs<TilesInfoBody>(resp);
     const hrefs = data.links.map((link) => link.href);
     expect(hrefs).toContain("http://localhost:8788/api/openapi.json");
-    expect(data.tileMatrixSetLinks[0].href).toBe("http://localhost:8788/api/tiles/WebMercatorQuad");
-    expect(data.links.find((link) => link.rel === "self")?.href).toBe(
-      "http://localhost:8788/api/tiles",
-    );
+    expect(data.tileMatrixSetLinks[0]!.href).toBe("http://localhost:8788/api/tiles/WebMercatorQuad");
+    expect(data.links.find((link) => link.rel === "self")?.href).toBe("http://localhost:8788/api/tiles");
   });
 
   it("exposes CORS preflight", async () => {

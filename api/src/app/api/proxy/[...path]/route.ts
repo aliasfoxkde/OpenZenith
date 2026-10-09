@@ -61,7 +61,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const forwardUrl = parsed.toString();
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => { controller.abort(); }, 30000);
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 30000);
     // Clear the abort timer even when fetch rejects, so a failed request
     // doesn't leave a 30s live timer holding the controller.
     let resp: Response;

@@ -154,7 +154,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
       rings.placeAt(C.Math.toDegrees(cg.latitude), C.Math.toDegrees(cg.longitude));
       setRingCount(rings.state.entities.length);
     }, C.ScreenSpaceEventType.LEFT_CLICK);
-    return () => { handler.destroy(); };
+    return () => {
+      handler.destroy();
+    };
   }, [ringPlacing, viewerRef, cesiumRef]);
 
   // ─── BGP ───
@@ -193,7 +195,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
   // Annotations have no click wiring: AnnotationManager.handleClick has no
   // caller, so a shape cannot be started from the globe.
 
-  const sectionToggle = (key: SectionKey) => { setOpenSections((p) => ({ ...p, [key]: !p[key] })); };
+  const sectionToggle = (key: SectionKey) => {
+    setOpenSections((p) => ({ ...p, [key]: !p[key] }));
+  };
 
   const annModes: { mode: AnnotationType; label: string }[] = [
     { mode: "marker", label: "📌 Marker" },
@@ -210,7 +214,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-measure`}
           title="Measurement"
           open={openSections.measure}
-          onToggle={() => { sectionToggle("measure"); }}
+          onToggle={() => {
+            sectionToggle("measure");
+          }}
           bodyId={`wv-section-body-measure`}
         />
         <div
@@ -286,7 +292,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-search`}
           title="Search / Navigate"
           open={openSections.search}
-          onToggle={() => { sectionToggle("search"); }}
+          onToggle={() => {
+            sectionToggle("search");
+          }}
           bodyId={`wv-section-body-search`}
         />
         <div
@@ -301,7 +309,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               placeholder="Search location..."
               aria-label="Search location"
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); }}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void doSearch();
               }}
@@ -318,7 +328,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               }}
             />
             <button
-              onClick={() => { void doSearch(); }}
+              onClick={() => {
+                void doSearch();
+              }}
               disabled={!searchQuery.trim() || searchLoading}
               style={{
                 background: "#333",
@@ -337,7 +349,13 @@ export function ToolsWidget({ globe }: WidgetProps) {
           {searchResults.length > 0 && (
             <div className="wv-search-results">
               {searchResults.map((r, i) => (
-                <button key={i} className="wv-search-item" onClick={() => { globe.flyTo(r.lat, r.lon, 50000); }}>
+                <button
+                  key={i}
+                  className="wv-search-item"
+                  onClick={() => {
+                    globe.flyTo(r.lat, r.lon, 50000);
+                  }}
+                >
                   {r.display_name}
                 </button>
               ))}
@@ -362,7 +380,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               placeholder="Lat"
               aria-label="Latitude"
               value={coordLat}
-              onChange={(e) => { setCoordLat(e.target.value); }}
+              onChange={(e) => {
+                setCoordLat(e.target.value);
+              }}
               style={{
                 width: 80,
                 background: "#1a1a1a",
@@ -380,7 +400,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               placeholder="Lon"
               aria-label="Longitude"
               value={coordLon}
-              onChange={(e) => { setCoordLon(e.target.value); }}
+              onChange={(e) => {
+                setCoordLon(e.target.value);
+              }}
               style={{
                 width: 80,
                 background: "#1a1a1a",
@@ -422,7 +444,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-bookmarks`}
           title="Bookmarks"
           open={openSections.bookmarks}
-          onToggle={() => { sectionToggle("bookmarks"); }}
+          onToggle={() => {
+            sectionToggle("bookmarks");
+          }}
           bodyId={`wv-section-body-bookmarks`}
         />
         <div
@@ -437,7 +461,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               placeholder="Bookmark name..."
               aria-label="Bookmark name"
               value={bmName}
-              onChange={(e) => { setBmName(e.target.value); }}
+              onChange={(e) => {
+                setBmName(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") saveBookmark();
               }}
@@ -475,7 +501,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               <div className="wv-bookmark-item" key={bm.id}>
                 <button
                   className="wv-bookmark-name wv-bookmark-name-btn"
-                  onClick={() => { globe.flyTo(bm.lat, bm.lon, bm.alt); }}
+                  onClick={() => {
+                    globe.flyTo(bm.lat, bm.lon, bm.alt);
+                  }}
                   title={`${bm.lat}, ${bm.lon} @ ${bm.alt.toLocaleString()}m`}
                 >
                   {bm.name}
@@ -507,7 +535,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-draw`}
           title="Draw / Annotate"
           open={openSections.draw}
-          onToggle={() => { sectionToggle("draw"); }}
+          onToggle={() => {
+            sectionToggle("draw");
+          }}
           bodyId={`wv-section-body-draw`}
         />
         <div
@@ -589,7 +619,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-screenshot`}
           title="Screenshot"
           open={openSections.screenshot}
-          onToggle={() => { sectionToggle("screenshot"); }}
+          onToggle={() => {
+            sectionToggle("screenshot");
+          }}
           bodyId={`wv-section-body-screenshot`}
         />
         <div
@@ -614,7 +646,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-rangeRings`}
           title="Range Rings"
           open={openSections.rangeRings}
-          onToggle={() => { sectionToggle("rangeRings"); }}
+          onToggle={() => {
+            sectionToggle("rangeRings");
+          }}
           bodyId={`wv-section-body-rangeRings`}
         />
         <div
@@ -630,7 +664,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               value={ringRadii}
               placeholder="50, 100, 200"
               aria-label="Ring radii in kilometers"
-              onChange={(e) => { setRingRadii(e.target.value); }}
+              onChange={(e) => {
+                setRingRadii(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   if (ringRef.current)
@@ -658,7 +694,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             <button
               className={`wv-widget-bar-btn ${ringPlacing ? "" : ""}`}
-              onClick={() => { setRingPlacing(!ringPlacing); }}
+              onClick={() => {
+                setRingPlacing(!ringPlacing);
+              }}
               style={ringPlacing ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
             >
               {ringPlacing ? "Click Globe to Place" : "Place Rings"}
@@ -688,7 +726,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
           id={`wv-section-header-bgp`}
           title="BGP Lookup"
           open={openSections.bgp}
-          onToggle={() => { sectionToggle("bgp"); }}
+          onToggle={() => {
+            sectionToggle("bgp");
+          }}
           bodyId={`wv-section-body-bgp`}
         />
         <div
@@ -703,7 +743,9 @@ export function ToolsWidget({ globe }: WidgetProps) {
               placeholder="e.g. 8.8.8.0/24"
               aria-label="BGP prefix"
               value={bgpPrefix}
-              onChange={(e) => { setBgpPrefix(e.target.value); }}
+              onChange={(e) => {
+                setBgpPrefix(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") doBgp();
               }}

@@ -133,9 +133,13 @@ export default function StudioPage() {
     // The seed above reads the viewport once; sidebar/backdrop geometry keeps
     // deriving from isMobile, so track resizes from here on (same pattern as
     // the map page).
-    const check = () => { setIsMobile(window.innerWidth < 768); };
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
     window.addEventListener("resize", check);
-    return () => { window.removeEventListener("resize", check); };
+    return () => {
+      window.removeEventListener("resize", check);
+    };
   }, []);
 
   /* ─── Keyboard shortcuts ─── */
@@ -148,7 +152,9 @@ export default function StudioPage() {
       if (e.key === "Escape") setSidebarOpen(false);
     };
     window.addEventListener("keydown", handler);
-    return () => { window.removeEventListener("keydown", handler); };
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
   }, []);
 
   /* ─── Map init ─── */
@@ -172,7 +178,8 @@ export default function StudioPage() {
         // back to dark.
         const session = readStudioSession();
         const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
-        const bm = registry[session.basemap] ?? BASEMAPS.dark;
+        // bounds: "dark" is a literal entry in BASEMAPS, so the fallback is always defined
+        const bm = registry[session.basemap] ?? BASEMAPS.dark!;
         const map = new mlgl.Map({
           container: containerRef.current,
           style: {
@@ -233,9 +240,10 @@ export default function StudioPage() {
               layers: ["draw-vertices", "draw-selected-vertex"],
             });
             if (vertexFeatures.length > 0) {
+              // bounds: vertexFeatures.length > 0 checked above
               // properties is typed `{[k: string]: any} | null`, which TS
               // collapses to any — the `typeof` guard below is the real check.
-              const vi = vertexFeatures[0].properties.vertexIndex as number | undefined;
+              const vi = vertexFeatures[0]!.properties.vertexIndex as number | undefined;
               if (typeof vi === "number") {
                 setDrawState((prev) => ({ ...prev, selectedVertexIndex: vi }));
                 return;
@@ -252,14 +260,15 @@ export default function StudioPage() {
               layers: ["draw-line", "draw-fill", "draw-selected"],
             });
             if (clicked.length > 0) {
-              // Query results always carry geometry (geometry: null is an
-              // uploaded-file concern, not a rendered-feature one).
-              const clickedCoords: unknown = clicked[0].geometry.coordinates;
+              // bounds: clicked.length > 0 checked above. Query results always
+              // carry geometry (geometry: null is an uploaded-file concern, not
+              // a rendered-feature one).
+              const clickedCoords: unknown = clicked[0]!.geometry.coordinates;
               if (clickedCoords) {
                 const idx = ds.features.findIndex((f) => {
                   // Uploaded GeoJSON may carry `geometry: null` (RFC 7946), which
                   // the global Feature type hides — read through a nullable view.
-                  const geometry = f.geometry as (typeof f.geometry) | null;
+                  const geometry = f.geometry as typeof f.geometry | null;
                   const fc: unknown = geometry?.coordinates;
                   if (!fc) return false;
                   return JSON.stringify(fc) === JSON.stringify(clickedCoords);
@@ -547,8 +556,9 @@ export default function StudioPage() {
           const c = geom.coordinates as [number, number];
           bounds.extend(c);
         } else if (f.bbox) {
-          bounds.extend([f.bbox[0], f.bbox[1]]);
-          bounds.extend([f.bbox[2], f.bbox[3]]);
+          // bounds: a GeoJSON bbox is always the 4-number [w, s, e, n] extent
+          bounds.extend([f.bbox[0]!, f.bbox[1]!]);
+          bounds.extend([f.bbox[2]!, f.bbox[3]!]);
         }
       }
       if (!bounds.isEmpty()) {
@@ -623,17 +633,18 @@ export default function StudioPage() {
     }
 
     // Use Web Worker for interpolation computation
-    computeProfileInWorker(coords[0], coords[1])
-      .then(({ points }) => { setProfileCoords(points); })
+    // bounds: coords.length >= 2 returned early above, so endpoints exist
+    computeProfileInWorker(coords[0]!, coords[1]!)
+      .then(({ points }) => {
+        setProfileCoords(points);
+      })
       .catch(() => {
         // Fallback: simple interpolation on main thread
+        const [start, end] = [coords[0]!, coords[1]!];
         const interpolated: [number, number][] = [];
         for (let i = 0; i <= 100; i++) {
           const t = i / 100;
-          interpolated.push([
-            coords[0][0] + t * (coords[1][0] - coords[0][0]),
-            coords[0][1] + t * (coords[1][1] - coords[0][1]),
-          ]);
+          interpolated.push([start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])]);
         }
         setProfileCoords(interpolated);
       });
@@ -762,7 +773,8 @@ export default function StudioPage() {
       {/* main landmark: contains the map, sidebar, status bar and onboarding
           overlay so axe's `region` rule (WCAG 1.3.6) is satisfied. */}
       <main
-        id="main-content" tabIndex={-1}
+        id="main-content"
+        tabIndex={-1}
         style={{
           flex: 1,
           display: "flex",
@@ -775,223 +787,225 @@ export default function StudioPage() {
             is a full-viewport map, so the h1 is announced but not rendered.
             Sits inside <main> so axe's `region` rule stays satisfied. */}
         <h1 className="oz-sr-only">OpenZenith Studio</h1>
-      <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
-        {/* Map */}
-        <div style={{ flex: 1, position: "relative" }}>
-          <ErrorBoundary>
-            <div
-              ref={containerRef}
-              id="studio-map"
-              role="application"
-              aria-label="Interactive map canvas"
-              tabIndex={0}
-              style={{ width: "100%", height: "100%" }}
-            />
-          </ErrorBoundary>
+        <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
+          {/* Map */}
+          <div style={{ flex: 1, position: "relative" }}>
+            <ErrorBoundary>
+              <div
+                ref={containerRef}
+                id="studio-map"
+                role="application"
+                aria-label="Interactive map canvas"
+                tabIndex={0}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </ErrorBoundary>
 
-          {/* Loading */}
-          {!mapReady && !loadError && <MapLoading dark message="Loading Studio..." />}
+            {/* Loading */}
+            {!mapReady && !loadError && <MapLoading dark message="Loading Studio..." />}
 
-          {/* Error */}
-          {loadError && <MapLoading error dark message="Failed to load MapLibre GL" />}
+            {/* Error */}
+            {loadError && <MapLoading error dark message="Failed to load MapLibre GL" />}
 
-          {/* Sidebar toggle */}
-          {mapReady && (
-            <button
-              onClick={() => { setSidebarOpen(!sidebarOpen); }}
-              aria-label={sidebarOpen ? "Close sidebar panel" : "Open sidebar panel"}
-              aria-expanded={sidebarOpen}
-              aria-controls="studio-sidebar"
-              style={{
-                position: "absolute",
-                top: 10,
-                right: isMobile ? 10 : sidebarOpen ? 380 : 10,
-                zIndex: isMobile && sidebarOpen ? 60 : 10,
-                background: "rgba(0,0,0,0.6)",
-                border: "none",
-                color: "#fff",
-                padding: "6px 10px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 16,
-                transition: "right 0.2s",
-              }}
-            >
-              {sidebarOpen ? "\u276F" : "\u276E"}
-            </button>
-          )}
+            {/* Sidebar toggle */}
+            {mapReady && (
+              <button
+                onClick={() => {
+                  setSidebarOpen(!sidebarOpen);
+                }}
+                aria-label={sidebarOpen ? "Close sidebar panel" : "Open sidebar panel"}
+                aria-expanded={sidebarOpen}
+                aria-controls="studio-sidebar"
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: isMobile ? 10 : sidebarOpen ? 380 : 10,
+                  zIndex: isMobile && sidebarOpen ? 60 : 10,
+                  background: "rgba(0,0,0,0.6)",
+                  border: "none",
+                  color: "#fff",
+                  padding: "6px 10px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 16,
+                  transition: "right 0.2s",
+                }}
+              >
+                {sidebarOpen ? "\u276F" : "\u276E"}
+              </button>
+            )}
 
-          {/* Mobile overlay backdrop */}
-          {isMobile && sidebarOpen && (
-            <div
-              onClick={() => { setSidebarOpen(false); }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.4)",
-                zIndex: 50,
-              }}
-            />
-          )}
+            {/* Mobile overlay backdrop */}
+            {isMobile && sidebarOpen && (
+              <div
+                onClick={() => {
+                  setSidebarOpen(false);
+                }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.4)",
+                  zIndex: 50,
+                }}
+              />
+            )}
 
-          {/* Elevation profile overlay */}
-          {profileCoords && (
-            <ElevationProfile
-              dark={dark}
-              coordinates={profileCoords}
-              onClose={() => {
-                setProfileCoords(null);
-                // Same cleanup path as handleProfileChange(null): drop the
-                // profile line and endpoint markers from the map.
-                const map = mapRef.current;
-                if (map) {
-                  for (const id of ["profile-line", "profile-marker-0", "profile-marker-1"]) {
-                    try {
-                      map.removeLayer(id);
-                    } catch {
-                      /* not added yet */
-                    }
-                    try {
-                      map.removeSource(id);
-                    } catch {
-                      /* not added yet */
+            {/* Elevation profile overlay */}
+            {profileCoords && (
+              <ElevationProfile
+                dark={dark}
+                coordinates={profileCoords}
+                onClose={() => {
+                  setProfileCoords(null);
+                  // Same cleanup path as handleProfileChange(null): drop the
+                  // profile line and endpoint markers from the map.
+                  const map = mapRef.current;
+                  if (map) {
+                    for (const id of ["profile-line", "profile-marker-0", "profile-marker-1"]) {
+                      try {
+                        map.removeLayer(id);
+                      } catch {
+                        /* not added yet */
+                      }
+                      try {
+                        map.removeSource(id);
+                      } catch {
+                        /* not added yet */
+                      }
                     }
                   }
-                }
-              }}
-            />
-          )}
+                }}
+              />
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div
+            id="studio-sidebar"
+            role="complementary"
+            aria-label="Studio tools panel"
+            style={{
+              width: isMobile ? "100%" : 380,
+              maxWidth: isMobile ? 380 : undefined,
+              borderLeft: `1px solid ${border}`,
+              overflow: "hidden",
+              flexShrink: 0,
+              transition: isMobile ? "transform 0.2s, opacity 0.2s" : "margin-right 0.2s, opacity 0.2s",
+              ...(isMobile
+                ? {
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    transform: sidebarOpen ? "translateX(0)" : "translateX(100%)",
+                    opacity: sidebarOpen ? 1 : 0,
+                    zIndex: 55,
+                    background: "#0a0a0a",
+                  }
+                : {
+                    marginRight: sidebarOpen ? 0 : -380,
+                    opacity: sidebarOpen ? 1 : 0,
+                  }),
+            }}
+          >
+            {mapReady && (
+              <ToolPanel
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                dark={dark}
+                map={mapRef.current}
+                cursorPos={cursorPos}
+                layers={layers}
+                onToggleLayer={toggleLayer}
+                basemap={basemap}
+                onBasemapChange={handleBasemapChange}
+                datasets={datasets}
+                onDatasetsChange={handleDatasetsChange}
+                onToggleDataset={handleToggleDataset}
+                onRemoveDataset={handleRemoveDataset}
+                onOverpassResult={handleOverpassResult}
+                onVisualizationChange={handleVisualizationChange}
+                drawState={drawState}
+                onDrawStateChange={setDrawState}
+                imperial={imperial}
+                onImperialChange={setImperial}
+                onProfileChange={handleProfileChange}
+                profileClickRef={profileClickRef}
+                flowPathClickRef={flowPathClickRef}
+                flowPathActive={activeTab === "flowpath"}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Sidebar */}
+        {/* Status bar */}
         <div
-          id="studio-sidebar"
-          role="complementary"
-          aria-label="Studio tools panel"
+          role="status"
+          aria-label="Map status bar"
+          aria-live="polite"
           style={{
-            width: isMobile ? "100%" : 380,
-            maxWidth: isMobile ? 380 : undefined,
-            borderLeft: `1px solid ${border}`,
-            overflow: "hidden",
+            height: 28,
             flexShrink: 0,
-            transition: isMobile ? "transform 0.2s, opacity 0.2s" : "margin-right 0.2s, opacity 0.2s",
-            ...(isMobile
-              ? {
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  transform: sidebarOpen ? "translateX(0)" : "translateX(100%)",
-                  opacity: sidebarOpen ? 1 : 0,
-                  zIndex: 55,
-                  background: "#0a0a0a",
-                }
-              : {
-                  marginRight: sidebarOpen ? 0 : -380,
-                  opacity: sidebarOpen ? 1 : 0,
-                }),
-          }}
-        >
-          {mapReady && (
-            <ToolPanel
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              dark={dark}
-              map={mapRef.current}
-              cursorPos={cursorPos}
-              layers={layers}
-              onToggleLayer={toggleLayer}
-              basemap={basemap}
-              onBasemapChange={handleBasemapChange}
-              datasets={datasets}
-              onDatasetsChange={handleDatasetsChange}
-              onToggleDataset={handleToggleDataset}
-              onRemoveDataset={handleRemoveDataset}
-              onOverpassResult={handleOverpassResult}
-              onVisualizationChange={handleVisualizationChange}
-              drawState={drawState}
-              onDrawStateChange={setDrawState}
-              imperial={imperial}
-              onImperialChange={setImperial}
-              onProfileChange={handleProfileChange}
-              profileClickRef={profileClickRef}
-              flowPathClickRef={flowPathClickRef}
-              flowPathActive={activeTab === "flowpath"}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Status bar */}
-      <div
-        role="status"
-        aria-label="Map status bar"
-        aria-live="polite"
-        style={{
-          height: 28,
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "0 16px",
-          background: dark ? "#080808" : "#f0f0f0",
-          borderTop: `1px solid ${border}`,
-          fontSize: 11,
-          fontFamily: "monospace",
-          color: textSec,
-        }}
-      >
-        {cursorPos ? (
-          <span>
-            {cursorPos.lat.toFixed(5)}, {cursorPos.lon.toFixed(5)}
-          </span>
-        ) : (
-          <span>-</span>
-        )}
-        <span>z{zoom}</span>
-        <span>{basemap}</span>
-        {datasets.length > 0 && (
-          <span>
-            {datasets.length} dataset{datasets.length > 1 ? "s" : ""}
-          </span>
-        )}
-        {overpassLayerId && (
-          <span style={{ color: dark ? "#a78bfa" : "#6d28d9" }}>OSM query</span>
-        )}
-        <span style={{ flex: 1 }} />
-        <button
-          onClick={() => {
-            const map = mapRef.current;
-            if (map) exportMapScreenshot(map, "openzenith-studio");
-          }}
-          title="Export screenshot"
-          aria-label="Export map screenshot as PNG"
-          style={{
-            background: "none",
-            border: `1px solid ${border}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            padding: "0 16px",
+            background: dark ? "#080808" : "#f0f0f0",
+            borderTop: `1px solid ${border}`,
+            fontSize: 11,
+            fontFamily: "monospace",
             color: textSec,
-            padding: "1px 8px",
-            borderRadius: 3,
-            cursor: "pointer",
-            fontSize: 10,
           }}
         >
-          EXPORT
-        </button>
-      </div>
+          {cursorPos ? (
+            <span>
+              {cursorPos.lat.toFixed(5)}, {cursorPos.lon.toFixed(5)}
+            </span>
+          ) : (
+            <span>-</span>
+          )}
+          <span>z{zoom}</span>
+          <span>{basemap}</span>
+          {datasets.length > 0 && (
+            <span>
+              {datasets.length} dataset{datasets.length > 1 ? "s" : ""}
+            </span>
+          )}
+          {overpassLayerId && <span style={{ color: dark ? "#a78bfa" : "#6d28d9" }}>OSM query</span>}
+          <span style={{ flex: 1 }} />
+          <button
+            onClick={() => {
+              const map = mapRef.current;
+              if (map) exportMapScreenshot(map, "openzenith-studio");
+            }}
+            title="Export screenshot"
+            aria-label="Export map screenshot as PNG"
+            style={{
+              background: "none",
+              border: `1px solid ${border}`,
+              color: textSec,
+              padding: "1px 8px",
+              borderRadius: 3,
+              cursor: "pointer",
+              fontSize: 10,
+            }}
+          >
+            EXPORT
+          </button>
+        </div>
 
-      {/* Onboarding overlay */}
-      {showOnboarding && (
-        <OnboardingOverlay
-          dark={dark}
-          onDismiss={() => {
-            setShowOnboarding(false);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("openzenith-studio-onboarded", "1");
-            }
-          }}
-        />
-      )}
+        {/* Onboarding overlay */}
+        {showOnboarding && (
+          <OnboardingOverlay
+            dark={dark}
+            onDismiss={() => {
+              setShowOnboarding(false);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("openzenith-studio-onboarded", "1");
+              }
+            }}
+          />
+        )}
       </main>
     </div>
   );

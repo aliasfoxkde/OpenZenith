@@ -157,6 +157,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (!coords) return false;
         const lon = coords[0];
         const lat = coords[1];
+        // A malformed bbox or a coordinate-pair-less geometry leaves a part
+        // undefined; every comparison against undefined is false, so the
+        // explicit guards below return exactly what the chained comparisons did.
+        if (lon === undefined || lat === undefined) return false;
+        if (minLon === undefined || minLat === undefined || maxLon === undefined || maxLat === undefined) {
+          return false;
+        }
         return lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat;
       });
     }
@@ -166,7 +173,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const filters = properties.split(",").map((f) => {
         // Default the value so a filter with no ":" separator degrades to a
         // non-matching string filter instead of crashing on undefined.
-        const [key, val = ""] = f.split(":");
+        // bounds: split always returns at least one element, so key is a string.
+        const parts = f.split(":");
+        const key = parts[0]!;
+        const val = parts[1] ?? "";
         return { key, val };
       });
 

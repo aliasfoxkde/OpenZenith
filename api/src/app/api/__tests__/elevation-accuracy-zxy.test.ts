@@ -42,7 +42,8 @@ function decodePng(bytes: Uint8Array): DecodedPng {
   while (offset < bytes.length) {
     const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 8);
     const length = view.getUint32(0);
-    const type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7]);
+    // bounds: every PNG chunk carries an 8-byte header, so offset+4..+7 are in range
+    const type = String.fromCharCode(bytes[offset + 4]!, bytes[offset + 5]!, bytes[offset + 6]!, bytes[offset + 7]!);
     const data = bytes.slice(offset + 8, offset + 8 + length);
 
     if (type === "IHDR") {
@@ -73,7 +74,8 @@ function decodePng(bytes: Uint8Array): DecodedPng {
     expect(raw[y * stride]).toBe(0); // filter type None
     for (let x = 0; x < width; x++) {
       const off = y * stride + 1 + x * 3;
-      pixels.push([raw[off], raw[off + 1], raw[off + 2]]);
+      // bounds: each scanline is 1 + width*3 filter+pixel bytes and x < width
+      pixels.push([raw[off]!, raw[off + 1]!, raw[off + 2]!]);
     }
   }
   return { width, height, pixels };
@@ -100,12 +102,18 @@ afterEach(() => {
 });
 
 async function getTile(z: number, x: number, y: number): Promise<Response> {
-  return GET(new NextRequest(`http://localhost/api/elevation-accuracy/${z}/${x}/${y}`), routeCtx(String(z), String(x), String(y)));
+  return GET(
+    new NextRequest(`http://localhost/api/elevation-accuracy/${z}/${x}/${y}`),
+    routeCtx(String(z), String(x), String(y)),
+  );
 }
 
 describe("Elevation accuracy API validation (/api/elevation-accuracy)", () => {
   it("rejects non-numeric tile coordinates with 400", async () => {
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-accuracy/abc/1/1"), routeCtx("abc", "1", "1"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-accuracy/abc/1/1"),
+      routeCtx("abc", "1", "1"),
+    );
     expect(resp.status).toBe(400);
     const body = (await resp.json()) as { error: string };
     expect(body.error).toBe("Invalid tile coordinates");
@@ -119,7 +127,10 @@ describe("Elevation accuracy API validation (/api/elevation-accuracy)", () => {
   });
 
   it("strips the .png extension from the y segment", async () => {
-    const resp = await GET(new NextRequest("http://localhost/api/elevation-accuracy/8/100/60.png"), routeCtx("8", "100", "60.png"));
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-accuracy/8/100/60.png"),
+      routeCtx("8", "100", "60.png"),
+    );
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toBe("image/png");
   });

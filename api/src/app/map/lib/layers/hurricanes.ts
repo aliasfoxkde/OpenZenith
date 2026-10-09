@@ -189,7 +189,7 @@ export function addHurricaneTracks(map: maplibregl.Map, handle: LayerHandle): vo
     } catch (err) {
       warnLayerError("hurricaneTracks", err);
       setStatus(handle, "hurricaneTracks", "error");
-      }
+    }
   };
 
   void doLoad();
@@ -270,12 +270,16 @@ export function startHurricaneAnimation(
       for (const f of trackFeatures) {
         const times = (f.properties as Record<string, unknown>).times as string[];
         const _winds = (f.properties as Record<string, unknown>).winds as number[];
-        const coords = (f.geometry as GeoJSON.MultiLineString).coordinates[0];
+        // bounds: i < times.length in the loop below. A track with an empty
+        // MultiLineString would throw on the coords reads — that throw is
+        // already swallowed by the surrounding try/catch, so the assertion
+        // changes nothing at runtime.
+        const coords = (f.geometry as GeoJSON.MultiLineString).coordinates[0]!;
 
         // Find how many track points are before currentTime
         let visibleCount = 0;
         for (let i = 0; i < times.length; i++) {
-          const ms = new Date(times[i]).getTime();
+          const ms = new Date(times[i]!).getTime();
           if (!isNaN(ms) && ms <= currentTime) visibleCount = i + 1;
           else break;
         }

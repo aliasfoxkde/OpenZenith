@@ -175,9 +175,10 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     const blankedChunkRow = Math.floor(blankedRow / 256);
     const blankedLocalRow = blankedRow - blankedChunkRow * 256;
     const storage: ChunkBackend = {
-      fetchChunk: vi.fn(
-        (_name: string, row: number, col: number): Promise<ArrayBuffer> =>
-          Promise.resolve(buildChunk((r) => (row === blankedChunkRow && r === blankedLocalRow ? NODATA : 4321), row, col)),
+      fetchChunk: vi.fn((_name: string, row: number, col: number): Promise<ArrayBuffer> =>
+        Promise.resolve(
+          buildChunk((r) => (row === blankedChunkRow && r === blankedLocalRow ? NODATA : 4321), row, col),
+        ),
       ),
     };
 
@@ -237,7 +238,9 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     stubFetch(() => null);
     const calls: string[] = [];
     let releaseFirst!: () => void;
-    const secondCellArrived = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const secondCellArrived = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
     const storage: ChunkBackend = {
       fetchChunk: (srtmName: string, row: number, col: number): Promise<ArrayBuffer> => {
         calls.push(srtmName);
@@ -245,7 +248,9 @@ describe("getTileData — HuggingFace chunk assembly", () => {
           return Promise.race([
             secondCellArrived.then(() => buildChunk(() => 4321, row, col)),
             new Promise<ArrayBuffer>((_, reject) =>
-              setTimeout(() => { reject(new Error("second cell never requested — assembly is sequential")); }, 200),
+              setTimeout(() => {
+                reject(new Error("second cell never requested — assembly is sequential"));
+              }, 200),
             ),
           ]);
         }
@@ -311,7 +316,9 @@ describe("getTileData — HuggingFace chunk assembly", () => {
     // rows.
     const result = await getTileData(13, 1480, 3216, storage);
 
-    const chunkRows = new Set((storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1] as number));
+    const chunkRows = new Set(
+      (storage.fetchChunk as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1] as number),
+    );
     expect(chunkRows).toContain(14);
     expect(Array.from(result.data).every((v) => v === 777)).toBe(true);
   });
@@ -516,11 +523,16 @@ describe("getTileData — Terrarium PNG decoding", () => {
   it("returns nodata when the AWS payload cannot be decoded", async () => {
     // A valid-looking header with an IDAT that is not a zlib stream.
     const corrupt = new Uint8Array(
-      PNG_SIGNATURE.length + pngChunk("IHDR", ihdrFor(4, 2, 2)).length + pngChunk("IDAT", new TextEncoder().encode("not-a-zlib-stream")).length,
+      PNG_SIGNATURE.length +
+        pngChunk("IHDR", ihdrFor(4, 2, 2)).length +
+        pngChunk("IDAT", new TextEncoder().encode("not-a-zlib-stream")).length,
     );
     corrupt.set(PNG_SIGNATURE, 0);
     let offset = PNG_SIGNATURE.length;
-    for (const chunk of [pngChunk("IHDR", ihdrFor(4, 2, 2)), pngChunk("IDAT", new TextEncoder().encode("not-a-zlib-stream"))]) {
+    for (const chunk of [
+      pngChunk("IHDR", ihdrFor(4, 2, 2)),
+      pngChunk("IDAT", new TextEncoder().encode("not-a-zlib-stream")),
+    ]) {
       corrupt.set(chunk, offset);
       offset += chunk.length;
     }

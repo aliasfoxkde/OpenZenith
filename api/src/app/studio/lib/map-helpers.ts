@@ -89,9 +89,11 @@ function buildCategoricalExpression(data: UploadedFeatureCollection, property: s
   const values = getUniqueValues(data, property);
   const ramp = COLOR_RAMPS.categorical;
   const expr: MapLibreExpression = ["match", ["to-string", ["get", property]]];
+  // bounds: i < values.length, and i % ramp.length always indexes inside the
+  // (non-empty) categorical ramp
   for (let i = 0; i < values.length; i++) {
-    expr.push(values[i]);
-    expr.push(ramp[i % ramp.length]);
+    expr.push(values[i]!);
+    expr.push(ramp[i % ramp.length]!);
   }
   expr.push("#999"); // fallback
   return expr;

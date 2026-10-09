@@ -13,12 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  TERRAIN_NODATA,
-  assembleTerrainGrid,
-  computeAspect,
-  decimateGrid,
-} from "@/lib/terrain-grid";
+import { TERRAIN_NODATA, assembleTerrainGrid, computeAspect, decimateGrid } from "@/lib/terrain-grid";
 import { tileToLatLon } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -71,7 +66,7 @@ export async function GET(request: NextRequest) {
     const dirBins = { N: 0, NE: 0, E: 0, SE: 0, S: 0, SW: 0, W: 0, NW: 0, flat: 0 };
     let count = 0;
     for (let i = 0; i < aspectGrid.length; i++) {
-      const v = aspectGrid[i];
+      const v = aspectGrid[i]!; // bounds: i < aspectGrid.length
       if (isNaN(v)) continue;
       count++;
       if (v === -1) {
@@ -89,7 +84,14 @@ export async function GET(request: NextRequest) {
     }
 
     const ds = radius > 100 ? 4 : radius > 50 ? 2 : 1;
-    const sampledGrid = decimateGrid(aspectGrid, gridRows, gridCols, ds, (v) => !isNaN(v), (v) => v);
+    const sampledGrid = decimateGrid(
+      aspectGrid,
+      gridRows,
+      gridCols,
+      ds,
+      (v) => !isNaN(v),
+      (v) => v,
+    );
 
     const n = 2 ** zoom;
     const { north: latMax } = tileToLatLon(zoom, 0, tileYMin);

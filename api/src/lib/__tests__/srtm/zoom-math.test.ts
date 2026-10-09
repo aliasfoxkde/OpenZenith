@@ -41,7 +41,7 @@ describe("latLonToTile", () => {
       [0, 0, 5],
       [28, 86, 10],
       [-33, 151, 8],
-    ]) {
+    ] as const) {
       const { x, y } = latLonToTile(lat, lon, z);
       const b = tileToLatLon(z, x, y);
       expect(b.south).toBeLessThanOrEqual(lat);
@@ -72,7 +72,7 @@ describe("pixelToLatLon", () => {
       [28, 86, 10],
       [-33.9, 151.2, 8],
       [64.1, -21.9, 12],
-    ]) {
+    ] as const) {
       const { x, y } = latLonToTile(lat, lon, z);
       // Center pixel of the containing tile's sub-cell: tile index * 256
       // plus the fractional position, +0.5 for the pixel center.

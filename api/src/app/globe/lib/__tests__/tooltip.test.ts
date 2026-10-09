@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildEntityTooltip, escapeHtml } from "../tooltip";
 
 /** Build a Cesium-entity-shaped object with lazily-evaluated properties. */
-function entity(
-  id: string,
-  props: Record<string, unknown> = {},
-  name = "",
-): Parameters<typeof buildEntityTooltip>[0] {
+function entity(id: string, props: Record<string, unknown> = {}, name = ""): Parameters<typeof buildEntityTooltip>[0] {
   const properties: Record<string, { getValue: () => unknown }> = {};
   for (const [key, value] of Object.entries(props)) {
     properties[key] = { getValue: () => value };
@@ -40,9 +36,7 @@ describe("buildEntityTooltip", () => {
   });
 
   it("renders flights with imperial altitude and speed", () => {
-    const html = buildEntityTooltip(
-      entity("flight-abc", { altitude: 10000, velocity: 250 }, "UAL123"),
-    );
+    const html = buildEntityTooltip(entity("flight-abc", { altitude: 10000, velocity: 250 }, "UAL123"));
     expect(html).toContain("UAL123");
     expect(html).toContain("Alt: 32810ft");
     expect(html).toContain("Spd: 486kts");
@@ -78,9 +72,7 @@ describe("buildEntityTooltip", () => {
   });
 
   it("renders events with category and title fallbacks", () => {
-    const html = buildEntityTooltip(
-      entity("event-7", { category: "wildfire", title: "Fire A" }),
-    );
+    const html = buildEntityTooltip(entity("event-7", { category: "wildfire", title: "Fire A" }));
     expect(html).toContain("Fire A");
     expect(html).toContain("wildfire");
     // Title falls back to the entity name, then the literal "Event".
@@ -89,15 +81,11 @@ describe("buildEntityTooltip", () => {
   });
 
   it("falls back to the bare name for unrecognized prefixes", () => {
-    expect(buildEntityTooltip(entity("other-1", {}, "Something"))).toBe(
-      "<div>Something</div>",
-    );
+    expect(buildEntityTooltip(entity("other-1", {}, "Something"))).toBe("<div>Something</div>");
   });
 
   it("never lets a third-party name inject markup", () => {
-    const html = buildEntityTooltip(
-      entity("eq-13", { mag: 5, place: `<img src=x onerror="alert(1)">` }, "<script>"),
-    );
+    const html = buildEntityTooltip(entity("eq-13", { mag: 5, place: `<img src=x onerror="alert(1)">` }, "<script>"));
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");

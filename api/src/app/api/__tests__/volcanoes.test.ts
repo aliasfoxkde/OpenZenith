@@ -64,7 +64,10 @@ describe("Volcanoes proxy endpoint", () => {
     expect(resp.headers.get("x-volcano-status")).toBe("ok");
     // Deduped by vnum: CAP entry kept once, both advisory entries coord-backed.
     expect(fc.features).toHaveLength(3);
-    const alerts = Object.fromEntries(fc.features.map((f) => [f.properties.name, f.properties.alertLevel]));
+    // bounds: the toEqual below pins exactly these three named features
+    const alerts = Object.fromEntries(
+      fc.features.map((f): [string, string] => [f.properties.name!, f.properties.alertLevel!]),
+    );
     expect(alerts).toEqual({ "Great Sitkin": "WATCH", Gareloi: "ADVISORY", Kilauea: "WARNING" });
   });
 
@@ -75,7 +78,7 @@ describe("Volcanoes proxy endpoint", () => {
     };
     const resp = await GETViaUpstream();
     const fc = (await resp.json()) as { features: Array<{ properties: Record<string, string> }> };
-    const p = fc.features[0].properties;
+    const p = fc.features[0]!.properties; // bounds: the stubbed upstream emits one feature
     expect(p.color).toBe("#f97316"); // WATCH → orange
     expect(p.title).toBe(p.name);
     expect(p.alert).toBe(p.alertLevel);

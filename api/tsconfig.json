@@ -20,7 +20,8 @@
     },
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "noImplicitReturns": true
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
   },
   "include": [
     "next-env.d.ts",

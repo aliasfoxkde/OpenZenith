@@ -42,11 +42,12 @@ export function quadNameToBounds(quadName: string): {
   const m = quadName.match(/gebco_2025_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/);
   if (!m) return null;
 
+  // bounds: the regex has four capture groups, all defined on a match
   return {
-    latMax: parseFloat(m[1]),
-    latMin: parseFloat(m[2]),
-    lonMin: parseFloat(m[3]),
-    lonMax: parseFloat(m[4]),
+    latMax: parseFloat(m[1]!),
+    latMin: parseFloat(m[2]!),
+    lonMin: parseFloat(m[3]!),
+    lonMax: parseFloat(m[4]!),
   };
 }
 

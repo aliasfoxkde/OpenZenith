@@ -24,8 +24,8 @@ describe("getElevationFromR2", () => {
     const result = await getElevationFromR2(41.95, -73.95);
 
     expect(getPointElevationMock).toHaveBeenCalledTimes(1);
-    expect(getPointElevationMock.mock.calls[0][0]).toBe(41.95);
-    expect(getPointElevationMock.mock.calls[0][1]).toBe(-73.95);
+    expect(getPointElevationMock.mock.calls[0]![0]).toBe(41.95);
+    expect(getPointElevationMock.mock.calls[0]![1]).toBe(-73.95);
     expect(result).toEqual({
       elevation: 412,
       surface_type: "land",

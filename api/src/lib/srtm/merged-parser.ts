@@ -44,8 +44,10 @@ export function parseMergedHeader(data: Uint8Array): MergedIndex | null {
   const version = view.getUint16(8, true);
   if (version !== 1 && version !== 2) return null;
 
-  const rows = data[10];
-  const cols = data[11];
+  // bounds: data.length >= HEADER_SIZE (12) was checked above, so the two
+  // header bytes at 10/11 exist
+  const rows = data[10]!;
+  const cols = data[11]!;
 
   // The index must actually be present — a truncated header would otherwise
   // raise RangeError from the DataView reads below.
@@ -158,9 +160,11 @@ export function decodeMergedChunk(rawChunk: Uint8Array, chunkRow: number, chunkC
   for (let r = 0; r < height; r++) {
     const srcRow = r * stride;
     const dstRow = r * width;
-    data[dstRow] = rawData[srcRow]; // first pixel is the absolute value
+    // bounds: rawBytes is at least stride*stride*2 (checked above) and
+    // r/height, c/width walk within that stored square
+    data[dstRow] = rawData[srcRow]!; // first pixel is the absolute value
     for (let c = 1; c < width; c++) {
-      data[dstRow + c] = data[dstRow + c - 1] + rawData[srcRow + c];
+      data[dstRow + c] = data[dstRow + c - 1]! + rawData[srcRow + c]!;
     }
   }
   return { data, width, height };

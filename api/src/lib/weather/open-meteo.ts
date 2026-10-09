@@ -148,7 +148,8 @@ function weatherDescription(code: number): string {
 
 function windDirection(deg: number): string {
   const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-  return dirs[Math.round(deg / 22.5) % 16];
+  // bounds: deg is a compass bearing (>= 0), so round(deg/22.5) % 16 is in [0, 15]
+  return dirs[Math.round(deg / 22.5) % 16]!;
 }
 
 /**
@@ -231,17 +232,19 @@ export async function getWeather(
     const daily: WeatherDaily[] = [];
     if (d && Array.isArray(d.time)) {
       for (let i = 0; i < d.time.length; i++) {
+        // bounds: i < d.time.length; the companion daily arrays are parallel
+        // to time in the Open-Meteo payload (a short one reads undefined, as before)
         daily.push({
-          date: d.time[i],
-          tempMax: Math.round(d.temperature_2m_max[i] * 10) / 10,
-          tempMin: Math.round(d.temperature_2m_min[i] * 10) / 10,
-          precipitationSum: d.precipitation_sum[i],
-          weatherCode: d.weather_code[i],
-          weatherDescription: weatherDescription(d.weather_code[i]),
-          sunrise: d.sunrise[i],
-          sunset: d.sunset[i],
-          windSpeedMax: Math.round(d.wind_speed_10m_max[i] * 10) / 10,
-          uvIndexMax: d.uv_index_max[i],
+          date: d.time[i]!,
+          tempMax: Math.round(d.temperature_2m_max[i]! * 10) / 10,
+          tempMin: Math.round(d.temperature_2m_min[i]! * 10) / 10,
+          precipitationSum: d.precipitation_sum[i]!,
+          weatherCode: d.weather_code[i]!,
+          weatherDescription: weatherDescription(d.weather_code[i]!),
+          sunrise: d.sunrise[i]!,
+          sunset: d.sunset[i]!,
+          windSpeedMax: Math.round(d.wind_speed_10m_max[i]! * 10) / 10,
+          uvIndexMax: d.uv_index_max[i]!,
         });
       }
     }

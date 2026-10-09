@@ -32,14 +32,7 @@ const MOCK_SHORT_CSV = `SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,W
 
 // One two-point storm per Saffir-Simpson rung (max wind drives the category).
 // Line 2 mirrors IBTrACS's units row — the parser skips it (i starts at 2).
-function ladderRow(
-  sid: string,
-  name: string,
-  wind: number,
-  iso: string,
-  lat: string,
-  lon: string,
-): string {
+function ladderRow(sid: string, name: string, wind: number, iso: string, lat: string, lon: string): string {
   return `${sid},2024,NA,NORTH_ATLANTIC,${name},${iso},TS,${lat},${lon},${wind},982,main`;
 }
 const HEADER = "SID,SEASON,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO_WIND,WMO_PRES,TRACK_TYPE";
@@ -88,8 +81,8 @@ describe("Hurricanes API", () => {
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features.length).toBeGreaterThan(0);
-    expect(data.features[0].properties.name).toBe("MILTON");
-    expect(data.features[0].properties.wind).toBe(50);
+    expect(data.features[0]!.properties.name).toBe("MILTON"); // bounds: non-empty asserted above
+    expect(data.features[0]!.properties.wind).toBe(50);
   });
 
   it("returns 502 naming the upstream status on IBTrACS failure", async () => {
@@ -114,9 +107,7 @@ describe("Hurricanes API", () => {
   });
 
   it("returns error on malformed CSV", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("not,csv,at,all", { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("not,csv,at,all", { status: 200 }));
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
@@ -156,9 +147,7 @@ describe("Hurricanes API", () => {
   });
 
   it("track=full returns MultiLineString tracks with Saffir-Simpson categories", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(MOCK_TRACK_LADDER, { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(MOCK_TRACK_LADDER, { status: 200 }));
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?track=full"));
@@ -169,9 +158,7 @@ describe("Hurricanes API", () => {
     // the default active=true and 2024 timestamps.
     expect(data.features).toHaveLength(7);
 
-    const bySid = new Map<unknown, Record<string, unknown>>(
-      data.features.map((f) => [f.properties.sid, f.properties]),
-    );
+    const bySid = new Map<unknown, Record<string, unknown>>(data.features.map((f) => [f.properties.sid, f.properties]));
     expect(bySid.get("c5")?.category).toBe(5);
     expect(bySid.get("c4")?.category).toBe(4);
     expect(bySid.get("c3")?.category).toBe(3);
@@ -213,16 +200,14 @@ describe("Hurricanes API", () => {
     const resp = await GET(mockRequest("/api/hurricanes?track=full"));
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(1);
-    expect(data.features[0].properties.sid).toBe("good");
-    expect(data.features[0].properties.trackPoints).toBe(2);
+    expect(data.features[0]!.properties.sid).toBe("good"); // bounds: length 1 asserted above
+    expect(data.features[0]!.properties.trackPoints).toBe(2);
   });
 
   it("filters point features to storms active in the last 7 days", async () => {
     // MOCK_IBTRACS timestamps are 2024 — outside the 7-day cutoff, so the
     // default active=true drops them.
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(MOCK_IBTRACS, { status: 200 }),
-    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(MOCK_IBTRACS, { status: 200 }));
 
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes"));
@@ -289,7 +274,8 @@ describe("Hurricanes API", () => {
     const data = await bodyAs<HurricaneCollectionBody>(resp);
 
     expect(data.features).toHaveLength(1);
-    expect(data.features[0].properties).toMatchObject({
+    expect(data.features[0]!.properties).toMatchObject({
+      // bounds: length 1 asserted above
       sid: "ghost",
       name: "UNNAMED",
       season: 0,
@@ -316,7 +302,7 @@ describe("Hurricanes API", () => {
     const data = await bodyAs<HurricaneCollectionBody>(resp);
 
     expect(data.features).toHaveLength(1);
-    expect(data.features[0].properties).toMatchObject({ basin: "", nature: "", category: 1 });
+    expect(data.features[0]!.properties).toMatchObject({ basin: "", nature: "", category: 1 }); // bounds: length 1 asserted above
   });
 
   it("point mode covers every Saffir-Simpson rung, label and defaulting arm", async () => {
@@ -392,7 +378,8 @@ describe("Hurricanes API", () => {
     const resp = await GET(mockRequest("/api/hurricanes?active=false"));
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(1);
-    expect(data.features[0].properties).toMatchObject({
+    expect(data.features[0]!.properties).toMatchObject({
+      // bounds: length 1 asserted above
       sid: "ok3",
       season: 0,
       basin: "",

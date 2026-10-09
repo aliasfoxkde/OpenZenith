@@ -20,7 +20,9 @@ export function ViewToggle({ viewMode, onSwitch }: ViewToggleProps) {
         <button
           key={mode}
           className={`wv-view-btn ${viewMode === mode ? "active" : ""}`}
-          onClick={() => { onSwitch(mode); }}
+          onClick={() => {
+            onSwitch(mode);
+          }}
         >
           {mode === "3d" ? "3D" : mode === "columbus" ? "CB" : "2D"}
         </button>
@@ -40,12 +42,19 @@ export function ThemeSwitcher({ theme, open, onToggleOpen, onSelect }: ThemeSwit
   return (
     <div className="wv-theme-switcher">
       <button className="wv-theme-btn" onClick={onToggleOpen} title="Change theme">
-        {(THEMES as Partial<Record<string, (typeof THEMES)[string]>>)[theme]?.icon ?? THEMES.default.icon}
+        // bounds: THEMES always declares the "default" key (module constant)
+        {(THEMES as Partial<Record<string, (typeof THEMES)[string]>>)[theme]?.icon ?? THEMES.default!.icon}
       </button>
       {open && (
         <div className="wv-theme-dropdown">
           {Object.entries(THEMES).map(([k, v]) => (
-            <button key={k} className={`wv-theme-option ${theme === k ? "active" : ""}`} onClick={() => { onSelect(k); }}>
+            <button
+              key={k}
+              className={`wv-theme-option ${theme === k ? "active" : ""}`}
+              onClick={() => {
+                onSelect(k);
+              }}
+            >
               <span
                 className="swatch"
                 style={{
@@ -107,7 +116,13 @@ export function ZoomControls({
       <button className="wv-zoom-btn" onClick={onZoomOut} title="Zoom out (-)" aria-label="Zoom out">
         &minus;
       </button>
-      <button className="wv-zoom-btn" onClick={onReset} title="Reset view (R)" aria-label="Reset view" style={{ fontSize: "12px" }}>
+      <button
+        className="wv-zoom-btn"
+        onClick={onReset}
+        title="Reset view (R)"
+        aria-label="Reset view"
+        style={{ fontSize: "12px" }}
+      >
         &#8962;
       </button>
       <button
@@ -144,7 +159,13 @@ export function OrbitPresets({ onFlyToOrbit }: { onFlyToOrbit: (altKm: number, n
   return (
     <div className="wv-orbit-presets">
       {ORBIT_PRESETS.map((p) => (
-        <button key={p.name} className="wv-orbit-btn" onClick={() => { onFlyToOrbit(p.altKm, p.name); }}>
+        <button
+          key={p.name}
+          className="wv-orbit-btn"
+          onClick={() => {
+            onFlyToOrbit(p.altKm, p.name);
+          }}
+        >
           {p.label}
           <span className="alt">{p.alt}</span>
         </button>

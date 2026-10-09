@@ -36,7 +36,13 @@ export function SatellitesTab({
 
       <div className="ex-filter-group">
         <label>Group</label>
-        <select value={group} onChange={(e) => { onGroupChange(e.target.value); }} style={{ width: 160 }}>
+        <select
+          value={group}
+          onChange={(e) => {
+            onGroupChange(e.target.value);
+          }}
+          style={{ width: 160 }}
+        >
           {SATELLITE_GROUPS.map((g) => (
             <option key={g.id} value={g.id}>
               {g.label}
@@ -47,7 +53,9 @@ export function SatellitesTab({
         <input
           placeholder="STARLINK, ISS, NOAA..."
           value={search}
-          onChange={(e) => { onSearchChange(e.target.value); }}
+          onChange={(e) => {
+            onSearchChange(e.target.value);
+          }}
           style={{ width: 200 }}
         />
         <button className="primary" onClick={onFetch} disabled={loading}>
@@ -89,7 +97,8 @@ export function SatellitesTab({
               <tbody>
                 {data
                   .filter(
-                    (s: SatelliteRecord) => !search || (s.OBJECT_NAME || "").toUpperCase().includes(search.toUpperCase()),
+                    (s: SatelliteRecord) =>
+                      !search || (s.OBJECT_NAME || "").toUpperCase().includes(search.toUpperCase()),
                   )
                   .slice(0, 200)
                   .map((s: SatelliteRecord, i: number) => (

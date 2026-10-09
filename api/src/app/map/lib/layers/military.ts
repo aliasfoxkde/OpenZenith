@@ -57,7 +57,8 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
             // Same truthiness test as before; Boolean() only satisfies the
             // predicate's boolean return type.
             .filter((a: MilitaryAircraft): a is MilitaryAircraft & { lat: number; lon: number } =>
-              Boolean(a.lat && a.lon))
+              Boolean(a.lat && a.lon),
+            )
             .map((a) => ({
               type: "Feature" as const,
               geometry: { type: "Point" as const, coordinates: [a.lon, a.lat] },
@@ -98,7 +99,7 @@ export function addMilitary(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("militaryFlights", err);
       setStatus(handle, "militaryFlights", "error");
-      }
+    }
   };
 
   void doLoad();

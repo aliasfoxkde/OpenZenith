@@ -12,7 +12,9 @@ function getRecentGibsDate(): string {
   // Use 3 days ago to ensure imagery is always available.
   const d = new Date();
   d.setDate(d.getDate() - 3);
-  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+  // bounds: toISOString() is always "YYYY-MM-DDTHH:..." — the "T" split
+  // always yields a date part at index 0
+  return d.toISOString().split("T")[0]!; // YYYY-MM-DD
 }
 
 const GIBS_DATE = getRecentGibsDate();

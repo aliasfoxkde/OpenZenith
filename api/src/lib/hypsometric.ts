@@ -42,9 +42,11 @@ export function lerpColor(elevation: number): [number, number, number] {
   const e = Math.max(-500, Math.min(8849, elevation));
 
   // Find surrounding stops
+  // bounds: i and i+1 are both < COLOR_STOPS.length, and the literal is
+  // non-empty so the last-stop fallback below is always defined
   for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
-    const [e0, r0, g0, b0] = COLOR_STOPS[i];
-    const [e1, r1, g1, b1] = COLOR_STOPS[i + 1];
+    const [e0, r0, g0, b0] = COLOR_STOPS[i]!;
+    const [e1, r1, g1, b1] = COLOR_STOPS[i + 1]!;
     if (e >= e0 && e <= e1) {
       if (e1 === e0) return [r0, g0, b0];
       const t = (e - e0) / (e1 - e0);
@@ -52,6 +54,6 @@ export function lerpColor(elevation: number): [number, number, number] {
     }
   }
 
-  const last = COLOR_STOPS[COLOR_STOPS.length - 1];
+  const last = COLOR_STOPS[COLOR_STOPS.length - 1]!;
   return [last[1], last[2], last[3]];
 }

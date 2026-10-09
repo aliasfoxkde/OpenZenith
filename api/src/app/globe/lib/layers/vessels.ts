@@ -46,7 +46,10 @@ interface AISStreamMessage {
   MessageType?: string;
   MetaData?: AISMetaData;
   PositionReport?: Partial<
-    Pick<AISPositionReport, "Latitude" | "Longitude" | "SpeedOverGround" | "CourseOverGround" | "TrueHeading" | "NavigationalStatus">
+    Pick<
+      AISPositionReport,
+      "Latitude" | "Longitude" | "SpeedOverGround" | "CourseOverGround" | "TrueHeading" | "NavigationalStatus"
+    >
   >;
 }
 
@@ -228,7 +231,9 @@ export function loadVessels(
   const rebuildEntities = () => {
     removeEntities("vessel-");
     const positions = Array.from(positionCache.values());
-    positions.forEach((v, i) => { addVesselEntity(v, i); });
+    positions.forEach((v, i) => {
+      addVesselEntity(v, i);
+    });
     updateStatus("vessels", {
       lastUpdate: Date.now(),
       count: positions.length,
@@ -317,7 +322,8 @@ export function loadVessels(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("vessels", err);
       updateStatus("vessels", {
-        error: "Failed to connect to vessel feed" });
+        error: "Failed to connect to vessel feed",
+      });
     }
   };
 

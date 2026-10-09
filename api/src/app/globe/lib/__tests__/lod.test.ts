@@ -4,13 +4,15 @@ import { getZoneForAltitude, getZoneLabel, isEntityVisibleInZone, LOD_ZONES } fr
 describe("LOD_ZONES", () => {
   it("has 4 zones covering all altitudes", () => {
     expect(LOD_ZONES).toHaveLength(4);
-    expect(LOD_ZONES[0].name).toBe("earth");
-    expect(LOD_ZONES[3].maxAlt).toBe(Infinity);
+    // bounds: length-4 assertion above; LOD_ZONES is a 4-entry module constant
+    expect(LOD_ZONES[0]!.name).toBe("earth");
+    expect(LOD_ZONES[3]!.maxAlt).toBe(Infinity);
   });
 
   it("zones are contiguous (no gaps)", () => {
     for (let i = 1; i < LOD_ZONES.length; i++) {
-      expect(LOD_ZONES[i].minAlt).toBe(LOD_ZONES[i - 1].maxAlt);
+      // bounds: i and i-1 are both < LOD_ZONES.length in the loop guard
+      expect(LOD_ZONES[i]!.minAlt).toBe(LOD_ZONES[i - 1]!.maxAlt);
     }
   });
 });
@@ -60,9 +62,10 @@ describe("getZoneLabel", () => {
 });
 
 describe("isEntityVisibleInZone", () => {
-  const earthZone = LOD_ZONES[0]; // earth: 0-500km
-  const lowOrbitZone = LOD_ZONES[1]; // low-orbit: 500km-5Mm
-  const deepSpaceZone = LOD_ZONES[3]; // deep-space: 50Mm+
+  // bounds: LOD_ZONES is a fixed 4-entry module constant (asserted above)
+  const earthZone = LOD_ZONES[0]!; // earth: 0-500km
+  const lowOrbitZone = LOD_ZONES[1]!; // low-orbit: 500km-5Mm
+  const deepSpaceZone = LOD_ZONES[3]!; // deep-space: 50Mm+
 
   it("shows flights in earth zone", () => {
     expect(isEntityVisibleInZone("flight-123", earthZone)).toBe(true);
@@ -96,7 +99,7 @@ describe("isEntityVisibleInZone", () => {
   it("shows earthquakes in all zones except deep-space", () => {
     expect(isEntityVisibleInZone("eq-1", earthZone)).toBe(true);
     expect(isEntityVisibleInZone("eq-1", lowOrbitZone)).toBe(true);
-    expect(isEntityVisibleInZone("eq-1", LOD_ZONES[2])).toBe(true); // high-orbit
+    expect(isEntityVisibleInZone("eq-1", LOD_ZONES[2]!)).toBe(true); // high-orbit
     expect(isEntityVisibleInZone("eq-1", deepSpaceZone)).toBe(false);
   });
 

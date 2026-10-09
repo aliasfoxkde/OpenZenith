@@ -130,18 +130,18 @@ export async function assembleTerrainGrid(params: TerrainGridParams): Promise<Te
       const fy = py - y0;
 
       const w = 256;
-      const h00 = tile[y0 * w + x0];
-      const h10 = tile[y0 * w + x1];
-      const h01 = tile[y1 * w + x0];
-      const h11 = tile[y1 * w + x1];
+      // bounds: x0/x1/y0/y1 are clamped to [0,255] above and tile is 256*256
+      const h00 = tile[y0 * w + x0]!;
+      const h10 = tile[y0 * w + x1]!;
+      const h01 = tile[y1 * w + x0]!;
+      const h11 = tile[y1 * w + x1]!;
 
       if (h00 === TERRAIN_NODATA && h10 === TERRAIN_NODATA && h01 === TERRAIN_NODATA && h11 === TERRAIN_NODATA) {
         dem[r * gridCols + c] = TERRAIN_NODATA;
         continue;
       }
 
-      dem[r * gridCols + c] =
-        h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
+      dem[r * gridCols + c] = h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
     }
   }
 
@@ -193,19 +193,22 @@ export async function resolveStartElevation(lat: number, lon: number): Promise<n
 export function d8FlowDirection(dem: Float32Array, rows: number, cols: number, nodata: number): Int8Array {
   const flowDir = new Int8Array(rows * cols).fill(-1);
   const DIST = [1, Math.SQRT2, 1, Math.SQRT2, 1, Math.SQRT2, 1, Math.SQRT2];
+  // bounds: idx/nIdx are row-major cells with nr/nc range-checked above, all
+  // inside [0, rows*cols); d < 8 === D8_DR/D8_DC/DIST length
+  const rd = (i: number): number => dem[i]!;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const idx = r * cols + c;
-      if (dem[idx] <= nodata) continue;
+      if (rd(idx) <= nodata) continue;
       let maxSlope = 0;
       let bestDir = -1;
       for (let d = 0; d < 8; d++) {
-        const nr = r + D8_DR[d];
-        const nc = c + D8_DC[d];
+        const nr = r + D8_DR[d]!;
+        const nc = c + D8_DC[d]!;
         if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
         const nIdx = nr * cols + nc;
-        if (dem[nIdx] <= nodata) continue;
-        const slope = (dem[idx] - dem[nIdx]) / DIST[d];
+        if (rd(nIdx) <= nodata) continue;
+        const slope = (rd(idx) - rd(nIdx)) / DIST[d]!;
         if (slope > maxSlope) {
           maxSlope = slope;
           bestDir = d;
@@ -229,15 +232,17 @@ export function flowAccumulation(flowDir: Int8Array, rows: number, cols: number)
     changed = false;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
+        // bounds: idx/nIdx are row-major cells inside [0, rows*cols), matching
+        // flowDir/accum length; d < 8 === D8_DR/D8_DC length
         const idx = r * cols + c;
-        const d = flowDir[idx];
+        const d = flowDir[idx]!;
         if (d === -1) continue;
-        const nr = r + D8_DR[d];
-        const nc = c + D8_DC[d];
+        const nr = r + D8_DR[d]!;
+        const nc = c + D8_DC[d]!;
         if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
         const nIdx = nr * cols + nc;
-        const newVal = accum[idx] + (accum[nIdx] > 0 ? 1 : 0);
-        if (newVal > accum[nIdx]) {
+        const newVal = accum[idx]! + (accum[nIdx]! > 0 ? 1 : 0);
+        if (newVal > accum[nIdx]!) {
           accum[nIdx] = newVal;
           changed = true;
         }
@@ -260,7 +265,9 @@ function hornWindow3x3(
   c: number,
   nodata: number,
 ): [number, number, number, number, number, number, number, number] | null {
-  const at = (rr: number, cc: number): number => dem[rr * cols + cc];
+  // bounds: callers iterate r in [1, rows-2], c in [1, cols-2], so every
+  // (rr, cc) neighbor stays a valid row-major cell of dem
+  const at = (rr: number, cc: number): number => dem[rr * cols + cc]!;
   const a = at(r - 1, c - 1);
   const b = at(r - 1, c);
   const c_ = at(r - 1, c + 1);
@@ -289,7 +296,13 @@ function hornWindow3x3(
  * Horn-method slope in degrees from a DEM grid; border cells and cells
  * without a full valid 3×3 window are NaN. Shared by slope and twi verbatim.
  */
-export function computeSlope(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
+export function computeSlope(
+  dem: Float32Array,
+  rows: number,
+  cols: number,
+  cellSizeM: number,
+  nodata: number,
+): Float32Array {
   const result = new Float32Array(rows * cols).fill(NaN);
   for (let r = 1; r < rows - 1; r++) {
     for (let c = 1; c < cols - 1; c++) {
@@ -310,7 +323,13 @@ export function computeSlope(dem: Float32Array, rows: number, cols: number, cell
  * 0=N, 90=E, 180=S, 270=W; flat cells = -1; border/nodata = NaN.
  * Moved verbatim from the aspect route; shape mirrors computeSlope.
  */
-export function computeAspect(dem: Float32Array, rows: number, cols: number, cellSizeM: number, nodata: number): Float32Array {
+export function computeAspect(
+  dem: Float32Array,
+  rows: number,
+  cols: number,
+  cellSizeM: number,
+  nodata: number,
+): Float32Array {
   // Border cells lack a full 3×3 window — keep them NaN so they are
   // excluded from direction bins and emitted as null, not fake values.
   const result = new Float32Array(rows * cols).fill(NaN);
@@ -358,7 +377,8 @@ export function decimateGrid(
   for (let r = 0; r < rows; r += ds) {
     const row: (number | null)[] = [];
     for (let c = 0; c < cols; c += ds) {
-      const v = grid[r * cols + c];
+      // bounds: r < rows and c < cols, so the row-major index is < grid.length
+      const v = grid[r * cols + c]!;
       row.push(keep(v) ? transform(v) : null);
     }
     sampled.push(row);

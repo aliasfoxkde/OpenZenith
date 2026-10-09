@@ -55,10 +55,7 @@ async function settle(handle: LayerHandle): Promise<void> {
 
 describe("addWarnings paint contract", () => {
   it("colours both layers by the lowercase `event` property the route emits", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ features: [] }), { status: 200 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ features: [] }), { status: 200 })));
     const handle = createLayerHandle();
     const map = mapStub();
 
@@ -67,13 +64,9 @@ describe("addWarnings paint contract", () => {
 
     // A missing entry fails loudly here on purpose: the layer must have been
     // added for the paint contract to mean anything.
-    const fillPaint = paintOf(map.added["warnings-fill"].layer);
-    const linePaint = paintOf(map.added["warnings-outline"].layer);
-    expect(fillPaint["fill-color"]).toEqual(
-      expect.arrayContaining(["match", ["downcase", ["get", "event"]]]),
-    );
-    expect(linePaint["line-color"]).toEqual(
-      expect.arrayContaining(["match", ["downcase", ["get", "event"]]]),
-    );
+    const fillPaint = paintOf(map.added["warnings-fill"]!.layer);
+    const linePaint = paintOf(map.added["warnings-outline"]!.layer);
+    expect(fillPaint["fill-color"]).toEqual(expect.arrayContaining(["match", ["downcase", ["get", "event"]]]));
+    expect(linePaint["line-color"]).toEqual(expect.arrayContaining(["match", ["downcase", ["get", "event"]]]));
   });
 });

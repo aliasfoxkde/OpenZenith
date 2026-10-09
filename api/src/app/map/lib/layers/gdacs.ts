@@ -28,7 +28,7 @@ export function addGdacs(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("gdacs", err);
       setStatus(handle, "gdacs", "error");
-      }
+    }
   };
 
   doLoad();

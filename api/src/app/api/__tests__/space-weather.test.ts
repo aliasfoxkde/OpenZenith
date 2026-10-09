@@ -28,7 +28,9 @@ function request(type?: string): NextRequest {
 }
 
 function okResponse(): void {
-  mockFetch.mockImplementation((url: string) => Promise.resolve(url === KP_URL ? jsonResponse(KP_PAYLOAD) : jsonResponse(AURORA_PAYLOAD)));
+  mockFetch.mockImplementation((url: string) =>
+    Promise.resolve(url === KP_URL ? jsonResponse(KP_PAYLOAD) : jsonResponse(AURORA_PAYLOAD)),
+  );
 }
 
 /**
@@ -103,11 +105,11 @@ describe("Space weather API (/api/space-weather)", () => {
     const resp = await GET(request("kp"));
     expect(resp.status).toBe(200);
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0][0]).toBe(KP_URL);
+    expect(mockFetch.mock.calls[0]![0]).toBe(KP_URL); // bounds: call count asserted above
 
     const body = (await resp.json()) as Array<{ kp_index: number }>;
     expect(body).toEqual(KP_PAYLOAD);
-    expect(body[0].kp_index).toBe(3);
+    expect(body[0]!.kp_index).toBe(3); // bounds: body equals KP_PAYLOAD above
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=300");
   });
 
@@ -115,7 +117,7 @@ describe("Space weather API (/api/space-weather)", () => {
     const { GET } = await import("@/app/api/space-weather/route");
     const resp = await GET(request("aurora"));
     expect(resp.status).toBe(200);
-    expect(mockFetch.mock.calls[0][0]).toBe(AURORA_URL);
+    expect(mockFetch.mock.calls[0]![0]).toBe(AURORA_URL); // bounds: the route fetched once
 
     const body = (await resp.json()) as { coordinates: number[][] };
     expect(body.coordinates).toEqual([[60, 0, 5]]);
@@ -126,7 +128,7 @@ describe("Space weather API (/api/space-weather)", () => {
     const { GET } = await import("@/app/api/space-weather/route");
     await GET(request("kp"));
 
-    const init = mockFetch.mock.calls[0][1] as { headers: Record<string, string>; signal: AbortSignal };
+    const init = mockFetch.mock.calls[0]![1] as { headers: Record<string, string>; signal: AbortSignal }; // bounds: the route fetched once
     expect(init.headers["User-Agent"]).toBe("OpenZenith/1.0");
     expect(init.signal.aborted).toBe(false);
   });

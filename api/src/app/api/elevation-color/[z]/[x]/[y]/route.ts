@@ -187,7 +187,8 @@ function encodeColorPNG(data: Int16Array, width: number, height: number): Uint8A
     raw[rowOff] = 0; // PNG filter: None
 
     for (let px = 0; px < width; px++) {
-      const elev = data[py * width + px];
+      // bounds: py < height and px < width, so the row-major index is < data.length
+      const elev = data[py * width + px]!;
       const pixOff = rowOff + 1 + px * 3;
 
       if (elev === NODATA) {
@@ -248,7 +249,7 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
   for (let i = 0; i < data.length; i++) {
-    crc ^= data[i];
+    crc ^= data[i]!; // bounds: i < data.length
     for (let j = 0; j < 8; j++) {
       crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
     }

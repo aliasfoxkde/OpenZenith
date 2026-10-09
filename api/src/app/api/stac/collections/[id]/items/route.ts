@@ -109,7 +109,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Apply bbox filter if provided
     if (bboxParam) {
       const [west, south, east, north] = bboxParam.split(",").map(Number);
-      if (!isNaN(west) && !isNaN(south) && !isNaN(east) && !isNaN(north)) {
+      // A missing part is undefined; isNaN(undefined) is true, so the explicit
+      // undefined checks skip the filter exactly as the NaN checks did.
+      if (
+        west !== undefined &&
+        !isNaN(west) &&
+        south !== undefined &&
+        !isNaN(south) &&
+        east !== undefined &&
+        !isNaN(east) &&
+        north !== undefined &&
+        !isNaN(north)
+      ) {
         features = features.filter((f) => {
           // RFC 7946 allows `geometry: null`; the local GeoJSON.Feature
           // declaration models geometry as always present.

@@ -94,7 +94,8 @@ function calculateNightShadowPolygon(declination: number): number[][] {
   }
 
   // Close the polygon
-  points.push(points[0]);
+  // bounds: the loop above pushed numPoints+1 points, so index 0 exists
+  points.push(points[0]!);
   return points;
 }
 
@@ -130,7 +131,8 @@ export function loadDayNightTerminator(
     id: "day-night-shadow",
     polygon: {
       hierarchy: new Cesium.PolygonHierarchy(
-        nightPolygonPoints.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat)),
+        // bounds: both builders above emit [lon, lat] pairs
+        nightPolygonPoints.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon!, lat!)),
       ),
       material: Cesium.Color.BLACK.withAlpha(0.35),
       outline: false,
@@ -145,7 +147,8 @@ export function loadDayNightTerminator(
   viewer.entities.add({
     id: "day-night-terminator",
     polyline: {
-      positions: Cesium.Cartesian3.fromDegreesArray(terminatorPoints.flatMap(([lon, lat]) => [lon, lat])),
+      // bounds: calculateTerminatorPoints emits [lon, lat] pairs
+      positions: Cesium.Cartesian3.fromDegreesArray(terminatorPoints.flatMap(([lon, lat]) => [lon!, lat!])),
       width: 2,
       material: new Cesium.PolylineDashMaterialProperty({
         dashPattern: 0xffff00,

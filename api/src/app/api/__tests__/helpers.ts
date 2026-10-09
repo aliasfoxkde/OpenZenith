@@ -74,10 +74,8 @@ export function stubFetchRecording(
   onCaptured: (url: string, init: RequestInit | undefined) => void,
   body = "{}",
 ): void {
-  vi.spyOn(globalThis, "fetch").mockImplementationOnce(
-    (input: RequestInfo | URL, init?: RequestInit) => {
-      onCaptured(requestUrl(input), init);
-      return Promise.resolve(new Response(body, { status: 200 }));
-    },
-  );
+  vi.spyOn(globalThis, "fetch").mockImplementationOnce((input: RequestInfo | URL, init?: RequestInit) => {
+    onCaptured(requestUrl(input), init);
+    return Promise.resolve(new Response(body, { status: 200 }));
+  });
 }

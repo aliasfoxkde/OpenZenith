@@ -117,8 +117,9 @@ test.describe("Production site verification", () => {
     const body = (await resp.json()) as GeocodeBody;
     expect(body.results).toBeTruthy();
     expect(body.results.length).toBeGreaterThan(0);
-    expect(body.results[0].lat).toBeTruthy();
-    expect(body.results[0].lon).toBeTruthy();
+    // bounds: results.length > 0 asserted immediately above
+    expect(body.results[0]!.lat).toBeTruthy();
+    expect(body.results[0]!.lon).toBeTruthy();
   });
 
   test("flights API responds or times out gracefully", async ({ request }) => {

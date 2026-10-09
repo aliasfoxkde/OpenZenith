@@ -66,16 +66,15 @@ describe("Proxy Tile API", () => {
     expect(await resp.json()).toEqual({ error: "Missing required parameters: url, z, x, y" });
   });
 
-  it.each([
-    "&z=abc&x=2&y=3",
-    "&z=1&x=abc&y=3",
-    "&z=1&x=2&y=abc",
-  ])("rejects non-numeric tile coordinates (%s)", async (coords) => {
-    const { GET } = await import("@/app/api/proxy/tile/route");
-    const resp = await GET(mockRequest(`/api/proxy/tile?url=https://example.com/{z}/{x}/{y}.png${coords}`));
-    expect(resp.status).toBe(400);
-    expect(await resp.json()).toEqual({ error: "z, x, y must be integers" });
-  });
+  it.each(["&z=abc&x=2&y=3", "&z=1&x=abc&y=3", "&z=1&x=2&y=abc"])(
+    "rejects non-numeric tile coordinates (%s)",
+    async (coords) => {
+      const { GET } = await import("@/app/api/proxy/tile/route");
+      const resp = await GET(mockRequest(`/api/proxy/tile?url=https://example.com/{z}/{x}/{y}.png${coords}`));
+      expect(resp.status).toBe(400);
+      expect(await resp.json()).toEqual({ error: "z, x, y must be integers" });
+    },
+  );
 
   it("rejects templates that do not yield a parseable URL", async () => {
     const { GET } = await import("@/app/api/proxy/tile/route");
@@ -92,7 +91,10 @@ describe("Proxy Tile API", () => {
   });
 
   it("returns transparent PNG on 404", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("not found", { status: 404 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("not found", { status: 404 })),
+    );
 
     const { GET } = await import("@/app/api/proxy/tile/route");
     const resp = await GET(mockRequest("/api/proxy/tile?url=https://example.com/{z}/{x}/{y}.png&z=0&x=0&y=0"));
@@ -101,7 +103,10 @@ describe("Proxy Tile API", () => {
   });
 
   it("propagates other upstream error statuses", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("boom", { status: 503 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("boom", { status: 503 })),
+    );
 
     const { GET } = await import("@/app/api/proxy/tile/route");
     const resp = await GET(mockRequest("/api/proxy/tile?url=https://example.com/{z}/{x}/{y}.png&z=0&x=0&y=0"));
@@ -110,7 +115,10 @@ describe("Proxy Tile API", () => {
   });
 
   it("maps upstream fetch failures to a 502", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("network down"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("network down"))),
+    );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { GET } = await import("@/app/api/proxy/tile/route");

@@ -71,9 +71,7 @@ describe("edge-cache tiles", () => {
     await edgePutTile("landcover", 3, 4, 5, asciiBuf("passthrough"), "image/png");
 
     const keys = [...cache.entries.keys()];
-    expect(keys).toContain(
-      `https://edge-cache.openzenith.internal/elevation-color/v${RENDER_SCHEMA_VERSION}/3/4/5`,
-    );
+    expect(keys).toContain(`https://edge-cache.openzenith.internal/elevation-color/v${RENDER_SCHEMA_VERSION}/3/4/5`);
     expect(keys).toContain("https://edge-cache.openzenith.internal/landcover/3/4/5");
   });
 

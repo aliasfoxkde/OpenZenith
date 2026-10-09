@@ -186,8 +186,8 @@ export default function AboutPage() {
             <a href="https://www.earthdata.nasa.gov/elevation" target="_blank" rel="noopener noreferrer">
               Shuttle Radar Topography Mission (SRTM)
             </a>{" "}
-            at 30-meter resolution, hosted as OZT-compressed tiles on HuggingFace and served via the edge runtime. Additional real-time data is
-            proxied from:
+            at 30-meter resolution, hosted as OZT-compressed tiles on HuggingFace and served via the edge runtime.
+            Additional real-time data is proxied from:
           </p>
           <div
             style={{
@@ -287,8 +287,8 @@ export default function AboutPage() {
             <div className="ab-timeline-item">
               <h3>SRTM Data Processing</h3>
               <p>
-                Converted NASA SRTM HGT files into OZT-compressed terrain tiles, hosted on HuggingFace and optimized
-                for edge delivery.
+                Converted NASA SRTM HGT files into OZT-compressed terrain tiles, hosted on HuggingFace and optimized for
+                edge delivery.
               </p>
             </div>
             <div className="ab-timeline-item">

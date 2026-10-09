@@ -63,9 +63,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return wmtsCapabilitiesResponse(request);
   }
 
-  // Record lookup claims every key exists; an unknown id is valid URL input,
-  // so the failure path below is real and the cast is load-bearing.
-  const set = ADVERTISED_SETS[tileMatrixSetId] as AdvertisedSet | undefined;
+  // An unknown id is valid URL input and the failure path below is real;
+  // noUncheckedIndexedAccess types the lookup T | undefined so the guard
+  // needs no cast.
+  const set = ADVERTISED_SETS[tileMatrixSetId];
   if (!set) {
     return NextResponse.json(
       { code: "InvalidParameterValue", description: `Unknown tileMatrixSet: ${tileMatrixSetId}` },

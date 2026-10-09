@@ -37,8 +37,9 @@ export function loadFlightArcs(
       let arcCount = 0;
 
       for (let i = 0; i < shuffled.length - 1; i += 2) {
-        const a = shuffled[i];
-        const b = shuffled[i + 1];
+        // bounds: i < shuffled.length - 1 in the loop guard, so i and i+1 exist
+        const a = shuffled[i]!;
+        const b = shuffled[i + 1]!;
         // OpenSky emits numbers, but the endpoint is untyped — coerce explicitly.
         const lonA = Number(a[5]),
           latA = Number(a[6]),
@@ -71,7 +72,8 @@ export function loadFlightArcs(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("flightArcs", err);
       updateStatus("flightArcs", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

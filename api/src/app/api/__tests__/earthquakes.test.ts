@@ -70,7 +70,8 @@ describe("Earthquakes API — cache, error and validation branches", () => {
 
   /** Fetch stub typed with its (url, init) arguments so `mock.calls` stays
    * indexable — `vi.fn(() => ...)` alone collapses calls to a 0-tuple. */
-  const usgsFetch = (): Mock<(url: string, init?: RequestInit) => Response> => vi.fn(() => new Response("{}", { status: 200 }));
+  const usgsFetch = (): Mock<(url: string, init?: RequestInit) => Response> =>
+    vi.fn(() => new Response("{}", { status: 200 }));
 
   it("exposes CORS preflight", async () => {
     const { OPTIONS } = await import("@/app/api/earthquakes/route");
@@ -94,7 +95,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!; // bounds: call count asserted above
     expect(url).toBe("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
     expect(new Headers(init?.headers).get("User-Agent")).toBe("OpenZenith/1.0");
     expect(init?.signal).toBeInstanceOf(AbortSignal);
@@ -120,7 +121,7 @@ describe("Earthquakes API — cache, error and validation branches", () => {
     for (const period of periods) {
       const resp = await GET(mockRequest(`/api/earthquakes?period=${period}`));
       expect(resp.status).toBe(200);
-      const [url] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      const [url] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1]!; // bounds: the GET above records a call
       expect(url).toBe(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${period}.geojson`);
     }
     expect(fetchMock).toHaveBeenCalledTimes(periods.length);
@@ -162,7 +163,10 @@ describe("Earthquakes API — cache, error and validation branches", () => {
   });
 
   it("returns 502 naming the upstream status on non-OK responses", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("unavailable", { status: 503 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("unavailable", { status: 503 })),
+    );
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(502);
@@ -171,7 +175,10 @@ describe("Earthquakes API — cache, error and validation branches", () => {
   });
 
   it("returns 502 with the thrown message when the upstream request rejects", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("usgs unreachable"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("usgs unreachable"))),
+    );
 
     const resp = await (await getRoute())(mockRequest("/api/earthquakes"));
     expect(resp.status).toBe(502);

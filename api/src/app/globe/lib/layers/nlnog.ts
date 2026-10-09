@@ -85,8 +85,9 @@ export function loadNlnogNodes(
       let lineCount = 0;
       for (let i = 0; i < nodes.length && lineCount < 200; i++) {
         for (let j = i + 1; j < nodes.length && lineCount < 200; j++) {
-          const a = nodes[i],
-            b = nodes[j];
+          // bounds: i and j are both < nodes.length in the loop guards
+          const a = nodes[i]!,
+            b = nodes[j]!;
           const dLat = (b.lat - a.lat) * 111;
           const dLon = (b.lon - a.lon) * 111 * Math.cos(Cesium.Math.toRadians((a.lat + b.lat) / 2));
           const dist = Math.sqrt(dLat * dLat + dLon * dLon);
@@ -115,7 +116,8 @@ export function loadNlnogNodes(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("nlnogNodes", err);
       updateStatus("nlnogNodes", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

@@ -52,7 +52,13 @@ export function OverpassTab({
         <label style={{ fontSize: "0.78rem", color: "#a3a3a3", display: "block", marginBottom: "0.25rem" }}>
           Bounding Box (west,south,east,north)
         </label>
-        <input value={bbox} onChange={(e) => { onBboxChange(e.target.value); }} placeholder="-74.02,40.70,-73.95,40.78" />
+        <input
+          value={bbox}
+          onChange={(e) => {
+            onBboxChange(e.target.value);
+          }}
+          placeholder="-74.02,40.70,-73.95,40.78"
+        />
       </div>
 
       <div style={{ marginBottom: "0.5rem" }}>
@@ -61,7 +67,9 @@ export function OverpassTab({
         </label>
         <textarea
           value={query}
-          onChange={(e) => { onQueryChange(e.target.value); }}
+          onChange={(e) => {
+            onQueryChange(e.target.value);
+          }}
           rows={6}
           placeholder={`[out:json][timeout:25];\nnode["amenity"]({{bbox}});\nout;`}
           style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: "0.82rem", resize: "vertical" }}
@@ -79,7 +87,13 @@ export function OverpassTab({
         <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Quick Queries</div>
         <div className="ex-query-grid">
           {OVERPASS_QUERIES.map((q, i) => (
-            <button key={i} className="ex-query-btn" onClick={() => { onQueryChange(q.query); }}>
+            <button
+              key={i}
+              className="ex-query-btn"
+              onClick={() => {
+                onQueryChange(q.query);
+              }}
+            >
               {q.label}
             </button>
           ))}

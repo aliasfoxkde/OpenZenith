@@ -104,9 +104,7 @@ describe("DEM Tile Metadata API", () => {
   });
 
   it("reports 503 with the thrown message when the probe rejects", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockRejectedValueOnce(new Error("HuggingFace request aborted"));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("HuggingFace request aborted"));
 
     const { GET } = await import("@/app/api/dem-tile/route");
     const resp = await GET(mockRequest("/api/dem-tile?health=1"));

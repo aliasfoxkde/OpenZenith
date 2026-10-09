@@ -8,7 +8,9 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
 /**
  * Fire icon SVG — used for billboard markers at close range.
  */
-const FIRE_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-1 4-4 6-4 10a4 4 0 008 0c0-4-3-6-4-10z" fill="#ff8800" opacity="0.9"/><path d="M12 8c-.5 2-2 3-2 5a2 2 0 004 0c0-2-1.5-3-2-5z" fill="#ffcc00" opacity="1"/></svg>`);
+const FIRE_ICON = svgIcon(
+  `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-1 4-4 6-4 10a4 4 0 008 0c0-4-3-6-4-10z" fill="#ff8800" opacity="0.9"/><path d="M12 8c-.5 2-2 3-2 5a2 2 0 004 0c0-2-1.5-3-2-5z" fill="#ffcc00" opacity="1"/></svg>`,
+);
 
 /**
  * Confidence-based color mapping.
@@ -75,14 +77,17 @@ export function loadWildfires(
       let count = 0;
 
       for (let i = 0; i < lines.length && count < maxPoints; i++) {
-        const cols = lines[i].split(",");
+        // bounds: the cols.length >= 10 guard below covers indices 0..9
+        const cols = lines[i]!.split(",");
         if (cols.length < 10) continue;
 
-        const lat = parseFloat(cols[0]);
-        const lon = parseFloat(cols[1]);
-        const confidence = parseFloat(cols[9]);
-        const frp = parseFloat(cols[13]) || 0; // Fire Radiative Power (MW)
-        const brightness = parseFloat(cols[2]) || 0;
+        const lat = parseFloat(cols[0]!);
+        const lon = parseFloat(cols[1]!);
+        const confidence = parseFloat(cols[9]!);
+        // Column 13 is beyond the length guard; a short row read undefined
+        // before too (parseFloat(undefined) === NaN → || 0), so "" keeps that.
+        const frp = parseFloat(cols[13] ?? "") || 0; // Fire Radiative Power (MW)
+        const brightness = parseFloat(cols[2]!) || 0;
         const daynight = cols[14]?.trim() || "D";
 
         if (isNaN(lat) || isNaN(lon)) continue;

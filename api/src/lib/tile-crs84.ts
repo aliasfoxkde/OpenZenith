@@ -75,11 +75,7 @@ function latLonToMercatorFractional(lat: number, lon: number, za: number): { tx:
  * at za = z + 1 the Mercator source has ~2x the CRS84 pixel resolution, so
  * nearest-neighbour keeps all source detail without cross-tile blending.
  */
-function sampleMercatorIntoCrs84(
-  mercatorTiles: Map<string, Int16Array>,
-  za: number,
-  bounds: TileBounds,
-): Int16Array {
+function sampleMercatorIntoCrs84(mercatorTiles: Map<string, Int16Array>, za: number, bounds: TileBounds): Int16Array {
   const data = new Int16Array(TILE_SIZE * TILE_SIZE).fill(NODATA);
   const latStep = (bounds.north - bounds.south) / TILE_SIZE;
   const lonStep = (bounds.east - bounds.west) / TILE_SIZE;
@@ -100,7 +96,8 @@ function sampleMercatorIntoCrs84(
       // Source tiles are 256x256; a smaller payload (degraded upstream)
       // leaves those cells NODATA instead of reading past the buffer.
       if (index >= tile.length) continue;
-      const val = tile[index];
+      // bounds: index >= 0 by construction and < tile.length per the guard above
+      const val = tile[index]!;
       if (val !== NODATA) {
         data[py * TILE_SIZE + px] = val;
       }
@@ -159,7 +156,12 @@ function validCount(data: Int16Array): number {
  * Returns a 256x256 Int16Array of elevations in meters (NODATA where the
  * sources have no data: open Mercator-absent poles, gaps, failed fetches).
  */
-export async function getTileDataCRS84(z: number, col: number, row: number, storage: ChunkBackend): Promise<TileResult> {
+export async function getTileDataCRS84(
+  z: number,
+  col: number,
+  row: number,
+  storage: ChunkBackend,
+): Promise<TileResult> {
   const bounds = crs84TileBounds(z, col, row);
 
   if (z <= 10) {

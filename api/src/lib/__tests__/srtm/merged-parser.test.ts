@@ -51,7 +51,8 @@ class MergedBuilder {
 
     let cursor = 12 + indexSize;
     this.chunks.forEach((chunk, i) => {
-      this.index[i].offset = cursor;
+      // bounds: addChunk pushes one index entry per chunk, so i is in range
+      this.index[i]!.offset = cursor;
       out.set(chunk, cursor);
       cursor += chunk.length;
     });
@@ -77,13 +78,17 @@ describe("parseMergedHeader", () => {
     expect(index?.cols).toBe(3);
     expect(index?.entries).toHaveLength(6);
     // Chunks 3..5 were never appended, so their entries stay zero-filled.
-    expect(index?.entries[0].size).toBeGreaterThan(0);
+    expect(index?.entries[0]!.size).toBeGreaterThan(0);
     expect(index?.entries[5]).toEqual({ offset: 0, size: 0 });
   });
 
   it("parses a v2 (float32) header", () => {
     const index = parseMergedHeader(new MergedBuilder(2, 1, 1).addChunk("x").build());
-    expect(index).toEqual({ rows: 1, cols: 1, entries: [{ offset: expect.any(Number) as number, size: expect.any(Number) as number }] });
+    expect(index).toEqual({
+      rows: 1,
+      cols: 1,
+      entries: [{ offset: expect.any(Number) as number, size: expect.any(Number) as number }],
+    });
   });
 
   it("reads chunk offsets relative to the file start", () => {
@@ -91,8 +96,8 @@ describe("parseMergedHeader", () => {
     const index = parseMergedHeader(data) as MergedIndex;
 
     // Index (2 entries x 8 bytes) sits between the 12-byte header and the data.
-    expect(index.entries[0].offset).toBe(12 + 16);
-    expect(index.entries[1].offset).toBe(index.entries[0].offset + index.entries[0].size);
+    expect(index.entries[0]!.offset).toBe(12 + 16);
+    expect(index.entries[1]!.offset).toBe(index.entries[0]!.offset + index.entries[0]!.size);
   });
 
   it("returns null for a truncated buffer", () => {
@@ -132,7 +137,7 @@ describe("parseMergedHeader", () => {
 
     const index = parseMergedHeader(view);
 
-    expect(index?.entries[0].size).toBeGreaterThan(0);
+    expect(index?.entries[0]!.size).toBeGreaterThan(0);
     // The reported offset must point inside the view, not the backing buffer.
     const chunk = extractChunkFromMerged(view, index as MergedIndex, 0, 0);
     expect(decodeChunk(chunk)).toBe("payload");
@@ -213,7 +218,14 @@ describe("decodeMergedChunk", () => {
     expect(decoded).not.toBeNull();
     expect(decoded?.width).toBe(MERGED_EDGE_EXTENT);
     expect(decoded?.height).toBe(256);
-    for (const [r, c] of [[0, 0], [1, 0], [0, 16], [7, 9], [200, 15], [255, 16]]) {
+    for (const [r, c] of [
+      [0, 0],
+      [1, 0],
+      [0, 16],
+      [7, 9],
+      [200, 15],
+      [255, 16],
+    ] as const) {
       expect(decoded?.data[r * MERGED_EDGE_EXTENT + c]).toBe(ramp(r, c));
     }
     // No pixel past the real extent is exposed to callers.

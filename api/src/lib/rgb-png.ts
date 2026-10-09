@@ -29,9 +29,10 @@ export function encodeRgbPng(rgb: Uint8Array, width: number, height: number): Ui
     for (let px = 0; px < width; px++) {
       const srcOff = (py * width + px) * 3;
       const dstOff = rowOff + 1 + px * 3;
-      raw[dstOff] = rgb[srcOff];
-      raw[dstOff + 1] = rgb[srcOff + 1];
-      raw[dstOff + 2] = rgb[srcOff + 2];
+      // bounds: rgb is width*height*3 bytes and srcOff/srcOff+2 stay inside it
+      raw[dstOff] = rgb[srcOff]!;
+      raw[dstOff + 1] = rgb[srcOff + 1]!;
+      raw[dstOff + 2] = rgb[srcOff + 2]!;
     }
   }
 
@@ -52,9 +53,7 @@ export function encodeRgbPng(rgb: Uint8Array, width: number, height: number): Ui
   const idat = pngChunk("IDAT", compressed);
   const iend = pngChunk("IEND", new Uint8Array(0));
 
-  const result = new Uint8Array(
-    PNG_SIGNATURE.length + ihdr.length + idat.length + iend.length,
-  );
+  const result = new Uint8Array(PNG_SIGNATURE.length + ihdr.length + idat.length + iend.length);
   let off = 0;
   result.set(PNG_SIGNATURE, off);
   off += PNG_SIGNATURE.length;
@@ -84,7 +83,7 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
   for (let i = 0; i < data.length; i++) {
-    crc ^= data[i];
+    crc ^= data[i]!;
     for (let j = 0; j < 8; j++) {
       crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
     }

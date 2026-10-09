@@ -113,14 +113,7 @@ describe("Landcover Tile API — param, cache and upstream branches", () => {
     expect(resp.headers.get("Content-Type")).toBe("image/png");
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(await resp.arrayBuffer()).toEqual(tile);
-    expect(vi.mocked(edgePutTile).mock.calls[0]?.slice(0, 6)).toEqual([
-      "landcover",
-      3,
-      4,
-      5,
-      tile,
-      "image/png",
-    ]);
+    expect(vi.mocked(edgePutTile).mock.calls[0]?.slice(0, 6)).toEqual(["landcover", 3, 4, 5, tile, "image/png"]);
   });
 
   it("falls back to image/png when upstream sends no content type", async () => {

@@ -134,7 +134,8 @@ function expectedWindow(pixels: Int16Array, tileWidth: number, outRows: number, 
   const out = new Int16Array(TILE_PIXELS);
   for (let row = 0; row < outRows; row++) {
     for (let col = 0; col < outCols; col++) {
-      out[row * TILE + col] = pixels[row * tileWidth + col];
+      // bounds: row*outRows and col*outCols stay inside the tile plane
+      out[row * TILE + col] = pixels[row * tileWidth + col]!;
     }
   }
   return out;
@@ -168,31 +169,48 @@ afterEach(async () => {
 describe("LocalTifBackend.fetchChunk", () => {
   it("returns the requested 256x256 chunk from a tiled GeoTIFF", async () => {
     const planes = [tilePlane(1), tilePlane(2), tilePlane(3), tilePlane(4)];
-    await writeTiff("N40W074.tif", buildTiff({ littleEndian: true, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes }));
+    await writeTiff(
+      "N40W074.tif",
+      buildTiff({ littleEndian: true, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes }),
+    );
 
     const decoded = decodeChunk(await backend.fetchChunk("N40W074.tif", 0, 0));
 
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[0], TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[0]!, TILE, TILE, TILE));
   });
 
   it("reads the final tile using end-of-file as its upper bound", async () => {
     const planes = [tilePlane(1), tilePlane(2), tilePlane(3), tilePlane(9)];
-    await writeTiff("N00E000.tif", buildTiff({ littleEndian: true, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes, trailingBytes: 16 }));
+    await writeTiff(
+      "N00E000.tif",
+      buildTiff({
+        littleEndian: true,
+        width: 512,
+        height: 512,
+        tileWidth: TILE,
+        tileHeight: TILE,
+        planes,
+        trailingBytes: 16,
+      }),
+    );
 
     const decoded = decodeChunk(await backend.fetchChunk("N00E000.tif", 1, 1));
 
-    expectInt16Equal(decoded, expectedWindow(planes[3], TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[3]!, TILE, TILE, TILE));
   });
 
   it("pads a partial edge tile to the stored 256px width", async () => {
     const planes = [tilePlane(1), tilePlane(11), tilePlane(3), tilePlane(4)];
-    await writeTiff("N47E008.tif", buildTiff({ littleEndian: true, width: 300, height: 300, tileWidth: TILE, tileHeight: TILE, planes }));
+    await writeTiff(
+      "N47E008.tif",
+      buildTiff({ littleEndian: true, width: 300, height: 300, tileWidth: TILE, tileHeight: TILE, planes }),
+    );
 
     const decoded = decodeChunk(await backend.fetchChunk("N47E008.tif", 0, 1));
 
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[1], TILE, TILE, 300 - TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[1]!, TILE, TILE, 300 - TILE));
     // The 212 padded columns per row decode to zero, exactly as the
     // HuggingFace merged files pad their edge chunks.
     const realWidth = 300 - TILE;
@@ -203,23 +221,29 @@ describe("LocalTifBackend.fetchChunk", () => {
 
   it("pads the bottom-right partial tile on both axes", async () => {
     const planes = [tilePlane(1), tilePlane(2), tilePlane(3), tilePlane(12)];
-    await writeTiff("N47E008.tif", buildTiff({ littleEndian: true, width: 300, height: 300, tileWidth: TILE, tileHeight: TILE, planes }));
+    await writeTiff(
+      "N47E008.tif",
+      buildTiff({ littleEndian: true, width: 300, height: 300, tileWidth: TILE, tileHeight: TILE, planes }),
+    );
 
     const decoded = decodeChunk(await backend.fetchChunk("N47E008.tif", 1, 1));
 
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[3], TILE, 300 - TILE, 300 - TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[3]!, TILE, 300 - TILE, 300 - TILE));
     // Rows past the real 44 carry nothing but padding.
     expect(Array.from(decoded.slice((300 - TILE) * TILE)).every((v) => v === 0)).toBe(true);
   });
 
   it("parses big-endian (MM) GeoTIFFs", async () => {
     const planes = [tilePlane(21), tilePlane(22), tilePlane(23), tilePlane(24)];
-    await writeTiff("N10W010.tif", buildTiff({ littleEndian: false, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes }));
+    await writeTiff(
+      "N10W010.tif",
+      buildTiff({ littleEndian: false, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes }),
+    );
 
     const decoded = decodeChunk(await backend.fetchChunk("N10W010.tif", 0, 1));
 
-    expectInt16Equal(decoded, expectedWindow(planes[1], TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[1]!, TILE, TILE, TILE));
   });
 
   it("defaults the tile size to 256 when the tile tags are absent", async () => {
@@ -229,12 +253,15 @@ describe("LocalTifBackend.fetchChunk", () => {
     const decoded = decodeChunk(await backend.fetchChunk("N51E000.tif", 0, 0));
 
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[0], TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[0]!, TILE, TILE, TILE));
   });
 
   it("returns an empty buffer for a chunk outside the tile grid", async () => {
     const planes = [tilePlane(1), tilePlane(2), tilePlane(3), tilePlane(4)];
-    await writeTiff("N40W074.tif", buildTiff({ littleEndian: true, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes }));
+    await writeTiff(
+      "N40W074.tif",
+      buildTiff({ littleEndian: true, width: 512, height: 512, tileWidth: TILE, tileHeight: TILE, planes }),
+    );
 
     expectEmpty(await backend.fetchChunk("N40W074.tif", 5, 0));
     expectEmpty(await backend.fetchChunk("N40W074.tif", 0, 5));
@@ -252,7 +279,10 @@ describe("LocalTifBackend.fetchChunk", () => {
 
   it("returns an empty buffer when the tile offsets tag is absent", async () => {
     const planes = [tilePlane(1)];
-    await writeTiff("nooffsets.tif", buildTiff({ littleEndian: true, width: 256, height: 256, planes, includeTileOffsets: false }));
+    await writeTiff(
+      "nooffsets.tif",
+      buildTiff({ littleEndian: true, width: 256, height: 256, planes, includeTileOffsets: false }),
+    );
 
     expectEmpty(await backend.fetchChunk("nooffsets.tif", 0, 0));
   });
@@ -261,7 +291,15 @@ describe("LocalTifBackend.fetchChunk", () => {
     const planes = [tilePlane(1)];
     await writeTiff(
       "badcount.tif",
-      buildTiff({ littleEndian: true, width: 256, height: 256, tileWidth: TILE, tileHeight: TILE, planes, countOverride: { tag, count: 2 } }),
+      buildTiff({
+        littleEndian: true,
+        width: 256,
+        height: 256,
+        tileWidth: TILE,
+        tileHeight: TILE,
+        planes,
+        countOverride: { tag, count: 2 },
+      }),
     );
 
     expectEmpty(await backend.fetchChunk("badcount.tif", 0, 0));
@@ -271,16 +309,34 @@ describe("LocalTifBackend.fetchChunk", () => {
     const planes = [tilePlane(41)];
     await writeTiff(
       "badtilesize.tif",
-      buildTiff({ littleEndian: true, width: 256, height: 256, tileWidth: TILE, tileHeight: TILE, planes, countOverride: { tag, count: 2 } }),
+      buildTiff({
+        littleEndian: true,
+        width: 256,
+        height: 256,
+        tileWidth: TILE,
+        tileHeight: TILE,
+        planes,
+        countOverride: { tag, count: 2 },
+      }),
     );
 
     const decoded = decodeChunk(await backend.fetchChunk("badtilesize.tif", 0, 0));
     expect(decoded.length).toBe(TILE_PIXELS);
-    expectInt16Equal(decoded, expectedWindow(planes[0], TILE, TILE, TILE));
+    expectInt16Equal(decoded, expectedWindow(planes[0]!, TILE, TILE, TILE));
   });
 
   it("returns an empty buffer when the tile is not a zlib stream", async () => {
-    await writeTiff("junk.tif", buildTiff({ littleEndian: true, width: 256, height: 256, tileWidth: TILE, tileHeight: TILE, rawTileData: Buffer.alloc(64, 0x55) }));
+    await writeTiff(
+      "junk.tif",
+      buildTiff({
+        littleEndian: true,
+        width: 256,
+        height: 256,
+        tileWidth: TILE,
+        tileHeight: TILE,
+        rawTileData: Buffer.alloc(64, 0x55),
+      }),
+    );
 
     expectEmpty(await backend.fetchChunk("junk.tif", 0, 0));
   });

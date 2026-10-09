@@ -113,13 +113,10 @@ export function createOZTTerrainProvider(Cesium: typeof CesiumType) {
       });
   });
 
-  def(
-    "getTileDataAvailable",
-    function (x: number, _y: number, level: number) {
-      if (level > MAX_TERRAIN_ZOOM) return false;
-      return undefined;
-    },
-  );
+  def("getTileDataAvailable", function (x: number, _y: number, level: number) {
+    if (level > MAX_TERRAIN_ZOOM) return false;
+    return undefined;
+  });
 
   def("getLevelMaximumGeometricError", function (level: number) {
     return (40075017.0 * 2.0) / ((1 << level) * 65);
@@ -179,7 +176,8 @@ async function tryOZTTile(
   // Preserve NODATA (-32768) — noDataValue tells Cesium which values are invalid
   const heights = new Float32Array(elevation.length);
   for (let i = 0; i < elevation.length; i++) {
-    heights[i] = elevation[i];
+    // bounds: i < elevation.length and heights has that exact length
+    heights[i] = elevation[i]!;
   }
 
   // Bound to a local first: the extra noDataValue key is passed through to
@@ -229,24 +227,25 @@ async function tryPNGTile(
 
     const heights = new Float32Array(w * h);
     for (let i = 0; i < heights.length; i++) {
+      // bounds: pixels is w*h*4 RGBA bytes and offset+2 < w*h*4 in the guard
       const offset = i * 4;
-      const R = pixels[offset];
-      const G = pixels[offset + 1];
-      const B = pixels[offset + 2];
+      const R = pixels[offset]!;
+      const G = pixels[offset + 1]!;
+      const B = pixels[offset + 2]!;
       heights[i] = R * 256 + G + B / 256 - 32768;
     }
 
-  // Same reason as the OZT2 path: noDataValue rides through to Cesium, so the
-  // literal is bound to a local to stay out of the structure type check.
-  const structure = { ...HEIGHTMAP_STRUCTURE, noDataValue: -32768 };
+    // Same reason as the OZT2 path: noDataValue rides through to Cesium, so the
+    // literal is bound to a local to stay out of the structure type check.
+    const structure = { ...HEIGHTMAP_STRUCTURE, noDataValue: -32768 };
 
-  return new HDT({
-    buffer: heights,
-    width: w,
-    height: h,
-    structure,
-    childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
-  });
+    return new HDT({
+      buffer: heights,
+      width: w,
+      height: h,
+      structure,
+      childTileMask: level < MAX_TERRAIN_ZOOM ? 15 : 0,
+    });
   } catch {
     return makeFlatTerrain(Cesium, 256);
   }

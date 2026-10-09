@@ -3,7 +3,8 @@ import Link from "next/link";
 export default function NotFound() {
   return (
     <main
-      id="main-content" tabIndex={-1}
+      id="main-content"
+      tabIndex={-1}
       style={{
         minHeight: "100vh",
         display: "flex",

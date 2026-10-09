@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  convertUnits,
-  parseElevationParams,
-  presentElevation,
-  DEFAULT_ELEVATION_PARAMS,
-} from "../elevation-params";
+import { convertUnits, parseElevationParams, presentElevation, DEFAULT_ELEVATION_PARAMS } from "../elevation-params";
 
 const parse = (query: string) => parseElevationParams(new URLSearchParams(query));
 
@@ -59,10 +54,10 @@ describe("elevation presentation", () => {
 
   it("converts to feet after the datum change", () => {
     const feetEllipsoid = {
-    interpolation: "bilinear" as const,
-    units: "feet" as const,
-    datum: "ellipsoid" as const,
-  };
+      interpolation: "bilinear" as const,
+      units: "feet" as const,
+      datum: "ellipsoid" as const,
+    };
     // 8848.86 - 28.755 = 8820.105 m, rounded to 8820.1 m -> 28,937.4 ft
     expect(presentElevation(8848.86, -28.755, feetEllipsoid)).toBe(28937.4);
     expect(presentElevation(0, 0, { ...DEFAULT_ELEVATION_PARAMS, units: "feet" })).toBe(0);

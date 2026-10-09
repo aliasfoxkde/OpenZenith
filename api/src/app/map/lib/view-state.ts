@@ -83,7 +83,9 @@ export function buildDefaultLayers(): Record<string, boolean> {
         // Written by this app as JSON.stringify(<Record<string, boolean>>).
         const parsed = JSON.parse(saved) as Record<string, boolean>;
         for (const key of Object.keys(parsed)) {
-          if (key in layers) layers[key] = parsed[key];
+          // parsed comes from JSON.parse of stored layer prefs — a non-boolean
+          // entry falls back to false, which is how it already rendered.
+          if (key in layers) layers[key] = parsed[key] ?? false;
         }
       }
     } catch {}

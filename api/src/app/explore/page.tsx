@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-
 import {
   FlightResponse,
   FlightState,
@@ -146,7 +145,6 @@ const S = `
 /* ═══════════════════════════════════════════════════════════════
    Component
    ═══════════════════════════════════════════════════════════════ */
-
 
 export default function ExplorePage() {
   const [tab, setTab] = useState<TabId>("noaa");
@@ -433,7 +431,6 @@ export default function ExplorePage() {
     }
   }, [marLat, marLon]);
 
-
   // Tab configs
   // Keyboard shortcuts: number keys switch tabs
   useEffect(() => {
@@ -442,11 +439,14 @@ export default function ExplorePage() {
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const num = parseInt(e.key);
       if (num >= 1 && num <= TABS.length) {
-        setTab(TABS[num - 1].id);
+        // bounds: num-1 is in [0, TABS.length) by the guard above
+        setTab(TABS[num - 1]!.id);
       }
     };
     window.addEventListener("keydown", handler);
-    return () => { window.removeEventListener("keydown", handler); };
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
   }, []);
 
   // WAI-ARIA tabs pattern: the arrow keys move focus AND selection together
@@ -464,12 +464,12 @@ export default function ExplorePage() {
       else if (e.key === "End") next = TABS.length - 1;
       else return;
       e.preventDefault();
-      const target = TABS[next];
+      // bounds: every branch above leaves next in [0, TABS.length), and TABS is
+      // a non-empty module constant
+      const target = TABS[next]!;
       if (target.id === tab) return;
       setTab(target.id);
-      tablistRef.current
-        ?.querySelector<HTMLButtonElement>(`#ex-tab-${target.id}`)
-        ?.focus();
+      tablistRef.current?.querySelector<HTMLButtonElement>(`#ex-tab-${target.id}`)?.focus();
     },
     [tab],
   );
@@ -499,7 +499,9 @@ export default function ExplorePage() {
                 aria-controls="ex-tabpanel"
                 tabIndex={tab === t.id ? 0 : -1}
                 className={`ex-tab ${tab === t.id ? "active" : ""}`}
-                onClick={() => { setTab(t.id); }}
+                onClick={() => {
+                  setTab(t.id);
+                }}
               >
                 {t.icon} {t.label}
               </button>

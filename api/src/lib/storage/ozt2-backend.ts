@@ -78,7 +78,9 @@ export class OZT2HuggingFaceBackend {
     const url = `https://huggingface.co/datasets/${this.repoId}/resolve/main/tiles/z${z}/${x}/${y}.ozt2`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => { controller.abort(); }, this.timeoutMs);
+    const timer = setTimeout(() => {
+      controller.abort();
+    }, this.timeoutMs);
 
     try {
       const response = await fetch(url, { signal: controller.signal });
@@ -158,7 +160,8 @@ export class OZT2HuggingFaceBackend {
         const localRow = pixel.row - chunkRow * 256;
         const localCol = pixel.col - chunkCol * 256;
         if (localRow >= 0 && localRow < decoded.height && localCol >= 0 && localCol < decoded.width) {
-          const elev = decoded.data[localRow * decoded.width + localCol];
+          // bounds: localRow/localCol range-checked against the chunk extents above
+          const elev = decoded.data[localRow * decoded.width + localCol]!;
           if (elev !== -32768) return elev;
         }
       }
@@ -198,7 +201,8 @@ export class OZT2HuggingFaceBackend {
 
     if (interpolation === "nearest") {
       // Rounding can reach 256 at the 255.999 clamp, which is out of bounds.
-      const value = tile[Math.min(255, Math.round(yFrac)) * 256 + Math.min(255, Math.round(xFrac))];
+      // bounds: both terms are clamped to 255, so the index is < 256*256
+      const value = tile[Math.min(255, Math.round(yFrac)) * 256 + Math.min(255, Math.round(xFrac))]!;
       return value === -32768 ? null : value;
     }
 
@@ -210,7 +214,8 @@ export class OZT2HuggingFaceBackend {
     const ix = xFrac - x0;
     const iy = yFrac - y0;
 
-    const get = (x: number, y: number): number => tile[y * 256 + x];
+    // bounds: x0/x1/y0/y1 are clamped to [0,255] and tile is 256*256
+    const get = (x: number, y: number): number => tile[y * 256 + x]!;
 
     const v00 = get(x0, y0);
     const v10 = get(x1, y0);

@@ -211,15 +211,16 @@ export function updateDrawLayers(map: maplibregl.Map, state: DrawState) {
   const features: GeoJSON.Feature[] = [];
 
   // Committed features
+  // bounds: i < state.features.length in this loop
   for (let i = 0; i < state.features.length; i++) {
     features.push({
-      ...state.features[i],
-      properties: { ...state.features[i].properties, selected: i === state.selectedFeatureIndex },
+      ...state.features[i]!,
+      properties: { ...state.features[i]!.properties, selected: i === state.selectedFeatureIndex },
     });
 
     // Show vertices on selected feature when in edit mode
     if (i === state.selectedFeatureIndex && state.mode === "edit") {
-      const coords = getFeatureCoords(state.features[i]);
+      const coords = getFeatureCoords(state.features[i]!);
       if (coords) {
         for (let vi = 0; vi < coords.length; vi++) {
           features.push({
@@ -351,7 +352,8 @@ export function finishDrawing(state: DrawState): DrawState {
 /** Undo last committed feature */
 export function undo(state: DrawState): DrawState {
   if (state.history.length === 0) return state;
-  const prev = state.history[state.history.length - 1];
+  // bounds: history.length > 0 checked above
+  const prev = state.history[state.history.length - 1]!;
   return {
     ...state,
     features: prev,
@@ -363,7 +365,8 @@ export function undo(state: DrawState): DrawState {
 /** Redo last undone feature */
 export function redo(state: DrawState): DrawState {
   if (state.redoStack.length === 0) return state;
-  const next = state.redoStack[state.redoStack.length - 1];
+  // bounds: redoStack.length > 0 checked above
+  const next = state.redoStack[state.redoStack.length - 1]!;
   return {
     ...state,
     features: next,
@@ -393,8 +396,9 @@ function getFeatureCoords(feature: NullableGeometryFeature): [number, number][] 
   if (g.type === "LineString") return g.coordinates as [number, number][];
   if (g.type === "Polygon") {
     // Edit the outer ring (exclude closing duplicate). The ambient Geometry
-    // keeps `coordinates` untyped, so the ring is cast at the access point.
-    const ring = (g.coordinates as [number, number][][])[0];
+    // keeps `coordinates` untyped, so the ring is cast at the access point;
+    // a committed polygon always carries its outer ring at index 0.
+    const ring = (g.coordinates as [number, number][][])[0]!;
     return ring.slice(0, -1); // remove closing vertex
   }
   return null;
@@ -416,7 +420,8 @@ function setFeatureCoords(feature: GeoJSON.Feature, coords: [number, number][]):
 export function moveVertex(state: DrawState, vertexIndex: number, newCoord: [number, number]): DrawState {
   const fi = state.selectedFeatureIndex;
   if (fi < 0 || vertexIndex < 0) return state;
-  const feature = state.features[fi];
+  // bounds: fi >= 0 checked above; selectedFeatureIndex always indexes features
+  const feature = state.features[fi]!;
   const coords = getFeatureCoords(feature);
   if (!coords || vertexIndex >= coords.length) return state;
 
@@ -437,7 +442,8 @@ export function moveVertex(state: DrawState, vertexIndex: number, newCoord: [num
 export function deleteVertex(state: DrawState, vertexIndex: number): DrawState {
   const fi = state.selectedFeatureIndex;
   if (fi < 0 || vertexIndex < 0) return state;
-  const feature = state.features[fi];
+  // bounds: fi >= 0 checked above; selectedFeatureIndex always indexes features
+  const feature = state.features[fi]!;
   const coords = getFeatureCoords(feature);
   if (!coords || vertexIndex >= coords.length) return state;
   // Don't allow deleting below minimum vertices
@@ -460,7 +466,8 @@ export function deleteVertex(state: DrawState, vertexIndex: number): DrawState {
 export function addVertex(state: DrawState, afterIndex: number, coord: [number, number]): DrawState {
   const fi = state.selectedFeatureIndex;
   if (fi < 0) return state;
-  const feature = state.features[fi];
+  // bounds: fi >= 0 checked above; selectedFeatureIndex always indexes features
+  const feature = state.features[fi]!;
   const coords = getFeatureCoords(feature);
   if (!coords) return state;
 
@@ -485,7 +492,8 @@ export function addVertex(state: DrawState, afterIndex: number, coord: [number, 
 /** Enter edit mode for the selected feature */
 export function enterEditMode(state: DrawState): DrawState {
   if (state.selectedFeatureIndex < 0) return state;
-  const feature = state.features[state.selectedFeatureIndex];
+  // bounds: index >= 0 checked above; selectedFeatureIndex always indexes features
+  const feature = state.features[state.selectedFeatureIndex]!;
   const editable = feature.geometry.type === "LineString" || feature.geometry.type === "Polygon";
   if (!editable) return state;
   return { ...state, mode: "edit", selectedVertexIndex: -1 };
@@ -525,7 +533,8 @@ function haversine(a: [number, number], b: [number, number]): number {
 /** Total length of a polyline in meters */
 function lineLength(coords: [number, number][]): number {
   let d = 0;
-  for (let i = 1; i < coords.length; i++) d += haversine(coords[i - 1], coords[i]);
+  // bounds: 1 <= i < coords.length, so both i - 1 and i are valid
+  for (let i = 1; i < coords.length; i++) d += haversine(coords[i - 1]!, coords[i]!);
   return d;
 }
 
@@ -535,11 +544,14 @@ function ringArea(ring: [number, number][]): number {
   if (n < 3) return 0;
   let area = 0;
   const R = 6371000;
+  // bounds: i < n and j = (i + 1) % n both index inside ring (length n)
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    const lat1 = (ring[i][1] * Math.PI) / 180;
-    const lat2 = (ring[j][1] * Math.PI) / 180;
-    const dLng = ((ring[j][0] - ring[i][0]) * Math.PI) / 180;
+    const cur = ring[i]!;
+    const next = ring[j]!;
+    const lat1 = (cur[1] * Math.PI) / 180;
+    const lat2 = (next[1] * Math.PI) / 180;
+    const dLng = ((next[0] - cur[0]) * Math.PI) / 180;
     area += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
   }
   return Math.abs((area * R * R) / 2);
@@ -566,7 +578,8 @@ export function measureFeature(feature: NullableGeometryFeature): Measurement | 
     return { type: "distance", value: d };
   }
   if (g.type === "Polygon") {
-    const a = ringArea((g.coordinates as [number, number][][])[0]);
+    // bounds: a Polygon's outer ring lives at coordinates[0] (same cast as getFeatureCoords)
+    const a = ringArea((g.coordinates as [number, number][][])[0]!);
     return { type: "area", value: a };
   }
   if (g.type === "Point") {
@@ -582,7 +595,8 @@ export function measureDrawing(coords: [number, number][], mode: DrawMode): Meas
     return { type: "distance", value: lineLength(coords) };
   }
   if (mode === "polygon" && coords.length >= 3) {
-    return { type: "area", value: ringArea([...coords, coords[0]]) };
+    // bounds: coords.length >= 3 checked in this branch
+    return { type: "area", value: ringArea([...coords, coords[0]!]) };
   }
   if (mode === "point") {
     return { type: "point", value: 0 };

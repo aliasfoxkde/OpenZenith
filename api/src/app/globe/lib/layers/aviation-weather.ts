@@ -8,7 +8,9 @@ import { pushLayerTimer, type LayerTimersRef } from "./timers";
 const SIGMET_COLOR = "#ff0000";
 const AIRMET_COLOR = "#ff8800";
 
-const AVIATION_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="#ff4444" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="bold" fill="#ff4444">!</text></svg>`);
+const AVIATION_ICON = svgIcon(
+  `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="#ff4444" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="bold" fill="#ff4444">!</text></svg>`,
+);
 
 function parseCoordinates(raw: string): [number, number][] {
   if (!raw) return [];
@@ -20,8 +22,10 @@ function parseCoordinates(raw: string): [number, number][] {
     const latMatch = part.match(/(\d{4,6})([NS])/);
     const lonMatch = part.match(/(\d{5,7})([EW])/);
     if (latMatch && lonMatch) {
-      const lat = parseInt(latMatch[1]) / 100;
-      const lon = parseInt(lonMatch[1]) / 100;
+      // bounds: both regexes have capture groups 1-2, which always exist on a
+      // successful match
+      const lat = parseInt(latMatch[1]!) / 100;
+      const lon = parseInt(lonMatch[1]!) / 100;
       points.push([latMatch[2] === "S" ? -lat : lat, lonMatch[2] === "W" ? -lon : lon]);
     }
   }
@@ -46,9 +50,7 @@ function asSigmetList(data: unknown): SigmetFeature[] {
     const wrapper = data as { features?: unknown; data?: unknown };
     list = wrapper.features ?? wrapper.data;
   }
-  return Array.isArray(list)
-    ? list.filter((x): x is SigmetFeature => typeof x === "object" && x !== null)
-    : [];
+  return Array.isArray(list) ? list.filter((x): x is SigmetFeature => typeof x === "object" && x !== null) : [];
 }
 
 /**
@@ -213,7 +215,9 @@ export function loadAviationWeather(
       // Fetch SIGMETs
       try {
         const sigmets = asSigmetList(await fetchSigmets(signal));
-        sigmets.forEach((s, i) => { addSigmet(s, i); });
+        sigmets.forEach((s, i) => {
+          addSigmet(s, i);
+        });
         total += sigmets.length;
       } catch {
         /* sigmets optional */
@@ -222,7 +226,9 @@ export function loadAviationWeather(
       // Fetch AIRMETs
       try {
         const airmets = asSigmetList(await fetchAirmets(signal));
-        airmets.forEach((a, i) => { addAirmet(a, i); });
+        airmets.forEach((a, i) => {
+          addAirmet(a, i);
+        });
         total += airmets.length;
       } catch {
         /* airmets optional */

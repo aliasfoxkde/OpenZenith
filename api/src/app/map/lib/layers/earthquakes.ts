@@ -86,6 +86,13 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
   const doLoad = async () => {
     try {
       const url = FEEDS[currentFeed] || FEEDS["7d"];
+      if (!url) {
+        // Unreachable: currentFeed is only set to a key verified present in
+        // FEEDS and "7d" is a literal entry — guarded so fetch always gets a
+        // string. Matches the !res.ok error style below.
+        setStatus(handle, "earthquakes", "error");
+        return;
+      }
       const res = await fetch(url);
       if (!res.ok) {
         setStatus(handle, "earthquakes", "error");
@@ -168,7 +175,7 @@ export function addEarthquakes(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("earthquakes", err);
       setStatus(handle, "earthquakes", "error");
-      }
+    }
   };
 
   void doLoad();

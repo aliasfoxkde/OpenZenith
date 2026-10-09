@@ -36,7 +36,10 @@ interface NlnogBody {
 
 /** Stub fetch with a fixed response for the duration of one test. */
 const stubUpstream = (body: string, status = 200): void => {
-  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(body, { status }))));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.resolve(new Response(body, { status }))),
+  );
 };
 
 // Wholesale fetch stub per test (see airquality.test.ts for why the
@@ -128,12 +131,24 @@ describe("NLNOG endpoint", () => {
     const data = await bodyAs<NlnogBody>(await GET());
     expect(data.count).toBe(1);
     expect(data.nodes).toEqual([
-      { id: 1, hostname: "ok", asn: undefined, ipv4: undefined, city: undefined, country: undefined, lat: 52.37, lon: 4.9 },
+      {
+        id: 1,
+        hostname: "ok",
+        asn: undefined,
+        ipv4: undefined,
+        city: undefined,
+        country: undefined,
+        lat: 52.37,
+        lon: 4.9,
+      },
     ]);
   });
 
   it("returns 502 with the thrown message when the upstream request rejects", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("nlnog unreachable"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("nlnog unreachable"))),
+    );
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
@@ -145,8 +160,11 @@ describe("NLNOG endpoint", () => {
 
   it("returns 502 with a generic message when the rejection is not an Error", async () => {
     // The route's catch maps any non-Error rejection reason to a generic string.
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject("aborted")));
+    vi.stubGlobal(
+      "fetch",
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      vi.fn(() => Promise.reject("aborted")),
+    );
 
     const { GET } = await import("@/app/api/nlnog/route");
     const resp = await GET();
@@ -185,7 +203,7 @@ describe("NLNOG endpoint", () => {
 
     if (data.nodes.length === 0) return;
 
-    const node = data.nodes[0];
+    const node = data.nodes[0]!; // bounds: non-empty asserted above
     expect(typeof node.id).toBe("number");
     expect(typeof node.hostname).toBe("string");
     expect(typeof node.lat).toBe("number");

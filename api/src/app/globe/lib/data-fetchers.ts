@@ -33,9 +33,13 @@ async function dedupFetch(url: string, timeoutMs = DEFAULT_TIMEOUT, signal?: Abo
   if (existing) return abortable(existing, signal);
 
   const controller = new AbortController();
-  const onExternalAbort = () => { controller.abort(); };
+  const onExternalAbort = () => {
+    controller.abort();
+  };
   signal?.addEventListener("abort", onExternalAbort, { once: true });
-  const timeout = setTimeout(() => { controller.abort(); }, timeoutMs);
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
   try {
     const p = fetch(url, { signal: controller.signal }).finally(() => {
@@ -63,7 +67,10 @@ function abortable(p: Promise<Response>, signal?: AbortSignal): Promise<Response
     };
     signal.addEventListener("abort", onAbort, { once: true });
     p.then(
-      (v) => { signal.removeEventListener("abort", onAbort); resolve(v); },
+      (v) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(v);
+      },
       // Normalize to Error: everything upstream throws Error subclasses
       // (TypeError from fetch, DOMException on abort), but reject(unknown)
       // would leave callers a non-Error rejection if that ever changes.
@@ -337,12 +344,7 @@ export interface VesselsConfig {
  * `{ error: "Vessels unavailable" }`; an HTTP error status throws. Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
 export async function fetchVessels(signal?: AbortSignal): Promise<VesselsConfig> {
-  return fetchJsonOrFallback<VesselsConfig>(
-    "fetchVessels",
-    "/api/vessels",
-    { error: "Vessels unavailable" },
-    signal,
-  );
+  return fetchJsonOrFallback<VesselsConfig>("fetchVessels", "/api/vessels", { error: "Vessels unavailable" }, signal);
 }
 
 /** NWS alert feature properties — the fields the warnings layer consumes. */
@@ -385,12 +387,7 @@ export interface WarningsResponse {
  * Aborting `signal` abandons the caller's wait; layers pass their toggle controller so a torn-down layer stops waiting on the network.
  */
 export async function fetchWarnings(signal?: AbortSignal): Promise<WarningsResponse> {
-  return fetchJsonOrFallback<WarningsResponse>(
-    "fetchWarnings",
-    "/api/weather/warnings",
-    { features: [] },
-    signal,
-  );
+  return fetchJsonOrFallback<WarningsResponse>("fetchWarnings", "/api/weather/warnings", { features: [] }, signal);
 }
 
 /** CelesTrak GP (general perturbation) JSON record — the fields layers consume. */
@@ -434,7 +431,11 @@ export async function fetchCelestrak(signal?: AbortSignal): Promise<TleRecord[]>
 export async function fetchHurricaneTracks(signal?: AbortSignal): Promise<string> {
   let r: Response;
   try {
-    r = await dedupFetch("https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv", DEFAULT_TIMEOUT, signal);
+    r = await dedupFetch(
+      "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.last3years.list.v04r01.csv",
+      DEFAULT_TIMEOUT,
+      signal,
+    );
   } catch (err) {
     if (!isAbort(err)) warnLayerError("fetchHurricaneTracks", err);
     return "";
@@ -477,7 +478,11 @@ export interface KpForecastEntry {
  */
 export async function fetchSWPCaurora(signal?: AbortSignal): Promise<AuroraForecast | null> {
   try {
-    const r = await dedupFetch("/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_latest.json", DEFAULT_TIMEOUT, signal);
+    const r = await dedupFetch(
+      "/api/proxy/https://services.swpc.noaa.gov/json/ovation_aurora_latest.json",
+      DEFAULT_TIMEOUT,
+      signal,
+    );
     // Same reason as above: the caller swallows, so report in-band.
     if (!r.ok) return { error: "Aurora data unavailable" };
     const body: unknown = await r.json();

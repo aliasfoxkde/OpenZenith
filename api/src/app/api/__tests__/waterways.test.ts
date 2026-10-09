@@ -264,10 +264,11 @@ describe("Waterways endpoint", () => {
 
     const data = await bodyAs<WaterwayBody>(resp);
     expect(data.count).toBe(1);
-    expect(data.features[0].geometry.type).toBe("Polygon");
+    const feature = data.features[0]!; // bounds: count 1 asserted above
+    expect(feature.geometry.type).toBe("Polygon");
     // Overpass geometry is {lat, lon} objects; GeoJSON wants [lon, lat].
-    expect(data.features[0].geometry.coordinates[0][0]).toEqual([-74.1, 40.6]);
-    expect(data.features[0].properties).toEqual({
+    expect(feature.geometry.coordinates[0]![0]).toEqual([-74.1, 40.6]);
+    expect(feature.properties).toEqual({
       id: 7,
       name: "Lake A",
       waterway: null,
@@ -302,8 +303,9 @@ describe("Waterways endpoint", () => {
     expect(resp.status).toBe(200);
 
     const data = await bodyAs<WaterwayBody>(resp);
-    expect(data.features[0].geometry.type).toBe("Polygon");
-    expect(data.features[0].geometry.coordinates).toHaveLength(1);
+    // bounds: the stubbed way is the single feature
+    expect(data.features[0]!.geometry.type).toBe("Polygon");
+    expect(data.features[0]!.geometry.coordinates).toHaveLength(1);
   });
 
   it("emits a LineString for an unclosed waterway and nulls absent tags", async () => {
@@ -331,12 +333,13 @@ describe("Waterways endpoint", () => {
 
     const data = await bodyAs<WaterwayBody>(resp);
     expect(data.count).toBe(1);
-    expect(data.features[0].geometry.type).toBe("LineString");
-    expect(data.features[0].geometry.coordinates).toEqual([
+    const lineFeature = data.features[0]!; // bounds: count 1 asserted above
+    expect(lineFeature.geometry.type).toBe("LineString");
+    expect(lineFeature.geometry.coordinates).toEqual([
       [-74.1, 40.6],
       [-73.9, 40.8],
     ]);
-    expect(data.features[0].properties).toEqual({
+    expect(lineFeature.properties).toEqual({
       id: 9,
       name: null,
       waterway: null,

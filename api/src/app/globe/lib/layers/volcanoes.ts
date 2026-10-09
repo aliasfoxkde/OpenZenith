@@ -5,7 +5,9 @@ import { createRetryGuard } from "../helpers";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
-const VOLCANO_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="#ff4444" opacity="0.8"/><ellipse cx="12" cy="20" rx="8" ry="2" fill="#ff4444" opacity="0.4"/><path d="M12 8v4M12 14v2" stroke="#ffcc00" stroke-width="2" stroke-linecap="round" opacity="0.9"/><circle cx="12" cy="7" r="3" fill="#ff6600" opacity="0.6"/></svg>`);
+const VOLCANO_ICON = svgIcon(
+  `<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 20h20L12 2z" fill="#ff4444" opacity="0.8"/><ellipse cx="12" cy="20" rx="8" ry="2" fill="#ff4444" opacity="0.4"/><path d="M12 8v4M12 14v2" stroke="#ffcc00" stroke-width="2" stroke-linecap="round" opacity="0.9"/><circle cx="12" cy="7" r="3" fill="#ff6600" opacity="0.6"/></svg>`,
+);
 
 function alertColor(alert: string): string {
   switch (alert) {
@@ -71,7 +73,9 @@ export function loadVolcanoes(
       let count = 0;
 
       for (let i = 0; i < features.length; i++) {
-        const f = features[i];
+        // bounds: i < features.length in the loop guard; GeoJSON Point
+        // coordinates are always [lon, lat, ...] (>= 2 elements)
+        const f = features[i]!;
         const props = f.properties;
         const coords = f.geometry?.coordinates;
         if (!coords) continue;
@@ -87,7 +91,7 @@ export function loadVolcanoes(
         viewer.entities.add({
           id: `vol-${i}`,
           name: name,
-          position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
+          position: Cesium.Cartesian3.fromDegrees(coords[0]!, coords[1]!, 0),
           billboard: {
             image: VOLCANO_ICON,
             width: 22,
@@ -120,7 +124,7 @@ export function loadVolcanoes(
             name,
             `Alert: ${alertLabel(alert)}`,
             props.url || null,
-            `Lat: ${coords[1].toFixed(3)}, Lon: ${coords[0].toFixed(3)}`,
+            `Lat: ${coords[1]!.toFixed(3)}, Lon: ${coords[0]!.toFixed(3)}`,
             `Source: USGS Volcano Hazards Program`,
           ]
             .filter(Boolean)
@@ -132,7 +136,7 @@ export function loadVolcanoes(
         if (alert === "warning" || alert === "watch") {
           viewer.entities.add({
             id: `vol-pulse-${i}`,
-            position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
+            position: Cesium.Cartesian3.fromDegrees(coords[0]!, coords[1]!, 0),
             ellipse: {
               semiMinorAxis: 17500,
               semiMajorAxis: 17500,
@@ -153,7 +157,9 @@ export function loadVolcanoes(
           removeEntities("vol-");
           let count = 0;
           for (let j = 0; j < feats.length; j++) {
-            const f = feats[j];
+            // bounds: j < feats.length in the loop guard; GeoJSON Point
+            // coordinates are always [lon, lat, ...] (>= 2 elements)
+            const f = feats[j]!;
             const pr = f.properties;
             const co = f.geometry?.coordinates;
             if (!co) continue;
@@ -165,7 +171,7 @@ export function loadVolcanoes(
             viewer.entities.add({
               id: `vol-${j}`,
               name: nm,
-              position: Cesium.Cartesian3.fromDegrees(co[0], co[1], 0),
+              position: Cesium.Cartesian3.fromDegrees(co[0]!, co[1]!, 0),
               billboard: {
                 image: VOLCANO_ICON,
                 width: 22,

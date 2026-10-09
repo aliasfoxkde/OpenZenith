@@ -93,8 +93,14 @@ function readDoc(name: string): string {
 
 describe("docs claims vs source truth", () => {
   it("derives a non-empty truth for every gated claim", () => {
-    expect(LAYER_COUNT, "layer registry came back empty — is api/src/lib/layers/registry.ts still exporting LAYERS?").toBeGreaterThan(0);
-    expect(BASEMAP_COUNT, "basemap registry came back empty — is api/src/lib/basemaps.ts still exporting BASEMAPS?").toBeGreaterThan(0);
+    expect(
+      LAYER_COUNT,
+      "layer registry came back empty — is api/src/lib/layers/registry.ts still exporting LAYERS?",
+    ).toBeGreaterThan(0);
+    expect(
+      BASEMAP_COUNT,
+      "basemap registry came back empty — is api/src/lib/basemaps.ts still exporting BASEMAPS?",
+    ).toBeGreaterThan(0);
     expect(
       API_ROUTE_COUNT,
       "route walk came back empty — is api/src/app/api still the route tree root?",
@@ -111,7 +117,7 @@ describe("docs claims vs source truth", () => {
         if (matches.length === 0) continue;
         for (const match of matches) {
           expect(
-            Number.parseInt(match[1], 10),
+            Number.parseInt(match[1]!, 10),
             `${doc} says "${match[0]}" but source has ${claim.truth} ${claim.name} (${claim.source}) — update ${doc} or fix the drift`,
           ).toBe(claim.truth);
         }

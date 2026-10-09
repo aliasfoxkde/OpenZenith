@@ -323,7 +323,8 @@ export function loadCurrents(
 
     for (const current of OCEAN_CURRENTS) {
       const color = Cesium.Color.fromCssColorString(current.color);
-      const positions = current.path.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat));
+      // bounds: OCEAN_CURRENTS paths are hard-coded [lon, lat] pairs
+      const positions = current.path.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon!, lat!));
 
       // ─── Static flow path ───
       viewer.entities.add({
@@ -360,7 +361,10 @@ export function loadCurrents(
 
           const pts: CesiumType.Cartesian3[] = [];
           for (let i = startI; i <= Math.min(endI, totalPts - 1); i++) {
-            pts.push(Cesium.Cartesian3.fromDegrees(current.path[i][0], current.path[i][1]));
+            // bounds: i <= min(endI, totalPts-1) in the loop guard; entries are
+            // the [lon, lat] pairs of the hard-coded path above
+            const pt = current.path[i]!;
+            pts.push(Cesium.Cartesian3.fromDegrees(pt[0]!, pt[1]!));
           }
           return pts;
         }, false);
@@ -378,7 +382,11 @@ export function loadCurrents(
 
       // ─── Current label at midpoint ───
       const midIdx = Math.floor(current.path.length / 2);
-      const [midLon, midLat] = current.path[midIdx];
+      // bounds: path is a hard-coded non-empty [lon, lat] list, so the midpoint
+      // index and both tuple components exist
+      const midPt = current.path[midIdx]!;
+      const midLon = midPt[0]!;
+      const midLat = midPt[1]!;
       viewer.entities.add({
         id: `current-label-${pIdx}`,
         position: Cesium.Cartesian3.fromDegrees(midLon, midLat),

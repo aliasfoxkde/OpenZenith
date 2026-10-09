@@ -54,7 +54,10 @@ function jsonResponse(body: string, status = 200): Response {
 }
 
 function seedEntry(store: CacheStore, body: string, cachedAtMs: number, extraHeaders: Record<string, string> = {}) {
-  store.set(`${NAMESPACE}:${URL_UNDER_TEST}`, new Response(body, { headers: { "x-cached-at": String(cachedAtMs), ...extraHeaders } }));
+  store.set(
+    `${NAMESPACE}:${URL_UNDER_TEST}`,
+    new Response(body, { headers: { "x-cached-at": String(cachedAtMs), ...extraHeaders } }),
+  );
 }
 
 const fetchMock = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>();
@@ -204,7 +207,9 @@ describe("staleWhileRevalidate", () => {
   it("serves a fresh entry with an x-cache-status of HIT", async () => {
     const caches = createCaches();
     vi.stubGlobal("caches", caches);
-    seedEntry(caches.stores.get(NAMESPACE) as CacheStore, '{"cached":2}', Date.now() - 1000, { "x-cache-status": "MISS" });
+    seedEntry(caches.stores.get(NAMESPACE) as CacheStore, '{"cached":2}', Date.now() - 1000, {
+      "x-cache-status": "MISS",
+    });
     fetchMock.mockResolvedValue(jsonResponse('{"fresh":5}'));
 
     const { staleWhileRevalidate } = await import("@/lib/cache");

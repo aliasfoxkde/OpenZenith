@@ -57,7 +57,7 @@ export function addRadar(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("radar", err);
       setStatus(handle, "radar", "error");
-      }
+    }
   };
 
   void doLoad();

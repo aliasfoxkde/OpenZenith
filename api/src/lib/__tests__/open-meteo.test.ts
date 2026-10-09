@@ -270,7 +270,7 @@ describe("getWeather", () => {
 
     await getWeather(40.7, -74);
 
-    const url = fetchMock.mock.calls[0][0];
+    const url = fetchMock.mock.calls[0]![0];
     expect(url.startsWith("https://api.open-meteo.com/v1/forecast?")).toBe(true);
     const params = new URL(url).searchParams;
     expect(params.get("latitude")).toBe("40.7");
@@ -308,9 +308,9 @@ describe("getWeather", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await getWeather(40.7, -74, 100);
-    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("forecast_days")).toBe("16");
+    expect(new URL(fetchMock.mock.calls[0]![0]).searchParams.get("forecast_days")).toBe("16");
 
     await getWeather(40.7, -74, 7);
-    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get("forecast_days")).toBe("7");
+    expect(new URL(fetchMock.mock.calls[1]![0]).searchParams.get("forecast_days")).toBe("7");
   });
 });

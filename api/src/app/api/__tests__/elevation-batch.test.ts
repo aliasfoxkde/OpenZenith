@@ -62,9 +62,10 @@ describe("Elevation Batch API", () => {
     expect(resp.status).toBe(200);
     const data = await bodyAs<ElevationBatchBody>(resp);
     expect(data.results).toHaveLength(2);
-    expect(data.results?.[0].lat).toBe(40.7);
-    expect(data.results?.[0].lon).toBe(-74.0);
-    expect(typeof data.results?.[0].elevation).toBe("number");
+    const first = data.results![0]!; // bounds: length 2 asserted above
+    expect(first.lat).toBe(40.7);
+    expect(first.lon).toBe(-74.0);
+    expect(typeof first.elevation).toBe("number");
   });
 
   it("rejects empty points array", async () => {
@@ -105,7 +106,7 @@ describe("Elevation Batch API", () => {
     );
     const resp = await POST(req);
     const data = await bodyAs<ElevationBatchBody>(resp);
-    expect(data.results?.[0].id).toBe("nyc");
+    expect(data.results![0]!.id).toBe("nyc"); // bounds: one point posted
   });
 
   it("groups points that share a tile into one fetch", async () => {
@@ -138,7 +139,7 @@ describe("Elevation Batch API", () => {
     const req = mockRequest("/api/elevation/batch", "POST", JSON.stringify({ points: [{ lat: 40.7, lon: -74.0 }] }));
     const resp = await POST(req);
     const data = await bodyAs<ElevationBatchBody>(resp);
-    expect(data.results?.[0].elevation).toBeNull();
+    expect(data.results![0]!.elevation).toBeNull(); // bounds: one point posted
   });
 
   it("reports null for points whose tile fails to load, without failing the batch", async () => {
@@ -157,8 +158,8 @@ describe("Elevation Batch API", () => {
     );
     const resp = await POST(req);
     const data = await bodyAs<ElevationBatchBody>(resp);
-    expect(data.results?.[0].elevation).toBeNull();
-    expect(typeof data.results?.[1].elevation).toBe("number");
+    expect(data.results![0]!.elevation).toBeNull(); // bounds: two points posted
+    expect(typeof data.results?.[1]!.elevation).toBe("number");
   });
 
   it("returns 500 with an Error's message when tile math throws", async () => {
@@ -211,9 +212,9 @@ describe("Elevation Batch API — interpolation, units and datum", () => {
   it("adds elevation_m and a metadata block without changing elevation", async () => {
     const data = await post("", [{ lat: 40.7, lon: -74.0 }]);
 
-    expect(typeof data.results?.[0].elevation_m).toBe("number");
+    expect(typeof data.results![0]!.elevation_m).toBe("number"); // bounds: one point posted
     // meters + egm96 is the identity, so both spellings agree.
-    expect(data.results?.[0].elevation).toBe(data.results?.[0].elevation_m);
+    expect(data.results![0]!.elevation).toBe(data.results![0]!.elevation_m);
     expect(data.metadata).toEqual({
       resolution_m: 30,
       vertical_datum: "egm96",
@@ -228,7 +229,7 @@ describe("Elevation Batch API — interpolation, units and datum", () => {
 
     expect(data.metadata?.interpolation).toBe("nearest");
     // Nearest can only ever return a pixel value from the mocked 3x3 grid.
-    expect([100, 200, 150, 250, 300, 350, 400, 450, 500]).toContain(data.results?.[0].elevation);
+    expect([100, 200, 150, 250, 300, 350, 400, 450, 500]).toContain(data.results![0]!.elevation);
   });
 
   it("reports a mixed batch in feet against the raw metres", async () => {
@@ -254,7 +255,8 @@ describe("Elevation Batch API — interpolation, units and datum", () => {
 
     expect(data.metadata?.vertical_datum).toBe("ellipsoid");
     for (const [i, r] of (data.results ?? []).entries()) {
-      const undulation = await egm96UndulationAt(spots[i].lat, spots[i].lon);
+      // bounds: results mirror the two spots posted above
+      const undulation = await egm96UndulationAt(spots[i]!.lat, spots[i]!.lon);
       expect(r.elevation).toBe(round1((r.elevation_m as number) + undulation));
     }
   });
@@ -268,8 +270,8 @@ describe("Elevation Batch API — interpolation, units and datum", () => {
     });
     const data = await post("?units=feet&datum=ellipsoid", [{ lat: 40.7, lon: -74.0 }]);
 
-    expect(data.results?.[0].elevation).toBeNull();
-    expect(data.results?.[0].elevation_m).toBeNull();
+    expect(data.results![0]!.elevation).toBeNull(); // bounds: one point posted
+    expect(data.results![0]!.elevation_m).toBeNull();
   });
 
   it.each([

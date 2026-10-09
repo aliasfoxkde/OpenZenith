@@ -76,7 +76,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
   const bg = dark ? "#141414" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const _inputBg = dark ? "#1a1a1a" : "#f5f5f5";
   /* Accent blue as TEXT is theme-split for contrast: blue-400 on the dark
@@ -216,8 +216,11 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
         const maxElev = Math.max(...result.elevations);
 
         const segments: GeoJSON.Feature[] = [];
+        // bounds: coordinates and elevations are parallel arrays of equal
+        // length in FlowPathResult (see flow-path.ts), and this loop stays
+        // inside coordinates
         for (let i = 0; i < result.coordinates.length - 1; i++) {
-          const elev = result.elevations[i];
+          const elev = result.elevations[i]!;
           segments.push({
             type: "Feature",
             geometry: {
@@ -238,7 +241,8 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           geometry: { type: "Point", coordinates: result.coordinates[0] },
           properties: {
             marker: true,
-            label: `${result.elevations[0].toFixed(0)}m`,
+            // bounds: length >= 2 returned early above, so elevations[0] exists
+            label: `${result.elevations[0]!.toFixed(0)}m`,
             lineColor: "transparent",
           },
         };
@@ -302,10 +306,7 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
     if (!flowPathClickRef) return;
     // handleClick is async; the shared ref contract is a void handler, so the
     // promise is discarded here (it handles its own errors).
-    flowPathClickRef.current =
-      mode !== "none"
-        ? (lat: number, lon: number) => void handleClick(lat, lon)
-        : null;
+    flowPathClickRef.current = mode !== "none" ? (lat: number, lon: number) => void handleClick(lat, lon) : null;
     return () => {
       flowPathClickRef.current = null;
     };
@@ -361,7 +362,9 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
       {/* Mode buttons */}
       <div style={{ display: "flex", gap: 6 }}>
         <button
-          onClick={() => { handleModeToggle("downstream"); }}
+          onClick={() => {
+            handleModeToggle("downstream");
+          }}
           style={{
             flex: 1,
             padding: "8px 4px",
@@ -377,7 +380,9 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
           ↓ Downstream
         </button>
         <button
-          onClick={() => { handleModeToggle("upstream"); }}
+          onClick={() => {
+            handleModeToggle("upstream");
+          }}
           style={{
             flex: 1,
             padding: "8px 4px",
@@ -405,7 +410,9 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               max={0.01}
               step={0.0001}
               value={precision}
-              onChange={(e) => { setPrecision(parseFloat(e.target.value)); }}
+              onChange={(e) => {
+                setPrecision(parseFloat(e.target.value));
+              }}
               style={{ flex: 1 }}
             />
             <span style={{ color: text, fontFamily: "monospace", minWidth: 50, textAlign: "right" }}>
@@ -420,7 +427,9 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               max={90}
               step={1}
               value={directions}
-              onChange={(e) => { setDirections(parseInt(e.target.value)); }}
+              onChange={(e) => {
+                setDirections(parseInt(e.target.value));
+              }}
               style={{ flex: 1 }}
             />
             <span style={{ color: text, fontFamily: "monospace", minWidth: 30, textAlign: "right" }}>{directions}</span>
@@ -433,7 +442,9 @@ export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef 
               max={10000}
               step={100}
               value={maxPoints}
-              onChange={(e) => { setMaxPoints(parseInt(e.target.value)); }}
+              onChange={(e) => {
+                setMaxPoints(parseInt(e.target.value));
+              }}
               style={{ flex: 1 }}
             />
             <span style={{ color: text, fontFamily: "monospace", minWidth: 50, textAlign: "right" }}>
@@ -621,7 +632,7 @@ function ElevationMiniChart({
   dark: boolean;
   imperial?: boolean;
 }) {
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const _text = dark ? "#e5e5e5" : "#171717";
   const gridColor = dark ? "#2a2a2a" : "#e5e5e5";
@@ -673,7 +684,8 @@ function ElevationMiniChart({
           const path = profile
             .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(p.distanceM).toFixed(1)} ${toY(p.elevationM).toFixed(1)}`)
             .join(" ");
-          const color = paths[pi].mode === "downstream" ? "#3b82f6" : "#f59e0b";
+          // bounds: allProfiles is paths.map(...), so pi indexes inside paths
+          const color = paths[pi]!.mode === "downstream" ? "#3b82f6" : "#f59e0b";
           return <path key={pi} d={path} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />;
         })}
 
@@ -688,9 +700,10 @@ function ElevationMiniChart({
 
 function computeTotalDist(result: FlowPathResult): number {
   let total = 0;
+  // bounds: 1 <= i < result.coordinates.length, so both indices exist
   for (let i = 1; i < result.coordinates.length; i++) {
-    const [lon1, lat1] = result.coordinates[i - 1];
-    const [lon2, lat2] = result.coordinates[i];
+    const [lon1, lat1] = result.coordinates[i - 1]!;
+    const [lon2, lat2] = result.coordinates[i]!;
     const R = 6371000;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLon = ((lon2 - lon1) * Math.PI) / 180;

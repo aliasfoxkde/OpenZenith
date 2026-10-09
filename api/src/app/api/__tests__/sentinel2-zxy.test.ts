@@ -12,14 +12,9 @@ import { edgeGetTile } from "@/lib/storage/edge-cache";
 const PNG = new ArrayBuffer(8);
 
 function stacResponse(href: string | null): Response {
-  return new Response(
-    JSON.stringify(
-      href
-        ? { features: [{ assets: { visual: { href } } }] }
-        : { features: [] },
-    ),
-    { status: 200 },
-  );
+  return new Response(JSON.stringify(href ? { features: [{ assets: { visual: { href } } }] } : { features: [] }), {
+    status: 200,
+  });
 }
 
 function pngResponse(ok: boolean): Response {
@@ -85,7 +80,8 @@ describe("Sentinel-2 tile API", () => {
   it("falls back to GIBS when the STAC search returns a non-OK status", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = urlOf(input);
-      if (url.includes("planetarycomputer.microsoft.com/api/stac")) return new Response("rate limited", { status: 429 });
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return new Response("rate limited", { status: 429 });
       if (url.includes("gibs.earthdata.nasa.gov")) return pngResponse(true);
       throw new Error(`unexpected fetch: ${url}`);
     });
@@ -167,7 +163,8 @@ describe("Sentinel-2 tile API", () => {
   it("serves TiTiler imagery when the STAC search and TiTiler both succeed", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = urlOf(input);
-      if (url.includes("planetarycomputer.microsoft.com/api/stac")) return stacResponse("https://assets.example/visual.tif");
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return stacResponse("https://assets.example/visual.tif");
       if (url.includes("titiler.planetarycomputer")) return pngResponse(true);
       throw new Error(`unexpected fetch: ${url}`);
     });
@@ -184,7 +181,8 @@ describe("Sentinel-2 tile API", () => {
   it("falls back to GIBS when TiTiler fails", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = urlOf(input);
-      if (url.includes("planetarycomputer.microsoft.com/api/stac")) return stacResponse("https://assets.example/visual.tif");
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return stacResponse("https://assets.example/visual.tif");
       if (url.includes("titiler.planetarycomputer")) throw new Error("titiler down");
       if (url.includes("gibs.earthdata.nasa.gov")) return pngResponse(true);
       throw new Error(`unexpected fetch: ${url}`);

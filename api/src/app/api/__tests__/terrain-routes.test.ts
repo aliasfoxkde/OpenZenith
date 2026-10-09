@@ -26,9 +26,7 @@ vi.mock("@/lib/tile", () => {
     return t;
   };
   return {
-    getTileData: vi.fn(() =>
-      Promise.resolve({ data: makeTile(), width: 256, height: 256, zoom: 10 }),
-    ),
+    getTileData: vi.fn(() => Promise.resolve({ data: makeTile(), width: 256, height: 256, zoom: 10 })),
     CACHE_TTL: { ELEVATION: 86400 },
   };
 });
@@ -212,7 +210,9 @@ function hostileTileData(): Int16Array {
   });
 }
 
-function resolveTile(data: Int16Array): () => Promise<{ data: Int16Array; width: number; height: number; zoom: number }> {
+function resolveTile(
+  data: Int16Array,
+): () => Promise<{ data: Int16Array; width: number; height: number; zoom: number }> {
   return () => Promise.resolve({ data, width: 256, height: 256, zoom: 10 });
 }
 
@@ -258,9 +258,7 @@ describe("Terrain routes — shared validation", () => {
     ["watershed", watershedPOST, { lat: 40, lon: -74 }],
     ["streams", streamsPOST, { lat: 40, lon: -74 }],
   ])("%s rejects malformed JSON body with 400", async (_name, handler, validBody) => {
-    const resp = await (handler as PostHandler)(
-      makeRequest(GET_URL, { method: "POST", body: "not-json{{" }),
-    );
+    const resp = await (handler as PostHandler)(makeRequest(GET_URL, { method: "POST", body: "not-json{{" }));
     expect(resp.status).toBe(400);
     void validBody;
   });
@@ -274,7 +272,11 @@ describe("Terrain routes — shared validation", () => {
   ])("%s rejects missing coordinates with 400", async (_name, handler, validBody) => {
     const incomplete = Object.fromEntries(Object.entries(validBody as Record<string, unknown>).slice(0, 0));
     const resp = await (handler as PostHandler)(
-      makeRequest(GET_URL, { method: "POST", body: JSON.stringify(incomplete), headers: { "Content-Type": "application/json" } }),
+      makeRequest(GET_URL, {
+        method: "POST",
+        body: JSON.stringify(incomplete),
+        headers: { "Content-Type": "application/json" },
+      }),
     );
     expect(resp.status).toBe(400);
   });
@@ -288,7 +290,11 @@ describe("Terrain routes — shared validation", () => {
   ])("%s rejects out-of-range coordinates with 400", async (_name, handler, validBody) => {
     const bad = { ...validBody, lat: 91, lat1: 91 };
     const resp = await (handler as PostHandler)(
-      makeRequest(GET_URL, { method: "POST", body: JSON.stringify(bad), headers: { "Content-Type": "application/json" } }),
+      makeRequest(GET_URL, {
+        method: "POST",
+        body: JSON.stringify(bad),
+        headers: { "Content-Type": "application/json" },
+      }),
     );
     expect(resp.status).toBe(400);
   });
@@ -330,7 +336,7 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
     // Ramp rises toward +x (east) → east-facing cells must dominate
     expect(body.direction_bins).not.toBeNull();
     expect(body.direction_bins?.E).toBeGreaterThan(0);
-    const binSum = Object.values((body.direction_bins ?? {})).reduce((a, b) => a + b, 0);
+    const binSum = Object.values(body.direction_bins ?? {}).reduce((a, b) => a + b, 0);
     expect(binSum).toBeCloseTo(100, 0);
   });
 
@@ -458,9 +464,7 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
     storageState.pointElevation = "ok";
     // The earlier degradation tests leave a rejecting getTileData behind;
     // delineation needs real tiles, so restore the ramp explicitly.
-    mockGetTileData.mockImplementation(() =>
-      Promise.resolve({ data: rampTile(), width: 256, height: 256, zoom: 10 }),
-    );
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data: rampTile(), width: 256, height: 256, zoom: 10 }));
     const resp = await watershedPOST(
       makeRequest(GET_URL, {
         method: "POST",
@@ -540,9 +544,7 @@ describe("Terrain routes — watershed pour-point elevation gate", () => {
     // centre so the pour point itself has no elevation while ring cells do.
     const holeTile = (): Int16Array =>
       buildTile((row, col) => (col >= 124 && col <= 136 && row >= 9 && row <= 21 ? -32768 : 500 + (col % 64)));
-    mockGetTileData.mockImplementation(() =>
-      Promise.resolve({ data: holeTile(), width: 256, height: 256, zoom: 10 }),
-    );
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data: holeTile(), width: 256, height: 256, zoom: 10 }));
     const resp = await watershedPOST(
       makeRequest(GET_URL, {
         method: "POST",
@@ -570,9 +572,7 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
     storageState.ozt2Rejects = true;
     storageState.pointElevation = "ok";
     // The degradation describe leaves a rejecting getTileData behind.
-    mockGetTileData.mockImplementation(() =>
-      Promise.resolve({ data: rampTile(), width: 256, height: 256, zoom: 10 }),
-    );
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data: rampTile(), width: 256, height: 256, zoom: 10 }));
     const resp = await streamsPOST(
       makeRequest(GET_URL, {
         method: "POST",
@@ -633,9 +633,7 @@ describe("Terrain routes — streams elevation gate and DEM degradation", () => 
   });
 
   it("traces downhill stream segments when the threshold admits every cell", async () => {
-    mockGetTileData.mockImplementation(() =>
-      Promise.resolve({ data: rampTile(), width: 256, height: 256, zoom: 10 }),
-    );
+    mockGetTileData.mockImplementation(() => Promise.resolve({ data: rampTile(), width: 256, height: 256, zoom: 10 }));
     const resp = await streamsPOST(
       makeRequest(GET_URL, {
         method: "POST",
@@ -994,12 +992,12 @@ describe("Terrain routes — aspect direction bins", () => {
       expect(resp.status).toBe(200);
       const body = await aspectBody(resp);
       expect(body.valid_cells).toBe(1);
-      const hits = Object.entries((body.direction_bins ?? {}))
+      const hits = Object.entries(body.direction_bins ?? {})
         .filter(([, pct]) => pct === 100)
         .map(([dir]) => dir);
       expect(hits).toHaveLength(1);
       expect(hits[0]).not.toBe("flat");
-      seen.add(hits[0]);
+      seen.add(hits[0]!); // bounds: length 1 asserted above
     }
     expect([...seen].sort()).toEqual(["E", "N", "NE", "NW", "S", "SE", "SW", "W"]);
   });

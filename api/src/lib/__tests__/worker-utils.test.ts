@@ -147,9 +147,9 @@ describe("computeProfileInWorker", () => {
 
     expect(result.points).toHaveLength(201);
     expect(result.points[0]).toEqual([0, 0]);
-    expect(result.points[200][0]).toBeCloseTo(1, 10);
-    expect(result.points[200][1]).toBe(0);
-    expect(result.points[100][0]).toBeCloseTo(0.5, 10);
+    expect(result.points[200]![0]).toBeCloseTo(1, 10);
+    expect(result.points[200]![1]).toBe(0);
+    expect(result.points[100]![0]).toBeCloseTo(0.5, 10);
     expect(result.totalDistance).toBeGreaterThan(110000);
     expect(result.totalDistance).toBeLessThan(112000);
   });
@@ -175,12 +175,12 @@ describe("computeProfileInWorker", () => {
     const result = await computeProfileInWorker([45, -122], [46, -121]);
 
     expect(result.points[0]).toEqual([45, -122]);
-    expect(result.points[result.points.length - 1][0]).toBeCloseTo(46, 10);
-    expect(result.points[result.points.length - 1][1]).toBeCloseTo(-121, 10);
+    expect(result.points[result.points.length - 1]![0]).toBeCloseTo(46, 10);
+    expect(result.points[result.points.length - 1]![1]).toBeCloseTo(-121, 10);
 
     const lons = result.points.map((p) => p[0]);
     for (let i = 1; i < lons.length; i++) {
-      expect(lons[i]).toBeGreaterThanOrEqual(lons[i - 1]);
+      expect(lons[i]).toBeGreaterThanOrEqual(lons[i - 1]!);
     }
   });
 

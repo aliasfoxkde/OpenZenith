@@ -53,7 +53,7 @@ export function GeocodeTool({ map, dark }: Props) {
 
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
 
@@ -65,7 +65,9 @@ export function GeocodeTool({ map, dark }: Props) {
       <input
         placeholder="Search address..."
         value={query}
-        onChange={(e) => { setQuery(e.target.value); }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") void search(query);
         }}
@@ -87,7 +89,9 @@ export function GeocodeTool({ map, dark }: Props) {
           {results.map((r, i) => (
             <div
               key={i}
-              onClick={() => { flyTo(r.lat, r.lon); }}
+              onClick={() => {
+                flyTo(r.lat, r.lon);
+              }}
               style={{
                 padding: "8px 10px",
                 background: inputBg,

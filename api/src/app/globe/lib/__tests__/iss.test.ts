@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  issEcfPosition,
-  parseCelestrakTle,
-  type SatelliteJsLike,
-} from "../iss";
+import { issEcfPosition, parseCelestrakTle, type SatelliteJsLike } from "../iss";
 
 const VALID_TLE = { TLE_LINE1: "1 25544U", TLE_LINE2: "2 25544 " };
 

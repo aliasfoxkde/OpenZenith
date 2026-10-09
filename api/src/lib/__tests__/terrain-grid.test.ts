@@ -49,7 +49,7 @@ describe("flowAccumulation", () => {
     // Every cell drains toward the bottom-right corner.
     const max = Math.max(...Array.from(accum));
     expect(accum[2 * 3 + 2]).toBe(max);
-    expect(accum[2 * 3 + 2]).toBeGreaterThan(accum[0]);
+    expect(accum[2 * 3 + 2]).toBeGreaterThan(accum[0]!);
     // All cells keep their self-count of at least 1.
     expect(Math.min(...Array.from(accum))).toBeGreaterThanOrEqual(1);
   });

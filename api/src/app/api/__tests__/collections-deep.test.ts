@@ -131,7 +131,10 @@ describe("Collection Items — upstream fetching and normalisation", () => {
 
   it("resolves internal collection sources against the request origin", async () => {
     const fetchMock = stubFetch([
-      { match: "http://localhost:8788/api/wildfires", respond: () => new Response(JSON.stringify({ features: [] }), { status: 200 }) },
+      {
+        match: "http://localhost:8788/api/wildfires",
+        respond: () => new Response(JSON.stringify({ features: [] }), { status: 200 }),
+      },
     ]);
 
     const GET = await getGET();
@@ -176,11 +179,13 @@ describe("Collection Items — upstream fetching and normalisation", () => {
   });
 
   it("treats an upstream payload without a features array as empty", async () => {
-    stubFetch([{ match: "earthquake.usgs.gov", respond: () => new Response(JSON.stringify({ metadata: {} }), { status: 200 }) }]);
+    stubFetch([
+      { match: "earthquake.usgs.gov", respond: () => new Response(JSON.stringify({ metadata: {} }), { status: 200 }) },
+    ]);
 
     const GET = await getGET();
     const data = await bodyAs<CollectionBody>(
-      await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"))
+      await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes")),
     );
     expect(data.features).toEqual([]);
     expect(data.numberMatched).toBe(0);
@@ -206,7 +211,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
 
     const GET = await getGET();
     const data = await bodyAs<CollectionBody>(
-      await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes"))
+      await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes")),
     );
     expect(data.numberMatched).toBe(1);
     expect(data.features).toEqual([
@@ -235,7 +240,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
 
     const GET = await getGET();
     const data = await bodyAs<CollectionBody>(
-      await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes"))
+      await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes")),
     );
     expect(data.numberMatched).toBe(1);
     expect(data.features?.[0]?.properties?.hostname).toBe("node9");
@@ -254,7 +259,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
 
     const GET = await getGET();
     const data = await bodyAs<CollectionBody>(
-      await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"))
+      await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes")),
     );
     expect(data.features?.[0]?.properties?.id).toBe("a");
   });

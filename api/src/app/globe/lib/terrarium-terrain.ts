@@ -15,17 +15,11 @@ const MAX_TERRAIN_ZOOM = 12;
  * Create a terrain provider that loads Terrarium PNG heightmap tiles from R2.
  */
 export function createTerrariumTerrainProvider(Cesium: typeof CesiumType) {
-
   const provider = new Cesium.EllipsoidTerrainProvider();
 
   // Override requestTileGeometry to fetch and decode Terrarium PNG tiles
   const origRequest = provider.requestTileGeometry?.bind(provider);
-  provider.requestTileGeometry = function (
-    x: number,
-    y: number,
-    level: number,
-    request: unknown,
-  ) {
+  provider.requestTileGeometry = function (x: number, y: number, level: number, request: unknown) {
     // Beyond our tile zoom, fall back to flat ellipsoid
     if (level > MAX_TERRAIN_ZOOM) {
       return origRequest ? origRequest(x, y, level, request) : Promise.resolve(null);
@@ -48,13 +42,13 @@ export function createTerrariumTerrainProvider(Cesium: typeof CesiumType) {
         // Decode Terrarium encoding to float32 heightmap
         const heights = new Float32Array(w * h);
         for (let i = 0; i < heights.length; i++) {
+          // bounds: pixels is w*h*4 RGBA bytes and offset+2 < w*h*4 in the guard
           const offset = i * 4;
-          const R = pixels[offset];
-          const G = pixels[offset + 1];
-          const B = pixels[offset + 2];
+          const R = pixels[offset]!;
+          const G = pixels[offset + 1]!;
+          const B = pixels[offset + 2]!;
           heights[i] = R * 256 + G + B / 256 - 32768;
         }
-
 
         // Asserted nullable for the guard below; HeightmapTerrainData is
         // declared as always present on the Cesium namespace.

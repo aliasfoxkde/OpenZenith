@@ -52,8 +52,8 @@ describe("STAC API", () => {
     const data = await bodyAs<StacCollectionSummaryBody[]>(resp);
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
-    expect(data[0].type).toBe("Collection");
-    expect(data[0].stac_version).toBeTruthy();
+    expect(data[0]!.type).toBe("Collection"); // bounds: non-empty asserted above
+    expect(data[0]!.stac_version).toBeTruthy();
   }, 30000);
 
   it("serves the root catalog for a trailing-slash path", async () => {

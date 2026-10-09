@@ -301,7 +301,8 @@ function generatePythonScript(
 }
 
 export function TileDownloadTool({ dark, map }: Props) {
-  const [dataset, setDataset] = useState(DATASETS[0].id);
+  // bounds: DATASETS is a non-empty literal array
+  const [dataset, setDataset] = useState(DATASETS[0]!.id);
   const [zMin, setZMin] = useState(5);
   const [zMax, setZMax] = useState(10);
   const [bbox, setBbox] = useState<{ latMin: number; lonMin: number; latMax: number; lonMax: number } | null>(null);
@@ -314,7 +315,7 @@ export function TileDownloadTool({ dark, map }: Props) {
   const cardBg = dark ? "#161616" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const accent = "#22c55e";
   const codeBg = dark ? "#0d1117" : "#f6f8fa";
@@ -324,7 +325,8 @@ export function TileDownloadTool({ dark, map }: Props) {
      themes — white on #1d4ed8 is 6.70:1. */
   const accentText = dark ? "#60a5fa" : "#1e40af";
 
-  const ds = DATASETS.find((d) => d.id === dataset) || DATASETS[0];
+  // bounds: DATASETS is a non-empty literal array, so the fallback always resolves
+  const ds = DATASETS.find((d) => d.id === dataset) || DATASETS[0]!;
 
   // Calculate tile count
   const tileCount = (() => {
@@ -448,8 +450,12 @@ export function TileDownloadTool({ dark, map }: Props) {
 
   useEffect(() => {
     if (!map) return;
-    const onClick = (e: maplibregl.MapMouseEvent): void => { handleMapClick(e); };
-    const onMove = (e: maplibregl.MapMouseEvent): void => { handleMouseMove(e); };
+    const onClick = (e: maplibregl.MapMouseEvent): void => {
+      handleMapClick(e);
+    };
+    const onMove = (e: maplibregl.MapMouseEvent): void => {
+      handleMouseMove(e);
+    };
     map.on("click", onClick);
     map.on("mousemove", onMove);
     return () => {
@@ -533,7 +539,9 @@ export function TileDownloadTool({ dark, map }: Props) {
         <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Dataset</label>
         <select
           value={dataset}
-          onChange={(e) => { setDataset(e.target.value); }}
+          onChange={(e) => {
+            setDataset(e.target.value);
+          }}
           style={{
             width: "100%",
             padding: "6px 8px",
@@ -562,7 +570,9 @@ export function TileDownloadTool({ dark, map }: Props) {
             min={0}
             max={12}
             value={zMin}
-            onChange={(e) => { setZMin(Math.max(0, Math.min(12, parseInt(e.target.value) || 0))); }}
+            onChange={(e) => {
+              setZMin(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)));
+            }}
             style={{
               width: "100%",
               padding: "6px 8px",
@@ -581,7 +591,9 @@ export function TileDownloadTool({ dark, map }: Props) {
             min={0}
             max={12}
             value={zMax}
-            onChange={(e) => { setZMax(Math.max(0, Math.min(12, parseInt(e.target.value) || 0))); }}
+            onChange={(e) => {
+              setZMax(Math.max(0, Math.min(12, parseInt(e.target.value) || 0)));
+            }}
             style={{
               width: "100%",
               padding: "6px 8px",
@@ -695,7 +707,9 @@ export function TileDownloadTool({ dark, map }: Props) {
           <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 6 }}>Download Script</label>
           <div style={{ display: "flex", gap: 6 }}>
             <button
-              onClick={() => { downloadScript("bash"); }}
+              onClick={() => {
+                downloadScript("bash");
+              }}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -711,7 +725,9 @@ export function TileDownloadTool({ dark, map }: Props) {
               Shell Script
             </button>
             <button
-              onClick={() => { downloadScript("python"); }}
+              onClick={() => {
+                downloadScript("python");
+              }}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -743,7 +759,9 @@ export function TileDownloadTool({ dark, map }: Props) {
           {Object.entries(CODE_EXAMPLES).map(([key, ex]) => (
             <button
               key={key}
-              onClick={() => { setActiveExample(key); }}
+              onClick={() => {
+                setActiveExample(key);
+              }}
               style={{
                 padding: "4px 8px",
                 borderRadius: 4,
@@ -759,8 +777,11 @@ export function TileDownloadTool({ dark, map }: Props) {
           ))}
         </div>
         <div style={{ position: "relative" }}>
+          {/* bounds: activeExample is always a CODE_EXAMPLES key (picker above) */}
           <button
-            onClick={() => { copyCode(CODE_EXAMPLES[activeExample].code); }}
+            onClick={() => {
+              copyCode(CODE_EXAMPLES[activeExample]!.code);
+            }}
             style={{
               position: "absolute",
               top: 6,
@@ -792,7 +813,7 @@ export function TileDownloadTool({ dark, map }: Props) {
               whiteSpace: "pre",
             }}
           >
-            {CODE_EXAMPLES[activeExample].code}
+            {CODE_EXAMPLES[activeExample]!.code}
           </pre>
         </div>
       </div>

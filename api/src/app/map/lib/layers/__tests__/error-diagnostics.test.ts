@@ -54,7 +54,8 @@ describe("layer error diagnostics invariant", () => {
       .filter((f) => {
         const src = readFileSync(f, "utf8");
         const definesLocally = /export function warnLayerError/.test(src);
-        const importsShared = /warnLayerError[^]*?from ["']@\/lib\/diagnostics["']|warnLayerError[^]*?from ["']\.\/types["']/.test(src);
+        const importsShared =
+          /warnLayerError[^]*?from ["']@\/lib\/diagnostics["']|warnLayerError[^]*?from ["']\.\/types["']/.test(src);
         return !definesLocally && !importsShared;
       })
       .map((f) => f.replace(/.*src\/app\//, ""));

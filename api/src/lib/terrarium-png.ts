@@ -20,7 +20,8 @@ import { encodeRgbPng } from "./rgb-png";
 export function encodeTerrariumPNG(data: Int16Array, width: number, height: number): Uint8Array {
   const rgb = new Uint8Array(width * height * 3);
   for (let i = 0; i < width * height; i++) {
-    const enc = data[i] + 32768;
+    // bounds: i < width*height and data carries exactly that many values
+    const enc = data[i]! + 32768;
     const off = i * 3;
     rgb[off] = (enc >> 8) & 0xff;
     rgb[off + 1] = enc & 0xff;

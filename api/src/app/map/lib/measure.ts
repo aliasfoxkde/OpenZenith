@@ -30,8 +30,11 @@ export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2
 /** Total distance along an array of [lon, lat] points in meters. */
 export function pathDistance(coords: [number, number][]): number {
   let total = 0;
+  // bounds: loop runs 1 <= i < coords.length, so coords[i - 1] and coords[i] exist
   for (let i = 1; i < coords.length; i++) {
-    total += haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
+    const a = coords[i - 1]!;
+    const b = coords[i]!;
+    total += haversineDistance(a[1], a[0], b[1], b[0]);
   }
   return total;
 }
@@ -47,9 +50,12 @@ export function sphericalPolygonArea(coords: [number, number][]): number {
   let sum = 0;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    const lat1 = toRad(coords[i][1]);
-    const lat2 = toRad(coords[j][1]);
-    const dLon = toRad(coords[j][0] - coords[i][0]);
+    // bounds: i < n and j = (i + 1) % n both index inside coords (length n)
+    const cur = coords[i]!;
+    const next = coords[j]!;
+    const lat1 = toRad(cur[1]);
+    const lat2 = toRad(next[1]);
+    const dLon = toRad(next[0] - cur[0]);
     sum += dLon * (2 + Math.sin(lat1) + Math.sin(lat2));
   }
   return Math.abs((sum * R * R) / 2);

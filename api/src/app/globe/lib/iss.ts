@@ -45,11 +45,7 @@ export interface SatelliteJsLike {
  * Compute the ISS position in ECEF kilometers for a time, or undefined
  * when SGP4 propagation reports no position for that epoch.
  */
-export function issEcfPosition(
-  satJs: SatelliteJsLike,
-  tle: CelestrakTle,
-  at: Date,
-): EcfPosition | undefined {
+export function issEcfPosition(satJs: SatelliteJsLike, tle: CelestrakTle, at: Date): EcfPosition | undefined {
   const satrec = satJs.twoline2satrec(tle.TLE_LINE1, tle.TLE_LINE2);
   const pos = satJs.propagate(satrec, at);
   const eci = pos.position;

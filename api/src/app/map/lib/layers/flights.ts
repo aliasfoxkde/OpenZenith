@@ -112,7 +112,7 @@ export function addFlights(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("flights", err);
       setStatus(handle, "flights", "error");
-      }
+    }
   };
 
   // Load immediately, then refresh on pan/zoom

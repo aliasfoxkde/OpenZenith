@@ -27,9 +27,23 @@ export function MarineTab({ data, error, loading, lat, lon, onLatChange, onLonCh
 
       <div className="ex-filter-group">
         <label>Latitude</label>
-        <input placeholder="40.7128" value={lat} onChange={(e) => { onLatChange(e.target.value); }} style={{ width: 120 }} />
+        <input
+          placeholder="40.7128"
+          value={lat}
+          onChange={(e) => {
+            onLatChange(e.target.value);
+          }}
+          style={{ width: 120 }}
+        />
         <label>Longitude</label>
-        <input placeholder="-74.006" value={lon} onChange={(e) => { onLonChange(e.target.value); }} style={{ width: 120 }} />
+        <input
+          placeholder="-74.006"
+          value={lon}
+          onChange={(e) => {
+            onLonChange(e.target.value);
+          }}
+          style={{ width: 120 }}
+        />
         <button className="primary" onClick={onFetch} disabled={loading}>
           {loading ? "Fetching..." : "Fetch"}
         </button>

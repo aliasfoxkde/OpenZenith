@@ -187,9 +187,12 @@ export default function Globe() {
   useEffect(() => {
     const iv = setInterval(() => {
       const now = new Date();
-      setClock(now.toUTCString().split(" ")[4] + "Z");
+      // bounds: toUTCString always emits 7 space-separated fields; [4] is seconds
+      setClock(now.toUTCString().split(" ")[4]! + "Z");
     }, 1000);
-    return () => { clearInterval(iv); };
+    return () => {
+      clearInterval(iv);
+    };
   }, []);
 
   // Persist theme
@@ -354,9 +357,7 @@ export default function Globe() {
               // assignment, but the raw value never grows getValue).
               const position = entity.position;
               const pos =
-                position instanceof Cesium.Cartesian3
-                  ? position
-                  : position?.getValue(Cesium.JulianDate.now());
+                position instanceof Cesium.Cartesian3 ? position : position?.getValue(Cesium.JulianDate.now());
               if (pos) {
                 const cg = Cesium.Cartographic.fromCartesian(pos);
                 const lat = Cesium.Math.toDegrees(cg.latitude);
@@ -399,9 +400,9 @@ export default function Globe() {
             }
 
             getClientElevation(lat, lng)
-              .then((d) =>
-                { setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation ?? null, lat, lon: lng }); },
-              )
+              .then((d) => {
+                setElevPopup({ x: click.position.x, y: click.position.y, elev: d.elevation ?? null, lat, lon: lng });
+              })
               .catch(() => {});
           }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -483,10 +484,7 @@ export default function Globe() {
             // in a property on assignment, but the raw value never grows
             // getValue) — mirror the satellite-click resolution below.
             const rawPos = followEntity.position;
-            const pos =
-              rawPos instanceof Cesium.Cartesian3
-                ? rawPos
-                : rawPos?.getValue(Cesium.JulianDate.now());
+            const pos = rawPos instanceof Cesium.Cartesian3 ? rawPos : rawPos?.getValue(Cesium.JulianDate.now());
             if (pos) {
               const camH = viewer.camera.positionCartographic.height || 2000000;
               viewer.camera.lookAt(
@@ -648,12 +646,16 @@ export default function Globe() {
     if (!document.fullscreenElement) {
       wrap
         .requestFullscreen()
-        .then(() => { setIsFullscreen(true); })
+        .then(() => {
+          setIsFullscreen(true);
+        })
         .catch(() => {});
     } else {
       document
         .exitFullscreen()
-        .then(() => { setIsFullscreen(false); })
+        .then(() => {
+          setIsFullscreen(false);
+        })
         .catch(() => {});
     }
   }, []);
@@ -689,7 +691,9 @@ export default function Globe() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => { window.removeEventListener("keydown", onKeyDown); };
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [zoomIn, zoomOut, resetView, toggleFullscreen, coordFormats]);
 
   // Render elevation profile chart
@@ -1155,7 +1159,6 @@ export default function Globe() {
               dataLoadedRef.current.vessels = false;
               const vesselMod = layerModulesRef.current.vessels;
               if (vesselMod) vesselMod.cleanupVessels();
-
             }
             break;
           case "warnings":
@@ -1495,13 +1498,22 @@ export default function Globe() {
           beginLayerLoad("events"),
         );
     }
-  }, [loading, state.layers.earthquakes, state.layers.events, updateStatus, removeEntities, intervalsRef, beginLayerLoad]);
+  }, [
+    loading,
+    state.layers.earthquakes,
+    state.layers.events,
+    updateStatus,
+    removeEntities,
+    intervalsRef,
+    beginLayerLoad,
+  ]);
 
   // ─── Render ───
   // `state.theme` may be unknown to the registry, so the lookup can miss — view
   // THEMES as Partial to keep the default fallback visible to the checker.
   const themeRegistry = THEMES as Partial<Record<string, (typeof THEMES)[string]>>;
-  const currentTheme = themeRegistry[state.theme] ?? THEMES.default;
+  // bounds: THEMES always declares the "default" key (module constant)
+  const currentTheme = themeRegistry[state.theme] ?? THEMES.default!;
   const isHud = state.theme === "classified" || state.theme === "crimson";
   const themeStyle = useMemo(() => {
     const obj: Record<string, string> = {};
@@ -1565,7 +1577,13 @@ export default function Globe() {
 
       {/* Annotation inline edit */}
       {editingAnnotation && (
-        <AnnotationEdit editing={editingAnnotation} viewerRef={viewerRef} onClose={() => { setEditingAnnotation(null); }} />
+        <AnnotationEdit
+          editing={editingAnnotation}
+          viewerRef={viewerRef}
+          onClose={() => {
+            setEditingAnnotation(null);
+          }}
+        />
       )}
 
       {/* Nav */}
@@ -1579,7 +1597,9 @@ export default function Globe() {
             <ThemeSwitcher
               theme={state.theme}
               open={themeDropdownOpen}
-              onToggleOpen={() => { setThemeDropdownOpen(!themeDropdownOpen); }}
+              onToggleOpen={() => {
+                setThemeDropdownOpen(!themeDropdownOpen);
+              }}
               onSelect={switchTheme}
             />
           </>
@@ -1601,7 +1621,9 @@ export default function Globe() {
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
         onReset={resetView}
-        onFlyISS={() => { void flyToISS(); }}
+        onFlyISS={() => {
+          void flyToISS();
+        }}
         onToggleFullscreen={toggleFullscreen}
       />
 
@@ -1620,7 +1642,12 @@ export default function Globe() {
 
       {/* Coordinate formats panel */}
       {coordFormats && showCoordPanel && (
-        <CoordinateFormatsPanel formats={coordFormats} onClose={() => { setShowCoordPanel(false); }} />
+        <CoordinateFormatsPanel
+          formats={coordFormats}
+          onClose={() => {
+            setShowCoordPanel(false);
+          }}
+        />
       )}
 
       {/* Orbital altitude presets */}
@@ -1635,8 +1662,12 @@ export default function Globe() {
           key={id}
           config={entry.config}
           state={entry.state}
-          onStateChange={(patch) => { updateWidget(id, patch); }}
-          onFocus={() => { focusWidget(id); }}
+          onStateChange={(patch) => {
+            updateWidget(id, patch);
+          }}
+          onFocus={() => {
+            focusWidget(id);
+          }}
         >
           <entry.component globe={globeContext} />
         </WidgetShell>
@@ -1644,7 +1675,12 @@ export default function Globe() {
 
       {/* Close theme dropdown on outside click */}
       {themeDropdownOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => { setThemeDropdownOpen(false); }} />
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 99 }}
+          onClick={() => {
+            setThemeDropdownOpen(false);
+          }}
+        />
       )}
 
       {/* Context menu (right-click) */}
@@ -1662,7 +1698,9 @@ export default function Globe() {
           setActiveTool={setActiveTool}
           setSelectedSat={setSelectedSat}
           setFollowSat={setFollowSat}
-          flyToISS={() => { void flyToISS(); }}
+          flyToISS={() => {
+            void flyToISS();
+          }}
         />
       )}
 

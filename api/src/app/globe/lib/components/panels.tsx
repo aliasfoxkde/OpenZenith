@@ -52,7 +52,7 @@ export function AnnotationEdit({ editing, viewerRef, onClose }: AnnotationEditPr
           }
         }}
         onBlur={(e) => {
-          const text = (e.target).value.trim();
+          const text = e.target.value.trim();
           const viewer = viewerRef.current;
           if (viewer && text && text !== "Double-click to edit") {
             const entity = viewer.entities.getById(editing.id);
@@ -83,7 +83,9 @@ export function ElevationProfilePanel({ chartRef, hasData, onClose }: ElevationP
         </button>
       </div>
       <div ref={chartRef} className="wv-profile-chart" />
-      {!hasData && <div className="wv-profile-hint">Click 2+ points on the globe to create a terrain cross-section</div>}
+      {!hasData && (
+        <div className="wv-profile-hint">Click 2+ points on the globe to create a terrain cross-section</div>
+      )}
     </div>
   );
 }

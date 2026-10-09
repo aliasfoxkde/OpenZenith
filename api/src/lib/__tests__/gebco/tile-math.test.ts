@@ -55,7 +55,7 @@ describe("quadNameToBounds", () => {
       [0, 0],
       [10, -120],
       [-10, 120],
-    ]) {
+    ] as const) {
       const bounds = quadNameToBounds(latLonToQuadName(lat, lon));
       expect(bounds).not.toBeNull();
       expect(bounds?.latMin).toBeLessThan(bounds?.latMax ?? 0);

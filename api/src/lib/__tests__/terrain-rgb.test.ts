@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { unzlibSync } from "fflate";
-import {
-  TERRAIN_RGB_MAX_CODE,
-  decodeTerrainRgb,
-  encodeTerrainRgbPNG,
-  terrainRgbCode,
-} from "../terrain-rgb";
+import { TERRAIN_RGB_MAX_CODE, decodeTerrainRgb, encodeTerrainRgbPNG, terrainRgbCode } from "../terrain-rgb";
 import { encodeTerrariumPNG } from "../terrarium-png";
 
 /** Read a PNG's dimensions and IDAT payload back into raw scanlines. */
@@ -18,7 +13,8 @@ function idatScanlines(png: Uint8Array): { width: number; height: number; raw: U
   const idat: Uint8Array[] = [];
   while (off < png.length) {
     const length = view.getUint32(off);
-    const type = String.fromCharCode(png[off + 4], png[off + 5], png[off + 6], png[off + 7]);
+    // bounds: PNG chunk walk — off+4..off+7 are the 4 type bytes of the chunk
+    const type = String.fromCharCode(png[off + 4]!, png[off + 5]!, png[off + 6]!, png[off + 7]!);
     const data = png.subarray(off + 8, off + 8 + length);
     if (type === "IHDR") {
       width = view.getUint32(off + 8);
@@ -68,11 +64,7 @@ describe("Terrain-RGB code packing", () => {
     // and read back as a low one.
     expect(terrainRgbCode(900_000)).toBe(TERRAIN_RGB_MAX_CODE);
     expect(
-      decodeTerrainRgb(
-        TERRAIN_RGB_MAX_CODE >> 16,
-        (TERRAIN_RGB_MAX_CODE >> 8) & 0xff,
-        TERRAIN_RGB_MAX_CODE & 0xff,
-      ),
+      decodeTerrainRgb(TERRAIN_RGB_MAX_CODE >> 16, (TERRAIN_RGB_MAX_CODE >> 8) & 0xff, TERRAIN_RGB_MAX_CODE & 0xff),
     ).toBeCloseTo(828_860.7, 6);
     // The format's own ceiling is higher; 8388607 is this encoder's clamp.
     expect(decodeTerrainRgb(255, 255, 255)).toBeCloseTo(1_667_721.5, 6);
@@ -101,12 +93,13 @@ describe("Terrain-RGB PNG encoder", () => {
       for (let px = 0; px < 4; px++) {
         const i = py * 4 + px;
         const off = py * (1 + 4 * 3) + 1 + px * 3;
-        const decoded = decodeTerrainRgb(raw[off], raw[off + 1], raw[off + 2]);
+        // bounds: i < 12 and off..off+2 sit inside the reconstructed scanlines
+        const decoded = decodeTerrainRgb(raw[off]!, raw[off + 1]!, raw[off + 2]!);
         if (heights[i] === -32768) {
           // Nodata is indistinguishable from saturated bathymetry in this format.
           expect(decoded).toBe(-10000);
         } else {
-          expect(decoded).toBeCloseTo(heights[i], 1);
+          expect(decoded).toBeCloseTo(heights[i]!, 1);
         }
       }
     }
@@ -127,10 +120,11 @@ describe("Terrarium encoder (shared PNG writer)", () => {
     const { width, height, raw } = idatScanlines(png);
     expect(width).toBe(2);
     expect(height).toBe(1);
-    const r0 = raw[1];
-    const g0 = raw[2];
+    // bounds: raw holds one filter byte + 2 pixels of RGB
+    const r0 = raw[1]!;
+    const g0 = raw[2]!;
     expect(r0 * 256 + g0 + 0 / 256 - 32768).toBe(100);
     // NODATA is the reserved zero code in Terrarium, unlike Terrain-RGB.
-    expect(raw[4] * 256 + raw[5]).toBe(0);
+    expect(raw[4]! * 256 + raw[5]!).toBe(0);
   });
 });

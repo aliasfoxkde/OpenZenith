@@ -70,14 +70,18 @@ export function NoaaTab({
                   placeholder="lat"
                   aria-label="NWS alert latitude"
                   value={nwsLat}
-                  onChange={(e) => { onNwsLatChange(e.target.value); }}
+                  onChange={(e) => {
+                    onNwsLatChange(e.target.value);
+                  }}
                 />
                 <input
                   style={{ width: 90, fontSize: "0.78rem", padding: "0.3rem 0.5rem" }}
                   placeholder="lon"
                   aria-label="NWS alert longitude"
                   value={nwsLon}
-                  onChange={(e) => { onNwsLonChange(e.target.value); }}
+                  onChange={(e) => {
+                    onNwsLonChange(e.target.value);
+                  }}
                 />
               </div>
             )}
@@ -106,7 +110,7 @@ export function NoaaTab({
 
       {data && (
         <div style={{ marginTop: "1rem" }}>
-          <h3>Results: {NOAA_DATASETS[selected].label}</h3>
+          <h3>Results: {NOAA_DATASETS[selected]?.label}</h3>
           {/* Earthquakes GeoJSON */}
           {data.features && (
             <div>
@@ -220,7 +224,7 @@ export function NoaaTab({
             </div>
           )}
           {/* NWS alerts */}
-          {Array.isArray(data.features) && data.features[0]?.properties?.severity && (
+          {Array.isArray(data.features) && data.features[0]?.properties.severity && (
             <div>
               <div className="ex-stat">
                 <span className="num">{data.features.length}</span> active alerts

@@ -95,16 +95,17 @@ export function loadHurricanes(
       for (const line of lines) {
         const p = line.split(",");
         if (p.length < 10) continue;
-        // Columns ≥10 aren't covered by the length guard — short rows are a
-        // normal upstream case, so those stay runtime-checked.
-        const sid = p[0].trim();
-        const name = p[8].trim();
-        const lat = parseFloat(p[6]);
-        const lon = parseFloat(p[7]);
+        // bounds: the p.length >= 10 guard above covers indices 0..9, and the
+        // p.length > N ternaries below cover columns 10-12. Short rows are a
+        // normal upstream case, so anything beyond those stays runtime-checked.
+        const sid = p[0]!.trim();
+        const name = p[8]!.trim();
+        const lat = parseFloat(p[6]!);
+        const lon = parseFloat(p[7]!);
         const cat = (p.length > 10 ? p[10] : undefined)?.trim() || "TS";
-        const season = p[1].trim();
-        const wind = parseFloat(p.length > 11 ? p[11] : "") || 0; // Wind speed in knots (column 11)
-        const pressure = parseFloat(p.length > 12 ? p[12] : "") || 0; // Pressure (column 12)
+        const season = p[1]!.trim();
+        const wind = parseFloat(p.length > 11 ? p[11]! : "") || 0; // Wind speed in knots (column 11)
+        const pressure = parseFloat(p.length > 12 ? p[12]! : "") || 0; // Pressure (column 12)
         if (isNaN(lat) || isNaN(lon)) continue;
         (storms[sid] ??= []).push({
           coordinates: [lon, lat],
@@ -121,23 +122,23 @@ export function loadHurricanes(
 
       for (const track of Object.values(storms)) {
         if (track.length < 2) continue;
-        const positions = track.map((pt) =>
-          Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]),
-        );
-        const lastPt = track[track.length - 1];
+        const positions = track.map((pt) => Cesium.Cartesian3.fromDegrees(pt.coordinates[0], pt.coordinates[1]));
+        // bounds: track.length >= 2 checked above, so both ends exist
+        const lastPt = track[track.length - 1]!;
         const maxCat = track.reduce(
           (best, pt) => ((CAT_ORDER[pt.cat] || 0) > (CAT_ORDER[best] || 0) ? pt.cat : best),
-          track[0].cat,
+          track[0]!.cat,
         );
         const maxWind = track.reduce<number>((best, pt) => (pt.wind > best ? pt.wind : best), 0);
         const color = Cesium.Color.fromCssColorString(SS_COLORS[maxCat] || lastPt.color);
         const stormName = lastPt.name || "Unnamed";
-        const isCat3Plus = CAT_ORDER[maxCat] >= 5;
+        const isCat3Plus = (CAT_ORDER[maxCat] || 0) >= 5;
 
         // ─── Track history dots (color-coded by category) ───
         const dotInterval = Math.max(1, Math.floor(track.length / 40));
         for (let i = 0; i < track.length; i += dotInterval) {
-          const pt = track[i];
+          // bounds: i < track.length in the loop guard
+          const pt = track[i]!;
           const ptColor = Cesium.Color.fromCssColorString(SS_COLORS[pt.cat] || "#aaa");
           viewer.entities.add({
             id: `storm-dot-${count}-${i}`,
@@ -289,7 +290,8 @@ export function loadHurricanes(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("hurricaneTracks", err);
       updateStatus("hurricaneTracks", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

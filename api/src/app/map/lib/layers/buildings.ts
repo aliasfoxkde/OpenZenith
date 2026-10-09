@@ -145,7 +145,7 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("buildings", err);
       setStatus(handle, "buildings", "error");
-      }
+    }
   };
 
   // Load on zoom/pan when zoom >= 12

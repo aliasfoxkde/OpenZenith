@@ -30,7 +30,8 @@ describe("Layer Registry", () => {
   });
 
   it("getLayer resolves definitions by ID and undefined for unknown IDs", () => {
-    const sample = LAYERS[0];
+    // bounds: the registry is non-empty
+    const sample = LAYERS[0]!;
     expect(getLayer(sample.id)).toBe(sample);
     expect(getLayer("no-such-layer-id")).toBeUndefined();
   });
@@ -38,8 +39,8 @@ describe("Layer Registry", () => {
   it("getLayersByCategory returns layers grouped by category", () => {
     const groups = getLayersByCategory();
     expect(groups.atmosphere).toBeDefined();
-    expect(groups.atmosphere.length).toBeGreaterThan(0);
-    for (const layer of groups.atmosphere) {
+    expect(groups.atmosphere!.length).toBeGreaterThan(0);
+    for (const layer of groups.atmosphere!) {
       expect(layer.category).toBe("atmosphere");
     }
     expect(groups.terrain).toBeDefined();

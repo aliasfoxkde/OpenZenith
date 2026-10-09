@@ -3,18 +3,8 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Toolbar } from "@/components/Toolbar";
-import {
-  LayerControls,
-  BasemapSelector,
-  type LayerStatusEntry,
-} from "./controls";
-import {
-  MapContextMenu,
-  PositionPanel,
-  StatusBar,
-  ViewControls,
-  type ContextMenuState,
-} from "./panels";
+import { LayerControls, BasemapSelector, type LayerStatusEntry } from "./controls";
+import { MapContextMenu, PositionPanel, StatusBar, ViewControls, type ContextMenuState } from "./panels";
 import {
   AnnotationsListPanel,
   CursorReadout,
@@ -50,13 +40,7 @@ import {
   startHurricaneAnimation,
   stopHurricaneAnimation,
 } from "./lib/layers";
-import {
-  renderAnnotations,
-  loadAnnotations,
-  saveAnnotations,
-  randomColor,
-  uid,
-} from "./lib/layers/annotations";
+import { renderAnnotations, loadAnnotations, saveAnnotations, randomColor, uid } from "./lib/layers/annotations";
 import { createMeasureController, type MeasureMode } from "./lib/measure";
 import {
   addElevationSource,
@@ -186,7 +170,9 @@ export default function MapPage() {
   const showToast = useCallback((msg: string, type: "error" | "info" = "error") => {
     const id = ++toastIdRef.current;
     setToasts((prev) => [...prev.slice(-4), { id, msg, type }]);
-    setTimeout(() => { setToasts((prev) => prev.filter((t) => t.id !== id)); }, 6000);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
   }, []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -368,7 +354,8 @@ export default function MapPage() {
       ann = {
         id: uid(),
         type: "point",
-        coordinates: [pts[0]],
+        // bounds: pts.length >= 1 checked in this branch
+        coordinates: [pts[0]!],
         color: randomColor(),
         name: annotationName || `Pin ${annotations.length + 1}`,
         timestamp: Date.now(),
@@ -471,7 +458,9 @@ export default function MapPage() {
     }
     setProfileLoading(true);
     try {
-      const [start, end] = points;
+      // bounds: points.length >= 2 checked above, so indices 0 and 1 exist
+      const start = points[0]!;
+      const end = points[1]!;
       const steps = Math.min(
         50,
         Math.max(10, Math.round((Math.sqrt((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) * 111) / 5)),
@@ -493,9 +482,10 @@ export default function MapPage() {
       const elevations = data?.elevations || data?.results || [];
       let dist = 0;
       const profile = [{ distance: 0, elevation: elevations[0] ?? 0 }];
+      // bounds: lats/lons each hold steps + 1 entries and this loop runs 1..steps
       for (let i = 1; i <= steps; i++) {
-        const dlat = (lats[i] - lats[i - 1]) * 111320;
-        const dlon = (lons[i] - lons[i - 1]) * 111320 * Math.cos((lats[i] * Math.PI) / 180);
+        const dlat = (lats[i]! - lats[i - 1]!) * 111320;
+        const dlon = (lons[i]! - lons[i - 1]!) * 111320 * Math.cos((lats[i]! * Math.PI) / 180);
         dist += Math.sqrt(dlat * dlat + dlon * dlon);
         profile.push({ distance: Math.round(dist), elevation: elevations[i] ?? 0 });
       }
@@ -610,10 +600,14 @@ export default function MapPage() {
 
   // Detect mobile viewport
   useEffect(() => {
-    const check = () => { setIsMobile(window.innerWidth < 768); };
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
     check();
     window.addEventListener("resize", check);
-    return () => { window.removeEventListener("resize", check); };
+    return () => {
+      window.removeEventListener("resize", check);
+    };
   }, []);
 
   // Touch swipe to close sidebar on mobile
@@ -621,10 +615,12 @@ export default function MapPage() {
     if (!sidebarOpen || !isMobile) return;
     let startX = 0;
     const onTouchStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX;
+      // bounds: a touchstart always carries at least one active touch point
+      startX = e.touches[0]!.clientX;
     };
     const onTouchEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - startX;
+      // bounds: touchend always lists at least one changed touch
+      const dx = e.changedTouches[0]!.clientX - startX;
       if (dx > 60) setSidebarOpen(false); // swipe right to close
     };
     window.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -638,9 +634,13 @@ export default function MapPage() {
   // Close sidebar on outside click (mobile)
   useEffect(() => {
     if (!sidebarOpen || !isMobile) return;
-    const handler = (_e: Event) => { setSidebarOpen(false); };
+    const handler = (_e: Event) => {
+      setSidebarOpen(false);
+    };
     document.addEventListener("backbutton", handler);
-    return () => { document.removeEventListener("backbutton", handler); };
+    return () => {
+      document.removeEventListener("backbutton", handler);
+    };
   }, [sidebarOpen, isMobile]);
 
   // Global keyboard shortcuts
@@ -703,7 +703,9 @@ export default function MapPage() {
       }
     };
     window.addEventListener("keydown", handler);
-    return () => { window.removeEventListener("keydown", handler); };
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
     // measureMode must be live: with it missing this handler kept its mount-time
     // value and P could enter but never exit measure mode.
   }, [measureMode]);
@@ -731,7 +733,9 @@ export default function MapPage() {
       }
     };
     window.addEventListener("keydown", handler);
-    return () => { window.removeEventListener("keydown", handler); };
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
   }, [measureMode, drawMode, clearMeasure, cancelDrawing, finishDrawing]);
 
   // Pause/resume layer polling when tab is hidden/visible
@@ -890,7 +894,9 @@ export default function MapPage() {
 
             // Auto-finish for point mode
             if (drawModeRef.current === "point") {
-              setTimeout(() => { finishDrawing(); }, 0);
+              setTimeout(() => {
+                finishDrawing();
+              }, 0);
             }
             return;
           }
@@ -956,7 +962,9 @@ export default function MapPage() {
             setCursorPos({ lat: ev.lngLat.lat, lon: ev.lngLat.lng });
           }, 80);
         });
-        map.on("mouseout", () => { setCursorPos(null); });
+        map.on("mouseout", () => {
+          setCursorPos(null);
+        });
 
         map.addControl(new mlgl.NavigationControl(), "top-right");
         map.addControl(new mlgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
@@ -968,7 +976,13 @@ export default function MapPage() {
           const point = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
           setCtxMenu({ x: e.clientX, y: e.clientY, lng: point.lng, lat: point.lat });
         });
-        map.getCanvas().addEventListener("click", () => { setCtxMenu(null); }, true);
+        map.getCanvas().addEventListener(
+          "click",
+          () => {
+            setCtxMenu(null);
+          },
+          true,
+        );
         document.addEventListener(
           "click",
           (e) => {
@@ -1127,7 +1141,8 @@ export default function MapPage() {
         } | null;
         if (!data || data.ok === false || data.error) throw new Error(data?.error?.message || "search unavailable");
         if (data.results && data.results.length > 0) {
-          const r = data.results[0];
+          // bounds: results.length > 0 checked on the line above
+          const r = data.results[0]!;
           const map = mapRef.current;
           if (map) map.flyTo({ center: [r.lon, r.lat], zoom: 12, duration: 1500 });
         }
@@ -1211,7 +1226,9 @@ export default function MapPage() {
             <ElevationResultBadge pin={activePin} fetching={fetchingElevation} />
 
             <button
-              onClick={() => { setSidebarOpen(!sidebarOpen); }}
+              onClick={() => {
+                setSidebarOpen(!sidebarOpen);
+              }}
               aria-label="Toggle layer panel"
               aria-expanded={sidebarOpen}
               style={{
@@ -1266,7 +1283,9 @@ export default function MapPage() {
           <div style={{ display: "flex", alignItems: "flex-start", maxWidth: "100%", pointerEvents: "auto" }}>
             {isMobile && (
               <button
-                onClick={() => { setSidebarOpen(!sidebarOpen); }}
+                onClick={() => {
+                  setSidebarOpen(!sidebarOpen);
+                }}
                 aria-label="Toggle layer panel"
                 aria-expanded={sidebarOpen}
                 style={{
@@ -1332,7 +1351,9 @@ export default function MapPage() {
 
         <MapContextMenu
           menu={ctxMenu}
-          onClose={() => { setCtxMenu(null); }}
+          onClose={() => {
+            setCtxMenu(null);
+          }}
           onCopyElevation={(lat, lng) => {
             void copyElevationAt(lat, lng);
           }}
@@ -1355,7 +1376,13 @@ export default function MapPage() {
         {loading && !loadError && <MapLoading dark message="Initializing map..." />}
 
         {/* Mobile backdrop overlay */}
-        {sidebarOpen && isMobile && <MobileBackdrop onClose={() => { setSidebarOpen(false); }} />}
+        {sidebarOpen && isMobile && (
+          <MobileBackdrop
+            onClose={() => {
+              setSidebarOpen(false);
+            }}
+          />
+        )}
 
         {/* Sidebar */}
         {sidebarOpen && (
@@ -1383,7 +1410,9 @@ export default function MapPage() {
             <SidebarHeader
               activeCount={Object.values(mapState.layers).filter(Boolean).length}
               totalCount={Object.keys(mapState.layers).length}
-              onClose={() => { setSidebarOpen(false); }}
+              onClose={() => {
+                setSidebarOpen(false);
+              }}
             />
 
             <BasemapSelector
@@ -1435,7 +1464,9 @@ export default function MapPage() {
               bookmarks={bookmarks}
               show={showBookmarks}
               name={bookmarkName}
-              onToggleShow={() => { setShowBookmarks((v) => !v); }}
+              onToggleShow={() => {
+                setShowBookmarks((v) => !v);
+              }}
               onNameChange={setBookmarkName}
               onSave={saveBookmark}
               onLoad={loadBookmark}
@@ -1452,7 +1483,9 @@ export default function MapPage() {
               bearing={mapState.bearing}
               pitch={mapState.pitch}
               format={coordFormat}
-              onToggleFormat={() => { setCoordFormat((f) => (f === "dd" ? "dms" : "dd")); }}
+              onToggleFormat={() => {
+                setCoordFormat((f) => (f === "dd" ? "dms" : "dd"));
+              }}
             />
 
             {/* Elevation profile */}
@@ -1474,11 +1507,7 @@ export default function MapPage() {
 
             {/* Annotations list */}
             {annotations.length > 0 && (
-              <AnnotationsListPanel
-                annotations={annotations}
-                onDelete={deleteAnnotation}
-                onClear={clearAnnotations}
-              />
+              <AnnotationsListPanel annotations={annotations} onDelete={deleteAnnotation} onClear={clearAnnotations} />
             )}
 
             {/* Share URL */}
@@ -1510,4 +1539,3 @@ export default function MapPage() {
 }
 
 /* ─── Styles ─── */
-

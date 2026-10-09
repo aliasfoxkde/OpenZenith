@@ -10,7 +10,9 @@ function injectMapLibreScript(): Promise<void> {
     }
     const js = document.createElement("script");
     js.src = "https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js";
-    js.onload = () => { resolve(); };
+    js.onload = () => {
+      resolve();
+    };
     js.onerror = () => {
       // Drop the failed tag so the retry below injects a fresh one.
       js.remove();

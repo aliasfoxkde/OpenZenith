@@ -60,14 +60,7 @@ describe("GPS jamming API (/api/gps-jamming)", () => {
     const body = (await resp.json()) as { hexes: JammingHex[] };
 
     for (const hex of body.hexes) {
-      expect(Object.keys(hex).sort()).toEqual([
-        "intensity",
-        "lat",
-        "lon",
-        "resolution",
-        "source",
-        "timestamp",
-      ]);
+      expect(Object.keys(hex).sort()).toEqual(["intensity", "lat", "lon", "resolution", "source", "timestamp"]);
       expect(hex.resolution).toBe(6);
       expect(Number.isNaN(Date.parse(hex.timestamp))).toBe(false);
     }

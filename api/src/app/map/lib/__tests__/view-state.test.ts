@@ -5,13 +5,7 @@
  * their documented no-window branches.
  */
 import { describe, it, expect } from "vitest";
-import {
-  DEFAULT_STATE,
-  buildDefaultLayers,
-  buildHash,
-  getDefaultBasemap,
-  parseHash,
-} from "../view-state";
+import { DEFAULT_STATE, buildDefaultLayers, buildHash, getDefaultBasemap, parseHash } from "../view-state";
 
 describe("parseHash", () => {
   it("returns an empty partial for an empty hash", () => {
@@ -54,9 +48,7 @@ describe("parseHash", () => {
   });
 
   it("never throws on garbage input", () => {
-    expect(parseHash("#zzz=&&&")).toEqual(
-      expect.objectContaining({ center: undefined, zoom: undefined }),
-    );
+    expect(parseHash("#zzz=&&&")).toEqual(expect.objectContaining({ center: undefined, zoom: undefined }));
   });
 });
 

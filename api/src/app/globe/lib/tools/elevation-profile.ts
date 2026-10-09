@@ -106,7 +106,8 @@ export function createElevationProfile(viewer: CesiumType.Viewer, Cesium: typeof
 
     // Point markers
     for (let i = 0; i < pts.length; i++) {
-      const pt = pts[i];
+      // bounds: i < pts.length in the loop guard
+      const pt = pts[i]!;
       const marker = viewer.entities.add({
         id: `tool-profile-pt-${i}`,
         position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat),
@@ -150,7 +151,8 @@ export function createElevationProfile(viewer: CesiumType.Viewer, Cesium: typeof
     if (pts.length >= 2) {
       const coords = pts.map((p) => [p.lng, p.lat] as number[]);
       const totalDist = polylineLength(coords);
-      const last = pts[pts.length - 1];
+      // bounds: pts.length >= 2 checked above
+      const last = pts[pts.length - 1]!;
       const distLabel = viewer.entities.add({
         id: "tool-profile-dist",
         position: Cesium.Cartesian3.fromDegrees(last.lng, last.lat),
@@ -190,28 +192,35 @@ export function createElevationProfile(viewer: CesiumType.Viewer, Cesium: typeof
     for (let i = 0; i < numSamples; i++) {
       const targetDist = i * stepDist;
       let currentDist = 0;
-      let lng: number = coords[0][0];
-      let lat: number = coords[0][1];
+      // bounds: pts.length >= 2 above, so coords[0] exists; every coords entry
+      // is the 2-element [lng, lat] pair built from state.points
+      let lng: number = coords[0]![0]!;
+      let lat: number = coords[0]![1]!;
 
       // Find the segment for this distance
       for (let j = 0; j < coords.length - 1; j++) {
-        const segDist = haversineDistance(coords[j][1], coords[j][0], coords[j + 1][1], coords[j + 1][0]);
+        // bounds: j and j+1 are both < coords.length in the loop guard; each
+        // entry is the 2-element [lng, lat] pair built above
+        const a = coords[j]!;
+        const b = coords[j + 1]!;
+        const segDist = haversineDistance(a[1]!, a[0]!, b[1]!, b[0]!);
         if (currentDist + segDist >= targetDist || j === coords.length - 2) {
           const frac = segDist > 0 ? (targetDist - currentDist) / segDist : 0;
-          lng = coords[j][0] + frac * (coords[j + 1][0] - coords[j][0]);
-          lat = coords[j][1] + frac * (coords[j + 1][1] - coords[j][1]);
+          lng = a[0]! + frac * (b[0]! - a[0]!);
+          lat = a[1]! + frac * (b[1]! - a[1]!);
           break;
         }
         currentDist += segDist;
-        lng = coords[j + 1][0];
-        lat = coords[j + 1][1];
+        lng = b[0]!;
+        lat = b[1]!;
       }
 
       samplePoints.push({ lat, lon: lng, dist: targetDist });
     }
 
     // Fix: ensure last point is exact endpoint
-    const lastPt = pts[pts.length - 1];
+    // bounds: pts.length >= 2 checked at the top of sampleProfile
+    const lastPt = pts[pts.length - 1]!;
     samplePoints[samplePoints.length - 1] = { lat: lastPt.lat, lon: lastPt.lng, dist: totalDist };
 
     // Batch fetch all elevations in one call
@@ -220,8 +229,11 @@ export function createElevationProfile(viewer: CesiumType.Viewer, Cesium: typeof
     );
 
     for (let i = 0; i < batchResults.length; i++) {
-      const r = batchResults[i];
-      profile.push({ lng: r.lon, lat: r.lat, elev: r.elevation, dist: samplePoints[i].dist });
+      // bounds: i < batchResults.length in the loop guard; batchResults mirrors
+      // samplePoints 1:1 (client-elevation maps each result back onto the
+      // request at the same index)
+      const r = batchResults[i]!;
+      profile.push({ lng: r.lon, lat: r.lat, elev: r.elevation, dist: samplePoints[i]!.dist });
     }
 
     state.profile = profile;
@@ -279,7 +291,8 @@ export function renderProfileChart(profile: ProfilePoint[], width: number, heigh
   const minElev = Math.min(0, ...elevs);
   const maxElev = Math.max(0, ...elevs);
   const elevRange = maxElev - minElev || 1;
-  const maxDist = profile[profile.length - 1].dist || 1;
+  // bounds: profile.length >= 2 (early return above), so the last index exists
+  const maxDist = profile[profile.length - 1]!.dist || 1;
   const hasUnderwater = minElev < 0;
   const hasLand = maxElev > 0;
 
@@ -362,7 +375,8 @@ export function renderProfileChart(profile: ProfilePoint[], width: number, heigh
     } else ctx.lineTo(x, y);
   }
   // Close fill to bottom
-  const lastValidX = pad.left + ((profile[profile.length - 1].dist || 0) / maxDist) * chartW;
+  // bounds: same profile.length >= 2 early-return guard as above
+  const lastValidX = pad.left + ((profile[profile.length - 1]!.dist || 0) / maxDist) * chartW;
   ctx.lineTo(lastValidX, pad.top + chartH);
   const firstValidPt = profile.find((p) => p.elev != null);
   if (firstValidPt) {
@@ -468,7 +482,8 @@ export function renderProfileChart(profile: ProfilePoint[], width: number, heigh
     ctx.lineWidth = 1;
     ctx.stroke();
   }
-  const last = profile[profile.length - 1];
+  // bounds: profile.length >= 2 (early return above)
+  const last = profile[profile.length - 1]!;
   if (last.elev != null) {
     const ex = pad.left + (last.dist / maxDist) * chartW;
     const ey = pad.top + chartH - ((last.elev - minElev) / elevRange) * chartH;

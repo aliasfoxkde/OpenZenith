@@ -84,8 +84,10 @@ export async function getGebcoElevation(
   const byteOffset = col * BYTES_PER_PIXEL;
   if (byteOffset + BYTES_PER_PIXEL > stripData.length) return { ...nullResult, tile: quadName };
 
-  const lowByte = stripData[byteOffset];
-  const highByte = stripData[byteOffset + 1];
+  // bounds: byteOffset + BYTES_PER_PIXEL (2) <= stripData.length, so both
+  // bytes of the Int16 are in range
+  const lowByte = stripData[byteOffset]!;
+  const highByte = stripData[byteOffset + 1]!;
   const value = (highByte << 8) | lowByte;
 
   // Convert to signed Int16

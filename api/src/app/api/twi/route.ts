@@ -69,7 +69,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { dem, rows: gridRows, cols: gridCols, cellSizeDeg, cellSizeM } = await assembleTerrainGrid({
+    const {
+      dem,
+      rows: gridRows,
+      cols: gridCols,
+      cellSizeDeg,
+      cellSizeM,
+    } = await assembleTerrainGrid({
       lat,
       lon,
       radius,
@@ -83,13 +89,15 @@ export async function POST(request: NextRequest) {
     const cellArea = cellSizeM * cellSizeM;
     const twiGrid = new Float32Array(gridRows * gridCols);
 
+    // bounds: i < twiGrid.length = gridRows*gridCols, and dem/slope/accum are all
+    // gridRows*gridCols arrays returned by the assemble/compute calls above
     for (let i = 0; i < twiGrid.length; i++) {
-      if (dem[i] <= TERRAIN_NODATA || isNaN(slope[i]) || slope[i] < 0.1) {
+      if (dem[i]! <= TERRAIN_NODATA || isNaN(slope[i]!) || slope[i]! < 0.1) {
         twiGrid[i] = NaN;
         continue;
       }
-      const sca = accum[i] * cellArea;
-      const slopeRad = (slope[i] * Math.PI) / 180;
+      const sca = accum[i]! * cellArea;
+      const slopeRad = (slope[i]! * Math.PI) / 180;
       twiGrid[i] = Math.log(sca / Math.tan(slopeRad));
     }
 
@@ -99,7 +107,7 @@ export async function POST(request: NextRequest) {
       max = -Infinity;
     const vals: number[] = [];
     for (let i = 0; i < twiGrid.length; i++) {
-      const v = twiGrid[i];
+      const v = twiGrid[i]!; // bounds: i < twiGrid.length
       if (!isNaN(v) && isFinite(v)) {
         sum += v;
         count++;
@@ -110,8 +118,9 @@ export async function POST(request: NextRequest) {
     }
     const mean = count > 0 ? sum / count : 0;
     const sorted = vals.sort((a, b) => a - b);
+    // bounds: count is even and > 0 here, so count/2-1 >= 0 and count/2 < count = sorted.length
     const median =
-      count > 0 ? (count % 2 ? sorted[Math.floor(count / 2)] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2) : 0;
+      count > 0 ? (count % 2 ? sorted[Math.floor(count / 2)]! : (sorted[count / 2 - 1]! + sorted[count / 2]!) / 2) : 0;
 
     const ds = radius > 100 ? 4 : radius > 50 ? 2 : 1;
     const sampledGrid = decimateGrid(

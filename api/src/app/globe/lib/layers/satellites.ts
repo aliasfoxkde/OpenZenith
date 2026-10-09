@@ -315,7 +315,8 @@ export function loadSatellites(
             if (pts instanceof Cesium.PointPrimitiveCollection) {
               const count = Math.min(updated.length, pts.length);
               for (let i = 0; i < count; i++) {
-                const f = updated[i];
+                // bounds: i < count <= updated.length (min taken above)
+                const f = updated[i]!;
                 pts.get(i).position = Cesium.Cartesian3.fromDegrees(
                   f.coords[0],
                   f.coords[1],
@@ -352,7 +353,8 @@ export function loadSatellites(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("satellites", err);
       updateStatus("satellites", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

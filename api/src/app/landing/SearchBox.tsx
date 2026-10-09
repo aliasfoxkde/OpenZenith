@@ -63,7 +63,9 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
       }
     };
     document.addEventListener("mousedown", handler);
-    return () => { document.removeEventListener("mousedown", handler); };
+    return () => {
+      document.removeEventListener("mousedown", handler);
+    };
   }, []);
 
   function handleSearch(value: string) {
@@ -80,8 +82,10 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
     // Check if query looks like coordinates (e.g., "40.7, -74.0" or "40.7,-74.0")
     const coordMatch = value.trim().match(/^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/);
     if (coordMatch) {
-      const parsedLat = parseFloat(coordMatch[1]);
-      const parsedLon = parseFloat(coordMatch[2]);
+      // bounds: both regexes have capture groups 1-2, which always exist on a
+      // successful match
+      const parsedLat = parseFloat(coordMatch[1]!);
+      const parsedLon = parseFloat(coordMatch[2]!);
       if (
         !isNaN(parsedLat) &&
         !isNaN(parsedLon) &&
@@ -171,7 +175,9 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
           // being reset when React mounts (controlled inputs reset to state).
           ref={inputRef}
           defaultValue=""
-          onChange={(e) => { handleSearch(e.target.value); }}
+          onChange={(e) => {
+            handleSearch(e.target.value);
+          }}
           onFocus={() => {
             if (results.length > 0) setOpen(true);
           }}
@@ -235,7 +241,8 @@ export function SearchBox({ cardBg, border, text, textSecondary, inputStyle, onC
               <button
                 key={i}
                 onClick={() => {
-                  setQuery(r.display_name.split(",")[0]);
+                  // bounds: split always yields at least one segment
+                  setQuery(r.display_name.split(",")[0]!);
                   setOpen(false);
                   onPick(r.lat, r.lon);
                 }}

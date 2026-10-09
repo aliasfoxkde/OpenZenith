@@ -131,9 +131,7 @@ export function DataTable({ dark, dataset }: Props) {
           const coords = geom.coordinates as [number, number];
           geomXml = `<Point><coordinates>${coords[0]},${coords[1]},0</coordinates></Point>`;
         } else if (geom?.type === "LineString") {
-          const coords = (geom.coordinates as [number, number][])
-            .map((c) => `${c[0]},${c[1]},0`)
-            .join(" ");
+          const coords = (geom.coordinates as [number, number][]).map((c) => `${c[0]},${c[1]},0`).join(" ");
           geomXml = `<LineString><coordinates>${coords}</coordinates></LineString>`;
         } else if (geom?.type === "Polygon") {
           const rings = (geom.coordinates as [number, number][][])
@@ -160,7 +158,7 @@ ${placemarks}
   const text = dark ? "#e5e5e5" : "#171717";
   // WCAG AAA (7:1) secondary text on both themes: #a3a3a3 on the #0a0a0a
   // app background, #525252 on #fafafa.
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
   const thBg = dark ? "#1a1a1a" : "#f9f9f9";
@@ -209,7 +207,9 @@ ${placemarks}
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  onClick={() => { handleSort(col.key); }}
+                  onClick={() => {
+                    handleSort(col.key);
+                  }}
                   style={{
                     padding: "4px 6px",
                     textAlign: "left",
@@ -265,11 +265,19 @@ ${placemarks}
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: textSec, fontSize: 10 }}>
-          <button onClick={() => { setPage(0); }} disabled={page === 0} style={btnStyle(inputBg, border, text)}>
+          <button
+            onClick={() => {
+              setPage(0);
+            }}
+            disabled={page === 0}
+            style={btnStyle(inputBg, border, text)}
+          >
             First
           </button>
           <button
-            onClick={() => { setPage(Math.max(0, page - 1)); }}
+            onClick={() => {
+              setPage(Math.max(0, page - 1));
+            }}
             disabled={page === 0}
             style={btnStyle(inputBg, border, text)}
           >
@@ -279,14 +287,18 @@ ${placemarks}
             {page + 1} / {totalPages}
           </span>
           <button
-            onClick={() => { setPage(Math.min(totalPages - 1, page + 1)); }}
+            onClick={() => {
+              setPage(Math.min(totalPages - 1, page + 1));
+            }}
             disabled={page >= totalPages - 1}
             style={btnStyle(inputBg, border, text)}
           >
             Next
           </button>
           <button
-            onClick={() => { setPage(totalPages - 1); }}
+            onClick={() => {
+              setPage(totalPages - 1);
+            }}
             disabled={page >= totalPages - 1}
             style={btnStyle(inputBg, border, text)}
           >

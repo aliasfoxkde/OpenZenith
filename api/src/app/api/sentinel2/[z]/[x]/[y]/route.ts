@@ -59,7 +59,8 @@ async function findRecentSentinel2Tile(bbox: string): Promise<string | null> {
     if (!res.ok) return null;
     const data = (await res.json()) as StacSearchResponse;
     if (!data.features?.length) return null;
-    const item = data.features[0];
+    // bounds: features.length > 0 checked above
+    const item = data.features[0]!;
     const visualAsset = item.assets?.visual || item.assets?.["TCI"] || item.assets?.["tci"];
     return visualAsset?.href || null;
   } catch {

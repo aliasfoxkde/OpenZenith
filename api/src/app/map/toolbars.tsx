@@ -5,13 +5,7 @@
  * (refs, keydown effects, and the measure controller).
  */
 import { SURVEILLANCE_THEME as T } from "@/lib/theme";
-import {
-  formatArea,
-  formatDistance,
-  pathDistance,
-  sphericalPolygonArea,
-  type MeasureMode,
-} from "./lib/measure";
+import { formatArea, formatDistance, pathDistance, sphericalPolygonArea, type MeasureMode } from "./lib/measure";
 import { btnStyle } from "./panels";
 
 /** Annotation drawing modes (hoisted from the page component). */
@@ -31,7 +25,9 @@ export function MeasureTools({ mode, onToggleMode, onClear }: MeasureToolsProps)
        hit-testing under the page's click-through toolbar container. */
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", pointerEvents: "auto" }}>
       <button
-        onClick={() => { onToggleMode("distance"); }}
+        onClick={() => {
+          onToggleMode("distance");
+        }}
         title="Measure distance (Esc to cancel)"
         aria-label="Measure distance"
         aria-pressed={mode === "distance"}
@@ -50,7 +46,9 @@ export function MeasureTools({ mode, onToggleMode, onClear }: MeasureToolsProps)
         RULER
       </button>
       <button
-        onClick={() => { onToggleMode("area"); }}
+        onClick={() => {
+          onToggleMode("area");
+        }}
         title="Measure area (Esc to cancel)"
         aria-label="Measure area"
         aria-pressed={mode === "area"}
@@ -102,7 +100,12 @@ interface DrawToolsProps {
 
 const DRAW_TOOLS: { mode: Exclude<DrawMode, "none">; glyph: string; title: string; label: string }[] = [
   { mode: "point", glyph: "◎", title: "Draw point annotation", label: "Draw point annotation" },
-  { mode: "line", glyph: "━", title: "Draw line annotation (click points, Enter to finish)", label: "Draw line annotation" },
+  {
+    mode: "line",
+    glyph: "━",
+    title: "Draw line annotation (click points, Enter to finish)",
+    label: "Draw line annotation",
+  },
   {
     mode: "polygon",
     glyph: "△",
@@ -152,7 +155,9 @@ export function DrawTools({ mode, name, onSetMode, onNameChange, onFinish, onCan
         <>
           <input
             value={name}
-            onChange={(e) => { onNameChange(e.target.value); }}
+            onChange={(e) => {
+              onNameChange(e.target.value);
+            }}
             placeholder="Name..."
             aria-label="Annotation name"
             style={{
@@ -167,10 +172,20 @@ export function DrawTools({ mode, name, onSetMode, onNameChange, onFinish, onCan
               outline: "none",
             }}
           />
-          <button onClick={onFinish} aria-label="Finish drawing" title="Finish (Enter)" style={{ ...btnStyle, color: "#00ff88" }}>
+          <button
+            onClick={onFinish}
+            aria-label="Finish drawing"
+            title="Finish (Enter)"
+            style={{ ...btnStyle, color: "#00ff88" }}
+          >
             ✓
           </button>
-          <button onClick={onCancel} aria-label="Cancel drawing" title="Cancel (Esc)" style={{ ...btnStyle, color: T.red }}>
+          <button
+            onClick={onCancel}
+            aria-label="Cancel drawing"
+            title="Cancel (Esc)"
+            style={{ ...btnStyle, color: T.red }}
+          >
             ✕
           </button>
         </>

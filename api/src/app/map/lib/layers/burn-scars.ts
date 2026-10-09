@@ -90,7 +90,7 @@ export function addBurnScars(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("burnScars", err);
       setStatus(handle, "burnScars", "error");
-      }
+    }
   };
 
   void doLoad();

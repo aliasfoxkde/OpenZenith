@@ -52,6 +52,6 @@ describe("API Docs Markdown", () => {
     const text = await GET().text();
     expect(text).toContain("`encoding=mapbox`");
     // The example block must render as a fenced code block, not a leaked escape.
-    expect(text).toContain("```json\n{\n  \"elevation\": 8790,");
+    expect(text).toContain('```json\n{\n  "elevation": 8790,');
   });
 });

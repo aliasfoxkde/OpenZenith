@@ -54,7 +54,8 @@ export function OvertureTab({
               className="ex-ds-select"
               aria-pressed={theme === t.id}
               onClick={() => {
-                onSelectTheme(t.id, t.types[0]);
+                // bounds: every OVERTURE_THEMES entry declares at least one type
+                onSelectTheme(t.id, t.types[0]!);
               }}
             >
               <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "0.2rem" }}>{t.label}</div>
@@ -73,7 +74,13 @@ export function OvertureTab({
 
       <div className="ex-toolbar">
         <label style={{ fontSize: "0.75rem", color: "#a3a3a3", whiteSpace: "nowrap" }}>Type</label>
-        <select value={type} onChange={(e) => { onTypeChange(e.target.value); }} style={{ width: "auto", minWidth: 120 }}>
+        <select
+          value={type}
+          onChange={(e) => {
+            onTypeChange(e.target.value);
+          }}
+          style={{ width: "auto", minWidth: 120 }}
+        >
           {selectedTheme?.types.map((t) => (
             <option key={t} value={t}>
               {t}
@@ -83,8 +90,12 @@ export function OvertureTab({
         <input
           placeholder="west,south,east,north (e.g. -74.02,40.70,-73.95,40.78)"
           value={bbox}
-          onChange={(e) => { onBboxChange(e.target.value); }}
-          onKeyDown={(e) => { if (e.key === "Enter") onFetch(); }}
+          onChange={(e) => {
+            onBboxChange(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onFetch();
+          }}
         />
         <button className="primary" onClick={onFetch} disabled={loading}>
           {loading ? "Fetching..." : "Query"}
@@ -92,7 +103,9 @@ export function OvertureTab({
       </div>
 
       <div className="ex-info-bar">
-        <span style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>API: api.overturemaps.org/v0/{theme}/{type}</span>
+        <span style={{ fontSize: "0.72rem", color: "#a3a3a3" }}>
+          API: api.overturemaps.org/v0/{theme}/{type}
+        </span>
       </div>
 
       {error && (
@@ -110,7 +123,9 @@ export function OvertureTab({
             <span className="num">{data.features.length || 0}</span> features
           </div>
           {data.features.length > 0 && (
-            <pre style={{ maxHeight: 500, marginTop: "0.5rem" }}>{JSON.stringify(data.features.slice(0, 20), null, 2)}</pre>
+            <pre style={{ maxHeight: 500, marginTop: "0.5rem" }}>
+              {JSON.stringify(data.features.slice(0, 20), null, 2)}
+            </pre>
           )}
           {data.features.length > 20 && (
             <div className="ex-empty" style={{ padding: "0.75rem" }}>

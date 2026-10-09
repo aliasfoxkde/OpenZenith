@@ -67,7 +67,7 @@ export function addVolcanoes(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("volcanoes", err);
       setStatus(handle, "volcanoes", "error");
-      }
+    }
   };
 
   void doLoad();

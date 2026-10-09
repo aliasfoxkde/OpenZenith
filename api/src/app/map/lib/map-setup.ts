@@ -20,8 +20,14 @@ import type { ElevationPin } from "./view-state";
  * (clients overzoom the last level instead of requesting 404 tiles).
  */
 export function basemapRasterSource(def: BasemapDef) {
-  return { type: "raster" as const, tiles: [def.url], tileSize: 256, attribution: def.attribution, maxzoom: def.maxzoom };
-};
+  return {
+    type: "raster" as const,
+    tiles: [def.url],
+    tileSize: 256,
+    attribution: def.attribution,
+    maxzoom: def.maxzoom,
+  };
+}
 
 /**
  * Glyph (font) source for symbol layers — every text-bearing layer

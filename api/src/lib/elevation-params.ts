@@ -19,9 +19,7 @@ export interface ElevationParams {
 }
 
 /** Parse failure carries the message; each route wraps it in its own shape. */
-export type ElevationParamsResult =
-  | { ok: true; params: ElevationParams }
-  | { ok: false; message: string };
+export type ElevationParamsResult = { ok: true; params: ElevationParams } | { ok: false; message: string };
 
 /** International foot — the unit US surveying clients expect by default. */
 const METERS_PER_FOOT = 0.3048;
@@ -86,11 +84,7 @@ function round10(value: number): number {
  * @param params - Effective request parameters.
  * @returns The reported height, in the requested unit.
  */
-export function presentElevation(
-  elevationMeters: number,
-  undulationMeters: number,
-  params: ElevationParams,
-): number {
+export function presentElevation(elevationMeters: number, undulationMeters: number, params: ElevationParams): number {
   // SRTM is orthometric already; ellipsoidal height is h = H + N.
   const metres = params.datum === "ellipsoid" ? elevationMeters + undulationMeters : elevationMeters;
   return params.units === "feet" ? round10(metres / METERS_PER_FOOT) : round10(metres);

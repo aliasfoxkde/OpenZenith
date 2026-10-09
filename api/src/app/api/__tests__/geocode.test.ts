@@ -48,7 +48,9 @@ describe("Geocode endpoint", () => {
   it("serves a HIT from the edge cache without touching nominatim", async () => {
     const { edgeGetJson, edgePutJson } = await import("@/lib/storage/edge-cache");
     const cached = {
-      results: [{ display_name: "Paris, France", lat: 48.8566, lon: 2.3522, type: "city", importance: 0.9, address: {} }],
+      results: [
+        { display_name: "Paris, France", lat: 48.8566, lon: 2.3522, type: "city", importance: 0.9, address: {} },
+      ],
       count: 1,
     };
     vi.mocked(edgeGetJson).mockResolvedValueOnce(cached);
@@ -60,7 +62,7 @@ describe("Geocode endpoint", () => {
 
     expect(resp.headers.get("X-Cache")).toBe("HIT");
     expect(data.count).toBe(1);
-    expect(data.results[0].display_name).toContain("Paris");
+    expect(data.results[0]!.display_name).toContain("Paris"); // bounds: count 1 asserted above
     expect(data.requestId).toBeDefined();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(edgePutJson).not.toHaveBeenCalled();
@@ -94,9 +96,9 @@ describe("Geocode endpoint", () => {
     expect(data.requestId).toBeDefined();
     expect(data.results).toHaveLength(1);
     expect(data.count).toBe(1);
-    expect(data.results[0].display_name).toContain("London");
-    expect(data.results[0].lat).toBe(51.5074);
-    expect(data.results[0].lon).toBe(-0.1278);
+    expect(data.results[0]!.display_name).toContain("London"); // bounds: length 1 asserted above
+    expect(data.results[0]!.lat).toBe(51.5074);
+    expect(data.results[0]!.lon).toBe(-0.1278);
   });
 
   it("returns empty results for no matches", async () => {
@@ -214,7 +216,7 @@ describe("Geocode endpoint", () => {
     const limitOf = async (limitParam: string): Promise<string | null> => {
       const resp = await GET(mockRequest(`/api/geocode?query=London&${limitParam}`));
       expect(resp.status).toBe(200);
-      const url = spy.mock.calls[call][0] as string;
+      const url = spy.mock.calls[call]![0] as string; // bounds: each limitOf call records one fetch
       call += 1;
       return new URL(url).searchParams.get("limit");
     };

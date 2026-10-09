@@ -23,10 +23,6 @@ export type LayerTimerEntry = {
 export type LayerTimersRef = React.RefObject<LayerTimerEntry[]>;
 
 /** Register `id` under `key` so toggle-off can clear exactly this layer's timers. */
-export function pushLayerTimer(
-  ref: LayerTimersRef,
-  key: keyof LayerState,
-  id: ReturnType<typeof setInterval>,
-): void {
+export function pushLayerTimer(ref: LayerTimersRef, key: keyof LayerState, id: ReturnType<typeof setInterval>): void {
   ref.current.push({ key, id });
 }

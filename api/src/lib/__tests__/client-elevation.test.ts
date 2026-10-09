@@ -4,7 +4,7 @@ import { getClientElevation, getClientElevationBatch, getClientTileData } from "
 
 /* ─── fixture builders: OZCHNK01 merged files and GEBCO strips ─── */
 
-const MERGED_MAGIC = [0x4F, 0x5a, 0x43, 0x48, 0x4e, 0x4b, 0x30, 0x31]; // "OZCHNK01"
+const MERGED_MAGIC = [0x4f, 0x5a, 0x43, 0x48, 0x4e, 0x4b, 0x30, 0x31]; // "OZCHNK01"
 const HEADER_SIZE = 12;
 const INDEX_ENTRY_SIZE = 8;
 
@@ -30,11 +30,7 @@ function chunkPayload(valueAt: (row: number, col: number) => number, width: numb
  * offset/size index for rows*cols chunks, then the concatenated payloads.
  * Slots without a payload get offset 0 / size 0, which decodes to "no chunk".
  */
-function mergedFile(
-  payloads: Array<{ slot: number; data: Uint8Array }>,
-  rows: number,
-  cols: number,
-): Uint8Array {
+function mergedFile(payloads: Array<{ slot: number; data: Uint8Array }>, rows: number, cols: number): Uint8Array {
   const entryCount = rows * cols;
   const dataStart = HEADER_SIZE + entryCount * INDEX_ENTRY_SIZE;
   const placed = new Map<number, { offset: number; size: number }>();
@@ -117,18 +113,20 @@ function installFixtures(fixtures: Fixtures = {}): { calls: RecordedCall[]; fetc
 
     const merged = url.match(HF_MERGED);
     if (merged) {
-      if (fixtures.mergedThrows?.includes(merged[1])) throw new Error("hf offline");
-      const entry = fixtures.merged?.[merged[1]] ?? fixtures.mergedFor?.(merged[1]);
+      // bounds: HF_MERGED has one capture group, defined on any match
+      if (fixtures.mergedThrows?.includes(merged[1]!)) throw new Error("hf offline");
+      const entry = fixtures.merged?.[merged[1]!] ?? fixtures.mergedFor?.(merged[1]!);
       if (entry instanceof Uint8Array) return new Response(entry as unknown as BodyInit, { status: 200 });
       return new Response(null, { status: typeof entry === "number" ? entry : 404 });
     }
 
     const strip = url.match(CEDA_STRIP);
     if (strip) {
-      if (fixtures.stripsThrows?.includes(strip[1])) throw new Error("ceda offline");
-      const at200 = fixtures.stripsAt200?.[strip[1]];
+      // bounds: CEDA_STRIP has one capture group, defined on any match
+      if (fixtures.stripsThrows?.includes(strip[1]!)) throw new Error("ceda offline");
+      const at200 = fixtures.stripsAt200?.[strip[1]!];
       if (at200) return new Response(at200 as unknown as BodyInit, { status: 200 });
-      const entry = fixtures.strips?.[strip[1]];
+      const entry = fixtures.strips?.[strip[1]!];
       if (entry instanceof Uint8Array) return new Response(entry as unknown as BodyInit, { status: 206 });
       return new Response(null, { status: typeof entry === "number" ? entry : 404 });
     }
@@ -191,10 +189,10 @@ describe("getClientElevation — SRTM path", () => {
       source: "srtm",
     });
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(
+    expect(calls[0]!.url).toBe(
       "https://huggingface.co/datasets/aliasfox/srtm30m-merged/resolve/main/N41/N41W074.merged",
     );
-    expect(calls[0].range).toBeNull();
+    expect(calls[0]!.range).toBeNull();
   });
 
   it("normalises wrap-around longitudes before choosing a tile", async () => {
@@ -229,11 +227,7 @@ describe("getClientElevation — SRTM path", () => {
 
 describe("getClientElevation — GEBCO fallback", () => {
   it("falls back to a GEBCO strip when the SRTM pixel is nodata", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     const { calls } = installFixtures({
       merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -3000) },
@@ -249,19 +243,15 @@ describe("getClientElevation — GEBCO fallback", () => {
       source: "gebco2025",
     });
     expect(calls).toHaveLength(2);
-    expect(calls[1].url).toBe(
+    expect(calls[1]!.url).toBe(
       "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff/gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif",
     );
     // row (90 - 39.99) * 240 = 12002 -> 135948 + 12002 * 43200
-    expect(calls[1].range).toBe("bytes=518622348-518665547");
+    expect(calls[1]!.range).toBe("bytes=518622348-518665547");
   });
 
   it("keeps searching for a server value when the GEBCO strip is unusable", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     installFixtures({
       merged: { N38W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, 20000) }, // physically impossible
@@ -279,11 +269,7 @@ describe("getClientElevation — GEBCO fallback", () => {
   });
 
   it("credits GEBCO with a land surface type for positive elevations", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     installFixtures({
       merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, 150) },
@@ -294,11 +280,7 @@ describe("getClientElevation — GEBCO fallback", () => {
   });
 
   it("reuses a cached GEBCO strip for repeat lookups without refetching", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     const { calls } = installFixtures({
       merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -3000) },
@@ -310,11 +292,7 @@ describe("getClientElevation — GEBCO fallback", () => {
   });
 
   it("accepts a GEBCO strip served with status 200 when the range is ignored", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     installFixtures({
       merged: { N39W074: nodataMerged },
       stripsAt200: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": stripFor(3842, -1200) },
@@ -325,11 +303,7 @@ describe("getClientElevation — GEBCO fallback", () => {
   });
 
   it("treats a rejecting GEBCO strip fetch as unusable and asks the server", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     installFixtures({
       merged: { N39W074: nodataMerged },
       stripsThrows: ["gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif"],
@@ -341,11 +315,7 @@ describe("getClientElevation — GEBCO fallback", () => {
   });
 
   it("rejects a truncated GEBCO strip that cannot hold the sampled column", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     installFixtures({
       merged: { N39W074: nodataMerged },
       strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": new Uint8Array(10) },
@@ -357,11 +327,7 @@ describe("getClientElevation — GEBCO fallback", () => {
   });
 
   it("treats an error-status GEBCO strip request as unusable and asks the server", async () => {
-    const nodataMerged = mergedFile(
-      [{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }],
-      15,
-      15,
-    );
+    const nodataMerged = mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => -32768, 256, 256) }], 15, 15);
     const { calls } = installFixtures({
       merged: { N37W074: nodataMerged },
       // CEDA answers the range request with a server error: the strip is
@@ -647,8 +613,7 @@ describe("getClientElevationBatch", () => {
   it("never leaks caller ids when the server returns more results than points", async () => {
     installFixtures({
       merged: { N45W074: mergedFile([], 1, 1) },
-      batchEndpoint: () =>
-        jsonResponse({ results: [{ elevation: 11 }, { elevation: 22 }] }), // one extra result
+      batchEndpoint: () => jsonResponse({ results: [{ elevation: 11 }, { elevation: 22 }] }), // one extra result
     });
 
     const results = await getClientElevationBatch([{ lat: 45.5, lon: -73.5, id: "x" }]);
@@ -656,9 +621,9 @@ describe("getClientElevationBatch", () => {
     expect(results[0]).toEqual({ lat: 45.5, lon: -73.5, id: "x", elevation: 11 });
     // The surplus result has no caller point; its lat/lon must be NaN, not a
     // stale id or a fabricated coordinate.
-    expect(Number.isNaN(results[1].lat)).toBe(true);
-    expect(Number.isNaN(results[1].lon)).toBe(true);
-    expect(results[1].id).toBeUndefined();
+    expect(Number.isNaN(results[1]!.lat)).toBe(true);
+    expect(Number.isNaN(results[1]!.lon)).toBe(true);
+    expect(results[1]!.id).toBeUndefined();
   });
 
   it("falls back to GEBCO from inside a tile group when the SRTM pixel is nodata", async () => {
@@ -698,10 +663,10 @@ describe("getClientElevationBatch", () => {
     const fetchesFor = (tile: string) => calls.filter((c) => c.url.includes(`/${tile}.merged`)).length;
     expect(fetchesFor("N41W072")).toBe(1);
     // the first tile has fallen out of both caches, so it is fetched again
-    await getClientElevation(points[0].lat, points[0].lon);
+    await getClientElevation(points[0]!.lat, points[0]!.lon);
     expect(fetchesFor("N41W072")).toBe(2);
     // the most recent tile is still cached
-    await getClientElevation(points[69].lat, points[69].lon);
+    await getClientElevation(points[69]!.lat, points[69]!.lon);
     expect(fetchesFor("N41W003")).toBe(1);
   });
 });

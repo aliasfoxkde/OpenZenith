@@ -331,9 +331,7 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
         ["Event", text(f.properties.title)],
         [
           "Category",
-          text(f.properties.categoryLabel) ??
-            text(f.properties.category) ??
-            eonetCategory(f.properties.categories),
+          text(f.properties.categoryLabel) ?? text(f.properties.category) ?? eonetCategory(f.properties.categories),
         ],
         ["Date", formatEpoch(f.properties.date)],
       ]),

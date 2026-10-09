@@ -98,7 +98,7 @@ export function addLightning(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("lightning", err);
       setStatus(handle, "lightning", "error");
-      }
+    }
   };
 
   connect();

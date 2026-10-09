@@ -86,7 +86,9 @@ function generateStars(): Array<{
     else if (colorRand < 0.65) colorIdx = 4;
     else colorIdx = 5;
 
-    stars.push({ lng, lat, alt: sphereRadius, pixelSize, color: starColors[colorIdx], brightness });
+    // bounds: colorIdx is 0-5 by the branch chain above and starColors has
+    // exactly 6 entries
+    stars.push({ lng, lat, alt: sphereRadius, pixelSize, color: starColors[colorIdx]!, brightness });
   }
 
   return stars;

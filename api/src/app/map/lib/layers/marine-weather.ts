@@ -186,12 +186,14 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
           const windWave = windWaves[i];
           const swellWave = swellWaves[i];
           const seaSurfaceTemp = sst[i];
+          // bounds: i < OCEAN_SAMPLE_POINTS.length
+          const sample = OCEAN_SAMPLE_POINTS[i]!;
 
           features.push({
             type: "Feature",
             geometry: {
               type: "Point",
-              coordinates: [OCEAN_SAMPLE_POINTS[i].lon, OCEAN_SAMPLE_POINTS[i].lat],
+              coordinates: [sample.lon, sample.lat],
             },
             properties: {
               waveHeight: Math.round(wh * 10) / 10,
@@ -220,7 +222,7 @@ export function addMarineWeather(map: maplibregl.Map, handle: LayerHandle): void
     } catch (err) {
       warnLayerError("marineWeather", err);
       setStatus(handle, "marineWeather", "error");
-      }
+    }
   };
 
   void doLoad();

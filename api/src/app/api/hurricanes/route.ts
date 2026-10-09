@@ -24,7 +24,8 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   if (lines.length < 3) return { type: "FeatureCollection", features: [] };
 
   // Header line has column names. Second line is units. Third line onward is data.
-  const headers = lines[0].split(",").map((h) => h.trim());
+  // bounds: lines.length >= 3 checked above
+  const headers = lines[0]!.split(",").map((h) => h.trim());
   const sidIdx = headers.indexOf("SID");
   const nameIdx = headers.indexOf("NAME");
   const latIdx = headers.indexOf("LAT");
@@ -54,16 +55,16 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
     >();
 
     for (let i = 2; i < lines.length; i++) {
-      const cols = lines[i].split(",");
+      const cols = lines[i]!.split(","); // bounds: i < lines.length
       if (cols.length < headers.length) continue;
       const sid = cols[sidIdx]?.trim();
       if (!sid || sid === "SID") continue;
 
-      const lat = parseFloat(cols[latIdx]?.trim());
-      const lon = parseFloat(cols[lonIdx]?.trim());
+      const lat = parseFloat(cols[latIdx]?.trim() ?? "");
+      const lon = parseFloat(cols[lonIdx]?.trim() ?? "");
       if (isNaN(lat) || isNaN(lon)) continue;
 
-      const wind = parseInt(cols[windIdx]?.trim(), 10) || 0;
+      const wind = parseInt(cols[windIdx]?.trim() ?? "", 10) || 0;
       const time = cols[isoTimeIdx]?.trim() || "";
 
       let track = stormTracks.get(sid);
@@ -142,7 +143,7 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   const storms = new Map<string, Record<string, string>>();
 
   for (let i = 2; i < lines.length; i++) {
-    const cols = lines[i].split(",");
+    const cols = lines[i]!.split(","); // bounds: i < lines.length
     if (cols.length < headers.length) continue;
 
     const sid = cols[sidIdx]?.trim();
@@ -168,12 +169,12 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   const features: GeoJSON.Feature[] = [];
 
   for (const s of storms.values()) {
-    const lat = parseFloat(s.lat);
-    const lon = parseFloat(s.lon);
+    const lat = parseFloat(s.lat ?? "");
+    const lon = parseFloat(s.lon ?? "");
     if (isNaN(lat) || isNaN(lon)) continue;
 
-    const wind = parseInt(s.wind, 10) || 0;
-    const pres = parseInt(s.pres, 10) || 0;
+    const wind = parseInt(s.wind ?? "", 10) || 0;
+    const pres = parseInt(s.pres ?? "", 10) || 0;
 
     let category = 0;
     if (wind >= 137) category = 5;
@@ -189,7 +190,7 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
       properties: {
         sid: s.sid,
         name: s.name === "NOT_NAMED" ? "UNNAMED" : s.name,
-        season: parseInt(s.season, 10) || 0,
+        season: parseInt(s.season ?? "", 10) || 0,
         basin: s.basin,
         nature: s.nature,
         wind: wind || null,

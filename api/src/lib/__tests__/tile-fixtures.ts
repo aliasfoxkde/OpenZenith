@@ -28,15 +28,17 @@ function paethPredictor(a: number, b: number, c: number): number {
 function filterRow(target: Uint8Array, prev: Uint8Array, bpp: number, type: number): Uint8Array {
   const out = new Uint8Array(target.length);
   for (let i = 0; i < target.length; i++) {
-    const a = i >= bpp ? target[i - bpp] : 0;
-    const b = prev[i];
-    const c = i >= bpp ? prev[i - bpp] : 0;
+    // bounds: i < target.length and i-bpp >= 0 per the guards, so every read
+    // lands inside the stride-length target/prev rows
+    const a = i >= bpp ? target[i - bpp]! : 0;
+    const b = prev[i]!;
+    const c = i >= bpp ? prev[i - bpp]! : 0;
     let value: number;
-    if (type === 1) value = target[i] - a;
-    else if (type === 2) value = target[i] - b;
-    else if (type === 3) value = target[i] - ((a + b) >> 1);
-    else if (type === 4) value = target[i] - paethPredictor(a, b, c);
-    else value = target[i]; // 0 (None) and any unrecognised type are stored raw
+    if (type === 1) value = target[i]! - a;
+    else if (type === 2) value = target[i]! - b;
+    else if (type === 3) value = target[i]! - ((a + b) >> 1);
+    else if (type === 4) value = target[i]! - paethPredictor(a, b, c);
+    else value = target[i]!; // 0 (None) and any unrecognised type are stored raw
     out[i] = value & 0xff;
   }
   return out;
@@ -181,11 +183,12 @@ export function buildChunk(
 }
 
 /** Storage that synthesises every requested chunk at a fixed elevation. */
-export function constantStorage(elevation: (srtmName: string, localRow: number, localCol: number) => number): ChunkBackend {
+export function constantStorage(
+  elevation: (srtmName: string, localRow: number, localCol: number) => number,
+): ChunkBackend {
   return {
-    fetchChunk: vi.fn(
-      (srtmName: string, row: number, col: number): Promise<ArrayBuffer> =>
-        Promise.resolve(buildChunk((r, c) => elevation(srtmName, r, c), row, col)),
+    fetchChunk: vi.fn((srtmName: string, row: number, col: number): Promise<ArrayBuffer> =>
+      Promise.resolve(buildChunk((r, c) => elevation(srtmName, r, c), row, col)),
     ),
   };
 }

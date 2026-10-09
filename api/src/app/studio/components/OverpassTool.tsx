@@ -41,14 +41,16 @@ function elementPoint(el: OverpassElement): [number, number] | null {
 
 export function OverpassTool({ map, dark, onResult }: Props) {
   const [presetIdx, setPresetIdx] = useState(0);
-  const [query, setQuery] = useState(OVERPASS_PRESETS[0].query);
+  // bounds: OVERPASS_PRESETS is a non-empty literal array (studio/lib/constants.ts)
+  const [query, setQuery] = useState(OVERPASS_PRESETS[0]!.query);
   const [loading, setLoading] = useState(false);
   const [resultCount, setResultCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectPreset = useCallback((idx: number) => {
     setPresetIdx(idx);
-    setQuery(OVERPASS_PRESETS[idx].query);
+    // bounds: idx is a preset index from the picker (see OVERPASS_PRESETS)
+    setQuery(OVERPASS_PRESETS[idx]!.query);
     setResultCount(null);
     setError(null);
   }, []);
@@ -113,7 +115,8 @@ export function OverpassTool({ map, dark, onResult }: Props) {
 
       const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features };
       setResultCount(features.length);
-      onResult(fc, OVERPASS_PRESETS[presetIdx].label);
+      // bounds: presetIdx is a preset index from the picker
+      onResult(fc, OVERPASS_PRESETS[presetIdx]!.label);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Query failed");
     } finally {
@@ -123,7 +126,7 @@ export function OverpassTool({ map, dark, onResult }: Props) {
 
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
 
@@ -136,7 +139,9 @@ export function OverpassTool({ map, dark, onResult }: Props) {
       {/* Preset selector */}
       <select
         value={presetIdx}
-        onChange={(e) => { selectPreset(Number(e.target.value)); }}
+        onChange={(e) => {
+          selectPreset(Number(e.target.value));
+        }}
         style={{
           width: "100%",
           padding: "6px 8px",
@@ -155,14 +160,17 @@ export function OverpassTool({ map, dark, onResult }: Props) {
         ))}
       </select>
 
-      {OVERPASS_PRESETS[presetIdx].description && (
-        <div style={{ color: textSec, fontSize: 11 }}>{OVERPASS_PRESETS[presetIdx].description}</div>
+      {/* bounds: presetIdx is a preset index from the picker */}
+      {OVERPASS_PRESETS[presetIdx]!.description && (
+        <div style={{ color: textSec, fontSize: 11 }}>{OVERPASS_PRESETS[presetIdx]!.description}</div>
       )}
 
       {/* Query editor */}
       <textarea
         value={query}
-        onChange={(e) => { setQuery(e.target.value); }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+        }}
         rows={6}
         spellCheck={false}
         style={{
@@ -182,7 +190,9 @@ export function OverpassTool({ map, dark, onResult }: Props) {
 
       {/* Run button */}
       <button
-        onClick={() => { void runQuery(); }}
+        onClick={() => {
+          void runQuery();
+        }}
         disabled={loading || !query.trim()}
         style={{
           padding: "8px 16px",

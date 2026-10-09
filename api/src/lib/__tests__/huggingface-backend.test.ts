@@ -156,9 +156,7 @@ describe("HuggingFaceChunkBackend", () => {
   });
 
   it("resolves chunk URLs against the configured dataset repo", () => {
-    expect(makeBackend(true).buildUrl("N40/N40W074.merged")).toBe(
-      `${BASE}/${REPO}/resolve/main/N40/N40W074.merged`,
-    );
+    expect(makeBackend(true).buildUrl("N40/N40W074.merged")).toBe(`${BASE}/${REPO}/resolve/main/N40/N40W074.merged`);
     expect(new HuggingFaceChunkBackend("acme/custom", true).buildUrl("N40/N40W074.merged")).toBe(
       `${BASE}/acme/custom/resolve/main/N40/N40W074.merged`,
     );
@@ -172,9 +170,7 @@ describe("HuggingFaceChunkBackend", () => {
   it("extracts a chunk out of a fetched merged file", async () => {
     const tile = nextTile();
     const chunkBytes = payload([1, 2, 3, 4]);
-    routes = [
-      { match: `${tile.base}.merged`, status: 200, body: buildMergedFile(2, 2, new Map([[1, chunkBytes]])) },
-    ];
+    routes = [{ match: `${tile.base}.merged`, status: 200, body: buildMergedFile(2, 2, new Map([[1, chunkBytes]])) }];
 
     const chunk = await makeBackend(true).fetchChunk(tile.name, 0, 1);
 
@@ -190,7 +186,7 @@ describe("HuggingFaceChunkBackend", () => {
     await makeBackend(true).fetchChunk(tile.name, 0, 0);
 
     expect(cachePutMock).toHaveBeenCalledTimes(1);
-    const [key, data] = cachePutMock.mock.calls[0];
+    const [key, data] = cachePutMock.mock.calls[0]!;
     expect(key).toBe(`oz:merged:${tile.name}`);
     expect(Array.from(new Uint8Array(data))).toEqual(Array.from(new Uint8Array(merged)));
   });
@@ -242,7 +238,9 @@ describe("HuggingFaceChunkBackend", () => {
     );
 
     let release!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     fetchMock.mockImplementation((input: string) => {
       requestedUrls.push(input);
       return gate.then(() => new Response(merged, { status: 200 }));
@@ -280,9 +278,11 @@ describe("HuggingFaceChunkBackend", () => {
     const merged = buildMergedFile(1, 1, new Map([[0, payload([5])]]));
     fetchMock.mockImplementation((input: string) => {
       requestedUrls.push(input);
-      return Promise.resolve(input.includes(`${tile.base}.merged`)
-        ? new Response(merged, { status: 200 })
-        : new Response("not found", { status: 404 }));
+      return Promise.resolve(
+        input.includes(`${tile.base}.merged`)
+          ? new Response(merged, { status: 200 })
+          : new Response("not found", { status: 404 }),
+      );
     });
 
     const chunk = await backend.fetchChunk(tile.name, 0, 0);
@@ -294,9 +294,7 @@ describe("HuggingFaceChunkBackend", () => {
   it("expires the in-memory merged cache after 30 minutes", async () => {
     const tile = nextTile();
     vi.useFakeTimers({ now: Date.now() });
-    routes = [
-      { match: `${tile.base}.merged`, status: 200, body: buildMergedFile(1, 1, new Map([[0, payload([5])]])) },
-    ];
+    routes = [{ match: `${tile.base}.merged`, status: 200, body: buildMergedFile(1, 1, new Map([[0, payload([5])]])) }];
     const backend = makeBackend(true);
 
     await backend.fetchChunk(tile.name, 0, 0);
@@ -323,9 +321,7 @@ describe("HuggingFaceChunkBackend", () => {
     const tile = nextTile();
     const chunkBytes = payload([1]);
     cacheGetMock.mockResolvedValue(toBuffer(Uint8Array.from([1, 2, 3])));
-    routes = [
-      { match: `${tile.base}.merged`, status: 200, body: buildMergedFile(1, 1, new Map([[0, chunkBytes]])) },
-    ];
+    routes = [{ match: `${tile.base}.merged`, status: 200, body: buildMergedFile(1, 1, new Map([[0, chunkBytes]])) }];
 
     const chunk = await makeBackend(true).fetchChunk(tile.name, 0, 0);
 

@@ -57,19 +57,16 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
   });
 
   it("forwards path and query to an allowed host and passes through the response", async () => {
-    const fetchMock = vi.fn(
-      (_input: RequestInfo | URL, _init?: RequestInit) =>
-        Promise.resolve(
-          new Response(bytes("usgs-payload"), { status: 200, headers: { "Content-Type": "application/json" } }),
-        ),
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(bytes("usgs-payload"), { status: 200, headers: { "Content-Type": "application/json" } }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
     const { GET } = await route();
     const resp = await GET(
-      mockRequest(
-        "/api/proxy/https://earthquake.usgs.gov/fdsnws/event/1/query?starttime=2026-01-01&format=geojson",
-      ),
+      mockRequest("/api/proxy/https://earthquake.usgs.gov/fdsnws/event/1/query?starttime=2026-01-01&format=geojson"),
       { params: Promise.resolve({ path: ["https://earthquake.usgs.gov/fdsnws/event/1/query"] }) },
     );
 
@@ -81,7 +78,7 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
     expect(await resp.arrayBuffer()).toEqual(bytes("usgs-payload"));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [rawUrl, init] = fetchMock.mock.calls[0];
+    const [rawUrl, init] = fetchMock.mock.calls[0]!; // bounds: call count asserted above
     const url = typeof rawUrl === "string" ? rawUrl : rawUrl instanceof URL ? rawUrl.href : rawUrl.url;
     expect(url).toBe("https://earthquake.usgs.gov/fdsnws/event/1/query?starttime=2026-01-01&format=geojson");
     expect(init).toBeDefined();
@@ -125,7 +122,10 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
   it("answers 502 with the thrown error message when upstream fetch rejects", async () => {
     // Fake timers keep the route's 30s abort timer from holding the worker open.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("socket hang up"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("socket hang up"))),
+    );
 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/proxy/https://api.open-meteo.com/v1/forecast"), {
@@ -143,8 +143,11 @@ describe("Proxy endpoint — forwarding, cache TTL and error fallthrough", () =>
   it("answers 502 with the generic message for non-Error rejections", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     // The route's catch treats any non-Error rejection reason as "Proxy error".
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject("not-an-error")));
+    vi.stubGlobal(
+      "fetch",
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      vi.fn(() => Promise.reject("not-an-error")),
+    );
 
     const { GET } = await route();
     const resp = await GET(mockRequest("/api/proxy/https://api.open-meteo.com/v1/forecast"), {

@@ -177,7 +177,7 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
     } catch (err) {
       warnLayerError("aviationWeather", err);
       setStatus(handle, "aviationWeather", "error");
-      }
+    }
   };
 
   void doLoad();
@@ -211,7 +211,8 @@ function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
       }
     }
     if (ring.length >= 3) {
-      ring.push(ring[0]); // close the ring
+      // bounds: ring.length >= 3 checked above, so ring[0] exists
+      ring.push(ring[0]!); // close the ring
       return { type: "Polygon", coordinates: [ring] };
     }
   }
@@ -235,7 +236,8 @@ function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
       }
     }
     if (ring.length >= 3) {
-      ring.push(ring[0]);
+      // bounds: ring.length >= 3 checked above, so ring[0] exists
+      ring.push(ring[0]!);
       return { type: "Polygon", coordinates: [ring] };
     }
   }

@@ -41,14 +41,18 @@ export class LocalTifBackend {
 
       // Read entire file into memory (~750KB, well within stack limits)
       const buf = await readFile(`${this.dataDir}/${srtmName}`);
-      const isLE = buf[0] === 0x49 && buf[1] === 0x49;
+      // bounds: header/IFD reads use the GeoTIFF fixed layout (signature at 0,
+      // numEntries at 8, 12-byte IFD entries from byte 10) so every offset
+      // targets a field of the parsed file buffer.
+      const rd = (b: number) => buf[b]!;
+      const isLE = rd(0) === 0x49 && rd(1) === 0x49;
       const readU32 = (b: number) =>
         isLE
-          ? buf[b] | (buf[b + 1] << 8) | (buf[b + 2] << 16) | (buf[b + 3] << 24)
-          : (buf[b] << 24) | (buf[b + 1] << 16) | (buf[b + 2] << 8) | buf[b + 3];
+          ? rd(b) | (rd(b + 1) << 8) | (rd(b + 2) << 16) | (rd(b + 3) << 24)
+          : (rd(b) << 24) | (rd(b + 1) << 16) | (rd(b + 2) << 8) | rd(b + 3);
 
       // Parse IFD (starts at byte 8)
-      const numEntries = isLE ? buf[8] | (buf[9] << 8) : (buf[8] << 8) | buf[9];
+      const numEntries = isLE ? rd(8) | (rd(9) << 8) : (rd(8) << 8) | rd(9);
       const IFD_START = 10; // right after numEntries
       let width = 0,
         height = 0,
@@ -59,8 +63,9 @@ export class LocalTifBackend {
 
       for (let i = 0; i < numEntries; i++) {
         const b = IFD_START + i * 12;
-        const tag = isLE ? buf[b] | (buf[b + 1] << 8) : (buf[b] << 8) | buf[b + 1];
-        const __type = isLE ? buf[b + 2] | (buf[b + 3] << 8) : (buf[b + 2] << 8) | buf[b + 3];
+        // bounds: b..b+3 are fields of the 12-byte IFD entry at IFD_START + i*12
+        const tag = isLE ? rd(b) | (rd(b + 1) << 8) : (rd(b) << 8) | rd(b + 1);
+        const __type = isLE ? rd(b + 2) | (rd(b + 3) << 8) : (rd(b + 2) << 8) | rd(b + 3);
         const count = readU32(b + 4);
         const val = readU32(b + 8);
         if (tag === 256) width = count === 1 ? val : 0;
@@ -110,8 +115,10 @@ export class LocalTifBackend {
         for (let c = 0; c < outCols; c++) {
           const src = (r * tileW + c) * 2;
           const dst = (r * 256 + c) * 2;
-          decoded[dst] = decompressed[src];
-          decoded[dst + 1] = decompressed[src + 1];
+          // bounds: r/outRows and c/outCols are capped by tileW/tileH, so src
+          // stays inside the decompressed 256x256 tile stream
+          decoded[dst] = decompressed[src]!;
+          decoded[dst + 1] = decompressed[src + 1]!;
         }
       }
 

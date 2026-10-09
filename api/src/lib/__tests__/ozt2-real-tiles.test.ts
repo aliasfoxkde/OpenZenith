@@ -41,8 +41,14 @@ describe.skipIf(!HAS_DATA)("TS decoder vs Python decoder on real dataset tiles",
     expect(res.width).toBe(256);
     expect(res.height).toBe(256);
     let sum = 0;
-    let min = Infinity, max = -Infinity;
-    for (let i = 0; i < g.length; i++) { sum += g[i]; if (g[i] < min) min = g[i]; if (g[i] > max) max = g[i]; }
+    let min = Infinity,
+      max = -Infinity;
+    // bounds: i < g.length
+    for (let i = 0; i < g.length; i++) {
+      sum += g[i]!;
+      if (g[i]! < min) min = g[i]!;
+      if (g[i]! > max) max = g[i]!;
+    }
     expect(min).toBe(r.min);
     expect(max).toBe(r.max);
     expect(sum / g.length).toBeCloseTo(r.mean, 3);
@@ -54,7 +60,9 @@ describe.skipIf(!HAS_DATA)("TS decoder vs Python decoder on real dataset tiles",
   it("decodes a sample of existing dataset tiles across zooms without error", async () => {
     // Deterministic sweep over files that actually exist: every decode must
     // succeed and yield 256x256. Compressor flags are read from the header.
-    let decoded = 0, brotli = 0, zstd = 0;
+    let decoded = 0,
+      brotli = 0,
+      zstd = 0;
     for (const z of [7, 8, 9, 10, 11]) {
       const xs = readDirSync(`${ROOT}/z${z}`).slice(0, 2);
       for (const x of xs) {
@@ -64,8 +72,10 @@ describe.skipIf(!HAS_DATA)("TS decoder vs Python decoder on real dataset tiles",
           .map((e) => e.name);
         for (const y of ys) {
           const buf = readFileSync(`${ROOT}/z${z}/${x}/${y}`);
-          const comp = (buf[5] >> 2) & 0b11;
-          if (comp === 0) brotli++; else if (comp === 1) zstd++;
+          // bounds: the OZT2 header is 6 bytes, so the flags byte exists
+          const comp = (buf[5]! >> 2) & 0b11;
+          if (comp === 0) brotli++;
+          else if (comp === 1) zstd++;
           const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
           const res = await decodeOZT2(ab);
           expect(res.width).toBe(256);

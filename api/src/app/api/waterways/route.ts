@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [minLon, minLat, maxLon, maxLat] = parts;
+  // bounds: parts.length === 4 enforced above
+  const minLon = parts[0]!;
+  const minLat = parts[1]!;
+  const maxLon = parts[2]!;
+  const maxLat = parts[3]!;
 
   if (Math.abs(maxLon - minLon) > 10 || Math.abs(maxLat - minLat) > 10) {
     return NextResponse.json(
@@ -54,9 +58,7 @@ export async function GET(request: NextRequest) {
   const RIVERS = '["waterway"~"river|stream|canal"]';
   const LAKES = '["natural"="water"]["water"!="river"]';
   const filters = type === "rivers" ? [RIVERS] : type === "lakes" ? [LAKES] : [RIVERS, LAKES];
-  const union = filters
-    .map((f) => `way${f}${bboxClause};\n  relation${f}${bboxClause};`)
-    .join("\n  ");
+  const union = filters.map((f) => `way${f}${bboxClause};\n  relation${f}${bboxClause};`).join("\n  ");
 
   const query = `
     [out:json][timeout:25];
@@ -104,7 +106,10 @@ export async function GET(request: NextRequest) {
         if (coords.length < 2) continue;
 
         const isPolygon = el.tags?.natural === "water" && coords.length >= 3;
-        const isClosed = coords[0][0] === coords[coords.length - 1][0] && coords[0][1] === coords[coords.length - 1][1];
+        // bounds: coords.length >= 2 enforced above
+        const first = coords[0]!;
+        const last = coords[coords.length - 1]!;
+        const isClosed = first[0] === last[0] && first[1] === last[1];
 
         features.push({
           type: "Feature",

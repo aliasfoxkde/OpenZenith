@@ -39,18 +39,20 @@ async function decodeEgm96Grid(): Promise<Int16Array> {
   const deltas = new Int16Array(await stream.arrayBuffer());
 
   const recovered = new Int32Array(EGM96_GRID_ROWS * EGM96_GRID_COLS);
+  // bounds: deltas and recovered both hold ROWS*COLS nodes and i/j walk
+  // exactly that extent
   // Latitude diff first: row 0 of the delta array is already absolute.
   for (let i = 0; i < EGM96_GRID_ROWS; i++) {
     const row = i * EGM96_GRID_COLS;
     for (let j = 0; j < EGM96_GRID_COLS; j++) {
-      recovered[row + j] = deltas[row + j] + (i > 0 ? recovered[row - EGM96_GRID_COLS + j] : 0);
+      recovered[row + j] = deltas[row + j]! + (i > 0 ? recovered[row - EGM96_GRID_COLS + j]! : 0);
     }
   }
   // Then the longitude diff within each recovered row.
   for (let i = 0; i < EGM96_GRID_ROWS; i++) {
     const row = i * EGM96_GRID_COLS;
     for (let j = 1; j < EGM96_GRID_COLS; j++) {
-      recovered[row + j] += recovered[row + j - 1];
+      recovered[row + j] = recovered[row + j]! + recovered[row + j - 1]!;
     }
   }
 
@@ -107,11 +109,13 @@ export function egm96Undulation(lat: number, lon: number): number {
 
   const row0 = i0 * EGM96_GRID_COLS;
   const row1 = row0 + EGM96_GRID_COLS;
+  // bounds: i0 <= ROWS-2 and j0/j1 are in [0, COLS), so all four indices are
+  // inside the ROWS*COLS grid
   const cm =
-    grid[row0 + j0] * (1 - di) * (1 - dj) +
-    grid[row1 + j0] * di * (1 - dj) +
-    grid[row0 + j1] * (1 - di) * dj +
-    grid[row1 + j1] * di * dj;
+    grid[row0 + j0]! * (1 - di) * (1 - dj) +
+    grid[row1 + j0]! * di * (1 - dj) +
+    grid[row0 + j1]! * (1 - di) * dj +
+    grid[row1 + j1]! * di * dj;
 
   return Math.round(cm) / 100;
 }

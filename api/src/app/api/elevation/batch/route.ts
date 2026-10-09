@@ -19,11 +19,7 @@ import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import {
-  parseElevationParams,
-  presentElevation,
-  type Interpolation,
-} from "@/lib/elevation-params";
+import { parseElevationParams, presentElevation, type Interpolation } from "@/lib/elevation-params";
 
 export const runtime = "edge";
 
@@ -77,7 +73,10 @@ function sampleElevation(
 
   if (interpolation === "nearest") {
     // Rounding can reach w/h at the far edge, which is out of bounds.
-    const value = tileData.data[Math.min(h - 1, Math.round(py)) * w + Math.min(w - 1, Math.round(px))];
+    // bounds: the Math.min guards clamp the index to [0, (h-1)*w + w-1] for
+    // in-range lat/lon; an exact-pole lat can still land outside and yield
+    // undefined — preserved as-is (pre-existing far-edge behavior).
+    const value = tileData.data[Math.min(h - 1, Math.round(py)) * w + Math.min(w - 1, Math.round(px))]!;
     return value === -32768 ? null : value;
   }
 
@@ -88,10 +87,13 @@ function sampleElevation(
   const fx = px - x0;
   const fy = py - y0;
 
-  const h00 = tileData.data[y0 * w + x0];
-  const h10 = tileData.data[y0 * w + x1];
-  const h01 = tileData.data[y1 * w + x0];
-  const h11 = tileData.data[y1 * w + x1];
+  // bounds: x1/y1 are clamped to w-1/h-1 and x0/y0 stay in range for in-range
+  // lat/lon; an exact-pole lat can still push y0 outside and yield undefined —
+  // preserved as-is (pre-existing far-edge NaN).
+  const h00 = tileData.data[y0 * w + x0]!;
+  const h10 = tileData.data[y0 * w + x1]!;
+  const h01 = tileData.data[y1 * w + x0]!;
+  const h11 = tileData.data[y1 * w + x1]!;
 
   if (h00 === -32768 && h10 === -32768 && h01 === -32768 && h11 === -32768) {
     return null;
@@ -149,7 +151,8 @@ export async function POST(request: NextRequest) {
 
     const tileGroups = new Map<string, number[]>();
     for (let i = 0; i < points.length; i++) {
-      const { x, y } = latLonToTile(points[i].lat, points[i].lon, zoom);
+      const p = points[i]!; // bounds: i < points.length
+      const { x, y } = latLonToTile(p.lat, p.lon, zoom);
       const key = `${x}/${y}`;
       const group = tileGroups.get(key);
       if (group) {
@@ -162,7 +165,9 @@ export async function POST(request: NextRequest) {
     for (const [tileKey, indices] of tileGroups) {
       if (!tileCache.has(tileKey)) {
         try {
-          const [x, y] = tileKey.split("/").map(Number);
+          // bounds: tileKey is "<int>/<int>" so split always yields both parts
+          const x = Number(tileKey.split("/")[0]!);
+          const y = Number(tileKey.split("/")[1]!);
           const tileData = await getTileData(zoom, x, y, HF_BACKEND);
           tileCache.set(tileKey, tileData);
         } catch {
@@ -172,14 +177,13 @@ export async function POST(request: NextRequest) {
 
       const tileData = tileCache.get(tileKey);
       for (const idx of indices) {
-        const p = points[idx];
+        const p = points[idx]!; // bounds: indices were collected from i < points.length
         const raw = tileData ? sampleElevation(tileData, p.lat, p.lon, zoom, params.params.interpolation) : null;
         // `raw` carries the 0.1 m rounding the endpoint has always applied.
         const elevation_m = raw !== null ? Math.round(raw * 10) / 10 : null;
         // The grid is resident after the first lookup, so an await per point is
         // a microtask, not a decode.
-        const undulation =
-          elevation_m === null || !egm96 ? 0 : await egm96.egm96UndulationAt(p.lat, p.lon);
+        const undulation = elevation_m === null || !egm96 ? 0 : await egm96.egm96UndulationAt(p.lat, p.lon);
         results[idx] = {
           id: p.id,
           lat: p.lat,

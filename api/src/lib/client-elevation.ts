@@ -158,7 +158,8 @@ function readPixel(
   const localRow = pixel.row - Math.floor(pixel.row / 256) * 256;
   const localCol = pixel.col - Math.floor(pixel.col / 256) * 256;
   if (localRow >= chunk.height || localCol >= chunk.width) return null;
-  const val = chunk.data[localRow * chunk.width + localCol];
+  // bounds: localRow/localCol checked against height/width above
+  const val = chunk.data[localRow * chunk.width + localCol]!;
   return val === -32768 ? null : val;
 }
 
@@ -192,8 +193,9 @@ function readGebcoPixel(strip: Uint8Array, col: number): number | null {
   const byteOffset = col * 2;
   if (byteOffset + 2 > strip.length) return null;
 
-  const lowByte = strip[byteOffset];
-  const highByte = strip[byteOffset + 1];
+  // bounds: byteOffset + 2 <= strip.length, so both bytes are in range
+  const lowByte = strip[byteOffset]!;
+  const highByte = strip[byteOffset + 1]!;
   const value = (highByte << 8) | lowByte;
   const signedValue = value >= 32768 ? value - 65536 : value;
 
@@ -394,7 +396,8 @@ async function clientBatchDirect(
   // Group points by SRTM tile
   const tileGroups = new Map<string, Array<{ idx: number; lat: number; lon: number; id?: string }>>();
   for (let i = 0; i < points.length; i++) {
-    const p = points[i];
+    // bounds: i < points.length
+    const p = points[i]!;
     if (!isWithinSRTM(p.lat, p.lon)) continue;
     const name = latLonToSrtmName(p.lat, p.lon);
     const group = tileGroups.get(name) ?? [];
@@ -443,12 +446,13 @@ async function clientBatchDirect(
 
   // For points outside SRTM coverage, try GEBCO
   for (let i = 0; i < points.length; i++) {
-    if (results[i].elevation !== null) continue;
-    const p = points[i];
+    // bounds: results is points.map(...) so index i is in range for both
+    if (results[i]!.elevation !== null) continue;
+    const p = points[i]!;
     try {
       const gebco = await clientGebcoElevation(p.lat, p.lon);
       if (gebco) {
-        results[i] = { ...results[i], elevation: gebco.elevation };
+        results[i] = { ...results[i]!, elevation: gebco.elevation };
       }
     } catch {
       /* skip */
@@ -554,7 +558,8 @@ async function clientTileDataDirect(
             const lRow = pixel.row % 256;
             const lCol = pixel.col % 256;
             if (lRow < chunk.height && lCol < chunk.width) {
-              const val = chunk.data[lRow * chunk.width + lCol];
+              // bounds: lRow/lCol checked against chunk height/width above
+              const val = chunk.data[lRow * chunk.width + lCol]!;
               if (val !== NODATA) data[py * TILE_SIZE + px] = val;
             }
           }
@@ -564,7 +569,7 @@ async function clientTileDataDirect(
   }
 
   const heights = new Float32Array(data.length);
-  for (let i = 0; i < data.length; i++) heights[i] = data[i];
+  for (let i = 0; i < data.length; i++) heights[i] = data[i]!;
 
   return { heights, width: TILE_SIZE, height: TILE_SIZE };
 }

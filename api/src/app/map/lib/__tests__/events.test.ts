@@ -70,9 +70,7 @@ describe("addNaturalEvents source data", () => {
   it("falls back to 'Event' when the feed omits the categories array", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ features: [eonetFeature(undefined)] }), { status: 200 }),
-      ),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ features: [eonetFeature(undefined)] }), { status: 200 })),
     );
     const handle = createLayerHandle();
     const map = mapStub();

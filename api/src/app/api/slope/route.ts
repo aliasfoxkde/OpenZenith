@@ -12,12 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  TERRAIN_NODATA,
-  assembleTerrainGrid,
-  computeSlope,
-  decimateGrid,
-} from "@/lib/terrain-grid";
+import { TERRAIN_NODATA, assembleTerrainGrid, computeSlope, decimateGrid } from "@/lib/terrain-grid";
 import { tileToLatLon } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -73,7 +68,7 @@ export async function GET(request: NextRequest) {
       max = -Infinity;
     const vals: number[] = [];
     for (let i = 0; i < slopeGrid.length; i++) {
-      const v = slopeGrid[i];
+      const v = slopeGrid[i]!; // bounds: i < slopeGrid.length
       if (!isNaN(v)) {
         sum += v;
         count++;
@@ -85,8 +80,9 @@ export async function GET(request: NextRequest) {
 
     const mean = count > 0 ? sum / count : 0;
     const sorted = vals.sort((a, b) => a - b);
+    // bounds: count is even and > 0 here, so count/2-1 >= 0 and count/2 < count = sorted.length
     const median =
-      count > 0 ? (count % 2 ? sorted[Math.floor(count / 2)] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2) : 0;
+      count > 0 ? (count % 2 ? sorted[Math.floor(count / 2)]! : (sorted[count / 2 - 1]! + sorted[count / 2]!) / 2) : 0;
     const variance = count > 0 ? vals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / count : 0;
     const std = Math.sqrt(variance);
 

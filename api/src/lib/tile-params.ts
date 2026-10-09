@@ -18,9 +18,7 @@ export interface TileParams {
   y: number;
 }
 
-export type TileParamParse =
-  | ({ ok: true } & TileParams)
-  | { ok: false; status: number; message: string };
+export type TileParamParse = ({ ok: true } & TileParams) | { ok: false; status: number; message: string };
 
 const STRICT_INT = /^-?[0-9]+$/;
 

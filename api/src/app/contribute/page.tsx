@@ -172,36 +172,45 @@ export default function ContributePage() {
           <div className="ct-format">
             <button
               className="ct-format-btn"
-              onClick={() =>
-                { setUploadData(
+              onClick={() => {
+                setUploadData(
                   '{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{}}]}',
-                ); }
-              }
+                );
+              }}
             >
               GeoJSON
             </button>
             <button
               className="ct-format-btn"
-              onClick={() =>
-                { setUploadData(
+              onClick={() => {
+                setUploadData(
                   "latitude,longitude,name,elevation_m\n40.7128,-74.0060,New York,10\n34.0522,-118.2437,Los Angeles,93",
-                ); }
-              }
+                );
+              }}
             >
               CSV
             </button>
-            <button className="ct-format-btn" onClick={() => { setUploadData('GEOGCS["WGS 84"]\nDATA["WGS 84"]\n'); }}>
+            <button
+              className="ct-format-btn"
+              onClick={() => {
+                setUploadData('GEOGCS["WGS 84"]\nDATA["WGS 84"]\n');
+              }}
+            >
               Well-Known Text
             </button>
             <button
               className="ct-format-btn"
-              onClick={() => { setUploadData("PointZM 86.9258 27.9881 8848.86\nPointZM 87.086 27.9881 8516\n"); }}
+              onClick={() => {
+                setUploadData("PointZM 86.9258 27.9881 8848.86\nPointZM 87.086 27.9881 8516\n");
+              }}
             >
               GPX Tracks
             </button>
             <button
               className="ct-format-btn"
-              onClick={() => { setUploadData("id;name;type;latitude;longitude;elevation\n1;Peak;summit;27.98;86.93;8849"); }}
+              onClick={() => {
+                setUploadData("id;name;type;latitude;longitude;elevation\n1;Peak;summit;27.98;86.93;8849");
+              }}
             >
               Custom CSV
             </button>
@@ -216,7 +225,9 @@ export default function ContributePage() {
               e.preventDefault();
               setDragOver(true);
             }}
-            onDragLeave={() => { setDragOver(false); }}
+            onDragLeave={() => {
+              setDragOver(false);
+            }}
             onDrop={(e) => {
               e.preventDefault();
               setDragOver(false);

@@ -29,7 +29,7 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
   const bg = dark ? "#0f0f0f" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#ccc" : "#333";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const lineColor = "#3b82f6";
   const fillColor = dark ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.1)";
@@ -46,17 +46,19 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
     void (async () => {
       try {
         // Compute distances between consecutive points
+        // bounds: coordinates.length >= 2 (returned early above) and the loop
+        // holds 1 <= i < coordinates.length, so every index below exists
         const pointsWithDist: ElevationPoint[] = [
-          { lat: coordinates[0][1], lon: coordinates[0][0], elevation: null, distance: 0 },
+          { lat: coordinates[0]![1], lon: coordinates[0]![0], elevation: null, distance: 0 },
         ];
         for (let i = 1; i < coordinates.length; i++) {
-          const prev = pointsWithDist[i - 1];
-          const d = haversine(prev.lat, prev.lon, coordinates[i][1], coordinates[i][0]);
+          const prev = pointsWithDist[i - 1]!;
+          const d = haversine(prev.lat, prev.lon, coordinates[i]![1], coordinates[i]![0]);
           pointsWithDist.push({
-            lat: coordinates[i][1],
-            lon: coordinates[i][0],
+            lat: coordinates[i]![1],
+            lon: coordinates[i]![0],
             elevation: null,
-            distance: pointsWithDist[i - 1].distance + d,
+            distance: pointsWithDist[i - 1]!.distance + d,
           });
         }
 
@@ -96,7 +98,8 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
     };
   }, [coordinates]);
 
-  const totalDist = points.length > 0 ? points[points.length - 1].distance : 0;
+  // bounds: points.length > 0 checked in this ternary
+  const totalDist = points.length > 0 ? points[points.length - 1]!.distance : 0;
   const elevations = points.map((p) => p.elevation).filter((e): e is number => e !== null);
   const minElev = elevations.length > 0 ? Math.min(...elevations) : 0;
   const maxElev = elevations.length > 0 ? Math.max(...elevations) : 0;
@@ -223,7 +226,7 @@ export function ElevationProfile({ dark, onClose, coordinates }: Props) {
                 (p) =>
                   `${pad.left + (totalDist > 0 ? p.distance * xScale : 0)},${pad.top + (maxElev - (p.elevation ?? minElev)) * yScale}`,
               ),
-              `${pad.left + (totalDist > 0 ? points[points.length - 1].distance * xScale : 0)},${pad.top + chartH}`,
+              `${pad.left + (totalDist > 0 ? points[points.length - 1]!.distance * xScale : 0)},${pad.top + chartH}`,
             ].join(" ")}
             fill={fillColor}
             stroke="none"

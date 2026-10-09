@@ -4,7 +4,9 @@ import { warnLayerError } from "@/lib/diagnostics";
 import { svgIcon } from "../svg-icon";
 import { pushLayerTimer, type LayerTimersRef } from "./timers";
 
-const GDACS_ICON = svgIcon(`<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="#ff4444" stroke-width="2"/><path d="M12 5v7l5 5" fill="none" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/></svg>`);
+const GDACS_ICON = svgIcon(
+  `<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="#ff4444" stroke-width="2"/><path d="M12 5v7l5 5" fill="none" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/></svg>`,
+);
 
 function severityColor(severity: string): string {
   switch (severity) {
@@ -87,7 +89,7 @@ export function loadGDACS(
       for (let i = 0; i < items.length; i++) {
         // Kept possibly-undefined so the `?.` chain below stays the same
         // skip-a-dud-entry guard it was before this was typed.
-        const item = items[i] as GdacsEntry | undefined;
+        const item = items[i]; // noUncheckedIndexedAccess: indexing already yields T | undefined
         // Coordinates are decimal strings upstream; the `|| 0` fallback is the
         // no-coordinates case the `if (!lat || !lon)` bail handles, and the
         // assertion only satisfies parseFloat's string parameter.

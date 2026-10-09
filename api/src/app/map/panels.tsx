@@ -21,17 +21,7 @@ const LEGEND_ENTRIES = [
   {
     id: "elevationColor",
     name: "Elevation",
-    colors: [
-      "#00044a",
-      "#08306b",
-      "#2171b5",
-      "#238b45",
-      "#41ab5d",
-      "#addd8e",
-      "#fee08b",
-      "#fdae61",
-      "#a50026",
-    ],
+    colors: ["#00044a", "#08306b", "#2171b5", "#238b45", "#41ab5d", "#addd8e", "#fee08b", "#fdae61", "#a50026"],
     labels: ["Sea Level", "Peaks"],
     multi: false,
   },
@@ -135,9 +125,7 @@ export function AnnotationsListPanel({ annotations, onDelete, onClear }: Annotat
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ color: a.color }}>
-                {a.type === "point" ? "◎" : a.type === "line" ? "━" : "△"}
-              </span>
+              <span style={{ color: a.color }}>{a.type === "point" ? "◎" : a.type === "line" ? "━" : "△"}</span>
               <span style={{ color: T.text }}>{a.name}</span>
             </div>
             <div style={{ display: "flex", gap: 4 }}>
@@ -145,7 +133,9 @@ export function AnnotationsListPanel({ annotations, onDelete, onClear }: Annotat
                 {new Date(a.timestamp).toLocaleDateString()}
               </span>
               <button
-                onClick={() => { onDelete(a.id); }}
+                onClick={() => {
+                  onDelete(a.id);
+                }}
                 aria-label={`Delete annotation ${a.name}`}
                 style={{
                   background: "none",
@@ -163,10 +153,7 @@ export function AnnotationsListPanel({ annotations, onDelete, onClear }: Annotat
           </div>
         ))}
       </div>
-      <button
-        onClick={onClear}
-        style={{ ...btnStyle, marginTop: 4, fontSize: "0.6rem", width: "100%" }}
-      >
+      <button onClick={onClear} style={{ ...btnStyle, marginTop: 4, fontSize: "0.6rem", width: "100%" }}>
         Clear All Annotations
       </button>
     </SurveillancePanel>
@@ -222,7 +209,9 @@ export function EarthquakeTimelinePanel({
         {["1d", "7d", "30d"].map((f) => (
           <button
             key={f}
-            onClick={() => { onFeedChange(f); }}
+            onClick={() => {
+              onFeedChange(f);
+            }}
             style={{
               ...btnStyle,
               flex: 1,
@@ -251,7 +240,9 @@ export function EarthquakeTimelinePanel({
           min={range.min}
           max={range.max}
           value={timeSlider ?? range.max}
-          onChange={(e) => { onTimeChange(Number(e.target.value)); }}
+          onChange={(e) => {
+            onTimeChange(Number(e.target.value));
+          }}
           style={{ flex: 1, height: 14, accentColor: T.accent, cursor: "pointer" }}
         />
       </div>
@@ -335,9 +326,7 @@ export function MapLegend({ layers, onToggle, basemapLabel }: MapLegendProps) {
         boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
       }}
     >
-      <div
-        style={{ fontSize: "0.75rem", color: T.accent, marginBottom: 10, fontWeight: 700, letterSpacing: "0.06em" }}
-      >
+      <div style={{ fontSize: "0.75rem", color: T.accent, marginBottom: 10, fontWeight: 700, letterSpacing: "0.06em" }}>
         LEGEND
       </div>
 
@@ -352,13 +341,15 @@ export function MapLegend({ layers, onToggle, basemapLabel }: MapLegendProps) {
                The state signal moves to the text color instead — both
                states stay above the AAA 7:1 bar on #0a0f1a. */
             style={{ marginBottom: 8, cursor: "pointer" }}
-            onClick={() => { onToggle(layer.id, !on); }}
+            onClick={() => {
+              onToggle(layer.id, !on);
+            }}
             title={`Click to ${on ? "disable" : "enable"} ${layer.name}`}
           >
             <div
               style={{
                 fontSize: "0.62rem",
-                color: on ? T.text : T.textMuted, /* 14.8:1 / 7.5:1 */
+                color: on ? T.text : T.textMuted /* 14.8:1 / 7.5:1 */,
                 marginBottom: 2,
                 fontWeight: on ? 600 : 400,
                 display: "flex",
@@ -394,9 +385,7 @@ export function MapLegend({ layers, onToggle, basemapLabel }: MapLegendProps) {
                   </div>
                 )}
                 {layer.multi && (
-                  <div
-                    style={{ display: "flex", fontSize: "0.5rem", color: T.text, background: "rgba(0,0,0,0.3)" }}
-                  >
+                  <div style={{ display: "flex", fontSize: "0.5rem", color: T.text, background: "rgba(0,0,0,0.3)" }}>
                     {layer.labels.map((t, i) => (
                       <div
                         key={i}
@@ -681,7 +670,9 @@ export function ViewControls({
           <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
             <input
               value={name}
-              onChange={(e) => { onNameChange(e.target.value); }}
+              onChange={(e) => {
+                onNameChange(e.target.value);
+              }}
               placeholder="Bookmark name..."
               aria-label="Bookmark name"
               onKeyDown={(e) => {
@@ -703,9 +694,7 @@ export function ViewControls({
             </button>
           </div>
           {bookmarks.length === 0 && (
-            <div style={{ fontSize: "0.62rem", color: T.textMuted, fontFamily: T.fontMono }}>
-              No bookmarks yet
-            </div>
+            <div style={{ fontSize: "0.62rem", color: T.textMuted, fontFamily: T.fontMono }}>No bookmarks yet</div>
           )}
           {bookmarks.map((bm, i) => (
             <div
@@ -720,7 +709,9 @@ export function ViewControls({
               }}
             >
               <button
-                onClick={() => { onLoad(bm); }}
+                onClick={() => {
+                  onLoad(bm);
+                }}
                 style={{
                   background: "none",
                   border: "none",
@@ -733,7 +724,9 @@ export function ViewControls({
                 ◎ {bm.name}
               </button>
               <button
-                onClick={() => { onDelete(i); }}
+                onClick={() => {
+                  onDelete(i);
+                }}
                 aria-label={`Delete bookmark ${bm.name}`}
                 style={{
                   background: "none",
@@ -772,10 +765,7 @@ export function PositionPanel({ centerText, zoom, bearing, pitch, format, onTogg
         <div style={{ fontFamily: T.fontMono, fontSize: "0.72rem", color: T.textMuted, lineHeight: 1.8 }}>
           Center: <span style={{ color: T.accent }}>{centerText}</span>
         </div>
-        <button
-          onClick={onToggleFormat}
-          style={{ ...btnStyle, fontSize: "0.6rem", padding: "1px 6px" }}
-        >
+        <button onClick={onToggleFormat} style={{ ...btnStyle, fontSize: "0.6rem", padding: "1px 6px" }}>
           {format.toUpperCase()}
         </button>
       </div>
@@ -798,6 +788,10 @@ interface ElevationProfileChartProps {
 }
 
 export function ElevationProfileChart({ data, loading }: ElevationProfileChartProps) {
+  // bounds: the only mount site (map/page.tsx) gates on profileData.length > 1,
+  // so first/last entries always exist
+  const first = data[0]!;
+  const last = data[data.length - 1]!;
   const elevs = data.map((p) => p.elevation);
   const minE = Math.min(...elevs);
   const maxE = Math.max(...elevs);
@@ -853,7 +847,7 @@ export function ElevationProfileChart({ data, loading }: ElevationProfileChartPr
             color: T.textMuted,
           }}
         >
-          {(data[data.length - 1].distance / 1000).toFixed(1)}km
+          {(last.distance / 1000).toFixed(1)}km
         </div>
       </div>
       <div
@@ -866,9 +860,9 @@ export function ElevationProfileChart({ data, loading }: ElevationProfileChartPr
           justifyContent: "space-between",
         }}
       >
-        <span>Start: {data[0].elevation}m</span>
-        <span>End: {data[data.length - 1].elevation}m</span>
-        <span>Δ{Math.abs(data[0].elevation - data[data.length - 1].elevation).toFixed(0)}m</span>
+        <span>Start: {first.elevation}m</span>
+        <span>End: {last.elevation}m</span>
+        <span>Δ{Math.abs(first.elevation - last.elevation).toFixed(0)}m</span>
       </div>
     </SurveillancePanel>
   );
@@ -926,9 +920,7 @@ export function ElevationResultBadge({ pin, fetching }: ElevationResultBadgeProp
         </div>
       )}
 
-      {fetching && (
-        <span style={{ color: T.accent, fontSize: "0.75rem", fontFamily: T.fontMono }}>querying...</span>
-      )}
+      {fetching && <span style={{ color: T.accent, fontSize: "0.75rem", fontFamily: T.fontMono }}>querying...</span>}
     </>
   );
 }

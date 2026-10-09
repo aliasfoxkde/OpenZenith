@@ -48,21 +48,25 @@ describe("waterwaysBbox", () => {
     expect(minLon).toBeLessThan(-74);
     expect(maxLon).toBeGreaterThan(-74);
     // longitude widening at 40.7°N: half-extent / cos(lat)
-    const lonHalf = (maxLon - minLon) / 2;
+    // bounds: waterwaysBbox returns a 4-part "lat,lon,lat,lon" string
+    const lonHalf = (maxLon! - minLon!) / 2;
     expect(lonHalf).toBeCloseTo(50 / 111.32 / Math.cos((40.7 * Math.PI) / 180), 3);
   });
 
   it("widens longitude by the cos floor near the poles instead of dividing by ~0", () => {
     const [minLon, , maxLon] = waterwaysBbox(89, 0).split(",").map(Number);
-    expect(maxLon - minLon).toBeCloseTo(2 * (50 / 111.32 / 0.1), 3);
+    // bounds: same 4-part bbox contract as above
+    expect(maxLon! - minLon!).toBeCloseTo(2 * (50 / 111.32 / 0.1), 3);
   });
 });
 
 describe("addWaterways status reporting", () => {
   it("fetches the route's bbox contract and reports loaded with the feature count", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonOk({ type: "FeatureCollection", features: [{ type: "Feature", geometry: null, properties: {} }] }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonOk({ type: "FeatureCollection", features: [{ type: "Feature", geometry: null, properties: {} }] }),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const { handle, calls } = handleSpy();
 
@@ -85,7 +89,7 @@ describe("addWaterways status reporting", () => {
   });
 
   it("reports error on a non-ok response instead of dropping it silently", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}" , { status: 400 })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 400 })));
     const { handle, calls } = handleSpy();
 
     addWaterways(mapStub(), handle);

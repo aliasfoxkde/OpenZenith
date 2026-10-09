@@ -152,10 +152,7 @@ describe("storage chunk cache (Cloudflare Cache API)", () => {
   it("serves a Cache API entry that was written by another isolate", async () => {
     const caches = createCaches();
     setCacheStorageProvider(() => caches);
-    (caches.stores.get(CACHE_NAME) as Map<string, Response>).set(
-      "oz:remote:chunk",
-      new Response(bytes(6, 5)),
-    );
+    (caches.stores.get(CACHE_NAME) as Map<string, Response>).set("oz:remote:chunk", new Response(bytes(6, 5)));
 
     const result = (await cacheGet("oz:remote:chunk")) as ArrayBuffer;
     expect(result.byteLength).toBe(6);

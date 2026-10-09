@@ -10,7 +10,12 @@ const bathymetrySpec: RasterLayerSpec = {
   minzoom: 0,
   maxzoom: 10,
   layerId: "bathymetry",
-  paint: { "raster-saturation": 0.3, "raster-contrast": 0.3, "raster-brightness-max": 0.75, "raster-brightness-min": 0.3 },
+  paint: {
+    "raster-saturation": 0.3,
+    "raster-contrast": 0.3,
+    "raster-brightness-max": 0.75,
+    "raster-brightness-min": 0.3,
+  },
 };
 
 /**

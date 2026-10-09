@@ -68,7 +68,11 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
     // Layer identifiers are unique and each Layer block contains exactly one
     // TileMatrixSetLink and one ResourceURL, so no client-side pairing guess
     // is possible.
-    const layerBlocks = xml.split("<Layer>").slice(1).map((chunk) => chunk.split("</Layer>")[0]);
+    // bounds: split always returns at least one element
+    const layerBlocks = xml
+      .split("<Layer>")
+      .slice(1)
+      .map((chunk) => chunk.split("</Layer>")[0]!);
     expect(layerBlocks).toHaveLength(2);
     const merc = layerBlocks.find((b) => b.includes("<ows:Identifier>elevation-terrarium</ows:Identifier>"));
     const crs84 = layerBlocks.find((b) =>
@@ -80,9 +84,7 @@ describe("WMTS 1.0.0 capabilities document (/api/tiles/WMTSCapabilities.xml)", (
     expect((crs84.match(/<TileMatrixSetLink>/g) ?? []).length).toBe(1);
     expect((crs84.match(/<ResourceURL /g) ?? []).length).toBe(1);
     expect(merc).toContain("<TileMatrixSet>WebMercatorQuad</TileMatrixSet>");
-    expect(merc).toContain(
-      'template="https://tiles.example.com/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}"',
-    );
+    expect(merc).toContain('template="https://tiles.example.com/api/dem-tile/{TileMatrix}/{TileCol}/{TileRow}"');
     // CRS84 serves through its own OGC API - Tiles path, in WMTS coordinate
     // order {TileMatrix}/{TileRow}/{TileCol}
     expect(crs84).toContain("<TileMatrixSet>WorldCRS84Quad</TileMatrixSet>");

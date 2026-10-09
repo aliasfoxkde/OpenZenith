@@ -9,7 +9,7 @@ interface Props {
 export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
 
   return (
@@ -34,7 +34,9 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
         <input
           type="checkbox"
           checked={layers.warnings}
-          onChange={(e) => { onToggleLayer("warnings", e.target.checked); }}
+          onChange={(e) => {
+            onToggleLayer("warnings", e.target.checked);
+          }}
         />
         <div>
           <div style={{ color: text, fontSize: 12, fontWeight: 600 }}>Weather Warnings</div>

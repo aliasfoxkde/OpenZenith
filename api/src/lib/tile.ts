@@ -282,7 +282,9 @@ export async function fillTileFromSrtm(
       const localCol = pixel.col - chunkCol * 256;
 
       if (localRow < chunk.height && localCol < chunk.width) {
-        const val = chunk.data[localRow * chunk.width + localCol];
+        // bounds: localRow < chunk.height && localCol < chunk.width, so the
+        // flat index is < chunk.height * chunk.width === chunk.data.length
+        const val = chunk.data[localRow * chunk.width + localCol]!;
         if (val !== NODATA) {
           output[py * TILE_SIZE + px] = val;
         }
@@ -308,7 +310,9 @@ export async function fetchAWSTerrainTile(z: number, x: number, y: number): Prom
     // Same per-fetch bound as the HuggingFace backend — an unbounded fallback
     // fetch would defeat the wall-time budget the rest of the assembler keeps.
     const controller = new AbortController();
-    const timeout = setTimeout(() => { controller.abort(); }, 8000);
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 8000);
     const resp = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!resp.ok) return null;
@@ -338,15 +342,19 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
     let height = 0;
     let colorType = 0;
 
+    // bounds: this is a PNG chunk walk — offset advances by 12+chunkLen per
+    // chunk and each read lands inside the chunk header/data the walk targets;
+    // a truncated buffer decodes to the same garbage-to-NODATA bytes as before
+    // (the try/catch + width/height/IDAT checks reject it below).
     while (offset < png.length) {
-      const chunkLen = (png[offset] << 24) | (png[offset + 1] << 16) | (png[offset + 2] << 8) | png[offset + 3];
-      const chunkType = String.fromCharCode(png[offset + 4], png[offset + 5], png[offset + 6], png[offset + 7]);
+      const chunkLen = (png[offset]! << 24) | (png[offset + 1]! << 16) | (png[offset + 2]! << 8) | png[offset + 3]!;
+      const chunkType = String.fromCharCode(png[offset + 4]!, png[offset + 5]!, png[offset + 6]!, png[offset + 7]!);
       const chunkData = png.subarray(offset + 8, offset + 8 + chunkLen);
 
       if (chunkType === "IHDR") {
-        width = (chunkData[0] << 24) | (chunkData[1] << 16) | (chunkData[2] << 8) | chunkData[3];
-        height = (chunkData[4] << 24) | (chunkData[5] << 16) | (chunkData[6] << 8) | chunkData[7];
-        colorType = chunkData[9];
+        width = (chunkData[0]! << 24) | (chunkData[1]! << 16) | (chunkData[2]! << 8) | chunkData[3]!;
+        height = (chunkData[4]! << 24) | (chunkData[5]! << 16) | (chunkData[6]! << 8) | chunkData[7]!;
+        colorType = chunkData[9]!;
       } else if (chunkType === "IDAT") {
         idatChunks.push(chunkData);
       }
@@ -376,6 +384,9 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
 
     // PNG row filter reconstruction
     // Filter types: 0=None, 1=Sub, 2=Up, 3=Average, 4=Paeth
+    // bounds: i runs over [0, stride) so i, i-bpp and px*bpp..px*bpp+2 all sit
+    // inside the stride-length currRow/prevRow buffers; raw row reads stay
+    // within the unzlibSync'd IDAT stream of a well-formed PNG.
     const stride = width * bpp;
     const prevRow = new Uint8Array(stride);
     const currRow = new Uint8Array(stride);
@@ -392,27 +403,27 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
           break;
         case 1: // Sub
           for (let i = 0; i < stride; i++) {
-            currRow[i] = (rowData[i] + (i >= bpp ? currRow[i - bpp] : 0)) & 0xff;
+            currRow[i] = (rowData[i]! + (i >= bpp ? currRow[i - bpp]! : 0)) & 0xff;
           }
           break;
         case 2: // Up
           for (let i = 0; i < stride; i++) {
-            currRow[i] = (rowData[i] + prevRow[i]) & 0xff;
+            currRow[i] = (rowData[i]! + prevRow[i]!) & 0xff;
           }
           break;
         case 3: // Average
           for (let i = 0; i < stride; i++) {
-            const a = i >= bpp ? currRow[i - bpp] : 0;
-            const b = prevRow[i];
-            currRow[i] = (rowData[i] + ((a + b) >> 1)) & 0xff;
+            const a = i >= bpp ? currRow[i - bpp]! : 0;
+            const b = prevRow[i]!;
+            currRow[i] = (rowData[i]! + ((a + b) >> 1)) & 0xff;
           }
           break;
         case 4: // Paeth
           for (let i = 0; i < stride; i++) {
-            const a = i >= bpp ? currRow[i - bpp] : 0;
-            const b = prevRow[i];
-            const c = i >= bpp ? prevRow[i - bpp] : 0;
-            currRow[i] = (rowData[i] + paethPredictor(a, b, c)) & 0xff;
+            const a = i >= bpp ? currRow[i - bpp]! : 0;
+            const b = prevRow[i]!;
+            const c = i >= bpp ? prevRow[i - bpp]! : 0;
+            currRow[i] = (rowData[i]! + paethPredictor(a, b, c)) & 0xff;
           }
           break;
         default:
@@ -426,9 +437,10 @@ function decodeTerrariumPNG(png: Uint8Array): Int16Array | null {
       // Decode Terrarium from unfiltered row
       for (let px = 0; px < width; px++) {
         const i = px * bpp;
-        const r = currRow[i];
-        const g = currRow[i + 1];
-        const b = currRow[i + 2];
+        // bounds: px < width and currRow is stride = width*bpp long
+        const r = currRow[i]!;
+        const g = currRow[i + 1]!;
+        const b = currRow[i + 2]!;
         const elev = r * 256 + g + b / 256 - 32768;
         data[py * width + px] = r === 0 && g === 0 && b === 0 ? NODATA : Math.round(elev);
       }

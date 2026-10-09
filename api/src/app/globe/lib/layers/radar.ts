@@ -84,7 +84,8 @@ export function loadRadar(
       if (isAbort(err)) return; // teardown, not a failure
       warnLayerError("radar", err);
       updateStatus("radar", {
-        error: "fetch failed" });
+        error: "fetch failed",
+      });
     }
   };
 

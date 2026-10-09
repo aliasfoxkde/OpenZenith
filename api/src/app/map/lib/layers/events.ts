@@ -108,7 +108,7 @@ export function addNaturalEvents(map: maplibregl.Map, handle: LayerHandle): void
     } catch (err) {
       warnLayerError("events", err);
       setStatus(handle, "events", "error");
-      }
+    }
   };
 
   void doLoad();

@@ -64,11 +64,12 @@ describe("Air Quality API", () => {
     expect(resp.status).toBe(200);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features).toHaveLength(1);
-    expect(data.features[0].geometry.type).toBe("Point");
-    expect(data.features[0].geometry.coordinates).toEqual([-74.0, 40.7]);
-    expect(data.features[0].properties.pm2_5).toBe(35.2);
-    expect(data.features[0].properties.us_aqi).toBe(75);
-    expect(data.features[0].properties.aqi_level).toBe("Moderate");
+    const feature = data.features[0]!; // bounds: length 1 asserted above
+    expect(feature.geometry.type).toBe("Point");
+    expect(feature.geometry.coordinates).toEqual([-74.0, 40.7]);
+    expect(feature.properties.pm2_5).toBe(35.2);
+    expect(feature.properties.us_aqi).toBe(75);
+    expect(feature.properties.aqi_level).toBe("Moderate");
     // Edge-cache JSON layer: fresh answers are stored and marked as a MISS.
     expect(resp.headers.get("Cache-Control")).toBe("public, max-age=300");
     expect(resp.headers.get("X-Cache")).toBe("MISS");
@@ -92,7 +93,10 @@ describe("Air Quality API", () => {
   });
 
   it("returns empty features when no current data", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => aqResponse(null)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => aqResponse(null)),
+    );
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
@@ -103,7 +107,10 @@ describe("Air Quality API", () => {
   });
 
   it("returns 502 when upstream fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("error", { status: 500 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("error", { status: 500 })),
+    );
 
     const { GET } = await import("@/app/api/airquality/route");
     const resp = await GET(new Request("http://localhost/api/airquality"));
@@ -132,7 +139,7 @@ describe("Air Quality API", () => {
     const resp = await GET(new Request("http://localhost/api/airquality"));
     const data = await bodyAs<AqBody>(resp);
 
-    expect(data.features[0].geometry.coordinates).toEqual([-74.0, 40.7]);
+    expect(data.features[0]!.geometry.coordinates).toEqual([-74.0, 40.7]); // bounds: route emits one feature
   });
 });
 
@@ -151,7 +158,10 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
   const getRoute = async () => (await import("@/app/api/airquality/route")).GET;
 
   const withCurrent = (current: unknown): void => {
-    vi.stubGlobal("fetch", vi.fn(() => aqResponse(current)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => aqResponse(current)),
+    );
   };
 
   /** Fresh fetch stub per test: answers every call with the same payload but
@@ -173,7 +183,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality?lat=45.5&lon=10.25"));
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    const url = fetchMock.mock.calls[0][0];
+    const url = fetchMock.mock.calls[0]![0]; // bounds: the route fetched once
     expect(url.startsWith("https://air-quality-api.open-meteo.com/v1/air-quality?")).toBe(true);
     expect(url).toContain("latitude=45.5");
     expect(url).toContain("longitude=10.25");
@@ -181,7 +191,7 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     expect(url).toContain("current=pm10%2Cpm2_5");
 
     const data = await bodyAs<AqBody>(resp);
-    expect(data.features[0].geometry.coordinates).toEqual([10.25, 45.5]);
+    expect(data.features[0]!.geometry.coordinates).toEqual([10.25, 45.5]);
   });
 
   it("returns 400 for non-numeric coordinates instead of substituting defaults", async () => {
@@ -215,13 +225,18 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     const fetchMock = aqFetch();
     vi.stubGlobal("fetch", fetchMock);
 
-    await (await getRoute())(new Request("http://localhost/api/airquality?lat=-90&lon=180"));
-    expect(fetchMock.mock.calls[0][0]).toContain("latitude=-90");
-    expect(fetchMock.mock.calls[0][0]).toContain("longitude=180");
+    await (
+      await getRoute()
+    )(new Request("http://localhost/api/airquality?lat=-90&lon=180"));
+    // bounds: each request above records one mock call
+    expect(fetchMock.mock.calls[0]![0]).toContain("latitude=-90");
+    expect(fetchMock.mock.calls[0]![0]).toContain("longitude=180");
 
-    await (await getRoute())(new Request("http://localhost/api/airquality?lat=90&lon=-180"));
-    expect(fetchMock.mock.calls[1][0]).toContain("latitude=90");
-    expect(fetchMock.mock.calls[1][0]).toContain("longitude=-180");
+    await (
+      await getRoute()
+    )(new Request("http://localhost/api/airquality?lat=90&lon=-180"));
+    expect(fetchMock.mock.calls[1]![0]).toContain("latitude=90");
+    expect(fetchMock.mock.calls[1]![0]).toContain("longitude=-180");
   });
 
   it("returns an empty FeatureCollection when upstream sends no current block", async () => {
@@ -238,8 +253,8 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     withCurrent({ pm2_5: 3, pm10: 5, time: "2026-09-23T00:00" });
 
     const data = await bodyAs<AqBody>(await (await getRoute())(new Request("http://localhost/api/airquality")));
-    expect(data.features[0].properties.us_aqi).toBeUndefined();
-    expect(data.features[0].properties.aqi_level).toBe("Good");
+    expect(data.features[0]!.properties.us_aqi).toBeUndefined(); // bounds: route emits one feature
+    expect(data.features[0]!.properties.aqi_level).toBe("Good");
   });
 
   it("maps every AQI value to its severity band, including band boundaries", async () => {
@@ -264,14 +279,18 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
     for (const [aqi, level] of bands) {
       fetchMock.mockImplementation(() => aqResponse({ us_aqi: aqi }));
       const data = await bodyAs<AqBody>(await GET(new Request("http://localhost/api/airquality")));
-      expect(data.features[0].properties.aqi_level, `us_aqi=${aqi}`).toBe(level);
-      expect(data.features[0].properties.us_aqi).toBe(aqi);
+      // bounds: the route emits one feature per response
+      expect(data.features[0]!.properties.aqi_level, `us_aqi=${aqi}`).toBe(level);
+      expect(data.features[0]!.properties.us_aqi).toBe(aqi);
     }
     expect(fetchMock).toHaveBeenCalledTimes(bands.length);
   });
 
   it("returns a 502 error payload when upstream responds non-OK", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("rate limited", { status: 429 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("rate limited", { status: 429 })),
+    );
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
     expect(resp.status).toBe(502);
@@ -280,7 +299,10 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
   });
 
   it("returns 500 when the upstream request throws", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("dns failure"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("dns failure"))),
+    );
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
     expect(resp.status).toBe(500);
@@ -289,7 +311,10 @@ describe("Air Quality API — validation, failure paths and AQI bands", () => {
   });
 
   it("returns 500 when the upstream body is not JSON", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Response("<html>gateway</html>", { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Response("<html>gateway</html>", { status: 200 })),
+    );
 
     const resp = await (await getRoute())(new Request("http://localhost/api/airquality"));
     expect(resp.status).toBe(500);

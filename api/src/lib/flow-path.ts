@@ -92,8 +92,9 @@ class MinHeap {
   private bubbleUp(i: number): void {
     while (i > 0) {
       const parent = Math.floor((i - 1) / 2);
-      if (this.heap[parent].elevation <= this.heap[i].elevation) break;
-      [this.heap[parent], this.heap[i]] = [this.heap[i], this.heap[parent]];
+      // bounds: i is a live heap index and parent = floor((i-1)/2) < i, both in [0, heap.length)
+      if (this.heap[parent]!.elevation <= this.heap[i]!.elevation) break;
+      [this.heap[parent], this.heap[i]] = [this.heap[i]!, this.heap[parent]!];
       i = parent;
     }
   }
@@ -105,14 +106,15 @@ class MinHeap {
       const right = 2 * i + 2;
       let smallest = i;
 
-      if (left < length && this.heap[left].elevation < this.heap[smallest].elevation) {
+      // bounds: smallest/left/right only ever hold indices < length
+      if (left < length && this.heap[left]!.elevation < this.heap[smallest]!.elevation) {
         smallest = left;
       }
-      if (right < length && this.heap[right].elevation < this.heap[smallest].elevation) {
+      if (right < length && this.heap[right]!.elevation < this.heap[smallest]!.elevation) {
         smallest = right;
       }
       if (smallest === i) break;
-      [this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
+      [this.heap[i], this.heap[smallest]] = [this.heap[smallest]!, this.heap[i]!];
       i = smallest;
     }
   }
@@ -148,8 +150,9 @@ class MaxHeap {
   private bubbleUp(i: number): void {
     while (i > 0) {
       const parent = Math.floor((i - 1) / 2);
-      if (this.heap[parent].elevation >= this.heap[i].elevation) break;
-      [this.heap[parent], this.heap[i]] = [this.heap[i], this.heap[parent]];
+      // bounds: i is a live heap index and parent = floor((i-1)/2) < i, both in [0, heap.length)
+      if (this.heap[parent]!.elevation >= this.heap[i]!.elevation) break;
+      [this.heap[parent], this.heap[i]] = [this.heap[i]!, this.heap[parent]!];
       i = parent;
     }
   }
@@ -161,14 +164,15 @@ class MaxHeap {
       const right = 2 * i + 2;
       let largest = i;
 
-      if (left < length && this.heap[left].elevation > this.heap[largest].elevation) {
+      // bounds: largest/left/right only ever hold indices < length
+      if (left < length && this.heap[left]!.elevation > this.heap[largest]!.elevation) {
         largest = left;
       }
-      if (right < length && this.heap[right].elevation > this.heap[largest].elevation) {
+      if (right < length && this.heap[right]!.elevation > this.heap[largest]!.elevation) {
         largest = right;
       }
       if (largest === i) break;
-      [this.heap[i], this.heap[largest]] = [this.heap[largest], this.heap[i]];
+      [this.heap[i], this.heap[largest]] = [this.heap[largest]!, this.heap[i]!];
       i = largest;
     }
   }
@@ -350,27 +354,28 @@ export function computeElevationProfile(result: FlowPathResult): ElevationProfil
   let cumulativeDist = 0;
 
   for (let i = 0; i < result.elevations.length; i++) {
+    // bounds: coordinates and elevations are parallel arrays of equal length in FlowPathResult
     if (i > 0) {
-      const [lon1, lat1] = result.coordinates[i - 1];
-      const [lon2, lat2] = result.coordinates[i];
+      const [lon1, lat1] = result.coordinates[i - 1]!;
+      const [lon2, lat2] = result.coordinates[i]!;
       cumulativeDist += haversineMeters(lat1, lon1, lat2, lon2);
     }
 
     let slope = 0;
     if (i < result.elevations.length - 1) {
-      const dElev = result.elevations[i + 1] - result.elevations[i];
+      const dElev = result.elevations[i + 1]! - result.elevations[i]!;
       const dDist = haversineMeters(
-        result.coordinates[i][1],
-        result.coordinates[i][0],
-        result.coordinates[i + 1][1],
-        result.coordinates[i + 1][0],
+        result.coordinates[i]![1],
+        result.coordinates[i]![0],
+        result.coordinates[i + 1]![1],
+        result.coordinates[i + 1]![0],
       );
       if (dDist > 0) {
         slope = Math.atan2(dElev, dDist) * (180 / Math.PI);
       }
     }
 
-    profile.push({ distanceM: cumulativeDist, elevationM: result.elevations[i], slope });
+    profile.push({ distanceM: cumulativeDist, elevationM: result.elevations[i]!, slope });
   }
 
   return profile;
@@ -438,8 +443,9 @@ export function flowPathToGeoJSON(result: FlowPathResult, mode: "downstream" | "
 function computeTotalDistance(result: FlowPathResult): number {
   let total = 0;
   for (let i = 1; i < result.coordinates.length; i++) {
-    const [lon1, lat1] = result.coordinates[i - 1];
-    const [lon2, lat2] = result.coordinates[i];
+    // bounds: i-1 and i are both < coordinates.length
+    const [lon1, lat1] = result.coordinates[i - 1]!;
+    const [lon2, lat2] = result.coordinates[i]!;
     total += haversineMeters(lat1, lon1, lat2, lon2);
   }
   return total;

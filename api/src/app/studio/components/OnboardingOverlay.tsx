@@ -57,7 +57,7 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
   const text = dark ? "#e5e5e5" : "#171717";
   // WCAG AAA (7:1) secondary text on both themes: #a3a3a3 on the #0a0a0a
   // app background, #525252 on #fafafa.
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
 
   return (
@@ -74,7 +74,9 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
       }}
     >
       <div
-        onClick={(e) => { e.stopPropagation(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
@@ -90,7 +92,9 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
           boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
         }}
       >
-        <h2 id="onboarding-title" style={{ margin: "0 0 4px", fontSize: 18, color: text }}>Welcome to Studio</h2>
+        <h2 id="onboarding-title" style={{ margin: "0 0 4px", fontSize: 18, color: text }}>
+          Welcome to Studio
+        </h2>
         <p style={{ margin: "0 0 16px", fontSize: 13, color: textSec }}>
           OpenZenith&apos;s GIS sandbox. Here&apos;s what you can do:
         </p>
@@ -110,7 +114,10 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
                   fallbacks (hosts without a color-emoji font) can't render
                   black-on-near-black; aria-hidden keeps it out of the a11y
                   tree — the adjacent title carries the meaning. */}
-              <span aria-hidden="true" style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: "center", color: text }}>
+              <span
+                aria-hidden="true"
+                style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: "center", color: text }}
+              >
                 {tip.icon}
               </span>
               <div>

@@ -30,8 +30,10 @@ export function parseHash(h: string): Partial<DashboardState> {
     const get = (key: string) => parts.find((p) => p[0] === key)?.[1];
 
     // Position from path segments: #zoom/lat/lng
-    // hash is non-empty here, so parts[0][0] is always a string (possibly "")
-    const pathParts = parts[0][0].split("/");
+    // bounds: hash is non-empty here, so split("&") yields at least one part,
+    // and split("=") always yields at least one segment — parts[0][0] is a
+    // string (possibly "")
+    const pathParts = parts[0]![0]!.split("/");
     const zoomVal = pathParts[0];
     const lat = pathParts[1];
     const lng = pathParts[2];
@@ -46,7 +48,9 @@ export function parseHash(h: string): Partial<DashboardState> {
     // Layers: expand categories
     const layersStr = get("l") || "";
     const activeLayers = layersStr
-      ? layersStr.split("+").flatMap((token) => CATEGORY_MAP.get(token) || (ALL_LAYER_IDS.includes(token) ? [token] : []))
+      ? layersStr
+          .split("+")
+          .flatMap((token) => CATEGORY_MAP.get(token) || (ALL_LAYER_IDS.includes(token) ? [token] : []))
       : [];
 
     const vm = get("view");
@@ -189,7 +193,7 @@ export function elevationColor(elev: number): string {
 export function switchBasemapOnViewer(viewer: CesiumType.Viewer, key: string) {
   const Cesium = window.Cesium;
   // key comes from user state, so it may not be in the registry
-  const bm = BASEMAPS[key] as { label: string; url: string; maxzoom: number } | undefined;
+  const bm = BASEMAPS[key]; // noUncheckedIndexedAccess: indexing already yields T | undefined
   const imageryLayers = viewer.imageryLayers;
 
   while (imageryLayers.length > 0) {

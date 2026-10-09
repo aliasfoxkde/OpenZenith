@@ -54,10 +54,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "nearest",
-                "bilinear"
-              ],
+              "enum": ["nearest", "bilinear"],
               "default": "bilinear"
             },
             "description": "Grid sampling: `bilinear` blends the 4 neighbouring pixels (default), `nearest` returns the single containing pixel. Sources without a 4-pixel neighbourhood (merged chunks, GEBCO) always sample nearest and report it in `metadata.interpolation`."
@@ -68,10 +65,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "meters",
-                "feet"
-              ],
+              "enum": ["meters", "feet"],
               "default": "meters"
             },
             "description": "Unit of `elevation`. The raw EGM96 orthometric sample stays in metres in `metadata.elevation_m`."
@@ -82,10 +76,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "egm96",
-                "ellipsoid"
-              ],
+              "enum": ["egm96", "ellipsoid"],
               "default": "egm96"
             },
             "description": "Vertical datum. `egm96` (default) returns the orthometric height SRTM already carries; `ellipsoid` returns h = H + N using the bundled 30' EGM96 grid and reports N in `metadata.geoid_undulation_m`."
@@ -100,20 +91,14 @@
                   "type": "object",
                   "properties": {
                     "elevation": {
-                      "type": [
-                        "number",
-                        "null"
-                      ],
+                      "type": ["number", "null"],
                       "description": "Elevation in meters, or null if no data at this point",
                       "example": 8848
                     },
                     "unit": {
                       "type": "string",
                       "example": "meters",
-                      "enum": [
-                        "meters",
-                        "feet"
-                      ]
+                      "enum": ["meters", "feet"]
                     },
                     "location": {
                       "type": "object",
@@ -153,26 +138,17 @@
                         },
                         "vertical_datum": {
                           "type": "string",
-                          "enum": [
-                            "egm96",
-                            "ellipsoid"
-                          ],
+                          "enum": ["egm96", "ellipsoid"],
                           "example": "egm96"
                         },
                         "interpolation": {
                           "type": "string",
-                          "enum": [
-                            "nearest",
-                            "bilinear"
-                          ],
+                          "enum": ["nearest", "bilinear"],
                           "description": "The mode actually used, which `nearest`-only sources override"
                         },
                         "units": {
                           "type": "string",
-                          "enum": [
-                            "meters",
-                            "feet"
-                          ],
+                          "enum": ["meters", "feet"],
                           "example": "meters"
                         },
                         "source": {
@@ -180,10 +156,7 @@
                           "example": "ozt2"
                         },
                         "elevation_m": {
-                          "type": [
-                            "number",
-                            "null"
-                          ],
+                          "type": ["number", "null"],
                           "description": "Raw EGM96 orthometric sample in metres, whatever `units` asked for"
                         },
                         "geoid_undulation_m": {
@@ -224,9 +197,7 @@
             "description": "Server error"
           }
         },
-        "tags": [
-          "Elevation"
-        ]
+        "tags": ["Elevation"]
       }
     },
     "/api/tile/{z}/{x}/{y}": {
@@ -286,9 +257,7 @@
             "description": "Invalid tile coordinates"
           }
         },
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/health": {
@@ -348,20 +317,14 @@
                           "items": {
                             "type": "number"
                           },
-                          "example": [
-                            -56,
-                            60
-                          ]
+                          "example": [-56, 60]
                         },
                         "lonRange": {
                           "type": "array",
                           "items": {
                             "type": "number"
                           },
-                          "example": [
-                            -180,
-                            180
-                          ]
+                          "example": [-180, 180]
                         }
                       }
                     }
@@ -371,9 +334,7 @@
             }
           }
         },
-        "tags": [
-          "System"
-        ]
+        "tags": ["System"]
       }
     },
     "/api/proxy/{path}": {
@@ -418,9 +379,7 @@
             "description": "Proxy error or timeout"
           }
         },
-        "tags": [
-          "Proxy"
-        ]
+        "tags": ["Proxy"]
       }
     },
     "/api/flights": {
@@ -508,9 +467,7 @@
             "description": "OpenSky Network unavailable"
           }
         },
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/weather/warnings": {
@@ -558,9 +515,7 @@
             "description": "Data fetch failed"
           }
         },
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/overpass": {
@@ -573,9 +528,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "query"
-                ],
+                "required": ["query"],
                 "properties": {
                   "query": {
                     "type": "string",
@@ -625,9 +578,7 @@
             "description": "Overpass API error or timeout"
           }
         },
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/arcgis": {
@@ -680,9 +631,7 @@
             "description": "ArcGIS fetch failed"
           }
         },
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     },
     "/api/geoip": {
@@ -702,94 +651,55 @@
                       "example": "203.0.113.1"
                     },
                     "city": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "San Francisco"
                     },
                     "country": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "US"
                     },
                     "countryName": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "United States"
                     },
                     "region": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "CA"
                     },
                     "regionName": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "California"
                     },
                     "postalCode": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "94105"
                     },
                     "latitude": {
-                      "type": [
-                        "number",
-                        "null"
-                      ],
+                      "type": ["number", "null"],
                       "example": 37.7749
                     },
                     "longitude": {
-                      "type": [
-                        "number",
-                        "null"
-                      ],
+                      "type": ["number", "null"],
                       "example": -122.4194
                     },
                     "timezone": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "America/Los_Angeles"
                     },
                     "continent": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "NA"
                     },
                     "asn": {
-                      "type": [
-                        "number",
-                        "null"
-                      ],
+                      "type": ["number", "null"],
                       "example": 13335
                     },
                     "asOrganization": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "Cloudflare"
                     },
                     "colo": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "SJC"
                     }
                   }
@@ -798,9 +708,7 @@
             }
           }
         },
-        "tags": [
-          "System"
-        ]
+        "tags": ["System"]
       }
     },
     "/api/airquality": {
@@ -918,9 +826,7 @@
             "description": "NLNOG API unavailable"
           }
         },
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/bgp": {
@@ -967,9 +873,7 @@
             "description": "NLNOG Looking Glass unavailable"
           }
         },
-        "tags": [
-          "Network"
-        ]
+        "tags": ["Network"]
       }
     },
     "/api/geocode": {
@@ -1054,9 +958,7 @@
             "description": "Nominatim unavailable"
           }
         },
-        "tags": [
-          "Geocoding"
-        ]
+        "tags": ["Geocoding"]
       }
     },
     "/api/reverse-geocode": {
@@ -1110,10 +1012,7 @@
                   "type": "object",
                   "properties": {
                     "place": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
+                      "type": ["object", "null"],
                       "properties": {
                         "display_name": {
                           "type": "string",
@@ -1163,9 +1062,7 @@
             "description": "Nominatim unavailable"
           }
         },
-        "tags": [
-          "Geocoding"
-        ]
+        "tags": ["Geocoding"]
       }
     },
     "/api/bathymetry": {
@@ -1207,17 +1104,11 @@
                   "type": "object",
                   "properties": {
                     "depth": {
-                      "type": [
-                        "number",
-                        "null"
-                      ],
+                      "type": ["number", "null"],
                       "description": "Ocean depth in meters (negative), null for land"
                     },
                     "elevation": {
-                      "type": [
-                        "number",
-                        "null"
-                      ],
+                      "type": ["number", "null"],
                       "description": "Land elevation in meters, null for ocean"
                     },
                     "unit": {
@@ -1226,16 +1117,10 @@
                     },
                     "surface_type": {
                       "type": "string",
-                      "enum": [
-                        "land",
-                        "ocean"
-                      ]
+                      "enum": ["land", "ocean"]
                     },
                     "source": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "description": "Data source"
                     },
                     "location": {
@@ -1258,9 +1143,7 @@
             "description": "Missing or invalid coordinates"
           }
         },
-        "tags": [
-          "Hydrography"
-        ]
+        "tags": ["Hydrography"]
       }
     },
     "/api/waterways": {
@@ -1284,11 +1167,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "rivers",
-                "lakes",
-                "all"
-              ]
+              "enum": ["rivers", "lakes", "all"]
             },
             "description": "Feature type to return (default: all)",
             "example": "rivers"
@@ -1340,9 +1219,7 @@
             "description": "Overpass API unavailable"
           }
         },
-        "tags": [
-          "Hydrography"
-        ]
+        "tags": ["Hydrography"]
       }
     },
     "/api/vessels": {
@@ -1370,9 +1247,7 @@
                       "items": {
                         "type": "string"
                       },
-                      "example": [
-                        "PositionReport"
-                      ]
+                      "example": ["PositionReport"]
                     }
                   }
                 }
@@ -1407,9 +1282,7 @@
             }
           }
         },
-        "tags": [
-          "Maritime"
-        ]
+        "tags": ["Maritime"]
       }
     },
     "/api/earthquakes": {
@@ -1422,19 +1295,12 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "hour",
-                "day",
-                "week",
-                "month"
-              ],
+              "enum": ["hour", "day", "week", "month"],
               "default": "day"
             }
           }
         ],
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/hurricanes": {
@@ -1451,9 +1317,7 @@
             }
           }
         ],
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/satellites": {
@@ -1470,9 +1334,7 @@
             }
           }
         ],
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/military": {
@@ -1506,18 +1368,14 @@
             }
           }
         ],
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/wildfires": {
       "get": {
         "summary": "Wildfire events from NASA EONET",
         "description": "Returns wildfire event data as GeoJSON from NASA's Earth Observatory Natural Event Tracker.",
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/elevation/batch": {
@@ -1530,18 +1388,13 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "points"
-                ],
+                "required": ["points"],
                 "properties": {
                   "points": {
                     "type": "array",
                     "items": {
                       "type": "object",
-                      "required": [
-                        "lat",
-                        "lon"
-                      ],
+                      "required": ["lat", "lon"],
                       "properties": {
                         "lat": {
                           "type": "number"
@@ -1561,9 +1414,7 @@
             }
           }
         },
-        "tags": [
-          "Elevation"
-        ],
+        "tags": ["Elevation"],
         "parameters": [
           {
             "name": "interpolation",
@@ -1571,10 +1422,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "nearest",
-                "bilinear"
-              ],
+              "enum": ["nearest", "bilinear"],
               "default": "bilinear"
             },
             "description": "Grid sampling: `bilinear` blends the 4 neighbouring pixels (default), `nearest` returns the single containing pixel. Sources without a 4-pixel neighbourhood (merged chunks, GEBCO) always sample nearest and report it in `metadata.interpolation`."
@@ -1585,10 +1433,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "meters",
-                "feet"
-              ],
+              "enum": ["meters", "feet"],
               "default": "meters"
             },
             "description": "Unit of `elevation`. The raw EGM96 orthometric sample stays in metres in `metadata.elevation_m`."
@@ -1599,10 +1444,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "egm96",
-                "ellipsoid"
-              ],
+              "enum": ["egm96", "ellipsoid"],
               "default": "egm96"
             },
             "description": "Vertical datum. `egm96` (default) returns the orthometric height SRTM already carries; `ellipsoid` returns h = H + N using the bundled 30' EGM96 grid and reports N in `metadata.geoid_undulation_m`."
@@ -1631,17 +1473,11 @@
                             "type": "number"
                           },
                           "elevation": {
-                            "type": [
-                              "number",
-                              "null"
-                            ],
+                            "type": ["number", "null"],
                             "description": "In the requested `units` and `datum`"
                           },
                           "elevation_m": {
-                            "type": [
-                              "number",
-                              "null"
-                            ],
+                            "type": ["number", "null"],
                             "description": "Raw EGM96 orthometric sample in metres"
                           }
                         }
@@ -1656,24 +1492,15 @@
                         },
                         "vertical_datum": {
                           "type": "string",
-                          "enum": [
-                            "egm96",
-                            "ellipsoid"
-                          ]
+                          "enum": ["egm96", "ellipsoid"]
                         },
                         "interpolation": {
                           "type": "string",
-                          "enum": [
-                            "nearest",
-                            "bilinear"
-                          ]
+                          "enum": ["nearest", "bilinear"]
                         },
                         "units": {
                           "type": "string",
-                          "enum": [
-                            "meters",
-                            "feet"
-                          ]
+                          "enum": ["meters", "feet"]
                         },
                         "source": {
                           "type": "string",
@@ -1699,9 +1526,7 @@
       "get": {
         "summary": "DEM tile provider metadata",
         "description": "Returns TileJSON metadata for the global DEM terrain tile service.",
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/dem-tile/{z}/{x}/{y}": {
@@ -1741,10 +1566,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "png",
-                "ozt2"
-              ],
+              "enum": ["png", "ozt2"],
               "default": "ozt2"
             },
             "description": "Container: `ozt2` (native OZT2 binary, default) or `png` (256x256 PNG)."
@@ -1755,18 +1577,13 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "terrarium",
-                "mapbox"
-              ],
+              "enum": ["terrarium", "mapbox"],
               "default": "terrarium"
             },
             "description": "PNG pixel encoding: `terrarium` ((R*256+G+B/256)-32768 m, code 0 reserved for nodata) or `mapbox` (Terrain-RGB v1: (R*65536+G*256+B)/10-10000 m, no nodata — values below -10,000 m clamp to 0). Requires `format=png`; overrides the encoding `format` implies."
           }
         ],
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/query": {
@@ -1791,18 +1608,14 @@
             }
           }
         ],
-        "tags": [
-          "Elevation"
-        ]
+        "tags": ["Elevation"]
       }
     },
     "/api/docs-md": {
       "get": {
         "summary": "API documentation (Markdown)",
         "description": "Returns API documentation in Markdown format.",
-        "tags": [
-          "System"
-        ]
+        "tags": ["System"]
       }
     },
     "/api/proxy/tile": {
@@ -1843,9 +1656,7 @@
             }
           }
         ],
-        "tags": [
-          "Proxy"
-        ]
+        "tags": ["Proxy"]
       }
     },
     "/api/proxy/wms": {
@@ -1862,18 +1673,14 @@
             }
           }
         ],
-        "tags": [
-          "Proxy"
-        ]
+        "tags": ["Proxy"]
       }
     },
     "/api/collections": {
       "get": {
         "summary": "OGC API Collections list",
         "description": "Lists all available OGC API collections.",
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     },
     "/api/collections/{id}": {
@@ -1889,18 +1696,14 @@
             }
           }
         ],
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     },
     "/api/tiles": {
       "get": {
         "summary": "OGC API Tiles metadata",
         "description": "Returns OGC API - Tiles tileset metadata.",
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/sentinel2/{z}/{x}/{y}": {
@@ -1932,9 +1735,7 @@
             }
           }
         ],
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/landcover/{z}/{x}/{y}": {
@@ -1966,9 +1767,7 @@
             }
           }
         ],
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/population/{z}/{x}/{y}": {
@@ -2000,27 +1799,21 @@
             }
           }
         ],
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/opensky/flights": {
       "get": {
         "summary": "OpenSky flight data with credit headers",
         "description": "Returns flight state vectors from the OpenSky Network via server-side OAuth2.",
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/opensky/token": {
       "get": {
         "summary": "OpenSky OAuth2 token status",
         "description": "Returns the current OpenSky API token status and rate limit info.",
-        "tags": [
-          "Data"
-        ]
+        "tags": ["Data"]
       }
     },
     "/api/gebco-tile/{name}": {
@@ -2046,9 +1839,7 @@
             "description": "Tile not found"
           }
         },
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}": {
@@ -2104,9 +1895,7 @@
             "description": "Tile out of range"
           }
         },
-        "tags": [
-          "Tiles"
-        ]
+        "tags": ["Tiles"]
       }
     },
     "/api/pmtiles/{key}": {
@@ -2129,9 +1918,7 @@
             "description": "Gone — service migrated"
           }
         },
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     },
     "/api/stac/{path}": {
@@ -2154,9 +1941,7 @@
             "description": "STAC response"
           }
         },
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     },
     "/api/collections/{id}/items": {
@@ -2208,9 +1993,7 @@
             "description": "Collection not found"
           }
         },
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     },
     "/api/openapi.json": {
@@ -2222,9 +2005,7 @@
             "description": "OpenAPI JSON spec"
           }
         },
-        "tags": [
-          "Discovery"
-        ]
+        "tags": ["Discovery"]
       }
     }
   },

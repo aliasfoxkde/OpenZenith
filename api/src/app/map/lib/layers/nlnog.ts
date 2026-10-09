@@ -91,7 +91,7 @@ export function addNLNOGNodes(map: maplibregl.Map, handle: LayerHandle): void {
     } catch (err) {
       warnLayerError("nlnogNodes", err);
       setStatus(handle, "nlnogNodes", "error");
-      }
+    }
   };
 
   void doLoad();

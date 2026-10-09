@@ -64,7 +64,8 @@ export function decodeTerrainRgb(r: number, g: number, b: number): number {
 export function encodeTerrainRgbPNG(data: Int16Array, width: number, height: number): Uint8Array {
   const rgb = new Uint8Array(width * height * 3);
   for (let i = 0; i < width * height; i++) {
-    const code = terrainRgbCode(data[i]);
+    // bounds: i < width*height and data carries exactly that many values
+    const code = terrainRgbCode(data[i]!);
     const off = i * 3;
     rgb[off] = (code >> 16) & 0xff;
     rgb[off + 1] = (code >> 8) & 0xff;

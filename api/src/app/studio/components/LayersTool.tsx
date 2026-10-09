@@ -28,7 +28,7 @@ const DATA_LAYERS = [
 export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLayer, datasets }: Props) {
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";
-// WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
+  // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";
   const inputBg = dark ? "#1a1a1a" : "#f5f5f5";
 
@@ -41,7 +41,9 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
           {Object.entries(BASEMAPS).map(([key, bm]) => (
             <button
               key={key}
-              onClick={() => { onBasemapChange(key); }}
+              onClick={() => {
+                onBasemapChange(key);
+              }}
               style={{
                 padding: "6px 8px",
                 background: basemap === key ? "#3b82f6" : inputBg,
@@ -66,7 +68,9 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
           <input
             type="checkbox"
             checked={!!layers.hillshade}
-            onChange={(e) => { onToggleLayer("hillshade", e.target.checked); }}
+            onChange={(e) => {
+              onToggleLayer("hillshade", e.target.checked);
+            }}
           />
           <span style={{ color: text, fontSize: 12 }}>Hillshade</span>
         </label>
@@ -95,7 +99,9 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
               <input
                 type="checkbox"
                 checked={!!layers[layer.id]}
-                onChange={(e) => { onToggleLayer(layer.id, e.target.checked); }}
+                onChange={(e) => {
+                  onToggleLayer(layer.id, e.target.checked);
+                }}
               />
             </label>
           ))}

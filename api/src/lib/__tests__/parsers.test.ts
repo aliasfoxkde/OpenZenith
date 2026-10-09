@@ -68,8 +68,8 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
       '<?xml version="1.0"?><kml><Document><Placemark><name>Test</name><Point><coordinates>-74.0,40.7,0</coordinates></Point></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("Point");
-    expect(result.features[0].properties.name).toBe("Test");
+    expect(result.features[0]!.geometry.type).toBe("Point");
+    expect(result.features[0]!.properties.name).toBe("Test");
   });
 
   it("parses KML with LineString", () => {
@@ -77,8 +77,8 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
       '<?xml version="1.0"?><kml><Document><Placemark><name>Path</name><LineString><coordinates>-74.0,40.7,0 -73.0,41.7,0 -72.0,42.7,0</coordinates></LineString></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("LineString");
-    expect(result.features[0].geometry.coordinates).toHaveLength(3);
+    expect(result.features[0]!.geometry.type).toBe("LineString");
+    expect(result.features[0]!.geometry.coordinates).toHaveLength(3);
   });
 
   it("parses KML with Polygon including inner boundaries", () => {
@@ -86,8 +86,8 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
       '<?xml version="1.0"?><kml><Document><Placemark><name>Area</name><Polygon><outerBoundaryIs><LinearRing><coordinates>0,0,0 1,0,0 1,1,0 0,1,0 0,0,0</coordinates></LinearRing></outerBoundaryIs><innerBoundaryIs><LinearRing><coordinates>0.25,0.25,0 0.75,0.25,0 0.75,0.75,0 0.25,0.75,0 0.25,0.25,0</coordinates></LinearRing></innerBoundaryIs></Polygon></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("Polygon");
-    expect(result.features[0].geometry.coordinates).toHaveLength(2); // outer + inner ring
+    expect(result.features[0]!.geometry.type).toBe("Polygon");
+    expect(result.features[0]!.geometry.coordinates).toHaveLength(2); // outer + inner ring
   });
 
   it("parses KML with MultiGeometry", () => {
@@ -95,7 +95,7 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
       '<?xml version="1.0"?><kml><Document><Placemark><name>Multi</name><MultiGeometry><Point><coordinates>-74,40,0</coordinates></Point><Point><coordinates>-73,41,0</coordinates></Point></MultiGeometry></Placemark></Document></kml>';
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("MultiPoint");
+    expect(result.features[0]!.geometry.type).toBe("MultiPoint");
   });
 
   it("returns empty collection for no placemarks", () => {
@@ -114,8 +114,8 @@ describe("parseGPX", () => {
       </gpx>`;
     const result = parseGPX(gpx);
     expect(result.features).toHaveLength(2);
-    expect(result.features[0].geometry.type).toBe("Point");
-    expect(result.features[0].properties.name).toBe("NYC");
+    expect(result.features[0]!.geometry.type).toBe("Point");
+    expect(result.features[0]!.properties.name).toBe("NYC");
   });
 
   it("parses GPX with tracks", () => {
@@ -130,7 +130,7 @@ describe("parseGPX", () => {
       </gpx>`;
     const result = parseGPX(gpx);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].geometry.type).toBe("LineString");
+    expect(result.features[0]!.geometry.type).toBe("LineString");
   });
 
   it("skips single-point tracks", () => {

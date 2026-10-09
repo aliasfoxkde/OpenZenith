@@ -46,7 +46,7 @@ describe("GeoIP endpoint", () => {
   it("returns location data from cf object", async () => {
     const { GET } = await import("@/app/api/geoip/route");
     const req = mockRequest("/api/geoip", "GET", null, { cf: MOCK_CF });
-     
+
     const resp = await GET(req);
     expect(resp.status).toBe(200);
 

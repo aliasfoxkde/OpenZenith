@@ -189,3 +189,33 @@ clusters, and ships it all GitForge-green as v0.9.3.
   run-first tests now carry a 150s goto window with the probe receipt
   in a comment, so a cold ship gate absorbs the warmup instead of
   failing; warm re-run 26/26 across firefox+chromium in 38.5s.
+- 2026-10-09 — **Phase E receipts** (all green): eslint 0w/0e; tsc 0;
+  vitest 1,704 passed / 5 skipped / 115 files at 99.46 stmts / 97.26
+  branches / 95.21 functions / 99.92 lines (floors 99/96/94/99); ruff 0;
+  pytest 1,650 passed @ 99% (--cov-fail-under=99); mypy 40 files clean;
+  interrogate 100.0%; clippy -D warnings clean; core two-pass coverage
+  gate green (pass 2 totals 96.08% lines / 94.74% functions over the
+  wasm-feature build); aegis delta gate green after the deliberate
+  cycle-B/C re-baseline (see below); jscpd 4.19% lines; **chromium prod
+  E2E 97/97** (full suite, --workers=2, vs https://openzenith.cyopsys.com).
+  GitForge: run `e18fa0f6` (431d82d) failed its aegis job — CORRECTLY:
+  it checked out the commit before the cycle-B/C baseline drift was
+  triaged and re-baselined; `95c69e3` landed the triage entry +
+  regenerated baseline, and run `ef7c9dae` (95c69e3) went **8/8 green**
+  (aegis → install → typecheck → lint → spec-check → unit-test [count
+  guard held 115/1709] → mcp-server → bundle-budget), every job on
+  swarmone-docker. Platform note: every push churns the pipeline to a
+  fresh DISABLED ghost id — the working sequence is delete ghost (or
+  ignore) → `pipeline --create bigdata-ci/OpenZenith --file
+  .gitforge.yml` → `pipeline --run <id> --ref main`; the runs/jobs
+  read path is `GET /api/pipeline-runs/{id}` and
+  `/api/pipeline-runs/{id}/jobs` on the :42780 gateway with the
+  /auth/login JWT (the /api/runs path 404s; the :42781 orchestrator
+  rejects user tokens).
+- 2026-10-09 — **Phase F — v0.9.3 cut**: version bumps across ALL
+  surface packages this time (api/package.json, api lockfile,
+  openapi base.json + regenerated spec, openzenith/__init__.py,
+  mcp-server/package.json AND mcp-server/src/index.ts:407 — both sat
+  at 0.9.1 through v0.9.2) + CHANGELOG entry + HANDOFF closeout.
+  Post-bump verification: vitest 1,704/1,709 green (openapi contract
+  tests included), mcp-server 21/21 contract tests green.

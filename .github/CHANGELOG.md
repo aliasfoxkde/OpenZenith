@@ -3,6 +3,52 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.3 (2026-10-09)
+
+10 commits since v0.9.2: excellence-cycle V — three production CVEs
+patched, `noUncheckedIndexedAccess` adopted across the entire TypeScript
+surface, three duplication kernels extracted out of the hottest route
+families, and the CI mirror brought level with the adopted gates. No
+breaking changes.
+
+### Added
+- API: shared terrain-sampling kernels (`terrain-sampler.ts` — tile
+  window fetch, bilinear lattice/sampler, haversine), a shared PNG
+  container writer (`rgb-png.ts`), and a shared hydrology prologue
+  (`hydro-params.ts`) used by the twi/streams/watershed routes.
+
+### Fixed
+- Security: 3 production CVEs patched via lockfile bump (next, sharp,
+  source-map-js).
+- The streams route's start-elevation gate was imported but never
+  called after the C3 extraction — two fixtures caught the missing 400
+  arms before commit.
+- Firefox E2E: the "host-broken firefox" failure model was wrong — a
+  probe showed 11/13 passing with the two run-first tests timing out on
+  a cold-start connection stall; those tests now carry a 150s
+  navigation window and firefox runs green (26/26 with chromium).
+- Distribution truth: the PyPI publish workflow's mirror-upload step
+  was removed (GitHub releases only) and the README/docs stop
+  advertising a PyPI install path that 404s.
+- mcp-server package version catches up to the release line (sat at
+  0.9.1 through v0.9.2); version policy is now lockstep every cut.
+
+### Gates
+- TypeScript: `noUncheckedIndexedAccess` enabled across api/ — 1,037
+  error sites fixed with a proven fix grammar (honest guards where
+  absence is genuine, bounds-commented assertions where arithmetic
+  proves the index); functions coverage floor ratcheted 92 → 94
+  (measured 99.46/97.26/95.21/99.92).
+- Duplication: jscpd census 4.40% → 4.19% lines; the three target
+  cross-route clone clusters are gone.
+- Prettier adopted over api/ (generated dirs ignored; drift swept).
+- CI mirror: python-lint gains mypy strict + interrogate (verified
+  locally: 40 files clean, 100.0% docstrings); aegis re-baselined after
+  the B/C line drift with a full triage entry.
+- Receipts: eslint 0w/0e, tsc 0, vitest 1,704 passed / 5 skipped
+  (115 files), pytest 1,650 @ 99%, core two-pass gate green, chromium
+  prod E2E 97/97.
+
 ## v0.9.2 (2026-10-08)
 
 33 commits since v0.9.1: excellence-cycle IV — strictness gates

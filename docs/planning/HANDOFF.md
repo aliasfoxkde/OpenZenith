@@ -1,5 +1,30 @@
 # OpenZenith handoff
 
+> **Update (2026-10-09, v0.9.3):** the fourth excellence plan
+> ([EXCELLENCE_PLAN_V_2026-10-08.md](EXCELLENCE_PLAN_V_2026-10-08.md),
+> tasks #231–#239, phases A–F) is executed end to end. Security first:
+> 3 production CVEs patched; distribution truth restored (the PyPI
+> mirror-upload pretense removed from the publish workflow and docs).
+> TypeScript crossed the last big strictness line: `noUncheckedIndexedAccess`
+> adopted across the api/ surface — 1,037 error sites fixed with a
+> proven fix grammar (honest guards where absence is genuine,
+> bounds-commented assertions where arithmetic proves the index), the
+> functions coverage floor ratcheted 92 → 94. Three duplication
+> kernels extracted (terrain-sampler, PNG container, hydrology
+> prologue); jscpd census 4.40% → 4.19% lines with the three target
+> cross-route clusters gone. The CI mirror gained mypy + interrogate
+> (GitForge cannot carry python — documented); HANDOFF open item 4
+> decided (MCP server: in-graph, version lockstep every cut — v0.9.2's
+> missed mcp-server bump corrected here). The "firefox E2E host
+> breakage" story was falsified by probe: 11/13 passed immediately;
+> the two run-first tests stall on cold-start connections (~2.4 min)
+> and now carry a 150s window — firefox runs green (26/26 with
+> chromium). **v0.9.3 cut, tagged, GitHub-released, deployed via
+> ship.sh, prod-verified** (receipts in the plan's progress log;
+> GitForge run `ef7c9dae` 8/8 green on `892f30f1`; the aegis failure
+> on run `e18fa0f6` was the CI correctly catching the un-committed
+> cycle-B/C baseline drift — triaged and re-baselined in `95c69e3`).
+
 > **Update (2026-10-08, v0.9.2):** the third excellence plan
 > ([EXCELLENCE_PLAN_IV_2026-10-07.md](EXCELLENCE_PLAN_IV_2026-10-07.md),
 > tasks #217–#230, phases A–F) is executed end to end. Strictness

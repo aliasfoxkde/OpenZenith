@@ -37,6 +37,17 @@ jobs:
       - name: Ruff check
         run: ruff check openzenith/
 
+      # Same lint surface as the maintainer's local gate (project CLAUDE.md):
+      # strict mypy bundle and the interrogate docstring floor (pyproject
+      # [tool.interrogate] fail-under 99). GitForge (primary) cannot carry
+      # these — no python image on the runner — so the mirror is where the
+      # cloud check lives.
+      - name: Mypy (strict)
+        run: mypy openzenith/
+
+      - name: Docstring coverage
+        run: interrogate -c pyproject.toml openzenith/
+
   python-test:
     runs-on: ubuntu-latest
     steps:

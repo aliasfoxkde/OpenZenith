@@ -168,3 +168,24 @@ clusters, and ships it all GitForge-green as v0.9.3.
   close: tsc 0, eslint 0w/0e, prettier clean (generated dirs
   coverage/, test-results/, public/pkg/ added to .prettierignore),
   vitest 1,704 passed / 5 skipped / 115 files.
+- 2026-10-09 — **Phase D complete**. D1: the ci.yml mirror's python-lint
+  job gained the two adopted local gates it was missing — mypy (strict
+  bundle) and interrogate (docstring floor) — verified locally first
+  (mypy 40 files clean; interrogate 100.0%); the mirror stays
+  non-authoritative, GitForge cannot carry these (no python image on
+  the runner, documented in .gitforge.yml). D2: HANDOFF open item 4
+  decided in writing — the MCP server is IN the Platform execution
+  graph as a maintained contract surface (own strict gates + 21
+  contract tests enforced by the GitForge `mcp-server` job; contract =
+  the documented REST surface it proxies); version policy: lockstep
+  with api/package.json and openzenith/__init__.py every release cut —
+  and the audit caught that v0.9.2 MISSED the mcp-server bump (sat at
+  0.9.1; corrected in the v0.9.3 cut). D3: firefox probe rewrote the
+  failure model — firefox is NOT host-broken; 11/13 landing tests
+  passed immediately and the 2 `page.goto` timeouts are a cold-start
+  connection stall on the first fresh-context connections (~2.4 min
+  cumulative; the same two tests passed in 5.2s warm, and the
+  identical navigation passes in every later test). Repair: the two
+  run-first tests now carry a 150s goto window with the probe receipt
+  in a comment, so a cold ship gate absorbs the warmup instead of
+  failing; warm re-run 26/26 across firefox+chromium in 38.5s.

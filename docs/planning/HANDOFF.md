@@ -203,5 +203,14 @@ WASM must be tested with fixtures rather than inferred from source presence.
 3. ~~HF z11 backfill is NOT scheduled~~ — **complete** (2026-09-28): the
    595,149-tile backfill landed on HuggingFace and is byte-validated; R2
    itself was decommissioned 2026-09-27. See `docs/DATASET_MANIFEST.md`.
-4. Decide whether the MCP server is in the Platform execution graph and add a
-   versioned contract only after its tests pass.
+4. ~~Decide whether the MCP server is in the Platform execution graph~~ —
+   **decided** (2026-10-09): **yes, in-graph as a maintained contract
+   surface**, with the versioned-contract precondition met. Evidence:
+   the server has its own strict gates (typecheck + typed eslint +
+   21 contract tests) enforced as the `mcp-server` job in the GitForge
+   pipeline (primary CI), its contract is the documented REST surface it
+   proxies (elevation, weather, tides, address, waterways — see
+   `mcp-server/README.md`), and it is versioned in `mcp-server/package.json`.
+   Policy from here: mcp-server version bumps ride every release cut in
+   lockstep with `api/package.json` and `openzenith/__init__.py` (v0.9.2
+   missed this — the package sat at 0.9.1; corrected in v0.9.3).

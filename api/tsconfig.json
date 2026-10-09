@@ -23,12 +23,6 @@
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "scripts/**/*.mjs",
-    ".next/types/**/*.ts"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "scripts/**/*.mjs", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

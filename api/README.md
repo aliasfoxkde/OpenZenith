@@ -39,19 +39,19 @@ marked otherwise.
 
 ### Develop
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | `next dev` — local dev server on http://localhost:3000 (Next.js default; no port flag is set anywhere in this workspace) |
-| `npm run build` | `next build` — Node/Next production build. Not what ships; see `pages:build`. |
-| `npm run start` | `next start` — serve the `next build` output |
+| Command             | What it does                                                                                                                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`       | `next dev` — local dev server on http://localhost:3000 (Next.js default; no port flag is set anywhere in this workspace)                                                                                                                             |
+| `npm run build`     | `next build` — Node/Next production build. Not what ships; see `pages:build`.                                                                                                                                                                        |
+| `npm run start`     | `next start` — serve the `next build` output                                                                                                                                                                                                         |
 | `npm run pages:dev` | `wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01 --port 9006 --ip 0.0.0.0` — serve the built Pages bundle locally on port 9006 (run `pages:build` first; this is the target `E2E_BASE_URL=http://localhost:9006` points at) |
 
 ### Build for Cloudflare Pages
 
-| Command | What it does |
-|---|---|
-| `npm run pages:build` | `npx @cloudflare/next-on-pages` — bundles the app for Pages into `.vercel/output/static` (matches `pages_build_output_dir` in `wrangler.toml`) |
-| `npm run pages:deploy` | `npx wrangler pages deploy .vercel/output/static` — uploads that bundle |
+| Command                | What it does                                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run pages:build`  | `npx @cloudflare/next-on-pages` — bundles the app for Pages into `.vercel/output/static` (matches `pages_build_output_dir` in `wrangler.toml`) |
+| `npm run pages:deploy` | `npx wrangler pages deploy .vercel/output/static` — uploads that bundle                                                                        |
 
 The production path is **`npm run pages:build` → `.vercel/output/static`**,
 never `next build`. Deploy is normally done through the repo-root ship gate
@@ -67,24 +67,24 @@ Credentials come from wrangler's stored auth (`wrangler login` or
 
 ### Quality gates
 
-| Command | What it does |
-|---|---|
-| `npm run lint` | `eslint src/` — typed lint (strictTypeChecked). CI fails only if the warning count grows past the baseline in `.gitforge.yml`. |
-| `npm run lint:fix` | `eslint src/ --fix` |
-| `npm run format` / `format:check` | `prettier --write src/` / `--check src/` |
-| `npx tsc --noEmit` | Type check (not an npm script; run from `api/`) |
-| `npm run test` | `vitest run` — unit tests, Node environment |
-| `npm run test:watch` | `vitest` in watch mode |
-| `npm run test:coverage` | `vitest run --coverage` — v8 provider, floors enforced: 99% statements / 96% branches / 92% functions / 99% lines over `src/lib/**` + `src/app/api/**` |
-| `npm run test:docs-claims` | `vitest run src/lib/__tests__/docs-claims.test.ts` — asserts the layer/basemap/route numbers in the root `README.md` and `CLAUDE.md` against the registries that produce them |
-| `npm run test:e2e` | `npx playwright test` — see Tests/E2E below |
+| Command                           | What it does                                                                                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`                    | `eslint src/` — typed lint (strictTypeChecked). CI fails only if the warning count grows past the baseline in `.gitforge.yml`.                                                |
+| `npm run lint:fix`                | `eslint src/ --fix`                                                                                                                                                           |
+| `npm run format` / `format:check` | `prettier --write src/` / `--check src/`                                                                                                                                      |
+| `npx tsc --noEmit`                | Type check (not an npm script; run from `api/`)                                                                                                                               |
+| `npm run test`                    | `vitest run` — unit tests, Node environment                                                                                                                                   |
+| `npm run test:watch`              | `vitest` in watch mode                                                                                                                                                        |
+| `npm run test:coverage`           | `vitest run --coverage` — v8 provider, floors enforced: 99% statements / 96% branches / 92% functions / 99% lines over `src/lib/**` + `src/app/api/**`                        |
+| `npm run test:docs-claims`        | `vitest run src/lib/__tests__/docs-claims.test.ts` — asserts the layer/basemap/route numbers in the root `README.md` and `CLAUDE.md` against the registries that produce them |
+| `npm run test:e2e`                | `npx playwright test` — see Tests/E2E below                                                                                                                                   |
 
 ### OpenAPI
 
-| Command | What it does |
-|---|---|
+| Command                    | What it does                                                                      |
+| -------------------------- | --------------------------------------------------------------------------------- |
 | `npm run openapi:generate` | `node scripts/gen-openapi.mjs` — regenerates `src/app/api/openapi.json/spec.json` |
-| `npm run openapi:check` | `node scripts/gen-openapi.mjs --check` — exits 1 if the committed spec is stale |
+| `npm run openapi:check`    | `node scripts/gen-openapi.mjs --check` — exits 1 if the committed spec is stale   |
 
 `scripts/gen-openapi.mjs` merges two sources: the hand-authored
 `src/lib/openapi/base.json` and a scan of `src/app/api/**/route.ts` for
@@ -123,11 +123,11 @@ Declared in [`wrangler.toml`](wrangler.toml) and [`.env.example`](.env.example).
 
 **`wrangler.toml` `[vars]`** (non-secret, committed):
 
-| Var | Value | Actually consumed by code? |
-|---|---|---|
-| `STORAGE_BACKEND` | `huggingface` | Yes — `src/app/api/health/route.ts` reports it |
-| `HF_REPO` | `aliasfox/srtm30m-merged` | No — no handler reads it; the HuggingFace dataset ids are constants in `src/app/api/dem-tile/[z]/[x]/[y]/route.ts` (`srtm30m-ozt2-v2`) and `src/lib/client-elevation.ts` (`srtm30m-merged`) |
-| `USE_MERGED` | `true` | No — declared only |
+| Var               | Value                     | Actually consumed by code?                                                                                                                                                                  |
+| ----------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STORAGE_BACKEND` | `huggingface`             | Yes — `src/app/api/health/route.ts` reports it                                                                                                                                              |
+| `HF_REPO`         | `aliasfox/srtm30m-merged` | No — no handler reads it; the HuggingFace dataset ids are constants in `src/app/api/dem-tile/[z]/[x]/[y]/route.ts` (`srtm30m-ozt2-v2`) and `src/lib/client-elevation.ts` (`srtm30m-merged`) |
+| `USE_MERGED`      | `true`                    | No — declared only                                                                                                                                                                          |
 
 **Secrets** (set with `wrangler pages secret put <NAME> --project-name openzenith`):
 `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`, `AISSTREAM_KEY`,
@@ -144,12 +144,12 @@ to HuggingFace with the Workers Cache API in front
 
 ## Registries (single sources of truth)
 
-| Truth | Module |
-|---|---|
-| 62 curated data layers | `LAYERS` in `src/lib/layers/registry.ts` |
-| 54 layers with a 2D MapLibre loader | `MAP_2D_LAYER_IDS` in `src/app/map/lib/layers/index.ts` (derived from `LAYER_LOADERS`) |
-| 10 basemaps | `BASEMAPS` in `src/lib/basemaps.ts` (`BASEMAP_ORDER` lists them; `GLOBE_BASEMAP_KEYS` is the globe subset) |
-| 80 API route handlers | `route.ts` files under `src/app/api/` |
+| Truth                               | Module                                                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 62 curated data layers              | `LAYERS` in `src/lib/layers/registry.ts`                                                                   |
+| 54 layers with a 2D MapLibre loader | `MAP_2D_LAYER_IDS` in `src/app/map/lib/layers/index.ts` (derived from `LAYER_LOADERS`)                     |
+| 10 basemaps                         | `BASEMAPS` in `src/lib/basemaps.ts` (`BASEMAP_ORDER` lists them; `GLOBE_BASEMAP_KEYS` is the globe subset) |
+| 80 API route handlers               | `route.ts` files under `src/app/api/`                                                                      |
 
 `src/lib/__tests__/docs-claims.test.ts` holds the first, third, and fourth of
 these against the numbers the root `README.md` / `CLAUDE.md` publish.

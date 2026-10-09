@@ -8,11 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getTileData } from "@/lib/tile";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { ELEVATION_NODATA, fetchTileWindow, haversineMeters, makeBilinearSampler } from "@/lib/terrain-sampler";
 
 export const runtime = "edge";
 
@@ -25,7 +25,7 @@ const OZT2_BACKEND = new OZT2HuggingFaceBackend({
 
 // Merged chunk backend (fallback / direct SRTM chunk access)
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
-const NODATA = -32768;
+const NODATA = ELEVATION_NODATA;
 
 const D8_DR = [0, 1, 1, 1, 0, -1, -1, -1];
 const D8_DC = [1, 1, 0, -1, -1, -1, 0, 1];
@@ -113,46 +113,10 @@ export async function POST(request: NextRequest) {
     const tileYMin = Math.floor(minPixelY / 256);
     const tileYMax = Math.floor((minPixelY + gridRows - 1) / 256);
 
-    const tileDataMap = new Map<string, Int16Array>();
-    for (let ty = tileYMin; ty <= tileYMax; ty++) {
-      for (let tx = tileXMin; tx <= tileXMax; tx++) {
-        const key = `${tx}/${ty}`;
-        try {
-          const tile = await getTileData(z, tx, ty, HF_BACKEND);
-          tileDataMap.set(key, tile.data);
-        } catch {
-          /* unavailable */
-        }
-      }
-    }
-
-    function sampleElevation(latPt: number, lonPt: number): number {
-      const n2 = 2 ** z;
-      const tileX = Math.floor(((lonPt + 180) / 360) * n2);
-      const latRad2 = (latPt * Math.PI) / 180;
-      const tileY = Math.floor(((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2) * n2);
-      const key = `${tileX}/${tileY}`;
-      const tile = tileDataMap.get(key);
-      if (!tile) return NODATA;
-
-      const px = ((lonPt + 180) / 360) * n2 * 256 - tileX * 256;
-      const py = ((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2) * n2 * 256 - tileY * 256;
-      const x0 = Math.max(0, Math.min(255, Math.floor(px)));
-      const y0 = Math.max(0, Math.min(255, Math.floor(py)));
-      const x1 = Math.min(255, x0 + 1);
-      const y1 = Math.min(255, y0 + 1);
-      const fx = px - x0,
-        fy = py - y0;
-
-      // bounds: x0/x1 and y0/y1 clamped to [0,255]; tile is a 256x256 (65536) grid
-      const h00 = tile[y0 * 256 + x0]!;
-      const h10 = tile[y0 * 256 + x1]!;
-      const h01 = tile[y1 * 256 + x0]!;
-      const h11 = tile[y1 * 256 + x1]!;
-
-      if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return NODATA;
-      return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
-    }
+    // Shared kernels (cycle V C1): window fetch + bilinear sample — verbatim
+    // arithmetic from the closure this replaces (route fixtures pin outputs).
+    const tileDataMap = await fetchTileWindow(z, tileXMin, tileXMax, tileYMin, tileYMax, HF_BACKEND);
+    const sampleElevation = makeBilinearSampler(z, tileDataMap);
 
     function d8FromPoint(latPt: number, lonPt: number): { dir: number; elev: number; lat: number; lon: number } | null {
       const n2 = 2 ** z;
@@ -226,16 +190,6 @@ export async function POST(request: NextRequest) {
       return { dir: bestDir, elev: centerElev, lat: latPt, lon: lonPt };
     }
 
-    function haversineDistance(latA: number, lonA: number, latB: number, lonB: number): number {
-      const R = 6371000;
-      const dLat = ((latB - latA) * Math.PI) / 180;
-      const dLon = ((lonB - lonA) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos((latA * Math.PI) / 180) * Math.cos((latB * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
     const startElev = sampleElevation(lat, lon);
     if (startElev <= NODATA) {
       return NextResponse.json(
@@ -268,7 +222,7 @@ export async function POST(request: NextRequest) {
       if (newElev <= NODATA) break;
 
       const last = path[path.length - 1]!; // bounds: path always holds the seed point
-      totalDist += haversineDistance(last[0], last[1], currentLat, currentLon);
+      totalDist += haversineMeters(last[0], last[1], currentLat, currentLon);
       path.push([Math.round(currentLat * 1e6) / 1e6, Math.round(currentLon * 1e6) / 1e6]);
       elevations.push(Math.round(newElev * 10) / 10);
       distances.push(Math.round(totalDist * 10) / 10);

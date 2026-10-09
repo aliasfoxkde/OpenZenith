@@ -27,9 +27,7 @@ type AxeViolation = NonNullable<AxeResults["violations"]>[number];
 
 /** True when every targeted element sits inside a vendor control container. */
 function isVendorOnly(violation: AxeViolation): boolean {
-  return violation.nodes.every((node) =>
-    node.target.some((sel) => VENDOR_SCOPES.some((scope) => sel.includes(scope))),
-  );
+  return violation.nodes.every((node) => node.target.some((sel) => VENDOR_SCOPES.some((scope) => sel.includes(scope))));
 }
 
 async function scan(page: Page, path: string): Promise<AxeViolation[]> {
@@ -55,15 +53,9 @@ async function scan(page: Page, path: string): Promise<AxeViolation[]> {
   // stylesheet instead; every animated element's base style is what the
   // audit then sees.
   await page.addStyleTag({
-    content:
-      "*, *::before, *::after { animation: none !important; transition: none !important; }",
+    content: "*, *::before, *::after { animation: none !important; transition: none !important; }",
   });
-  const builder = new AxeBuilder({ page }).withTags([
-    "wcag2a",
-    "wcag2aa",
-    "wcag2aaa",
-    "best-practice",
-  ]);
+  const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag2aaa", "best-practice"]);
   const results = await builder.analyze();
   return results.violations;
 }
@@ -165,8 +157,7 @@ async function tabOnce(page: Page): Promise<FocusStep> {
       tag: el.tagName,
       id: el.id,
       label:
-        el.getAttribute("aria-label") ||
-        (el instanceof HTMLElement ? (el.textContent || "").trim().slice(0, 40) : ""),
+        el.getAttribute("aria-label") || (el instanceof HTMLElement ? (el.textContent || "").trim().slice(0, 40) : ""),
     };
   });
 }
@@ -192,9 +183,7 @@ test.describe("Keyboard access (2.1.1 / 2.4.3 / 2.4.7)", () => {
           return style.display !== "none" && style.visibility !== "hidden";
         };
         return [
-          ...document.querySelectorAll(
-            "a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])",
-          ),
+          ...document.querySelectorAll("a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])"),
         ].filter(visible).length;
       });
       const steps: FocusStep[] = [];
@@ -242,14 +231,10 @@ test.describe("Keyboard access (2.1.1 / 2.4.3 / 2.4.7)", () => {
         });
       }
       expect(found, "no first-party interactive control reached via 12 Tabs").not.toBeNull();
-      expect(
-        found?.focusVisible,
-        "focused control does not match :focus-visible (programmatic focus?)",
-      ).toBe(true);
-      expect(
-        found?.indicator,
-        "focused control has no visible indicator (outline/box-shadow) — WCAG 2.4.7",
-      ).not.toBe("");
+      expect(found?.focusVisible, "focused control does not match :focus-visible (programmatic focus?)").toBe(true);
+      expect(found?.indicator, "focused control has no visible indicator (outline/box-shadow) — WCAG 2.4.7").not.toBe(
+        "",
+      );
     });
   }
 
@@ -264,10 +249,13 @@ test.describe("Keyboard access (2.1.1 / 2.4.3 / 2.4.7)", () => {
     // so the check is scoped to the card under test rather than any flip card.
     await toggle.focus();
     await page.keyboard.press("Tab");
-    const left = await page.evaluate((cardEl) => {
-      const el = document.activeElement;
-      return Boolean(el && !cardEl.contains(el));
-    }, await card.elementHandle());
+    const left = await page.evaluate(
+      (cardEl) => {
+        const el = document.activeElement;
+        return Boolean(el && !cardEl.contains(el));
+      },
+      await card.elementHandle(),
+    );
     expect(left, "Tab from the closed flip card stayed inside it — keyboard trap (2.1.1)").toBe(true);
     // Opened card: Enter flips, and the back-face CTA becomes reachable.
     await toggle.focus();
@@ -364,9 +352,13 @@ test.describe("Target size (2.5.8 AA floor; AAA delta reported)", () => {
           if (rect.width === 0 && rect.height === 0) continue;
           if (rect.width < 24 || rect.height < 24) {
             results.push({
-              desc: `${he.tagName.toLowerCase()}${he.id ? "#" + he.id : ""} "${
-                (he.getAttribute("aria-label") || he.textContent || "").trim().slice(0, 30)
-              }"`,
+              desc: `${he.tagName.toLowerCase()}${he.id ? "#" + he.id : ""} "${(
+                he.getAttribute("aria-label") ||
+                he.textContent ||
+                ""
+              )
+                .trim()
+                .slice(0, 30)}"`,
               w: Math.round(rect.width),
               h: Math.round(rect.height),
             });

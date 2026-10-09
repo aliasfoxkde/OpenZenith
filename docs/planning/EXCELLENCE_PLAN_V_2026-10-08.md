@@ -143,3 +143,28 @@ clusters, and ships it all GitForge-green as v0.9.3.
   added to .prettierignore to protect the openapi:generate round-trip.
   Gates at close: eslint 0w/0e, tsc 0, prettier clean, coverage green
   at the new floor.
+- 2026-10-09 — **Phase C complete**: three duplication kernels extracted
+  (C1–C3), behaviour-parity discipline held (verbatim arithmetic; route
+  fixtures pin outputs). C1 `lib/terrain-sampler.ts` — tile window fetch,
+  bilinear lattice/sampler, haversine — now owned by profile + trace +
+  flow-path instead of three private copies. C2 `lib/rgb-png.ts`
+  `assembleRgbPng` — the IHDR/IDAT/IEND + CRC + zlib tail shared by the
+  Terrarium/Terrain-RGB/elevation-accuracy/elevation-color encoders; the
+  routes keep only their pixel-fill loops. C3 `lib/hydro-params.ts` —
+  parseHydroPrologue + gateStartElevation for the twi/streams/watershed
+  POST trio (destructure-default parity preserved: streams' threshold
+  only defaults on `undefined`, explicit null still clamps to 1). C4
+  re-census (`npx jscpd`, min-tokens 50): total duplication 4.40% →
+  **4.19% lines** (5.11% → 4.83% tokens; 521 clones) — under the 4.2%
+  target, and the three named clusters (sampler closures, PNG tails,
+  POST prologues) are gone from the cross-route report. Residual
+  adjacent clones recorded as follow-up candidates, not defects: the
+  tile-window bounds math still mirrored by profile↔trace (19L), the
+  `assembleTerrainGrid` destructure opener shared by the hydro trio
+  (11–18L), and GeoJSON response shaping (12L). One Phase C defect
+  caught by the gate net and fixed before commit: the streams route
+  imported but never called `gateStartElevation` (2 fixtures caught the
+  missing 400 arms); twi/watershed calls verified present. Gates at
+  close: tsc 0, eslint 0w/0e, prettier clean (generated dirs
+  coverage/, test-results/, public/pkg/ added to .prettierignore),
+  vitest 1,704 passed / 5 skipped / 115 files.

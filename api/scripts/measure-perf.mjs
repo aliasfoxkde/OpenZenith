@@ -16,8 +16,7 @@ const ROUTES = ["/", "/map", "/globe", "/explore", "/studio", "/demo", "/wasm-de
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
   viewport: { width: 1440, height: 900 },
-  userAgent:
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
 });
 
 async function measureRoute(route) {
@@ -77,7 +76,13 @@ async function measureRoute(route) {
   const nav = await page.evaluate(() => {
     const n = performance.getEntriesByType("navigation")[0];
     return n
-      ? { ttfb: n.responseStart, dcl: n.domContentLoadedEventEnd, load: n.loadEventEnd, transferDoc: n.transferSize, domBytes: n.encodedBodySize }
+      ? {
+          ttfb: n.responseStart,
+          dcl: n.domContentLoadedEventEnd,
+          load: n.loadEventEnd,
+          transferDoc: n.transferSize,
+          domBytes: n.encodedBodySize,
+        }
       : {};
   });
   const idleLong = oz.longTasks.filter((t) => t.start > nav.load).reduce((a, t) => a + t.dur, 0);
@@ -96,7 +101,12 @@ async function measureRoute(route) {
         wireKB: +(total / 1024).toFixed(1),
         docKB: +((nav.transferDoc || 0) / 1024).toFixed(1),
         byTypeKB: Object.fromEntries(Object.entries(byType).map(([k, v]) => [k, +(v / 1024).toFixed(1)])),
-        thirdPartyKB: Object.fromEntries(Object.entries(thirdParty).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => [k, +(v / 1024).toFixed(1)])),
+        thirdPartyKB: Object.fromEntries(
+          Object.entries(thirdParty)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([k, v]) => [k, +(v / 1024).toFixed(1)]),
+        ),
         requests: reqs,
         longTasks: oz.longTasks.length,
         longTaskMsTotal: Math.round(oz.longTasks.reduce((a, t) => a + t.dur, 0)),
@@ -142,7 +152,19 @@ for (const r of ROUTES) {
   });
   await page.waitForTimeout(1500);
   const after = await page.evaluate(() => ({ lt: window.__lt.length, ms: window.__lt.reduce((a, t) => a + t.dur, 0) }));
-  console.log(JSON.stringify({ census: "landing", idle5s: idle, afterScroll: after, worst: (await page.evaluate(() => window.__lt.slice().sort((a, b) => b.dur - a.dur).slice(0, 8))) }));
+  console.log(
+    JSON.stringify({
+      census: "landing",
+      idle5s: idle,
+      afterScroll: after,
+      worst: await page.evaluate(() =>
+        window.__lt
+          .slice()
+          .sort((a, b) => b.dur - a.dur)
+          .slice(0, 8),
+      ),
+    }),
+  );
   await page.close();
 }
 

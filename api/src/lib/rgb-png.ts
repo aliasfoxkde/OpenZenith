@@ -35,7 +35,23 @@ export function encodeRgbPng(rgb: Uint8Array, width: number, height: number): Ui
       raw[dstOff + 2] = rgb[srcOff + 2]!;
     }
   }
+  return assembleRgbPng(raw, width, height);
+}
 
+/**
+ * Compress and containerize an already-filtered raw scanline buffer into a
+ * PNG. `raw` must be `height` scanlines of `1 + width * 3` bytes (filter byte
+ * 0 + RGB triples), exactly as `encodeRgbPng` builds internally. This is the
+ * shared tail of every elevation PNG encoder in the repo (cycle V, C2): the
+ * elevation-accuracy and elevation-color routes own only their pixel-fill
+ * loops; the container layout, zlib level and CRC live here alone.
+ *
+ * @param raw - Filtered scanline buffer (see above).
+ * @param width - Image width in pixels.
+ * @param height - Image height in pixels.
+ * @returns PNG file as Uint8Array
+ */
+export function assembleRgbPng(raw: Uint8Array, width: number, height: number): Uint8Array {
   // Level 1: the elevation grids are near-random bytes, so higher levels buy
   // ~nothing while costing real edge CPU on every cache miss.
   const compressed = zlibSync(raw, { level: 1 });

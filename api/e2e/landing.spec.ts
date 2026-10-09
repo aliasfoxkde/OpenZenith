@@ -139,7 +139,9 @@ test.describe("Landing page", () => {
     await page.goto("/");
 
     // Scroll down
-    await page.evaluate(() => { window.scrollTo(0, 1000); });
+    await page.evaluate(() => {
+      window.scrollTo(0, 1000);
+    });
 
     // Check that the page scrolled successfully
     const scrollY = await page.evaluate(() => window.scrollY);
@@ -189,7 +191,13 @@ test.describe("Landing page", () => {
     await page.evaluate(() => {
       const anchor = document.querySelector<HTMLElement>('.oz-flip-card a[href="/contribute"]');
       if (!anchor) throw new Error("contribute CTA not found");
-      anchor.addEventListener("click", (e) => { e.preventDefault(); }, { once: true });
+      anchor.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+        },
+        { once: true },
+      );
       anchor.click();
     });
 

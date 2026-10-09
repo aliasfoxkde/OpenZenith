@@ -81,14 +81,14 @@ test.describe("OZT2 Tile Format", () => {
       const flags = new Uint8Array(bytes.buffer, bytes.byteOffset + 5, 1)[0]!;
 
       // Header sanity checks
-      expect(vmin).toBeGreaterThanOrEqual(-500);   // Dead Sea
-      expect(vmin).toBeLessThanOrEqual(9000);     // Mt. Everest
+      expect(vmin).toBeGreaterThanOrEqual(-500); // Dead Sea
+      expect(vmin).toBeLessThanOrEqual(9000); // Mt. Everest
       expect(vrange).toBeGreaterThanOrEqual(0);
       expect(vrange).toBeLessThanOrEqual(10000);
       expect(bits).toBeGreaterThanOrEqual(8);
       expect(bits).toBeLessThanOrEqual(16);
       expect(flags).toBeGreaterThanOrEqual(0);
-      expect(flags).toBeLessThanOrEqual(15);  // bits 0-3 only
+      expect(flags).toBeLessThanOrEqual(15); // bits 0-3 only
 
       const predictor = flags & 0x03;
       const compressor = (flags >> 2) & 0x03;

@@ -8,14 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  D8_DC,
-  D8_DR,
-  TERRAIN_NODATA,
-  assembleTerrainGrid,
-  d8FlowDirection,
-  resolveStartElevation,
-} from "@/lib/terrain-grid";
+import { D8_DC, D8_DR, TERRAIN_NODATA, assembleTerrainGrid, d8FlowDirection } from "@/lib/terrain-grid";
+import { gateStartElevation, parseHydroPrologue } from "@/lib/hydro-params";
 import { pixelToLatLon } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
@@ -82,29 +76,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const { lat, lon, zoom = 10, radius_cells = 100 } = body;
-
-  if (typeof lat !== "number" || typeof lon !== "number") {
-    return NextResponse.json({ error: "lat and lon are required" }, { status: 400, headers: CORS_HEADERS });
+  // Shared hydrology prologue (cycle V, C3): parse/validate + start-elevation gate.
+  const prologue = parseHydroPrologue(body);
+  if (!prologue.ok) {
+    return NextResponse.json({ error: prologue.message }, { status: 400, headers: CORS_HEADERS });
   }
+  const { lat, lon, zoom, radius } = prologue;
 
-  if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    return NextResponse.json({ error: "Invalid coordinates" }, { status: 400, headers: CORS_HEADERS });
-  }
-
-  const radius = Math.min(200, Math.max(10, radius_cells));
-
-  // Validate starting point elevation via OZT2 (primary) then merged chunks (fallback)
-  try {
-    const startElevVal = await resolveStartElevation(lat, lon);
-    if (startElevVal === null || startElevVal <= TERRAIN_NODATA) {
-      return NextResponse.json(
-        { error: "No elevation data at starting point" },
-        { status: 400, headers: CORS_HEADERS },
-      );
-    }
-  } catch {
-    // Proceed — tile loading will catch missing data
+  const gate = await gateStartElevation(lat, lon);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.message }, { status: 400, headers: CORS_HEADERS });
   }
 
   try {

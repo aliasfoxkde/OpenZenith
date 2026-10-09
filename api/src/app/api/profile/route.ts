@@ -8,15 +8,15 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
+import { ELEVATION_NODATA, fetchTileWindow, haversineMeters, makeBilinearSampler } from "@/lib/terrain-sampler";
 
 export const runtime = "edge";
 
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
-const NODATA = -32768;
+const NODATA = ELEVATION_NODATA;
 
 export function OPTIONS() {
   return corsPreflightResponse();
@@ -89,57 +89,13 @@ export async function POST(request: NextRequest) {
     const tileYMin = Math.floor(minPixelY / 256);
     const tileYMax = Math.floor((minPixelY + gridRows - 1) / 256);
 
-    const tileDataMap = new Map<string, Int16Array>();
-    for (let ty = tileYMin; ty <= tileYMax; ty++) {
-      for (let tx = tileXMin; tx <= tileXMax; tx++) {
-        const key = `${tx}/${ty}`;
-        try {
-          const tile = await getTileData(z, tx, ty, HF_BACKEND);
-          tileDataMap.set(key, tile.data);
-        } catch {
-          /* unavailable */
-        }
-      }
-    }
-
-    function sampleElevation(lat: number, lon: number): number {
-      const n2 = 2 ** z;
-      const tileX = Math.floor(((lon + 180) / 360) * n2);
-      const latRad2 = (lat * Math.PI) / 180;
-      const tileY = Math.floor(((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2) * n2);
-      const key = `${tileX}/${tileY}`;
-      const tile = tileDataMap.get(key);
-      if (!tile) return NODATA;
-
-      const px = ((lon + 180) / 360) * n2 * 256 - tileX * 256;
-      const py = ((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2) * n2 * 256 - tileY * 256;
-      const x0 = Math.max(0, Math.min(255, Math.floor(px)));
-      const y0 = Math.max(0, Math.min(255, Math.floor(py)));
-      const x1 = Math.min(255, x0 + 1);
-      const y1 = Math.min(255, y0 + 1);
-      const fx = px - x0,
-        fy = py - y0;
-
-      // bounds: x0/x1 and y0/y1 clamped to [0,255]; tile is a 256x256 (65536) grid
-      const h00 = tile[y0 * 256 + x0]!;
-      const h10 = tile[y0 * 256 + x1]!;
-      const h01 = tile[y1 * 256 + x0]!;
-      const h11 = tile[y1 * 256 + x1]!;
-
-      if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return NODATA;
-      return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
-    }
-
-    // Haversine distance helper
-    function haversineDistance(latA: number, lonA: number, latB: number, lonB: number): number {
-      const R = 6371000;
-      const dLat = ((latB - latA) * Math.PI) / 180;
-      const dLon = ((lonB - lonA) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos((latA * Math.PI) / 180) * Math.cos((latB * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
+    // Shared kernels (cycle V C1): window fetch + bilinear sample + haversine
+    // — verbatim arithmetic from the closures this replaces (route fixtures
+    // pin the outputs).
+    const sampleElevation = makeBilinearSampler(
+      z,
+      await fetchTileWindow(z, tileXMin, tileXMax, tileYMin, tileYMax, HF_BACKEND),
+    );
 
     // Generate evenly-spaced profile points
     const profile: { distance_m: number; elevation: number; lat: number; lon: number }[] = [];
@@ -153,7 +109,7 @@ export async function POST(request: NextRequest) {
 
       if (i > 0) {
         // bounds: i > 0 and profile already holds i entries
-        totalDist += haversineDistance(profile[i - 1]!.lat, profile[i - 1]!.lon, ptLat, ptLon);
+        totalDist += haversineMeters(profile[i - 1]!.lat, profile[i - 1]!.lon, ptLat, ptLon);
       }
 
       profile.push({

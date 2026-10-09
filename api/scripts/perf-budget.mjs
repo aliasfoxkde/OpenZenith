@@ -42,9 +42,7 @@ function measure() {
   // route emits `app/page-<hash>.js` (no extra segment).
   const pageChunk = (route) =>
     chunks
-      .filter(([n]) =>
-        route === "page" ? n.startsWith("app/page-") : n.startsWith(`app/${route}/page-`),
-      )
+      .filter(([n]) => (route === "page" ? n.startsWith("app/page-") : n.startsWith(`app/${route}/page-`)))
       .reduce((a, [, s]) => a + s, 0);
 
   // Structural invariants that should never regress silently.
@@ -75,9 +73,7 @@ function measure() {
 const allow = (name, now, base) => {
   const tol = Math.max(base * 0.05, 2048);
   if (now > base + tol) {
-    console.error(
-      `  FAIL ${name}: ${now} > baseline ${base} + ${Math.round(tol)} tolerance (+${now - base} bytes)`,
-    );
+    console.error(`  FAIL ${name}: ${now} > baseline ${base} + ${Math.round(tol)} tolerance (+${now - base} bytes)`);
     return false;
   }
   console.log(`  ok   ${name}: ${now} (baseline ${base})`);

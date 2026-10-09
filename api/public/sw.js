@@ -63,9 +63,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))),
-    ),
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))),
   );
   self.clients.claim();
 });
@@ -84,7 +82,9 @@ self.addEventListener("fetch", (event) => {
           if (isFresh(cached, ttl)) return cached;
           // Stale but within window — return cached, refresh in background
           fetch(event.request)
-            .then((resp) => { if (resp.ok) cache.put(event.request, withTimestamp(resp.clone())); })
+            .then((resp) => {
+              if (resp.ok) cache.put(event.request, withTimestamp(resp.clone()));
+            })
             .catch(() => {});
           return cached;
         }
@@ -114,11 +114,15 @@ self.addEventListener("fetch", (event) => {
   // Navigation requests — cache-first with offline fallback page
   if (event.request.mode === "navigate") {
     event.respondWith(
-      caches.match(event.request).then(
-        (cached) =>
-          cached ||
-          fetch(event.request).catch(() => caches.match("/offline.html").then((fallback) => fallback || Response.error())),
-      ),
+      caches
+        .match(event.request)
+        .then(
+          (cached) =>
+            cached ||
+            fetch(event.request).catch(() =>
+              caches.match("/offline.html").then((fallback) => fallback || Response.error()),
+            ),
+        ),
     );
   }
 });

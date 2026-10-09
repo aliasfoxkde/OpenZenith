@@ -1,5 +1,12 @@
 # Generated Rust/WASM glue is not hand-maintained.
 src/lib/wasm/openzenith_core.js
+# Generated wasm-pack output (core build artefact, not hand-edited).
+public/pkg/
+
+# Build/test output, not source: coverage HTML reports and Playwright
+# failure artefacts.
+coverage/
+test-results/
 
 # Generated OpenAPI artifacts (written by scripts/gen-openapi.mjs via
 # JSON.stringify — prettier reformatting would break the openapi:check

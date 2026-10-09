@@ -88,9 +88,7 @@ test.describe("Map page interactions", () => {
         contentType: "application/json",
         body: JSON.stringify({
           requestId: "e2e",
-          results: [
-            { display_name: "Everest, Kansas, United States", lat: 39.6772, lon: -98.4055 },
-          ],
+          results: [{ display_name: "Everest, Kansas, United States", lat: 39.6772, lon: -98.4055 }],
           count: 1,
         }),
       }),
@@ -129,9 +127,7 @@ test.describe("Map page interactions", () => {
     await page.waitForTimeout(3_000);
     const before = await page.evaluate(() => location.hash);
     await page.getByRole("button", { name: "Zoom in" }).click();
-    await expect
-      .poll(() => page.evaluate(() => location.hash), { timeout: 15_000 })
-      .not.toBe(before); // zoom is mirrored into the hash
+    await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).not.toBe(before); // zoom is mirrored into the hash
   });
 
   test("elevation query on map click updates the readout", async ({ page }) => {
@@ -217,7 +213,9 @@ test.describe("Studio interactions", () => {
     page.on("pageerror", (e) => errors.push(e.message));
     // Preset the onboarding flag so the welcome dialog does not cover the
     // palette this test asserts on (its own lifecycle has a dedicated test).
-    await page.addInitScript(() => { localStorage.setItem("openzenith-studio-onboarded", "1"); });
+    await page.addInitScript(() => {
+      localStorage.setItem("openzenith-studio-onboarded", "1");
+    });
     await page.goto("/studio");
     await expect(page.getByRole("heading", { name: "OpenZenith Studio" })).toBeVisible({
       timeout: 30_000,
@@ -229,7 +227,9 @@ test.describe("Studio interactions", () => {
 
   test("tab switch changes the tool panel", async ({ page }) => {
     test.setTimeout(90_000);
-    await page.addInitScript(() => { localStorage.setItem("openzenith-studio-onboarded", "1"); });
+    await page.addInitScript(() => {
+      localStorage.setItem("openzenith-studio-onboarded", "1");
+    });
     await page.goto("/studio");
     const geocode = page.getByRole("tab", { name: /Geocode/ });
     // The tab renders in SSR HTML, so the first click can land before React
@@ -248,9 +248,7 @@ test.describe("Studio interactions", () => {
     await expect(start).toBeVisible({ timeout: 30_000 });
     await start.click();
     // The dismiss writes the flag synchronously.
-    await expect
-      .poll(() => page.evaluate(() => localStorage.getItem("openzenith-studio-onboarded")))
-      .toBe("1");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("openzenith-studio-onboarded"))).toBe("1");
     await page.reload();
     await page.waitForTimeout(2_000);
     expect(await page.getByRole("button", { name: "Get Started" }).isVisible()).toBe(false);
@@ -258,7 +256,9 @@ test.describe("Studio interactions", () => {
 
   test("basemap switch restores hillshade and data layers", async ({ page }) => {
     test.setTimeout(120_000);
-    await page.addInitScript(() => { localStorage.setItem("openzenith-studio-onboarded", "1"); });
+    await page.addInitScript(() => {
+      localStorage.setItem("openzenith-studio-onboarded", "1");
+    });
     await page.goto("/studio");
     await page.getByRole("tab", { name: /Layers/ }).click({ timeout: 30_000 });
     await page.waitForTimeout(1_000);
@@ -301,9 +301,7 @@ test.describe("Demo (elevation map) interactions", () => {
     });
     await page.mouse.click(720, 450);
     // Header readout renders the stubbed value: "5,364m @ lat, lon".
-    await expect
-      .poll(() => page.locator("main").textContent(), { timeout: 30_000 })
-      .toMatch(/5,364m\s*@/);
+    await expect.poll(() => page.locator("main").textContent(), { timeout: 30_000 }).toMatch(/5,364m\s*@/);
   });
 });
 
@@ -331,9 +329,7 @@ test.describe("API docs", () => {
     test.setTimeout(60_000);
     await page.goto("/api/docs");
     // The spec loads and renders asynchronously ("Loading docs..." first).
-    await expect
-      .poll(() => page.locator("main").textContent(), { timeout: 30_000 })
-      .toMatch(/\/api\/elevation/);
+    await expect.poll(() => page.locator("main").textContent(), { timeout: 30_000 }).toMatch(/\/api\/elevation/);
     const body = await page.textContent("body");
     expect(body).toMatch(/(elevation|endpoint|api)/i);
   });

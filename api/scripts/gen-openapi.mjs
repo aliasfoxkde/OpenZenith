@@ -135,19 +135,15 @@ function exportedMethods(source) {
     const method = m[1].toLowerCase();
     if (HTTP_METHODS.includes(method)) found.add(method);
   }
-  return [...found].sort(
-    (a, b) =>
-      DOC_METHODS.indexOf(a) - DOC_METHODS.indexOf(b) ||
-      a.localeCompare(b),
-  );
+  return [...found].sort((a, b) => DOC_METHODS.indexOf(a) - DOC_METHODS.indexOf(b) || a.localeCompare(b));
 }
 
 // Description for generated entries: the JSDoc block or // comment run sitting
 // directly above the first documented handler, if the route has one.
 function leadingDocComment(source) {
-  const handler = new RegExp(
-    `export\\s+(?:async\\s+)?(?:function|const)\\s+(${DOC_METHODS.join("|")})\\b`,
-  ).exec(source);
+  const handler = new RegExp(`export\\s+(?:async\\s+)?(?:function|const)\\s+(${DOC_METHODS.join("|")})\\b`).exec(
+    source,
+  );
   if (!handler) return undefined;
   const before = source.slice(0, handler.index).trimEnd();
   const jsdoc = /\*\*([\s\S]*?)\*/.exec(before);
@@ -251,8 +247,8 @@ function skeletonFor(template, source) {
     ...(source ? { description: leadingDocComment(source) } : {}),
     ...(params.length ? { parameters: params } : {}),
     responses: {
-      "200": { description: "Successful response" },
-      "400": { description: "Invalid parameters" },
+      200: { description: "Successful response" },
+      400: { description: "Invalid parameters" },
     },
     tags: [SEGMENT_TAGS[first] ?? DEFAULT_TAG],
   };

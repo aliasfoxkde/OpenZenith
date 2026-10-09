@@ -18,7 +18,8 @@ When documents conflict: **repo-root `CLAUDE.md`** > **canonical docs below** >
 | [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) | The companion `openzenith-data` community tile repository (spec/proposal, not built) |
 | [`security/TRIAGE.md`](security/TRIAGE.md) | Aegis security-findings triage and baseline policy |
 | [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) | Phased improvement plan and progress log (superseded as the active queue, kept for its data-modeling reference) |
-| [`planning/EXCELLENCE_PLAN_IV_2026-10-07.md`](planning/EXCELLENCE_PLAN_IV_2026-10-07.md) | **Current** phased excellence plan (cycles IV: strictness gates, terrain-route kernel, docs coverage) |
+| [`planning/EXCELLENCE_PLAN_V_2026-10-08.md`](planning/EXCELLENCE_PLAN_V_2026-10-08.md) | **Current** phased excellence plan (cycle V: prod CVEs, PyPI distribution truth, `noUncheckedIndexedAccess`, duplication kernels) |
+| [`planning/EXCELLENCE_PLAN_IV_2026-10-07.md`](planning/EXCELLENCE_PLAN_IV_2026-10-07.md) | Prior excellence plan (cycle IV: strictness gates, terrain-route kernel, docs coverage) — executed, shipped as v0.9.2 |
 | [`planning/EXCELLENCE_PLAN_2026-10-07.md`](planning/EXCELLENCE_PLAN_2026-10-07.md) | Prior excellence plan (cycles I–III, waves 1–8) — executed and shipped; closeout log inside |
 | [`planning/EXCELLENCE_PLAN_2026-10-06.md`](planning/EXCELLENCE_PLAN_2026-10-06.md) | Prior excellence plan (gaps G-1…G-5) — executed |
 | [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) | Prior excellence plan (gaps F-1…F-18) — executed through Phase 8; superseded register kept for lineage |

@@ -22,7 +22,7 @@ Works entirely offline after installing the Python SDK and optional local data. 
 - **Offline-first**: Local SRTM .merged tiles — no network required for elevation queries
 - **Low-latency**: Rust/WASM compute kernels for D8 flow, viewshed, OZT2 decode — runs in-browser or subprocess
 - **Complete terrain analysis**: slope, aspect, hillshade, viewshed, TPI, roughness, curvature, watersheds, stream extraction, downstream tracing
-- **Production-ready**: Fully typed (py.typed), 1,629 pytest tests (99% coverage gate; last measured 99.09%), clippy-clean Rust, typed TypeScript API
+- **Production-ready**: Fully typed (py.typed), 1,650 pytest tests (99% coverage gate; last measured 99.11%), clippy-clean Rust, typed TypeScript API
 
 ---
 
@@ -31,11 +31,16 @@ Works entirely offline after installing the Python SDK and optional local data. 
 ### 1. Install (30 seconds)
 
 ```bash
-pip install openzenith              # Core SDK
-pip install openzenith[all]         # All extras: compression, download,
+git clone https://github.com/aliasfoxkde/OpenZenith && cd OpenZenith
+pip install .                       # Core SDK
+pip install .[all]                  # All extras: compression, download,
                                     # analysis (aiohttp/rasterio/numba), viz, dev
-pip install openzenith[viz]         # + matplotlib plotting helpers
+pip install .[viz]                  # + matplotlib plotting helpers
 ```
+
+> **Note:** the SDK is not yet on PyPI (publishing is maintainer-gated —
+> see `docs/PUBLISHING.md`), so the install is from source. Once the
+> PyPI upload lands, these become `pip install openzenith[…]`.
 
 ### 2. Query Elevation (works offline if tiles cached)
 
@@ -190,7 +195,7 @@ Python SDK (local compute) ←→ REST API (cloud, 81 API routes)
 | SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
 | API | Next.js 15, TypeScript, Cloudflare Edge |
 | Data | SRTM 30m (HuggingFace), GEBCO 2025 |
-| Tests | 1,629 pytest @ 99% gate (Python), 136 cargo test (Rust core), 1,657 vitest across 113 files (TypeScript) |
+| Tests | 1,650 pytest @ 99% gate (Python), 247 cargo test across feature sets (Rust core), 1,709 vitest across 115 files (TypeScript) |
 
 ---
 

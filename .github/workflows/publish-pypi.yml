@@ -1,10 +1,14 @@
 # GitHub mirror validation — NON-AUTHORITATIVE.
 # GitForge (http://localhost:42782/bigdata-ci/OpenZenith.git) is the primary
 # CI/CD platform; this workflow is a best-effort mirror check. It must never
-# deploy: the deploy path is scripts/ship.sh from a checkout (build ->
-# bundle-marker -> deploy -> prod E2E), run by the maintainer.
+# deploy anything: the site deploy path is scripts/ship.sh from a checkout
+# (build -> bundle-marker -> deploy -> prod E2E), run by the maintainer, and
+# the PyPI publish path is maintainer-gated too — see docs/PUBLISHING.md.
+# This job therefore VALIDATES the sdist/wheel build on version tags but
+# never uploads: a billing-blocked Actions account must not hold a trusted
+# publisher, and an unattended publish would outrank the local gates.
 
-name: Publish Python SDK to PyPI
+name: Validate Python SDK build
 
 on:
   push:
@@ -12,10 +16,9 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
-  publish:
+  validate-build:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,5 +44,7 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Record artifacts (validation only — never uploaded)
+        run: |
+          ls -la dist/
+          echo "Publishing is maintainer-gated: docs/PUBLISHING.md"

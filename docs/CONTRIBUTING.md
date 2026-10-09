@@ -81,12 +81,13 @@ my_contribution/
 
 ## Step 2: Convert to OZT2
 
-Install the OpenZenith CLI:
+Install the OpenZenith CLI (from a repo checkout — the SDK is not yet
+on PyPI, see `docs/PUBLISHING.md`):
 
 ```bash
-pip install openzenith
+pip install .
 # or for dev:
-pip install openzenith[all]
+pip install -e .[all,dev]
 ```
 
 ### Encode Tiles

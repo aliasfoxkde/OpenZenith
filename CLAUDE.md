@@ -33,8 +33,9 @@ E2E_BASE_URL=http://localhost:9006 npx playwright test          # retarget (wran
 ### Python SDK
 
 ```bash
-pip install openzenith          # Install package
-pip install openzenith[all]    # Install with all extras (compression, download, dev)
+git clone https://github.com/aliasfoxkde/OpenZenith && cd OpenZenith
+pip install .                   # Install SDK from source (not yet on PyPI —
+                                #   docs/PUBLISHING.md; extras: .[all])
 
 # Run tests
 pytest openzenith/tests/ -v

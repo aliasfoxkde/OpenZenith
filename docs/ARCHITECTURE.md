@@ -155,10 +155,10 @@ The full listing is the directory itself (`api/src/app/api/*/route.ts`);
 - **Local ship gate**: `scripts/ship.sh` — `pages:build` → bundle-marker check
   → `pages:deploy` → prod E2E verification.
 - **Mirror**: `.github/workflows/ci.yml` — python ruff/pytest, rust
-  clippy/test, api lint/typecheck/coverage, plus a `deploy` job that
-  auto-deploys `main` (contradicts `.gitforge.yml`'s no-auto-deploy policy;
-  tracked as `EXCELLENCE_PLAN_2026-10-02.md` F-15). GitHub Actions is a
-  billing-blocked mirror — a red run there is not a code signal.
+  clippy/test, api lint/typecheck/coverage. The F-15 auto-deploy job has
+  been removed; no mirror workflow deploys or uploads anything (the PyPI
+  tag workflow is validation-only — `docs/PUBLISHING.md`). GitHub Actions
+  is a billing-blocked mirror — a red run there is not a code signal.
 - **Deploy**: Cloudflare Pages via `npm run pages:deploy` from `api/`
   (wrangler; artifact verified with `scripts/verify_pages_deployment.mjs`)
 - **Secrets**: `CLOUDFLARE_API_TOKEN`, `HF_TOKEN`, `FIRMS_MAP_KEY` (no R2

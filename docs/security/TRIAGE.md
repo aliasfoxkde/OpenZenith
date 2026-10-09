@@ -1830,3 +1830,27 @@ the ci/git-server units were running — recovery was stop ci/git-server/
 runner, let api migrate (~2 min), start the others. The bbc9208 push fired
 no run during that window; the re-push after this commit is the run that
 validates cycle IV.
+
+## Re-baseline 2026-10-09 — cycle V phases B–C line drift (848 new → 0 new)
+
+Phases B (the 1,037-site `noUncheckedIndexedAccess` adoption across 258
+files) and C (three duplication-kernel extractions) re-flagged 848
+fingerprints. Delta composition: every finding is in a pattern class
+already dispositioned in this file — largest families `try-catch-bulk`
+(83), `react-missing-key-prop` (81), `ssrf` (73), `ssrf-localhost` (65),
+`hardcoded-internal-endpoint` (63), `no-cache-headers` (52),
+`cors-misconfiguration` (49) — i.e. line-shifted re-detections of the
+same FP classes recorded on 2026-10-06/07/08, not new code smell.
+
+One pattern hit outside the recorded families' prior lines:
+- `chatgpt-conversation` (+ `role-play-override`, same line)
+  api/src/app/map/lib/__tests__/waterways.test.ts:58 — the detector fires
+  on the TEST TITLE "widens longitude by the cos floor near the poles
+  instead of dividing by ~0": imperative phrasing that superficially
+  resembles a prompt. It is a test name asserting the cos-latitude floor
+  in `waterwaysBbox`, not an injected instruction. Same content-in-test-
+  text FP family as the baseline's `role-play-override` and
+  `constitutional-ai` entries.
+
+No new production findings, no secrets. Baseline regenerated with
+`scripts/aegis_scan.sh update` after this entry; gate re-run green.

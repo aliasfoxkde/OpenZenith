@@ -1,2 +1,7 @@
 # Generated Rust/WASM glue is not hand-maintained.
 src/lib/wasm/openzenith_core.js
+
+# Generated OpenAPI artifacts (written by scripts/gen-openapi.mjs via
+# JSON.stringify — prettier reformatting would break the openapi:check
+# round-trip).
+src/app/api/openapi.json/spec.json

@@ -18,7 +18,9 @@ export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps
       .writeText(textToCopy)
       .then(() => {
         setCopied(true);
-        setTimeout(() => { setCopied(false); }, 2000);
+        setTimeout(() => {
+          setCopied(false);
+        }, 2000);
       })
       .catch(() => {
         // clipboard unavailable/denied — leave the button label as "Copy"

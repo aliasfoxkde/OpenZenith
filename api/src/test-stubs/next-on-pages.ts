@@ -8,7 +8,5 @@
  * this throwing.
  */
 export function getRequestContext(): never {
-  throw new Error(
-    "getRequestContext is unavailable outside a Cloudflare Pages request context",
-  );
+  throw new Error("getRequestContext is unavailable outside a Cloudflare Pages request context");
 }

@@ -151,7 +151,9 @@ export const LayerToggle = memo(function LayerToggle({ label, checked, onChange,
       <input
         type="checkbox"
         checked={checked}
-        onChange={(e) => { onChange(e.target.checked); }}
+        onChange={(e) => {
+          onChange(e.target.checked);
+        }}
         aria-label={`${label} layer`}
         style={{
           position: "absolute",

@@ -47,7 +47,9 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
       if (e.key === "Escape") setMobileMenu(false);
     };
     window.addEventListener("keydown", handler);
-    return () => { window.removeEventListener("keydown", handler); };
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
   }, []);
 
   return (
@@ -134,7 +136,9 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
           </div>
           {/* Mobile hamburger button */}
           <button
-            onClick={() => { setMobileMenu(!mobileMenu); }}
+            onClick={() => {
+              setMobileMenu(!mobileMenu);
+            }}
             className={`oz-hamburger${mobileMenu ? " oz-hamburger-open" : ""}`}
             aria-label={mobileMenu ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenu}
@@ -149,7 +153,9 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
       {/* Full-screen mobile menu overlay */}
       <div
         className={`oz-mobile-menu${mobileMenu ? " oz-mobile-menu-open" : ""}`}
-        onClick={() => { setMobileMenu(false); }}
+        onClick={() => {
+          setMobileMenu(false);
+        }}
         style={
           {
             "--oz-mm-bg": dark ? "#0a0a0a" : "#fafafa",
@@ -159,10 +165,22 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
           } as React.CSSProperties
         }
       >
-        <div className="oz-mobile-menu-content" onClick={(e) => { e.stopPropagation(); }}>
+        <div
+          className="oz-mobile-menu-content"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             {NAV_LINKS.map((l) => (
-              <Link key={l.label} href={l.href} onClick={() => { setMobileMenu(false); }} className="oz-mobile-menu-link">
+              <Link
+                key={l.label}
+                href={l.href}
+                onClick={() => {
+                  setMobileMenu(false);
+                }}
+                className="oz-mobile-menu-link"
+              >
                 {l.label}
               </Link>
             ))}
@@ -170,7 +188,9 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
               href="https://github.com/aliasfoxkde/OpenZenith"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => { setMobileMenu(false); }}
+              onClick={() => {
+                setMobileMenu(false);
+              }}
               className="oz-mobile-menu-link"
             >
               GitHub

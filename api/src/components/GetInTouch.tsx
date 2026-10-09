@@ -112,7 +112,9 @@ export function GetInTouch({
               <p style={{ fontSize: "0.95rem", fontWeight: 500, margin: "0 0 0.25rem" }}>{successTitle}</p>
               <p style={{ fontSize: "0.82rem", color: textSecondary, margin: "0" }}>{successMessage}</p>
               <button
-                onClick={() => { setContactSent(false); }}
+                onClick={() => {
+                  setContactSent(false);
+                }}
                 style={{
                   marginTop: "1rem",
                   padding: "0.4rem 1rem",
@@ -157,7 +159,9 @@ export function GetInTouch({
                   type="text"
                   required
                   value={contactForm.name}
-                  onChange={(e) => { setContactForm({ ...contactForm, name: e.target.value }); }}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, name: e.target.value });
+                  }}
                   placeholder="Your name"
                   aria-required="true"
                   style={{
@@ -192,7 +196,9 @@ export function GetInTouch({
                   type="email"
                   required
                   value={contactForm.email}
-                  onChange={(e) => { setContactForm({ ...contactForm, email: e.target.value }); }}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, email: e.target.value });
+                  }}
                   placeholder="you@example.com"
                   aria-required="true"
                   style={{
@@ -226,7 +232,9 @@ export function GetInTouch({
                   id="contact-subject"
                   type="text"
                   value={contactForm.subject}
-                  onChange={(e) => { setContactForm({ ...contactForm, subject: e.target.value }); }}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, subject: e.target.value });
+                  }}
                   placeholder="What's this about?"
                   style={{
                     width: "100%",
@@ -260,7 +268,9 @@ export function GetInTouch({
                   required
                   rows={4}
                   value={contactForm.message}
-                  onChange={(e) => { setContactForm({ ...contactForm, message: e.target.value }); }}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, message: e.target.value });
+                  }}
                   placeholder="Your message..."
                   aria-required="true"
                   style={{

@@ -60,16 +60,16 @@ vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
 
 vi.mock("@/lib/storage/cache", () => ({
   staleWhileRevalidate: vi.fn(async (url: string, ...args: unknown[]) => {
-    return fetch(url, ...(args.filter((a): a is RequestInit => typeof a === "object")));
+    return fetch(url, ...args.filter((a): a is RequestInit => typeof a === "object"));
   }),
 }));
 
 vi.mock("@/lib/cache", () => ({
   cachedFetch: vi.fn(async (url: string, ...args: unknown[]) => {
-    return fetch(url, ...(args.filter((a): a is RequestInit => typeof a === "object")));
+    return fetch(url, ...args.filter((a): a is RequestInit => typeof a === "object"));
   }),
   staleWhileRevalidate: vi.fn(async (url: string, ...args: unknown[]) => {
-    return fetch(url, ...(args.filter((a): a is RequestInit => typeof a === "object")));
+    return fetch(url, ...args.filter((a): a is RequestInit => typeof a === "object"));
   }),
   CACHE_TTL: {
     FLIGHTS: 300,

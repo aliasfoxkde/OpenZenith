@@ -80,11 +80,7 @@ export function Footer({ dark }: FooterProps) {
                 { label: "Contribute", href: "/contribute" },
                 { label: "About", href: "/about" },
               ].map((l) => (
-                <a
-                  key={l.label}
-                  href={l.href}
-                  style={linkStyle}
-                >
+                <a key={l.label} href={l.href} style={linkStyle}>
                   {l.label}
                 </a>
               ))}
@@ -113,13 +109,7 @@ export function Footer({ dark }: FooterProps) {
                 { label: "NASA EONET", href: "https://eonet.gsfc.nasa.gov" },
                 { label: "NOAA Warnings", href: "https://www.weather.gov" },
               ].map((l) => (
-                <a
-                  key={l.label}
-                  href={l.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={linkStyle}
-                >
+                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={linkStyle}>
                   {l.label}
                 </a>
               ))}

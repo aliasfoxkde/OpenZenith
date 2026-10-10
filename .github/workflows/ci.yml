@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Cache Rust target
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: core/target
           key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}

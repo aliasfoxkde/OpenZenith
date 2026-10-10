@@ -199,28 +199,29 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cardBg = dark ? "#161616" : "#ffffff";
-  const border = dark ? "#222" : "#e5e5e5";
-  const text = dark ? "#e5e5e5" : "#171717";
-  // WCAG AAA (7:1) secondary text on every surface it lands on — page
-  // (#fafafa), cards (#ffffff) and code blocks (#f5f5f5):
-  // #a3a3a3 = 7.2:1 on #161616; #404040 = 9.9/10.4/9.5:1 respectively.
-  const textSecondary = dark ? "#9CA3AF" : "#404040";
+  // Theme palette resolves through [data-theme] custom properties
+  // (globals.css) rather than JS ternaries: a theme switch only flips the
+  // attribute, so styles update without re-rendering the tree, and the
+  // pre-hydration script in layout.tsx sets data-theme before first paint
+  // (no flash of the wrong palette). `dark` below is used only where the
+  // DOM/aria genuinely needs the boolean (toggle label, icon, attribute).
+  // All values keep WCAG AAA (≥7:1) contrast on their surfaces — measured
+  // rationale lives next to each token definition in globals.css.
+  const cardBg = "var(--oz-bg-card)";
+  const border = "var(--oz-border)";
+  const text = "var(--oz-text)";
+  const textSecondary = "var(--oz-text-secondary)";
   const accent = "#22c55e";
-  /* Accent green only clears AAA on the dark surfaces (7.9:1 on #161616);
-     on white/#f5f5f5 it drops to ~2.1:1, so light theme uses green-900. */
-  const accentText = dark ? "#22c55e" : "#14532d";
-  /* Green text sitting ON the accentDim tint needs a lighter/darker pair than
-     accentText: #22c55e on the dark tint composite (#172b1f) is only 6.57:1
-     and ~1.9:1 on #dcfce7, so chips use #4ade80 (8.6:1) / #14532d (8.3:1). */
-  const chipText = dark ? "#4ade80" : "#14532d";
-  /* Inline syntax tokens sit on the CodeBlock surfaces (#0d1117 dark /
-     #f5f5f5 light). Both sets are measured ≥7:1 (WCAG AAA). */
-  const SYN = dark
-    ? { keyword: "#d2a8ff", fn: "#61afef", str: "#98c379", num: "#d19a66" }
-    : { keyword: "#581c87", fn: "#0c4a6e", str: "#365314", num: "#7c2d12" };
-  const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
-  const inputBg = dark ? "#111" : "#fff";
+  const accentText = "var(--oz-accent-text)";
+  const chipText = "var(--oz-chip-text)";
+  const SYN = {
+    keyword: "var(--oz-code-syn-keyword)",
+    fn: "var(--oz-code-syn-fn)",
+    str: "var(--oz-code-syn-str)",
+    num: "var(--oz-code-syn-num)",
+  };
+  const accentDim = "var(--oz-accent-dim)";
+  const inputBg = "var(--oz-bg-input)";
   const W = 1400;
 
   // White chip labels need a 7:1 background, so each layer's accent hue is
@@ -679,7 +680,7 @@ export default function Home() {
               maxWidth: W,
               margin: "0 auto",
               padding: "3rem 1.5rem 3rem",
-              borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`,
+              borderTop: "1px solid var(--oz-border-strong)",
             }}
           >
             <h2 style={{ fontSize: "1.2rem", fontWeight: 600, margin: "0 0 0.5rem", textAlign: "center" }}>Features</h2>
@@ -1107,7 +1108,7 @@ export default function Home() {
               maxWidth: W,
               margin: "0 auto",
               padding: "0 1.5rem 2rem",
-              borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`,
+              borderTop: "1px solid var(--oz-border-strong)",
               paddingTop: "2rem",
             }}
           >
@@ -1256,7 +1257,7 @@ export default function Home() {
               maxWidth: W,
               margin: "0 auto",
               padding: "0 1.5rem 2rem",
-              borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`,
+              borderTop: "1px solid var(--oz-border-strong)",
               paddingTop: "2rem",
             }}
           >
@@ -1407,7 +1408,7 @@ export default function Home() {
               maxWidth: W,
               margin: "0 auto",
               padding: "2.5rem 1.5rem",
-              borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`,
+              borderTop: "1px solid var(--oz-border-strong)",
             }}
           >
             <div
@@ -1531,7 +1532,7 @@ export default function Home() {
                     textDecoration: "none",
                     fontSize: "0.85rem",
                     fontWeight: 500,
-                    border: dark ? "1px solid #333" : "1px solid #ddd",
+                    border: "1px solid var(--oz-border-inline)",
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

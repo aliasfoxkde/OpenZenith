@@ -61,6 +61,22 @@
   --oz-result-bg: rgba(34, 197, 94, 0.08);
   --oz-result-border: rgba(34, 197, 94, 0.2);
   --oz-snippet-bg: rgba(255, 255, 255, 0.03);
+  /* Landing-page (page.tsx) inline-style tokens — consumed as var() so a
+     theme switch never re-renders the tree and the pre-hydration script in
+     layout.tsx puts the right palette on the very first paint.
+     Accent green clears AAA (7.9:1) on #161616; light theme needs green-900. */
+  --oz-border-strong: #1a1a1a;
+  --oz-border-inline: #333;
+  --oz-accent-text: #22c55e;
+  /* Chip text sits ON --oz-accent-dim: #22c55e on the dark tint composite
+     (#172b1f) is only 6.57:1, so chips use the lighter #4ade80 (8.6:1). */
+  --oz-chip-text: #4ade80;
+  --oz-accent-dim: rgba(34, 197, 94, 0.12);
+  /* Inline syntax tokens for the CodeBlock surface (#0d1117); all ≥7:1. */
+  --oz-code-syn-keyword: #d2a8ff;
+  --oz-code-syn-fn: #61afef;
+  --oz-code-syn-str: #98c379;
+  --oz-code-syn-num: #d19a66;
 }
 
 /* Light theme */
@@ -82,6 +98,17 @@
   --oz-result-bg: #dcfce7;
   --oz-result-border: #bbf7d0;
   --oz-snippet-bg: rgba(0, 0, 0, 0.03);
+  /* Landing-page tokens (see the dark block for the AAA rationale). */
+  --oz-border-strong: #f0f0f0;
+  --oz-border-inline: #ddd;
+  --oz-accent-text: #14532d;
+  --oz-chip-text: #14532d;
+  --oz-accent-dim: #dcfce7;
+  /* Inline syntax tokens on the light CodeBlock surface (#f5f5f5); all ≥7:1. */
+  --oz-code-syn-keyword: #581c87;
+  --oz-code-syn-fn: #0c4a6e;
+  --oz-code-syn-str: #365314;
+  --oz-code-syn-num: #7c2d12;
 }
 
 /* ─── Text Rendering Optimization ─── */

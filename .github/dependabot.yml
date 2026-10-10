@@ -1,0 +1,60 @@
+# Dependabot — MIRROR-SIDE ADVISORY TOOLING ONLY.
+#
+# GitForge (self-hosted) is the CI/CD platform of record for this repo and
+# the gate that must pass before anything ships; the GitHub mirror exists
+# for visibility. Version-update PRs opened here are convenience signals:
+# do not treat an open Dependabot PR as a failing gate, and do not merge
+# one without running the change through the GitForge pipeline (push the
+# merged result to the `gitforge` remote and watch the run).
+#
+# Groups keep the noise down: minor+patch ride together; majors surface as
+# individual PRs because they get a manual review + regression-gate pass
+# (see docs/planning/EXCELLENCE_PLAN_VI_2026-10-10.md phase A for the
+# current stance on the known open majors).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "api/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "npm"
+    directory: "mcp-server/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "cargo"
+    directory: "core/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

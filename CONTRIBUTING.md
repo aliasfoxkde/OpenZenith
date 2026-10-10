@@ -113,6 +113,6 @@ change — the API surface in particular is contractual
 
 ## Reporting issues
 
-Security-sensitive reports: see [SECURITY.md](.github/SECURITY.md).
+Security-sensitive reports: see [SECURITY.md](docs/SECURITY.md).
 Everything else: open a ticket on the GitForge instance for this repository
 or a GitHub issue on the mirror; either reaches the maintainers.

@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TERRAIN_NODATA, assembleTerrainGrid, computeAspect, decimateGrid } from "@/lib/terrain-grid";
 import { tileToLatLon } from "@/lib/srtm/zoom-math";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -129,7 +130,6 @@ export async function GET(request: NextRequest) {
       },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return errorResponse(err);
   }
 }

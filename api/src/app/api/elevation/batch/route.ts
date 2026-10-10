@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { latLonToTile } from "@/lib/srtm/zoom-math";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { parseElevationParams, presentElevation, type Interpolation } from "@/lib/elevation-params";
 
@@ -207,7 +208,6 @@ export async function POST(request: NextRequest) {
       { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=86400" } },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });
+    return errorResponse(err, 500);
   }
 }

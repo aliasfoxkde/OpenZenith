@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTileData } from "@/lib/tile";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { parseTileParams } from "@/lib/tile-params";
 
@@ -74,9 +75,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
     // Assembly failures are upstream/infrastructure errors: a 200 octet-stream
     // body of JSON would poison every binary decoder downstream.
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return errorResponse(err);
   }
 }

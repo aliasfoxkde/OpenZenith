@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
@@ -90,7 +91,6 @@ export async function GET(_request: NextRequest) {
       headers: { "X-Cache": "MISS", ...CORS_HEADERS, "Cache-Control": "public, max-age=60" },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return errorResponse(err);
   }
 }

@@ -10,9 +10,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPointElevation } from "@/lib/point-elevation";
 import { HuggingFaceChunkBackend, OZT2HuggingFaceBackend } from "@/lib/storage/backend";
-import { latLonToTile } from "@/lib/srtm/zoom-math";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { ELEVATION_NODATA, fetchTileWindow, haversineMeters, makeBilinearSampler } from "@/lib/terrain-sampler";
+import {
+  ELEVATION_NODATA,
+  fetchTileWindow,
+  haversineMeters,
+  makeBilinearSampler,
+  tileWindowBounds,
+} from "@/lib/terrain-sampler";
 
 export const runtime = "edge";
 
@@ -95,26 +101,12 @@ export async function POST(request: NextRequest) {
     const _cellSizeM = cellSizeDeg * 111320;
 
     // Load initial grid centered on starting point
-    const { x: cx, y: cy } = latLonToTile(lat, lon, z);
-    const xFrac = ((lon + 180) / 360) * 2 ** z - cx;
-    const latRad = (lat * Math.PI) / 180;
-    const yFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** z - cy;
-
     const radius = 50;
-    const gridRows = 2 * radius + 1;
-    const gridCols = 2 * radius + 1;
+    const { tileXMin, tileXMax, tileYMin, tileYMax } = tileWindowBounds(z, lat, lon, radius);
 
-    const centerPixelX = cx * 256 + xFrac * 256;
-    const centerPixelY = cy * 256 + yFrac * 256;
-    const minPixelX = Math.floor(centerPixelX - radius);
-    const minPixelY = Math.floor(centerPixelY - radius);
-    const tileXMin = Math.floor(minPixelX / 256);
-    const tileXMax = Math.floor((minPixelX + gridCols - 1) / 256);
-    const tileYMin = Math.floor(minPixelY / 256);
-    const tileYMax = Math.floor((minPixelY + gridRows - 1) / 256);
-
-    // Shared kernels (cycle V C1): window fetch + bilinear sample — verbatim
-    // arithmetic from the closure this replaces (route fixtures pin outputs).
+    // Shared kernels (cycle V C1 / cycle VI D1): window bounds + window fetch
+    // + bilinear sample — verbatim arithmetic from the closure this replaces
+    // (route fixtures pin outputs).
     const tileDataMap = await fetchTileWindow(z, tileXMin, tileXMax, tileYMin, tileYMax, HF_BACKEND);
     const sampleElevation = makeBilinearSampler(z, tileDataMap);
 
@@ -259,7 +251,6 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return errorResponse(err);
   }
 }

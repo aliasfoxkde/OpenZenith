@@ -9,6 +9,7 @@
  * arithmetic "cleanup" here is a behavior change and forbidden.
  */
 
+import { latLonToTile } from "./srtm/zoom-math";
 import type { ChunkBackend } from "./storage/backend";
 import { getTileData } from "./tile";
 
@@ -43,6 +44,39 @@ export function bilinearLattice(
   const x1 = Math.min(255, x0 + 1);
   const y1 = Math.min(255, y0 + 1);
   return { x0, x1, y0, y1, fx: px - x0, fy: py - y0 };
+}
+
+/**
+ * Inclusive tile-window bounds covering a `radius`-pixel neighborhood around
+ * (latDeg, lonDeg) at zoom `z` — the grid the profile and trace routes sample
+ * over. Extracted (cycle VI, D1) from the 19 lines both routes carried inline;
+ * the statement order is verbatim from them, per the fixtures-pin-outputs
+ * rule above.
+ */
+export function tileWindowBounds(
+  z: number,
+  latDeg: number,
+  lonDeg: number,
+  radius: number,
+): { tileXMin: number; tileXMax: number; tileYMin: number; tileYMax: number } {
+  const { x: cx, y: cy } = latLonToTile(latDeg, lonDeg, z);
+  const xFrac = ((lonDeg + 180) / 360) * 2 ** z - cx;
+  const latRad = (latDeg * Math.PI) / 180;
+  const yFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** z - cy;
+
+  const gridRows = 2 * radius + 1;
+  const gridCols = 2 * radius + 1;
+
+  const centerPixelX = cx * 256 + xFrac * 256;
+  const centerPixelY = cy * 256 + yFrac * 256;
+  const minPixelX = Math.floor(centerPixelX - radius);
+  const minPixelY = Math.floor(centerPixelY - radius);
+
+  const tileXMin = Math.floor(minPixelX / 256);
+  const tileXMax = Math.floor((minPixelX + gridCols - 1) / 256);
+  const tileYMin = Math.floor(minPixelY / 256);
+  const tileYMax = Math.floor((minPixelY + gridRows - 1) / 256);
+  return { tileXMin, tileXMax, tileYMin, tileYMax };
 }
 
 /**

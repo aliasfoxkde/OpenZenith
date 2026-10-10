@@ -9,9 +9,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
-import { latLonToTile } from "@/lib/srtm/zoom-math";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
-import { ELEVATION_NODATA, fetchTileWindow, haversineMeters, makeBilinearSampler } from "@/lib/terrain-sampler";
+import {
+  ELEVATION_NODATA,
+  fetchTileWindow,
+  haversineMeters,
+  makeBilinearSampler,
+  tileWindowBounds,
+} from "@/lib/terrain-sampler";
 
 export const runtime = "edge";
 
@@ -67,31 +73,14 @@ export async function POST(request: NextRequest) {
     const midLat = (lat1 + lat2) / 2;
     const midLon = (lon1 + lon2) / 2;
 
-    const { x: cx, y: cy } = latLonToTile(midLat, midLon, z);
-    const xFrac = ((midLon + 180) / 360) * 2 ** z - cx;
-    const latRad = (midLat * Math.PI) / 180;
-    const yFrac = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** z - cy;
-
     // Load tiles around the line — estimate coverage from endpoints
     const maxDist = Math.sqrt((lat2 - lat1) ** 2 + (lon2 - lon1) ** 2);
     const radius = Math.max(10, Math.min(200, Math.ceil((maxDist / cellSizeDeg) * 2)));
 
-    const gridRows = 2 * radius + 1;
-    const gridCols = 2 * radius + 1;
-
-    const centerPixelX = cx * 256 + xFrac * 256;
-    const centerPixelY = cy * 256 + yFrac * 256;
-    const minPixelX = Math.floor(centerPixelX - radius);
-    const minPixelY = Math.floor(centerPixelY - radius);
-
-    const tileXMin = Math.floor(minPixelX / 256);
-    const tileXMax = Math.floor((minPixelX + gridCols - 1) / 256);
-    const tileYMin = Math.floor(minPixelY / 256);
-    const tileYMax = Math.floor((minPixelY + gridRows - 1) / 256);
-
-    // Shared kernels (cycle V C1): window fetch + bilinear sample + haversine
-    // — verbatim arithmetic from the closures this replaces (route fixtures
-    // pin the outputs).
+    // Shared kernels (cycle V C1 / cycle VI D1): window bounds + window fetch
+    // + bilinear sample + haversine — verbatim arithmetic from the closures
+    // this replaces (route fixtures pin the outputs).
+    const { tileXMin, tileXMax, tileYMin, tileYMax } = tileWindowBounds(z, midLat, midLon, radius);
     const sampleElevation = makeBilinearSampler(
       z,
       await fetchTileWindow(z, tileXMin, tileXMax, tileYMin, tileYMax, HF_BACKEND),
@@ -162,7 +151,6 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return errorResponse(err);
   }
 }

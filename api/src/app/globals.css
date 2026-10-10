@@ -52,12 +52,6 @@
   --oz-text: #e5e5e5;
   /* WCAG 2.1 AAA (7:1) on --oz-bg #0a0a0a: #a3a3a3 measures 7.79:1. */
   --oz-text-secondary: #a3a3a3;
-  --oz-hero-overlay: linear-gradient(
-    180deg,
-    rgba(10, 10, 10, 0.72) 0%,
-    rgba(10, 10, 10, 0.22) 40%,
-    rgba(10, 10, 10, 0.62) 100%
-  );
   --oz-result-bg: rgba(34, 197, 94, 0.08);
   --oz-result-border: rgba(34, 197, 94, 0.2);
   --oz-snippet-bg: rgba(255, 255, 255, 0.03);
@@ -89,12 +83,6 @@
   --oz-text: #171717;
   /* WCAG 2.1 AAA (7:1) on --oz-bg #fafafa: #525252 measures 7.49:1. */
   --oz-text-secondary: #525252;
-  --oz-hero-overlay: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.8) 0%,
-    rgba(255, 255, 255, 0.4) 40%,
-    rgba(255, 255, 255, 0.8) 100%
-  );
   --oz-result-bg: #dcfce7;
   --oz-result-border: #bbf7d0;
   --oz-snippet-bg: rgba(0, 0, 0, 0.03);
@@ -128,63 +116,6 @@
   background: var(--oz-bg);
   color: var(--oz-text);
   min-height: 100vh;
-}
-
-/* ─── Hero Section ─── */
-.oz-hero {
-  position: relative;
-  height: 580px;
-  overflow: hidden;
-  margin-bottom: 2rem;
-}
-.oz-hero-map {
-  position: absolute;
-  inset: 0;
-}
-.oz-hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: var(--oz-hero-overlay);
-  pointer-events: none;
-}
-.oz-hero-loading {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  /* Opaque badge (matches HeroMap.tsx): translucent black made contrast
-     depend on the backdrop; over the light hero overlay the accent text
-     dropped below AAA. Accent on #0a0a0a is ~8.7:1 in both themes. */
-  background: #0a0a0a;
-  color: var(--oz-accent);
-  padding: 0.5rem 1rem;
-  border-radius: var(--oz-radius-md);
-  font-size: 0.85rem;
-  z-index: 2;
-}
-.oz-hero-content {
-  position: relative;
-  z-index: 1;
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2.5rem 1.5rem 2rem;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.oz-hero-title {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin: 0 0 0.25rem;
-  line-height: 1.2;
-}
-.oz-hero-subtitle {
-  font-size: 0.88rem;
-  color: var(--oz-text-secondary);
-  margin: 0 0 1.25rem;
-  line-height: 1.5;
 }
 
 /* ─── Lookup Form ─── */

@@ -223,16 +223,18 @@ jobs:
           # when excellence-plan waves 5-8 added suites without updating the
           # guard — the next CI run would have failed COUNT DRIFT. 115/1709
           # set 2026-10-09 (v0.9.3); 115/1718 on 2026-10-10 (+9 SGP4 worker
-          # tests in worker-utils.test.ts, cycle VI phase C).
+          # tests in worker-utils.test.ts, cycle VI phase C); 117/1731 on
+          # 2026-10-10 (+13 cycle VI phase D: terrain-sampler.test.ts 6,
+          # hydro-params.test.ts 7).
           clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
-          [ "${files:-0}" -eq 115 ] || {
-            echo "INCOMPLETE: passing run covered ${files:-?}/115 files"; exit 1;
+          [ "${files:-0}" -eq 117 ] || {
+            echo "INCOMPLETE: passing run covered ${files:-?}/117 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1718 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1718 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1731 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1731 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

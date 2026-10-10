@@ -1968,3 +1968,33 @@ those never reached the baseline. Baseline regenerated with
 `scripts/aegis_scan.sh update` after this entry (2,039 → 2,039: 33 stale
 line-drifted entries replaced by their shifted counterparts); gate re-run
 green locally before the push.
+
+## Re-baseline 2026-10-10 — cycle VI phase D extractions (40 → 0 new)
+
+Phase D moved shared route code into `terrain-sampler.ts` (`tileWindowBounds`),
+`hydro-params.ts` (`openHydroGrid`) and a new `api-response.ts`
+(`errorResponse`), rewiring 11 routes and adding two test files. All 40 gate
+findings are line-drift re-flags of established dispositioned classes on the
+edited files (fingerprints embed line numbers) or first-time hits on the new
+test files:
+
+- `no-cache-headers` ×13 — the routes' JSON responses carry explicit
+  `Cache-Control` via the shared CORS/headers objects; the scanner reads only
+  literal header maps (established FP class, shifted lines across the 11
+  rewired routes).
+- `try-catch-bulk` ×11 — the per-route JSON-body-parse guards and the
+  gate/assembly try blocks the D2 opener now composes (established).
+- `finance-math-round-money` ×5 — `Math.round` on elevation/distance values
+  in profile/trace; meters, not money (established).
+- `expensive-computation-loop` ×4 — the trace D8 walk, watershed BFS window
+  and elevation-batch loop, all bounded by radius/max-steps caps
+  (established).
+- `missing-limit` ×2, `react-missing-key-prop` ×1 — stac items route line
+  drift from the import insertion (established).
+- `cloudformation-parameters` ×2 — slope/aspect query-param interfaces
+  (word-shape FP, shifted lines).
+- `debug-endpoint` ×2 — the new `terrain-sampler.test.ts` /
+  `hydro-params.test.ts` files' docstrings mention HTTP endpoints; test-only.
+
+No new defect classes. Baseline regenerated with `scripts/aegis_scan.sh
+update`; gate re-run green before the push.

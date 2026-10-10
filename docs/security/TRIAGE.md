@@ -1882,3 +1882,51 @@ node_modules/.bin symlinks as real-file shims inside job containers):
 No new production findings, no secrets. Baseline regenerated (2,019 →
 2,039 findings; +20, zero drift elsewhere) with `scripts/aegis_scan.sh
 update` after this entry; gate re-run green locally before the re-push.
+
+## Dependency re-triage 2026-10-10 — undici override (11 → 8 findings)
+
+Cycle-VI phase A2. api/ `npm audit` moved 11 (2 moderate, 9 high) →
+8 (1 moderate, 7 high) by overriding the one fixable chain. Production
+gate unchanged: `npm audit --omit=dev` = **0 vulnerabilities**.
+
+- **undici@5.29.0 + @fastify/busboy@2.1.1 via miniflare 3 inside
+  @cloudflare/next-on-pages (the 2026-09-28 watch item): CLEARED.** The
+  upstream fix landed (undici 6.28.1+, which also vendored its multipart
+  parser, dropping @fastify/busboy entirely), so the acceptance reason
+  ("no fix in-place") is void — fixed with a nested npm override:
+  `@cloudflare/next-on-pages → miniflare → undici: ^6.28.1` (resolves
+  6.29.0). The scope is deliberate and precise: wrangler's own nested
+  `miniflare → undici 7.29.1` is a pinned major that must NOT be
+  downgraded — a top-level `undici` override would have clobbered it.
+  Validation of the build path (miniflare 3 against undici 6) rides the
+  CI bundle-budget job (pages:build) per the 2026-10-10 no-local-heavy
+  directive.
+- **braces chain — braces/chokidar/micromatch/fast-glob under
+  @next/eslint-plugin-next@16 → eslint-config-next (7 high entries):
+  ACCEPTED.** Dev-only lint tooling (eslint plugin's file globs), never
+  bundled. The only "fix" npm offers is downgrading
+  @next/eslint-plugin-next 16.x → 14.x — a two-major downgrade of the
+  lint toolchain to clear a brace-expansion DoS in a dev scanner;
+  rejected. Unpatched in the 16.x line; revisit when the plugin bumps
+  fast-glob/micromatch.
+- **esbuild@≤0.24.2 via next-on-pages (1 moderate): ACCEPTED.** GHSA-
+  67mh-4wv8-2f99 is a dev-server request-crossing issue (build-time
+  preview), no fix available in next-on-pages' pinned esbuild 0.x line;
+  unchanged since the 2026-09-28 entry. Resolves with the next-on-pages
+  miniflare-4/esbuild bump generation.
+
+## Dependency audit receipts 2026-10-10 — cycle VI phase A
+
+- **api/ (npm):** production gate `npm audit --omit=dev` = **0**; full
+  audit 11 → 8 after the undici override above (residual = the accepted
+  braces/esbuild dev chains). mcp-server/ (phase A1): production **0**
+  after the MCP SDK 1.32.1 bump cleared GHSA-6qxp-vccf-f47h.
+- **Python SDK (pip-audit 2.10.1, re-provisioned locally after the host
+  env change):** "No known vulnerabilities found" against the SDK's
+  direct dependency closure from `pyproject.toml` (numpy, Pillow, pyshp,
+  requests, scipy, cachetools, typing_extensions + the compression/
+  download/analysis/viz extras) and clean across the whole user
+  site-packages (local/editable builds — openzenith, kubix-codec, torch
+  +cu128, python-apt, … — are unauditable by design and listed as such).
+- **core/ (cargo audit, RustSec advisory-db 1,296 advisories):** exit 0,
+  **no vulnerable crates** across 76 Cargo.lock dependencies.

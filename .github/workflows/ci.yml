@@ -78,7 +78,7 @@ jobs:
           restore-keys: rust-${{ runner.os }}-
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.80
+        uses: dtolnay/rust-toolchain@1.120
         with:
           components: [clippy]
 

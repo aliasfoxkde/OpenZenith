@@ -181,13 +181,20 @@ jobs:
       # ~110). isolate:false would remove the 99 worker spawns but leaks
       # module state across files (see the 10-01 cache-key decoupling bug),
       # so isolation stays on and retries absorb the flake instead.
+      #
+      # 2026-10-10 (run 395b1d31): the first failing vitest run exposed a
+      # silent-retry-defeat bug — under `set -e`, the bare `npx vitest ...`
+      # aborted the script at its own line on failure, so `code=$?` and both
+      # retries NEVER ran and the job died with zero log output (everything
+      # was redirected into the container-local /tmp). The `|| code=$?`
+      # form hands the exit status to the retry logic instead.
       - name: vitest (two in-command retries + completeness guard)
         run: |
           set -e
           mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
           cd /build/api
-          npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest1.log 2>&1
-          code=$?
+          code=0
+          npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest1.log 2>&1 || code=$?
           log=/tmp/vitest1.log
           if [ "$code" -ne 0 ]; then
             echo "first attempt failed (exit $code) — retrying (NAS flake)"
@@ -214,7 +221,9 @@ jobs:
           # Update BOTH numbers when the suite grows (fail-loud beats
           # fail-silent). Ratchet history: 107/1524 (2026-10-05) went stale
           # when excellence-plan waves 5-8 added suites without updating the
-          # guard — the next CI run would have failed COUNT DRIFT.
+          # guard — the next CI run would have failed COUNT DRIFT. 115/1709
+          # set 2026-10-09 (v0.9.3); 115/1718 on 2026-10-10 (+9 SGP4 worker
+          # tests in worker-utils.test.ts, cycle VI phase C).
           clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
@@ -222,8 +231,8 @@ jobs:
           [ "${files:-0}" -eq 115 ] || {
             echo "INCOMPLETE: passing run covered ${files:-?}/115 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1709 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1709 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1718 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1718 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

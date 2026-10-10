@@ -6,7 +6,6 @@
 # kubix/.gitforge.yml document the same contract):
 #   * Jobs of one run SHARE one workspace directory, so the graph must stay a
 #     linear `needs` chain — parallel jobs would corrupt npm's locks/cache.
-#     `npm ci` runs once in `install` and persists through later jobs.
 #   * `environment:` (top level) and `env:` at any level are REQUIRED-but-DEAD:
 #     parsed, never forwarded to the container. Everything is set inline.
 #   * `jobs[].retry` is parsed but never enforced — the unit-test job carries
@@ -29,20 +28,27 @@
 #   may be online fleet-wide — the 2026-10-03 409 lease-supersede loop is the
 #   two-runner failure mode.
 #
-# FEDORA TRANSPORT — sshfs workspace bridge, symlink EPERM, shim fix:
-#   The runner bind-mounts its workspace through an sshfs bridge whose sftp
-#   layer denies READLINK ("Operation not permitted") — npm's .bin symlinks
-#   are unexecutable in the job container: `npx tsc` falls back to the fake
-#   `tsc@2.0.4` package ("This is not the tsc command you are looking for";
-#   runs ad2cdb2a/ffaa574a on commit 2418e2e; same signature as the
-#   2026-10-05 "vitest: Operation not permitted" faults, run 368fea3f et
-#   al.), and `npm run <script>` dies with EPERM. npm ci and regular-file
-#   reads/writes work fine — ONLY symlink resolution is broken. This is the
-#   root cause of the historical "fedora-docker noexec" defect class.
-#   Fix: scripts/ci/relink-bins.mjs rebuilds node_modules/.bin entries as
-#   real-file shims (targets come from each package.json `bin` field —
-#   plain file IO, unaffected by the transport). Every node job runs it
-#   before invoking binaries; it is idempotent and self-healing.
+# FEDORA TRANSPORT — sshfs bridge and the container-local materialization:
+#   The runner bind-mounts its workspace through an sshfs bridge (container
+#   `binds: <workspace>:/workspace:z`) whose sftp layer denies READLINK
+#   ("Operation not permitted") and adds per-syscall latency to everything.
+#   Two defects, two layers of fix:
+#     1. Symlink exec: npm's node_modules/.bin symlinks are unexecutable over
+#        that bridge — `npx tsc` fell back to the fake `tsc@2.0.4` package and
+#        `npm run <script>` died with EPERM (runs ad2cdb2a/ffaa574a on commit
+#        2418e2e; same signature as the 2026-10-05 "vitest: Operation not
+#        permitted" faults). Fix: scripts/ci/relink-bins.mjs rebuilds .bin
+#        entries as real-file shims (plain file IO). Retained in the repo for
+#        any workspace-resident npm usage.
+#     2. Throughput (2026-10-10, run 90ac36d0): `npm ci` wrote its ~940MB
+#        node_modules through the bridge — 30 minutes was not enough under
+#        co-tenant load. The pipeline now never puts node_modules on the
+#        bridge at all: `install` copies api/ sources to container-local
+#        /build, runs `npm ci` there (local overlay disk), and packs
+#        node_modules + sources into ONE tar file in the shared workspace.
+#        Every downstream job untars that single sequential file into its own
+#        container-local /build and works from local disk. Bulk streaming
+#        reads replace tens of thousands of small-file sftp round-trips.
 #   Registry note: the aegis image is not pullable off-host (localhost:5000
 #   is swarmone-loopback-only); fedora carries a docker-load copy — refresh
 #   it with scripts/ci/build-ci-image.sh + `docker save | ssh fedora docker
@@ -56,7 +62,8 @@
 #   * pages:build / pages:deploy: needs wrangler + Cloudflare auth and is the
 #     flakiest step under box load; deploy stays a deliberate local act, not
 #     an automatic one (a red build must never block a hotfix deploy, and a
-#     green CI must never deploy unreviewed work).
+#     green CI must never deploy unreviewed work). The bundle-budget job
+#     DOES run pages:build (no deploy) as the perf tripwire.
 #   * cargo test (core/), pytest (openzenith/): other-toolchain gates; run
 #     locally (no rust/python image pre-pulled).
 #   * 2026-10-06: aegis MOVED INTO the pipeline once its finding inventory
@@ -94,18 +101,23 @@ jobs:
   - name: install
     image: node:22-bookworm
     steps:
-      - name: npm ci (api/) + relink bin shims
+      - name: npm ci on container-local disk + pack deps tarball
         run: |
-          cd api
+          set -e
+          # Sources only — small enough to stream through the bridge cheaply.
+          mkdir -p /build
+          tar cf - -C /workspace api --exclude=api/node_modules | tar xf - -C /build
+          cd /build/api
           npm ci > /tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
           tail -3 /tmp/install.log
-          cd ..
-          node scripts/ci/relink-bins.mjs api/node_modules
+          # One big sequential file crosses the bridge fast; the 940MB of
+          # node_modules never touch it as 50k small files.
+          tar cf /workspace/api-deps.tar -C /build api
     needs: [aegis]
     # 2026-10-03/04: three consecutive infra-class install failures under
     # co-tenant load (2x infrastructure_failure with empty logs, 1x
-    # timed_out at 15m — npm ci never finished). Normal install is ~2-4m;
-    # headroom covers the load spikes (observed loadavg 60-170).
+    # timed_out at 15m — npm ci never finished). Local-disk npm ci is
+    # ~2-4m + ~1-3m for the tarball write; headroom covers load spikes.
     timeout: 30m
 
   - name: typecheck
@@ -114,10 +126,13 @@ jobs:
     steps:
       - name: tsc --noEmit
         run: |
-          node scripts/ci/relink-bins.mjs api/node_modules
-          cd api
+          set -e
+          mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
+          cd /build/api
           npx tsc --noEmit
-    timeout: 5m
+    # Untar of ~940MB (~1m) + tsc (~1-2m); bump from 5m after the
+    # materialization change so the untar never dominates the budget.
+    timeout: 10m
 
   - name: lint
     image: node:22-bookworm
@@ -135,8 +150,9 @@ jobs:
       # became a hard --max-warnings=0 gate. Any new warning is a regression.
       - name: eslint — zero warnings, zero errors
         run: |
-          node scripts/ci/relink-bins.mjs api/node_modules
-          cd api
+          set -e
+          mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
+          cd /build/api
           # "." not "src/": next.config.ts and other root-level TS also gate.
           npx eslint . --max-warnings=0 > /tmp/lint.log 2>&1 || {
             tail -60 /tmp/lint.log; exit 1;
@@ -150,8 +166,9 @@ jobs:
     steps:
       - name: openapi spec is current
         run: |
-          node scripts/ci/relink-bins.mjs api/node_modules
-          cd api
+          set -e
+          mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
+          cd /build/api
           npm run openapi:check
     timeout: 5m
 
@@ -166,8 +183,9 @@ jobs:
       # so isolation stays on and retries absorb the flake instead.
       - name: vitest (two in-command retries + completeness guard)
         run: |
-          node scripts/ci/relink-bins.mjs api/node_modules
-          cd api
+          set -e
+          mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
+          cd /build/api
           npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest1.log 2>&1
           code=$?
           log=/tmp/vitest1.log
@@ -218,16 +236,16 @@ jobs:
     steps:
       # The stdio MCP server package gets the same gates as api/: strict
       # typecheck, typed eslint (0 warnings — the unsafe-family runs at
-      # error there), and its contract tests. npm ci is scoped to
-      # mcp-server/ so it cannot disturb the api/ node_modules the earlier
-      # jobs installed.
+      # error there), and its contract tests. Its deps are installed
+      # container-locally (its node_modules never touch the bridge either);
+      # no dependency on the api/ tarball.
       - name: typecheck + lint + contract tests
         run: |
-          cd mcp-server
+          set -e
+          mkdir -p /build
+          tar cf - -C /workspace mcp-server | tar xf - -C /build
+          cd /build/mcp-server
           npm ci > /tmp/mcp-install.log 2>&1 || { tail -30 /tmp/mcp-install.log; exit 1; }
-          cd ..
-          node scripts/ci/relink-bins.mjs mcp-server/node_modules
-          cd mcp-server
           npm run typecheck || exit 1
           npm run lint || exit 1
           npm test > /tmp/mcp-test.log 2>&1 || { tail -30 /tmp/mcp-test.log; exit 1; }
@@ -243,15 +261,16 @@ jobs:
       # structural invariants (self-hosted font, CDN preloads, flip-card
       # marker) against api/perf-budget-baseline.json. Deliberate bundle
       # moves re-baseline with `node scripts/perf-budget.mjs --update` —
-      # say so in the commit body.
+      # say so in the commit body. Build artifacts stay container-local —
+      # nothing downstream consumes them.
       - name: pages:build + perf-budget check
         run: |
-          node scripts/ci/relink-bins.mjs api/node_modules
-          cd api
+          set -e
+          mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
+          cd /build/api
           npm run pages:build > /tmp/budget-build.log 2>&1 || { tail -30 /tmp/budget-build.log; exit 1; }
           node scripts/perf-budget.mjs
-    # Run 779f0f61: first run after mcp-server was inserted ahead of this
-    # job, pages:build timed out at 15m with an empty step log — the same
-    # host-load class as the install failures (next build under load 100+
-    # stretched siblings >4x). 30m matches install's headroom.
+    # Run 779f0f61: pages:build timed out at 15m with an empty step log —
+    # the same host-load class as the install failures (next build under
+    # load 100+ stretched siblings >4x). 30m matches install's headroom.
     timeout: 30m

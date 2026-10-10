@@ -1,4 +1,5 @@
 import { warnLayerError } from "@/lib/diagnostics";
+import { propagateCatalogueInWorker, type Sgp4Fix } from "@/lib/worker-utils";
 import type { DataStatus } from "../types";
 import { ICONS } from "../constants";
 import { fetchCelestrak, isAbort, type TleRecord } from "../data-fetchers";
@@ -65,9 +66,28 @@ function purposeColor(purpose: string, Cesium: typeof CesiumType): CesiumType.Co
 }
 
 /**
+ * Assemble a SatFeature from a propagated fix. Shared by the worker and
+ * main-thread paths so classification is identical either way.
+ */
+function featureFromFix(t: TleRecord, fix: Sgp4Fix): SatFeature {
+  const name = t.NAME || t.OBJECT_NAME || "";
+  return {
+    tle1: t.TLE_LINE1,
+    tle2: t.TLE_LINE2,
+    name,
+    coords: fix.coords,
+    velocity: fix.velocity,
+    purpose: classifySatellite(name),
+    orbit: classifyOrbit(fix.coords[2]),
+    noradId: t.NORAD_CAT_ID,
+  };
+}
+
+/**
  * Propagate one TLE to `at` and classify it. Returns null when the TLE
  * cannot be propagated (decayed or malformed) — the caller drops those,
- * matching the previous coords-then-filter flow.
+ * matching the previous coords-then-filter flow. Main-thread fallback for
+ * when the SGP4 worker is unavailable.
  */
 function toFeature(t: TleRecord, satJs: SatelliteJsApi | undefined, at: Date): SatFeature | null {
   let coords: [number, number, number] | null = null;
@@ -86,17 +106,7 @@ function toFeature(t: TleRecord, satJs: SatelliteJsApi | undefined, at: Date): S
     }
   }
   if (!coords) return null;
-  const name = t.NAME || t.OBJECT_NAME || "";
-  return {
-    tle1: t.TLE_LINE1,
-    tle2: t.TLE_LINE2,
-    name,
-    coords,
-    velocity,
-    purpose: classifySatellite(name),
-    orbit: classifyOrbit(coords[2]),
-    noradId: t.NORAD_CAT_ID,
-  };
+  return featureFromFix(t, { coords, velocity });
 }
 
 /** Name patterns for the labeled, tracked "notable" satellites. */
@@ -114,10 +124,117 @@ const NOTABLE_PATTERNS = [
 ];
 
 /**
+ * Indices of the first `limit` catalogue entries matching a notable pattern,
+ * capped at 50 — the ground-track workloads the SGP4 worker batch-propagates.
+ */
+function notableTrackIndices(tles: TleRecord[], limit: number): number[] {
+  const idx: number[] = [];
+  const end = Math.min(limit, tles.length);
+  for (let i = 0; i < end && idx.length < 50; i++) {
+    const t = tles[i];
+    if (!t) break;
+    const name = t.NAME || t.OBJECT_NAME || "";
+    if (NOTABLE_PATTERNS.some((p) => p.test(name))) idx.push(i);
+  }
+  return idx;
+}
+
+/**
+ * ±90-minute sub-satellite trail at 2-min steps — flat [lonDeg, latDeg, ...].
+ * Main-thread fallback for the SGP4 worker's track batch.
+ */
+function groundTrack(satJs: SatelliteJsApi, tle1: string, tle2: string, at: Date): number[] {
+  try {
+    const satrec = satJs.twoline2satrec(tle1, tle2);
+    const pts: number[] = [];
+    for (let m = -90; m <= 90; m += 2) {
+      const t = new Date(at.getTime() + m * 60000);
+      try {
+        const pos = satJs.propagate(satrec, t);
+        if (pos.position) {
+          const gd = satJs.eciToGeodetic(pos.position, satJs.gstime(t));
+          pts.push(satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude));
+        }
+      } catch {
+        /* skip bad propagation */
+      }
+    }
+    return pts;
+  } catch {
+    return [];
+  }
+}
+
+/** Entity key shared by notable billboards and their ground-track polylines. */
+function satKey(t: TleRecord): string {
+  return t.NORAD_CAT_ID || t.NAME || t.OBJECT_NAME || "";
+}
+
+/**
+ * Propagate the first 1500 TLEs to `at` — worker-first, main-thread fallback.
+ *
+ * The worker path (lib/worker-utils) keeps the whole propagation off the main
+ * thread: ~1500 catalogue fixes plus, when `opts.tracks`, ±90-minute ground
+ * tracks for up to 50 notable entries (~4,500 more SGP4 steps). It needs no
+ * page-side satellite.js — it importScripts the same /vendor/satellite.min.js
+ * — so a worker failure (no Worker support, blocked importScripts, missing
+ * vendor script) falls back to the previous synchronous path. Track keys match
+ * the entity ids built from `satKey`, so the billboard loop below resolves
+ * each sat's polyline without a second index walk.
+ */
+async function propagateCatalogue(
+  tles: TleRecord[],
+  satJs: SatelliteJsApi | undefined,
+  at: Date,
+  opts: { tracks?: boolean } = {},
+): Promise<{ features: SatFeature[]; tracks: Map<string, number[]> }> {
+  const first = tles.slice(0, 1500);
+  const trackIdx = opts.tracks ? notableTrackIndices(first, first.length) : [];
+
+  try {
+    const res = await propagateCatalogueInWorker(
+      first.map((t) => [t.TLE_LINE1, t.TLE_LINE2] as [string, string]),
+      at.getTime(),
+      trackIdx,
+    );
+    const tracks = new Map<string, number[]>();
+    trackIdx.forEach((idx, k) => {
+      const t = first[idx];
+      if (t) tracks.set(satKey(t), res.tracks[k] ?? []);
+    });
+    const features: SatFeature[] = [];
+    res.fixes.forEach((fix, i) => {
+      const t = first[i];
+      if (fix && t) features.push(featureFromFix(t, fix));
+    });
+    return { features, tracks };
+  } catch {
+    /* worker unavailable — propagate on the main thread below */
+  }
+
+  const features: SatFeature[] = [];
+  const tracks = new Map<string, number[]>();
+  for (let i = 0; i < first.length; i++) {
+    const t = first[i];
+    if (!t) break;
+    const f = toFeature(t, satJs, at);
+    if (!f) continue;
+    features.push(f);
+    if (opts.tracks && trackIdx.includes(i) && satJs) {
+      tracks.set(satKey(t), groundTrack(satJs, t.TLE_LINE1, t.TLE_LINE2, at));
+    }
+  }
+  return { features, tracks };
+}
+
+/**
  * Builds the satellite layer from the CelesTrak active catalogue: the first
  * 1500 TLEs are propagated once via satellite.js into geodetic lon/lat degrees,
- * altitude in km and speed in km/s, and stored on `satDataRef.current` for the
- * pick handler. Rendering reaches the viewer three ways — translucent
+ * altitude in km and speed in km/s — through the SGP4 worker (lib/worker-utils)
+ * so the catalogue fixes and the notable-satellite ground tracks never block
+ * the main thread, with a synchronous fallback when workers are unavailable —
+ * and stored on `satDataRef.current` for the pick handler. Rendering reaches
+ * the viewer three ways — translucent
  * LEO/MEO/GEO shell ellipsoids centred on the origin (ids `orbit-shell-<name>`,
  * so outside the `sat-` prefix), one point per satellite in a
  * `PointPrimitiveCollection` added to `scene.primitives` and cached as
@@ -151,12 +268,10 @@ export function loadSatellites(
     try {
       const tles = await fetchCelestrak(signal);
       if (!Cesium || !viewer) return;
-      const satJs = window.satellite;
       const now = new Date();
-      const features = tles
-        .slice(0, 1500)
-        .map((t) => toFeature(t, satJs, now))
-        .filter((f): f is SatFeature => f !== null);
+      const { features, tracks } = await propagateCatalogue(tles, window.satellite, now, {
+        tracks: true,
+      });
       satDataRef.current = features;
       updateStatus("satellites", { lastUpdate: Date.now(), count: features.length });
 
@@ -254,45 +369,26 @@ export function loadSatellites(
           properties: { type: "sat-notable", ...sat },
         });
 
-        // Ground track — project sub-satellite point trail
-        if (satJs) {
-          try {
-            const satrec = satJs.twoline2satrec(sat.tle1, sat.tle2);
-            const trackPts: number[] = [];
-            // 90-minute orbit, sample every 2 min = 45 points
-            for (let m = -90; m <= 90; m += 2) {
-              const t = new Date(now.getTime() + m * 60000);
-              try {
-                const pos = satJs.propagate(satrec, t);
-                if (pos.position) {
-                  const gd = satJs.eciToGeodetic(pos.position, satJs.gstime(t));
-                  trackPts.push(satJs.degreesLong(gd.longitude), satJs.degreesLat(gd.latitude));
-                }
-              } catch {
-                /* skip bad propagation */
-              }
-            }
-            if (trackPts.length >= 4) {
-              viewer.entities.add({
-                id: `sat-track-${sat.noradId || sat.name}`,
-                polyline: {
-                  positions: Cesium.Cartesian3.fromDegreesArrayHeight(
-                    trackPts,
-                    trackPts.map(() => 500),
-                  ),
-                  width: 1.5,
-                  material: new Cesium.PolylineGlowMaterialProperty({
-                    glowPower: 0.15,
-                    color: color.withAlpha(0.35),
-                  }),
-                  clampToGround: true,
-                },
-                properties: { type: "sat-ground-track", name: sat.name },
-              });
-            }
-          } catch {
-            /* skip track for this sat */
-          }
+        // Ground track — project sub-satellite point trail (propagated with
+        // the catalogue batch, off the main thread when workers are available)
+        const trackPts = tracks.get(sat.noradId || sat.name);
+        if (trackPts && trackPts.length >= 4) {
+          viewer.entities.add({
+            id: `sat-track-${sat.noradId || sat.name}`,
+            polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArrayHeight(
+                trackPts,
+                trackPts.map(() => 500),
+              ),
+              width: 1.5,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.15,
+                color: color.withAlpha(0.35),
+              }),
+              clampToGround: true,
+            },
+            properties: { type: "sat-ground-track", name: sat.name },
+          });
         }
       }
 
@@ -302,12 +398,8 @@ export function loadSatellites(
           if (!stateLayers.satellites) return;
           try {
             const t = await fetchCelestrak(signal);
-            const sj = window.satellite;
             const n = new Date();
-            const updated = t
-              .slice(0, 1500)
-              .map((x) => toFeature(x, sj, n))
-              .filter((f): f is SatFeature => f !== null);
+            const { features: updated } = await propagateCatalogue(t, window.satellite, n);
             satDataRef.current = updated;
 
             // Update point positions

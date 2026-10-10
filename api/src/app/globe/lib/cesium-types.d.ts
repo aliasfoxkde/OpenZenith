@@ -104,6 +104,10 @@ declare namespace CesiumType {
     enableLighting: boolean;
     lightingFadeInDistance: number;
     lightingFadeOutDistance: number;
+    /** Tile-refinement threshold in pixels of allowed error (Cesium default 2). */
+    maximumScreenSpaceError: number;
+    /** Tile-cache eviction target in megabytes (Cesium default 100). */
+    tileCacheSize: number;
     ellipsoid: { pickRay?: (ray: unknown) => unknown };
   }
 

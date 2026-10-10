@@ -189,6 +189,20 @@ export async function initCesiumViewer(
   scene.postProcessStages.fxaa.enabled = false;
   scene.globe.show = true;
 
+  // ─── Tile-cost knobs (perf plan P2-14) ───
+  // maximumScreenSpaceError 2 is Cesium's measured quality/perf default and
+  // stays explicit: this globe's 10 km minimumZoomDistance keeps terrain far
+  // from the camera, so a higher (coarser) threshold would trade visible
+  // detail for requests the CDP harness has never shown we need to save.
+  // tileCacheSize 512 MB (default 100) suits a 62-layer globe that swaps
+  // basemaps and toggles terrain-heavy layers — Cesium evicts to this target,
+  // so revisits stay warm instead of refetching OZT2 tiles. resolutionScale
+  // was evaluated and deliberately left at 1.0: rendering is already capped
+  // at CSS resolution (useBrowserRecommendedResolution defaults true), so
+  // any change is a straight quality or supersampling trade.
+  scene.globe.maximumScreenSpaceError = 2;
+  scene.globe.tileCacheSize = 512;
+
   // ─── Terrain: OZT2-first CesiumJS terrain provider ───
   // OZT2 tiles are pre-generated and stored in R2 (~93% smaller than PNG).
   // Falls back to PNG tiles (on-the-fly from HuggingFace) when OZT2 not in R2.

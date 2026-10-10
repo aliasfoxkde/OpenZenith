@@ -1854,3 +1854,31 @@ One pattern hit outside the recorded families' prior lines:
 
 No new production findings, no secrets. Baseline regenerated with
 `scripts/aegis_scan.sh update` after this entry; gate re-run green.
+
+## Re-baseline 2026-10-10 — new CI helper script (20 → 0 new)
+
+The fedora-runner shim fix added `scripts/ci/relink-bins.mjs` (commit
+035290f), and the aegis gate on run f9874933 correctly flagged its 20
+findings as new. Every one is an established false-positive class applied
+to a one-shot CI utility script (not shipped code — it rebuilds
+node_modules/.bin symlinks as real-file shims inside job containers):
+
+- `sync-in-async` ×11 (:25, :29, :38, :47, :58, :72, :83, :84, :86, :89,
+  :93) — `statSync`/`readdirSync`/`readFileSync`/`writeFileSync`/`chmodSync`
+  in a synchronous CLI script with no event loop to block; the async API
+  would be strictly worse here. Same disposition as the 66 existing
+  sync-in-async entries (scripts + CLI surfaces).
+- `package-json` ×4 (:9, :23, :47, :72) — the detector fires on the string
+  literal `"package.json"` that the script must read; that is its input
+  contract, not a stray manifest file.
+- `go-replace-directive` ×1 (:86) — matches the word "replace" in the
+  comment `// symlink or stale file — replace both`; no Go module graph
+  exists in this repo at that path.
+- `console-log` ×3 + `console-log-debug` ×1 (:19, :97 ×2, :99) — the
+  script's verdict line (`relink-bins: N shims written`) and its
+  fail-loud error path; deliberate CLI output, same class as the
+  existing scripts/ console-log dispositions.
+
+No new production findings, no secrets. Baseline regenerated (2,019 →
+2,039 findings; +20, zero drift elsewhere) with `scripts/aegis_scan.sh
+update` after this entry; gate re-run green locally before the re-push.

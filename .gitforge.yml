@@ -20,34 +20,33 @@
 #   * There is no secrets mechanism — this pipeline needs none (npm registry
 #     only, no tokens in repo per repo policy).
 #
-# PLATFORM HAZARD — two-runner scheduler, no affinity (diagnosed 2026-10-06):
-#   The scheduler hands jobs to ANY online runner (crates/gitforge-scheduler/
-#   src/policy.rs SimplePolicy: "most available capacity", no per-repo/per-job
-#   affinity; JobDefinition has no runner field and unknown YAML keys are
-#   silently ignored — there is no way to pin this pipeline from the repo).
-#   A second runner, fedora-docker (capacity 3), regularly takes jobs. On that
-#   host every job that EXECUTES a binary from the workspace fails:
-#     * `npm run lint` → "sh: 1: eslint: Operation not permitted" (run
-#       368fea3f, commit 963a50a) — an exec-permission denial (noexec-class
-#       mount on its /nas bind), not "file not found".
-#     * `npx tsc` → EPERM on node_modules/.bin/tsc → npx falls back to
-#       installing the fake `tsc@2.0.4` npm package ("This is not the tsc
-#       command you are looking for"; runs bde07b75/e0d2815, c783fb94/
-#       5158a61, b6eec7b4/6ce9a0d). npm ci itself always exits 0 — writes are
-#       fine, only exec is denied.
-#     * The aegis image pull fails with "dial tcp 127.0.0.1:5000: connect:
-#       connection refused" (run 03cd0db9/6ce9a0d) — the OCI registry
-#       publishes on swarmone's loopback only, so no other host can fetch
-#       openzenith-ci-aegis:1.
-#   Every observed red job sits on runner bdcc23ed (fedora-docker); every
-#   green job and the one fully-green run 46124e1d sat on 892f30f1
-#   (swarmone-docker). Until the platform either fixes that host's exec
-#   mount + registry reachability or gains runner pinning, a green run
-#   requires all jobs to land on swarmone-docker — re-trigger if a job
-#   lands on fedora-docker (job.runner_id in the run's /jobs response tells
-#   you where each job went; receipts make the failure mode unambiguous).
-#   This is a PLATFORM defect, not a pipeline defect: it equally poisons any
-#   multi-job pipeline on the shared scheduler.
+# PLATFORM TOPOLOGY — fedora-docker is the single active runner (2026-10-10):
+#   Per operator directive, CI executes on the fedora remote (192.168.1.202,
+#   runner bdcc23ed via ~/bin/gitforge-runner-guard.sh), NOT on the shared
+#   dev host — the swarmone runner agent (gitforge@runner.service) is stopped
+#   and masked. The scheduler has no runner affinity (crates/gitforge-scheduler/
+#   src/policy.rs SimplePolicy takes any online runner), so exactly ONE runner
+#   may be online fleet-wide — the 2026-10-03 409 lease-supersede loop is the
+#   two-runner failure mode.
+#
+# FEDORA TRANSPORT — sshfs workspace bridge, symlink EPERM, shim fix:
+#   The runner bind-mounts its workspace through an sshfs bridge whose sftp
+#   layer denies READLINK ("Operation not permitted") — npm's .bin symlinks
+#   are unexecutable in the job container: `npx tsc` falls back to the fake
+#   `tsc@2.0.4` package ("This is not the tsc command you are looking for";
+#   runs ad2cdb2a/ffaa574a on commit 2418e2e; same signature as the
+#   2026-10-05 "vitest: Operation not permitted" faults, run 368fea3f et
+#   al.), and `npm run <script>` dies with EPERM. npm ci and regular-file
+#   reads/writes work fine — ONLY symlink resolution is broken. This is the
+#   root cause of the historical "fedora-docker noexec" defect class.
+#   Fix: scripts/ci/relink-bins.mjs rebuilds node_modules/.bin entries as
+#   real-file shims (targets come from each package.json `bin` field —
+#   plain file IO, unaffected by the transport). Every node job runs it
+#   before invoking binaries; it is idempotent and self-healing.
+#   Registry note: the aegis image is not pullable off-host (localhost:5000
+#   is swarmone-loopback-only); fedora carries a docker-load copy — refresh
+#   it with scripts/ci/build-ci-image.sh + `docker save | ssh fedora docker
+#   load` whenever the image changes.
 #
 # Deliberately NOT in the pipeline (documented decisions):
 #   * e2e (Playwright): the runner is this same shared NAS — load-band
@@ -95,11 +94,13 @@ jobs:
   - name: install
     image: node:22-bookworm
     steps:
-      - name: npm ci (api/)
+      - name: npm ci (api/) + relink bin shims
         run: |
           cd api
           npm ci > /tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
           tail -3 /tmp/install.log
+          cd ..
+          node scripts/ci/relink-bins.mjs api/node_modules
     needs: [aegis]
     # 2026-10-03/04: three consecutive infra-class install failures under
     # co-tenant load (2x infrastructure_failure with empty logs, 1x
@@ -113,6 +114,7 @@ jobs:
     steps:
       - name: tsc --noEmit
         run: |
+          node scripts/ci/relink-bins.mjs api/node_modules
           cd api
           npx tsc --noEmit
     timeout: 5m
@@ -133,6 +135,7 @@ jobs:
       # became a hard --max-warnings=0 gate. Any new warning is a regression.
       - name: eslint — zero warnings, zero errors
         run: |
+          node scripts/ci/relink-bins.mjs api/node_modules
           cd api
           # "." not "src/": next.config.ts and other root-level TS also gate.
           npx eslint . --max-warnings=0 > /tmp/lint.log 2>&1 || {
@@ -147,6 +150,7 @@ jobs:
     steps:
       - name: openapi spec is current
         run: |
+          node scripts/ci/relink-bins.mjs api/node_modules
           cd api
           npm run openapi:check
     timeout: 5m
@@ -162,6 +166,7 @@ jobs:
       # so isolation stays on and retries absorb the flake instead.
       - name: vitest (two in-command retries + completeness guard)
         run: |
+          node scripts/ci/relink-bins.mjs api/node_modules
           cd api
           npx vitest run --maxWorkers=2 --reporter=dot > /tmp/vitest1.log 2>&1
           code=$?
@@ -220,6 +225,9 @@ jobs:
         run: |
           cd mcp-server
           npm ci > /tmp/mcp-install.log 2>&1 || { tail -30 /tmp/mcp-install.log; exit 1; }
+          cd ..
+          node scripts/ci/relink-bins.mjs mcp-server/node_modules
+          cd mcp-server
           npm run typecheck || exit 1
           npm run lint || exit 1
           npm test > /tmp/mcp-test.log 2>&1 || { tail -30 /tmp/mcp-test.log; exit 1; }
@@ -238,6 +246,7 @@ jobs:
       # say so in the commit body.
       - name: pages:build + perf-budget check
         run: |
+          node scripts/ci/relink-bins.mjs api/node_modules
           cd api
           npm run pages:build > /tmp/budget-build.log 2>&1 || { tail -30 /tmp/budget-build.log; exit 1; }
           node scripts/perf-budget.mjs

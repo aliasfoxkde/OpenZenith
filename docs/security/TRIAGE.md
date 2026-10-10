@@ -1930,3 +1930,41 @@ gate unchanged: `npm audit --omit=dev` = **0 vulnerabilities**.
   +cu128, python-apt, … — are unauditable by design and listed as such).
 - **core/ (cargo audit, RustSec advisory-db 1,296 advisories):** exit 0,
   **no vulnerable crates** across 76 Cargo.lock dependencies.
+
+## Re-baseline 2026-10-10 — cycle VI phase C edits (33 → 0 new)
+
+Phase C touched `api/src/app/page.tsx` (theme tokens), `api/src/app/
+globe/page.tsx` (widget/tool code-split), and `api/src/app/globe/lib/
+layers/satellites.ts` (SGP4 propagation moved into a worker). Line-number-
+embedded fingerprints re-flagged the edited files; every finding is an
+established class at a shifted line, plus three by-design loops in the new
+propagation path:
+
+- `api/src/app/page.tsx` ×12 — line drift from the C1 token edit:
+  `react-missing-key-prop` ×6 (static marketing grids with no reordering),
+  `azure-functions` ×2 (word-in-prose FP), `autocomplete-missing` ×2
+  (non-form search inputs), `pr-review-marker` ×1 (word-in-comment),
+  `debug-endpoint` ×1 (word-in-comment).
+- `api/src/app/globe/page.tsx` ×18 — line drift from the C2 code-split:
+  `stored-xss`/`inner-html-assignment`/`angular-innerhtml-xss` at :735 and
+  :1582 (the elevation-profile chart/canvas renderers building local SVG
+  strings — no user input, established disposition),
+  `react-missing-key-prop` ×3, `global-variable` ×3 (`window.satellite`/
+  `window.Cesium` CDN globals), `react-optimization` ×2, `console-log` ×1
+  (intentional diagnostics), `try-catch-bulk`, `superfluous-type-
+  annotation`, `model-version-tracking` (word-in-comment).
+- `api/src/app/globe/lib/layers/satellites.ts` ×3 — new propagation path:
+  `expensive-computation-loop` ×2 (the main-thread FALLBACK catalogue/track
+  loops — moving them off-thread is precisely what the SGP4 worker does;
+  the fallback exists for no-Worker browsers), `try-catch-bulk` ×1 (the
+  per-TLE guard around satellite.js, which throws on decayed TLEs).
+- `api/src/lib/__tests__/worker-utils.test.ts` ×1 — `try-catch-bulk` on
+  the vm-context evaluation guard (test-only, shifted by the new SGP4
+  describe block).
+
+The first worker-script draft used `var` declarations and drew 50
+`var-declaration` findings; rewritten with const/let before commit, so
+those never reached the baseline. Baseline regenerated with
+`scripts/aegis_scan.sh update` after this entry (2,039 → 2,039: 33 stale
+line-drifted entries replaced by their shifted counterparts); gate re-run
+green locally before the push.

@@ -135,3 +135,38 @@ records the path).
 
 - 2026-10-10: plan written from the sweep receipts above. Phases A–F
   open.
+- 2026-10-10 (A): A1 mcp-server MCP-SDK 1.13.0→1.32.1 (prod-high
+  GHSA fix) + patch bumps, locks regenerated, suite green. A2 undici
+  override (dev-only chain) + TRIAGE entry. A3 react/react-dom
+  19.2.x→19.3.0 minor bump — regression arm is the CI unit-test job.
+  A4 pip-audit re-provisioned; python/cargo audit receipts clean.
+- 2026-10-10 (B): SECURITY.md policy added (supported versions,
+  reporting path); dependabot.yml for the mirror; docs-claims sweep
+  over the bump-affected claims.
+- 2026-10-10 (C): C1 landing theme flash — `data-theme` custom
+  properties, pre-paint, prefers-color-scheme probe rides ship.sh.
+  C2 globe chunk split — lazy non-boot tools, bundle-budget job now
+  verifies the delta. C3 premise-corrected: OZT2 decode measured
+  1-2 ms/tile async (not a long-task source; deferral recorded in
+  PERFORMANCE_PLAN P2-13) — real target was SGP4: ~6,050 synchronous
+  propagations per load + 1,500 per refresh moved into an inline Blob
+  worker via `importScripts("/vendor/satellite.min.js")`
+  (`propagateCatalogueInWorker`), main-thread fallback kept, 9 tests.
+  C4 explicit Cesium knobs (maximumScreenSpaceError 2, tileCacheSize
+  512 MB) with measured-default rationale; resolutionScale evaluated
+  out. C5 icons re-encoded 8-bit (76.5→18.6 KB, RMSE 0.05%); dead
+  hero CSS block removed after per-declaration shadowing check.
+  Also fixed en route: CI unit-test retry was dead under `set -e`
+  (first vitest failure would abort before `code=$?` and lose the
+  log with the container) — `|| code=$?` form + count guard.
+- 2026-10-10 (D): D1 `tileWindowBounds` extracted from profile/trace
+  (19L ×2, verbatim statement order; 6 tests). D2 `openHydroGrid`
+  opener over the hydro trio (~27L ×3; 7 tests; hostile-DEM 502
+  fixtures preserved by calling it inside each route's try).
+  D3 premise-corrected: the "GeoJSON response shaping" cluster was
+  actually the 502 catch tail — `errorResponse` extracted, 11 routes
+  rewired; `/api/elevation`'s different error contract and the studio
+  parser's message interpolation recorded as not-clones. jscpd census
+  4.19% → 4.09% (config run from repo root); named clusters gone.
+  Aegis: 40 line-drift re-flags triaged, baseline 2,039 → 2,041;
+  guard 115/1718 → 117/1731.

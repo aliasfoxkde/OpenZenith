@@ -4,16 +4,19 @@
  *
  * The three routes opened with the same four-step sequence — JSON parse,
  * lat/lon presence, coordinate validity, radius clamp — followed by the same
- * start-elevation gate. The steps now live here (cycle V, C3); each route
- * keeps only its HTTP response shaping and the body field unique to it
- * (streams' `threshold`). Defaults and clamp bounds are verbatim from the
- * routes: zoom 10, radius 100 clamped to [10, 200].
+ * start-elevation gate. The steps live here (cycle V, C3), joined in cycle VI
+ * (D2) by {@link openHydroGrid}, which chains them into the assembled DEM
+ * grid each route previously destructured from its own `assembleTerrainGrid`
+ * call. Each route keeps only its HTTP response shaping and the body field
+ * unique to it (streams' `threshold`). Defaults and clamp bounds are verbatim
+ * from the routes: zoom 10, radius 100 clamped to [10, 200].
  *
  * Mirrors the `elevation-params.ts` result convention: parse failure carries
  * the message; each route wraps it in its own response shape.
  */
 
-import { resolveStartElevation } from "./terrain-grid";
+import { assembleTerrainGrid, resolveStartElevation } from "./terrain-grid";
+import type { TerrainGrid } from "./terrain-grid";
 import { TERRAIN_NODATA } from "./terrain-grid";
 
 /** POST body of the hydrology family. Required fields are validated explicitly. */
@@ -64,4 +67,31 @@ export async function gateStartElevation(
     // Proceed — tile loading will catch missing data
   }
   return { ok: true };
+}
+
+/** Discriminated result of {@link openHydroGrid}: context on ok, message on failure. */
+export type HydroGridResult =
+  | ({ ok: true; grid: TerrainGrid } & Extract<HydroPrologue, { ok: true }>)
+  | { ok: false; message: string };
+
+/**
+ * The trio's full opener (cycle VI, D2): parse/validate → start-elevation
+ * gate → assembled DEM grid, replacing the identical parse-check, gate-check
+ * and `assembleTerrainGrid` destructure each route carried. Callers keep the
+ * HTTP shaping: a `!ok` result becomes their 400 body, and a throw from the
+ * grid assembly still reaches the route's own catch (the hostile-DEM 502
+ * fixtures depend on that), so call this inside the route's try block.
+ */
+export async function openHydroGrid(body: HydroRequestBody): Promise<HydroGridResult> {
+  const prologue = parseHydroPrologue(body);
+  if (!prologue.ok) return prologue;
+  const gate = await gateStartElevation(prologue.lat, prologue.lon);
+  if (!gate.ok) return gate;
+  const grid = await assembleTerrainGrid({
+    lat: prologue.lat,
+    lon: prologue.lon,
+    radius: prologue.radius,
+    zoom: prologue.zoom,
+  });
+  return { ...prologue, grid };
 }

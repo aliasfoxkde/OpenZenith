@@ -11,15 +11,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  TERRAIN_NODATA,
-  assembleTerrainGrid,
-  computeSlope,
-  d8FlowDirection,
-  decimateGrid,
-  flowAccumulation,
-} from "@/lib/terrain-grid";
-import { gateStartElevation, parseHydroPrologue } from "@/lib/hydro-params";
+import { TERRAIN_NODATA, computeSlope, d8FlowDirection, decimateGrid, flowAccumulation } from "@/lib/terrain-grid";
+import { openHydroGrid } from "@/lib/hydro-params";
+import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
 export const runtime = "edge";
@@ -44,31 +38,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  // Shared hydrology prologue (cycle V, C3): parse/validate + start-elevation gate.
-  const prologue = parseHydroPrologue(body);
-  if (!prologue.ok) {
-    return NextResponse.json({ error: prologue.message }, { status: 400, headers: CORS_HEADERS });
-  }
-  const { lat, lon, zoom, radius } = prologue;
-
-  const gate = await gateStartElevation(lat, lon);
-  if (!gate.ok) {
-    return NextResponse.json({ error: gate.message }, { status: 400, headers: CORS_HEADERS });
-  }
-
   try {
+    // Shared hydrology opener (cycle V C3 / cycle VI D2): parse/validate +
+    // start-elevation gate + assembled grid; !ok becomes the 400 body, a
+    // throw from the assembly falls through to the 502 catch below.
+    const opened = await openHydroGrid(body);
+    if (!opened.ok) {
+      return NextResponse.json({ error: opened.message }, { status: 400, headers: CORS_HEADERS });
+    }
+    const { lat, lon, zoom, radius } = opened;
     const {
       dem,
       rows: gridRows,
       cols: gridCols,
       cellSizeDeg,
       cellSizeM,
-    } = await assembleTerrainGrid({
-      lat,
-      lon,
-      radius,
-      zoom,
-    });
+    } = opened.grid;
 
     const flowDir = d8FlowDirection(dem, gridRows, gridCols, TERRAIN_NODATA);
     const accum = flowAccumulation(flowDir, gridRows, gridCols);
@@ -144,7 +129,6 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502, headers: CORS_HEADERS });
+    return errorResponse(err);
   }
 }

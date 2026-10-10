@@ -23,22 +23,43 @@ import type { SatFeature } from "./lib/layers/satellites";
 import { initCesiumViewer } from "./lib/cesium-init";
 import { applyLOD, type LODZone } from "./lib/lod";
 
+import dynamic from "next/dynamic";
 import { createToolManager, type ToolMode } from "./lib/tools/tools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { createElevationProfile, renderProfileChart, type ProfilePoint } from "./lib/tools/elevation-profile";
+import type { ProfilePoint } from "./lib/tools/elevation-profile";
 import { getAllFormats } from "./lib/tools/measure";
 import { useWidgetManager } from "./lib/widgets/useWidgetManager";
 import { WidgetShell } from "./lib/widgets/WidgetShell";
 import { WidgetBar } from "./lib/widgets/WidgetBar";
-import { BasemapWidget } from "./lib/widgets/BasemapWidget";
-import { LayersWidget } from "./lib/widgets/LayersWidget";
-import { ToolsWidget } from "./lib/widgets/ToolsWidget";
-import { SettingsWidget } from "./lib/widgets/SettingsWidget";
-import { createSpaceSceneManager } from "./lib/space-scene";
+// Non-boot surfaces are code-split on first use (perf plan P2-12): collapsed
+// widget bodies never mount until expanded (WidgetShell renders them only
+// when expanded), the context menu mounts only on right-click, and the
+// elevation-profile / space-scene engines load inside the Cesium init effect
+// instead of the page bundle. Type-only imports keep the managers' shapes
+// available to the refs below without pulling the modules into the chunk.
+const BasemapWidget = dynamic(() => import("./lib/widgets/BasemapWidget").then((m) => ({ default: m.BasemapWidget })), {
+  ssr: false,
+});
+const LayersWidget = dynamic(() => import("./lib/widgets/LayersWidget").then((m) => ({ default: m.LayersWidget })), {
+  ssr: false,
+});
+const ToolsWidget = dynamic(() => import("./lib/widgets/ToolsWidget").then((m) => ({ default: m.ToolsWidget })), {
+  ssr: false,
+});
+const SettingsWidget = dynamic(() => import("./lib/widgets/SettingsWidget").then((m) => ({ default: m.SettingsWidget })), {
+  ssr: false,
+});
+const ContextMenu = dynamic(() => import("./lib/components/ContextMenu").then((m) => ({ default: m.ContextMenu })), {
+  ssr: false,
+});
 import type { GlobeContext } from "./lib/widgets/types";
 import { getClientElevation } from "@/lib/client-elevation";
-import { ContextMenu } from "./lib/components/ContextMenu";
 import type { CtxMenuEntityInfo } from "./lib/components/ContextMenu";
+
+type ElevationProfileManager = ReturnType<
+  (typeof import("./lib/tools/elevation-profile"))["createElevationProfile"]
+>;
+type SpaceSceneManager = ReturnType<(typeof import("./lib/space-scene"))["createSpaceSceneManager"]>;
 import { HudOverlays } from "./lib/components/HudOverlays";
 import { Compass, OrbitPresets, ThemeSwitcher, ViewToggle, ZoomControls } from "./lib/components/chrome";
 import {
@@ -166,8 +187,8 @@ export default function Globe() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>("none");
   const toolManagerRef = useRef<ReturnType<typeof createToolManager> | null>(null);
-  const elevationProfileRef = useRef<ReturnType<typeof createElevationProfile> | null>(null);
-  const spaceSceneRef = useRef<ReturnType<typeof createSpaceSceneManager> | null>(null);
+  const elevationProfileRef = useRef<ElevationProfileManager | null>(null);
+  const spaceSceneRef = useRef<SpaceSceneManager | null>(null);
   const [profileData, setProfileData] = useState<ProfilePoint[] | null>(null);
   const [coordFormats, setCoordFormats] = useState<Record<string, string> | null>(null);
   const [showCoordPanel, setShowCoordPanel] = useState(true);
@@ -468,6 +489,12 @@ export default function Globe() {
         cesiumRef.current = Cesium;
         addCloudOverlayRef.current = addCloudOverlay;
         toolManagerRef.current = createToolManager(viewer, Cesium);
+        // P2-12: these two engines arrive with viewer init (never in the
+        // page bundle); their chunks load in parallel with the first frames.
+        const [{ createElevationProfile }, { createSpaceSceneManager }] = await Promise.all([
+          import("./lib/tools/elevation-profile"),
+          import("./lib/space-scene"),
+        ]);
         elevationProfileRef.current = createElevationProfile(viewer, Cesium);
         spaceSceneRef.current = createSpaceSceneManager(viewer, Cesium);
         setLoading(false);
@@ -696,13 +723,21 @@ export default function Globe() {
     };
   }, [zoomIn, zoomOut, resetView, toggleFullscreen, coordFormats]);
 
-  // Render elevation profile chart
+  // Render elevation profile chart. The chart renderer is code-split
+  // (P2-12): the module loads when the first profile data lands, and a stale
+  // resolve after unmount/new data is dropped via the cancelled flag.
   useEffect(() => {
     if (!profileCanvasRef.current || !profileData || profileData.length < 2) return;
-    const container = profileCanvasRef.current;
-    container.innerHTML = "";
-    const canvas = renderProfileChart(profileData, 480, 180);
-    container.appendChild(canvas);
+    let cancelled = false;
+    void import("./lib/tools/elevation-profile").then(({ renderProfileChart }) => {
+      const container = profileCanvasRef.current;
+      if (cancelled || !container) return;
+      container.innerHTML = "";
+      container.appendChild(renderProfileChart(profileData, 480, 180));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [profileData]);
 
   const flyToOrbit = useCallback((altKm: number, _label?: string) => {

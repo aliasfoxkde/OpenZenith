@@ -18,7 +18,7 @@ to avoid HTTPS chunk download overhead on each tile request.
 
 from typing import Any
 
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 
 
 # ─── Exception hierarchy ───────────────────────────────────────────────────────

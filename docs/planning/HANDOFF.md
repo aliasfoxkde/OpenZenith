@@ -1,5 +1,31 @@
 # OpenZenith handoff
 
+> **Update (2026-10-10, v0.9.4):** the fifth excellence plan
+> ([EXCELLENCE_PLAN_VI_2026-10-10.md](EXCELLENCE_PLAN_VI_2026-10-10.md),
+> tasks #240–#258, phases A–F) is executed end to end. Security: the
+> mcp-server's production-high MCP SDK CVE (GHSA-6qxp-vccf-f47h)
+> patched to 1.32.1, the api/ undici dev-chain override recorded in
+> TRIAGE, pip-audit re-provisioned with clean python/cargo audit
+> receipts, and the repo gained its security governance
+> (`docs/SECURITY.md` + mirror dependabot.yml). Performance: all five
+> open P2 items closed with measured receipts — landing theme flash
+> replaced by `data-theme` CSS tokens resolved pre-paint, non-boot
+> globe tools lazy-loaded, satellite SGP4 propagation moved into a
+> Blob worker (~6,050 propagations per load off the main thread;
+> OZT2 decode premise-corrected at 1–2 ms/tile — not a long-task
+> source), explicit Cesium cost knobs, 8-bit hero icons. Duplication:
+> `tileWindowBounds`, `openHydroGrid`, and `errorResponse` extracted
+> with 13 pinning tests; jscpd 4.19% → 4.09%. CI: the vitest retry was
+> dead under `set -e` (fixed), guard ratcheted 117/1731. Execution
+> policy change (user directive 2026-10-10): CI/test runs go through
+> GitForge on the fedora remote — swarmone no longer runs heavyweight
+> local suites (ship.sh stays the documented local deploy exception);
+> a GitForge zero-jobs strand was root-caused to sqlite
+> `database is locked` during job creation under co-tenant push load
+> and documented with its wait-then-re-push remedy (strands self-heal).
+> **v0.9.4 cut, tagged, GitHub-released, deployed via ship.sh,
+> prod-verified** (receipts in the plan's progress log).
+
 > **Update (2026-10-09, v0.9.3):** the fourth excellence plan
 > ([EXCELLENCE_PLAN_V_2026-10-08.md](EXCELLENCE_PLAN_V_2026-10-08.md),
 > tasks #231–#239, phases A–F) is executed end to end. Security first:

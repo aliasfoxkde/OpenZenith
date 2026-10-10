@@ -96,6 +96,6 @@ Only the following receive security fixes:
 | Branch / ref | Status |
 |---|---|
 | `main` | Supported — all fixes land here first |
-| latest tagged release (`v0.9.3` at this writing) | Supported — critical fixes are cherry-picked into a patch tag |
+| latest tagged release (`v0.9.4` at this writing) | Supported — critical fixes are cherry-picked into a patch tag |
 
 Older tags are not supported. There are no long-lived release branches.

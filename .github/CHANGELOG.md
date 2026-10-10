@@ -3,6 +3,47 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.4 (2026-10-10)
+
+22 commits since v0.9.3: excellence-cycle VI — the production-high MCP
+SDK CVE patched, security governance added (policy + mirror dependabot),
+all five open performance P2 items closed, the last named duplication
+clusters extracted, and the CI retry machinery fixed. No breaking
+changes.
+
+### Added
+- Security: `docs/SECURITY.md` — supported versions, reporting channel,
+  scope, and response expectations; `.github/dependabot.yml` for the
+  GitHub mirror (GitForge stays the gate of record).
+- API: shared kernels — `tileWindowBounds` (profile↔trace tile-window
+  math), `openHydroGrid` (hydro-trio opener), `errorResponse` (the 11
+  routes' shared 502 catch tail). 13 new kernel tests pin the contracts.
+- Globe: `propagateCatalogueInWorker` — satellite catalogue propagation
+  (SGP4) runs in an inline Blob worker, with a main-thread fallback.
+- Globe: explicit Cesium cost knobs (`maximumScreenSpaceError` 2,
+  `tileCacheSize` 512 MB) with measured-default rationale.
+
+### Fixed
+- Security: mcp-server `@modelcontextprotocol/sdk` 1.13.0 → 1.32.1
+  (GHSA-6qxp-vccf-f47h, production high); api/ undici dev-chain
+  override under miniflare (dev-only finding, TRIAGE-recorded).
+- Performance (P2 11–15): landing theme flash replaced with
+  `data-theme` CSS custom properties resolved pre-paint; non-boot globe
+  tools lazy-loaded behind `next/dynamic`; hero icons re-encoded 8-bit
+  (76.5 → 18.6 KB, RMSE 0.05%); dead 580px hero CSS removed. OZT2
+  decode was measured at 1–2 ms/tile async and recorded as not a
+  long-task source (P2-13 premise corrected; SGP4 was the real target).
+- CI: the unit-test job's retry was dead under `set -e` (first vitest
+  failure aborted before `code=$?` and lost the log with the container)
+  — `|| code=$?` form; test-count guard ratcheted 115/1709 → 117/1731.
+
+### Gates
+- jscpd duplication census 4.19% → 4.09% (named profile↔trace,
+  hydro-trio, and catch-tail clusters gone; `/api/elevation`'s
+  different error contract recorded as a not-clone).
+- Aegis re-baselined twice for extraction line drift (phase C and D);
+  gate green at 2,041 fingerprints.
+
 ## v0.9.3 (2026-10-09)
 
 10 commits since v0.9.2: excellence-cycle V — three production CVEs

@@ -404,7 +404,7 @@ const server = new McpServer({
   name: "openzenith",
   // Tracked alongside the api/ package — the MCP server is a thin client over
   // the same REST surface, so its releases ride the platform version.
-  version: "0.9.3",
+  version: "0.9.4",
   description: "Free geospatial API — elevation, weather, tides, address, waterways for any point on Earth. No API key required.",
 });
 

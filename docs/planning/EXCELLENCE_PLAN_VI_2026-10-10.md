@@ -170,3 +170,25 @@ records the path).
   4.19% → 4.09% (config run from repo root); named clusters gone.
   Aegis: 40 line-drift re-flags triaged, baseline 2,039 → 2,041;
   guard 115/1718 → 117/1731.
+- 2026-10-10 (E): gate receipts under the new execution policy (CI on
+  fedora, swarmone hosts only cheap static checks). GitForge run
+  66738487 (a406b25) exposed a real defect on the first fedora
+  unit-test exercise: the container-local materialization (b0473fe)
+  packs only `api/` into /build, while docs-claims.test.ts reads
+  repo-root README.md/CLAUDE.md — 3 arms failed "/build/README.md is
+  missing", retried consistently (the set -e retry fix worked as
+  designed). Fix bb756cd carries both files in api-deps.tar; run
+  769febc6 green 8/8 on fedora. Local receipts: eslint 0w/0e, tsc
+  clean, jscpd 4.09% census, openapi:check green. Carried from v0.9.3
+  (trees byte-identical since the tag — `git diff v0.9.3..HEAD --stat`
+  is empty for openzenith/ and core/): pytest 1,650 @ 99%, mypy +
+  interrogate 100%, ruff clean, clippy + core two-pass gate green.
+  Playwright rides ship.sh at deploy (documented non-CI gate). E3
+  perf re-measure: **still gated** — /proc/loadavg 45-50 all day
+  (co-tenant rustc/agent load), far above the <12 gate; no numbers
+  fabricated. GitForge ops learned en route: zero-jobs strands were
+  sqlite `database is locked` during job creation under co-tenant
+  push storms (trigger_requests.error holds the proof) and can
+  SELF-HEAL when contention subsides — wait ~15 min before re-pushing;
+  dispatch under saturation is FIFO across repos, so a run waits
+  behind co-tenant waves (5-slot runner).

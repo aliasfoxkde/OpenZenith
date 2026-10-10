@@ -107,12 +107,17 @@ jobs:
           # Sources only — small enough to stream through the bridge cheaply.
           mkdir -p /build
           tar cf - -C /workspace api --exclude=api/node_modules | tar xf - -C /build
+          # The docs-claims unit test reads repo-root docs from REPO_ROOT
+          # (DOCS in api/src/lib/__tests__/docs-claims.test.ts); /build is
+          # that root in the materialized layout, so carry them in the
+          # tarball. Add any future DOCS entry to this line too.
+          cp /workspace/README.md /workspace/CLAUDE.md /build/
           cd /build/api
           npm ci > /tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
           tail -3 /tmp/install.log
           # One big sequential file crosses the bridge fast; the 940MB of
           # node_modules never touch it as 50k small files.
-          tar cf /workspace/api-deps.tar -C /build api
+          tar cf /workspace/api-deps.tar -C /build api README.md CLAUDE.md
     needs: [aegis]
     # 2026-10-03/04: three consecutive infra-class install failures under
     # co-tenant load (2x infrastructure_failure with empty logs, 1x

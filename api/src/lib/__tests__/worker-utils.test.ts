@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import vm from "node:vm";
-import { computeProfileInWorker } from "../worker-utils";
+import { computeProfileInWorker, propagateCatalogueInWorker } from "../worker-utils";
 
 /**
  * computeProfileInWorker spins up an inline Web Worker from a Blob URL, which
@@ -19,6 +19,7 @@ type MessageHandler = (e: FakeMessageEvent) => void;
 interface FakeSelf {
   onmessage: MessageHandler | null;
   postMessage: (msg: unknown) => void;
+  satellite?: unknown;
 }
 
 const workerBlobs = new Map<string, Blob>();
@@ -26,6 +27,14 @@ const urlCalls: string[] = [];
 let lastBlob: Blob | null = null;
 /** Lets a test swap in a malformed worker script for the next worker. */
 let overrideBlob: Blob | null = null;
+/**
+ * Seeds the worker's fake scope the way the vendored satellite.js UMD build
+ * would: importScripts runs at evaluation time and populates self.satellite.
+ * Null means importScripts is absent from the scope entirely (ReferenceError
+ * inside the worker's try/catch); a function may seed nothing (vendor script
+ * missing) or install a fake satellite.js.
+ */
+let importScriptsImpl: ((selfObj: FakeSelf) => void) | null | undefined;
 
 class FakeWorker {
   /** When set, the next worker reports an error instead of a result. */
@@ -68,7 +77,14 @@ class FakeWorker {
       // Evaluate the worker source the way a real worker would: it registers a
       // handler on `self` and answers via self.postMessage(). A fresh vm context
       // gives the script its own globals, mirroring a dedicated worker scope.
-      vm.runInNewContext(script, { self: selfObj });
+      const sandbox: Record<string, unknown> = { self: selfObj };
+      const seed = importScriptsImpl;
+      if (seed != null) {
+        sandbox.importScripts = () => {
+          seed(selfObj);
+        };
+      }
+      vm.runInNewContext(script, sandbox);
     } catch (err) {
       this.onerror?.({ message: err instanceof Error ? err.message : String(err) });
       return;
@@ -91,6 +107,7 @@ beforeEach(() => {
   FakeWorker.failureMessage = null;
   lastBlob = null;
   overrideBlob = null;
+  importScriptsImpl = undefined;
   workerBlobs.clear();
   urlCalls.length = 0;
   vi.stubGlobal("Worker", FakeWorker);
@@ -210,6 +227,143 @@ describe("computeProfileInWorker", () => {
     await expect(computeProfileInWorker([0, 0], [1, 0])).rejects.toThrow(
       "worker never registered an onmessage handler",
     );
+    expect(FakeWorker.instances[0]?.terminated).toBe(true);
+  });
+});
+
+/**
+ * The SGP4 worker sources satellite.js itself via importScripts, so the fake
+ * below seeds a deterministic stand-in: for TLE line "L1-<idx>" every derived
+ * quantity is a pure function of idx, and ground-track longitudes move 1
+ * degree per elapsed minute — exact expectations with no orbital mechanics.
+ */
+
+/** TLE pair tagged with index `i`: fixes come back as [i, 2i, 3i], v = 5. */
+function tle(i: number): [string, string] {
+  return [`L1-${i}`, `L2-${i}`];
+}
+
+function seedFakeSatellite(selfObj: FakeSelf): void {
+  selfObj.satellite = {
+    twoline2satrec: (l1: string) => {
+      const idx = Number(l1.replace("L1-", ""));
+      if (Number.isNaN(idx)) throw new Error("malformed TLE");
+      return { idx };
+    },
+    propagate: (rec: { idx: number }, at: Date) => {
+      if (rec.idx === 2) return {}; // "decayed": no position/velocity
+      return {
+        position: { x: rec.idx === 0 ? rec.idx : at.getTime() / 60000, y: 0, z: 0 },
+        velocity: { x: 3, y: 4, z: 0 },
+      };
+    },
+    gstime: () => 0,
+    eciToGeodetic: (p: { x: number }) => ({ longitude: p.x, latitude: 2 * p.x, height: 3 * p.x }),
+    degreesLong: (r: number) => r,
+    degreesLat: (r: number) => r,
+  };
+}
+
+describe("propagateCatalogueInWorker", () => {
+  it("is exported", () => {
+    expect(typeof propagateCatalogueInWorker).toBe("function");
+  });
+
+  it("creates an inline worker sourcing the vendored satellite.js", async () => {
+    importScriptsImpl = seedFakeSatellite;
+    await propagateCatalogueInWorker([tle(0)], 6_000_000);
+
+    expect(FakeWorker.instances).toHaveLength(1);
+    const script = await workerScript();
+    expect(script).toContain("importScripts");
+    expect(script).toContain('"/vendor/satellite.min.js"');
+    expect(script).toContain("self.onmessage");
+    expect(lastBlob?.type).toBe("application/javascript");
+  });
+
+  it("sends the catalogue payload with an empty default track list", async () => {
+    importScriptsImpl = seedFakeSatellite;
+    await propagateCatalogueInWorker([tle(0), tle(1)], 6_000_000);
+
+    expect(FakeWorker.instances[0]?.received).toEqual({
+      tles: [
+        ["L1-0", "L2-0"],
+        ["L1-1", "L2-1"],
+      ],
+      atMs: 6_000_000,
+      trackIdx: [],
+    });
+  });
+
+  it("propagates fixes in catalogue order", async () => {
+    importScriptsImpl = seedFakeSatellite;
+    const result = await propagateCatalogueInWorker([tle(0), tle(1)], 6_000_000);
+
+    expect(result.fixes).toHaveLength(2);
+    expect(result.fixes[0]).toEqual({ coords: [0, 0, 0], velocity: 5 });
+    // idx 1 propagates at the catalogue epoch: 6,000,000 ms = 100 min.
+    expect(result.fixes[1]).toEqual({ coords: [100, 200, 300], velocity: 5 });
+    expect(result.tracks).toEqual([]);
+  });
+
+  it("returns null for malformed and decayed TLEs without dropping order", async () => {
+    importScriptsImpl = seedFakeSatellite;
+    const result = await propagateCatalogueInWorker(
+      [tle(1), ["garbage", "garbage"], tle(2), tle(3)],
+      6_000_000,
+    );
+
+    // fixes[1] (malformed -> throw) and fixes[2] (decayed -> no position) are
+    // null IN PLACE; the healthy entries keep their catalogue positions and
+    // the epoch-derived fix (the fake moves 1 degree per elapsed minute).
+    expect(result.fixes[0]).toEqual({ coords: [100, 200, 300], velocity: 5 });
+    expect(result.fixes[1]).toBeNull();
+    expect(result.fixes[2]).toBeNull();
+    expect(result.fixes[3]).toEqual({ coords: [100, 200, 300], velocity: 5 });
+  });
+
+  it("batch-propagates ground tracks at 2-minute steps across ±90 minutes", async () => {
+    importScriptsImpl = seedFakeSatellite;
+    const result = await propagateCatalogueInWorker([tle(0), tle(1)], 6_000_000, [1]);
+
+    // 91 samples of one degree-per-minute longitude, flat [lon, lat, ...].
+    expect(result.tracks).toHaveLength(1);
+    const pts = result.tracks[0]!;
+    expect(pts).toHaveLength(182);
+    expect(pts[0]).toBe(10); // 100 min - 90
+    expect(pts[1]).toBe(20);
+    expect(pts[2]).toBe(12); // 2 minutes later
+    expect(pts[180]).toBe(190); // 100 min + 90
+    expect(pts[181]).toBe(380);
+  });
+
+  it("rejects when the vendor script seeds no satellite.js", async () => {
+    // importScripts runs but the vendor file is missing: self.satellite stays
+    // undefined and the worker reports the failure as a rejection.
+    importScriptsImpl = () => {};
+
+    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow(
+      "satellite.js unavailable in worker",
+    );
+    expect(FakeWorker.instances[0]?.terminated).toBe(true);
+  });
+
+  it("rejects when importScripts itself is unavailable", async () => {
+    // importScriptsImpl null: the sandbox has no importScripts at all, so the
+    // worker's top-level try/catch absorbs the ReferenceError and the guard
+    // below reports the same failure.
+    importScriptsImpl = null;
+
+    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow(
+      "satellite.js unavailable in worker",
+    );
+    expect(FakeWorker.instances[0]?.terminated).toBe(true);
+  });
+
+  it("terminates the worker once the propagation arrives", async () => {
+    importScriptsImpl = seedFakeSatellite;
+    await propagateCatalogueInWorker([tle(0), tle(5)], 6_000_000, [1]);
+
     expect(FakeWorker.instances[0]?.terminated).toBe(true);
   });
 });

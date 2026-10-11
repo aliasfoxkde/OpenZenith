@@ -24,7 +24,7 @@ GitHub API (`gh`, authenticated as `aliasfoxkde`), the GitForge API at
 | Surface | Path | Version | Manifest anchor |
 | --- | --- | --- | --- |
 | Python SDK | `openzenith/`, `pyproject.toml` | 0.9.4 | `pyproject.toml` (hatch), six version sync points per plan VI F1 |
-| Rust core | `core/` (`openzenith-core`) | 0.1.0 | `core/Cargo.toml:3`; lints deny `unsafe_code`, `unwrap_used`, `expect_used`, `panic` (`core/Cargo.toml:8-19`) |
+| Rust core | `core/` (`openzenith-core`) | 0.1.0 | `core/Cargo.toml:3`; lints deny `unsafe_code`, `unwrap_used`, `expect_used`, `panic` (`core/Cargo.toml:9-20`) |
 | API + UI | `api/` (Next.js) | 0.9.4 | `api/package.json`; `next ^15.5.26`, `react ^19.3.0`, prod dep `cesium ^1.119.0` (`api/package.json:51`) |
 | MCP server | `mcp-server/` | 0.9.4 | `mcp-server/package.json`; `zod ^3.24.0` manifest, lock holds 3.25.76, `@modelcontextprotocol/sdk ^1.32.1` |
 
@@ -53,7 +53,15 @@ runner are repo-recorded ops learnings in plan VI progress log E
 the `.gitforge.yml` header. GitForge pipeline for this repo is live: `git
 ls-remote http://localhost:42782/bigdata-ci/OpenZenith.git HEAD` →
 `e4a87bf2` (same as origin). Latest recorded green run: `769febc6`
-8/8 on fedora for `a406b25` (repo-recorded, plan VI progress log E).
+8/8 on fedora (repo-recorded, plan VI progress log E). Which commit
+that run executed is **unverified**: the receipt was recorded when
+HEAD was `a406b25`, but that does not mean the run executed it — the
+accessible GitForge run list has no commit filter and the short run
+ID is not accepted as a lookup key, so no live run record was pulled
+for this audit. The recorded log also rules out `a406b25` itself: a
+same-commit run (`66738487`) failed there, and the fix `bb756cd`
+precedes the reported green 8/8 run. Stated as inference, not
+observation: the green run is `bb756cd` or a descendant.
 Merge policy for mirror PRs is explicit in `.github/dependabot.yml`:
 GitForge is the gate of record; a mirror PR is merged only after the
 merged result is pushed to the `gitforge` remote and its run watched.

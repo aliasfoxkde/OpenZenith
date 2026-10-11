@@ -43,11 +43,14 @@ commit itself.
 **Gate of record — GitForge.** `.gitforge.yml` (repo root) is the
 primary CI/CD definition: an 8-job linear chain on the single fedora
 runner (`bdcc23ed` at 192.168.1.202), sshfs-bridged workspace, no
-secrets mechanism, 64 KB per-step log cap. Its header documents the
-operational constraints (single-runner fleet rule after the
-2026-10-03 409 lease loop; sqlite `database is locked` zero-jobs
-strand that self-heals; FIFO dispatch across co-tenant repos on a
-5-slot runner). GitForge pipeline for this repo is live: `git
+secrets mechanism, 64 KB per-step log cap. Its header documents the runner topology
+and the single-runner fleet rule (the 2026-10-03 409 lease-supersede
+loop is the two-runner failure mode) — nothing else about queue
+behavior. The sqlite `database is locked` zero-jobs strand that
+self-heals, FIFO dispatch across co-tenant repos, and the 5-slot
+runner are repo-recorded ops learnings in plan VI progress log E
+(`docs/planning/EXCELLENCE_PLAN_VI_2026-10-10.md:189-194`), not in
+the `.gitforge.yml` header. GitForge pipeline for this repo is live: `git
 ls-remote http://localhost:42782/bigdata-ci/OpenZenith.git HEAD` →
 `e4a87bf2` (same as origin). Latest recorded green run: `769febc6`
 8/8 on fedora for `a406b25` (repo-recorded, plan VI progress log E).
@@ -139,7 +142,7 @@ The Actions-bump PRs (#16/#20/#21/#23) are the follow-up for both.
 
 | Lane | Status | Gate |
 | --- | --- | --- |
-| Rust core | Green per repo receipts (clippy + two-pass core gate, carried from v0.9.3; trees byte-identical `git diff v0.9.3..HEAD` for `openzenith/` and `core/`) | GitForge + local |
+| Rust core | Green per repo receipts (clippy + two-pass core gate, carried from v0.9.3 per plan VI progress log E, recorded when HEAD was `a406b25`); `openzenith/` and `core/` byte-identical to v0.9.3 through `a406b25` (`git diff v0.9.3..a406b25 -- openzenith/ core/` is empty); the sole delta from `a406b25` to audit HEAD `e4a87bf2` is the release commit's own version line (`openzenith/__init__.py` `__version__` 0.9.3→0.9.4, one line; `core/` diff empty), so the carried receipts are unaffected | GitForge + local |
 | Python SDK | Tests green per receipts, but **tag validation broken by the pytest-cov defect** on every tag since v0.9.0 | GitForge; mirror tag-validate red |
 | API/UI | Green per receipts (eslint 0w/0e, tsc clean, vitest 1,704+5 / 115 files, prod E2E 97/97, ship 26/26 — repo-recorded 2026-10-09/10) | GitForge + ship.sh |
 | MCP server | GHSA-6qxp-vccf-f47h patched (SDK 1.32.1, plan VI A1) | GitForge |
@@ -294,9 +297,12 @@ acceptance: the 21 mcp-server contract tests green (plan VI A1's arm).
   GitForge `ls-remote` → `e4a87bf2`.
 - In-tree anchors: `pyproject.toml:198` (addopts) and `[project.optional-dependencies] dev`
   (no pytest-cov); `api/package.json:51` (cesium); `.github/dependabot.yml`
-  (merge policy); `.gitforge.yml` header (runner topology, run `769febc6`
-  reference); `docs/planning/EXCELLENCE_PLAN_VI_2026-10-10.md` (gap
-  register G1–G11, phases A–F, progress log);
+  (merge policy); `.gitforge.yml` header (runner topology,
+  single-runner fleet rule, 2026-10-03 409 lease loop);
+  `docs/planning/EXCELLENCE_PLAN_VI_2026-10-10.md` (gap register
+  G1–G11, phases A–F; progress log E: run `769febc6` green 8/8
+  receipt at `:181`, sqlite `database is locked` self-heal /
+  FIFO dispatch / 5-slot runner at `:189-194`);
   `docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md`; `docs/PUBLISHING.md`;
   `scripts/ship.sh`.
 - codebase-memory: project `nas-Temp-repos-OpenZenith`, 11,439 nodes /

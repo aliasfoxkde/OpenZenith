@@ -9,6 +9,22 @@ its own pipeline, and VIVERE stays experimental and fully separate; no
 gate, receipt, or finding in this document transfers across those
 boundaries.
 
+> Revision receipt (2026-10-11, from independent review): plan VI
+> registered as the current cycle in `docs/README.md` and `docs/CLAUDE.md`
+> — both indexes had directed readers to stale plan revisions; the README
+> reading order now puts current state before superseded plans and its
+> sweep date is refreshed (including the stale "P2 open" line, corrected
+> against the 2026-10-10 cycle-VI receipts recorded in
+> `docs/planning/HANDOFF.md`). The cesium dependency wording is corrected
+> to "prod-shipping dependency declared under `devDependencies`": the
+> `api/package.json:51` anchor is inside the devDependencies block and
+> `api/scripts/copy-vendor-assets.mjs` stages the assets into the deploy
+> output, so the stated risk is unchanged. RELIABILITY_GAPS item 11 stays
+> where it is: the register groups items by priority tier with
+> chronological durable IDs, so its P0 position is correct and any move
+> would renumber or regroup. No claims re-measured; evidence anchors and
+> observed-vs-inferred labels untouched.
+
 Prepared by the Platform-Architecture execution worker. Audit method:
 codebase-memory graph (`nas-Temp-repos-OpenZenith`, 11,439 nodes /
 31,159 edges) for architecture shape, then live evidence from the
@@ -27,7 +43,7 @@ commits (see §7).
 | --- | --- | --- | --- |
 | Python SDK | `openzenith/`, `pyproject.toml` | 0.9.4 | `pyproject.toml` (hatch), six version sync points per plan VI F1 |
 | Rust core | `core/` (`openzenith-core`) | 0.1.0 | `core/Cargo.toml:3`; lints deny `unsafe_code`, `unwrap_used`, `expect_used`, `panic` (`core/Cargo.toml:9-20`) |
-| API + UI | `api/` (Next.js) | 0.9.4 | `api/package.json`; `next ^15.5.26`, `react ^19.3.0`, prod dep `cesium ^1.119.0` (`api/package.json:51`) |
+| API + UI | `api/` (Next.js) | 0.9.4 | `api/package.json`; `next ^15.5.26`, `react ^19.3.0`; `cesium ^1.119.0` — prod-shipping dependency (the build's vendor-asset copy stages it into the deploy output) declared under `devDependencies` (`api/package.json:51`) |
 | MCP server | `mcp-server/` | 0.9.4 | `mcp-server/package.json`; `zod ^3.24.0` manifest, lock holds 3.25.76, `@modelcontextprotocol/sdk ^1.32.1` |
 
 Per `AGENTS.md`: the surfaces are versioned and validated independently
@@ -215,7 +231,8 @@ PRs #17, #18, #19 show a **failing Cloudflare Pages** check (only PRs
 in the range with a red preview; all others green). #18/#19 are
 expected (gated migrations). #17 matters because it presents as a safe
 group: primary suspect is the hidden `cesium 1.119.0 → 1.146.0`
-jump — a prod engine bumped 27 minor versions inside a
+jump — a prod-shipping engine (declared under `devDependencies`, vendored
+into the deploy output at build time) bumped 27 minor versions inside a
 "minor-and-patch" group (Pages build log not retrievable from here; no
 Cloudflare access).
 
@@ -321,7 +338,9 @@ acceptance: the 21 mcp-server contract tests green (plan VI A1's arm).
   `pypi.org/pypi/openzenith` → 404; `pypi.org/pypi/openzenith-sdk` → 404;
   GitForge `ls-remote` → `e4a87bf2`.
 - In-tree anchors: `pyproject.toml:198` (addopts) and `[project.optional-dependencies] dev`
-  (no pytest-cov); `api/package.json:51` (cesium); `.github/dependabot.yml`
+  (no pytest-cov); `api/package.json:51` (cesium, `devDependencies`; shipped
+  via the build's vendor-asset copy, `api/scripts/copy-vendor-assets.mjs`);
+  `.github/dependabot.yml`
   (merge policy); `.gitforge.yml` header (runner topology,
   single-runner fleet rule, 2026-10-03 409 lease loop);
   `docs/planning/EXCELLENCE_PLAN_VI_2026-10-10.md` (gap register

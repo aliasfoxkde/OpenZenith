@@ -4,7 +4,7 @@ Read in this order. Every number in these docs is derived from the code and
 config (registry, route count, CI gates) — if a doc and the code disagree,
 the code wins and the doc is wrong.
 
-Last swept: 2026-10-04
+Last swept: 2026-10-11
 
 ## Reading order
 
@@ -14,15 +14,16 @@ Last swept: 2026-10-04
 4. [`DATASET_MANIFEST.md`](DATASET_MANIFEST.md) — every elevation dataset: source, format, tile counts, validation status.
 5. [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to add elevation data to the dataset.
 6. [`security/TRIAGE.md`](security/TRIAGE.md) — Aegis scan policy: what gets fixed vs baselined, and the findings register.
-7. [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) — the current work queue (gaps F-1…F-18, phased).
-8. [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) — the long-running plan and its dated progress log (what landed, when, with evidence).
-9. [`planning/PERFORMANCE_PLAN_2026-10-02.md`](planning/PERFORMANCE_PLAN_2026-10-02.md) — performance state: P0/P1 executed, P2 open, each item evidence-anchored.
-10. [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) — process gaps and the deploy-then-verify-prod definition of done.
-11. [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) — pending stack decision: Next.js 16 + OpenNext (scoping only, nothing migrated).
-12. [`planning/IMPROVEMENT_PLAN_2026-09-21.md`](planning/IMPROVEMENT_PLAN_2026-09-21.md) — the previous completed cycle, kept as context for why things look the way they do.
-13. [`handoffs/2026-10-11-integration-release-readiness-handoff.md`](handoffs/2026-10-11-integration-release-readiness-handoff.md) — integration/release readiness audit (2026-10-11): what actually gates what, the root-caused tag-validate defect, Dependabot #10–#24 triage, phased closeout plan.
-14. [`planning/HANDOFF.md`](planning/HANDOFF.md) — what the last session left unfinished.
-15. [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) — spec/proposal for a community tile repository (not built — see its header).
+7. [`handoffs/2026-10-11-integration-release-readiness-handoff.md`](handoffs/2026-10-11-integration-release-readiness-handoff.md) — integration/release readiness audit (2026-10-11): what actually gates what, the root-caused tag-validate defect, Dependabot #10–#24 triage, and the phased closeout plan — the current work queue.
+8. [`planning/HANDOFF.md`](planning/HANDOFF.md) — what the last session left unfinished.
+9. [`planning/EXCELLENCE_PLAN_VI_2026-10-10.md`](planning/EXCELLENCE_PLAN_VI_2026-10-10.md) — the current excellence cycle (VI: prod CVE, security governance, perf P2 closure, duplication kernels), executed end to end and shipped as v0.9.4; carries the G1–G11 gap register.
+10. [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) — the long-running plan and its dated progress log (what landed, when, with evidence).
+11. [`planning/PERFORMANCE_PLAN_2026-10-02.md`](planning/PERFORMANCE_PLAN_2026-10-02.md) — performance state: P0/P1 executed 2026-10-02, P2 items 11–15 closed in cycle VI (2026-10-10 receipts), each item evidence-anchored.
+12. [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) — process gaps and the deploy-then-verify-prod definition of done (item 11, the release tag gate, is open).
+13. [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) — pending stack decision: Next.js 16 + OpenNext (scoping only, nothing migrated).
+14. [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) — prior excellence plan (gaps F-1…F-18), executed through Phase 8 (v0.9.0); superseded register kept for lineage.
+15. [`planning/IMPROVEMENT_PLAN_2026-09-21.md`](planning/IMPROVEMENT_PLAN_2026-09-21.md) — the previous completed cycle, kept as context for why things look the way they do.
+16. [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) — spec/proposal for a community tile repository (not built — see its header).
 
 ## Archive
 

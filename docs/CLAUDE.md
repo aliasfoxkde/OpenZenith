@@ -25,7 +25,7 @@ When documents conflict: **repo-root `CLAUDE.md`** > **canonical docs below** >
 | [`planning/EXCELLENCE_PLAN_2026-10-07.md`](planning/EXCELLENCE_PLAN_2026-10-07.md) | Prior excellence plan (cycles I–III, waves 1–8) — executed and shipped; closeout log inside |
 | [`planning/EXCELLENCE_PLAN_2026-10-06.md`](planning/EXCELLENCE_PLAN_2026-10-06.md) | Prior excellence plan (gaps G-1…G-5) — executed |
 | [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) | Prior excellence plan (gaps F-1…F-18) — executed through Phase 8; superseded register kept for lineage |
-| [`planning/PERFORMANCE_PLAN_2026-10-02.md`](planning/PERFORMANCE_PLAN_2026-10-02.md) | Performance deep-dive: P0/P1 executed 2026-10-02, P2 open, evidence-anchored |
+| [`planning/PERFORMANCE_PLAN_2026-10-02.md`](planning/PERFORMANCE_PLAN_2026-10-02.md) | Performance deep-dive: P0/P1 executed 2026-10-02, P2 items 11–15 closed in cycle VI (2026-10-10 receipts), evidence-anchored |
 | [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) | Reliability/process gap register (deploy+verify policy, open items) |
 | [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) | Next.js 16 + OpenNext migration scoping — decision required, nothing migrated |
 | [`planning/IMPROVEMENT_PLAN_2026-09-21.md`](planning/IMPROVEMENT_PLAN_2026-09-21.md) | Prior improvement cycle (Phases 1–7, complete) with progress log |

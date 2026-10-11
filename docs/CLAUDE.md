@@ -17,6 +17,7 @@ When documents conflict: **repo-root `CLAUDE.md`** > **canonical docs below** >
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contributing elevation data to the v2 dataset |
 | [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) | The companion `openzenith-data` community tile repository (spec/proposal, not built) |
 | [`security/TRIAGE.md`](security/TRIAGE.md) | Aegis security-findings triage and baseline policy |
+| [`handoffs/2026-10-11-integration-release-readiness-handoff.md`](handoffs/2026-10-11-integration-release-readiness-handoff.md) | Integration/release readiness audit (2026-10-11): CI/release gate map, root-caused tag-validate defect (pytest-cov extras omission), Dependabot #10–#24 triage, phased closeout plan |
 | [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) | Phased improvement plan and progress log (superseded as the active queue, kept for its data-modeling reference) |
 | [`planning/EXCELLENCE_PLAN_V_2026-10-08.md`](planning/EXCELLENCE_PLAN_V_2026-10-08.md) | **Current** phased excellence plan (cycle V: prod CVEs, PyPI distribution truth, `noUncheckedIndexedAccess`, duplication kernels) |
 | [`planning/EXCELLENCE_PLAN_IV_2026-10-07.md`](planning/EXCELLENCE_PLAN_IV_2026-10-07.md) | Prior excellence plan (cycle IV: strictness gates, terrain-route kernel, docs coverage) — executed, shipped as v0.9.2 |

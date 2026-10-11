@@ -29,6 +29,21 @@ verified `gitforge auth --login`, then watch the first push-triggered run
 on :42781. E2E/deploy/aegis/cargo/pytest deliberately stay local gates
 (see the header of `.gitforge.yml` for why).
 
+### 11. Release tag gate red on every tag since v0.9.0 — `pytest-cov` missing from the `dev` extra (found 2026-10-11)
+Item 7's nit below is now a confirmed release-gate defect.
+`pyproject.toml:198` injects `--cov=openzenith --cov-report=term-missing
+--cov-fail-under=99` into every pytest invocation via addopts, but
+`pytest-cov` is absent from the `dev` extra (`pyproject.toml:54-60`), so
+in any clean environment pytest exits 4 before collecting. Observed: the
+`publish-pypi.yml` tag-validate job failed on every tag since v0.9.0
+(runs `37357396864`, `37460992927`, `37771523365`, `37997899602`,
+`38059857172` — job-level `failure` each); the exit-4 signature is
+log-verified for v0.9.4 only (job `114235722933`, 2026-10-10). The same
+latent defect sits in `.github/workflows/ci.yml` `python-test`. **Fix
+(one line):** add `pytest-cov>=4.1` to the `dev` extra, then re-validate
+a tag — Phase 0.1 of
+[`../handoffs/2026-10-11-integration-release-readiness-handoff.md`](../handoffs/2026-10-11-integration-release-readiness-handoff.md).
+
 ## P1 — Product correctness
 
 ### 3. Fallible API routes without try/catch — RETRACTED (false positive)

@@ -20,8 +20,9 @@ Last swept: 2026-10-04
 10. [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) — process gaps and the deploy-then-verify-prod definition of done.
 11. [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) — pending stack decision: Next.js 16 + OpenNext (scoping only, nothing migrated).
 12. [`planning/IMPROVEMENT_PLAN_2026-09-21.md`](planning/IMPROVEMENT_PLAN_2026-09-21.md) — the previous completed cycle, kept as context for why things look the way they do.
-13. [`planning/HANDOFF.md`](planning/HANDOFF.md) — what the last session left unfinished.
-14. [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) — spec/proposal for a community tile repository (not built — see its header).
+13. [`handoffs/2026-10-11-integration-release-readiness-handoff.md`](handoffs/2026-10-11-integration-release-readiness-handoff.md) — integration/release readiness audit (2026-10-11): what actually gates what, the root-caused tag-validate defect, Dependabot #10–#24 triage, phased closeout plan.
+14. [`planning/HANDOFF.md`](planning/HANDOFF.md) — what the last session left unfinished.
+15. [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) — spec/proposal for a community tile repository (not built — see its header).
 
 ## Archive
 

@@ -13,9 +13,11 @@ Prepared by the Platform-Architecture execution worker. Audit method:
 codebase-memory graph (`nas-Temp-repos-OpenZenith`, 11,439 nodes /
 31,159 edges) for architecture shape, then live evidence from the
 GitHub API (`gh`, authenticated as `aliasfoxkde`), the GitForge API at
-`http://localhost:42782`, PyPI, and a clean NVMe clone at
+`http://localhost:42782`, PyPI, and a clean NVMe clone checked out at
 `e4a87bf2e67caf71559a6544300dc46485c070fe` (= `origin/main`, = tag
-`v0.9.4`).
+`v0.9.4`). That SHA is the audit's evidence base, not this document's
+PR head: the branch has since advanced past `e4a87bf2` with docs-only
+commits (see §7).
 
 ---
 
@@ -77,7 +79,7 @@ all headed "NON-AUTHORITATIVE … best-effort mirror check":
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | startup failure, every retained run (≥40 runs, 2026-10-08→10); zero jobs ever created; **no successful run in retained history** | run `38059856014` (main, 2026-10-10T14:30:16Z): "This run likely failed because of a workflow file issue"; `GET /actions/runs/…/jobs` empty; last-success query empty |
 | `.github/workflows/codeql.yml` | same startup-failure signature | run `38059855179` (main, same timestamp) |
-| `.github/workflows/publish-pypi.yml` | runs, but **fails at the Test step on every tag since v0.9.0** | runs on v0.9.0 `37357396864`, v0.9.1 `37460992927`, v0.9.2 `37771523365`, v0.9.3 `37997899602`, v0.9.4 `38059857172` — all `failure` |
+| `.github/workflows/publish-pypi.yml` | runs, but **its tag-validate job has failed on every tag since v0.9.0** — job-level `failure` observed on all five runs; the exit-4 Test-step cause below is log-verified for v0.9.4 only | v0.9.0 `37357396864` (job `publish`), v0.9.1 `37460992927` (`publish`), v0.9.2 `37771523365` (`publish`), v0.9.3 `37997899602` (`validate-build`), v0.9.4 `38059857172` (`validate-build`) — one job per run, every job `failure` |
 
 The only automated per-PR check on GitHub is the **Cloudflare Pages**
 deploy preview (external app, not GitHub Actions).
@@ -106,6 +108,13 @@ python -m pytest: error: unrecognized arguments: --cov=openzenith
   --cov-report=term-missing --cov-fail-under=99   (exit code 4)
 ```
 
+Proof scope: that signature is read from the v0.9.4 job log, whose
+"Install SDK with all extras" step (`pip install -e .[all,dev]`)
+succeeded before the Test step died — the extras install cleanly
+without pytest-cov. The failure itself is observed at job level on
+every tag since v0.9.0 (table above), but the v0.9.0–v0.9.3 logs were
+not pulled for this audit: there the cause is inferred, not observed.
+
 Cause chain, both halves verified in-tree:
 
 1. `pyproject.toml:198` — `[tool.pytest.ini_options] addopts` injects
@@ -128,8 +137,8 @@ moment the mirror workflow starts.
 
 GitHub reports "workflow file issue" for `ci.yml`/`codeql.yml` while
 `publish-pypi.yml` runs in the same account/repo seconds later — so
-Actions billing and runners are healthy. Local elimination, at HEAD
-`e4a87bf2`: all three files parse clean under `yaml.safe_load` **and**
+Actions billing and runners are healthy. Local elimination, at audit
+HEAD `e4a87bf2`: all three files parse clean under `yaml.safe_load` **and**
 under a duplicate-key-rejecting loader (GitHub rejects duplicate keys
 that PyYAML silently accepts). Action refs are all public
 (`actions/checkout@v4`, `setup-python@v5`, `setup-node@v4`,
@@ -151,8 +160,8 @@ The Actions-bump PRs (#16/#20/#21/#23) are the follow-up for both.
 | Lane | Status | Gate |
 | --- | --- | --- |
 | Rust core | Green per repo receipts (clippy + two-pass core gate, carried from v0.9.3 per plan VI progress log E, recorded when HEAD was `a406b25`); `openzenith/` and `core/` byte-identical to v0.9.3 through `a406b25` (`git diff v0.9.3..a406b25 -- openzenith/ core/` is empty); the sole delta from `a406b25` to audit HEAD `e4a87bf2` is the release commit's own version line (`openzenith/__init__.py` `__version__` 0.9.3→0.9.4, one line; `core/` diff empty), so the carried receipts are unaffected | GitForge + local |
-| Python SDK | Tests green per receipts, but **tag validation broken by the pytest-cov defect** on every tag since v0.9.0 | GitForge; mirror tag-validate red |
-| API/UI | Green per receipts (eslint 0w/0e, tsc clean, vitest 1,704+5 / 115 files, prod E2E 97/97, ship 26/26 — repo-recorded 2026-10-09/10) | GitForge + ship.sh |
+| Python SDK | Tests green per receipts, but **tag validation red on every tag since v0.9.0** (job-level failure observed; the exit-4 pytest-cov cause is log-verified for v0.9.4 only — see §2) | GitForge; mirror tag-validate red |
+| API/UI | Green per receipts, two distinct vintages. **At the v0.9.4 cut (2026-10-10):** eslint 0w/0e, tsc clean, jscpd 4.09%, openapi:check green (plan VI progress log E `:181-182`), and GitForge run `769febc6` green 8/8 on fedora including the vitest job under the completeness guard ratcheted to 117 files / 1,731 tests (`:172`, enforced in `.gitforge.yml`; run receipt at `:181` — executed commit unverified, see §2). **Carried from the v0.9.3 closeout (2026-10-09):** vitest 1,704+5 / 115 files (`:12`), prod E2E 97/97 and ship 26/26 (`:15-16`) — recorded before cycle VI's 31-file `api/` delta (`git diff v0.9.3..v0.9.4 --stat -- api/`: +910/−353), so these are baseline receipts for the surface, not v0.9.4 re-measurements | GitForge + ship.sh |
 | MCP server | GHSA-6qxp-vccf-f47h patched (SDK 1.32.1, plan VI A1) | GitForge |
 | GitHub mirror CI | **Red — no signal** (startup failures) | — |
 | Cloudflare previews | Working; failures on PRs #17/#18/#19 are the only PR-level signal that fires | Pages build |
@@ -295,11 +304,19 @@ acceptance: the 21 mcp-server contract tests green (plan VI A1's arm).
 ## 7. Evidence index
 
 - Clean clone: `/home/mkinney/worktrees/openzenith-readiness-handoff-20261011`
-  at `e4a87bf2e67caf71559a6544300dc46485c070fe` (branch, see PR).
+  (this PR's branch). Audit evidence was gathered with it checked out
+  at `e4a87bf2e67caf71559a6544300dc46485c070fe` — still `origin/main`
+  and tag `v0.9.4` at closeout (re-verified 2026-10-11) — and every
+  in-tree anchor below was read at that SHA. The PR head is **not**
+  `e4a87bf2`: the branch has advanced past it with docs-only commits
+  (this document, the docs indexes, and the open-items registers);
+  `git diff e4a87bf2..HEAD` touches no file an anchor points into, so
+  `e4a87bf2` cites the audited tree, not HEAD.
 - GitHub runs: `38059856014` (ci.yml main), `38059855179` (codeql main),
   `38059857172`/job `114235722933` (v0.9.4 tag validate + pytest exit-4
-  log), tag-validate series `37357396864`/`37460992927`/`37771523365`/
-  `37997899602` (v0.9.0–v0.9.3).
+  log; "Test" step, prior steps green), tag-validate series
+  `37357396864`/`37460992927`/`37771523365`/`37997899602` (v0.9.0–v0.9.3;
+  job-level `failure` confirmed per run, logs not pulled).
 - API responses (2026-10-11): branches/main/protection → 404;
   `pypi.org/pypi/openzenith` → 404; `pypi.org/pypi/openzenith-sdk` → 404;
   GitForge `ls-remote` → `e4a87bf2`.
@@ -308,8 +325,12 @@ acceptance: the 21 mcp-server contract tests green (plan VI A1's arm).
   (merge policy); `.gitforge.yml` header (runner topology,
   single-runner fleet rule, 2026-10-03 409 lease loop);
   `docs/planning/EXCELLENCE_PLAN_VI_2026-10-10.md` (gap register
-  G1–G11, phases A–F; progress log E: run `769febc6` green 8/8
-  receipt at `:181`, sqlite `database is locked` self-heal /
+  G1–G11, phases A–F; 2026-10-09 v0.9.3-baseline gate receipts —
+  vitest 1,704+5 / 115 files at `:12`, prod E2E 97/97 and ship 26/26
+  at `:15-16`; progress log E: completeness-guard ratchet to 117 files
+  / 1,731 tests at `:172`, run `769febc6` green 8/8 and eslint 0w/0e +
+  tsc clean receipts at `:181-182`, Playwright rides ship.sh at
+  `:186`, sqlite `database is locked` self-heal /
   FIFO dispatch / 5-slot runner at `:189-194`);
   `docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md`; `docs/PUBLISHING.md`;
   `scripts/ship.sh`.

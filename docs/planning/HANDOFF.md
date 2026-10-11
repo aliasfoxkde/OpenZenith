@@ -265,3 +265,11 @@ WASM must be tested with fixtures rather than inferred from source presence.
    Policy from here: mcp-server version bumps ride every release cut in
    lockstep with `api/package.json` and `openzenith/__init__.py` (v0.9.2
    missed this — the package sat at 0.9.1; corrected in v0.9.3).
+5. **Release tag gate red since v0.9.0** (found 2026-10-11): every
+   `publish-pypi.yml` tag-validate run has failed at job level since
+   v0.9.0 (exit-4 cause log-verified for v0.9.4 only). Root cause and
+   one-line fix registered as item 11 in
+   [RELIABILITY_GAPS_2026-10-01.md](RELIABILITY_GAPS_2026-10-01.md);
+   full analysis and phased plan in the readiness handoff
+   ([../handoffs/2026-10-11-integration-release-readiness-handoff.md](../handoffs/2026-10-11-integration-release-readiness-handoff.md),
+   Phase 0.1).

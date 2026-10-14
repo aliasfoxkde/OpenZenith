@@ -158,8 +158,7 @@
 > ([NEXTJS16_OPENNEXT_MIGRATION.md](NEXTJS16_OPENNEXT_MIGRATION.md)) and
 > the pipeline activation login above.
 
-**Evidence boundary:** branch `docs/register-openzenith-handoff-20260901`;
-base `main` at `f55f465` before this documentation-only change.
+**Evidence boundary (central audit):** branch `main`, HEAD `e4a87bf2e67caf71559a6544300dc46485c070fe`, 0 dirty status entries. (Registration history: first recorded on docs branch `docs/register-openzenith-handoff-20260901`, base `main` at `f55f465`, documentation-only.)
 **Status:** active; deployed to Cloudflare Pages
 (https://openzenith.cyopsys.com) and released through v0.8.3 with
 enforced quality gates (see the 2026-09-22 update below). Offline and

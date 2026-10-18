@@ -49,7 +49,7 @@
     "@types/react-dom": "^19.1.5",
     "@vitest/coverage-v8": "^5.0.2",
     "cesium": "^1.119.0",
-    "eslint": "^9.39.4",
+    "eslint": "^10.12.0",
     "eslint-config-next": "^16.2.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsdoc": "^65.2.0",

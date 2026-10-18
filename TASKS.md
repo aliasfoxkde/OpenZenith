@@ -10,8 +10,8 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 - [ ] | T-004 | P2 | Phase VII: eslint 9→10 upgrade (api + mcp-server) :: next: BLOCKED — eslint 10 requires typescript-eslint with TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 (typescript-eslint TS7 support)
 - [ ] | T-005 | P2 | Phase VII: zod 3→4 upgrade (mcp-server) :: next: BLOCKED — zod 4 needs typescript-eslint TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002
 - [ ] | T-006 | P2 | Phase VII: satellite.js 5→7 upgrade (api) :: next: BLOCKED — satellite.js 7 needs TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002
-- [ ] | T-007 | P3 | Phase VII: Python SDK pip audit (fedora) :: next: On fedora: pip-audit; pip list --outdated; record findings in plan. :: status: blocked :: updated: 2026-10-19
-- [ ] | T-008 | P3 | Phase VII: cargo audit (fedora) :: next: On fedora: cargo audit -d core/; record 76-dep vulnerability scan result. :: status: blocked :: updated: 2026-10-19
+- [x] | T-007 | P3 | Phase VII: Python SDK pip audit (fedora) :: next: On fedora: pip-audit; pip list --outdated; record findings in plan. :: status: done (84 vulns, 15 pkgs on fedora 2026-10-18) :: updated: 2026-10-19
+- [x] | T-008 | P3 | Phase VII: cargo audit (fedora) :: next: On fedora: cargo audit -d core/; record 76-dep vulnerability scan result. :: status: done (0 vulns, 76 crates on fedora 2026-10-18) :: updated: 2026-10-19
 
 ## Completed tasks
 

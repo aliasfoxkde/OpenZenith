@@ -5,11 +5,11 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 
 ## TASKS
 
-- [ ] | T-002 | P1 | Phase VII: typescript 5→7 upgrade (api + mcp-server) :: next: Phase 1 committed (4d25579): TS 7.0.2, eslint 10, satellite.js 7, zod 4, cesium 1.146, vite 8; phase 2: verify tsc --noEmit on fedora, fix TS7 errors; phase 3: eslint fix-flat-config violations; phase 4: zod 4 breaking changes; phase 5: satellite.js 7 SGP4 verification via ship.sh :: status: in-progress :: updated: 2026-10-19
+- [ ] | T-002 | P1 | Phase VII: typescript 5→7 upgrade (api + mcp-server) :: next: BLOCKED — typescript-eslint 8.71.x supports TS <6.1.0; TS jumped 5.9.3→7.0.2 with no 6.x release. Track: https://github.com/typescript-eslint/typescript-eslint/issues/10940. Once upstream adds TS7 support, bump typescript-eslint first, then re-attempt TS7. :: status: blocked :: updated: 2026-10-19
 - [x] | T-003 | P1 | Phase VII: GitHub security — investigate moderate vulnerability (dependabot #2) :: next: Visit https://github.com/aliasfoxkde/OpenZenith/security/dependabot/2; assess; fix or document. :: status: done (all advisories fixed; T-002 unblocks first) :: updated: 2026-10-19
-- [ ] | T-004 | P2 | Phase VII: eslint 9→10 upgrade (api + mcp-server) :: next: Run eslint src/ --max-warnings=0 on fedora; fix any flat-config violations; verify 0w/0e. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 full verification
-- [ ] | T-005 | P2 | Phase VII: zod 3→4 upgrade (mcp-server) :: next: Run mcp-server vitest suite; fix ZodSchema breaking changes. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 full verification
-- [ ] | T-006 | P2 | Phase VII: satellite.js 5→7 upgrade (api) :: next: Run ship.sh (Playwright E2E + globe suite); verify SGP4 Blob worker numerically equivalent. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 full verification
+- [ ] | T-004 | P2 | Phase VII: eslint 9→10 upgrade (api + mcp-server) :: next: BLOCKED — eslint 10 requires typescript-eslint with TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 (typescript-eslint TS7 support)
+- [ ] | T-005 | P2 | Phase VII: zod 3→4 upgrade (mcp-server) :: next: BLOCKED — zod 4 needs typescript-eslint TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002
+- [ ] | T-006 | P2 | Phase VII: satellite.js 5→7 upgrade (api) :: next: BLOCKED — satellite.js 7 needs TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002
 - [ ] | T-007 | P3 | Phase VII: Python SDK pip audit (fedora) :: next: On fedora: pip-audit; pip list --outdated; record findings in plan. :: status: blocked :: updated: 2026-10-19
 - [ ] | T-008 | P3 | Phase VII: cargo audit (fedora) :: next: On fedora: cargo audit -d core/; record 76-dep vulnerability scan result. :: status: blocked :: updated: 2026-10-19
 

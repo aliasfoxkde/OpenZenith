@@ -1,0 +1,186 @@
+# Excellence plan VII — 2026-10-19
+
+Cycle VII of the excellence series (VI closed 2026-10-10 as v0.9.4; see
+[EXCELLENCE_PLAN_VI_2026-10-10.md](EXCELLENCE_PLAN_VI_2026-10-10.md)).
+Seeded by a gap sweep 2026-10-19: dependency inventory against v0.9.4 baseline.
+
+## Baseline at plan time
+
+v0.9.4 (e4a87bf, closeout 59a8dbd) — tree clean, both remotes synced.
+Gates of record (carried from v0.9.4, not re-verified this sweep):
+eslint 0w/0e; tsc clean; vitest 1,704+5 / 117 files at 99.46/97.26/
+95.21/99.92; pytest 1,650 @ 99%; mypy strict + interrogate 100%;
+clippy + two-pass core gate green; aegis green (2,041 fingerprints);
+jscpd 4.09% lines; Playwright E2E (ship.sh deploy gate).
+
+## Gap register (sweep 2026-10-19)
+
+### Production dependencies — api/
+
+| Package | Current | Latest | Delta | Risk |
+|---------|---------|--------|-------|------|
+| typescript | 5.9.3 | 7.0.2 | major (5→6→7) | HIGH |
+| eslint | 9.39.5 | 10.13.0 | major (9→10) | HIGH |
+| cesium | 1.119.0 | 1.146.0 | minor | MEDIUM |
+| satellite.js | 5.0.0 | 7.1.0 | major (5→6→7) | HIGH |
+| @types/react | 19.2.18 | 19.3.0 | minor | LOW |
+| @types/react-dom | 19.2.4 | 19.3.0 | minor | LOW |
+| next | 15.5.27 | 15.5.28 | patch | LOW |
+| react | 19.3.0 | 19.3.1 | patch | LOW |
+| react-dom | 19.3.0 | 19.3.1 | patch | LOW |
+| @playwright/test | 1.62.1 | 1.64.1 | minor | MEDIUM |
+| prettier | 3.9.6 | 3.9.10 | patch | LOW |
+| vitest | 5.0.2 | 5.0.5 | patch | LOW |
+| @vitest/coverage-v8 | 5.0.2 | 5.0.5 | patch | LOW |
+| globals | 14.0.0 | 17.13.0 | major | MEDIUM |
+| jsdom | 26.1.0 | 30.1.3 | major | MEDIUM |
+| vite | 6.4.3 | 8.3.4 | major | MEDIUM |
+| wrangler | 4.149.0 | 4.151.1 | patch | LOW |
+| @types/node | 22.20.1 | 22.20.5 | patch | LOW |
+| @cloudflare/workers-types | 5.20260814.1 | 5.20261018.1 | minor | LOW |
+| typescript-eslint | 8.66.0 | 8.71.2 | minor | LOW |
+
+### Production dependencies — mcp-server/
+
+| Package | Current | Latest | Delta | Risk |
+|---------|---------|--------|-------|------|
+| zod | 3.25.76 | 4.6.7 | major (3→4) | HIGH |
+| typescript | 5.9.3 | 7.0.2 | major | HIGH |
+| eslint | 9.39.5 | 10.13.0 | major | HIGH |
+| @types/node | 22.20.5 | 26.6.5 | major | MEDIUM |
+| typescript-eslint | 8.71.1 | 8.71.2 | patch | LOW |
+| vitest | 5.0.3 | 5.0.5 | patch | LOW |
+
+### Python SDK
+
+| Status | Detail |
+|--------|--------|
+| pip-audit | Not re-run this sweep (platform issue); pip list shows 50+ outdated packages including aiohttp, boto3, anyio — needs fedora run |
+| interrogate | 100% (carried) |
+| mypy strict | Clean (carried) |
+
+### Cargo / Rust core
+
+| Status | Detail |
+|--------|--------|
+| cargo audit | Platform issue on swarmone (advisory DB fetch + lockfile scan hang); run on fedora |
+| clippy pedantic | Clean (carried) |
+| coverage | 99% (carried) |
+
+### Documentation
+
+| Gap | Status |
+|-----|--------|
+| No CHANGELOG.md at repo root | .github/CHANGELOG.md is the canonical location; minor convention gap |
+
+### Blocked items (carried)
+
+- **G6**: perf re-measure — still gated (/proc/loadavg ~17-21, needs <12)
+- **G7**: Next.js 16 / OpenNext migration — user-gated (scope documented in `NEXTJS16_OPENNEXT_MIGRATION.md`)
+
+## Phases
+
+### Phase A — High-risk major bumps (typescript + eslint + zod)
+
+**A1. typescript 5.9.3 → 7.0.2 (api + mcp-server)**
+
+The 5→7 jump crosses 6.0 (removed webpack alias support, config changes, stricter type narrowing). Do NOT bump in one step:
+1. Bump to 6.x first (try ^6), run `tsc --noEmit`, fix errors.
+2. Then bump to 7.x, run `tsc --noEmit`, fix errors.
+3. Run full vitest + eslint suite after each step.
+4. Update tsconfig targets if needed (TypeScript 7 may require ES2024+).
+5. **Do this on fedora** (heavy compilation).
+
+**A2. eslint 9.39.5 → 10.x (api + mcp-server)**
+
+ESLint 10 is a major release with breaking changes to the flat config format and deprecated rules. Steps:
+1. Pin eslint 10.13.0, `@eslint/js` 10.x, `globals` 17.x.
+2. Run `eslint src/ --max-warnings=0`; expect failures (new rules, removed rules, config format changes).
+3. Fix the violations; update `.eslintrc.*` → flat config if required by eslint 10.
+4. Verify eslint-config-next compatibility (eslint-config-next 16.4.2 should support eslint 10).
+5. Update any `globals` usage (major bump: 14→17).
+
+**A3. zod 3.25.76 → 4.x (mcp-server)**
+
+Zod 4 has breaking API changes. Steps:
+1. Bump zod to 4.6.7.
+2. Run mcp-server vitest suite (21 contract tests).
+3. Fix any ZodSchema breaking changes (check Zod 4 migration guide).
+4. Update `package.json` / `package-lock.json`.
+
+**A4. satellite.js 5.0.0 → 7.x (api)**
+
+Satellite.js 7 has breaking SGP4/ satellite propagation API changes. The `propagateCatalogueInWorker` Blob worker test must pass:
+1. Bump satellite.js to 7.1.0.
+2. Run globe E2E suite (Playwright, `ship.sh`).
+3. Verify the SGP4 propagation results are numerically equivalent (the Blob worker uses it).
+4. Check if the `satellite.min.js` vendor asset in `api/public/vendor/` needs regeneration.
+
+### Phase B — Medium-risk major bumps (cesium, vite, jsdom, globals)
+
+**B1. cesium 1.119.0 → 1.146.0 (api)**
+
+Cesium minor bumps can include breaking viewer/API changes. Steps:
+1. Bump cesium to 1.146.0.
+2. Run `npm run build` (bundle size check against baseline `api/perf-budget-baseline.json`).
+3. Run globe E2E suite (Playwright, ship.sh deploy).
+4. Check Cesium 1.120+ breaking changes (viewer options, imagery layer API, terrain provider changes).
+5. Update any self-hosted Cesium assets in `api/public/` if required.
+
+**B2. vite 6.4.3 → 8.x (api)**
+
+Vite 8 has breaking changes. Steps:
+1. Pin vite to 8.3.4.
+2. Run `npm run build`; expect vite config/plugin incompatibilities.
+3. Fix any vite.config.ts changes (Vite 8 removed deprecated options).
+4. Verify vitest still works (vitest uses vite under the hood).
+
+**B3. jsdom 26.1.0 → 30.x (api — test-only)**
+
+jsdom is a dev dependency. Steps:
+1. Bump jsdom to 30.1.3.
+2. Run vitest suite; jsdom breaking changes often affect jsdom-specific APIs.
+3. Verify no test regressions.
+
+**B4. globals 14.0.0 → 17.x (api — dev-only)**
+
+Needed by eslint 10 upgrade (A2). Covered there.
+
+### Phase C — Patch + minor bumps
+
+Run `npm install` to pull all patch/minor wanted versions across api/ and mcp-server/. No regression risk expected, but record the lockfile diff.
+
+**C1.** api/: react 19.3.0→19.3.1, react-dom 19.3.0→19.3.1, @types/react 19.2.18→19.3.0, @types/react-dom 19.2.4→19.3.0, next 15.5.27→15.5.28, @playwright/test 1.62.1→1.64.1, prettier 3.9.6→3.9.10, vitest 5.0.2→5.0.5, @vitest/coverage-v8 5.0.2→5.0.5, wrangler 4.149.0→4.151.1, @types/node 22.20.1→22.20.5, typescript-eslint 8.66.0→8.71.2, @cloudflare/workers-types → latest, @next/eslint-plugin-next 16.4.0→16.4.2, eslint-config-next 16.4.0→16.4.2, @eslint/eslintrc 3.3.6→3.3.7, @eslint/js 9.39.5→(stay on 9.x per eslint 10 compatibility), eslint-plugin-jsdoc 65.2.0→65.3.12
+
+**C2.** mcp-server/: typescript-eslint 8.71.1→8.71.2, vitest 5.0.3→5.0.5, @types/node 22.20.5→(stay until 22.x compat verified)
+
+### Phase D — Python SDK + Rust core audit
+
+**D1.** Python SDK: on fedora, run `pip-audit` against the installed SDK environment. Record findings. Run `pip list --outdated` and note the gap.
+
+**D2.** Rust core: on fedora, run `cargo audit` against core/Cargo.lock. Record the 76-dep vulnerability scan result.
+
+**D3.** pytest: confirm 1,650 tests still pass after any Python environment changes.
+
+### Phase E — Gates + receipts
+
+- eslint 0w/0e on all TypeScript surfaces
+- tsc clean with the new TypeScript version
+- vitest: all tests pass (update count guard if suite grew)
+- pytest 1,650 @ 99%
+- jscpd census (record the new baseline)
+- aegis scan (re-baseline if new fingerprints appear from dep updates)
+- bundle budget check (cesium/vite bumps can shift JS bundle)
+- openapi:check (version sync)
+- GitForge CI green on fedora
+
+### Phase F — Release v0.9.5 + deploy + closeout
+
+- **F1.** Version bump at all six sync points (api/package.json, openzenith/\_\_init\_\_.py, mcp-server/package.json + serverInfo, package-locks, openapi spec, .github/CHANGELOG.md entry).
+- **F2.** Annotated tag v0.9.5, push both remotes, GitHub release, ship.sh deploy.
+- **F3.** Update HANDOFF.md with v0.9.5 closeout.
+- **F4.** Update STATE.md / TASKS.md with Phase VII completion.
+
+## Progress log
+
+- 2026-10-19: plan written from gap sweep. Phase A (typescript + eslint + zod + satellite.js) is the critical path — all four are major bumps with potential breaking changes. Phase B (cesium + vite + jsdom) is the secondary path. Phase C is routine patches.

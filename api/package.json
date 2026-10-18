@@ -40,7 +40,7 @@
     "@cloudflare/next-on-pages": "^1.13.12",
     "@cloudflare/workers-types": "^5.20260814.1",
     "@eslint/eslintrc": "^3.3.5",
-    "@eslint/js": "^10.1.0",
+    "@eslint/js": "^10.0.1",
     "@next/eslint-plugin-next": "^16.2.1",
     "@playwright/test": "^1.58.2",
     "@types/maplibre-gl": "^1.13.2",

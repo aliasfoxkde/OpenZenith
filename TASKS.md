@@ -5,11 +5,17 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 
 ## TASKS
 
-- [ ] | T-001 | P2 | Phase VII gap sweep — dependency updates since v0.9.4 (2026-10-10) :: next: Sweep npm outdated in api/ and mcp-server/, python pip list outdated, cargo audit (on fedora); document findings in docs/planning/EXCELLENCE_PLAN_VII.md gap register. Key finds: eslint 9→10, typescript 5.9→7, cesium 1.119→1.146, satellite.js 5→7, zod 3→4 — all major bumps. :: status: todo :: updated: 2026-10-19
+- [ ] | T-002 | P1 | Phase VII: typescript 5→6→7 upgrade (api + mcp-server) :: next: On fedora: npm install typescript@^6.0.0 --prefix api; run tsc --noEmit; fix errors; repeat for ^7.0.0. Critical path — blocks eslint 10 upgrade (needs TS 7). :: status: todo :: updated: 2026-10-19
+- [ ] | T-003 | P1 | Phase VII: GitHub security — investigate moderate vulnerability (dependabot #2) :: next: Visit https://github.com/aliasfoxkde/OpenZenith/security/dependabot/2; assess; fix or document. :: status: todo :: updated: 2026-10-19
+- [ ] | T-004 | P2 | Phase VII: eslint 9→10 upgrade (api + mcp-server) :: next: After T-002 (typescript 7): npm install eslint@^10.13.0 --prefix api; run eslint src/ --max-warnings=0; fix flat-config violations; update globals 14→17. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 (typescript 7)
+- [ ] | T-005 | P2 | Phase VII: zod 3→4 upgrade (mcp-server) :: next: npm install zod@^4.6.5 --prefix mcp-server; run vitest; fix ZodSchema breaking changes. :: status: todo :: updated: 2026-10-19
+- [ ] | T-006 | P2 | Phase VII: satellite.js 5→7 upgrade (api) :: next: npm install satellite.js@^7.1.0 --prefix api; run ship.sh (Playwright E2E + globe suite); verify SGP4 Blob worker numerically equivalent. :: status: todo :: updated: 2026-10-19
+- [ ] | T-007 | P3 | Phase VII: Python SDK pip audit (fedora) :: next: On fedora: pip-audit; pip list --outdated; record findings in plan. :: status: blocked :: updated: 2026-10-19
+- [ ] | T-008 | P3 | Phase VII: cargo audit (fedora) :: next: On fedora: cargo audit -d core/; record 76-dep vulnerability scan result. :: status: blocked :: updated: 2026-10-19
 
 ## Completed tasks
 
-(none yet — ledger opened 2026-10-19)
+- [x] | T-001 | P2 | Phase VII gap sweep — dependency updates since v0.9.4 (2026-10-10) :: status: done :: updated: 2026-10-19 :: note: Sweep complete. 5 major npm bumps (typescript, eslint, satellite.js, zod, globals), 15 minor/patch. Python pip audit + cargo audit pending (fedora). Plan at docs/planning/EXCELLENCE_PLAN_VII_2026-10-19.md. GitHub has existing dependabot PRs for typescript-7.0.2, eslint-10.12.0, zod-4.6.5, jsdom-30.1.2.
 
 ## Gap register (sweep 2026-10-19)
 
@@ -22,4 +28,5 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 | G5 | `typescript-eslint` api: 8.66.0→8.71.2; mcp-server: 8.71.1→8.71.2 | npm outdated | P3 |
 | G6 | Perf re-measure: still gated (loadavg ~17-21, needs <12) | /proc/loadavg | blocked |
 | G7 | Next.js 16 / OpenNext migration: user-gated | docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md | blocked |
-| G8 | No local CHANGELOG.md at repo root (exists at .github/CHANGELOG.md — minor doc convention gap) | ls | P3 |
+| G8 | No local CHANGELOG.md at repo root (exists at .github/CHANGELOG.md — minor convention gap) | ls | P3 |
+| G9 | GitHub security: 1 moderate vulnerability on main (dependabot #2) | GitHub dependabot | P1 |

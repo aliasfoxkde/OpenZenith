@@ -6,7 +6,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 ## TASKS
 
 - [ ] | T-002 | P1 | Phase VII: typescript 5→6→7 upgrade (api + mcp-server) :: next: On fedora: npm install typescript@^6.0.0 --prefix api; run tsc --noEmit; fix errors; repeat for ^7.0.0. Critical path — blocks eslint 10 upgrade (needs TS 7). :: status: todo :: updated: 2026-10-19
-- [ ] | T-003 | P1 | Phase VII: GitHub security — investigate moderate vulnerability (dependabot #2) :: next: Visit https://github.com/aliasfoxkde/OpenZenith/security/dependabot/2; assess; fix or document. :: status: todo :: updated: 2026-10-19
+- [x] | T-003 | P1 | Phase VII: GitHub security — investigate moderate vulnerability (dependabot #2) :: next: Visit https://github.com/aliasfoxkde/OpenZenith/security/dependabot/2; assess; fix or document. :: status: done (all advisories fixed; T-002 unblocks first) :: updated: 2026-10-19
 - [ ] | T-004 | P2 | Phase VII: eslint 9→10 upgrade (api + mcp-server) :: next: After T-002 (typescript 7): npm install eslint@^10.13.0 --prefix api; run eslint src/ --max-warnings=0; fix flat-config violations; update globals 14→17. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 (typescript 7)
 - [ ] | T-005 | P2 | Phase VII: zod 3→4 upgrade (mcp-server) :: next: npm install zod@^4.6.5 --prefix mcp-server; run vitest; fix ZodSchema breaking changes. :: status: todo :: updated: 2026-10-19
 - [ ] | T-006 | P2 | Phase VII: satellite.js 5→7 upgrade (api) :: next: npm install satellite.js@^7.1.0 --prefix api; run ship.sh (Playwright E2E + globe suite); verify SGP4 Blob worker numerically equivalent. :: status: todo :: updated: 2026-10-19

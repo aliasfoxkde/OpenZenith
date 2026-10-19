@@ -60,7 +60,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        run: pip install -e .[all,dev] pytest-cov
+        run: pip install -e .[all,dev] pytest-cov boto3 numpy-stl trimesh
 
       - name: Pytest with coverage
         run: python3 -m pytest openzenith/tests/ --cov-fail-under=97
@@ -76,6 +76,9 @@ jobs:
           path: core/target
           key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}
           restore-keys: rust-${{ runner.os }}-
+
+      - name: Remove rust-toolchain override
+        run: rm -f core/rust-toolchain.toml
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.80.0

@@ -593,7 +593,7 @@ def test_load_ozt2_tiles_from_hf_sets_default(tmp_path):
 
 def test_get_tile_count_returns_dict():
     """get_tile_count returns a dict mapping zoom to count."""
-    result = get_tile_count("/nas/Temp/repos/OpenZenith/openzenith")
+    result = get_tile_count(str(Path(__file__).parent.parent))
     assert isinstance(result, dict)
     assert all(isinstance(k, int) for k in result)
     assert all(isinstance(v, int) for v in result.values())

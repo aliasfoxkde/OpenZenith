@@ -46,9 +46,12 @@ const LayersWidget = dynamic(() => import("./lib/widgets/LayersWidget").then((m)
 const ToolsWidget = dynamic(() => import("./lib/widgets/ToolsWidget").then((m) => ({ default: m.ToolsWidget })), {
   ssr: false,
 });
-const SettingsWidget = dynamic(() => import("./lib/widgets/SettingsWidget").then((m) => ({ default: m.SettingsWidget })), {
-  ssr: false,
-});
+const SettingsWidget = dynamic(
+  () => import("./lib/widgets/SettingsWidget").then((m) => ({ default: m.SettingsWidget })),
+  {
+    ssr: false,
+  },
+);
 const ContextMenu = dynamic(() => import("./lib/components/ContextMenu").then((m) => ({ default: m.ContextMenu })), {
   ssr: false,
 });
@@ -56,9 +59,7 @@ import type { GlobeContext } from "./lib/widgets/types";
 import { getClientElevation } from "@/lib/client-elevation";
 import type { CtxMenuEntityInfo } from "./lib/components/ContextMenu";
 
-type ElevationProfileManager = ReturnType<
-  (typeof import("./lib/tools/elevation-profile"))["createElevationProfile"]
->;
+type ElevationProfileManager = ReturnType<(typeof import("./lib/tools/elevation-profile"))["createElevationProfile"]>;
 type SpaceSceneManager = ReturnType<(typeof import("./lib/space-scene"))["createSpaceSceneManager"]>;
 import { HudOverlays } from "./lib/components/HudOverlays";
 import { Compass, OrbitPresets, ThemeSwitcher, ViewToggle, ZoomControls } from "./lib/components/chrome";

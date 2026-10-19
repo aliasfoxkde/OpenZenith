@@ -86,15 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: opened.message }, { status: 400, headers: CORS_HEADERS });
     }
     const { lat, lon, zoom, radius } = opened;
-    const {
-      dem,
-      rows: gridRows,
-      cols: gridCols,
-      cellSizeDeg,
-      cellSizeM,
-      minPixelX,
-      minPixelY,
-    } = opened.grid;
+    const { dem, rows: gridRows, cols: gridCols, cellSizeDeg, cellSizeM, minPixelX, minPixelY } = opened.grid;
 
     // Center row/col in grid
     const centerRow = radius;

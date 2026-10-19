@@ -71,8 +71,7 @@ export async function gateStartElevation(
 
 /** Discriminated result of {@link openHydroGrid}: context on ok, message on failure. */
 export type HydroGridResult =
-  | ({ ok: true; grid: TerrainGrid } & Extract<HydroPrologue, { ok: true }>)
-  | { ok: false; message: string };
+  ({ ok: true; grid: TerrainGrid } & Extract<HydroPrologue, { ok: true }>) | { ok: false; message: string };
 
 /**
  * The trio's full opener (cycle VI, D2): parse/validate → start-elevation

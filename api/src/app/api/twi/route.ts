@@ -47,13 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: opened.message }, { status: 400, headers: CORS_HEADERS });
     }
     const { lat, lon, zoom, radius } = opened;
-    const {
-      dem,
-      rows: gridRows,
-      cols: gridCols,
-      cellSizeDeg,
-      cellSizeM,
-    } = opened.grid;
+    const { dem, rows: gridRows, cols: gridCols, cellSizeDeg, cellSizeM } = opened.grid;
 
     const flowDir = d8FlowDirection(dem, gridRows, gridCols, TERRAIN_NODATA);
     const accum = flowAccumulation(flowDir, gridRows, gridCols);

@@ -308,10 +308,7 @@ describe("propagateCatalogueInWorker", () => {
 
   it("returns null for malformed and decayed TLEs without dropping order", async () => {
     importScriptsImpl = seedFakeSatellite;
-    const result = await propagateCatalogueInWorker(
-      [tle(1), ["garbage", "garbage"], tle(2), tle(3)],
-      6_000_000,
-    );
+    const result = await propagateCatalogueInWorker([tle(1), ["garbage", "garbage"], tle(2), tle(3)], 6_000_000);
 
     // fixes[1] (malformed -> throw) and fixes[2] (decayed -> no position) are
     // null IN PLACE; the healthy entries keep their catalogue positions and
@@ -342,9 +339,7 @@ describe("propagateCatalogueInWorker", () => {
     // undefined and the worker reports the failure as a rejection.
     importScriptsImpl = () => {};
 
-    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow(
-      "satellite.js unavailable in worker",
-    );
+    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow("satellite.js unavailable in worker");
     expect(FakeWorker.instances[0]?.terminated).toBe(true);
   });
 
@@ -354,9 +349,7 @@ describe("propagateCatalogueInWorker", () => {
     // below reports the same failure.
     importScriptsImpl = null;
 
-    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow(
-      "satellite.js unavailable in worker",
-    );
+    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow("satellite.js unavailable in worker");
     expect(FakeWorker.instances[0]?.terminated).toBe(true);
   });
 

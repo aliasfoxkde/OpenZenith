@@ -48,13 +48,7 @@ export async function POST(request: NextRequest) {
     const { zoom, threshold } = opened;
     // destructure-default parity: only `undefined` takes the 100 (explicit null clamps to 1, as before)
     const thresh = Math.max(1, Math.min(10000, threshold === undefined ? 100 : threshold));
-    const {
-      dem,
-      rows: gridRows,
-      cols: gridCols,
-      minPixelX,
-      minPixelY,
-    } = opened.grid;
+    const { dem, rows: gridRows, cols: gridCols, minPixelX, minPixelY } = opened.grid;
 
     const flowDir = d8FlowDirection(dem, gridRows, gridCols, TERRAIN_NODATA);
     const accum = flowAccumulation(flowDir, gridRows, gridCols);

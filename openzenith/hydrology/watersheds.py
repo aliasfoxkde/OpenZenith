@@ -147,7 +147,7 @@ def delineate_watershed(
         # Check if boundary cell
         is_edge = False
         for d in range(8):
-            nr, nc = int(r) + int(D8_DR[d]), int(c) + int(D8_DC[d])
+            nr, nc = int(r) + int(D8_DR[d]), int(c) + int(D8_DC[d])  # type: ignore[assignment]
             if nr < 0 or nr >= rows or nc < 0 or nc >= cols or not watershed[nr, nc]:
                 is_edge = True
                 break

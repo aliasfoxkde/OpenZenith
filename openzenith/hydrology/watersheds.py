@@ -147,15 +147,15 @@ def delineate_watershed(
         # Check if boundary cell
         is_edge = False
         for d in range(8):
-            nr, nc = r + int(D8_DR[d]), c + int(D8_DC[d])
+            nr, nc = int(r) + int(D8_DR[d]), int(c) + int(D8_DC[d])
             if nr < 0 or nr >= rows or nc < 0 or nc >= cols or not watershed[nr, nc]:
                 is_edge = True
                 break
         if is_edge:
             boundary_coords.append(
                 [
-                    lat_min + r * cell_size_deg,
-                    lon_min + c * cell_size_deg,
+                    lat_min + float(r) * cell_size_deg,
+                    lon_min + float(c) * cell_size_deg,
                 ]
             )
 

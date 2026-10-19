@@ -58,3 +58,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # rust-toolchain bumps Node.js version which breaks Node.js-built-in APIs
+      # used in tests (e.g. node:zlib zstdCompressSync added in Node 22+).
+      - dependency-name: "dtolnay/rust-toolchain"

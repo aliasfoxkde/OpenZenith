@@ -35,7 +35,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Pip audit
-        run: pip audit || false
+        run: pip-audit || false
 
       - name: Ruff check
         run: ruff check openzenith/

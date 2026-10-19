@@ -70,13 +70,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Rust target
-        uses: actions/cache@v4
-        with:
-          path: core/target
-          key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}
-          restore-keys: rust-${{ runner.os }}-
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.97.0
         with:

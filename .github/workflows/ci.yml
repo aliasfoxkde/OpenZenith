@@ -70,11 +70,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions/setup-rust@v1
-        with:
-          ruststable: 1.97
-          components: clippy
+      - name: Install Rust toolchain
+        run: |
+          rustup set profile minimal
+          rustup install 1.97
+          rustup component add clippy --toolchain 1.97
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings

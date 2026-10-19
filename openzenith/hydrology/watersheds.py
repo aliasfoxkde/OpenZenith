@@ -143,11 +143,11 @@ def delineate_watershed(
     ws_rows, ws_cols = np.where(watershed)
 
     boundary_coords = []
-    for r: int, c: int in zip(ws_rows, ws_cols, strict=True):
+    for r, c in zip(ws_rows, ws_cols, strict=True):
         # Check if boundary cell
         is_edge = False
         for d in range(8):
-            nr, nc = r + int(D8_DR[d]), c + int(D8_DC[d])
+            nr, nc = int(r + int(D8_DR[d])), int(c + int(D8_DC[d]))
             if nr < 0 or nr >= rows or nc < 0 or nc >= cols or not watershed[nr, nc]:
                 is_edge = True
                 break

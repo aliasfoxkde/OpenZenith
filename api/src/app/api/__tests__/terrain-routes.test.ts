@@ -257,10 +257,9 @@ describe("Terrain routes — shared validation", () => {
     ["twi", twiPOST, { lat: 40, lon: -74 }],
     ["watershed", watershedPOST, { lat: 40, lon: -74 }],
     ["streams", streamsPOST, { lat: 40, lon: -74 }],
-  ])("%s rejects malformed JSON body with 400", async (_name, handler, validBody) => {
+  ])("%s rejects malformed JSON body with 400", async (_name, handler, _validBody) => {
     const resp = await (handler as PostHandler)(makeRequest(GET_URL, { method: "POST", body: "not-json{{" }));
     expect(resp.status).toBe(400);
-    void validBody;
   });
 
   it.each([

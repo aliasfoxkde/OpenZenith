@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: pip install -e .[all,dev] pytest-cov pip-audit
 
+      - name: Install pip-audit
+        run: pip install pip-audit
+
       - name: Pip audit
         run: pip audit || false
 
@@ -77,8 +80,13 @@ jobs:
           key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}
           restore-keys: rust-${{ runner.os }}-
 
+      # Remove the project's rust-toolchain.toml override so the pinned
+      # toolchain action (1.80.0) takes effect instead of 1.97.
+      - name: Remove rust-toolchain override
+        run: rm -f core/rust-toolchain.toml
+
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.80.0
+        uses: dtolnay/rust-toolchain@1.80.01.80.0
         with:
           components: clippy
 

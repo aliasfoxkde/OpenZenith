@@ -77,13 +77,10 @@ jobs:
           key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}
           restore-keys: rust-${{ runner.os }}-
 
-      - name: Remove rust-toolchain override
-        run: rm -f core/rust-toolchain.toml
-
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.80.0
+        uses: dtolnay/rust-toolchain@1.97.0
         with:
-          toolchain: "1.80.0"
+          toolchain: "1.97.0"
           components: clippy
 
       - name: Clippy

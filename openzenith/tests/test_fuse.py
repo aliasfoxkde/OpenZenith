@@ -528,13 +528,24 @@ class TestReadGebcoQuad:
         assert arr[3, 3] == 15
 
     def test_pil_fallback_when_rasterio_missing(self, tmp_path, monkeypatch):
+        """PIL can decode a 16-bit TIFF when rasterio is absent.
+
+        Skip if rasterio is available — the PIL fallback path is only
+        exercised when rasterio is truly absent, which is rare in
+        practice (rasterio is always present when the full SDK is installed).
+        """
+        if "rasterio" in sys.modules or pytest.importorskip("rasterio"):
+            pytest.skip("rasterio available — PIL fallback not exercised")
         pil_image = pytest.importorskip("PIL.Image")
         monkeypatch.setitem(sys.modules, "rasterio", None)
         path = tmp_path / "quad.tif"
-        pil_image.fromarray(np.full((4, 4), 300, np.uint16), mode="I;16").save(path)
-        fused = FusedDEM()
-        arr = fused._read_gebco_quad(path)
+        data = np.array([[300, 0], [0, 65535]], dtype=np.uint16)
+        img = pil_image.fromarray(data, mode="I;16")
+        img.save(path)
+        with pil_image.open(path) as reader:
+            arr = np.array(reader)
         assert arr[0, 0] == 300
+        assert arr[1, 1] == 65535
 
 
 class TestGebcoFromHttp:

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { zlibSync, unzlibSync } from "fflate";
 import { brotliCompressSync, zstdCompressSync } from "node:zlib";
 import { decodeOZT2, decodeOZT2Sync, interpolateElevation } from "../ozt2_decode";
@@ -405,7 +405,7 @@ describe("decodeOZT2", () => {
     await expect(decodeOZT2(tile.buffer)).rejects.toThrow("Brotli decompress failed");
   });
 
-  it("decodes real zstd payloads via fzstd", async () => {
+  test.skipIf(typeof zstdCompressSync !== "function")("decodes real zstd payloads via fzstd", async () => {
     const elev = Int16Array.from([-120, -60, 0, 60, 120, 180, 240, 300, -15, 45, 90, 150, -90, 30, 75, 210]);
     const tile = buildRealCodecTile(elev, COMP_ZSTD);
 
@@ -518,7 +518,7 @@ describe("decodeOZT2Sync", () => {
     expect(result.metadata).toMatchObject({ predictor: "none", compressor: "brotli", width: 4, height: 4 });
   });
 
-  it("decodes a real zstd tile without an inflater", () => {
+  test.skipIf(typeof zstdCompressSync !== "function")("decodes a real zstd tile without an inflater", () => {
     const elev = Int16Array.from([50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]);
     const tile = buildRealCodecTile(elev, COMP_ZSTD);
 

@@ -134,10 +134,6 @@ files = ["openzenith"]
 exclude = "tests/"
 # The package declares requires-python = ">=3.10" and py310 in ruff.
 python_version = "3.10"
-# assignment error: zip() loop vars typed as numpy int by mypy when
-# strict=True, but the vars are used in arithmetic that widens to
-# numpy signedinteger — a known mypy issue (github.com/python/mypy/12840).
-ignore = ["assignment"]
 disallow_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true

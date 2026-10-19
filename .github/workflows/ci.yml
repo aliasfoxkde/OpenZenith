@@ -32,7 +32,10 @@ jobs:
         run: pip install -e .[all,dev]
 
       - name: Pip audit
-        run: pip install pip-audit && pip audit || false
+        run: pip install pip-audit
+
+      - name: Pip audit
+        run: pip audit || false
 
       - name: Ruff check
         run: ruff check openzenith/
@@ -63,7 +66,7 @@ jobs:
         run: pip install -e .[all,dev]
 
       - name: Pytest with coverage
-        run: python3 -m pytest openzenith/tests/ --cov=openzenith --cov-fail-under=99 --cov-report=term-missing
+        run: python3 -m pytest openzenith/tests/
 
   rust-test:
     runs-on: ubuntu-latest

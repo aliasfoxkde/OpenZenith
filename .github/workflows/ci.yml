@@ -80,7 +80,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.80
         with:
-          components: [clippy]
+          components:
+            - clippy
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings

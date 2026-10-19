@@ -3,6 +3,32 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.5 (2026-10-19)
+
+Excellence-cycle VII — patch/minor dependency sweep, pre-existing lint/style
+defects resolved, Python SDK pip-audit and Rust cargo audit completed.
+No breaking changes. Phase A (typescript 7, eslint 10, zod 4, satellite.js 7,
+cesium 1.146, vite 8) deferred pending upstream typescript-eslint TS7 support.
+
+### Fixed
+- `terrain-routes.test.ts`: removed meaningless `void` operator on non-function
+  value; used `_validBody` underscore-prefix instead
+
+### Changed
+- `api/`: 19 patch/minor bumps — next 15.5.28, react 19.3.1, vitest 5.0.5,
+  wrangler 4.151.1, typescript-eslint 8.71.2, prettier 3.9.10, @playwright
+  1.64.1, @cloudflare/workers-types 5.20261019.1, @axe-core/playwright 4.14.0,
+  @eslint/eslintrc 3.3.7, @next/eslint-plugin-next 16.4.2, eslint-config-next
+  16.4.2, eslint-plugin-jsdoc 65.3.12, @vitest/coverage-v8 5.0.5,
+  @types/react/dom 19.3.0, @types/node 22.20.5
+- `mcp-server/`: typescript-eslint 8.71.2, vitest 5.0.5
+- Applied prettier formatting (destructuring alignment) to 6 api files
+
+### Security
+- Python SDK pip-audit: 84 vulnerabilities across 15 packages (fedora 2026-10-18);
+  ~60% have fixes available; see `docs/planning/EXCELLENCE_PLAN_VII_2026-10-19.md`
+- Rust cargo audit: 0 vulnerabilities, 76 crates (fedora 2026-10-18)
+
 ## v0.9.4 (2026-10-10)
 
 22 commits since v0.9.3: excellence-cycle VI — the production-high MCP

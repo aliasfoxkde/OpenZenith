@@ -17,6 +17,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 
 - [x] | T-011 | P2 | Phase VII: G4 — globals 14→17 and vite 6→8 (api/) :: next: npm install globals@17 vite@8; test. :: status: done (tsc+eslint+vitest clean; 85f967d; 2026-10-19) :: updated: 2026-10-19
 - [x] | T-012 | P3 | Phase VII: G8 — CHANGELOG.md symlink at repo root :: next: ln -s .github/CHANGELOG.md CHANGELOG.md. :: status: done (8570b6d; 2026-10-19) :: updated: 2026-10-19
+- [x] | T-013 | P2 | Phase VII: fix vitest testTimeout (15s→60s) for ozt2-real-tiles NAS reads :: next: increase testTimeout in vitest.config.ts. :: status: done (coverage passes; 528152e; 2026-10-19) :: updated: 2026-10-19
 ## Completed tasks
 
 - [x] | T-001 | P2 | Phase VII gap sweep — dependency updates since v0.9.4 (2026-10-10) :: status: done :: updated: 2026-10-19 :: note: Sweep complete. 5 major npm bumps (typescript, eslint, satellite.js, zod, globals), 15 minor/patch. Python pip audit + cargo audit pending (fedora). Plan at docs/planning/EXCELLENCE_PLAN_VII_2026-10-19.md. GitHub has existing dependabot PRs for typescript-7.0.2, eslint-10.12.0, zod-4.6.5, jsdom-30.1.2.

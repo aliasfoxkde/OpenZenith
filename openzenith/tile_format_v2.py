@@ -385,7 +385,7 @@ def decode(tile_bytes: bytes) -> tuple[np.ndarray, dict[str, Any]]:
         else:
             raise TileDecodeError(f"Cannot infer tile dimensions from {total_pixels} pixels")
 
-    residuals = residuals.reshape(height, width)
+    residual_grid = residuals.reshape(height, width)
 
     # Reconstruct from prediction
     if predictor == PRED_GRADIENT:

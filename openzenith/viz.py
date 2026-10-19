@@ -469,7 +469,7 @@ def terrain_to_glb(
     """
     try:
         import numpy as np
-        import trimesh
+        import trimesh  # type: ignore[import-not-found]
     except ImportError as err:
         raise ImportError("numpy-stl and trimesh required. pip install numpy-stl trimesh") from err
 

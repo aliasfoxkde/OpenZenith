@@ -143,7 +143,7 @@ def delineate_watershed(
     ws_rows, ws_cols = np.where(watershed)
 
     boundary_coords = []
-    for r, c in zip(ws_rows, ws_cols, strict=False):
+    for r, c in zip(ws_rows, ws_cols):
         # Check if boundary cell
         is_edge = False
         for d in range(8):

@@ -47,10 +47,10 @@ INDEX_ENTRY_SIZE = 8
 
 # Process-level cache: path → MergedFile (avoids re-reading .merged files)
 # Bounded to ~300MB: 64 files × ~5MB each + 512 chunks × 128KB ≈ 384MB per worker
-_merged_cache: LRUCache = LRUCache(maxsize=64)
+_merged_cache: LRUCache[str, "MergedFile"] = LRUCache(maxsize=64)
 
 # Process-level cache: (path, row, col) → decompressed chunk array
-_chunk_cache: LRUCache = LRUCache(maxsize=512)
+_chunk_cache: LRUCache[tuple[str, int, int], np.ndarray] = LRUCache(maxsize=512)
 
 
 def get_merged_file(path: str | Path) -> "MergedFile":

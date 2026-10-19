@@ -71,11 +71,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.97.0
+        uses: actions/setup-rust@v1
         with:
-          toolchain: "1.97.0"
+          ruststable: 1.97
           components: clippy
-          install: true
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings

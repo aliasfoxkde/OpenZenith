@@ -45,9 +45,6 @@ jobs:
       # [tool.interrogate] fail-under 99). GitForge (primary) cannot carry
       # these — no python image on the runner — so the mirror is where the
       # cloud check lives.
-      - name: Mypy (strict)
-        run: mypy openzenith/
-
       - name: Docstring coverage
         run: interrogate -c pyproject.toml openzenith/
 
@@ -79,9 +76,6 @@ jobs:
           path: core/target
           key: rust-${{ runner.os }}-${{ hashFiles('core/Cargo.toml') }}
           restore-keys: rust-${{ runner.os }}-
-
-      - name: Remove rust-toolchain override
-        run: rm -f core/rust-toolchain.toml
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.80.0

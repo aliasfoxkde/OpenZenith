@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        run: pip install -e .[all,dev]
+        run: pip install -e .[all,dev] pytest-cov pip-audit
 
       - name: Pip audit
         run: pip audit || false
@@ -60,7 +60,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        run: pip install -e .[all,dev]
+        run: pip install -e .[all,dev] pytest-cov pip-audit
 
       - name: Pytest with coverage
         run: python3 -m pytest openzenith/tests/ --cov=openzenith --cov-fail-under=99 --cov-report=term-missing

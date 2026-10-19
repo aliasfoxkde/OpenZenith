@@ -58,10 +58,7 @@
     "jsdom": "^26.1.0",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
-    "satellite": {
-      "js": "^5.0.0"
-    },
-    "satellite.js": "^7.1.0",
+    "satellite.js": "^5.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.2",
     "vite": "^6.4.3",

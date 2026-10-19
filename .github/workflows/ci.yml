@@ -82,6 +82,7 @@ jobs:
         with:
           toolchain: "1.97.0"
           components: clippy
+          install: true
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings

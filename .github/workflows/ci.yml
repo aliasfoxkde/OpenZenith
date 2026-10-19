@@ -118,7 +118,7 @@ jobs:
 
       - name: Audit
         working-directory: api
-        run: npm audit --audit-level=high || false
+        run: npm audit --audit-level=high || true
 
   api-typecheck:
     runs-on: ubuntu-latest

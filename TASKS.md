@@ -10,7 +10,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 - [ ] | T-004 | P2 | Phase VII: eslint 9→10 upgrade (api + mcp-server) :: next: BLOCKED — eslint 10 requires typescript-eslint with TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002 (typescript-eslint TS7 support)
 - [ ] | T-005 | P2 | Phase VII: zod 3→4 upgrade (mcp-server) :: next: BLOCKED — zod 4 needs typescript-eslint TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002
 - [ ] | T-006 | P2 | Phase VII: satellite.js 5→7 upgrade (api) :: next: BLOCKED — satellite.js 7 needs TS7 support first. :: status: blocked :: updated: 2026-10-19 :: note: Blocked by T-002
-- [x] | T-007 | P3 | Phase VII: Python SDK pip audit (fedora) :: next: pip-audit; pip list --outdated; record findings in plan. :: status: done (84 vulns, 15 pkgs on fedora 2026-10-18) :: updated: 2026-10-19
+- [x] | T-007 | P3 | Phase VII: Python SDK pip audit (fedora) :: next: pip-audit; pip list --outdated; record findings in plan. :: status: done (87→49 vulns; fixed aiohttp/cryptography/multidict/oauthlib/pyjwt/urllib3/virtualenv/setuptools/mcp; no fix: diskcache/nltk/sqlitedict/twisted; torch blocked by fedora disk quota; 2026-10-19) :: updated: 2026-10-19
 - [x] | T-008 | P3 | Phase VII: cargo audit (fedora) :: next: cargo audit -d core/; record 76-dep vulnerability scan result. :: status: done (0 vulns, 76 crates on fedora 2026-10-18) :: updated: 2026-10-19
 - [x] | T-009 | P2 | Phase VII: Phase C — patch/minor bumps (api + mcp-server) :: next: npm install; commit lockfile; run static gates. :: status: done (19 packages bumped; eslint 0w/0e; tsc clean; vitest 1726/117; prettier clean; openapi:check clean; ruff+mypy+interrogate+clippy clean on Python/Rust; 2026-10-19) :: updated: 2026-10-19
 - [x] | T-010 | P2 | Phase VII: fix pre-existing lint/style defects :: next: eslint --fix; prettier --write; commit. :: status: done (terrain-routes.test.ts meaningless void fix; prettier destructuring alignment; 6 files; 2026-10-19) :: updated: 2026-10-19
@@ -26,7 +26,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 | G1 | **Major dep bumps since v0.9.4**: eslint 10, typescript 7, cesium 1.146, satellite.js 7, zod 4, globals 17, jsdom 30, vite 8 — all BLOCKED pending typescript-eslint TS7 support (issue #10940) | npm outdated | P1 |
 | G2 | `next` 15.5.27→15.5.28; react 19.3.0→19.3.1; react-dom 19.3.0→19.3.1; @types/react/dom 19.x | npm outdated | P2 | ← done T-009 |
 | G3 | Python SDK: 50+ outdated pip packages — needs pip-audit sweep on fedora | pip list --outdated | P2 | ← pip-audit done T-007 |
-| G4 | `globals` 14→17 (api/); `jsdom` 26→30 (api/); `vite` 6→8 (api/) | npm outdated | P2 |
+| G4 | `globals` 14→17 ✅ (api/); `vite` 6→8 ✅ (api/); `jsdom` 26→30 (api/) — needs canvas native dep | npm outdated | P2 |
 | G5 | `typescript-eslint` api: 8.66→8.71.2; mcp-server: 8.71.1→8.71.2 | npm outdated | P3 | ← done T-009 |
 | G6 | Perf re-measure: still gated (loadavg ~17-21, needs <12) | /proc/loadavg | blocked |
 | G7 | Next.js 16 / OpenNext migration: user-gated | docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md | blocked |

@@ -457,7 +457,7 @@ export default function ExplorePage() {
     (e: React.KeyboardEvent) => {
       const idx = TABS.findIndex((t) => t.id === tab);
       if (idx < 0) return;
-      let next = idx;
+      let next: number;
       if (e.key === "ArrowRight") next = (idx + 1) % TABS.length;
       else if (e.key === "ArrowLeft") next = (idx - 1 + TABS.length) % TABS.length;
       else if (e.key === "Home") next = 0;

@@ -69,7 +69,7 @@ export async function parseBinaryFile(
       const data = await parseShapefile(buffer);
       return { data, format: "Shapefile" };
     } catch (err) {
-      throw new Error(`Failed to parse shapefile: ${err instanceof Error ? err.message : "Unknown error"}`);
+      throw new Error(`Failed to parse shapefile: ${err instanceof Error ? err.message : "Unknown error"}`, { cause: err });
     }
   }
 

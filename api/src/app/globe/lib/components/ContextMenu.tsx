@@ -744,7 +744,7 @@ export function ContextMenu({
                     const altKm = +(cg.height / 1000).toFixed(1);
                     const groupVal = found.properties?.group?.getValue();
                     const group = typeof groupVal === "string" ? groupVal : entName || "Unknown";
-                    let orbitType = "Unknown";
+                    let orbitType: string;
                     if (altKm < 2000) orbitType = "LEO";
                     else if (altKm > 30000) orbitType = "GEO";
                     else orbitType = "MEO";

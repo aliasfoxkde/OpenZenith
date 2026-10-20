@@ -28,7 +28,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 
 | # | Gap | Evidence | Priority |
 |---|-----|---------|---------|
-| G1 | **Major dep bumps since v0.9.4**: eslint 10, typescript 7, cesium ✅ 1.146, satellite.js 7, zod 4, globals 17, jsdom 30, vite 8 — eslint/satellite.js/zod blocked pending typescript-eslint TS7 support (issue #10940); cesium done (fd976a1) | npm outdated | P1 |
+| G1 | **Major dep bumps since v0.9.4**: eslint ✅ 10, typescript 7, cesium ✅ 1.146, satellite.js ✅ 7, zod ✅ 4, globals 17, jsdom 30, vite 8 — typescript 7 blocked pending typescript-eslint upstream support (issue #10940); eslint/zod/satellite.js/cesium done (945bff2) | npm outdated | P1 |
 | G2 | `next` 15.5.27→15.5.28; react 19.3.0→19.3.1; react-dom 19.3.0→19.3.1; @types/react/dom 19.x | npm outdated | P2 | ← done T-009 |
 | G3 | Python SDK: 50+ outdated pip packages — needs pip-audit sweep on fedora | pip list --outdated | P2 | ← pip-audit done T-007 |
 | G4 | `globals` 14→17 ✅ (api/); `vite` 6→8 ✅ (api/); `jsdom` 26→30 (api/) — needs canvas native dep | npm outdated | P2 |

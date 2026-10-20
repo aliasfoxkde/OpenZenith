@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
   },
   compress: true,
   poweredByHeader: false,
+  eslint: {
+    // ESLint errors should fail the build in production. Next.js 16 removed
+    // this key (lint moves to a standalone step); until the OpenNext
+    // migration lands, keep it so the Next 15 build path is unchanged.
+    ignoreDuringBuilds: false,
+  },
   turbopack: {
     root: path.resolve(__dirname),
   },

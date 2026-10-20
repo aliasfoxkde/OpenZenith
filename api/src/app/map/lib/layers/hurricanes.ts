@@ -235,7 +235,7 @@ export function startHurricaneAnimation(
   const trackFeatures = source._data.features.filter((f: GeoJSON.Feature) => {
     const geometry = f.geometry as GeoJSON.Geometry | null;
     const properties = f.properties;
-    return geometry?.type === "MultiLineString" && properties?.times;
+    return geometry?.type === "MultiLineString" && (properties?.times !== undefined);
   });
 
   if (trackFeatures.length === 0) return;

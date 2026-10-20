@@ -97,7 +97,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: api
-        run: npm ci
+        run: rm -rf node_modules && npm ci
 
       - name: Lint
         working-directory: api
@@ -120,7 +120,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: api
-        run: npm ci
+        run: rm -rf node_modules && npm ci
 
       - name: Type check
         working-directory: api
@@ -139,7 +139,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: api
-        run: npm ci
+        run: rm -rf node_modules && npm ci
 
       - name: Test with coverage
         working-directory: api

@@ -19,7 +19,9 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 - [x] | T-012 | P3 | Phase VII: G8 — CHANGELOG.md symlink at repo root :: next: ln -s .github/CHANGELOG.md CHANGELOG.md. :: status: done (8570b6d; 2026-10-19) :: updated: 2026-10-19
 - [x] | T-013 | P2 | Phase VII: fix vitest testTimeout (15s→60s) for ozt2-real-tiles NAS reads :: next: increase testTimeout in vitest.config.ts. :: status: done (coverage passes; 528152e; 2026-10-19) :: updated: 2026-10-19
 - [x] | T-014 | P2 | Phase VII: CI gate verification + fixes :: next: none. :: status: done (CI passing; mypy removed from CI; Rust upgraded to 1.97 via rustup; missing Python deps (boto3/numpy-stl/trimesh) added; test_get_tile_count hardcoded path fixed; test_pil_fallback rasterio-skip fixed; 40dd896 on main; 2026-10-20) :: updated: 2026-10-20
-- [x] | T-015 | P2 | Phase VII: jsdom 26→30 + vitest pool: forks fix (api/) :: next: jsdom 30 PR failed; fix vitest config. :: status: done (jsdom 30.1.3 + vitest pool:forks; Next.js 16.4.2 (critical RCE fixes) + next.config.ts eslint key removed; CI 6/6 green 22722b1; 2026-10-20) :: updated: 2026-10-20
+- [x] | T-015 | P2 | Phase VII: jsdom 26→30 + vitest pool: forks fix (api/) :: next: jsdom 30 PR failed; fix vitest config. :: status: done (jsdom 30.1.3 + vitest pool:forks; CI 6/6 green; 3dd4dd9) :: updated: 2026-10-20
+- [x] | T-016 | P0 | Phase VII: Next.js 16 → 15.5.28 revert (Pages build broken) :: next: none — revert done. :: status: done (Next 16 + next-on-pages is incompatible: Turbopack output defeats chunk sharing, bundle 4.63 MiB/111 modules → 32.2 MiB/87 modules, 25 MiB Pages limit exceeded; builds failed 22722b1+c091a43; reverted 0a28fad, Pages build green, prod E2E chromium 22/22) :: updated: 2026-10-20
+- [ ] | T-017 | P1 | Phase VII: OpenNext Cloudflare migration (Pages → Workers) — the only supported Next 16 path :: next: follow docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md Phase 1 (adapter swap on Next 15), then Phase 2 (Next 15→16). Evidence: next-on-pages is archived + peer-caps next at <=15.5.2; the Pages 25 MiB bundle ceiling is the binding constraint. :: status: todo (user-gated: platform change) :: updated: 2026-10-20
 - [x] | B1 | P2 | Phase VII: cesium 1.119.0→1.146.0 upgrade (api/) :: next: npm install cesium@1.146.0; test. :: status: done (tsc+eslint+vitest clean; fd976a1; 2026-10-20) :: updated: 2026-10-20
 ## Completed tasks
 
@@ -29,12 +31,12 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 
 | # | Gap | Evidence | Priority |
 |---|-----|---------|---------|
-| G1 | **Major dep bumps since v0.9.4**: eslint ✅ 10, typescript 7 (blocked ✅ TS7), cesium ✅ 1.146, satellite.js ✅ 7, zod ✅ 4, globals ✅ 17, jsdom ✅ 30, vite ✅ 8, next ✅ 16.4.2 (RCE fixes) — typescript 7 blocked pending typescript-eslint upstream support (issue #10940); eslint/zod/satellite.js/cesium done (945bff2); jsdom/next done (22722b1) | npm outdated | P1 |
-| G2 | `next` 15.5.28→16.4.2 ✅ (critical RCE fixes); react 19.3.0→19.3.1; react-dom 19.3.0→19.3.1; @types/react/dom 19.x | npm outdated | P2 | ← done T-015 |
+| G1 | **Major dep bumps since v0.9.4**: eslint ✅ 10, typescript 7 (blocked), cesium ✅ 1.146, satellite.js ✅ 7, zod ✅ 4, globals ✅ 17, jsdom ✅ 30, vite ✅ 8, next 16.4.2 ⛔ reverted (bundle 4.6→32.2 MiB, Pages 25 MiB limit) — typescript 7 blocked pending typescript-eslint upstream support (issue #10940); next 16 needs the OpenNext migration first (T-017) | npm outdated | P1 |
+| G2 | `next` 15.5.28→16.4.2 ⛔ reverted 2026-10-20 (T-016) — blocked on T-017 OpenNext migration; react 19.3.0→19.3.1; react-dom 19.3.0→19.3.1; @types/react/dom 19.x | npm outdated | P2 | ← blocked T-017 |
 | G3 | Python SDK: 50+ outdated pip packages — needs pip-audit sweep on fedora | pip list --outdated | P2 | ← pip-audit done T-007 |
 | G4 | `globals` 14→17 ✅ (api/); `vite` 6→8 ✅ (api/); `jsdom` 26→30 ✅ (api/); @types/node 22→26 ✅ (mcp-server) | npm outdated | P2 | ← done T-015 |
 | G5 | `typescript-eslint` api: 8.66→8.71.2; mcp-server: 8.71.1→8.71.2 | npm outdated | P3 | ← done T-009 |
 | G6 | Perf re-measure: still gated (loadavg ~17-21, needs <12) | /proc/loadavg | blocked |
-| G7 | Next.js 16 / OpenNext migration: user-gated | docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md | blocked |
+| G7 | Next.js 16 / OpenNext migration: user-gated — NOW MEASURED: next-on-pages + Next 16 = 32.2 MiB bundle vs Pages' 25 MiB limit (build fails). Migration is required, not optional. Tracked as T-017 | docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md | P1 | ← T-017 |
 | G8 | No local CHANGELOG.md at repo root (exists at .github/CHANGELOG.md — minor convention gap) | ls | P3 |
 | G9 | GitHub security: 1 moderate vulnerability on main (dependabot #2) | GitHub dependabot | P1 | ← done T-003 |

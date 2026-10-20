@@ -234,7 +234,7 @@ export function startHurricaneAnimation(
   // guarded even though the Feature type marks them non-optional.
   const trackFeatures = source._data.features.filter((f: GeoJSON.Feature) => {
     const geometry = f.geometry as GeoJSON.Geometry | null;
-    const properties = f.properties as Record<string, unknown> | null;
+    const properties = f.properties;
     return geometry?.type === "MultiLineString" && properties?.times;
   });
 

@@ -186,7 +186,7 @@ function formatEpoch(value: unknown): string | null {
 /** Third dimension of a Point geometry — the USGS depth, in km. */
 function pointDepth(geometry: GeoJSON.Geometry | null): string | null {
   if (!geometry || geometry.type !== "Point") return null;
-  const depth = fixed((geometry.coordinates as number[])[2]);
+  const depth = fixed(geometry.coordinates[2]);
   return depth === null ? null : `${depth} km`;
 }
 
@@ -387,7 +387,7 @@ function toIdentifyFeature(feature: GeoJSON.Feature): IdentifyFeature {
   // GeoJSON types properties as `any`; the cast restores a known index
   // signature while keeping the runtime-absent case, and every read
   // downstream is guarded anyway.
-  const props = feature.properties as Record<string, unknown> | null;
+  const props = feature.properties;
   return {
     properties: props ?? {},
     geometry: feature.geometry,

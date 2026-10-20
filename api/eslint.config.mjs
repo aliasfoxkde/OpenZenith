@@ -152,6 +152,19 @@ const eslintConfig = [
     },
   },
   {
+    // Test files use untyped fixtures and mocks (Buffer.from, deflateSync, etc.)
+    // by design. The no-unsafe-* family flags these inevitably in test code that
+    // exercises the SDK layer with real binary data. Disable globally for tests.
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+    },
+  },
+  {
     // jsdoc graduation block (D2, excellence cycle IV, 2026-10-08). The
     // export-documentation gate (jsdoc/require-jsdoc publicOnly + exports
     // contexts, jsdoc/require-description) is ERROR globally; this block

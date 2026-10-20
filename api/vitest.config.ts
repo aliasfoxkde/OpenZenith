@@ -17,6 +17,10 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 30_000,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"],
+    // jsdom 30 bundles undici 7 which crashes in vitest's default
+    // worker_threads pool (undici's module-level bind call fails in
+    // worker context). forks mode avoids the thread-local init.
+    pool: "forks",
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],

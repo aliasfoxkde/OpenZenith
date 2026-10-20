@@ -16,10 +16,6 @@ const nextConfig: NextConfig = {
   },
   compress: true,
   poweredByHeader: false,
-  eslint: {
-    // ESLint errors should fail the build in production
-    ignoreDuringBuilds: false,
-  },
   turbopack: {
     root: path.resolve(__dirname),
   },

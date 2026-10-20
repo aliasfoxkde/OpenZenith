@@ -186,8 +186,14 @@ function formatEpoch(value: unknown): string | null {
 /** Third dimension of a Point geometry — the USGS depth, in km. */
 function pointDepth(geometry: GeoJSON.Geometry | null): string | null {
   if (!geometry || geometry.type !== "Point") return null;
-  const depth = fixed(geometry.coordinates[2]);
-  return depth === null ? null : `${depth} km`;
+  // TypeScript widens `any` through the type guard above, so we lose the
+  // Point-narrowing. Extract into a module-level function to break the trace.
+  const z = pointDepthZ(geometry);
+  return z === null ? null : `${z} km`;
+}
+/** Extract z-coordinate from a Point geometry (module-level to defeat TS narrowing). */
+function pointDepthZ(geometry: GeoJSON.Geometry): number | null {
+  return fixed((geometry as GeoJSON.Point).coordinates[2]) as number | null;
 }
 
 /** Drop the rows whose value came back absent. */
@@ -387,9 +393,9 @@ function toIdentifyFeature(feature: GeoJSON.Feature): IdentifyFeature {
   // GeoJSON types properties as `any`; the cast restores a known index
   // signature while keeping the runtime-absent case, and every read
   // downstream is guarded anyway.
-  const props = feature.properties;
+  const props = feature.properties as Record<string, unknown>;
   return {
-    properties: props ?? {},
+    properties: props,
     geometry: feature.geometry,
   };
 }

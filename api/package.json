@@ -67,6 +67,7 @@
   },
   "overrides": {
     "@cloudflare/next-on-pages": {
+      "esbuild": "0.25.0",
       "miniflare": {
         "undici": "^6.28.1"
       }

@@ -233,8 +233,10 @@ jobs:
           # 2026-10-10 (+13 cycle VI phase D: terrain-sampler.test.ts 6,
           # hydro-params.test.ts 7); 121/1731 on 2026-10-21 (the 1,469-line
           # terrain-routes.test.ts split into 4 sibling suites plus a shared
-          # harness — +4 FILES, test count unchanged at 1,731, so the split
-          # moved code without moving coverage).
+          # harness); 125/1731 the same day (the 843-line
+          # client-elevation.test.ts split into 5 sibling suites plus a
+          # shared harness). Both splits moved code without moving coverage:
+          # the test count is unchanged at 1,731 in each case.
           #
           # FILE count is environment-independent because the parenthesised
           # total counts skipped files too: the ozt2-real-tiles suite skips
@@ -243,8 +245,8 @@ jobs:
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
-          [ "${files:-0}" -eq 121 ] || {
-            echo "INCOMPLETE: passing run covered ${files:-?}/121 files"; exit 1;
+          [ "${files:-0}" -eq 125 ] || {
+            echo "INCOMPLETE: passing run covered ${files:-?}/125 files"; exit 1;
           }
           [ "${tests:-0}" -eq 1731 ] || {
             echo "COUNT DRIFT: ${tests:-?} total, baseline 1731 — update the guard or fix the suite"; exit 1;

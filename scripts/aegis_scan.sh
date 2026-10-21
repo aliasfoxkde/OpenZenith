@@ -50,6 +50,60 @@ print(len(kept))
 PY
 }
 
+# A finding's aegis fingerprint is `pattern:file:line:content-hash`. The
+# LINE component makes the identity positional: any unrelated edit that shifts
+# a flagged line re-flags already-triaged code, so the gate reports churn
+# instead of signal (2026-10-21: 65 of 65 reported findings were pure
+# line-shifts of baseline entries — the same pattern, file and content hash,
+# moved by one or two lines after unrelated commits).
+#
+# Line-shift tolerance: a finding counts as NEW only when its
+# (pattern, file, content-hash) triple is absent from the baseline. The
+# content hash is the security-relevant identity — it changes if and only if
+# the flagged code changes. This keeps the gate strict for new code (a fresh
+# `any`, a fresh innerHTML sink, a fresh SSRF-shaped URL) while making an
+# unrelated refactor elsewhere in the file invisible to it.
+#
+# Path stays in the key: the same code moved to a different file is a new
+# finding, because that is a new place to review it.
+shift_tolerance() {
+    python3 - "$1" "$BASELINE" <<'PY'
+import json, sys
+
+def split_fp(fp):
+    """pattern:file:line:hash -> (pattern, file, hash). The file may itself
+    contain ':' only on exotic paths; the last two fields are line and hash."""
+    parts = fp.rsplit(":", 2)
+    if len(parts) != 3:
+        return None
+    head, line, digest = parts
+    pat, _, fil = head.rpartition(":")
+    return pat, fil, digest
+
+doc = json.load(open(sys.argv[1]))
+findings = doc["findings"] if isinstance(doc, dict) else doc
+baseline = json.load(open(sys.argv[2]))["findings"]
+
+known = set()
+for b in baseline:
+    parts = split_fp(b.get("fingerprint", ""))
+    if parts:
+        known.add(parts)
+
+new, shifted = [], []
+for f in findings:
+    parts = split_fp(f.get("fingerprint", ""))
+    if parts and parts in known:
+        shifted.append(f)
+    else:
+        new.append(f)
+
+out = {"findings": new} if isinstance(doc, dict) else new
+json.dump(out, open(sys.argv[1], "w"), indent=2)
+print(f"{len(new)} new, {len(shifted)} line-shifted (already triaged)")
+PY
+}
+
 if [[ "${1:-check}" == "update" ]]; then
     mkdir -p "$(dirname "$BASELINE")"
     tmp="$(mktemp)"
@@ -86,6 +140,7 @@ fi
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 new_total=0
+shift_total=0
 for scope in "${SCOPES[@]}"; do
     # Aegis exits 0 for a clean scan and 1 when findings survive the baseline
     # filter; anything else is a tool failure and must abort the gate.
@@ -100,7 +155,14 @@ for scope in "${SCOPES[@]}"; do
         exit "$rc"
     fi
     # Denylisted patterns are policy-suppressed, not "new findings".
-    count="$(filter_findings "$tmp")"
+    filter_findings "$tmp" > /dev/null
+    # Line-shift tolerance: findings whose (pattern, file, content-hash) is
+    # already in the baseline are the SAME reviewed code at a moved line —
+    # not new findings. Genuinely new content still fails the gate.
+    shift_line="$(shift_tolerance "$tmp")"
+    count="$(echo "$shift_line" | awk '{print $1}')"
+    shifted="$(echo "$shift_line" | awk '{print $3}')"
+    shift_total=$((shift_total + ${shifted:-0}))
     if (( count > 0 )); then
         echo "NEW findings in $scope: $count"
         python3 - "$tmp" <<'PY'
@@ -117,5 +179,8 @@ if (( new_total > 0 )); then
     echo "aegis gate FAILED: $new_total new finding(s). Triage them, then update" \
          "docs/security/aegis-baseline.json deliberately (see docs/security/TRIAGE.md)." >&2
     exit 1
+fi
+if (( shift_total > 0 )); then
+    echo "aegis: ${shift_total} line-shifted finding(s) matched the baseline by content hash (not new)."
 fi
 echo "aegis gate passed: no new findings across ${#SCOPES[@]} scopes."

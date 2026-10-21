@@ -23,6 +23,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 - [x] | T-016 | P0 | Phase VII: Next.js 16 → 15.5.28 revert (Pages build broken) :: next: none — revert done. :: status: done (Next 16 + next-on-pages is incompatible: Turbopack output defeats chunk sharing, bundle 4.63 MiB/111 modules → 32.2 MiB/87 modules, 25 MiB Pages limit exceeded; builds failed 22722b1+c091a43; reverted 0a28fad, Pages build green, prod E2E chromium 22/22) :: updated: 2026-10-20
 - [ ] | T-017 | P1 | Phase VII: OpenNext Cloudflare migration (Pages → Workers) — the only supported Next 16 path :: next: follow docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md Phase 1 (adapter swap on Next 15), then Phase 2 (Next 15→16). Evidence: next-on-pages is archived + peer-caps next at <=15.5.2; the Pages 25 MiB bundle ceiling is the binding constraint. :: status: todo (user-gated: platform change) :: updated: 2026-10-20
 - [x] | B1 | P2 | Phase VII: cesium 1.119.0→1.146.0 upgrade (api/) :: next: npm install cesium@1.146.0; test. :: status: done (tsc+eslint+vitest clean; fd976a1; 2026-10-20) :: updated: 2026-10-20
+- [x] | T-018 | P1 | Phase VII: Hono CVE-2026-111757 fix (mcp-server) :: next: bump hono 4.13.8→4.13.13. :: status: done (hono 4.13.13; tsc+eslint+vitest 21/21 clean; b7ac6a4; 2026-10-20) :: updated: 2026-10-20
 ## Completed tasks
 
 - [x] | T-001 | P2 | Phase VII gap sweep — dependency updates since v0.9.4 (2026-10-10) :: status: done :: updated: 2026-10-19 :: note: Sweep complete. 5 major npm bumps (typescript, eslint, satellite.js, zod, globals), 15 minor/patch. Python pip audit + cargo audit pending (fedora). Plan at docs/planning/EXCELLENCE_PLAN_VII_2026-10-19.md. GitHub has existing dependabot PRs for typescript-7.0.2, eslint-10.12.0, zod-4.6.5, jsdom-30.1.2.
@@ -36,7 +37,7 @@ Mark done with `[x]`. Run from root: `grep "^-" TASKS.md | head -20`.
 | G3 | Python SDK: 50+ outdated pip packages — needs pip-audit sweep on fedora | pip list --outdated | P2 | ← pip-audit done T-007 |
 | G4 | `globals` 14→17 ✅ (api/); `vite` 6→8 ✅ (api/); `jsdom` 26→30 ✅ (api/); @types/node 22→26 ✅ (mcp-server) | npm outdated | P2 | ← done T-015 |
 | G5 | `typescript-eslint` api: 8.66→8.71.2; mcp-server: 8.71.1→8.71.2 | npm outdated | P3 | ← done T-009 |
-| G6 | Perf re-measure: still gated (loadavg ~17-21, needs <12) | /proc/loadavg | blocked |
+| G6 | Perf re-measure: gate needs loadavg <12; last checked 14.57 (2026-10-20) | /proc/loadavg | blocked |
 | G7 | Next.js 16 / OpenNext migration: user-gated — NOW MEASURED: next-on-pages + Next 16 = 32.2 MiB bundle vs Pages' 25 MiB limit (build fails). Migration is required, not optional. Tracked as T-017 | docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md | P1 | ← T-017 |
 | G8 | No local CHANGELOG.md at repo root (exists at .github/CHANGELOG.md — minor convention gap) | ls | P3 |
-| G9 | GitHub security: 1 moderate vulnerability on main (dependabot #2) | GitHub dependabot | P1 | ← done T-003 |
+| G9 | GitHub security: 2 moderate — Hono GHSA-5r4p-p66f-jhc7 ✅ fixed T-018 (hono→4.13.13); esbuild GHSA-67mh-4wv8-2f99 remains (dev-only, from archived next-on-pages — resolves with T-017) | GitHub dependabot | P1 | ← T-018 done; esbuild resolves T-017 |

@@ -24,5 +24,10 @@
     "noUncheckedIndexedAccess": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "scripts/**/*.mjs", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "node_modules.*",
+    ".vercel",
+    "out"
+  ]
 }

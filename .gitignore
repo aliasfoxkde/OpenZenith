@@ -6,6 +6,10 @@ __pycache__/
 
 # Node
 node_modules/
+# npm's interrupted installs rename the old tree to node_modules.<random>; those
+# leftovers are untracked junk and MUST stay out of the index (they also
+# pull thousands of .d.ts files into the tsc program — see api/tsconfig.json).
+node_modules.*
 .next/
 
 # Archived/broken files

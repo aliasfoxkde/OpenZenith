@@ -109,6 +109,14 @@ const eslintConfig = [
       ".next/",
       ".vercel/",
       "node_modules/",
+      // npm renames the previous tree to node_modules.<random> when an
+      // install is interrupted. ESLint's flat config auto-discovers any
+      // eslint.config.* it finds while walking the tree, so a leftover
+      // package's own config would be loaded as THIS project's config and
+      // the whole lint gate would die on ERR_MODULE_NOT_FOUND (2026-10-21:
+      // node_modules.stale/cesium/eslint.config.js). Ignore the whole
+      // family, not just the exact name.
+      "node_modules.*",
       // Local dev/build scratch (next-on-pages bundles); never sources.
       ".wrangler/",
       "eslint.config.mjs",

@@ -24,6 +24,17 @@ const NAV_LINKS = [
   { label: "About", href: "/about" },
 ];
 
+/**
+ * Sticky top navigation bar with a desktop link row and a full-screen mobile menu.
+ *
+ * `dark` selects the background, border and text palette. `breadcrumb` appends
+ * a section name after the brand (e.g. "Globe") and `extra` is rendered both
+ * at the end of the desktop link row and at the bottom of the mobile overlay.
+ *
+ * The hamburger button toggles the `oz-mobile-menu-open` overlay, which locks
+ * body scroll while open and closes on Escape, on a backdrop click and after
+ * any link is activated.
+ */
 export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
   const [mobileMenu, setMobileMenu] = useState(false);
 

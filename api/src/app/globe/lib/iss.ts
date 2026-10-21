@@ -8,6 +8,12 @@
  * rather than an import.
  */
 
+/**
+ * The two-line element set of a satellite as returned by CelesTrak: line 1
+ * carries the mean elements and epoch, line 2 the revolution and mean-motion
+ * terms. Both lines are required — a pair missing either one cannot be
+ * propagated by satellite.js.
+ */
 export interface CelestrakTle {
   TLE_LINE1: string;
   TLE_LINE2: string;

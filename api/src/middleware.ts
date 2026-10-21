@@ -30,6 +30,36 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT_MAX;
 }
 
+/**
+ * Edge middleware that applies per-IP rate limiting and CORS headers to API requests.
+ *
+ * The middleware only runs for `/api/*` paths (see the `config` matcher below).
+ * Anything that is not an API route, and `/api/health` in particular, is
+ * returned untouched and is never rate limited.
+ *
+ * CORS: `Access-Control-Allow-Origin` is echoed back only when the request's
+ * `Origin` is listed in the comma-separated `ALLOWED_ORIGINS` environment
+ * variable, or when that variable is unset, in which case `*` is allowed.
+ * `Access-Control-Allow-Methods` (GET, HEAD, OPTIONS),
+ * `Access-Control-Allow-Headers` (Content-Type, Range) and an
+ * `Access-Control-Max-Age` of 86400 seconds are always set. An `OPTIONS`
+ * preflight is answered with 204 and an empty body.
+ *
+ * Rate limiting: a sliding 60 second window per client IP allows 120 requests.
+ * The client IP is taken from `CF-Connecting-IP`, then the first entry of
+ * `X-Forwarded-For`, then the literal `"unknown"`. Over the limit the request
+ * is answered with 429, a JSON `{ error }` body and a `Retry-After: 60` header.
+ * The counter lives in an in-memory Map, so on Cloudflare each isolate keeps
+ * its own counters and the limit is best-effort per instance.
+ *
+ * Tile endpoints (`/api/dem-tile/`, `/api/tile/`, `/api/gebco-tile/`,
+ * `/api/elevation-accuracy/`, `/api/elevation-color/`, `/api/floods-tile/`
+ * and `/api/contours/`) are exempt from rate limiting, because a single map
+ * view bursts dozens of immutable, CDN-cached tile requests.
+ *
+ * @param request - The incoming Next.js request; its URL path, method, headers
+ *   and `Origin` drive the CORS, preflight and rate-limit decisions.
+ */
 export function middleware(request: NextRequest) {
   // Lazy cleanup of expired rate limit entries (runs inline, no timers)
   const now = Date.now();
@@ -90,6 +120,12 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
+/**
+ * Next.js middleware matcher restricting this middleware to every `/api/*` path.
+ *
+ * The `*` wildcard matches nested segments, so all API routes (including
+ * dynamic ones such as `/api/dem-tile/10/163/395`) are covered.
+ */
 export const config = {
   matcher: ["/api/:path*"],
 };

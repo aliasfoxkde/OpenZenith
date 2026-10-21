@@ -14,6 +14,10 @@ import { LAYERS } from "@/lib/layers/registry";
 import { MAP_2D_LAYER_IDS } from "@/app/map/lib/layers";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 const STAC_VERSION = "1.0.0";
@@ -116,6 +120,10 @@ function layerToCollection(layer: (typeof LAYERS)[number], baseUrl: string): Sta
 }
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight for the STAC catalog endpoints: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
@@ -153,6 +161,17 @@ function catalogResponse(request: Request): Response {
 
 // Catalog is built from static layer metadata — nothing to await. Stays
 // promise-returning because callers await handlers.
+/**
+ * GET /api/stac/{...path} — serves the OGC STAC 1.0 catalog for the
+ * OpenZenith data layers.
+ *
+ * The path selects the document: the root catalog at `/api/stac`, the list
+ * of every layer as a STAC collection at `/api/stac/collections`, and a
+ * single collection at `/api/stac/collections/{id}`. Collections are
+ * derived from the static layer registry, so the response is JSON with
+ * `Cache-Control: public, max-age=3600`; an unknown collection id or an
+ * unmatched path answers 404 with a JSON error.
+ */
 export function GET(request: Request) {
   return Promise.resolve(catalogResponse(request));
 }

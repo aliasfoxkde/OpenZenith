@@ -10,13 +10,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight for the reverse-geocoding endpoint: answers OPTIONS with
+ * the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET /api/reverse-geocode — resolves coordinates to a place name via
+ * Nominatim.
+ *
+ * Requires `lat` and `lon` in degrees; `zoom` (default 18) selects the
+ * administrative level Nominatim resolves to. Missing or out-of-range
+ * coordinates are a 400. The upstream call is made under a 10-second timeout
+ * and, on success, answers 200 with `{ place, location }` — `place` carries
+ * the display name, name, feature type, address and OSM identifiers, and is
+ * `null` when Nominatim has no match at that zoom (a miss is still a 200).
+ * An upstream failure is a 502. No edge cache is used, because Nominatim's
+ * usage etiquette caps upstream pressure, but both hit and miss responses
+ * carry `Cache-Control: public, max-age=3600`.
+ */
 export async function GET(request: NextRequest) {
   const lat = request.nextUrl.searchParams.get("lat");
   const lon = request.nextUrl.searchParams.get("lon");

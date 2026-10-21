@@ -51,4 +51,5 @@ export const SURVEILLANCE_THEME = {
   graticule: "rgba(0, 229, 255, 0.06)",
 } as const;
 
+/** Type of the surveillance design-token object — every value is a literal CSS string. */
 export type SurveillanceTheme = typeof SURVEILLANCE_THEME;

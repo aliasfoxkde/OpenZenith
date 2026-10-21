@@ -37,6 +37,12 @@ const FLOW_SOURCE = "flowpath-source";
 const FLOW_LAYER = "flowpath-line";
 const FLOW_LABEL_LAYER = "flowpath-label";
 
+/**
+ * Flow-path tracing panel. Traces the drainage network downstream or
+ * upstream from a clicked point, draws the traced line on the map with a
+ * label, and reports the elevation statistics along the path. The traced
+ * geometry is exportable as GeoJSON.
+ */
 export function FlowPathTool({ dark, map, cursorPos, imperial, flowPathClickRef }: Props) {
   const [mode, setMode] = useState<"none" | "downstream" | "upstream">("none");
   const [precision, setPrecision] = useState<number>(0.001);

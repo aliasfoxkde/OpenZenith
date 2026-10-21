@@ -5,6 +5,10 @@
  * localStorage persists: sidebar, activeTab (user preferences).
  */
 
+/**
+ * The map view that the URL hash round-trips: the map center as
+ * `[longitude, latitude]`, the zoom level and the active basemap key.
+ */
 export interface MapViewState {
   center: [number, number];
   zoom: number;

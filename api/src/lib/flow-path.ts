@@ -181,6 +181,12 @@ class MaxHeap {
 
 /* ─── Core Algorithm ─── */
 
+/**
+ * Tuning knobs for the A* flow-path tracer: the search step size in degrees,
+ * the number of compass directions sampled per step, the hard cap on points
+ * in the returned path, and whether tracing halts once the terrain drops to
+ * sea level.
+ */
 export interface FlowPathOptions {
   /** Search radius in degrees (default: 0.001 ≈ 100m) */
   precision?: number;
@@ -192,6 +198,12 @@ export interface FlowPathOptions {
   stopAtSeaLevel?: boolean;
 }
 
+/**
+ * A traced flow path: the ordered `[lon, lat]` coordinates of the path, the
+ * terrain elevation in metres at each point (parallel to `coordinates`), and
+ * the optional height above ground level per point when a drone altitude was
+ * supplied.
+ */
 export interface FlowPathResult {
   /** Ordered coordinates [lon, lat] of the path */
   coordinates: [number, number][];
@@ -341,6 +353,11 @@ async function traceFlowPath(
 
 /* ─── Elevation Profile from Flow Path ─── */
 
+/**
+ * One sample of an elevation profile along a flow path: the cumulative
+ * distance from the path start in metres, the terrain elevation in metres, and
+ * the slope to the next point in degrees.
+ */
 export interface ElevationProfilePoint {
   distanceM: number; // cumulative distance in meters
   elevationM: number;
@@ -384,6 +401,12 @@ export function computeElevationProfile(result: FlowPathResult): ElevationProfil
 
 /* ─── Flow Path as GeoJSON ─── */
 
+/**
+ * GeoJSON Feature form of a traced flow path: a LineString of `[lon, lat]`
+ * coordinates plus properties carrying the trace mode, start point, point
+ * count, total length in metres, the minimum/maximum/range elevation in
+ * metres, and the full elevation series.
+ */
 export interface FlowPathGeoJSON {
   type: "Feature";
   geometry: {

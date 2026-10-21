@@ -52,6 +52,13 @@ export function removeLayerIfPresent(map: maplibregl.Map, layerId: string): void
   if (map.getLayer(layerId)) map.removeLayer(layerId);
 }
 
+/**
+ * Remove a MapLibre source only when it exists — the counterpart of
+ * {@link removeLayerIfPresent}, and subject to the same rule: MapLibre logs
+ * a console-visible error for a missing source even inside a try/catch, so
+ * a remover that ran against an add that early-returned would spam the
+ * console on every toggle-off.
+ */
 export function removeSourceIfPresent(map: maplibregl.Map, sourceId: string): void {
   if (map.getSource(sourceId)) map.removeSource(sourceId);
 }

@@ -39,6 +39,10 @@ export function requestUrl(input: RequestInfo | URL): string {
   return typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 }
 
+/**
+ * One entry in a stubbed `fetch` route table: the substring matched against
+ * the request URL and the factory that builds the response when it matches.
+ */
 export interface FetchRoute {
   /** Substring matched against the request URL. */
   match: string;

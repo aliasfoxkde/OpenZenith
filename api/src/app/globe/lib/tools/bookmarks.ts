@@ -2,6 +2,13 @@
  * Camera position bookmarks — save/load to localStorage.
  */
 
+/**
+ * A saved globe camera position. `lat`/`lon` are decimal degrees, `alt` is
+ * the camera height in metres above the ellipsoid, `heading` and `pitch` are
+ * the camera orientation in degrees, `timestamp` is the epoch-millisecond
+ * time the bookmark was created, and `id` is the generated unique key used
+ * for selection and deletion.
+ */
 export interface Bookmark {
   id: string;
   name: string;

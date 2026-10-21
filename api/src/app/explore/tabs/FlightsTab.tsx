@@ -22,6 +22,17 @@ interface FlightsTabProps {
   onFetch: () => void;
 }
 
+/**
+ * Renders the Flights tab of the Data Explorer: the OpenSky Network
+ * ADS-B controls and results table. Provides a bounding box input
+ * ("west,south,east,north"), a callsign filter, minimum and maximum
+ * altitude filters in metres, and an airborne/ground status select, plus a
+ * Fetch button and error banner. The results table lists up to 200 aircraft
+ * with callsign, origin country, latitude and longitude (4 decimals),
+ * altitude in metres, ground speed in m/s, heading in degrees, vertical
+ * rate in m/s (signed and colour-coded by climb/descent), and squawk code,
+ * alongside the total returned and the pre-filter count.
+ */
 export function FlightsTab({
   data,
   error,

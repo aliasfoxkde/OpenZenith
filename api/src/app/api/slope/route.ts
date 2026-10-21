@@ -17,12 +17,35 @@ import { tileToLatLon } from "@/lib/srtm/zoom-math";
 import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the slope endpoint: answers OPTIONS with the shared
+ * CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET /api/slope — computes terrain slope in degrees over a square window
+ * centred on a coordinate.
+ *
+ * Query parameters: `lat` and `lon` (required centre point, in degrees),
+ * `radius` (grid radius in cells, default 50, clamped to 1–200) and `zoom`
+ * (tile zoom level, default 10, clamped to 5–14). The DEM window is
+ * assembled from the SRTM tiles and slope is derived with Horn's method, so
+ * values are degrees in the range 0–90. Responds 200 with the sampled slope
+ * grid, the window's geographic bounds, and summary statistics (mean,
+ * median, min, max, standard deviation, valid-cell count); the grid is
+ * decimated when the radius is large to keep the response small. Missing or
+ * invalid coordinates are a 400, and responses carry
+ * `Cache-Control: public, max-age=86400` since the terrain is static.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latStr = searchParams.get("lat");

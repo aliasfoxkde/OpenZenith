@@ -1,3 +1,8 @@
+/**
+ * Route-level loading UI for the geospatial studio: a full-viewport dark screen
+ * with an inline SVG spinner and the label "Loading studio...". Rendered by
+ * Next.js while the studio page's client bundle and its tool panel initialise.
+ */
 export default function Loading() {
   return (
     <div

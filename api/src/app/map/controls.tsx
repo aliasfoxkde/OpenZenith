@@ -42,6 +42,15 @@ interface BasemapSelectorProps {
   onMatchOsTheme: () => void;
 }
 
+/**
+ * Renders the basemap picker panel of the 2D map sidebar: one button per
+ * entry in the shared `BASEMAP_ORDER` registry, with the active basemap
+ * highlighted via the accent colour and a soft glow, plus a "Match OS"
+ * button that switches the basemap to the one matching the operating
+ * system's colour scheme. Basemap selection is delegated to the map page
+ * through the `onSelect`/`onMatchOsTheme` callbacks so this component stays
+ * free of map state.
+ */
 export function BasemapSelector({ current, onSelect, onMatchOsTheme }: BasemapSelectorProps) {
   return (
     <>
@@ -118,6 +127,17 @@ interface LayerControlsProps {
   onExpandCategory: (category: string | null) => void;
 }
 
+/**
+ * Renders the layer toggle accordion of the 2D map sidebar. The hillshade
+ * toggle and the "Terrain 3D" view-mode toggle (a MapLibre `setTerrain`
+ * call, not a registry layer) are pinned above the accordion; below them,
+ * one collapsible group per layer category lists only the layers that the
+ * 2D map supports. Each row shows the layer's name and description, an
+ * enable/disable toggle, and — once enabled — a live status badge
+ * (loading spinner, error, empty, or the loaded feature count) plus, for
+ * the raster layers, an opacity slider from 10% to 100%. Category headers
+ * display how many of their layers are enabled.
+ */
 export function LayerControls({
   layers,
   layerStatus,

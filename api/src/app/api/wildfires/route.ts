@@ -3,9 +3,18 @@ import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
+/**
+ * Marks this route for the Cloudflare edge runtime, where the Workers
+ * Cache API that fronts the upstream data is available.
+ */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * Answers the CORS preflight for the NASA FIRMS wildfire endpoint with a 204
+ * and the shared CORS headers, so browser clients can fetch the active-fire
+ * feature collection cross-origin.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }

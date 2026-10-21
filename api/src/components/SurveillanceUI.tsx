@@ -11,6 +11,15 @@ interface PanelProps {
   style?: React.CSSProperties;
 }
 
+/**
+ * Translucent glassmorphic panel wrapper used by the surveillance map overlay.
+ *
+ * `title`, when supplied, is rendered as an `aria-level` 3 heading and the
+ * container is promoted to `role="region"` with the title as its accessible
+ * name; without a title the panel stays an anonymous container. The optional
+ * `style` object is merged last so callers can override the default padding,
+ * border, backdrop blur and glow.
+ */
 export const SurveillancePanel = memo(function SurveillancePanel({ children, title, style }: PanelProps) {
   return (
     <div
@@ -57,6 +66,14 @@ interface StatusProps {
   pulse?: boolean;
 }
 
+/**
+ * Small colored status dot with an optional text label.
+ *
+ * The dot is filled with `color` (default: the theme's success green) and
+ * carries a matching glow; `pulse` enables the theme's pulse animation on it.
+ * `label`, when given, is rendered beside the dot in the theme's primary text
+ * color, which clears WCAG AAA against the translucent panel composite.
+ */
 export const StatusIndicator = memo(function StatusIndicator({ color = T.green, label, pulse = false }: StatusProps) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -98,6 +115,13 @@ interface CoordProps {
   zoom?: number;
 }
 
+/**
+ * Readout of the current map position in the surveillance overlay.
+ *
+ * Latitude and longitude are printed in decimal degrees with five decimal
+ * places. `zoom`, when provided, is appended as `Z` followed by one decimal
+ * place.
+ */
 export const CoordinateReadout = memo(function CoordinateReadout({ lat, lon, zoom }: CoordProps) {
   return (
     <div
@@ -132,6 +156,15 @@ interface ToggleProps {
   color?: string;
 }
 
+/**
+ * Checkbox row used to switch an individual data layer on or off.
+ *
+ * The native checkbox stays in the accessibility tree (CSS clip technique, not
+ * `display:none`) and carries an `aria-label` of "<label> layer"; the square
+ * swatch beside it is `aria-hidden` and mirrors the checkbox state. `onChange`
+ * receives the new checked state, and `color` (default: the theme accent)
+ * tints the checked swatch and its glow.
+ */
 export const LayerToggle = memo(function LayerToggle({ label, checked, onChange, color = T.accent }: ToggleProps) {
   return (
     <label

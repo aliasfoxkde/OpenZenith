@@ -17,6 +17,22 @@ const GLOBE_LAYER_LABELS: Record<string, string> = {
   currents: "Ocean Currents",
 };
 
+/**
+ * Renders the globe's layer picker: one collapsible section per entry in
+ * `SIDEBAR_SECTIONS` (Overlays, Real-Time Data, …), each listing its layer ids
+ * as a checkbox row with an accent dot, the layer's display name, and — when
+ * the layer is enabled and has reported data — its live feature count in
+ * parentheses.
+ *
+ * The widget owns no layer state: the checked state is read back from
+ * `globe.state.layers` and toggling a row calls `globe.toggleLayer(layerId)`.
+ * Labels fall back to a globe-native map (`GLOBE_LAYER_LABELS`) and finally to
+ * the raw layer id for layers that are absent from the shared registry.
+ *
+ * @param globe - Shared globe context; `globe.state.layers` holds the per-layer
+ *   on/off flags, `globe.toggleLayer` flips them, and `globe.dataStatus`
+ *   carries the per-layer feature counts.
+ */
 export function LayersWidget({ globe }: WidgetProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     Object.fromEntries(SIDEBAR_SECTIONS.map((s) => [s.key, true])),

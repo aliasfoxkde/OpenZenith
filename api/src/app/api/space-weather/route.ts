@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare edge runtime, where the Workers
+ * Cache API that fronts the upstream data is available.
+ */
 export const runtime = "edge";
 
 // Cache TTLs
@@ -10,6 +14,11 @@ const AURORA_CACHE_TTL = 600; // 10 minutes
 const KP_URL = "https://services.swpc.noaa.gov/json/planetary-k-index-forecast.json";
 const AURORA_URL = "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json";
 
+/**
+ * Answers the CORS preflight for the space weather endpoint with a 204 and
+ * the shared CORS headers, so browser clients can fetch the NOAA SWPC Kp
+ * forecast and aurora probability layers cross-origin.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

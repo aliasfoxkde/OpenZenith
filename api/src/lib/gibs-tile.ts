@@ -17,6 +17,11 @@ import { parseTileParams } from "@/lib/tile-params";
 
 const GIBS_WMS = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi";
 
+/**
+ * Configuration for one GIBS WMS-backed tile layer: the GIBS WMS layer name,
+ * the cache namespace prefix, the inclusive zoom range the layer is served at,
+ * and the cache TTL in seconds.
+ */
 export interface GIBSLayerConfig {
   /** GIBS WMS layer name (e.g., "MODIS_Terra_L3_NDVI_16Day") */
   layer: string;

@@ -65,6 +65,16 @@ const S = `
 }
 `;
 
+/**
+ * The `/about` page. A client component that renders the project's editorial
+ * content: a headline and stat strip (30 m SRTM resolution, global coverage,
+ * no API key, Cloudflare CDN, MIT license), then sections for the mission,
+ * the four products offered (Elevation API, Interactive Map, 3D Globe, Data
+ * Explorer), the technology stack, the upstream data sources (USGS
+ * earthquakes, OpenSky, Celestrak, NASA EONET, NWS/NOAA, Open-Meteo), the
+ * author and team, a project-history timeline, ways to get involved, and the
+ * licence. Theme-aware via the shared `useTheme` hook.
+ */
 export default function AboutPage() {
   const dark = useTheme();
 

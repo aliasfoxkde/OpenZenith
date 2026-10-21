@@ -12,6 +12,15 @@ const PREVIEW_GRADIENTS: Record<string, string> = {
   topo: "linear-gradient(135deg, #c8d8a0, #a8c878, #e8d8a8, #c8b898)",
 };
 
+/**
+ * The globe's basemap picker widget. Renders one card per entry in the
+ * shared `BASEMAPS` registry, with the active basemap marked, and clicking a
+ * card calls `globe.switchBasemap(key)`. Each card's thumbnail is a real
+ * tile image fetched once on mount (the registry's tile URL template with
+ * `{z}`/`{x}`/`{y}` substituted by 2/1/1) and downscaled to a 96×96 canvas
+ * data URL; when the tile cannot be loaded or the canvas is unavailable the
+ * card falls back to a static per-basemap gradient.
+ */
 export function BasemapWidget({ globe }: WidgetProps) {
   const [previews, setPreviews] = useState<Record<string, string>>({});
 

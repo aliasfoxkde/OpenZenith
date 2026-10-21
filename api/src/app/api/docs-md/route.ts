@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare edge runtime, where the Workers
+ * Cache API that fronts the upstream data is available.
+ */
 export const runtime = "edge";
 
+/**
+ * Answers the CORS preflight for the markdown documentation endpoint with a
+ * 204 and the shared CORS headers, so browsers and AI tooling can fetch the
+ * generated API reference cross-origin.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

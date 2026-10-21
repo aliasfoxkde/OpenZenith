@@ -2,6 +2,13 @@
  * Range rings — concentric circles drawn at a center point.
  */
 
+/**
+ * The live state of the range-ring tool. `active` reports whether rings are
+ * currently drawn, `center` holds the centre point in decimal degrees (null
+ * when nothing is placed), `radiiKm` is the list of ring radii in
+ * kilometres, and `entities` holds the Cesium entities created for the
+ * currently drawn rings so they can be removed again.
+ */
 export interface RangeRingState {
   active: boolean;
   center: { lat: number; lng: number } | null;

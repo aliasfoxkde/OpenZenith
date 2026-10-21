@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { staleWhileRevalidate, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the flights endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -54,6 +59,21 @@ function slimState(state: OpenSkyState): Record<string, unknown> {
   };
 }
 
+/**
+ * GET handler for live aircraft state from the OpenSky Network.
+ *
+ * Reads the optional bounding-box parameters `lamin`/`lamax` (-90..90) and
+ * `lomin`/`lomax` (-180..180) plus an upstream `bbox` string: supplying some
+ * but not all of the four numeric bounds returns 400. The bounds and `bbox`
+ * are forwarded to `opensky-network.org/api/states/all`, which is fetched
+ * with a 20-second timeout through a stale-while-revalidate cache (300 s TTL,
+ * 900 s stale-serve).
+ *
+ * OpenSky returns a full state vector per aircraft, so each state is reduced
+ * to position, altitude, velocity, track, vertical rate, squawk and
+ * identifiers, cutting the payload from roughly 6 MB to 1 MB. A non-OK
+ * upstream status or a thrown error returns 502 with an empty `states` array.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 

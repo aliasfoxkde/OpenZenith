@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 const ALLOWED_HOSTS = [
@@ -46,6 +50,19 @@ const HOST_CACHE_TTL: Record<string, number> = {
   "tilecache.rainviewer.com": 120,
 };
 
+/**
+ * GET /api/proxy/{...path} — allow-listed CORS proxy for third-party data
+ * feeds.
+ *
+ * The catch-all path segments are joined into the upstream URL, so
+ * `/api/proxy/earthquake.usgs.gov/fdsnws/event/1/query` forwards to
+ * `https://earthquake.usgs.gov/fdsnws/event/1/query`; the incoming query
+ * string is carried over. Only the hostnames in `ALLOWED_HOSTS` may be
+ * reached — anything else is a 403 — and the fetch runs under a 30-second
+ * abort timeout. The upstream body and status are relayed verbatim with CORS
+ * headers and a per-host `Cache-Control` max-age (30 seconds by default).
+ * Responds 502 when the fetch throws.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await params;
   const targetUrl = segments.join("/");
@@ -92,6 +109,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
+/**
+ * CORS preflight for the generic proxy endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

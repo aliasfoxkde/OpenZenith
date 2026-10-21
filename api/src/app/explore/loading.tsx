@@ -1,3 +1,8 @@
+/**
+ * Next.js App Router loading boundary for the `/explore` segment. It is
+ * streamed in while the explorer page's server work is pending, rendering a
+ * centred spinner on a dark backdrop instead of the full map UI.
+ */
 export default function Loading() {
   return (
     <div

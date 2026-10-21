@@ -19,6 +19,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 const PMTILES_REPO = "aliasfox/srtm30m-terrain-pmtiles";
@@ -31,10 +35,24 @@ const PMTILES_ARCHIVES: Record<string, string> = {
 const AVAILABLE_KEYS = Object.keys(PMTILES_ARCHIVES);
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight for the PMTiles archive endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET /api/pmtiles/{key} — resolves a PMTiles archive key to its archive URL.
+ *
+ * `key` is an archive name of the form `z<zoom>.pmtiles` (e.g.
+ * `z7.pmtiles`). A known key answers 302 with a `Location` pointing at the
+ * HuggingFace resolve URL, so GDAL/MapLibre/QGIS read the archive directly
+ * from HuggingFace with HTTP Range support instead of streaming through this
+ * route. An unknown key answers 410 with the list of archives that do exist
+ * and the alternative tile endpoints.
+ */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
   const target = PMTILES_ARCHIVES[key];

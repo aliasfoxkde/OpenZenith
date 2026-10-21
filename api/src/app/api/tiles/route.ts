@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare edge runtime, where the Workers
+ * Cache API that fronts the upstream data is available.
+ */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * Answers the CORS preflight for the OGC API - Tiles landing page with a 204
+ * and the shared CORS headers, so tile clients can discover the advertised
+ * tile matrix sets cross-origin.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }

@@ -39,6 +39,7 @@ import {
   type Interpolation,
 } from "@/lib/elevation-params";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // OZT2 backend (primary) — z10 tiles from HuggingFace, falls back to merged chunks
@@ -117,6 +118,10 @@ async function getElevation(lat: number, lon: number, interpolation: Interpolati
   };
 }
 
+/**
+ * CORS preflight handler for the point elevation endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -174,6 +179,24 @@ async function presentResult(
   return { elevation: presentElevation(result.elevation, 0, params), unit: params.units, undulation: 0 };
 }
 
+/**
+ * GET handler for a point elevation query.
+ *
+ * Reads the required `lat`/`lon` query parameters (400 when either is missing,
+ * 400 again when they are not numeric or fall outside -90..90 / -180..180)
+ * plus the optional `interpolation` (`nearest`|`bilinear`, default bilinear),
+ * `units` (`meters`|`feet`, default meters) and `datum`
+ * (`egm96`|`ellipsoid`, default egm96) options. The point is sampled from the
+ * first source that answers: OZT2 z10 tiles on HuggingFace, then merged SRTM
+ * chunks, then GEBCO 2025 for ocean and out-of-coverage points.
+ *
+ * The raw sample is cached at the edge for 86400 seconds and the requested
+ * units/datum presentation is applied per request, so one cached sample serves
+ * every parameter combination. The reply carries the elevation, unit, surface
+ * type, source and a `metadata` object with the effective options and ground
+ * sampling; a coordinate no source covers returns `ok: false` with
+ * `ELEVATION_NO_DATA`, and a thrown error returns 502.
+ */
 export async function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const { searchParams } = new URL(request.url);

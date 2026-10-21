@@ -42,6 +42,11 @@ const TIPS = [
   { icon: "\u2316", title: "Measure", desc: "Distances and areas calculated automatically while drawing." },
 ];
 
+/**
+ * First-run help overlay. Lists the studio's tools with a one-line
+ * description of each and dismisses itself on the first interaction; the
+ * dismissal is reported upward so the caller can remember it.
+ */
 export function OnboardingOverlay({ dark, onDismiss }: Props) {
   const [visible, setVisible] = useState(true);
 

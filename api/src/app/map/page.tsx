@@ -116,6 +116,11 @@ const EXPORT_SOURCE_IDS: Record<string, string> = {
   hurricaneTracks: "hurricanes",
 };
 
+/**
+ * The 2D MapLibre page. Owns the map instance, the layer registry, the
+ * elevation-pin interaction and the shareable URL hash; the tool panels
+ * below the map read their state from here.
+ */
 export default function MapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);

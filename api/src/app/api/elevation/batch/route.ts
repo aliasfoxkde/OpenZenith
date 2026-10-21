@@ -22,6 +22,7 @@ import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { parseElevationParams, presentElevation, type Interpolation } from "@/lib/elevation-params";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // HuggingFace backend (edge-compatible)
@@ -30,6 +31,10 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 // Source DEM ground sampling — the z12 tile grid is built from 30 m SRTM.
 const BATCH_RESOLUTION_M = 30;
 
+/**
+ * CORS preflight handler for the batch elevation endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -103,6 +108,21 @@ function sampleElevation(
   return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
 }
 
+/**
+ * POST handler for batch elevation queries.
+ *
+ * Reads the `interpolation` (default bilinear), `units` (default meters) and
+ * `datum` (default egm96) query parameters, then parses a JSON body of
+ * `{points: [{lat, lon, id?}]}`. A malformed body, a point count outside
+ * 1..2000, or a point with missing or out-of-range coordinates returns 400.
+ *
+ * Points are grouped by their z12 tile so each source tile is fetched once,
+ * sampled with the requested interpolation, and reported per point as the
+ * presented `elevation` plus the raw `elevation_m` sample; a point outside
+ * coverage gets nulls. The reply also carries a `metadata` object with the
+ * effective units, datum, interpolation, the 30 m source resolution and the
+ * `huggingface` source tag.
+ */
 export async function POST(request: NextRequest) {
   const params = parseElevationParams(request.nextUrl.searchParams);
   if (!params.ok) {

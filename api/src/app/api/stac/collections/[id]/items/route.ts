@@ -12,6 +12,10 @@ import { CACHE_TTL } from "@/lib/cache";
 import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // Map STAC collection IDs to their data source URLs. Lookup is by request path
@@ -36,6 +40,10 @@ const STAC_COLLECTION_SOURCES: Partial<Record<string, { url: string; cacheTtl: n
 };
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight for the STAC items endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
@@ -64,6 +72,21 @@ function firstPositionIn(node: unknown): [number, number] | null {
   return null;
 }
 
+/**
+ * GET /api/stac/collections/{id}/items — lists the features of a STAC
+ * collection as a GeoJSON FeatureCollection.
+ *
+ * `{id}` selects the upstream feed (earthquakes, flights, vessels or
+ * weather); an unknown id is a 404. Upstream payloads are normalised into
+ * GeoJSON features — a `FeatureCollection` is used as-is and a
+ * `{ geometries: [...] }` document is wrapped feature by feature. Query
+ * parameters: `bbox` (west, south, east, north — features whose first
+ * position falls outside are dropped) and `limit` (maximum features
+ * returned, default 100, clamped to 1–1000). Responds 200 with
+ * `{ type, features, numberMatched, numberReturned }` and a
+ * `Cache-Control` matching the upstream's TTL, or 502 when the upstream
+ * returns a non-OK status.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const source = STAC_COLLECTION_SOURCES[id];

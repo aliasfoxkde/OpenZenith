@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 
+/**
+ * Next.js route metadata for the `/map` segment: sets the page title, the
+ * meta description, and the OpenGraph card fields for social link previews.
+ */
 export const metadata: Metadata = {
   title: "Interactive 2D Map — Terrain, Elevation & Live Data",
   description:
@@ -12,6 +16,11 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Root layout for the `/map` 2D MapLibre route segment. It renders the
+ * service-worker registration component alongside its children so the map
+ * gains offline-capable caching of tiles and API responses.
+ */
 export default function MapLayout({ children }: { children: React.ReactNode }) {
   return (
     <>

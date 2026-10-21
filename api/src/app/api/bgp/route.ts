@@ -8,14 +8,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the BGP looking-glass endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
 const NLNOG_LG = "https://lg.ring.nlnog.net/api";
 
+/**
+ * GET handler for BGP looking-glass prefix queries.
+ *
+ * Reads the required `prefix` query parameter (a CIDR such as `8.8.8.0/24`;
+ * 400 when absent) and relays it to the NLNOG ring looking glass at
+ * `lg.ring.nlnog.net/api`, aborting after 15 seconds. The upstream JSON is
+ * returned verbatim under a `data` key next to the echoed prefix.
+ *
+ * A non-OK upstream status becomes 502 and a thrown error becomes 502;
+ * responses are publicly cached for 300 seconds because routing state moves quickly.
+ */
 export async function GET(request: NextRequest) {
   const prefix = request.nextUrl.searchParams.get("prefix");
   if (!prefix) {

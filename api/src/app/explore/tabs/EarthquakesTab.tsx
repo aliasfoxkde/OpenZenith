@@ -17,6 +17,15 @@ interface EarthquakesTabProps {
   onFetch: () => void;
 }
 
+/**
+ * Renders the Earthquakes tab of the Data Explorer: the USGS earthquake
+ * feed controls and results. Provides a minimum-magnitude select (all, M1.0,
+ * M2.5, M4.5, M5.0, M6.0) and a time-period select (past hour, day, week,
+ * month), a Fetch button, an error banner, and a list of quakes showing
+ * magnitude (colour-coded by `magColor`/`magBg`), place name, coordinates
+ * to three decimals, depth in km, a tsunami flag, the event timestamp, the
+ * event type, and the felt-report count.
+ */
 export function EarthquakesTab({
   data,
   error,

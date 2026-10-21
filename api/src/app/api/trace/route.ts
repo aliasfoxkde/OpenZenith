@@ -20,6 +20,10 @@ import {
   tileWindowBounds,
 } from "@/lib/terrain-sampler";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // OZT2 backend (primary) — z10 tiles from HuggingFace, falls back to merged chunks
@@ -38,6 +42,10 @@ const D8_DC = [1, 1, 0, -1, -1, -1, 0, 1];
 const D8_DIST = [1, Math.SQRT2, 1, Math.SQRT2, 1, Math.SQRT2, 1, Math.SQRT2];
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight for the downstream-trace endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
@@ -50,6 +58,20 @@ interface TraceRequestBody {
   max_steps?: number;
 }
 
+/**
+ * POST /api/trace — follows the downstream flow path from a point to the
+ * ocean.
+ *
+ * Body: `{ lat, lon, zoom?, max_steps? }` — the coordinates are required and
+ * must be valid degrees; `zoom` defaults to 10 (clamped to 5–14) and
+ * `max_steps` defaults to 1000 (clamped to 1–10000). Elevation is read from
+ * the SRTM tiles (OZT2 tiles first, merged chunks as fallback) and the path
+ * is built by repeatedly stepping to the steepest of the eight D8 neighbours,
+ * stopping at the sea, at the edge of the loaded window, or after
+ * `max_steps` steps. Responds 200 with the path, the elevation and distance
+ * series, totals, and the same path as a GeoJSON LineString feature; 400 for
+ * a malformed body or a start point with no elevation data.
+ */
 export async function POST(request: NextRequest) {
   let body: TraceRequestBody;
   try {

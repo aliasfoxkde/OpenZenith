@@ -279,18 +279,6 @@ export function removeEntities(viewer: CesiumType.Viewer, prefix: string, entiti
   viewer.scene.requestRender();
 }
 
-/**
- * Toggle a single imagery overlay identified by URL substring: if an existing
- * imagery layer's provider url contains `name` it is removed, otherwise `url`
- * is added as a UrlTemplateImageryProvider (with optional maximumLevel) and
- * the new top layer's alpha set to `opacity` (0-1). Matching walks
- * imageryLayers._layers and _imageryProvider.url — Cesium private APIs, so
- * this is Cesium-version sensitive — which is why every url passed here must
- * embed `name` verbatim (the radar/raster loaders use NASA GIBS, BlueMarble
- * and VIIRS tile URLs that do). Returns nothing; no-ops when the Cesium ref is
- * unset or when there is no match and no url, and always calls
- * scene.requestRender() at the end.
- */
 /** One entry of Cesium's private `ImageryLayerCollection._layers` array. */
 interface OverlayImageryLayer {
   _imageryProvider?: { url?: string };
@@ -311,6 +299,18 @@ type OverlayLayerCollection = {
   addImageryProvider(provider: unknown, index?: number): OverlayImageryLayer;
 };
 
+/**
+ * Toggle a single imagery overlay identified by URL substring: if an existing
+ * imagery layer's provider url contains `name` it is removed, otherwise `url`
+ * is added as a UrlTemplateImageryProvider (with optional maximumLevel) and
+ * the new top layer's alpha set to `opacity` (0-1). Matching walks
+ * imageryLayers._layers and _imageryProvider.url — Cesium private APIs, so
+ * this is Cesium-version sensitive — which is why every url passed here must
+ * embed `name` verbatim (the radar/raster loaders use NASA GIBS, BlueMarble
+ * and VIIRS tile URLs that do). Returns nothing; no-ops when the Cesium ref is
+ * unset or when there is no match and no url, and always calls
+ * scene.requestRender() at the end.
+ */
 export function toggleImageryOverlay(
   viewer: CesiumType.Viewer,
   cesiumRef: typeof CesiumType | null | undefined,

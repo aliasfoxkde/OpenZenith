@@ -16,8 +16,16 @@ import { openHydroGrid } from "@/lib/hydro-params";
 import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the TWI endpoint: answers OPTIONS with the shared CORS
+ * headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -30,6 +38,19 @@ interface TwiRequestBody {
   radius_cells?: number;
 }
 
+/**
+ * POST /api/twi — computes the Topographic Wetness Index over a DEM window.
+ *
+ * Body: `{ lat, lon, zoom, radius_cells }` — the centre point and grid
+ * radius define the window (validated by the shared hydrology opener, which
+ * also enforces the start-elevation gate). TWI is `ln(a / tan(β))`, where
+ * `a` is the specific catchment area from D8 flow accumulation and `β` is
+ * the slope in radians; cells on NoData, with a NaN slope, or flatter than
+ * 0.1° are left as NaN. High values are wet, water-accumulating areas and
+ * low values are ridges. Responds 200 with the decimated grid, the window's
+ * centre/radius/zoom, summary statistics (mean, median, min, max, valid-cell
+ * count) and `units: "ln(m)"`; an invalid body or window is a 400.
+ */
 export async function POST(request: NextRequest) {
   let body: TwiRequestBody;
   try {

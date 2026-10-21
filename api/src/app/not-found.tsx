@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+/**
+ * The 404 page. A self-contained, server-rendered screen with a link home —
+ * it deliberately carries no client state so it renders identically on the
+ * edge and after a hydration-free error.
+ */
 export default function NotFound() {
   return (
     <main

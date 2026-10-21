@@ -57,6 +57,11 @@ function ToolFallback({ dark }: { dark: boolean }) {
   return <div style={{ padding: 12, color: dark ? "#a3a3a3" : "#525252", fontSize: 12 }}>Loading...</div>;
 }
 
+/**
+ * The tool drawer. Renders the tab strip and the active tool's panel. Each
+ * tool is code-split and loaded lazily behind a Suspense boundary, so
+ * opening the studio does not pay for nine panels' worth of JavaScript.
+ */
 export function ToolPanel(props: Props) {
   const { activeTab, onTabChange, dark } = props;
 

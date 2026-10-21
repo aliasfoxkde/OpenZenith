@@ -20,6 +20,12 @@ interface ElevationBatchResponse {
   results?: { lat: number; lon: number; elevation: number | null }[];
 }
 
+/**
+ * Elevation profile along a path. Requests the per-point elevations for the
+ * given coordinates in one batch call and renders them as an SVG
+ * cross-section with distance on the x-axis, annotated with the maximum
+ * elevation and the total ascent.
+ */
 export function ElevationProfile({ dark, onClose, coordinates }: Props) {
   const [points, setPoints] = useState<ElevationPoint[]>([]);
   const [loading, setLoading] = useState(false);

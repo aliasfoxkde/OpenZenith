@@ -6,6 +6,10 @@ interface Props {
   layers: Record<string, boolean>;
 }
 
+/**
+ * Weather panel. Toggles the NOAA/NWS-derived layers — warnings, radar and
+ * forecast — against the current map view.
+ */
 export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";

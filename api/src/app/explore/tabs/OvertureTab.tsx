@@ -21,6 +21,17 @@ interface OvertureTabProps {
   onFetch: () => void;
 }
 
+/**
+ * Renders the Overture Maps tab of the Data Explorer: the theme catalogue,
+ * the type/bounding-box query toolbar, and the results readout. Selecting a
+ * theme card also resets the type to that theme's first type and clears
+ * any prior results. The toolbar offers a type select restricted to the
+ * chosen theme's types and a "west,south,east,north" bounding-box input
+ * that submits on Enter, alongside the resolved
+ * `api.overturemaps.org/v0/{theme}/{type}` endpoint. Results show the
+ * feature count and the first 20 features as formatted JSON, with an
+ * overflow count when more were returned.
+ */
 export function OvertureTab({
   theme,
   type,

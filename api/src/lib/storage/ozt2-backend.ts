@@ -16,6 +16,11 @@ import { latLonToPixel, latLonToSrtmName, srtmNameToBounds } from "@/lib/srtm/ti
 import { HuggingFaceChunkBackend } from "./huggingface-backend";
 import { cacheGet, cachePut } from "./cache";
 
+/**
+ * Construction options for the OZT2 HuggingFace backend: the OZT2 dataset
+ * repo id, the zoom level used for tile lookups, the repo id of the merged-chunk
+ * fallback dataset, and the per-fetch timeout in seconds.
+ */
 export interface OZT2BackendOptions {
   /** HuggingFace dataset repo ID for OZT2 tiles */
   repoId?: string;

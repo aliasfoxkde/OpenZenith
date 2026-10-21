@@ -16,6 +16,11 @@
 
 import { unzlibSync } from "fflate";
 
+/**
+ * Parsed chunk index of an OZCHNK01 `.merged` file: the number of chunk rows
+ * and columns in the cell's 15x15 grid, plus one `{ offset, size }` byte pair
+ * per chunk pointing at its compressed payload inside the file.
+ */
 export interface MergedIndex {
   rows: number;
   cols: number;
@@ -124,6 +129,11 @@ export function chunkRealExtent(chunkRow: number, chunkCol: number): { width: nu
   };
 }
 
+/**
+ * A decoded `.merged` chunk: the elevation samples in metres as a row-major
+ * `Int16Array`, plus the chunk's real (non-padding) width and height in
+ * pixels.
+ */
 export interface DecodedMergedChunk {
   data: Int16Array;
   width: number;

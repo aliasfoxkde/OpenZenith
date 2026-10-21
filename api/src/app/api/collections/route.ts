@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the OGC collections list endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -46,6 +51,17 @@ const FEATURE_COLLECTIONS = [
   },
 ];
 
+/**
+ * GET handler listing the available OGC API - Features collections.
+ *
+ * Maps the internal layer registry to OGC collection entries — id, title,
+ * description, self and items links, the global CRS84 spatial extent and the
+ * `feature` item type — and returns them in an OGC document with self/root
+ * links and a `timeStamp`.
+ *
+ * The listing is publicly cached for 3600 seconds; an unexpected failure
+ * returns 500.
+ */
 export function GET(request: NextRequest) {
   try {
     const baseUrl = new URL(request.url).origin;

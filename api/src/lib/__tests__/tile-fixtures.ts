@@ -12,6 +12,7 @@ import type { ChunkBackend } from "../storage/backend";
  * chunks with the TIFF horizontal predictor already applied.
  */
 
+/** The 8-byte PNG file signature (137 80 78 71 13 10 26 10) every PNG stream starts with. */
 export const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
 function paethPredictor(a: number, b: number, c: number): number {
@@ -44,6 +45,11 @@ function filterRow(target: Uint8Array, prev: Uint8Array, bpp: number, type: numb
   return out;
 }
 
+/**
+ * Wrap `data` in a PNG chunk: 4-byte big-endian length, the 4 ASCII type
+ * bytes, the payload, then the CRC-32 of type+payload. Used to assemble
+ * hand-built IHDR/IDAT/IEND chunks for the fixture PNGs.
+ */
 export function pngChunk(type: string, data: Uint8Array): Uint8Array {
   const typeBytes = new TextEncoder().encode(type);
   const chunk = new Uint8Array(12 + data.length);
@@ -68,6 +74,11 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+/**
+ * Options for the hand-built Terrarium PNG fixtures: the canvas size, PNG
+ * colour type, optional per-row filter types and IDAT split count, and the
+ * callback that supplies the RGB triple for each pixel.
+ */
 export interface PngOptions {
   width: number;
   height: number;
@@ -91,6 +102,12 @@ export function ihdrFor(width: number, height: number, colorType: number): Uint8
   return ihdr;
 }
 
+/**
+ * Build a complete Terrarium-encoded PNG in memory: rasterise the
+ * `opts.pixel` callback over the requested grid, apply PNG row filters, zlib-
+ * compress the raw scanlines, split them across one or more IDAT chunks, and
+ * concatenate IHDR/IDAT/IEND behind the PNG signature.
+ */
 export function buildTerrariumPNG(opts: PngOptions): ArrayBuffer {
   const bpp = opts.colorType === 2 ? 3 : opts.colorType === 6 ? 4 : opts.colorType === 0 ? 1 : 3;
   const stride = opts.width * bpp;
@@ -150,6 +167,11 @@ export function terrariumElevation(r: number, g: number, b: number): number {
   return enc === 0 ? -32768 : Math.round(enc - 32768);
 }
 
+/**
+ * Wrap an encoded PNG buffer in a minimal `Response`-like object whose
+ * `arrayBuffer()` resolves to those exact bytes, standing in for a successful
+ * AWS Terrain tile fetch in the assembler tests.
+ */
 export function awsResponse(png: ArrayBuffer): Response {
   // `arrayBuffer` returns the buffer directly; the assembler awaits the call, so
   // the value is resolved identically without an async wrapper.
@@ -193,6 +215,10 @@ export function constantStorage(
   };
 }
 
+/**
+ * Build a `ChunkBackend` whose every `fetchChunk` call rejects with `message`,
+ * for exercising the tile assemblers' chunk-storage error path.
+ */
 export function failingStorage(message: string): ChunkBackend {
   return { fetchChunk: vi.fn(async (): Promise<ArrayBuffer> => Promise.reject(new Error(message))) };
 }

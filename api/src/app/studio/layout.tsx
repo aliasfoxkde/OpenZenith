@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 
+/**
+ * Next.js route metadata for the `/studio` segment: sets the page title, the
+ * meta description, and the OpenGraph card fields for social link previews.
+ */
 export const metadata: Metadata = {
   title: "Geospatial Studio — Draw, Annotate & Analyze",
   description:
@@ -11,6 +15,10 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Root layout for the `/studio` geospatial-studio route segment. It is a
+ * pass-through that renders its children unchanged and adds no chrome.
+ */
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

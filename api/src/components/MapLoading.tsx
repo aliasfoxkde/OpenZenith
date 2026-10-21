@@ -35,6 +35,22 @@ const spinner = `
 }
 `;
 
+/**
+ * Centred overlay shown while a map finishes loading, or when it fails.
+ *
+ * Without `error` it renders a spinning ring plus a pulsing message
+ * ("Loading map..." by default). With `error` set it renders a warning glyph,
+ * `errorMessage` ("Failed to load map. Please refresh the page." by default)
+ * and, when `onRetry` is supplied, a Retry button wired to that callback.
+ *
+ * `dark` picks the overlay surface, text and border colors for the loading
+ * state; the error state always uses the red-on-dark treatment.
+ *
+ * @param props.message - Loading text shown under the spinner.
+ * @param props.error - Switches the overlay from the spinner to the failure panel.
+ * @param props.errorMessage - Failure text shown in place of the default message.
+ * @param props.onRetry - When provided, renders a Retry button that calls it.
+ */
 export function MapLoading({ message, error, errorMessage, dark, onRetry }: Props) {
   const bg = error ? "rgba(180,0,0,0.9)" : dark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.95)";
   const color = error ? "#fff" : dark ? "#e5e5e5" : "#171717";

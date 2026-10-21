@@ -9,8 +9,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the OGC collection metadata endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -42,6 +47,16 @@ const COLLECTIONS: Partial<Record<string, { title: string; description: string }
   },
 };
 
+/**
+ * GET handler for one OGC API - Features collection descriptor.
+ *
+ * Resolves the collection id from the route segment and returns its id, title,
+ * description, self/items/root links, the global CRS84 spatial extent and the
+ * `feature` item type. An unknown id yields 404 with an OGC
+ * `{code: "NotFound", description}` body.
+ *
+ * The descriptor is publicly cached for 3600 seconds.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const baseUrl = new URL(request.url).origin;
   const { id } = await params;

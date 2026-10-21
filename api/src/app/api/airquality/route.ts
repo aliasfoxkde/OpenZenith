@@ -9,8 +9,13 @@ import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 import { apiCacheKey, edgeGetJson, edgePutJson } from "@/lib/storage/edge-cache";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the air quality endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -44,6 +49,18 @@ function parseCoord(val: string | null, fallback: number, min: number, max: numb
   return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 
+/**
+ * GET handler for current air quality at a point.
+ *
+ * Reads the `lat`/`lon` query parameters (absent or empty falls back to
+ * New York City; a malformed or out-of-range value yields 400), then queries
+ * the Open-Meteo Air Quality API for the current PM2.5, PM10, CO, NO2, SO2,
+ * ozone and US AQI readings. The single reading is returned as a GeoJSON
+ * FeatureCollection with the coordinates and a categorical `aqi_level`.
+ *
+ * Responses are cached at the edge for 300 seconds and tagged `X-Cache`
+ * HIT/MISS; an upstream failure returns 502 and an unexpected throw returns 500.
+ */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const lat = parseCoord(url.searchParams.get("lat"), 40.7, -90, 90);

@@ -1,3 +1,8 @@
+/**
+ * Route-level loading UI for the 2D map: a full-viewport dark screen with an
+ * inline SVG spinner and the label "Loading map...". Rendered by Next.js while
+ * the map page's client bundle and the MapLibre style initialise.
+ */
 export default function Loading() {
   return (
     <div

@@ -9,12 +9,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import pkg from "../../../../package.json";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the health endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET handler for the API health and capability descriptor.
+ *
+ * Reports the running package version, the active storage backend (from
+ * `STORAGE_BACKEND`, default `huggingface`) with the OZT2 primary and merged
+ * fallback repositories and the 256x256 chunk size, the SRTM 30m coverage
+ * envelope, and the canonical endpoint map.
+ *
+ * The reply carries a per-request `requestId` and is sent with
+ * `Cache-Control: no-cache` — it is a status probe, not a data read.
+ */
 export function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const backend = process.env.STORAGE_BACKEND || "huggingface";

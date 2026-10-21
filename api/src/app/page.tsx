@@ -64,6 +64,12 @@ interface QueryResponse {
   address?: QueryAddress | null;
 }
 
+/**
+ * The landing page. Renders the hero, the live elevation lookup (the sample
+ * points and the coordinate inputs) and the copy-paste API snippets; the
+ * coordinate fields are uncontrolled refs so a value typed before hydration
+ * survives.
+ */
 export default function Home() {
   const dark = useTheme();
   // The coordinate inputs are uncontrolled and refs are the single source of

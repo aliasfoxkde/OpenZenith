@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 import { BASEMAP_TILE_HOSTS } from "@/lib/basemaps";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 /**
@@ -26,6 +30,10 @@ const ALLOWED_WMS_HOSTS = [
   "example.com",
 ];
 
+/**
+ * CORS preflight for the WMS proxy endpoint: answers OPTIONS with the shared
+ * CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -59,6 +67,20 @@ const ALLOWED_PARAMS = new Set([
   "legend_options",
 ]);
 
+/**
+ * GET /api/proxy/wms — issues a WMS `GetMap` request through the proxy so
+ * the map can read external WMS layers without CORS violations.
+ *
+ * Query parameters: `url` (the WMS server base URL), plus the WMS
+ * parameters themselves. `layers` and `bbox` are mandatory (400 otherwise);
+ * `width`/`height` default to 256×256 and `format` to `image/png`. Only
+ * parameters on the WMS allow-list are forwarded, `version` defaults to
+ * `1.3.0`, and `SERVICE=WMS`/`REQUEST=GetMap`/`TRANSPARENT=TRUE` are always
+ * applied. The target host must be on the WMS allow-list (403 otherwise) and
+ * the scheme must be HTTP or HTTPS (400 otherwise). Responds 200 with the
+ * upstream image and `Cache-Control: public, max-age=3600`; upstream failures
+ * are relayed with the upstream status, and a thrown fetch is a 502.
+ */
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   if (!url) {

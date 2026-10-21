@@ -15,12 +15,29 @@ import spec from "./spec.json";
 // This route only serves it, substituting the deployment origin so the
 // published `servers` entry always matches where the request landed.
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the OpenAPI document endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET /api/openapi.json — serves the generated OpenAPI 3.0 document for the
+ * whole API surface.
+ *
+ * Returns the spec produced by `npm run openapi:generate`, overriding its
+ * `servers` entry with the origin the request arrived on so the published
+ * base URL always matches the deployment being queried. Responds 200 with the
+ * document and `Cache-Control: public, max-age=3600`.
+ */
 export function GET(request: NextRequest) {
   const baseUrl = new URL(request.url).origin;
   return NextResponse.json(

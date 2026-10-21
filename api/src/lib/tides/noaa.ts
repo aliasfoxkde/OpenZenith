@@ -23,6 +23,11 @@ interface TideStation {
   distanceUnit: string;
 }
 
+/**
+ * Tide data for a location: the nearest NOAA tide station (id, name,
+ * coordinates, and its distance from the query point in nautical miles), the
+ * high/low water predictions, and the source label (`noaa-tides`).
+ */
 export interface TideData {
   station: TideStation;
   predictions: TidePrediction[];

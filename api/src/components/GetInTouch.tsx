@@ -16,6 +16,21 @@ interface GetInTouchProps {
   successMessage?: string;
 }
 
+/**
+ * Contact section that swaps a form for a success panel on submit.
+ *
+ * The heading, description, submit label and both success strings are
+ * overridable props, so the same component backs the landing page and the
+ * contribute page. The form is client-side only: `sendContact` prevents the
+ * default submit, requires name, email and message to be non-empty, then
+ * clears the fields and renders the success panel. Nothing is transmitted to
+ * a server — the values live in React state and are discarded on submit.
+ *
+ * The section is exposed as a `region` landmark named by the heading, so the
+ * form content is contained by a landmark for the axe region rule (WCAG 1.3.6).
+ *
+ * @param props.dark - Selects the dark card, border, input and text palette.
+ */
 export function GetInTouch({
   dark,
   heading = "Get in Touch",

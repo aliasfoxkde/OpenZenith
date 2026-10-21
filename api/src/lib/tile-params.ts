@@ -12,12 +12,19 @@
  * assembly pass before failing on missing data.
  */
 
+/** Parsed slippy-map tile coordinates: the zoom level and the tile's column and row indices. */
 export interface TileParams {
   z: number;
   x: number;
   y: number;
 }
 
+/**
+ * Result of parsing tile path segments: on success the parsed coordinates,
+ * on failure the HTTP status the route should return (400 for malformed input
+ * or an out-of-range zoom, 404 for a well-formed tile outside the 2^z grid)
+ * and a human-readable message.
+ */
 export type TileParamParse = ({ ok: true } & TileParams) | { ok: false; status: number; message: string };
 
 const STRICT_INT = /^-?[0-9]+$/;

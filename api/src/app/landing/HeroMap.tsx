@@ -6,6 +6,11 @@ import { waitForMapLibre } from "./maplibre-loader";
 import { isDarkNow } from "./useTheme";
 import { addOrUpdatePin, flyToWithPadding } from "./map-helpers";
 
+/**
+ * A coordinate the hero map should fly to. The landing page raises one when
+ * a sample location is chosen; the map watches the prop and re-centres with
+ * padding when it changes.
+ */
 export interface FlyTarget {
   lat: number;
   lon: number;

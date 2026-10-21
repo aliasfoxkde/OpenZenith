@@ -4,6 +4,12 @@ interface MapWithPin extends maplibregl.Map {
   _ozPin?: maplibregl.Marker;
 }
 
+/**
+ * Places (or moves) the landing page's blue location pin on the map. Builds
+ * a circular marker element with a pulsing halo, removes any pin this
+ * helper previously added to the same map instance, and anchors the new
+ * marker at the given longitude/latitude.
+ */
 export function addOrUpdatePin(map: maplibregl.Map, lon: number, lat: number) {
   const el = document.createElement("div");
   el.className = "oz-pin";
@@ -28,6 +34,12 @@ export function addOrUpdatePin(map: maplibregl.Map, lon: number, lat: number) {
   mapWithPin._ozPin = marker;
 }
 
+/**
+ * Flies the map camera to a longitude/latitude/zoom over a 1.5 s animated
+ * transition, padding the viewport so the target is not hidden behind the
+ * page chrome. The padding is wider on desktop (400 px on the left for the
+ * sidebar) and narrower below the 768 px breakpoint.
+ */
 export function flyToWithPadding(map: maplibregl.Map, lon: number, lat: number, zoom: number) {
   const isMobile = window.innerWidth < 768;
   map.flyTo({

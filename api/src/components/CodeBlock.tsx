@@ -9,6 +9,24 @@ interface CodeBlockProps {
   code?: string;
 }
 
+/**
+ * Renders a monospaced code panel with a copy-to-clipboard button.
+ *
+ * `dark` selects the palette: the dark surface is `#0d1117` and the light one
+ * `#f5f5f5`, each paired with a label color that clears WCAG AAA contrast.
+ * `label`, when given, is shown as an uppercase caption above the code.
+ *
+ * The button copies `code` verbatim when it is supplied; otherwise the text is
+ * derived from `children` by flattening string nodes and joining nested arrays
+ * with newlines (non-string children contribute nothing). The button reads
+ * "Copy" until the clipboard write resolves, then flips to "Copied" for 2000 ms
+ * before reverting. A rejected clipboard write (denied permission or an
+ * unavailable API) is swallowed and the label stays "Copy".
+ *
+ * @param props.children - Code content rendered inside the panel.
+ * @param props.code - Explicit source text to place on the clipboard, used in
+ *   preference to the text derived from `children`.
+ */
 export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 

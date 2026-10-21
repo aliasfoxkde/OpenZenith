@@ -668,6 +668,15 @@ const CODE_EXAMPLES: { title: string; examples: CodeExample[] }[] = [
 
 /* ─── Main Page ─── */
 
+/**
+ * Default export of the API documentation page component.
+ *
+ * Client component: fetches the committed OpenAPI 3.0 service description
+ * from /api/openapi.json on mount and renders it as a tag-filtered endpoint
+ * reference, with a parameter table, response schema, and copy-paste cURL
+ * and JavaScript examples for every operation. Renders a failure panel
+ * instead of the reference when the spec cannot be loaded.
+ */
 export default function DocsPage() {
   const [spec, setSpec] = useState<OpenApiSpec | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);

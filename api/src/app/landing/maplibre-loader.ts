@@ -22,6 +22,16 @@ function injectMapLibreScript(): Promise<void> {
   });
 }
 
+/**
+ * Loads the MapLibre GL JS library from the unpkg CDN into the page,
+ * injecting its stylesheet on first use. Resolves immediately if
+ * `window.maplibregl` already exists. Concurrent callers share a single
+ * load via the `window._maplibreLoading` promise slot; on failure the
+ * script tag is removed and the call is retried up to `attempts` times with
+ * a linear backoff of one second per attempt, and the slot is only cleared
+ * after the final attempt so a later caller can start fresh rather than
+ * awaiting a permanently rejected promise.
+ */
 export function loadMapLibre(attempts = 3): Promise<void> {
   // The `as MapLibreGL | undefined` widening is load-bearing: window.maplibregl
   // collides with the `declare namespace maplibregl` global (same name on
@@ -50,6 +60,13 @@ export function loadMapLibre(attempts = 3): Promise<void> {
   return window._maplibreLoading;
 }
 
+/**
+ * Resolves with the MapLibre GL JS namespace once it is available on
+ * `window`, loading it first if necessary. After the script reports
+ * load, the namespace is polled every 100 ms and the promise rejects with
+ * "MapLibre GL failed to load" if it has not appeared within `timeoutMs`
+ * milliseconds.
+ */
 export function waitForMapLibre(timeoutMs = 15000): Promise<MapLibreGL> {
   const existing = window.maplibregl as MapLibreGL | undefined;
   if (existing) return Promise.resolve(existing);

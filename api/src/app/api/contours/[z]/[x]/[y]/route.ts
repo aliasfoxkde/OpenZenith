@@ -20,6 +20,7 @@ import { parseTileParams } from "@/lib/tile-params";
 
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 const CACHE_HEADERS: Record<string, string> = {
@@ -41,10 +42,28 @@ function getContourInterval(zoom: number) {
 }
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the contour tile endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET handler for elevation contour tiles.
+ *
+ * Reads the `z`/`x`/`y` route segments and validates them against zoom 4..14
+ * (a malformed or out-of-range tile yields the parser's error status). It then
+ * assembles the SRTM elevation tile from the HuggingFace chunk backend and
+ * derives contour lines with marching squares, returning them as a GeoJSON
+ * FeatureCollection of LineStrings whose properties carry the contour
+ * `elevation` in metres and a `major`/`minor` type. The contour interval
+ * tightens with zoom (500/2000 m below z6 up to 50/200 m from z10).
+ *
+ * Tiles are served cache-aside from the edge cache (`X-Cache: HIT|MISS`);
+ * elevation-assembly failure returns 502 with an empty FeatureCollection body.
+ */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 

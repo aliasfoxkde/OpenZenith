@@ -62,6 +62,20 @@ const COORD_FORMATS = [
   { value: "DDM", label: "DDM (Degrees Decimal Minutes)" },
 ];
 
+/**
+ * Renders the globe's settings panel: four collapsible sections (UI Elements,
+ * Performance, Coordinates, Theme) holding the viewer's display toggles, the
+ * flight-entity cap, the coordinate format, and the theme picker.
+ *
+ * Settings are persisted to `localStorage` under the `globe-settings` key on
+ * every change and re-read on mount; storage failures (private-browsing,
+ * quota) are swallowed and the defaults are used instead. The entity cap is
+ * clamped to 100–50 000 entities (step 500, fallback 5 000) before it is
+ * saved. Choosing a theme calls `globe.switchTheme(themeKey)`.
+ *
+ * @param globe - Shared globe context; only `globe.state.theme` (to mark the
+ *   active theme) and `globe.switchTheme` (to apply a new one) are used.
+ */
 export function SettingsWidget({ globe }: WidgetProps) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({

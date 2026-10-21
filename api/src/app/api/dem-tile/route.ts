@@ -28,6 +28,7 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
  *   });
  */
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 const TERRAIN_METADATA = {
@@ -62,10 +63,26 @@ const TERRAIN_METADATA = {
   },
 };
 
+/**
+ * CORS preflight handler for the DEM tile metadata endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET handler for the DEM terrain provider metadata and health check.
+ *
+ * Without query parameters it returns the TileJSON-style terrain descriptor
+ * (tile URL template, zoom 0..12 bounds, terrarium encoding, and the OZT2 and
+ * PNG format variants) for CesiumJS and MapLibre clients, publicly cached for
+ * 86400 seconds. With `?health=1` it instead probes the HuggingFace SRTM
+ * chunk backend with a HEAD request: a reachable backend returns
+ * `{status: "ok"}`, a reachable-but-erroring one returns 200 with
+ * `{status: "degraded"}`, and a probe that throws returns 503 with
+ * `{status: "error"}`.
+ */
 export async function GET(request: NextRequest) {
   // Health check mode
   if (request.nextUrl.searchParams.get("health") === "1") {

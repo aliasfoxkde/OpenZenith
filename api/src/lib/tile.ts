@@ -20,6 +20,10 @@ const NODATA = -32768;
 
 // Lat/lon box the tile assemblers fill. Shared with the WorldCRS84Quad
 // assembler, whose tiles are natively lat/lon rectangles.
+/**
+ * Geographic bounds of a slippy-map tile in degrees: the northern, southern,
+ * eastern, and western edges of the lat/lon rectangle the tile covers.
+ */
 export interface TileBounds {
   north: number;
   south: number;
@@ -56,6 +60,11 @@ const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium
 // renders that risk the edge wall-time budget show up in production tails.
 const SLOW_ASSEMBLY_LOG_MS = 2000;
 
+/**
+ * An assembled elevation tile: the row-major elevation grid in metres
+ * (`-32768` for no data), its width and height in pixels, and the zoom level
+ * the grid was assembled at.
+ */
 export interface TileResult {
   data: Int16Array;
   width: number;

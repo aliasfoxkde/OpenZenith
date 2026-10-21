@@ -1,7 +1,7 @@
 /**
  * Forward geocoding proxy.
  *
- * GET /api/geocode?q=<text> - relays to Nominatim /search and returns
+ * GET /api/geocode?query=<text> - relays to Nominatim /search and returns
  * { requestId, results, count } with display name, lat/lon and address parts.
  * Caching: Workers Cache API for 300s (Nominatim etiquette caps how hard the
  * upstream may be leaned on); responses set
@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson } from "@/lib/storage/edge-cache";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // Short TTL: nominatim etiquette caps how aggressively we may lean on the
@@ -18,10 +19,29 @@ export const runtime = "edge";
 const GEOCODE_EDGE_TTL_SECONDS = 300;
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the geocoding endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET handler for forward geocoding.
+ *
+ * Reads the required `query` parameter — a place name, rejected when empty
+ * or longer than 200 characters with 400 — plus an optional `limit` (default
+ * 5, clamped to 1..10). The query is relayed to the Nominatim `/search`
+ * endpoint with `addressdetails=1` and a 10-second timeout, and each hit is
+ * reduced to its display name, numeric lat/lon, type, importance and address
+ * parts.
+ *
+ * Only the results array is edge-cached (300 s TTL, keyed by lower-cased
+ * query and limit) so the per-request `requestId` is never replayed from
+ * another caller's lookup. A Nominatim 429 becomes 429 with a `Retry-After`
+ * header, other upstream failures become 502.
+ */
 export async function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
   const query = request.nextUrl.searchParams.get("query")?.trim();

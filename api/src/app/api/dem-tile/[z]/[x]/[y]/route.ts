@@ -69,6 +69,7 @@ const CONTENT_TYPE: Record<Format, string> = {
 // Direct backend instance — avoids process.env which may not work on edge
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // Cache headers — tiles are deterministic for a given RENDER_SCHEMA_VERSION
@@ -161,7 +162,8 @@ async function putCfCacheTile(
 
 /**
  * Determine requested format from query string.
- * Defaults to OZT2 for new clients; PNG for legacy / missing values.
+ * `?format=ozt2` selects the pre-generated binary; anything else —
+ * including an absent value — selects the PNG.
  */
 function getFormat(request: NextRequest): Format {
   const fmt = request.nextUrl.searchParams.get("format");
@@ -181,10 +183,31 @@ function getEncoding(request: NextRequest): Encoding | null {
   return enc === ENC_TERRARIUM || enc === ENC_MAPBOX ? enc : null;
 }
 
+/**
+ * CORS preflight handler for the DEM tile endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET handler for a single DEM terrain tile.
+ *
+ * Reads the `z`/`x`/`y` route segments (a `.png` suffix on the row is
+ * stripped) and validates them against zoom 0..14, answering with the
+ * parser's error status when the tile is out of range. `?format=ozt2` selects
+ * the pre-generated OZT2 binary, anything else (including an absent value)
+ * selects a PNG; `?encoding=` picks the PNG pixel encoding — `terrarium`
+ * (default) or `mapbox` Terrain-RGB v1 — and an unrecognised encoding, or
+ * `mapbox` combined with `format=ozt2`, returns 400.
+ *
+ * Tiles are served cache-aside: the Cloudflare Cache API first, then the
+ * HuggingFace origin — pre-generated OZT2 bytes, or a PNG assembled on the
+ * fly from SRTM chunks. A missing OZT2 tile falls back to PNG with an
+ * `X-Dem-Tile-Format-Fallback: ozt2-to-png` header. Responses are immutable
+ * for one year; a failed assembly returns 502.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 

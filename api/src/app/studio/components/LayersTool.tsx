@@ -25,6 +25,12 @@ const DATA_LAYERS = [
   { id: "wildfires", label: "Wildfires", category: "Disasters", accent: "#ff6600" },
 ];
 
+/**
+ * Basemap and layer picker. Switches the basemap between the registry
+ * entries and toggles the real-time data layers (earthquakes, warnings,
+ * waterways, radar, buildings, wildfires) plus the user's own uploaded
+ * datasets.
+ */
 export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLayer, datasets }: Props) {
   const border = dark ? "#2a2a2a" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";

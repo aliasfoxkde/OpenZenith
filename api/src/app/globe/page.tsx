@@ -103,6 +103,25 @@ interface LayerModules {
   dayNight: typeof import("./lib/layers/day-night");
 }
 
+/**
+ * The 3D globe page: mounts a CesiumJS viewer into the page container and
+ * drives every layer, widget, and overlay that hangs off it.
+ *
+ * On mount it restores the dashboard state from the URL hash and the
+ * `globe-theme` localStorage key, then boots the viewer through
+ * `initCesiumViewer`. The 22 data layers (radar, flights, vessels, satellites,
+ * hurricanes, wildfires, GPS jamming, …) are code-split and fetched on demand
+ * by `loadLayerDynamic`; each layer registers its own polling timer so toggling
+ * it off cancels exactly its timers. The basemap, layers, tools, and settings
+ * widgets are dynamically imported and hosted in draggable `WidgetShell`
+ * windows managed by `useWidgetManager`, and the URL hash is kept in sync with
+ * the live state so a view can be shared as a link.
+ *
+ * The page also owns the HUD overlays (compass, orbit presets, zoom controls,
+ * status bar, coordinate panel), the right-click context menu, the annotation
+ * editor, the elevation-profile panel, and the keyboard shortcuts
+ * (`+`/`-` zoom, `r` reset, `f` fullscreen, `c` cycle view mode, `Esc` clear).
+ */
 export default function Globe() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<CesiumType.Viewer | null>(null);

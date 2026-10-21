@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the GPS jamming endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -27,6 +32,18 @@ const NOTICE =
   "Static reference dataset of publicly documented GPS interference zones. " +
   "Positions and intensities are approximate survey values, not real-time detections.";
 
+/**
+ * GET handler for the GPS interference reference zones.
+ *
+ * Returns the surveyed interference cells — lat, lon, hex resolution,
+ * intensity in 0..1, source label and timestamp — for publicly documented
+ * regions (Ukraine, the Middle East, the Taiwan Strait, the Russian border
+ * area, the Korean Peninsula and the Eastern Mediterranean).
+ *
+ * This is a static reference dataset, not live detection: the reply is marked
+ * `simulated: true` and carries a `notice` so clients can disclose that.
+ * Responses are publicly cached for 600 seconds.
+ */
 export function GET() {
   const hexes: Array<{
     lat: number;

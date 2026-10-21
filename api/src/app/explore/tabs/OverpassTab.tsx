@@ -19,6 +19,16 @@ interface OverpassTabProps {
   onRun: () => void;
 }
 
+/**
+ * Renders the Overpass tab of the Data Explorer: the Overpass QL query
+ * editor and results readout. Provides a bounding-box input
+ * ("west,south,east,north"), a monospace query textarea whose
+ * `{{bbox}}` placeholder the page substitutes before posting, a Run Query
+ * button, and a grid of quick-query preset buttons. The results readout
+ * reports the node, way, and relation counts, the OpenStreetMap snapshot
+ * timestamp, and the first 50 returned elements as formatted JSON, with an
+ * explicit empty-state message when the query matched nothing.
+ */
 export function OverpassTab({
   query,
   bbox,

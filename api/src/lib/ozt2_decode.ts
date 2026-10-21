@@ -42,6 +42,12 @@ const COMP_ZLIB = 2;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Header metadata of a decoded OZT2 tile: the tile's minimum elevation and
+ * elevation range in metres (so `maxElevation` is the sum), the quantisation
+ * bit depth, which predictor and which entropy coder the tile used, and the
+ * tile's pixel width and height.
+ */
 export interface OZT2Metadata {
   minElevation: number;
   elevationRange: number;
@@ -53,6 +59,11 @@ export interface OZT2Metadata {
   height: number;
 }
 
+/**
+ * Result of decoding an OZT2 tile: the reconstructed elevation grid as
+ * row-major `Int16Array` of metres, the grid dimensions, and the header
+ * metadata the grid was decoded from.
+ */
 export interface OZT2DecodeResult {
   elevation: Int16Array;
   width: number;

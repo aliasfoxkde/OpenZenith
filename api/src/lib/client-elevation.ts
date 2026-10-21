@@ -30,8 +30,18 @@ interface DecodedChunk {
   height: number;
 }
 
+/**
+ * Outcome of a client-side elevation lookup: `ok` when a height was found,
+ * `no_data` when the sources were reachable but the point had no elevation
+ * sample, and `unavailable` when no source could be reached at all.
+ */
 export type ElevationLookupStatus = "ok" | "no_data" | "unavailable";
 
+/**
+ * Result of a single client-side elevation lookup: the height in metres (null
+ * when unknown), the surface classification, the SRTM tile or GEBCO quad the
+ * sample came from, the lookup status, and the data source when known.
+ */
 export interface ClientElevationResult {
   elevation: number | null;
   surfaceType: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";

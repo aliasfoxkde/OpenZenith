@@ -26,6 +26,7 @@ import { parseTileParams } from "@/lib/tile-params";
 
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // Immutable for a given render schema — same policy as /api/dem-tile.
@@ -93,10 +94,28 @@ async function putEcCfCache(z: number, x: number, y: number, data: ArrayBuffer):
 }
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the elevation color tile endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET handler for a hypsometric elevation color tile.
+ *
+ * Reads the `z`/`x`/`y` route segments (a `.png` suffix on the row is
+ * stripped) and validates them against zoom 0..14. The tile is assembled from
+ * the HuggingFace SRTM chunk backend and each elevation sample is mapped
+ * through the hypsometric ramp (deep blue ocean through cyan, green, yellow,
+ * brown and gray to white at the peaks); NoData pixels are painted dark blue.
+ *
+ * Tiles are served through three layers — the Cloudflare Cache API, the
+ * durable edge tile store, then generation from the origin — and are immutable
+ * for one year. If assembly fails the route still answers 200 with a flat
+ * ocean-colored fallback tile marked `X-Tile-Type: fallback-ocean`.
+ */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 

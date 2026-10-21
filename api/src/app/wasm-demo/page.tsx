@@ -303,6 +303,12 @@ function decompressOZT2(bytes: Uint8Array, compressor: number): Uint8Array {
 
 // ─── Main demo component ─────────────────────────────────────────────────────
 
+/**
+ * The browser-side WASM demo. Loads the compiled Rust core, runs the D8
+ * flow-direction, flow-accumulation and viewshed routines over a
+ * synthetic DEM, and renders each result to a canvas alongside the
+ * measured runtimes.
+ */
 export default function WasmDemo() {
   const canvasD8 = useRef<HTMLCanvasElement>(null);
   const canvasAcc = useRef<HTMLCanvasElement>(null);

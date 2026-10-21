@@ -21,6 +21,18 @@ interface NoaaTabProps {
   onFetch: () => void;
 }
 
+/**
+ * Renders the NOAA & USGS tab of the Data Explorer: the catalogue of
+ * proxy-backed datasets, the point-based NWS coordinate inputs, and the
+ * result renderers. Each dataset card is a button that selects that
+ * dataset; the two point-based entries (NWS point forecast and NWS active
+ * alerts) additionally expose latitude and longitude inputs. The renderer
+ * adapts to the payload shape: GeoJSON feature collections are listed as
+ * quakes, NWS forecast periods are shown as day/night temperature cards,
+ * NWS alerts are listed with a severity-coloured bar, NHC storms and NASA
+ * EONET events are rendered as counts plus JSON or event lists, and any
+ * unrecognised payload falls back to a truncated raw-JSON dump.
+ */
 export function NoaaTab({
   selected,
   data,

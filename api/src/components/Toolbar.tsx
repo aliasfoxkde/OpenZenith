@@ -12,6 +12,21 @@ interface ToolbarProps {
   dark?: boolean;
 }
 
+/**
+ * Compact map toolbar with a search box, a coordinate-jump control and an
+ * optional screenshot button.
+ *
+ * Pressing Enter in the search field calls `onSearch` with the trimmed query,
+ * and only when `onSearch` was supplied. The `⊕` button reveals the latitude
+ * and longitude inputs; the GO button (or Enter in either field) calls
+ * `onJumpTo` only when both values parse as numbers inside the valid ranges —
+ * latitude -90..90 and longitude -180..180 — otherwise the jump is ignored.
+ * The screenshot button is rendered only when `onScreenshot` is supplied.
+ *
+ * @param props.onSearch - Receives the trimmed search query on Enter.
+ * @param props.onJumpTo - Receives the validated latitude and longitude, in degrees.
+ * @param props.onScreenshot - Invoked when the screenshot button is pressed.
+ */
 export function Toolbar({ onSearch, onJumpTo, onScreenshot }: ToolbarProps) {
   const [searchValue, setSearchValue] = useState("");
   const [latValue, setLatValue] = useState("");

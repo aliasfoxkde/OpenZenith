@@ -13,6 +13,11 @@ interface GeocodeResponse {
   results?: GeocodeResult[];
 }
 
+/**
+ * Place search panel. Debounces the query, calls the geocode endpoint and
+ * lists the matches; choosing one flies the map to that location and drops
+ * a marker on it.
+ */
 export function GeocodeTool({ map, dark }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeocodeResult[]>([]);

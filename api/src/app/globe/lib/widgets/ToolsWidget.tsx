@@ -27,6 +27,26 @@ interface BgpBody {
   error?: unknown;
 }
 
+/**
+ * Renders the globe's tool panel: seven collapsible sections covering
+ * measurement (distance, area, elevation profile), search/navigate, bookmarks,
+ * drawing/annotation, screenshots, range rings, and BGP prefix lookup.
+ *
+ * Every section talks to the live viewer through the shared globe context:
+ * measurement modes are set via `globe.setActiveTool` plus the tool manager's
+ * `setMode`, geocoding calls `GET /api/geocode?query=…&limit=5` with a 6 s
+ * timeout (an empty result list and a failed request are reported
+ * distinctly), BGP lookups call `GET /api/bgp?prefix=…`, and both geocode hits
+ * and typed coordinates fly the camera with `globe.flyTo(lat, lon, 50000)`
+ * (altitude in metres). Bookmarks store the camera's lat/lon/height/heading/
+ * pitch and are persisted locally; annotations can be exported as GeoJSON to the
+ * clipboard; range rings are placed by the next globe click while the "Place
+ * Rings" button is armed, with radii given in kilometres.
+ *
+ * @param globe - Shared globe context providing the viewer/Cesium refs, the
+ *   tool manager and elevation-profile refs, the active tool, and the
+ *   `setActiveTool`/`flyTo` actions.
+ */
 export function ToolsWidget({ globe }: WidgetProps) {
   // GlobeContext types these refs precisely (widgets/types.ts), so the widget
   // reads them straight off the context — no local narrowing casts.

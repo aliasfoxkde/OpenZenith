@@ -24,6 +24,12 @@ function asUploaded(features: GeoJSON.Feature[]): UploadedFeature[] {
   return features;
 }
 
+/**
+ * Tabular view of an uploaded dataset. Sorts and filters the feature list,
+ * pages it 50 rows at a time and exposes the rows as CSV, GeoJSON or a KML
+ * document. Rows whose geometry is null are dropped — a table cell cannot
+ * represent a missing shape.
+ */
 export function DataTable({ dark, dataset }: Props) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");

@@ -9,8 +9,13 @@
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
+/**
+ * CORS preflight handler for the land cover tile endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -20,6 +25,18 @@ import { tileToBboxString } from "@/lib/srtm/zoom-math";
 const GIBS_WMS = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi";
 const LAYER = "MODIS_Combined_L3_IGBP_Land_Cover_Type_Annual";
 
+/**
+ * GET handler for a NASA GIBS MODIS IGBP land cover tile.
+ *
+ * Reads the `z`/`x`/`y` route segments as integers and validates them:
+ * a non-numeric zoom or one outside 1..9 returns 400, and a column or row
+ * outside the zoom's tile range returns 404. The tile is then requested as a
+ * 256x256 EPSG:3857 GetMap from the GIBS WMS endpoint and proxied back.
+ *
+ * Tiles are served cache-aside from the edge tile store (`X-Cache: HIT|MISS`)
+ * and publicly cached for 604800 seconds; a non-OK upstream status is relayed
+ * and a failed fetch returns 502.
+ */
 export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
   const zoom = parseInt(z, 10);

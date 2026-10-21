@@ -65,6 +65,11 @@ function readStudioSession(): StudioSession {
 
 /* ─── Component ─── */
 
+/**
+ * The geospatial studio page. Owns the MapLibre map, the layer handles, the
+ * tool drawer state and the URL-hash/localStorage round-trip, and wires the
+ * tools' click-refs to the map's own handlers.
+ */
 export default function StudioPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);

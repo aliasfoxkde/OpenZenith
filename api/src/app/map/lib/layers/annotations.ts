@@ -22,11 +22,20 @@ export type Annotation = {
 
 const COLORS = ["#00ff88", "#ff6b35", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
 
+/**
+ * Pick one of the annotation palette colours at random, so consecutive
+ * annotations stay visually distinct without the user choosing a colour.
+ */
 function randomColor(): string {
   // bounds: Math.floor(random * length) stays inside COLORS
   return COLORS[Math.floor(Math.random() * COLORS.length)]!;
 }
 
+/**
+ * Mint an id for a new annotation: the current time in base-36 followed by
+ * four random base-36 characters, which is unique enough for the
+ * per-session annotation list and needs no crypto call.
+ */
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }

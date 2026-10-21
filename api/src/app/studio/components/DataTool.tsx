@@ -59,6 +59,12 @@ const RAMP_LABELS: Record<ColorRamp, string> = {
   categorical: "Categorical",
 };
 
+/**
+ * Upload and visualization panel. Accepts GeoJSON, CSV and the binary
+ * formats the studio understands, parses them into datasets, and lets the
+ * user pick how each dataset is drawn (solid, choropleth by property, or
+ * heatmap) and with which color ramp.
+ */
 export function DataTool({
   dark,
   datasets,

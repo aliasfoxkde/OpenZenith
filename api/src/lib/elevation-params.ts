@@ -8,10 +8,14 @@
  * reproduce the behaviour the endpoints had before these parameters existed.
  */
 
+/** DEM grid sampling mode: `nearest` takes the containing cell, `bilinear` interpolates between the four neighbours. */
 export type Interpolation = "nearest" | "bilinear";
+/** Unit the elevation is reported in: metres, or international feet (metres / 0.3048). */
 export type ElevationUnits = "meters" | "feet";
+/** Vertical reference for the reported height: `egm96` orthometric, or `ellipsoid` (orthometric height plus the EGM96 undulation). */
 export type VerticalDatum = "egm96" | "ellipsoid";
 
+/** The effective elevation request options after parsing: how the DEM grid is sampled, the reported unit, and the vertical datum. */
 export interface ElevationParams {
   interpolation: Interpolation;
   units: ElevationUnits;

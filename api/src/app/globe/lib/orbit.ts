@@ -5,6 +5,11 @@
  * raw TLE data to describe the regime a satellite flies in.
  */
 
+/**
+ * The orbit regime of a selected satellite: low Earth orbit (below 2000 km),
+ * medium Earth orbit (2000–30000 km), geostationary (above 30000 km), or
+ * `Unknown` when the altitude could not be determined.
+ */
 export type OrbitClass = "LEO" | "MEO" | "GEO" | "Unknown";
 
 /** Classify an orbit regime from altitude in kilometers. */

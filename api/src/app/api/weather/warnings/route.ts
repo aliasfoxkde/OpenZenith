@@ -3,9 +3,17 @@ import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight for the weather-warnings endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
@@ -30,6 +38,17 @@ interface NwsAlertCollection {
   features?: NwsAlertFeature[];
 }
 
+/**
+ * GET /api/weather/warnings — lists active NOAA/NWS weather alerts.
+ *
+ * Fetches the NWS active-alerts FeatureCollection and trims each feature to
+ * the display-relevant properties (event, severity, urgency, headline, area
+ * description, effective/expires/onset/ends times, sender, status,
+ * category, id), which cuts the response from roughly 1.7 MB to 100 KB
+ * while keeping everything the map shows. The result is cached at the edge
+ * for two minutes and served with `Cache-Control: public, max-age=60` plus an
+ * `X-Cache: HIT|MISS` marker; a non-OK upstream answers 502.
+ */
 export async function GET(_request: NextRequest) {
   // The cache read sits inside the try: a rejecting cache layer resolves to
   // the route's 200-error payload instead of escaping as an unhandled edge

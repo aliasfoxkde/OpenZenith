@@ -13,13 +13,31 @@ import { getElevationFromR2 } from "@/lib/elevation/terrarium-reader";
 import { getGebcoElevation } from "@/lib/gebco/cog-reader";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the bathymetry endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET handler for point bathymetry / ocean depth.
+ *
+ * Reads the required `lat`/`lon` query parameters (400 when either is missing,
+ * 400 again when they are not numeric or fall outside -90..90 / -180..180).
+ * The SRTM terrarium sample is tried first; when it returns no elevation the
+ * handler falls back to GEBCO 2025. Depths are reported as positive metres
+ * below sea level with the land elevation as 0, alongside surface type, source,
+ * tile and resolution.
+ *
+ * A coordinate covered by neither source returns nulls with `surface_type:
+ * "unknown"`; a thrown error becomes 502. Responses are publicly cached for 86400 seconds.
+ */
 export async function GET(request: NextRequest) {
   const lat = request.nextUrl.searchParams.get("lat");
   const lon = request.nextUrl.searchParams.get("lon");

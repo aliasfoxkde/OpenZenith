@@ -36,6 +36,17 @@ interface HudOverlaysProps {
   cesiumRef: React.RefObject<typeof CesiumType | null>;
 }
 
+/**
+ * Renders the globe's heads-up-display overlay stack: the scanline, grid and
+ * corner-frame decorations, the classification banner and scrolling
+ * SIGINT ticker (both only in HUD mode), the space/LOD badge showing the
+ * current altitude zone and camera height, the entity hover tooltip and the
+ * elevation popup anchored to the pointer, and the satellite info panel.
+ * The panel's close button clears the selection and stops follow mode, and
+ * its Follow/Stop Following button locks the camera onto the selected
+ * satellite's orbital-track entity (or releases the lock and restores the
+ * identity transform).
+ */
 export function HudOverlays({
   isHud,
   theme,

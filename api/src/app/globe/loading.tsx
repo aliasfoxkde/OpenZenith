@@ -1,3 +1,8 @@
+/**
+ * Route-level loading UI for the 3D globe: a full-viewport dark screen with an
+ * inline SVG spinner and the label "Loading globe...". Rendered by Next.js
+ * while the globe page's client bundle and the Cesium viewer initialise.
+ */
 export default function Loading() {
   return (
     <div

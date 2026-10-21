@@ -4,12 +4,21 @@ import { getWeather } from "@/lib/weather/open-meteo";
 import { getTides } from "@/lib/tides/noaa";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare edge runtime, where the Workers
+ * Cache API that fronts the upstream data is available.
+ */
 export const runtime = "edge";
 
 const VALID_INCLUDES = ["elevation", "address", "weather", "tides", "waterways"] as const;
 type IncludeType = (typeof VALID_INCLUDES)[number];
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * Answers the CORS preflight for the unified query endpoint with a 204 and
+ * the shared CORS headers, so browser clients can issue cross-origin
+ * multi-source lookups.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }

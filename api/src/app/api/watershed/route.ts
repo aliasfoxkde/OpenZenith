@@ -14,6 +14,10 @@ import { pixelToLatLon } from "@/lib/srtm/zoom-math";
 import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 function delineateWatershed(
@@ -57,6 +61,10 @@ function delineateWatershed(
   return watershed;
 }
 
+/**
+ * CORS preflight for the watershed-delineation endpoint: answers OPTIONS
+ * with the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -69,6 +77,21 @@ interface WatershedRequestBody {
   radius_cells?: number;
 }
 
+/**
+ * POST /api/watershed — delineates the catchment that drains through a
+ * point.
+ *
+ * Body: `{ lat, lon, zoom, radius_cells }` — the centre point and grid
+ * radius define the DEM window (validated by the shared hydrology opener,
+ * which also enforces the start-elevation gate). D8 flow direction is
+ * computed over the window and the watershed is grown upstream from the
+ * pour point by breadth-first search over cells that drain into it; when the
+ * pour point itself is NoData, the nearest valid cell is used instead.
+ * Responds 200 with the watershed area in km², cell count, min/max/mean
+ * elevation, and the boundary cells as both a coordinate list and a GeoJSON
+ * polygon feature (a Point when the basin is degenerate); an invalid body or
+ * window is a 400.
+ */
 export async function POST(request: NextRequest) {
   let body: WatershedRequestBody;
   try {

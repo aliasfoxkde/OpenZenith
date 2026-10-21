@@ -13,6 +13,12 @@ interface Props {
   profileClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
 }
 
+/**
+ * Elevation lookup panel. Shows the elevation under the cursor, accepts
+ * manually typed coordinates, and drives the two-click profile mode: the
+ * first click sets the start, the second the end, and the resulting path
+ * is handed upward so the profile panel can render it.
+ */
 export function ElevationTool({ map: _map, dark, cursorPos, onProfileChange, profileClickRef }: Props) {
   const [results, setResults] = useState<ElevationResult[]>([]);
   const [loading, setLoading] = useState(false);

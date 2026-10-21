@@ -146,6 +146,18 @@ const S = `
    Component
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * The `/explore` Data Explorer page. A client component that hosts seven
+ * tabbed live-data views — NOAA & USGS, Flights, Earthquakes, Satellites,
+ * Marine, Overpass/OSM, and Overture Maps — and owns the fetch state,
+ * filter inputs, and error messages for every one of them so that filters
+ * survive switching tabs. Each tab is a separate component; this page
+ * supplies the props and performs the upstream calls: `/api/proxy` for the
+ * NOAA/USGS/NASA datasets and Overture Maps, `POST /api/overpass` for
+ * Overpass QL queries (with a 30 s abort), `/api/flights` for OpenSky
+ * state vectors, `/api/earthquakes` for the USGS feed, `/api/satellites`
+ * for Celestrak TLEs, and `/api/marine` for Open-Meteo marine conditions.
+ */
 export default function ExplorePage() {
   const [tab, setTab] = useState<TabId>("noaa");
 

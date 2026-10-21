@@ -10,6 +10,14 @@
  * - Only runs when zone actually changes, not on every frame
  */
 
+/**
+ * One band of the globe's level-of-detail system. A zone covers a camera
+ * altitude range in metres (`minAlt` inclusive, `maxAlt` exclusive) and
+ * lists the entity-ID prefixes — the prefixes the layer loaders stamp on
+ * their Cesium entities — that stay visible while the camera is inside
+ * that band. `name` identifies the zone for change detection and
+ * `label` is the short status-bar text shown to the user.
+ */
 export interface LODZone {
   name: string;
   minAlt: number; // meters

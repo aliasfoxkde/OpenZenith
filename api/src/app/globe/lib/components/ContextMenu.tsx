@@ -36,10 +36,18 @@ interface ElevationProfileLike {
 
 /* ─── Sub-components ───────────────────────────────────── */
 
+/**
+ * Thin horizontal rule that separates one group of globe context-menu
+ * entries from the next.
+ */
 export function CtxDivider() {
   return <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />;
 }
 
+/**
+ * Wraps a group of globe context-menu entries in a padded container so the
+ * items inside read as one section.
+ */
 export function CtxSection({ children }: { children: React.ReactNode }) {
   return <div style={{ padding: "2px 0" }}>{children}</div>;
 }
@@ -53,6 +61,12 @@ interface CtxMenuItemProps {
   onClick: () => void;
 }
 
+/**
+ * A single clickable row of the globe context menu: an optional leading
+ * glyph, the item label, an optional keyboard-shortcut hint shown on the
+ * right, and the `onClick` handler fired when the row is activated. The
+ * label takes the accent colour when `accent` is set, otherwise `color`.
+ */
 export function CtxMenuItem({ label, icon, accent, color, shortcut, onClick }: CtxMenuItemProps) {
   return (
     <button
@@ -97,6 +111,12 @@ interface CtxSubMenuProps {
   onToggle: (label: string) => void;
 }
 
+/**
+ * Collapsible group of globe context-menu rows. The header row toggles the
+ * group and rotates its disclosure arrow; the children render indented
+ * inside a bordered sub-panel only while this group is the one named by
+ * `expandedGroup`.
+ */
 export function CtxSubMenu({ label, icon, children, expandedGroup, onToggle }: CtxSubMenuProps) {
   const isOpen = expandedGroup === label;
   return (
@@ -197,6 +217,16 @@ interface ContextMenuProps {
   flyToISS: () => void;
 }
 
+/**
+ * Right-click menu for the globe. It shows the clicked entity's header
+ * (name, type and a colour keyed to the entity category) and the Navigate,
+ * Create, Measure, Copy and Edit sections, plus entity-specific sections
+ * for earthquakes, aircraft, vessels, satellites and storms. The actions fly
+ * the camera, add markers, annotations, range rings and bookmarks to the
+ * Cesium scene, hand the clicked point to the measure and elevation-profile
+ * tools, copy the coordinates (decimal degrees, compact, DMS) and the
+ * elevation to the clipboard, or remove previously created entities.
+ */
 export function ContextMenu({
   ctxMenu,
   setCtxMenu,

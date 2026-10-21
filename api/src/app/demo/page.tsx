@@ -29,6 +29,16 @@ function addElevationLayer(map: maplibregl.Map, _mlgl: MapLibreGL) {
   });
 }
 
+/**
+ * The `/demo` page. A client component that mounts a full-viewport MapLibre
+ * GL map centred on the Himalaya (86.9°E, 28.0°N) with an OSM raster base
+ * layer, adds the `/api/dem-tile/{z}/{x}/{y}` Terrarium-encoded raster-DEM
+ * source, and overlays a hillshade layer (exaggeration 0.3) on top of it.
+ * Clicking the map queries `/api/elevation` for the clicked coordinates and
+ * reports the returned elevation in metres; a failed or timed-out request
+ * (15 s abort) is reported as a null elevation rather than an error.
+ * The map instance is torn down on unmount.
+ */
 export default function Demo() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);

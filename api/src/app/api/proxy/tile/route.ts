@@ -1,5 +1,9 @@
 import { NextRequest } from "next/server";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 /**
@@ -37,10 +41,29 @@ const ALLOWED_TILE_HOSTS = [
   "example.com",
 ];
 
+/**
+ * CORS preflight for the generic tile proxy endpoint: answers OPTIONS with
+ * the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET /api/proxy/tile — proxies a single XYZ/TMS/WMTS tile from an
+ * allow-listed tile server.
+ *
+ * Query parameters: `url` (the tile URL template), `z`, `x`, `y` (the tile
+ * coordinates) and optional `reverse_y=true` for TMS-style y-axis flipping.
+ * The template placeholders `{z}`, `{x}`, `{y}` (or their percent-encoded
+ * forms) are substituted with the numeric tile coordinates; missing
+ * parameters or non-integer coordinates are a 400, and a non-allow-listed
+ * host is a 403. A 404 from the upstream answers 200 with a 1×1 transparent
+ * PNG so the map does not break on missing tiles. Responds 200 with the tile
+ * bytes relayed under the upstream's `Content-Type` and `Cache-Control`
+ * (defaulting to `image/png` and `public, max-age=86400`), and 502 if the
+ * fetch throws.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const urlTemplate = searchParams.get("url");

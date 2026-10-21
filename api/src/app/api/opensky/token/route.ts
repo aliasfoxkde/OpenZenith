@@ -10,8 +10,16 @@
 import { NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the OpenSky token endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -49,6 +57,19 @@ async function fetchToken(): Promise<{ access_token: string; expires_at: number 
   }
 }
 
+/**
+ * GET /api/opensky/token — issues an OpenSky Network bearer token to map
+ * clients.
+ *
+ * Exchanges the OPENSKY_CLIENT_ID/OPENSKY_CLIENT_SECRET environment pair for
+ * a token via the OpenSky OAuth2 client-credentials grant, and memoizes it in
+ * module scope until shortly before it expires so only the first request per
+ * token window pays the auth round-trip. Responds 200 with
+ * `{ token, expires_at, cached }` — `cached: true` when the memoized token
+ * was reused — and 502 when no credentials are configured or the token
+ * endpoint cannot be reached. Deliberately sent without HTTP caching
+ * headers, since the credential must not be CDN-shared.
+ */
 export async function GET() {
   // Return cached token if still valid
   if (cachedToken && Date.now() < cachedToken.expires_at) {

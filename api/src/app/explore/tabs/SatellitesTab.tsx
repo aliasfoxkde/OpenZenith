@@ -17,6 +17,14 @@ interface SatellitesTabProps {
   onFetch: () => void;
 }
 
+/**
+ * Renders the Satellites tab of the Data Explorer: the Celestrak TLE
+ * controls and results table. Provides a satellite-group select and a
+ * name-search box, plus a Fetch button and error banner. The table lists up
+ * to 200 satellites with object name, NORAD catalogue ID, object type, and
+ * the first TLE line, with the client-side name filter applied case
+ * insensitively and an overflow count when more were returned.
+ */
 export function SatellitesTab({
   data,
   error,

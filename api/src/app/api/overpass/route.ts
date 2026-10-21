@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 /**
@@ -8,6 +12,19 @@ export const runtime = "edge";
  * POST /api/overpass with body: { "query": "[out:json];node(48.85,2.35,48.86,2.36);out 1;" }
  */
 
+/**
+ * POST /api/overpass — runs an Overpass API query and relays the result.
+ *
+ * Expects a JSON body of `{ "query": "<Overpass QL>" }` (e.g.
+ * `"[out:json];node(48.85,2.35,48.86,2.36);out 1;"`). A missing or
+ * non-string `query` is a 400, as is a query longer than 10000 characters.
+ * The query is form-encoded and posted to
+ * https://overpass-api.de/api/interpreter under a 30-second abort timeout.
+ * Responds 200 with the upstream JSON relayed verbatim and
+ * `Cache-Control: public, max-age=60`, 502 when Overpass replies non-OK (an
+ * upstream 429/504 error document is deliberately not relayed as a 200), and
+ * 502 if the request throws.
+ */
 export async function POST(request: NextRequest) {
   try {
     // Request body is client-supplied and only inspected for `query`, so it is
@@ -59,6 +76,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * CORS preflight for the Overpass proxy endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

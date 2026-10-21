@@ -39,6 +39,11 @@ function elementPoint(el: OverpassElement): [number, number] | null {
   return typeof el.lat === "number" && typeof el.lon === "number" ? [el.lon, el.lat] : null;
 }
 
+/**
+ * OpenStreetMap query panel. Runs an Overpass QL query — either one of the
+ * presets or a hand-written one — over the map's current bounding box and
+ * hands the result to the caller as a GeoJSON feature collection.
+ */
 export function OverpassTool({ map, dark, onResult }: Props) {
   const [presetIdx, setPresetIdx] = useState(0);
   // bounds: OVERPASS_PRESETS is a non-empty literal array (studio/lib/constants.ts)

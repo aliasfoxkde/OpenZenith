@@ -23,6 +23,11 @@ const BLACKLISTED_SRTM_TILES = new Set([
 
 const AWS_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
+/**
+ * Outcome of a single-point elevation lookup: the height in metres, the
+ * surface classification, the source that supplied it (`srtm` or `aws`), and
+ * the identifier of the tile it was read from.
+ */
 export interface PointElevationResult {
   elevation: number;
   surfaceType: "land" | "inland_water" | "unknown";

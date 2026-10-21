@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 /**
@@ -47,6 +48,10 @@ const COLLECTION_SOURCES: Partial<Record<string, { url: string; cacheTtl: number
   },
 };
 
+/**
+ * CORS preflight handler for the OGC features items endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -91,6 +96,22 @@ interface UpstreamBody {
   nodes?: NlnogNode[];
 }
 
+/**
+ * GET handler for the OGC API - Features items of one collection.
+ *
+ * Resolves the collection id from the route segment (404 with an OGC
+ * `NotFound` body for an unknown id) and fetches its upstream GeoJSON — an
+ * absolute URL for USGS/NASA, or an internal path resolved against the
+ * request origin — with a 15-second timeout. NLNOG's `{nodes: [...]}` payload
+ * is converted to point features, dropping nodes without coordinates.
+ *
+ * Optional `limit` (default 100, capped at 10000), `offset` (default 0),
+ * `bbox` (`minLon,minLat,maxLon,maxLat`) and `properties` (`field:value`
+ * pairs, optionally prefixed with `>=`, `<=`, `>` or `<`) filter and page the
+ * result. The reply is a GeoJSON FeatureCollection with self/collection/root
+ * plus next/prev links, `numberMatched` and `numberReturned`, cached for the
+ * collection's own TTL; an upstream failure returns 502.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const baseUrl = new URL(request.url).origin;
   const { id } = await params;

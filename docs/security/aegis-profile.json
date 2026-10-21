@@ -49,6 +49,8 @@
     "click-without-keyboard",
     "chart-accessibility",
     "target-blank-unlabeled",
-    "pii-output-marker"
+    "pii-output-marker",
+    "cargo-toml",
+    "cargo-lock"
   ]
 }

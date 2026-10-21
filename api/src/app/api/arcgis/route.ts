@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 /**
@@ -31,6 +32,17 @@ const ALLOWED_HOSTS = [
   "elevation.arcgis.com",
 ];
 
+/**
+ * GET handler that proxies ArcGIS REST service discovery.
+ *
+ * Reads the required `url` query parameter (400 when absent), parses it and
+ * rejects any host that is not on the ArcGIS allowlist — matched on an exact
+ * hostname or a subdomain boundary, so `evil-services9.arcgis.com` cannot slip
+ * through. The forwarded request forces `f=json` and aborts after 15 seconds.
+ *
+ * The upstream service document is relayed verbatim as JSON with a 300-second
+ * public cache; a non-OK upstream status becomes 502 and a thrown error becomes 502.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const targetUrl = searchParams.get("url");
@@ -82,6 +94,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * CORS preflight handler for the ArcGIS proxy: answers the browser's OPTIONS
+ * probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

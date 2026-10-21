@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 
+/**
+ * Next.js route metadata for the `/globe` segment: sets the page title, the
+ * meta description, and the OpenGraph card fields for social link previews.
+ */
 export const metadata: Metadata = {
   title: "3D Globe — Real-Time Geospatial Intelligence",
   description:
@@ -11,6 +15,10 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Root layout for the `/globe` 3D CesiumJS route segment. It is a pass-through
+ * that renders its children unchanged and adds no chrome of its own.
+ */
 export default function GlobeLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

@@ -6,6 +6,19 @@ interface FooterProps {
   dark: boolean;
 }
 
+/**
+ * Site-wide footer rendered as a four-column grid above a bottom bar.
+ *
+ * `dark` selects the palette: it flips the top border, the page background
+ * (`#0c0c0c` vs `#f8f8f8`), the primary text color and the secondary text
+ * color shared by all three link columns (Product, Data Sources, Resources).
+ * The secondary color matches `--oz-text-secondary` in `globals.css` and
+ * clears WCAG AAA (7:1) against the footer background.
+ *
+ * The brand column carries the OpenZenith logo, a one-line description of the
+ * free elevation API and a GitHub icon link. The bottom bar credits NASA SRTM
+ * 30m, Cloudflare Pages and MIT licensing.
+ */
 export function Footer({ dark }: FooterProps) {
   const border = dark ? "#222" : "#e5e5e5";
   const text = dark ? "#e5e5e5" : "#171717";

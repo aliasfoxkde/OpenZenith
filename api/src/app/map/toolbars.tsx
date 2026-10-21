@@ -17,6 +17,12 @@ interface MeasureToolsProps {
   onClear: () => void;
 }
 
+/**
+ * Toolbar row of the map's measurement tools: buttons that switch the
+ * measure mode to distance (ruler) or area, plus a clear button that is
+ * only shown once a measurement is in progress. The active mode is
+ * highlighted and mirrored onto the buttons' `aria-pressed` state.
+ */
 export function MeasureTools({ mode, onToggleMode, onClear }: MeasureToolsProps) {
   return (
     /* Static flow row: the page stacks toolbar rows in one absolute
@@ -114,6 +120,12 @@ const DRAW_TOOLS: { mode: Exclude<DrawMode, "none">; glyph: string; title: strin
   },
 ];
 
+/**
+ * Toolbar row of the map's annotation tools: buttons that start a point,
+ * line or polygon annotation (clicking the active one cancels instead),
+ * followed - while drawing - by a name input and finish/cancel buttons.
+ * The annotation name is typed into the input as the user types.
+ */
 export function DrawTools({ mode, name, onSetMode, onNameChange, onFinish, onCancel }: DrawToolsProps) {
   return (
     /* Static flow row — see MeasureTools above. pointerEvents re-enables
@@ -199,6 +211,13 @@ interface MeasureResultProps {
   points: [number, number][];
 }
 
+/**
+ * Live readout of the current measurement. Renders nothing until a
+ * measurement mode is active with at least two points; otherwise it shows
+ * the total distance along the point path or the area of the polygon, the
+ * number of segments for a distance measurement, and a hint about the Esc
+ * and Ctrl+Z shortcuts.
+ */
 export function MeasureResult({ mode, points }: MeasureResultProps) {
   if (mode === "none" || points.length < 2) return null;
   return (

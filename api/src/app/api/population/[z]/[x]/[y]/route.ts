@@ -9,9 +9,17 @@
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight for the population tile endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
@@ -21,6 +29,17 @@ import { tileToBboxString } from "@/lib/srtm/zoom-math";
 const GIBS_WMS = "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi";
 const LAYER = "VIIRS_Black_Marble";
 
+/**
+ * GET /api/population/{z}/{x}/{y} — serves a population-density raster tile.
+ *
+ * Proxies a 256×256 WMS `GetMap` tile from the NASA GIBS VIIRS Black Marble
+ * layer in EPSG:3857, used as a proxy for human-settlement density (it
+ * replaced the discontinued JRC GHSL WMS). The path parameters are the
+ * standard slippy-map tile coordinates; zoom must be 1–8 and the tile must be
+ * within that zoom's range or the request answers 400/404 respectively. Tiles
+ * are cached at the edge for 24 hours, so responses carry
+ * `Cache-Control: public, max-age=86400` and an `X-Cache: HIT`/`MISS` marker.
+ */
 export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
   const zoom = parseInt(z, 10);

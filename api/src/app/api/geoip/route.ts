@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 /** Cloudflare request object (cf property). */
@@ -22,12 +23,27 @@ interface CfRequestProperties {
 }
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the GeoIP endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
 // Reads only request headers — no I/O to await. It stays promise-returning
 // because callers await handlers.
+/**
+ * GET handler for the caller's approximate geolocation.
+ *
+ * Reads the Cloudflare `cf` request properties — the client's IP, city,
+ * country, subdivision, postal code, latitude/longitude, timezone, continent,
+ * ASN and colo — and falls back to the `x-forwarded-for` header for the IP
+ * when Cloudflare did not supply one. Fields Cloudflare did not provide are
+ * returned as null; a legitimate 0 latitude or longitude is preserved.
+ *
+ * The response is publicly cached for 3600 seconds.
+ */
 export function GET(request: NextRequest) {
   const cf = (request as NextRequest & { cf?: CfRequestProperties }).cf;
 

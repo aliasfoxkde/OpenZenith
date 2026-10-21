@@ -17,6 +17,16 @@ interface MarineTabProps {
   onFetch: () => void;
 }
 
+/**
+ * Renders the Marine tab of the Data Explorer: the Open-Meteo Marine API
+ * point inputs and current-conditions grid. Provides latitude and longitude
+ * inputs, a Fetch button, and an error banner. The conditions grid reports
+ * wave height (m), wave direction (degrees), wave period (s), wind wave
+ * height (m), swell wave height (m), swell direction (degrees), swell period
+ * (s), 10 m wind speed (km/h), 10 m wind direction (degrees), 10 m wind
+ * gusts (km/h), and 2 m air temperature (°C), stamped with the observation
+ * time.
+ */
 export function MarineTab({ data, error, loading, lat, lon, onLatChange, onLonChange, onFetch }: MarineTabProps) {
   return (
     <>

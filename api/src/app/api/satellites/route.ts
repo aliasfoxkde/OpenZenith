@@ -3,6 +3,10 @@ import { staleWhileRevalidate } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 const CACHE_TTL_SATS = 600; // 10 minutes — Celestrak is slow from CF edge
@@ -59,10 +63,28 @@ const VALID_GROUPS = new Set([
  * - Handle text error responses gracefully
  */
 
+/**
+ * CORS preflight for the satellite TLE endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET /api/satellites — lists satellite orbits as Celestrak GP elements.
+ *
+ * Query parameters: `group` (a Celestrak group name, default `stations` for
+ * the ISS and crewed vehicles; an unknown group is a 400) and `limit` (the
+ * maximum number of records returned, default 500, capped at 2000). The
+ * Celestrak feed is fetched under a 15-second timeout and served through the
+ * edge cache with a 10-minute fresh window and a 30-minute
+ * stale-while-revalidate tail, because Celestrak is slow from the Cloudflare
+ * edge. When the feed is longer than `limit`, the response is truncated and
+ * flagged `truncated: true` with the original `count`. Responds 200 with
+ * `{ count, truncated, satellites }`, and 502 when Celestrak fails, returns
+ * an error document, or the body is not valid JSON.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const group = searchParams.get("group") || "stations";

@@ -13,6 +13,11 @@ interface ViewToggleProps {
   onSwitch: (mode: ViewMode) => void;
 }
 
+/**
+ * Nav-bar switch between the globe's three viewer modes - the 3D globe, the
+ * Columbus 2.5D projection and the 2D map - with the active mode marked
+ * and reported to `onSwitch`.
+ */
 export function ViewToggle({ viewMode, onSwitch }: ViewToggleProps) {
   return (
     <div className="wv-view-toggle">
@@ -38,6 +43,12 @@ interface ThemeSwitcherProps {
   onSelect: (key: string) => void;
 }
 
+/**
+ * Nav-bar theme picker. The button shows the icon of the current theme and
+ * toggles the dropdown; while open, the dropdown lists every entry of
+ * `THEMES` with a colour swatch, and picking one reports that theme's key
+ * through `onSelect`.
+ */
 export function ThemeSwitcher({ theme, open, onToggleOpen, onSelect }: ThemeSwitcherProps) {
   return (
     <div className="wv-theme-switcher">
@@ -79,6 +90,11 @@ export function ThemeSwitcher({ theme, open, onToggleOpen, onSelect }: ThemeSwit
   );
 }
 
+/**
+ * Compass rose button whose needle is rotated by `heading` degrees
+ * clockwise from north to show the camera bearing. Clicking it calls
+ * `onNorth` to swing the camera back to true north.
+ */
 export function Compass({ heading, onNorth }: { heading: number; onNorth: () => void }) {
   return (
     <button type="button" className="wv-compass" onClick={onNorth} title="Reset north" aria-label="Reset north">
@@ -100,6 +116,11 @@ interface ZoomControlsProps {
   onToggleFullscreen: () => void;
 }
 
+/**
+ * Vertical stack of globe camera buttons: zoom in, zoom out, reset the
+ * view, fly to the ISS, and toggle fullscreen. The fullscreen glyph
+ * reflects the current `isFullscreen` state.
+ */
 export function ZoomControls({
   isFullscreen,
   onZoomIn,
@@ -155,6 +176,12 @@ const ORBIT_PRESETS: { altKm: number; name: string; label: string; alt: string }
   { altKm: 45000, name: "Moon", label: "Moon", alt: "384,400 km" },
 ];
 
+/**
+ * Row of buttons that fly the camera to a representative orbital altitude -
+ * the ISS (408 km), LEO (2,000 km), MEO (20,200 km), GEO (35,786 km) and
+ * Moon presets - passing the preset's altitude in kilometres and its name
+ * to `onFlyToOrbit`.
+ */
 export function OrbitPresets({ onFlyToOrbit }: { onFlyToOrbit: (altKm: number, name: string) => void }) {
   return (
     <div className="wv-orbit-presets">

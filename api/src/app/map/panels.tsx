@@ -67,6 +67,12 @@ interface PinHistoryPanelProps {
   onSelect: (pin: ElevationPin) => void;
 }
 
+/**
+ * Sidebar panel listing the most recent elevation pins, newest first and
+ * capped at 20 rows, each showing its elevation in metres and its latitude
+ * and longitude to three decimals. Clicking a row hands the pin back so the
+ * page can fly to it and mark it active.
+ */
 export function PinHistoryPanel({ pins, onSelect }: PinHistoryPanelProps) {
   return (
     <SurveillancePanel title={`Pins (${pins.length})`} style={{ marginBottom: "0.75rem" }}>
@@ -107,6 +113,12 @@ interface AnnotationsListPanelProps {
   onClear: () => void;
 }
 
+/**
+ * Sidebar panel listing every saved map annotation - point, line or polygon
+ * - with the shape glyph, the annotation name, its creation date and a
+ * per-row delete button, plus a "Clear All Annotations" button that removes
+ * the whole set.
+ */
 export function AnnotationsListPanel({ annotations, onDelete, onClear }: AnnotationsListPanelProps) {
   return (
     <SurveillancePanel title={`Annotations (${annotations.length})`} style={{ marginBottom: "0.75rem" }}>
@@ -160,6 +172,11 @@ export function AnnotationsListPanel({ annotations, onDelete, onClear }: Annotat
   );
 }
 
+/**
+ * Sidebar panel showing the current map's share URL as selectable monospace
+ * text so it can be copied manually; the page owns the URL string and its
+ * refresh cadence.
+ */
 export function ShareUrlPanel({ url }: { url: string }) {
   return (
     <SurveillancePanel title="Share">
@@ -193,6 +210,12 @@ interface EarthquakeTimelinePanelProps {
   onShowAll: () => void;
 }
 
+/**
+ * Sidebar panel driving the USGS earthquake feed: a 24H/7D/30D feed
+ * selector, a play/pause button for the time animation, a range slider
+ * spanning the feed's timestamp range that pins the layer to a single
+ * moment, and a "Show All" button that clears the time filter.
+ */
 export function EarthquakeTimelinePanel({
   feed,
   playing,
@@ -261,6 +284,12 @@ interface HurricaneAnimationPanelProps {
   onToggle: () => void;
 }
 
+/**
+ * Sidebar panel for the hurricane track animation: a play/pause toggle plus
+ * a read-only progress slider (0-100 %) shown while the animation runs,
+ * where the slider position is the animation's progress through the active
+ * storm track timeline.
+ */
 export function HurricaneAnimationPanel({ animating, progress, onToggle }: HurricaneAnimationPanelProps) {
   return (
     <SurveillancePanel title="Hurricane Animation" style={{ marginBottom: "0.75rem" }}>
@@ -308,6 +337,12 @@ interface MapLegendProps {
   basemapLabel: string;
 }
 
+/**
+ * Fixed overlay listing the toggleable raster layers - bathymetry,
+ * elevation, data accuracy, ocean currents, equator and hillshade - as
+ * click-to-toggle colour-ramp cards that mirror each layer's on/off state,
+ * with the active basemap named along the bottom edge.
+ */
 export function MapLegend({ layers, onToggle, basemapLabel }: MapLegendProps) {
   return (
     <div
@@ -455,6 +490,13 @@ function menuItemStyle(color: string): React.CSSProperties {
   };
 }
 
+/**
+ * Context menu opened at a point on the map, offering copies of the
+ * coordinates in decimal degrees (two orderings and a spaced form), in
+ * degrees/minutes/seconds, a deep link into OpenStreetMap, and a request to
+ * copy the elevation at that point. Renders nothing when `menu` is null,
+ * and every action closes the menu.
+ */
 export function MapContextMenu({ menu, onClose, onCopyElevation }: MapContextMenuProps) {
   if (!menu) return null;
   const toDms = (d: number, pos: string, neg: string) => {
@@ -550,6 +592,12 @@ export function MapContextMenu({ menu, onClose, onCopyElevation }: MapContextMen
   );
 }
 
+/**
+ * Health of the map's live data layers, derived by the page from the load
+ * error, the in-flight load flag and the per-layer statuses: `error` (the
+ * map itself failed to load), `loading` (a load is in flight), `degraded`
+ * (at least one layer reported an error while the rest loaded) and `ok`.
+ */
 export type MapHealth = "ok" | "degraded" | "loading" | "error";
 
 interface StatusBarProps {
@@ -560,6 +608,12 @@ interface StatusBarProps {
   onExport: () => void;
 }
 
+/**
+ * Bottom-right status strip showing the map's health indicator
+ * (READY/DEGRADED/LOADING/ERROR), the counts of saved pins and annotations,
+ * the active draw mode, and an EXPORT button that saves a PNG screenshot of
+ * the map.
+ */
 export function StatusBar({ mapHealth, pinCount, annotationCount, drawMode, onExport }: StatusBarProps) {
   return (
     <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 10 }}>
@@ -628,6 +682,12 @@ interface ViewControlsProps {
   onScreenshot: () => void;
 }
 
+/**
+ * Sidebar panel of map-level actions: reset the view, clear the saved pins,
+ * export the map features as GeoJSON, take a screenshot, and a collapsible
+ * bookmark list in which the user names, saves, loads and deletes
+ * bookmarks.
+ */
 export function ViewControls({
   bookmarks,
   show,
@@ -758,6 +818,12 @@ interface PositionPanelProps {
   onToggleFormat: () => void;
 }
 
+/**
+ * Sidebar panel showing the map centre coordinates in the format the page
+ * has pre-formatted, the zoom level, and the camera bearing and pitch in
+ * degrees, with a button that toggles the coordinate format between decimal
+ * degrees (`dd`) and degrees/minutes/seconds (`dms`).
+ */
 export function PositionPanel({ centerText, zoom, bearing, pitch, format, onToggleFormat }: PositionPanelProps) {
   return (
     <SurveillancePanel title="Position" style={{ marginBottom: "0.75rem" }}>
@@ -787,6 +853,13 @@ interface ElevationProfileChartProps {
   loading: boolean;
 }
 
+/**
+ * Sidebar panel rendering the active elevation profile as an SVG polyline
+ * scaled to the elevation range, labelled with the maximum and minimum
+ * elevation in metres, the profile's total distance in kilometres, and the
+ * start/end elevations with their difference. Expects at least two
+ * samples; the page only mounts it once the profile has them.
+ */
 export function ElevationProfileChart({ data, loading }: ElevationProfileChartProps) {
   // bounds: the only mount site (map/page.tsx) gates on profileData.length > 1,
   // so first/last entries always exist
@@ -971,6 +1044,11 @@ interface SidebarHeaderProps {
   onClose: () => void;
 }
 
+/**
+ * Sidebar header carrying the "MAP CONTROLS" title, a count of how many of
+ * the map's layers are active out of the total, and a close button that
+ * collapses the sidebar.
+ */
 export function SidebarHeader({ activeCount, totalCount, onClose }: SidebarHeaderProps) {
   return (
     <div
@@ -1014,12 +1092,22 @@ export function SidebarHeader({ activeCount, totalCount, onClose }: SidebarHeade
   );
 }
 
+/**
+ * A transient notification rendered by `ToastStack`: `id` is the React key,
+ * `msg` the message text, and `type` selects the error (red) or info
+ * (blue) styling.
+ */
 export interface Toast {
   id: number;
   msg: string;
   type: "error" | "info";
 }
 
+/**
+ * Fixed bottom-right stack that renders the queued toast notifications in
+ * order, with pointer events disabled so the stack never swallows clicks
+ * meant for the map.
+ */
 export function ToastStack({ toasts }: { toasts: Toast[] }) {
   return (
     <div

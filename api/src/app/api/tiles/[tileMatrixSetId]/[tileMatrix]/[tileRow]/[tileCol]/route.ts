@@ -5,6 +5,10 @@ import { HuggingFaceChunkBackend } from "@/lib/storage/backend";
 import { encodeTerrariumPNG } from "@/lib/terrarium-png";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 /**
@@ -24,10 +28,30 @@ const CACHE_HEADERS: Record<string, string> = {
 // Direct HuggingFace backend — avoids process.env which may not work on edge
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
+/**
+ * CORS preflight for the OGC API - Tiles tile endpoint: answers OPTIONS with
+ * the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET /api/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol} — serves
+ * a terrain elevation tile in Terrarium PNG encoding, following the
+ * OGC API - Tiles 1.0 path layout.
+ *
+ * `tileMatrixSetId` selects the grid: `WebMercatorQuad` (assembled natively
+ * from the 3857 SRTM XYZ sources) or `WorldCRS84Quad` (per-pixel resampling
+ * into true EPSG:4326 tiles); any other value is a 400. `tileMatrix` is the
+ * zoom level (0–14, otherwise 400) and `tileRow`/`tileCol` are the row and
+ * column — note the column is `tileCol` and the row is `tileRow`, so they
+ * map to the usual x/y in that order. A tile outside the matrix for its zoom
+ * answers 404. Successful responses are `image/png` with
+ * `Cache-Control: public, max-age=31536000, immutable` and an
+ * `X-Dem-Tile-Source` marker; an assembly failure answers 502 rather than
+ * a flat ocean tile.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ tileMatrixSetId: string; tileMatrix: string; tileRow: string; tileCol: string }> },

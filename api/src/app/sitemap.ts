@@ -1,5 +1,11 @@
 import { MetadataRoute } from "next";
 
+/**
+ * `sitemap.xml` for the site. The map, globe and studio are the daily
+ * changing pages; the rest change weekly. The API landing pages carry a
+ * lower priority because they are reference material rather than
+ * destinations.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://openzenith.cyopsys.com";
 

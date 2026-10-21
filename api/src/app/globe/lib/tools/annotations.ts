@@ -2,6 +2,12 @@
  * Annotation manager — draw markers, lines, polygons, and text labels on the globe.
  */
 
+/**
+ * The kinds of shape the globe's annotation editor can draw: a single
+ * point marker, a polyline, a filled polygon, or a free-standing text
+ * label. Each type maps to its own entity colour and to its own GeoJSON
+ * geometry when exported.
+ */
 export type AnnotationType = "marker" | "line" | "polygon" | "text";
 
 interface Annotation {

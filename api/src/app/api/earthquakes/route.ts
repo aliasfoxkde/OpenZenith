@@ -12,6 +12,7 @@ import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 const VALID_PERIODS = new Set([
@@ -38,10 +39,26 @@ const VALID_PERIODS = new Set([
   "1.0_month",
 ]);
 
+/**
+ * CORS preflight handler for the earthquake feed endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET handler for the USGS earthquake feed.
+ *
+ * Reads the `period` query parameter — one of the USGS summary feed windows
+ * such as `all_day`, `all_month` or `4.5_week` (default `all_day`); an
+ * unrecognised value returns 400 with the list of valid periods. The matching
+ * USGS summary GeoJSON document is relayed verbatim.
+ *
+ * Responses are served from the edge cache first (`X-Cache: HIT|MISS`) and
+ * cached for `CACHE_TTL.EARTHQUAKES` seconds; a non-OK upstream status and
+ * any thrown error return 502.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const period = searchParams.get("period") || "all_day";

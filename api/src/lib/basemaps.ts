@@ -16,6 +16,12 @@
  * check here first.
  */
 
+/**
+ * Shape of one basemap entry in the registry: its picker label, XYZ tile URL
+ * template, provider attribution, whether the tiles already carry labels, an
+ * optional label-only overlay URL, whether it is a dark theme, and the
+ * provider's native maximum zoom level.
+ */
 export interface BasemapDef {
   /** Display label in the basemap picker. */
   label: string;
@@ -142,6 +148,7 @@ export const BASEMAPS = {
   },
 } satisfies Record<string, BasemapDef>;
 
+/** Union of the registry keys — `dark`, `satellite`, `osm`, `voyager`, `topo`, and the rest. */
 export type BasemapKey = keyof typeof BASEMAPS;
 
 /** Picker order — grouped: dark variants, light, reference, imagery, terrain. */

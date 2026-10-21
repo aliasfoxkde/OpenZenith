@@ -18,13 +18,31 @@ import { tileToLatLon } from "@/lib/srtm/zoom-math";
 import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the terrain aspect endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET handler for terrain aspect — the compass direction of steepest descent.
+ *
+ * Reads the required `lat`/`lon` center point (400 when either is missing),
+ * plus optional `radius` in grid cells (default 50, clamped to 1..200) and
+ * `zoom` (default 10, clamped to 5..14). It assembles a DEM grid around the
+ * center, computes the aspect grid (degrees, 0=N 90=E 180=S 270=W, -1 for
+ * flat) and returns the center, geographic bounds, an 8-way plus flat
+ * direction histogram, the valid-cell count and a decimated grid.
+ *
+ * Responses are publicly cached for 86400 seconds; terrain-assembly failures
+ * are surfaced through the shared error response helper.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latStr = searchParams.get("lat");

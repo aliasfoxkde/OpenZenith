@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { latLonToTile } from "./locations";
 import { CodeBlock } from "@/components/CodeBlock";
 
+/**
+ * The result the landing page's code snippet is rendered from: the elevation
+ * reading for the requested point plus the provenance the API reported with
+ * it — the SRTM tile the value came from, the OZT2 tile that served it, the
+ * upstream `source` label, and the tile resolution in metres.
+ */
 export interface SnippetResult {
   elevation: number | null;
   unit: string;

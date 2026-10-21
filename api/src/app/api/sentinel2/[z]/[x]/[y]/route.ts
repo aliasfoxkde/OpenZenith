@@ -11,8 +11,16 @@
 import { corsPreflightResponse, CORS_HEADERS } from "@/lib/cors";
 import { edgeGetTile, edgePutTile } from "@/lib/storage/edge-cache";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the Sentinel-2 imagery tile endpoint: answers OPTIONS
+ * with the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -81,6 +89,21 @@ async function fetchGibsFallback(zoom: number, tileX: number, tileY: number): Pr
   }
 }
 
+/**
+ * GET /api/sentinel2/{z}/{x}/{y} — serves a Sentinel-2 satellite imagery
+ * tile for the given slippy-map tile coordinates.
+ *
+ * The primary source is the Microsoft Planetary Computer: a STAC search picks
+ * the most recent Sentinel-2 L2A scene over the tile (cloud cover under 30%)
+ * and TiTiler renders the COG as a viridis-coloured PNG. Because TiTiler has
+ * been intermittently unavailable since 2025, the route falls back to the
+ * NASA GIBS MODIS Terra True Color WMS tile, which is served as
+ * `X-Cache: MISS-GIBS`. Tiles are cached at the edge for 24 hours
+ * (`X-Cache: HIT` on a hit). Zoom must be 0–22 and the tile within range, or
+ * the request answers 400/404; if both imagery sources fail the route
+ * answers 502 with a JSON error rather than a body that cannot decode as an
+ * image.
+ */
 export async function GET(request: Request, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
   const zoom = parseInt(z, 10);

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare edge runtime, where the Workers
+ * Cache API that fronts the upstream data is available.
+ */
 export const runtime = "edge";
 
 /**
@@ -42,6 +46,11 @@ export function GET(_request: NextRequest) {
   );
 }
 
+/**
+ * Answers the CORS preflight for the AISstream vessel configuration
+ * endpoint with a 204 and the shared CORS headers, so browser clients can
+ * open the vessel WebSocket stream cross-origin.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

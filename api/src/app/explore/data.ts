@@ -8,6 +8,14 @@
    Types
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * One element of an Overpass API response - a node, way or relation.
+ * `type` and `id` identify it; `lat`/`lon` are set for nodes while `center`
+ * carries the representative point for ways and relations; `tags` holds the
+ * OSM attributes; `geometry` the ordered way vertices; `nodes` the member
+ * node ids of a way; `bounds` the extent; and `members` the member list of
+ * a relation.
+ */
 export interface OverpassElement {
   type: string;
   id?: number;
@@ -22,11 +30,22 @@ export interface OverpassElement {
   [key: string]: unknown;
 }
 
+/**
+ * Envelope of an Overpass API response: the matched `elements` plus the
+ * server's OSM base timestamp under `osm3s.timestamp_osm_base`.
+ */
 export interface OverpassResult {
   elements: OverpassElement[];
   osm3s?: { timestamp_osm_base: string };
 }
 
+/**
+ * Attribute bag of a GeoJSON feature as returned by the USGS, ArcGIS and
+ * NASA EONET feeds the Explorer proxies. Every field is optional because
+ * each upstream uses a different subset; the Explorer reads the magnitude
+ * (`mag`/`magnitude`), the place (`place`), the event time (`time`), the
+ * depth, and the `event`/`eventType`/`type` labels.
+ */
 export interface GeoFeatureProperties {
   mag?: number;
   magnitude?: number;
@@ -52,11 +71,22 @@ interface GeoFeatureGeometry {
   coordinates?: number[] | number[][][] | number[][][][];
 }
 
+/**
+ * A GeoJSON feature from one of the proxied USGS/NWS/EONET feeds, carrying
+ * its attributes in `properties` and an optional `geometry` - a GeoJSON
+ * geometry object whose `coordinates` are lon/lat pairs.
+ */
 export interface GeoFeature {
   properties: GeoFeatureProperties;
   geometry?: GeoFeatureGeometry;
 }
 
+/**
+ * One period of an api.weather.gov forecast response: the `isDaytime` flag,
+ * the `temperature` in the unit named by `temperatureUnit`, the period
+ * `name` and `shortForecast` text, the `windSpeed` and `windDirection`,
+ * and the period's `startTime`.
+ */
 export interface NoaaForecastPeriod {
   isDaytime?: boolean;
   temperature?: number;
@@ -68,6 +98,11 @@ export interface NoaaForecastPeriod {
   startTime?: string;
 }
 
+/**
+ * Attributes of an active NWS weather alert: its `severity`, the `event`
+ * type, the `title`, the `areaDesc` naming the affected area, and the
+ * `headline` summary.
+ */
 export interface NwsAlertProperties {
   severity?: string;
   event?: string;
@@ -76,6 +111,12 @@ export interface NwsAlertProperties {
   headline?: string;
 }
 
+/**
+ * A NASA EONET natural-event record: the event `title`, its `categories`
+ * (each with a label, colour and id), the `sources` that reported it, and
+ * the `geometry` - a GeoJSON geometry such as a Polygon or Point - that
+ * locates it.
+ */
 export interface EonetEvent {
   title?: string;
   categories?: { title?: string; color?: string; id?: string }[];
@@ -86,6 +127,12 @@ export interface EonetEvent {
   };
 }
 
+/**
+ * One NORAD/GP element record from Celestrak's `elements` group endpoint.
+ * `OBJECT_NAME` is the satellite name, `NORAD_CAT_ID` the catalogue
+ * number, `OBJECT_TYPE` the object category, and `TLE_LINE1` the first
+ * line of the two-line element set used to propagate the orbit.
+ */
 export interface SatelliteRecord {
   OBJECT_NAME?: string;
   NORAD_CAT_ID?: number;
@@ -93,12 +140,31 @@ export interface SatelliteRecord {
   TLE_LINE1?: string;
 }
 
+/**
+ * One OpenSky state vector: a positional array laid out as
+ * `[icao24, callsign, origin_country, time_position, last_contact,
+ * longitude, latitude, baro_altitude, on_ground, velocity, true_track,
+ * vertical_rate, sensors, geo_altitude, squawk, spi, position_source]`.
+ * Every slot may be null because OpenSky blanks the values it does not have.
+ */
 export type FlightState = (string | number | null)[];
 
+/**
+ * Envelope of an Overture Maps theme query: a `features` array of GeoJSON
+ * features (place, building, segment and land/water records) inside the
+ * requested bounding box.
+ */
 export interface OvertureResponse {
   features: unknown[];
 }
 
+/**
+ * Loose envelope for the different NOAA-family payloads the Explorer loads -
+ * a GeoJSON `features` array (ArcGIS alerts, USGS quakes), a `properties`
+ * block holding `periods` and `forecastGenerator` (NWS forecast),
+ * `activeStorms` (NHC) and `events` (NASA EONET). Only the fields
+ * belonging to the selected dataset are present.
+ */
 export interface NoaaData {
   features?: GeoFeature[];
   metadata?: { generated?: number };
@@ -107,12 +173,24 @@ export interface NoaaData {
   events?: EonetEvent[];
 }
 
+/**
+ * The Explorer's flights payload: the upstream reference `time` in Unix
+ * seconds, the (possibly filtered) `states` array of OpenSky state vectors,
+ * and `totalRaw` - the unfiltered count from before the on-ground/airborne
+ * filter was applied.
+ */
 export interface FlightResponse {
   time: number;
   states: FlightState[];
   totalRaw: number;
 }
 
+/**
+ * The `current` block of an Open-Meteo marine API response. Wave, wind-wave
+ * and swell heights are metres, their directions degrees and their periods
+ * seconds; the 10 m wind speed and gusts are km/h, the 10 m wind direction
+ * degrees, and the 2 m air temperature is degrees Celsius.
+ */
 export interface MarineCurrent {
   time?: string;
   wave_height?: number;
@@ -130,6 +208,10 @@ export interface MarineCurrent {
   temperature_2m?: number;
 }
 
+/**
+ * Envelope of an Open-Meteo marine API response, carrying the observation in
+ * `current`.
+ */
 export interface MarineResponse {
   current?: MarineCurrent;
 }
@@ -138,8 +220,18 @@ export interface MarineResponse {
    Constants
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * Identifier of an Explorer tab: `overture`, `overpass`, `noaa`, `flights`,
+ * `earthquakes`, `satellites` or `marine`.
+ */
 export type TabId = "overture" | "overpass" | "noaa" | "flights" | "earthquakes" | "satellites" | "marine";
 
+/**
+ * Catalogue of the Explorer tabs in display order — each entry carries the tab
+ * `id`, the button label and the glyph shown in it. The page indexes this
+ * array with the number keys to select a tab and cycles through it with the
+ * arrow keys.
+ */
 // Tab configs (module-const: static data, stable identity for effects)
 export const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "noaa", label: "NOAA & USGS", icon: "🌊" },
@@ -151,6 +243,11 @@ export const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "overture", label: "Overture Maps", icon: "🌐" },
 ];
 
+/**
+ * Overture Maps theme catalogue: each entry names a theme (`places`,
+ * `buildings`, `transportation`, `base_geography`), describes what it
+ * covers, and lists the Overture `types` the Explorer requests inside it.
+ */
 export const OVERTURE_THEMES = [
   { id: "places", label: "Places", desc: "Points of interest, businesses, landmarks", types: ["place"] },
   { id: "buildings", label: "Buildings", desc: "Building footprints with height and type", types: ["building"] },
@@ -163,6 +260,11 @@ export const OVERTURE_THEMES = [
   },
 ];
 
+/**
+ * Preset Overpass QL queries the Explorer offers. Each `query` contains the
+ * `{{bbox}}` placeholder, which the Explorer replaces with the user's
+ * west,south,east,north bounding box before POSTing it to `/api/overpass`.
+ */
 export const OVERPASS_QUERIES = [
   {
     label: "Amenities in view",
@@ -186,6 +288,13 @@ export const OVERPASS_QUERIES = [
   { label: "Landuse", query: '[out:json][timeout:25];way["landuse"]({{bbox}});out geom;' },
 ];
 
+/**
+ * Catalogue of the NOAA/NWS/USGS/NHC/NASA datasets the Explorer can load,
+ * each with a label, a short description and its source. `url` is the
+ * upstream to fetch; it is null for the two point-based NWS datasets
+ * (forecast and active alerts), which are queried with the user's latitude
+ * and longitude instead.
+ */
 export const NOAA_DATASETS = [
   {
     label: "NWS Weather Warnings",
@@ -237,6 +346,12 @@ export const NOAA_DATASETS = [
   },
 ];
 
+/**
+ * Catalogue of the Celestrak `elements` groups the Explorer can query -
+ * active satellites, visual, communication, GNSS, weather, Earth-observation,
+ * science, space stations and education - each with the label shown in the
+ * picker and the `GROUP` id sent to Celestrak.
+ */
 export const SATELLITE_GROUPS = [
   { label: "Active (all)", id: "active" },
   { label: "Visible", id: "visual" },
@@ -253,6 +368,13 @@ export const SATELLITE_GROUPS = [
    Helpers
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * Fetches an arbitrary upstream URL through the app's `/api/proxy` route,
+ * percent-encoding the URL into the path. Rejects with `HTTP <status>` when
+ * the proxy answers with a non-2xx status; resolves to parsed JSON when the
+ * response content type includes `json` or `geojson`, and to the raw text
+ * otherwise.
+ */
 export function proxyFetch(url: string): Promise<unknown> {
   return fetch(`/api/proxy/${encodeURIComponent(url)}`).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -264,6 +386,12 @@ export function proxyFetch(url: string): Promise<unknown> {
 
 /* Magnitude chips put colored digits on a 15% tint of the same hue, so the
    digits use light shades to stay above the AAA 7:1 bar on the blended tint. */
+/**
+ * Foreground colour for an earthquake magnitude chip. Magnitude 7+ uses a
+ * light red, 5-7 orange, 3-5 yellow, 1-3 green and below 1 blue - each
+ * shade chosen to stay above the 7:1 contrast bar on the 15 %-opacity
+ * background `magBg` returns for the same magnitude.
+ */
 export function magColor(mag: number): string {
   if (mag >= 7) return "#fca5a5"; /* 8.50:1 on #311a22 */
   if (mag >= 5) return "#fdba74"; /* 9.10:1 on #32211b */
@@ -272,6 +400,11 @@ export function magColor(mag: number): string {
   return "#7cb8ff"; /* 7.19:1 on #18283e */
 }
 
+/**
+ * Background tint for an earthquake magnitude chip: a 15 %-opacity red,
+ * orange, yellow, green or blue that matches the band `magColor` picks for
+ * the same magnitude.
+ */
 export function magBg(mag: number): string {
   if (mag >= 7) return "rgba(239,68,68,0.15)";
   if (mag >= 5) return "rgba(249,115,22,0.15)";

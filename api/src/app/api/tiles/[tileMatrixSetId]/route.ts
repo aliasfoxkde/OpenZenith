@@ -3,8 +3,16 @@ import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { crs84MatrixSize } from "@/lib/tile-crs84";
 import { wmtsCapabilitiesResponse } from "../wmts-capabilities";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the OGC API - Tiles metadata endpoint: answers OPTIONS
+ * with the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -55,6 +63,19 @@ const ADVERTISED_SETS: Record<string, AdvertisedSet> = {
   },
 };
 
+/**
+ * GET /api/tiles/{tileMatrixSetId} — serves the OGC API - Tiles metadata for
+ * one tile matrix set.
+ *
+ * `{tileMatrixSetId}` is `WebMercatorQuad` (EPSG:3857) or `WorldCRS84Quad`
+ * (true EPSG:4326); an unknown id answers 400 with an
+ * `InvalidParameterValue` body. The response describes the set (title, CRS,
+ * well-known scale set, origin) and enumerates its tile matrices for zoom
+ * levels 0–14, each with its scale denominator, matrix width/height and the
+ * 256×256 tile size. The literal segment `WMTSCapabilities.xml` is handled
+ * here too, because it would otherwise be shadowed by this dynamic segment;
+ * it returns the WMTS 1.0.0 capabilities document.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ tileMatrixSetId: string }> }) {
   const baseUrl = new URL(request.url).origin;
   const { tileMatrixSetId } = await params;

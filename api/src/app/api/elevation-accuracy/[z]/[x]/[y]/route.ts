@@ -21,6 +21,7 @@ import { assembleRgbPng } from "@/lib/rgb-png";
  * Format: PNG 256x256
  */
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 const CACHE_HEADERS: Record<string, string> = {
@@ -221,10 +222,28 @@ function tileToLatLon(z: number, x: number, y: number) {
 }
 
 // Preflight has nothing to await — stays promise-returning because callers await handlers.
+/**
+ * CORS preflight handler for the elevation accuracy tile endpoint: answers the
+ * browser's OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
 
+/**
+ * GET handler for the elevation accuracy/resolution heatmap tile.
+ *
+ * Reads the `z`/`x`/`y` route segments (a `.png` suffix on the row is
+ * stripped) and validates them against zoom 0..14. The tile is then computed
+ * purely from the pixel coordinates — no DEM assembly — colour-coding each
+ * pixel by the resolution of the elevation source that covers it: cyan for
+ * 2m ArcticDEM/REMA, bright green for 10m Copernicus EEA, green for 30m
+ * SRTM/GLO-30, and blue for 450m GEBCO over ocean, with dark gray for
+ * uncovered pixels.
+ *
+ * The 256x256 PNG is immutable for one year because coverage does not change;
+ * an encoding failure returns 500.
+ */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
 

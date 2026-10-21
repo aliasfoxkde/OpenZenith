@@ -14,8 +14,16 @@ import { pixelToLatLon } from "@/lib/srtm/zoom-math";
 import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
+/**
+ * CORS preflight for the stream-extraction endpoint: answers OPTIONS with
+ * the shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -29,6 +37,20 @@ interface StreamsRequestBody {
   threshold?: number;
 }
 
+/**
+ * POST /api/streams — extracts a stream network from a DEM window.
+ *
+ * Body: `{ lat, lon, zoom, radius_cells, threshold }` — the centre point
+ * and grid radius define the DEM window (validated by the shared hydrology
+ * opener, which also enforces the start-elevation gate), and `threshold`
+ * is the flow-accumulation value a cell must reach to count as a stream
+ * (default 100, clamped to 1–10000). D8 flow direction and flow
+ * accumulation are computed over the window, and every qualifying cell is
+ * traced downhill to build GeoJSON LineString features. Responds 200 with a
+ * `FeatureCollection` and stats (stream count, threshold, total cells), 400
+ * for an invalid body or window, and `Cache-Control: public, max-age=86400`
+ * since the terrain is static.
+ */
 export async function POST(request: NextRequest) {
   let body: StreamsRequestBody;
   try {

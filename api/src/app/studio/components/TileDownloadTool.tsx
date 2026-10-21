@@ -300,6 +300,12 @@ function generatePythonScript(
   ].join("\n");
 }
 
+/**
+ * Tile download panel. Computes the tile indices covering the current map
+ * view at a chosen zoom, lists the resulting URLs for each supported
+ * dataset, and generates ready-to-run Bash and Python fetchers for the
+ * selection.
+ */
 export function TileDownloadTool({ dark, map }: Props) {
   // bounds: DATASETS is a non-empty literal array
   const [dataset, setDataset] = useState(DATASETS[0]!.id);

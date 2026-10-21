@@ -8,6 +8,12 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 const baseUrl = "https://openzenith.pages.dev";
 
+/**
+ * Next.js viewport export for the whole app. Declares the browser
+ * `theme-color` per colour-scheme preference — white for light mode and
+ * `#0a0a0a` for dark mode — so the mobile browser chrome matches the
+ * active theme.
+ */
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
@@ -15,6 +21,16 @@ export const viewport: Viewport = {
   ],
 };
 
+/**
+ * Root Next.js metadata for the site: the title template applied to every
+ * route ("%s | OpenZenith"), the default homepage title and description,
+ * the keyword list, author/creator/publisher attribution, robots directives
+ * (indexing enabled, with unconstrained Googlebot image and snippet
+ * previews), the OpenGraph and Twitter card fields including the 1200×630
+ * `/og-image.svg` preview image, the favicon/apple-touch-icon set, the web
+ * app manifest link, the `metadataBase` used to resolve relative URLs, and
+ * the Apple web-app capability settings.
+ */
 export const metadata: Metadata = {
   title: {
     default: "OpenZenith - Free Global Elevation API & Geospatial Tools",
@@ -97,6 +113,18 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * The application root layout that every route segment is nested inside. It
+ * emits the HTML and body shell, applies the Inter font CSS variable,
+ * preconnects to the unpkg CDN and preloads the self-hosted JetBrains Mono
+ * Latin subset, and injects a blocking inline script that applies the saved
+ * theme (`localStorage["openzenith-theme"]`, falling back to the OS
+ * `prefers-color-scheme`) as the `data-theme` attribute before first paint
+ * to avoid a flash of the wrong theme. It renders the skip link, which
+ * moves focus past the repeated chrome to each page's
+ * `<main id="main-content">`, and wraps the page in the shared error
+ * boundary.
+ */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>

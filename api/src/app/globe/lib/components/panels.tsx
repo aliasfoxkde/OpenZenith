@@ -8,6 +8,11 @@ import type { RefObject } from "react";
 import { fmtTime } from "../helpers";
 import type { DataStatus, LayerState } from "../types";
 
+/**
+ * State of an in-progress globe annotation rename: the id of the entity
+ * being renamed and the on-screen x/y pixel position where the edit input
+ * is placed.
+ */
 export interface AnnotationEditState {
   id: string;
   x: number;
@@ -73,6 +78,12 @@ interface ElevationProfilePanelProps {
   onClose: () => void;
 }
 
+/**
+ * Floating globe panel that hosts the elevation-profile chart: it renders
+ * the container the page draws the chart into, a close button, and - while
+ * there is no profile yet - a hint telling the user to click two or more
+ * points on the globe.
+ */
 export function ElevationProfilePanel({ chartRef, hasData, onClose }: ElevationProfilePanelProps) {
   return (
     <div className="wv-profile-panel">
@@ -95,6 +106,12 @@ interface CoordinateFormatsPanelProps {
   onClose: () => void;
 }
 
+/**
+ * Globe panel listing the current cursor position in every coordinate
+ * format the page computed; clicking a value copies it to the clipboard.
+ * Copy failures are swallowed because clipboard access is denied in
+ * insecure contexts.
+ */
 export function CoordinateFormatsPanel({ formats, onClose }: CoordinateFormatsPanelProps) {
   return (
     <div className="wv-coord-panel">
@@ -129,6 +146,14 @@ interface GlobeStatusBarProps {
   cameraAlt: number;
 }
 
+/**
+ * Bottom status strip of the globe page: one entry per data layer with an
+ * ok/loading/error indicator, the item count and the last-update time for
+ * the layers that are switched on, then the live cursor coordinates, and
+ * finally the camera altitude - always rendered in kilometres while the
+ * space-drag pan mode is active, otherwise in kilometres above 1 km and in
+ * metres below it.
+ */
 export function GlobeStatusBar({ dataStatus, layers, cursorPos, isSpaceMode, cameraAlt }: GlobeStatusBarProps) {
   return (
     <div className="wv-status">

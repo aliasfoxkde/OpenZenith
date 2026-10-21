@@ -77,6 +77,18 @@ const S = `
 }
 `;
 
+/**
+ * The `/contribute` page. A client component that documents how third
+ * parties can add geospatial data to OpenZenith: an overview of the
+ * contribution workflow, the supported upload formats, and a client-side
+ * file picker that reads the dropped file as text and previews it (JSON is
+ * re-serialised, CSV/GeoJSON/TXT is shown verbatim, anything else is
+ * summarised as a binary blob with its size in KB). It also lists the
+ * supported source-integration formats (static GeoJSON/CSV, ArcGIS REST,
+ * Overpass/OSM, live WMS/WFS/WCS feeds, custom tile services), the
+ * API endpoints they can target, and the pull-request workflow for adding a
+ * route or layer. Theme-aware via the shared `useTheme` hook.
+ */
 export default function ContributePage() {
   const dark = useTheme();
   const [uploadData, setUploadData] = useState<string | null>(null);

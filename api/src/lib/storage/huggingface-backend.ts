@@ -11,6 +11,11 @@ import {
 } from "@/lib/srtm/merged-parser";
 import { cacheGet, cachePut } from "./cache";
 
+/**
+ * Storage contract for SRTM chunks: given an SRTM tile name and a position
+ * in that cell's 15x15 chunk grid, resolve the compressed 256x256 chunk
+ * bytes.
+ */
 export interface ChunkBackend {
   /** Fetch a single 256x256 chunk by SRTM tile name and grid position. */
   fetchChunk(srtmName: string, row: number, col: number): Promise<ArrayBuffer>;

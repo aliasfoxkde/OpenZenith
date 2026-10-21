@@ -16,6 +16,10 @@ import { errorResponse } from "@/lib/api-response";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { parseTileParams } from "@/lib/tile-params";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // Direct HuggingFace backend — avoids process.env which may not work on edge
@@ -23,10 +27,27 @@ const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 
 const TILE_SIZE = 256;
 
+/**
+ * CORS preflight for the raw DEM tile endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET /api/tile/{z}/{x}/{y} — serves a raw DEM elevation tile as a
+ * 256×256 Int16 grid (Terrarium-compatible ordering).
+ *
+ * Zoom must be 0–15 and the tile coordinates must be in range, otherwise
+ * the request answers 400 or 404 with a JSON error. Elevations are
+ * assembled from the merged SRTM chunks on HuggingFace and served as
+ * `application/octet-stream`. Tiles are cached at the edge under the
+ * `dem-raw` prefix; because the content is fixed per zoom/x/y the response
+ * carries `Cache-Control: public, max-age=31536000, immutable` along with
+ * `X-Tile-Size`, `X-Zoom` and `X-Cache: HIT|MISS` markers. For rendered
+ * terrain tiles use `/api/dem-tile/{z}/{x}/{y}` instead.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ z: string; x: string; y: string }> }) {
   const { z, x, y } = await params;
   const parsed = parseTileParams(z, x, y, { minZoom: 0, maxZoom: 15 });

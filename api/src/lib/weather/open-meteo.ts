@@ -93,6 +93,14 @@ interface OpenMeteoForecastResponse {
   timezone?: string;
 }
 
+/**
+ * A weather report from Open-Meteo: the current conditions (temperature,
+ * apparent temperature, humidity, WMO weather code and its description, wind
+ * speed/direction/gusts, surface pressure, precipitation, cloud cover,
+ * visibility, UV index, and a day/night flag), the daily forecast rows, the
+ * unit labels Open-Meteo returned, the resolved timezone, and the source
+ * label (`open-meteo`).
+ */
 export interface WeatherData {
   current: WeatherCurrent;
   daily: WeatherDaily[];
@@ -142,10 +150,19 @@ const WMO_CODES: Record<number, string> = {
   99: "Thunderstorm with heavy hail",
 };
 
+/**
+ * Look up the human-readable description for a WMO weather interpretation
+ * code (0 = clear sky, 95 = thunderstorm, …). Unrecognised codes fall back
+ * to "Unknown".
+ */
 function weatherDescription(code: number): string {
   return WMO_CODES[code] || "Unknown";
 }
 
+/**
+ * Convert a compass bearing in degrees into its 16-point cardinal label
+ * (N, NNE, NE, … NNW) by rounding to the nearest 22.5-degree sector.
+ */
 function windDirection(deg: number): string {
   const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
   // bounds: deg is a compass bearing (>= 0), so round(deg/22.5) % 16 is in [0, 15]

@@ -12,6 +12,28 @@ interface WidgetShellProps {
   children: ReactNode;
 }
 
+/**
+ * Renders the draggable, collapsible chrome around a globe widget: an
+ * absolutely positioned window whose header can be dragged to move it, a
+ * collapse/expand toggle, and a close button.
+ *
+ * Dragging is captured on the header only (pointer events are ignored when the
+ * press starts on a button, input, select, or textarea), and the window is
+ * clamped to the viewport so it cannot be dragged off-screen. The shell renders
+ * nothing when the widget is hidden; the body is omitted while collapsed.
+ *
+ * @param config - The widget's static configuration; `title`/`icon` label the
+ *   header and `minWidth` (default 220 px) sets the minimum window width used
+ *   both for layout and for the drag clamp.
+ * @param state - The widget's live state; `position` (x/y in pixels), `zIndex`,
+ *   `collapsed`, and `visible` drive placement, stacking order, and the
+ *   collapse/hide behaviour.
+ * @param onStateChange - Called with a partial state patch whenever the user
+ *   collapses, closes, or drags the window.
+ * @param onFocus - Called on press/drag to raise the window above its siblings.
+ * @param children - The widget body, rendered only when the widget is
+ *   expanded.
+ */
 export function WidgetShell({ config, state, onStateChange, onFocus, children }: WidgetShellProps) {
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });

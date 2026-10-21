@@ -7,6 +7,12 @@
  * trusted as HTML — every interpolated value goes through `escapeHtml`.
  */
 
+/**
+ * A Cesium entity property that the tooltip builder can read a value from.
+ * Real Cesium `ConstantProperty` instances expose `getValue()`, but the
+ * member is optional so the partial mocks used in tests — and entities
+ * whose property was never set — both satisfy the type without throwing.
+ */
 export interface TooltipEntityProperty {
   getValue?: () => unknown;
 }

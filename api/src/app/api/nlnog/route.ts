@@ -3,9 +3,17 @@ import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
+/**
+ * CORS preflight for the NLNOG nodes endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return Promise.resolve(corsPreflightResponse());
 }
@@ -29,6 +37,17 @@ interface NlnogNode {
  */
 type NlnogResponse = NlnogNode[] | { results?: { nodes?: NlnogNode[] } };
 
+/**
+ * GET /api/nlnog — lists the public NLNOG (Network Lookup for Non-Commercial
+ * & Open Groups) probe nodes.
+ *
+ * Serves the node list from https://api.ring.nlnog.net/1.0/nodes, first
+ * checking the edge Cache API and writing the fresh document back to it for
+ * an hour. Each node's `geo` field ("lat,lon") is parsed into numeric
+ * `lat`/`lon`, and nodes whose coordinates cannot be parsed are dropped.
+ * Responds 200 with `{ nodes, count }` (plus `X-Cache: HIT`/`MISS`), 502 when
+ * the upstream replies non-OK or the request throws.
+ */
 export async function GET() {
   try {
     // Try R2 cache first

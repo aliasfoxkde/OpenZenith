@@ -19,11 +19,19 @@ import {
   tileWindowBounds,
 } from "@/lib/terrain-sampler";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 const HF_BACKEND = new HuggingFaceChunkBackend("aliasfox/srtm30m-merged", true);
 const NODATA = ELEVATION_NODATA;
 
+/**
+ * CORS preflight for the elevation-profile endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
@@ -38,6 +46,19 @@ interface ProfileRequestBody {
   zoom?: number;
 }
 
+/**
+ * POST /api/profile — samples elevation along a straight transect.
+ *
+ * Body: `{ lat1, lon1, lat2, lon2, num_points?, zoom? }` — the two endpoints
+ * of the line are required and must be valid degrees; `num_points` defaults
+ * to 100 and is clamped to 2–1000, `zoom` defaults to 10 and is clamped to
+ * 5–14. Elevation comes from the SRTM 30m merged tiles on HuggingFace,
+ * bilinearly interpolated at the requested zoom. Responds 200 with the
+ * sampled `profile` (distance, elevation, lat, lon per point) plus min/max/
+ * total-gain statistics, 400 for a malformed body or out-of-range coordinates,
+ * and `Cache-Control: public, max-age=86400` since the underlying terrain is
+ * static.
+ */
 export async function POST(request: NextRequest) {
   let body: ProfileRequestBody;
   try {

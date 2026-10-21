@@ -15,6 +15,22 @@ const WIDGET_ICONS: Record<string, string> = {
   settings: "⚙",
 };
 
+/**
+ * Renders the globe's widget toolbar: one button per registered widget (basemaps,
+ * layers, tools, settings — icons come from `WIDGET_ICONS`, falling back to the
+ * widget's own icon), plus a final button that restores the default widget
+ * layout.
+ *
+ * A widget whose state is not visible is dimmed with the `hidden` class and its
+ * button tooltip reads "Show" instead of "Hide".
+ *
+ * @param widgets - Registered widgets keyed by id; each entry supplies the
+ *   widget's title/icon and its current visibility state.
+ * @param onToggle - Called with a widget id when its button is pressed; the
+ *   widget manager decides whether that shows or hides the widget.
+ * @param onResetLayout - Called when the reset button is pressed to restore the
+ *   default widget positions, sizes, and visibility.
+ */
 export function WidgetBar({ widgets, onToggle, onResetLayout }: WidgetBarProps) {
   return (
     <div className="wv-widget-bar">

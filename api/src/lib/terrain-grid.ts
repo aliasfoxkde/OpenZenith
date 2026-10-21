@@ -33,6 +33,7 @@ export const TERRAIN_OZT2_BACKEND = new OZT2HuggingFaceBackend({
 
 /** D8 neighbor offsets, direction-coded 0=E CCW to 7=SE (matches d8FlowDirection). */
 export const D8_DR = [0, 1, 1, 1, 0, -1, -1, -1] as const;
+/** Column offsets of the D8 neighbours, one per direction code 0=E CCW to 7=SE. */
 export const D8_DC = [1, 1, 0, -1, -1, -1, 0, 1] as const;
 
 /** Validated grid parameters shared by every point-grid terrain route. */

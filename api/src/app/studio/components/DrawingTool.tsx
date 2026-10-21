@@ -30,6 +30,12 @@ const MODES: { id: DrawMode; label: string; desc: string }[] = [
   { id: "polygon", label: "Polygon", desc: "Click to add vertices, Enter to finish" },
 ];
 
+/**
+ * Digitizing panel. Switches between point, line and polygon modes and
+ * exposes the drawing state operations — undo, redo, delete, vertex
+ * editing, distance/area measurement and GeoJSON export. Measurement units
+ * follow the shared imperial toggle.
+ */
 export function DrawingTool({ dark, drawState, onDrawStateChange, imperial, onImperialChange }: Props) {
   const bg = dark ? "#0f0f0f" : "#fafafa";
   const border = dark ? "#2a2a2a" : "#e5e5e5";

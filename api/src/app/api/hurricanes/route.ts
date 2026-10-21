@@ -12,6 +12,7 @@ import { cachedFetch } from "@/lib/cache";
 import { CORS_HEADERS, corsPreflightResponse } from "@/lib/cors";
 import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache";
 
+/** Marks the route for the Cloudflare edge runtime (Workers) instead of the Node.js server runtime. */
 export const runtime = "edge";
 
 const CACHE_TTL_HURRICANES = 1800;
@@ -218,10 +219,28 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   return { type: "FeatureCollection", features };
 }
 
+/**
+ * CORS preflight handler for the hurricanes endpoint: answers the browser's
+ * OPTIONS probe with the allowed-origin headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }
 
+/**
+ * GET handler for NOAA IBTrACS tropical cyclone tracks.
+ *
+ * Reads the `active` parameter (default true — storms whose latest observation
+ * is within the last 7 days) and the `track` parameter (`full` returns the
+ * complete track polyline per storm, anything else returns one point per
+ * storm at its latest position). The IBTrACS v04r01 last-three-years CSV is
+ * fetched with a 30-second timeout and parsed into a GeoJSON FeatureCollection
+ * whose features carry the storm id, name, season, basin, nature, max wind,
+ * pressure, derived category and label, and ISO timestamp.
+ *
+ * Responses are served from the edge cache first (`X-Cache: HIT|MISS`) and
+ * cached for 1800 seconds; a non-OK upstream status or a thrown error returns 502.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("active") !== "false";

@@ -12,6 +12,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch, CACHE_TTL } from "@/lib/cache";
 import { CORS_HEADERS, corsError, corsPreflightResponse } from "@/lib/cors";
 
+/**
+ * Marks this route for the Cloudflare Edge runtime, so its handlers execute
+ * as Edge Workers rather than in the Node.js server runtime.
+ */
 export const runtime = "edge";
 
 const OPENSKY_API = "https://opensky-network.org/api/states/all";
@@ -73,6 +77,23 @@ async function getToken(): Promise<string | null> {
   }
 }
 
+/**
+ * GET /api/opensky/flights — relays live aircraft state vectors from the
+ * OpenSky Network.
+ *
+ * Accepts an optional bounding box (`lamin`, `lamax` in degrees latitude;
+ * `lomin`, `lomax` in degrees longitude); supplying only some of the four, or
+ * any value out of range, is a 400. With a box, the request is clipped
+ * upstream; without one, the global state-vector document is fetched. When
+ * OPENSKY_CLIENT_ID/SECRET are configured the call is authenticated with a
+ * client-credentials bearer token, which is memoized and reused until
+ * shortly before expiry. Each request consumes credits against a 4000/day
+ * per-deployment budget — a wider box costs more — and the running totals are
+ * reported in the `X-Credits-Used`/`X-Credits-Remaining` headers. Responds
+ * 200 with the upstream document relayed verbatim, 400 for a malformed box,
+ * 429 once the daily budget is exhausted, and 502 when the upstream returns
+ * a non-OK status or the fetch throws.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
@@ -160,6 +181,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * CORS preflight for the OpenSky flights endpoint: answers OPTIONS with the
+ * shared CORS headers and an empty body.
+ */
 export function OPTIONS() {
   return corsPreflightResponse();
 }

@@ -1,3 +1,10 @@
+/**
+ * OpenZenith brand mark rendered as inline SVG.
+ *
+ * Three stacked green triangles form a stylised mountain/zenith glyph. The
+ * `size` prop sets both the width and height in pixels and defaults to 28;
+ * the viewBox is fixed at 32x32, so the mark scales proportionally at any size.
+ */
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">

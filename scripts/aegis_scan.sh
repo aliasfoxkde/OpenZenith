@@ -34,6 +34,32 @@ SCOPES=(api/src openzenith core/src core/tests scripts)
 
 cd "$REPO_ROOT"
 
+# Preflight: the `aegis` on PATH must be the SECURITY SCANNER, not the
+# unrelated `aegis-cli` PyPI package (whose console script is also named
+# `aegis` and which installs to the same ~/.local/bin). The two have
+# incompatible CLIs — the scanner has a `scan` subcommand and a top-level
+# `--format` flag; the starter-file generator has neither. A wrong binary
+# otherwise fails with a bare "No such option: --format", which reads like a
+# scanner bug rather than a shadowed PATH entry.
+AEGIS_BIN="${AEGIS_BIN:-aegis}"
+if ! "$AEGIS_BIN" scan --help >/dev/null 2>&1; then
+    cat >&2 <<EOF
+error: '$AEGIS_BIN' is not the aegis security scanner.
+
+  The scanner is the one with a 'scan' subcommand and a top-level '--format'
+  flag. A different tool (the 'aegis-cli' PyPI package, which installs a
+  console script of the same name) will fail here with "No such option:
+  --format" and looks like a scanner defect.
+
+  Point AEGIS_BIN at the real scanner, or run the gate inside the image the
+  CI job uses, which carries it (the tag is the one the .gitforge.yml aegis
+  job runs; the registry prefix is documented in that file's header):
+      docker run --rm -v "\$PWD":/workspace:z -w /workspace \\
+        openzenith-ci-aegis:1 ./scripts/aegis_scan.sh
+EOF
+    exit 2
+fi
+
 # Load a findings array from a aegis JSON output file, dropping every
 # finding whose pattern is on the repo denylist. Used by both modes.
 filter_findings() {
@@ -109,13 +135,13 @@ if [[ "${1:-check}" == "update" ]]; then
     tmp="$(mktemp)"
     trap 'rm -f "$tmp"' EXIT
     python3 - "$BASELINE" "$tmp" "${SCOPES[@]}" <<'PY'
-import json, sys
+import json, sys, os
 out_path, tmp_path, *scopes = sys.argv[1:]
 merged = []
 for scope in scopes:
     import subprocess
     proc = subprocess.run(
-        ["aegis", "--format", "json", "scan", scope, "--output-file", tmp_path, "-q"],
+        [os.environ.get("AEGIS_BIN", "aegis"), "--format", "json", "scan", scope, "--output-file", tmp_path, "-q"],
         capture_output=True, text=True)
     if proc.returncode not in (0, 1):  # 1 = findings present (expected)
         sys.exit(f"aegis scan failed for {scope}: {proc.stderr}")
@@ -146,7 +172,7 @@ for scope in "${SCOPES[@]}"; do
     # filter; anything else is a tool failure and must abort the gate.
     # ($? must be captured outside `if !` — the negation clobbers it.)
     set +e
-    aegis --format json scan "$scope" \
+    "$AEGIS_BIN" --format json scan "$scope" \
         --baseline "$BASELINE" --output-file "$tmp" -q >/dev/null
     rc=$?
     set -e

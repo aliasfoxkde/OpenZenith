@@ -1,0 +1,80 @@
+# OpenZenith Rust core CI image — the toolchain and dependency graph the
+# core/ gates (fmt / clippy / test / llvm-cov) are verified against.
+#
+# Why a pinned image instead of `rustup`/`cargo install` inside the job:
+#   * The runner has a hard 60 s sandbox-acquisition cap and no reliable
+#     crates.io egress from inside the container, so a job-time toolchain
+#     download is a lottery (TaskWizerOS's rust image records the same
+#     lesson: "crates.io stalls on this network").
+#   * The toolchain is pinned by core/rust-toolchain.toml (channel 1.97),
+#     and the coverage baseline — 99.25% lines on the default-feature
+#     surface, 96.08% on the wasm-feature surface — was measured with that
+#     exact compiler. A job that resolved a different patch release could
+#     move the measurement and shift the coverage number the floor is
+#     checked against.
+#
+# Build (see scripts/ci/build-ci-images.sh):
+#   tmp=$(mktemp -d)
+#   mkdir -p "$tmp/core"
+#   cp core/Cargo.toml core/Cargo.lock core/rust-toolchain.toml "$tmp/core"/
+#   cp -r core/src core/tests "$tmp/core"/
+#   docker build -t openzenith-ci-rust:1 -f scripts/ci/Dockerfile.rust "$tmp"
+#
+# Rebuild whenever core/Cargo.lock changes.
+FROM rust:1.97-slim-bookworm
+
+# git is needed by cargo's VCS-aware metadata resolution; pkg-config and
+# libssl-dev are the standard build prerequisites for anything that links
+# openssl later.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates git pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# rustfmt + clippy are the two lint gates; llvm-tools-preview is the
+# profiler data cargo-llvm-cov needs (it must match the ACTIVE toolchain —
+# the image's default is 1.97, the same channel rust-toolchain.toml pins).
+# wasm32-unknown-unknown is the target the wasm-pack test gate builds for.
+#
+# The toolchain is installed under the channel NAME "1.97", not the patch
+# release "1.97.1": core/rust-toolchain.toml says `channel = "1.97"`, and
+# rustup resolves a bare channel to a toolchain installed under exactly
+# that name. The official rust image ships the toolchain as
+# "1.97.1-x86_64-unknown-linux-gnu", so with the image's default alone
+# rustup would try to DOWNLOAD the 1.97 channel at job time — a 20-second
+# network round trip inside a container with no egress, and the exact
+# failure mode this image exists to prevent. Installing the channel by
+# name makes the job's rust-toolchain.toml resolve offline.
+RUN rustup toolchain install 1.97 --profile minimal \
+        --component rustfmt --component clippy --component llvm-tools-preview \
+        --target wasm32-unknown-unknown \
+    && rustup default 1.97 \
+    && rustc --version && cargo --version
+
+# Pinned to the version the 99.25% baseline was measured with; a newer
+# release would silently change how coverage is attributed.
+RUN cargo install cargo-llvm-cov --version 0.9.1 --locked
+
+# Warm the crate registry from the committed lockfile so the job never
+# touches crates.io. The manifest plus its sources is the minimum `cargo
+# fetch` accepts; the sources are included so the manifest's [[bin]] path
+# resolves during the fetch. (The trailing slashes matter: `COPY core/src
+# src/` copies the CONTENTS of core/src into src/, while `COPY core/src
+# core/src` would nest them one level too deep and leave src/lib.rs
+# missing — which cargo reports as "can't find library".)
+WORKDIR /app
+COPY core/Cargo.toml core/Cargo.lock core/rust-toolchain.toml ./
+COPY core/src/ src/
+COPY core/tests/ tests/
+RUN cargo fetch --locked
+
+# Lockfile stamp: a checkout whose lockfile drifted from the warmed graph
+# fails in seconds with an actionable message instead of dying mid-job on
+# an offline dead end.
+RUN mkdir -p /usr/local/share/ci-stamps \
+    && sha256sum Cargo.lock > /usr/local/share/ci-stamps/cargo-lock.sha256
+
+# Once the cache is warm, any fetch that escapes it means the image is stale
+# relative to the lockfile — fail fast and loud.
+ENV CARGO_NET_OFFLINE=true \
+    CARGO_TERM_COLOR=always

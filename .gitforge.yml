@@ -65,8 +65,12 @@
 #     an automatic one (a red build must never block a hotfix deploy, and a
 #     green CI must never deploy unreviewed work). The bundle-budget job
 #     DOES run pages:build (no deploy) as the perf tripwire.
-#   * cargo test (core/), pytest (openzenith/): other-toolchain gates; run
-#     locally (no rust/python image pre-pulled).
+#   * cargo test (core/), pytest (openzenith/): were out of scope for years
+#     ("no rust/python image pre-pulled"); both now run in CI as the
+#     rust-gates and python-gates jobs, on purpose-built images
+#     (scripts/ci/Dockerfile.rust, scripts/ci/Dockerfile.python) that pin
+#     the toolchain and the dependency set the coverage baselines were
+#     measured with.
 #   * 2026-10-06: aegis MOVED INTO the pipeline once its finding inventory
 #     was fully triaged (docs/security/TRIAGE.md 2026-10-06 entry: 1,049
 #     findings dispositioned, 0 true positives) and the gate was made
@@ -106,8 +110,14 @@ jobs:
         run: |
           set -e
           # Sources only — small enough to stream through the bridge cheaply.
+          # The --exclude options come BEFORE the file operand on purpose:
+          # GNU tar treats options after an operand as positional, so a
+          # trailing --exclude is silently ignored ("--exclude 'api/node_modules'
+          # has no effect") and the excluded tree rides the bridge anyway.
           mkdir -p /build
-          tar cf - -C /workspace api --exclude=api/node_modules | tar xf - -C /build
+          tar cf - --exclude=api/node_modules --exclude='api/node_modules.*' \
+                  --exclude=api/.next --exclude=api/.vercel --exclude=api/coverage \
+                  -C /workspace api | tar xf - -C /build
           # The docs-claims unit test reads repo-root docs from REPO_ROOT
           # (DOCS in api/src/lib/__tests__/docs-claims.test.ts); /build is
           # that root in the materialized layout, so carry them in the
@@ -299,4 +309,91 @@ jobs:
     # Run 779f0f61: pages:build timed out at 15m with an empty step log —
     # the same host-load class as the install failures (next build under
     # load 100+ stretched siblings >4x). 30m matches install's headroom.
+    timeout: 30m
+
+  # ── The other two codebases ────────────────────────────────────────────
+  # Until 2026-10-21 the pipeline gated ONLY the api/ workspace, on the
+  # documented ground that "cargo test (core/), pytest (openzenith/):
+  # other-toolchain gates; run locally (no rust/python image pre-pulled)".
+  # That ground is obsolete: the runner resolves images from the host
+  # daemon's local store before pulling (gitforge-sandbox/src/docker.rs
+  # checks the store first), the aegis job proved the image-sharing path
+  # (docker save | ssh fedora docker load -> push to localhost:5001), and
+  # purpose-built images for both toolchains now exist. The two SDKs are
+  # ~3,000 of the repository's tests and both carry hard coverage floors
+  # (Python 99%, Rust 99%/95%) — gates that only ever ran on one machine
+  # are gates that rot silently.
+  - name: rust-gates
+    image: localhost:5001/openzenith-ci-rust:1
+    needs: [bundle-budget]
+    steps:
+      # fmt / clippy / test / coverage for the core crate. The image pins the
+      # toolchain to the channel core/rust-toolchain.toml names (1.97) so the
+      # coverage re-measurement uses the same compiler as the 99.25% baseline;
+      # a job that resolved a different patch release could shift the number
+      # the floor is checked against for reasons unrelated to the code.
+      - name: cargo fmt + clippy + test + llvm-cov
+        run: |
+          set -e
+          mkdir -p /build
+          # scripts/ comes along because the coverage gate lives there and
+          # resolves the crate as <script-dir>/../core — without it the
+          # gate step would fail on a missing file, not on a coverage miss.
+          # The --exclude comes BEFORE the operands: GNU tar treats an
+          # option placed after a file operand as positional and ignores it,
+          # so a trailing --exclude would copy core/target (multi-GB) over
+          # the bridge instead of skipping it.
+          tar cf - --exclude=core/target -C /workspace core scripts | tar xf - -C /build
+          cd /build/core
+          # The image's warmed registry is tied to the lockfile it was built
+          # from. A drifted lockfile would otherwise fail LATER, offline,
+          # with an opaque cargo error; fail here with an actionable one.
+          sha256sum -c /usr/local/share/ci-stamps/cargo-lock.sha256 || {
+            echo "core/Cargo.lock changed - rebuild the CI image (scripts/ci/build-ci-images.sh)"; exit 1;
+          }
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          # Coverage gate (scripts/core_coverage_gate.sh): 99% lines on the
+          # default-feature surface, 95% on the wasm-feature surface.
+          cd /build && CORE_COV_FLOOR=99 WASM_COV_FLOOR=95 bash scripts/core_coverage_gate.sh
+          # Hand the release CLI to the python job: the SDK's Rust<->Python
+          # parity suite shells out to it and skips when it is absent, so
+          # without this the parity gate would never run in CI.
+          cd /build/core && cargo build --release
+          mkdir -p /workspace/core/target/release
+          cp target/release/openzenith_core_cli /workspace/core/target/release/
+          echo "core: fmt + clippy + test + coverage green; release CLI staged for the python job"
+    # cargo build from a cold target dir, four toolchain invocations and two
+    # llvm-cov passes (each re-instrumenting the crate).
+    timeout: 30m
+
+  - name: python-gates
+    image: localhost:5001/openzenith-ci-python:1
+    needs: [rust-gates]
+    steps:
+      # ruff / mypy / interrogate / pytest for the SDK. The image pins the
+      # interpreter (3.13) and the dependency SET as well as the versions:
+      # the SDK imports its optional accelerators lazily behind ImportError
+      # guards, so which optional packages resolve decides which branch the
+      # coverage measurement sees. The image reproduces the dev environment's
+      # set exactly.
+      - name: ruff + mypy + interrogate + pytest
+        run: |
+          set -e
+          mkdir -p /build/core/python /build/core/target/release
+          # scripts/ comes along because openzenith/cli.py imports
+          # scripts.validate_elevation - mypy resolves that import from the
+          # working tree, not from site-packages.
+          tar cf - -C /workspace pyproject.toml README.md LICENSE openzenith scripts | tar xf - -C /build
+          tar cf - -C /workspace core/python | tar xf - -C /build/core
+          cp /workspace/core/target/release/openzenith_core_cli /build/core/target/release/
+          cd /build
+          ruff check openzenith/
+          mypy openzenith/
+          interrogate -c pyproject.toml openzenith/
+          pip install --no-build-isolation --no-deps -e . > /tmp/pip.log 2>&1 || {
+            tail -20 /tmp/pip.log; exit 1;
+          }
+          pytest openzenith/tests/ -q
     timeout: 30m

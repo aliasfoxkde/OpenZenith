@@ -1,0 +1,69 @@
+# OpenZenith Python SDK CI image — the exact interpreter and dependency set
+# the SDK gates (ruff / mypy / interrogate / pytest) are verified against.
+#
+# Why a pinned image instead of `pip install` inside the job:
+#   * The runner has a hard 60 s sandbox-acquisition cap and no reliable
+#     package-registry egress from inside the container, so a job-time
+#     install is a lottery (the same lesson the TaskWizerOS rust image
+#     records: "crates.io stalls on this network").
+#   * The coverage floor is 99% with a measured baseline of 99.06% — nine
+#     lines of headroom across 14,749 statements. A CI image that resolves a
+#     different numpy/scipy/matplotlib build would move the measurement and
+#     could turn a green tree red for reasons that have nothing to do with
+#     the code under test. The versions below are pinned to the ones the
+#     baseline was measured with.
+#   * The SET matters as much as the versions. The SDK imports its optional
+#     accelerators lazily and guards each one with an ImportError branch
+#     (numba, fiona, shapely, brotli, rasterio, matplotlib, boto3,
+#     huggingface_hub, aiohttp, zstandard, trimesh). Which of those resolve
+#     decides which branch is the covered one, so the image installs exactly
+#     the set the local dev environment has — including boto3 and
+#     huggingface_hub, without which the S3-backend and dataset-download
+#     paths measure as "accelerator absent" instead of "accelerator present".
+#
+# The image carries NO project source: the job materializes the checkout it
+# is testing. Build it with an empty context:
+#   docker build -t openzenith-ci-python:1 -f scripts/ci/Dockerfile.python /var/tmp/empty-ctx
+#
+# Rebuild whenever the SDK's dependency set or the pinned versions change.
+FROM python:3.13-slim
+
+# The wheel set above is manylinux-complete (numpy, scipy, pillow, rasterio
+# and matplotlib all ship cp313 x86_64 wheels), so no compiler toolchain is
+# needed in the image — that keeps it small and the build fast.
+RUN pip install --no-cache-dir \
+      "numpy==2.4.2" \
+      "scipy==1.17.0" \
+      "pillow==11.1.0" \
+      "pyshp==3.1.6" \
+      "requests==2.32.5" \
+      "cachetools==7.0.1" \
+      "typing_extensions==4.15.0" \
+      "aiohttp==3.13.3" \
+      "zstandard==0.25.0" \
+      "brotli==1.2.0" \
+      "matplotlib==3.10.8" \
+      "rasterio==1.5.0" \
+      "trimesh==5.1.0" \
+      "huggingface_hub==1.4.1" \
+      "boto3==1.42.77" \
+      "pytest==9.0.2" \
+      "pytest-cov==7.0.0" \
+      "pytest-asyncio==1.3.0" \
+      "coverage==7.13.4" \
+      "ruff==0.16.2" \
+      "mypy==2.3.0" \
+      "interrogate==1.7.0" \
+      "hatchling==1.32.4" \
+      "editables==0.6"
+
+# The SDK package is installed from the checkout the job materializes, not
+# from the image: the image carries the dependency graph, the job carries
+# the code under test. `--no-build-isolation` keeps pip off the network
+# (hatchling is already in the image); `--no-deps` keeps pip from trying to
+# re-resolve the pinned set above.
+ENV PIP_NO_INDEX=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /build

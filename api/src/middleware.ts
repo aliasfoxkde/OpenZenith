@@ -16,6 +16,16 @@ import type { NextRequest } from "next/server";
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 120; // requests per window (generous for data-heavy app)
+let nextRateLimitCleanupAt = 0;
+
+function cleanupExpiredRateLimits(now: number): void {
+  if (now < nextRateLimitCleanupAt) return;
+
+  nextRateLimitCleanupAt = now + RATE_LIMIT_WINDOW;
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(key);
+  }
+}
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
@@ -31,12 +41,6 @@ function isRateLimited(ip: string): boolean {
 }
 
 export function middleware(request: NextRequest) {
-  // Lazy cleanup of expired rate limit entries (runs inline, no timers)
-  const now = Date.now();
-  for (const [key, entry] of rateLimitMap) {
-    if (now > entry.resetAt) rateLimitMap.delete(key);
-  }
-
   const { pathname } = request.nextUrl;
 
   // Only apply to API routes
@@ -70,6 +74,10 @@ export function middleware(request: NextRequest) {
   if (/^\/api\/(dem-tile|tile|gebco-tile|elevation-accuracy|elevation-color|floods-tile|contours)\//.test(pathname)) {
     return response;
   }
+
+  // Sweep at most once per rate-limit window, and only on requests that are
+  // actually rate limited. CDN-cached tile traffic bypasses this work too.
+  cleanupExpiredRateLimits(Date.now());
 
   const ip =
     request.headers.get("cf-connecting-ip") ||

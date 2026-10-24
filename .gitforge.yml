@@ -115,7 +115,11 @@ jobs:
           # trailing --exclude is silently ignored ("--exclude 'api/node_modules'
           # has no effect") and the excluded tree rides the bridge anyway.
           mkdir -p /build
-          tar cf - --exclude=api/node_modules --exclude='api/node_modules.*' \
+          # --anchored: without it the patterns also match path SUFFIXES
+          # anywhere in the tree — --exclude=api/coverage silently deleted
+          # the source route api/src/app/api/coverage/ (typecheck TS2307 in
+          # run 66b7966d). Anchored patterns match only at the member root.
+          tar cf - --anchored --exclude=api/node_modules --exclude='api/node_modules.*' \
                   --exclude=api/.next --exclude=api/.vercel --exclude=api/coverage \
                   -C /workspace api | tar xf - -C /build
           # The docs-claims unit test reads repo-root docs from REPO_ROOT

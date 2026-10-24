@@ -3,6 +3,40 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.6 (2026-10-24)
+
+Excellence-cycle VIII — monorepo CI completion and whole-surface
+re-verification. No breaking changes.
+
+### Added
+- rust-gates + python-gates CI jobs (purpose-built, pinned images;
+  scripts/ci/Dockerfile.{rust,python}, build-ci-images.sh publish mode) —
+  the Rust core and Python SDK coverage floors now gate every push.
+- 20 targeted SDK branch tests (openzenith/tests/test_branch_coverage.py):
+  HF token headers, mstp classification arms, sub_basins tracing guards,
+  flow-accumulation fallback, GEBCO PIL fallback, depression guards.
+
+### Fixed
+- jsdoc graduation ratchet closed: the 186-file grandfather block deleted
+  from eslint.config.mjs; every exported symbol documented; eslint 0w/0e
+  across 479 files.
+- .gitforge.yml tar defects: trailing --exclude ignored (GNU tar positional
+  options) and unanchored --exclude=api/coverage deleting the source route
+  api/src/app/api/coverage/; core/python now extracts at /build.
+- CI images resolve from the registry the scheduler's host actually runs
+  (127.0.0.1:5000, not the fedora-era :5001).
+- Python CI image carries libexpat1 (rasterio's wheel links it at load).
+- Coverage floor measures the SDK, not the test files (env-dependent skips
+  in tests/ swung the number between hosts); measured 99.45% in-image.
+- scripts/aegis_scan.sh fails loudly on the shadowed PyPI aegis binary;
+  aegis baseline re-generated at 2,084 fingerprints (TRIAGE.md 2026-10-21).
+
+### Verified
+- WCAG 2.1 AAA axe audit: 46/46 on chromium AND firefox vs production
+  (zero first-party violations; 44px target-size AAA deltas reported).
+- Full Playwright E2E: 94 passed / 1 skipped (opt-in heavy) per browser.
+- GitForge pipeline 372684a0: all 10 jobs green on commit 2c4865fa.
+
 ## v0.9.5 (2026-10-19)
 
 Excellence-cycle VII — patch/minor dependency sweep, pre-existing lint/style

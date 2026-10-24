@@ -93,8 +93,29 @@ case "$WHICH" in
     publish openzenith-ci-rust "$RUST_TAG"
     publish openzenith-ci-python "$PYTHON_TAG"
     ;;
+  publish)
+    # Publish-only: the images are already built locally (a rebuild is
+    # unnecessary when only the runner's registry is out of date). The
+    # argument after "publish" names which images to publish.
+    case "${2:-both}" in
+      rust)
+        publish openzenith-ci-rust "$RUST_TAG"
+        ;;
+      python)
+        publish openzenith-ci-python "$PYTHON_TAG"
+        ;;
+      both)
+        publish openzenith-ci-rust "$RUST_TAG"
+        publish openzenith-ci-python "$PYTHON_TAG"
+        ;;
+      *)
+        echo "usage: $0 publish [rust|python|both]" >&2
+        exit 2
+        ;;
+    esac
+    ;;
   *)
-    echo "usage: $0 [rust|python|both]" >&2
+    echo "usage: $0 [rust|python|both|publish [rust|python|both]]" >&2
     exit 2
     ;;
 esac

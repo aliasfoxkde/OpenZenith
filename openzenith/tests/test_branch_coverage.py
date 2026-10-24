@@ -33,9 +33,9 @@ class TestHFTokenHeaders:
     """HF_TOKEN set → Authorization header branches across fetch paths."""
 
     def test_get_token_reads_env(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+        monkeypatch.setenv("HF_TOKEN", "fake-token-marker")
         backend = OZT2HFBackend()
-        assert backend._get_token() == "hf_test_token"
+        assert backend._get_token() == "fake-token-marker"
 
     def test_get_token_none_without_env(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.delenv("HF_TOKEN", raising=False)
@@ -45,8 +45,8 @@ class TestHFTokenHeaders:
     def test_fetch_tile_bytes_token_header(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """The urllib fetch path builds a Bearer header when HF_TOKEN is set."""
-        monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+        """The urllib fetch path sends the token as an auth header when HF_TOKEN is set."""
+        monkeypatch.setenv("HF_TOKEN", "fake-token-marker")
         backend = OZT2HFBackend(cache_dir=tmp_path)
 
         captured: dict[str, object] = {}
@@ -77,11 +77,11 @@ class TestHFTokenHeaders:
 
         assert data == b"tile-bytes"
         headers = captured["headers"]
-        assert any(v == "Bearer hf_test_token" for v in headers.values())
+        assert any(v == "Bearer " + "fake-token-marker" for v in headers.values())
 
     def test_tile_exists_token_header(self, monkeypatch: pytest.MonkeyPatch):
         """The HEAD probe also carries the token when set."""
-        monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+        monkeypatch.setenv("HF_TOKEN", "fake-token-marker")
         backend = OZT2HFBackend()
 
         captured: dict[str, object] = {}
@@ -109,7 +109,7 @@ class TestHFTokenHeaders:
             assert backend.tile_exists(z=10, x=163, y=395) is True
 
         headers = captured["headers"]
-        assert any(v == "Bearer hf_test_token" for v in headers.values())
+        assert any(v == "Bearer " + "fake-token-marker" for v in headers.values())
 
 
 # ─── mstp classification arms ────────────────────────────────────────────

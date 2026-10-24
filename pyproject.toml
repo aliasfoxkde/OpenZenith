@@ -196,6 +196,13 @@ omit-covered = false
 [tool.pytest.ini_options]
 testpaths = ["openzenith/tests"]
 addopts = "-m \"not integration\" --cov=openzenith --cov-report=term-missing --cov-fail-under=99"
+# The floor measures the SDK, not the test suite: tests live inside the
+# package, so without the omit they land in --cov=openzenith's denominator
+# and environment-dependent skips inside test files (core-binary parity,
+# rasterio presence) swing the measurement between hosts. The prod-code
+# floor stays 99%.
+[tool.coverage.run]
+omit = ["openzenith/tests/*"]
 markers = [
     "integration: marks tests that require network access",
 ]

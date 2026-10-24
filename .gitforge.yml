@@ -49,10 +49,10 @@
 #        Every downstream job untars that single sequential file into its own
 #        container-local /build and works from local disk. Bulk streaming
 #        reads replace tens of thousands of small-file sftp round-trips.
-#   Registry note: the aegis image lives on fedora's localhost:5001 OCI
-#   registry (started 2026-10-18 after swarmone registry migration). Push
-#   new tags via: docker save openztest:N | ssh fedora docker load &&
-#   docker push localhost:5001/openzenith-ci-aegis:N on fedora. The image
+#   Registry note: the CI images live in the GitForge local OCI registry
+#   (127.0.0.1:5000 on swarmone — the host the scheduler dispatches to).
+#   Push new tags via: docker tag <img>:N localhost:5000/<img>:N &&
+#   docker push localhost:5000/<img>:N. The image
 #   tag in this file must match.
 #
 # Deliberately NOT in the pipeline (documented decisions):
@@ -91,7 +91,7 @@ trigger_on:
 environment: {}
 jobs:
   - name: aegis
-    image: localhost:5001/openzenith-ci-aegis:1
+    image: localhost:5000/openzenith-ci-aegis:1
     steps:
       # Security delta gate: fails only on findings whose fingerprint
       # (pattern + repo-relative path + line + content hash) is absent from
@@ -318,13 +318,13 @@ jobs:
   # That ground is obsolete: the runner resolves images from the host
   # daemon's local store before pulling (gitforge-sandbox/src/docker.rs
   # checks the store first), the aegis job proved the image-sharing path
-  # (docker save | ssh fedora docker load -> push to localhost:5001), and
+  # (docker tag <img> localhost:5000/<img> -> docker push, on swarmone), and
   # purpose-built images for both toolchains now exist. The two SDKs are
   # ~3,000 of the repository's tests and both carry hard coverage floors
   # (Python 99%, Rust 99%/95%) — gates that only ever ran on one machine
   # are gates that rot silently.
   - name: rust-gates
-    image: localhost:5001/openzenith-ci-rust:1
+    image: localhost:5000/openzenith-ci-rust:1
     needs: [bundle-budget]
     steps:
       # fmt / clippy / test / coverage for the core crate. The image pins the
@@ -369,7 +369,7 @@ jobs:
     timeout: 30m
 
   - name: python-gates
-    image: localhost:5001/openzenith-ci-python:1
+    image: localhost:5000/openzenith-ci-python:1
     needs: [rust-gates]
     steps:
       # ruff / mypy / interrogate / pytest for the SDK. The image pins the

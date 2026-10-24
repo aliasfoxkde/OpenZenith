@@ -28,6 +28,14 @@
 # Rebuild whenever the SDK's dependency set or the pinned versions change.
 FROM python:3.13-slim
 
+# rasterio's manylinux wheel links libexpat at load time; slim images ship
+# without it, so `import rasterio` dies with "libexpat.so.1: cannot open
+# shared object file" and 12 geotiff tests + the COG-export coverage branch
+# fail for an image reason, not a code reason.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # The wheel set above is manylinux-complete (numpy, scipy, pillow, rasterio
 # and matplotlib all ship cp313 x86_64 wheels), so no compiler toolchain is
 # needed in the image — that keeps it small and the build fast.

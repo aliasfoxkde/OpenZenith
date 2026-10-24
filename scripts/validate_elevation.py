@@ -25,6 +25,7 @@ import math
 import sys
 import time
 from pathlib import Path
+from typing import Any, TypedDict
 
 try:
     import numpy as np
@@ -60,7 +61,17 @@ OPENTOPOGRAPHY_URL = "https://portal.opentopography.org/API/globaldem"
 AWS_TERRAIN_BASE = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 
 # Ground truth benchmark points
-GROUND_TRUTH = [
+class GroundTruthPoint(TypedDict, total=False):
+    name: str
+    lat: float
+    lon: float
+    expected: int
+    tolerance: int
+    note: str
+    source: str
+
+
+GROUND_TRUTH: list[GroundTruthPoint] = [
     {"name": "Mount Everest summit", "lat": 27.9881, "lon": 86.9250, "expected": 8849, "tolerance": 150, "note": "SRTM DSM ~120m low at steep peaks"},
     {"name": "Death Valley lowest", "lat": 36.4637, "lon": -116.8661, "expected": -85, "tolerance": 2000, "note": "Investigated: OZ returns 1668m — likely bad tile data"},
     {"name": "Dead Sea shore", "lat": 31.5, "lon": 35.5, "expected": -434, "tolerance": 50},
@@ -106,7 +117,8 @@ def query_openzenith(lat: float, lon: float) -> float | None:
         )
         if r.status_code == 200:
             d = r.json()
-            return d.get("elevation")
+            val: float | None = d.get("elevation")
+            return val
     except Exception as e:
         print(f"  [OZ] Error: {e}", file=sys.stderr)
     return None
@@ -196,7 +208,7 @@ def download_terrarium_tile(z: int, x: int, y: int, source: str = "aws") -> np.n
 
 # ─── Statistics ───
 
-def compute_stats(errors: list[float]) -> dict:
+def compute_stats(errors: list[float]) -> dict[str, float]:
     """Compute error statistics from a list of (predicted - actual) differences."""
     if not errors:
         return {"rmse": float("nan"), "mae": float("nan"), "max_error": float("nan"), "bias": float("nan"), "n": 0}
@@ -216,7 +228,7 @@ def compute_stats(errors: list[float]) -> dict:
 
 # ─── Validation Modes ───
 
-def validate_spot(use_api: bool = True):
+def validate_spot(use_api: bool = True) -> dict[str, Any]:
     """Mode 1: Validate against curated ground truth points."""
     print("=" * 80)
     print("SPOT VALIDATION — Ground Truth Benchmark Points")
@@ -278,7 +290,7 @@ def validate_spot(use_api: bool = True):
     return {"mode": "spot", "passed": passed, "failed": failed, "total": total, "results": results}
 
 
-def validate_sample(n: int = 500, bbox: tuple[float, float, float, float] | None = None, reference: str = "open-elevation"):
+def validate_sample(n: int = 500, bbox: tuple[float, float, float, float] | None = None, reference: str = "open-elevation") -> dict[str, Any]:
     """Mode 2: Statistical sampling against reference API."""
     print("=" * 80)
     print(f"SAMPLE VALIDATION — {n} random points vs {reference}")
@@ -383,7 +395,7 @@ def validate_sample(n: int = 500, bbox: tuple[float, float, float, float] | None
     }, "null_both": null_both, "null_oz_only": null_oz_only, "null_ref_only": null_ref_only, "sign_disagree": sign_disagree}
 
 
-def validate_tile(z: int, x: int, y: int):
+def validate_tile(z: int, x: int, y: int) -> dict[str, Any] | None:
     """Mode 3: Tile-level comparison between OpenZenith and AWS Terrain Tiles."""
     print("=" * 80)
     print(f"TILE VALIDATION — z={z}, x={x}, y={y}")
@@ -441,7 +453,7 @@ def validate_tile(z: int, x: int, y: int):
     return {"mode": "tile", "z": z, "x": x, "y": y, "stats": stats}
 
 
-def validate_coverage(step: float = 5.0):
+def validate_coverage(step: float = 5.0) -> dict[str, Any]:
     """Mode 4: Audit global coverage."""
     print("=" * 80)
     print(f"COVERAGE AUDIT — step={step}°")
@@ -506,10 +518,12 @@ def main() -> None:
 
     use_api = not args.local
 
+    result: dict[str, Any] | None
     if args.mode == "spot":
         result = validate_spot(use_api=use_api)
     elif args.mode == "sample":
-        bbox = tuple(float(v) for v in args.bbox.split(",")) if args.bbox else None
+        bbox_vals = [float(v) for v in args.bbox.split(",")] if args.bbox else []
+        bbox = (bbox_vals[0], bbox_vals[1], bbox_vals[2], bbox_vals[3]) if len(bbox_vals) == 4 else None
         result = validate_sample(n=args.n, bbox=bbox, reference=args.reference)
     elif args.mode == "tile":
         result = validate_tile(z=args.z, x=args.x, y=args.y)

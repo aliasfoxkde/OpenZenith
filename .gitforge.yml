@@ -390,7 +390,11 @@ jobs:
           # scripts.validate_elevation - mypy resolves that import from the
           # working tree, not from site-packages.
           tar cf - -C /workspace pyproject.toml README.md LICENSE openzenith scripts | tar xf - -C /build
-          tar cf - -C /workspace core/python | tar xf - -C /build/core
+          # Extract at /build, not /build/core: the tar members carry the
+          # core/ prefix, so -C /build/core nested them one level too deep
+          # (/build/core/core/python — run 31cc99f9: 27 module-not-found
+          # errors at fixture setup).
+          tar cf - -C /workspace core/python | tar xf - -C /build
           cp /workspace/core/target/release/openzenith_core_cli /build/core/target/release/
           cd /build
           ruff check openzenith/

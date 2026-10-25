@@ -1,5 +1,16 @@
 # OpenZenith handoff
 
+> **Update (2026-10-25, v0.9.8-pending):** excellence plan IX
+> ([EXCELLENCE_PLAN_IX_2026-10-25.md](EXCELLENCE_PLAN_IX_2026-10-25.md))
+> in progress. All 8 Dependabot alerts closed (83d29d10: mcp-server
+> audit fix; api npm overrides for undici/zod/esbuild — override expiry
+> watch queued as C-4). GeoIP interaction race fixed (ad4bc6c1) — root
+> cause of the 3 flaky landing prod-E2E specs. CI 10/10 on 83d29d10;
+> v0.9.7 cut, released, deployed, prod health reports 0.9.7. Queued
+> next cycle: TS branch/function coverage 99% (C-1), WCAG AAA target-size
+> enforcement decision (C-2), node_modules.stale deletion (C-3,
+> operator-gated).
+
 > **Update (2026-10-10, v0.9.4):** the fifth excellence plan
 > ([EXCELLENCE_PLAN_VI_2026-10-10.md](EXCELLENCE_PLAN_VI_2026-10-10.md),
 > tasks #240–#258, phases A–F) is executed end to end. Security: the

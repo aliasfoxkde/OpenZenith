@@ -3,6 +3,19 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.7 (2026-10-25)
+
+Security closeout and the landing hero camera fix. No breaking changes.
+
+### Fixed
+- all 8 Dependabot alerts closed: mcp-server transitive bumps
+  (fast-uri 3.1.9, body-parser 2.4.0, ip-address 10.7.4); api npm
+  overrides for undici ^7.30.1, zod ^4.6.6 (upstream miniflare pins
+  lag the fixes) and esbuild ^0.25.11 under @cloudflare/next-on-pages.
+- landing: the hero map now flies its camera to the queried point on
+  query success — the details panel updated but the camera stayed put,
+  which read as a broken map.
+
 ## v0.9.6 (2026-10-24)
 
 Excellence-cycle VIII — monorepo CI completion and whole-surface

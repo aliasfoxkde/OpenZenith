@@ -54,5 +54,9 @@ Measured this cycle, not carried:
 
 ## Release
 
-Shipped as v0.9.5 via scripts/ship.sh (build → bundle-marker → deploy →
+Shipped as v0.9.6 via scripts/ship.sh (build → bundle-marker → deploy →
 prod E2E verify) once the pipeline run completes green.
+*(Annotation 2026-10-25: the cycle in fact shipped as **v0.9.6**, cut
+2026-10-24; v0.9.7 followed on 2026-10-25 with the Dependabot closeout
+and hero-map fix — see EXCELLENCE_PLAN_IX. The "v0.9.5" in the original
+text was written before the bump and is stale.)*

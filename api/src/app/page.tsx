@@ -311,6 +311,9 @@ export default function Home() {
           // SnippetResult reads only elevation/location/tile here; /api/query
           // omits srtmTile, which is just SnippetResult's fallback for tile.
           setResult((data.elevation ?? null) as SnippetResult | null);
+          // The hero map watches flyTarget and re-centres on the queried
+          // point — details alone without the camera move read as "broken".
+          setFlyTarget({ lat: la, lon: lo });
           // Extract address from unified response
           if (data.address) {
             const addr = data.address.address;

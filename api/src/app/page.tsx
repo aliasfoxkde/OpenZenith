@@ -162,6 +162,11 @@ export default function Home() {
         const lonStr = clampedLon.toFixed(4);
 
         if (isCancelled()) return;
+        // Re-check at apply time: the user may have filled the inputs (sample
+        // button, address pick, manual typing) while this fetch was in flight.
+        // Overwriting their coordinates here flips the panel to the wrong
+        // place seconds after they acted.
+        if (coordsTouched()) return;
         setCoords(latStr, lonStr);
 
         // Fetch elevation and address for user location
@@ -173,6 +178,9 @@ export default function Home() {
         // A user-initiated lookup started while this fetch was in flight — its
         // answer owns the result panel now.
         if (bootstrapSeq !== lookupSeq.current) return;
+        // Same re-check as the coordinate apply above: an interaction during
+        // the fetch (sample button, address pick) supersedes this bootstrap.
+        if (coordsTouched()) return;
         const eData = (await eRes.json()) as QueryResponse;
         if (!eData.error) {
           // SnippetResult reads only elevation/location/tile here; /api/query

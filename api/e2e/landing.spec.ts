@@ -27,11 +27,16 @@ test.describe("Landing page", () => {
   // so they carry an extended goto window to absorb the warmup instead of
   // failing the ship gate. Chromium is unaffected.
   test("loads successfully", async ({ page }) => {
+    // The goto below carries a 150s window, but the per-test default is
+    // 30s — the cold-start firefox stall burns the test budget during
+    // setup long before goto's own timeout matters (2026-10-25 ship log).
+    test.setTimeout(150_000);
     const response = await page.goto("/", { timeout: 150_000 });
     expect(must(response).status()).toBeLessThan(400);
   });
 
   test("has correct title", async ({ page }) => {
+    test.setTimeout(150_000);
     await page.goto("/", { timeout: 150_000 });
     await expect(page).toHaveTitle(/OpenZenith/);
   });
@@ -44,6 +49,10 @@ test.describe("Landing page", () => {
   });
 
   test("performs elevation lookup", async ({ page }) => {
+    // First-test chromium flake: the cold-start stall ate the 30s budget
+    // before the first fill (2026-10-25 ship log). Same class as the
+    // firefox goto stall above — absorb it in the test timeout.
+    test.setTimeout(120_000);
     await page.goto("/");
     await waitInteractive(page);
 

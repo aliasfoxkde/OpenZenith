@@ -3,6 +3,21 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.8 (2026-10-25)
+
+Excellence-cycle IX — the GeoIP interaction race fix and documentation
+currency. No breaking changes.
+
+### Fixed
+- landing: the GeoIP bootstrap re-checks the coordinate inputs at both
+  apply points, so interacting during the bootstrap fetch (sample
+  button, address pick, manual typing) is no longer overridden seconds
+  later — this was the root cause of three flaky landing E2E specs.
+
+### Docs
+- excellence plan IX (Dependabot closeout receipts, queued ratchets),
+  v0.9.7 changelog entry, handoff and current-cycle pointer refresh.
+
 ## v0.9.7 (2026-10-25)
 
 Security closeout and the landing hero camera fix. No breaking changes.

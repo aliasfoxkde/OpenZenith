@@ -75,6 +75,55 @@ describe("getClientTileData", () => {
     expect([...heights].every((h) => h !== NODATA)).toBe(true);
   });
 
+  it("samples only the in-mask cells of a tile straddling the SRTM latitude cap", async () => {
+    // z4 8/4 spans lat 66.51..55.78. The SRTM mask caps at 61: the north and
+    // middle sampling rows (66.51, 61.14) are out of coverage while the south
+    // row (55.79) is in, so the sampled-cells loop takes both arms of the
+    // isWithinSRTM guard and only the N55 cell is requested.
+    const { calls } = installFixtures();
+
+    await getClientTileData(4, 8, 4);
+
+    const requested = calls.map((c) => c.url.match(HF_MERGED)?.[1]).filter((name) => name !== undefined);
+    expect(new Set(requested)).toEqual(new Set(["N55E000", "N55E011", "N55E022"]));
+  });
+
+  it("keeps a chunk pixel that is SRTM NODATA out of the assembled tile", async () => {
+    // The chunk data itself holds -32768 at one pixel: the assembly guard
+    // (val !== NODATA) must skip it rather than write the sentinel into the
+    // output grid. Also revisits a cached chunk (second column pair of the
+    // same chunk) so the chunkCache-hit arm of the fetch guard runs.
+    installFixtures({
+      merged: {
+        // A fresh cell: N46W074:0:0 is already warm in the module chunk cache
+        // from the flat-500 test above, so use N45W074 (the tile sits at lon
+        // -73.98, whose SW-corner cell is N45W074).
+        N45W074: mergedFile(
+          [
+            {
+              slot: slot(0, 0),
+              data: chunkPayload((r, c) => (r === 80 && c === 85 ? NODATA : 600 + r + c), 256, 256),
+            },
+          ],
+          15,
+          15,
+        ),
+      },
+    });
+
+    const tile = await getClientTileData(15, 9650, 11660);
+    const heights = tile?.heights as Float32Array;
+    // A z15 pixel spans ~7x9 SRTM pixels, so the single sentinel at SRTM
+    // (80,85) paints a small block of tile pixels around (127,126).
+    expect(heights[127 * 256 + 126]).toBe(NODATA);
+    // Corners map to SRTM (66..93, 65..105) away from the sentinel block.
+    expect(heights[0]).toBe(600 + 66 + 65);
+    expect(heights[255 * 256 + 255]).toBe(600 + 93 + 105);
+    const nodataCount = [...heights].filter((h) => h === NODATA).length;
+    expect(nodataCount).toBeGreaterThan(1);
+    expect(nodataCount).toBeLessThan(80);
+  });
+
   it("leaves NODATA heights where the slippy tile falls outside the fetched SRTM tiles", async () => {
     // z13 2412/2816: lat 48.9225..48.8936 (SRTM rows 279..383 -> chunk row 1),
     // lon -74.00390625..-73.9599609375 (SRTM cols 0..144 -> chunk col 0).

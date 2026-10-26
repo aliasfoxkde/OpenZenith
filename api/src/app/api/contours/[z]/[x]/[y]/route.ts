@@ -179,7 +179,8 @@ function generateContours(
         // Marching squares: determine case from corner comparisons
         const caseIndex = (nw >= level ? 8 : 0) | (ne >= level ? 4 : 0) | (se >= level ? 2 : 0) | (sw >= level ? 1 : 0);
 
-        if (caseIndex === 0 || caseIndex === 15) continue;
+        // Cases 0 (all below) and 15 (all above) draw no line — the
+        // switch's default arm returns [] for them.
 
         // Interpolation helper: fraction along edge where contour crosses
         const lerpEdge = (a: number, b: number) => {

@@ -116,6 +116,21 @@ describe("Landcover Tile API — param, cache and upstream branches", () => {
     expect(vi.mocked(edgePutTile).mock.calls[0]?.slice(0, 6)).toEqual(["landcover", 3, 4, 5, tile, "image/png"]);
   });
 
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutTile(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the global stub to execute it.
+    vi.mocked(edgePutTile).mockReset().mockRejectedValueOnce(new Error("R2 write failed"));
+    const tile = bytes("quota-png");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(tile, { status: 200, headers: { "Content-Type": "image/png" } }),
+    );
+
+    const { GET } = await route();
+    const resp = await GET(req("/api/landcover/3/4/6"), ctx("3", "4", "6"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
+
   it("falls back to image/png when upstream sends no content type", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(bytes("opaque"), { status: 200 }));
 

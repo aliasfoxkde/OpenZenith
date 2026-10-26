@@ -97,7 +97,9 @@ export async function GET() {
       (v) => typeof v.latitude !== "number" || typeof v.longitude !== "number",
     );
     for (const v of missing.slice(0, MAX_COORD_LOOKUPS)) {
-      if (typeof v.vnum !== "string") continue;
+      // bounds: byVnum only admits entries whose vnum is a string (line 93),
+      // so the typeof guard and the ?? fallback in the properties block are
+      // unreachable.
       try {
         const metaRes = await cachedFetch(`${HANS}/getVolcano/${v.vnum}`, CACHE_TTL.VOLCANOES, {
           signal: AbortSignal.timeout(12000),
@@ -130,7 +132,7 @@ export async function GET() {
             observatory: v.obs_fullname ?? null,
             noticeUrl: v.notice_url ?? null,
             updated: v.sent_utc ?? null,
-            vnum: v.vnum ?? null,
+            vnum: v.vnum!, // byVnum keys are string-vnum only
           },
         };
       });

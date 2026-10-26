@@ -156,6 +156,36 @@ describe("getClientElevationBatch", () => {
     expect(results[0]).toEqual({ lat: 43.95, lon: -73.95, id: "sea", elevation: -1800 });
   });
 
+  it("drops a tile-group point whose GEBCO fallback is also unavailable", async () => {
+    // SRTM pixel is nodata AND the CEDA strip request errors: clientGebcoElevation
+    // returns null, so the point gets no result entry at all (not a zero).
+    installFixtures({
+      merged: { N42W074: mergedFile([{ slot: slot(0, 0), data: chunkPayload(() => NODATA, 256, 256) }], 15, 15) },
+      strips: { "gebco_2025_n90.0_s0.0_w-90.0_e0.0.tif": 503 },
+    });
+
+    const results = await getClientElevationBatch([{ lat: 42.95, lon: -73.95, id: "dry" }]);
+
+    expect(results).toEqual([{ lat: 42.95, lon: -73.95, id: "dry", elevation: null }]);
+  });
+
+  it("reads two points in the same chunk with a single decode (chunkCache hit)", async () => {
+    // Both points land in chunk (0,0) of the same cell: the assembly loop
+    // requests the chunk once, and the second point takes the chunkCache-hit
+    // arm of the has() guard.
+    const { calls } = installFixtures({
+      merged: { N41W074: mergedWithLinearChunk0() },
+    });
+
+    const results = await getClientElevationBatch([
+      { lat: 41.95, lon: -73.95, id: "one" },
+      { lat: 41.96, lon: -73.96, id: "two" },
+    ]);
+
+    expect(results.map((r) => r.elevation)).toEqual([460, 388]);
+    expect(calls.filter((c) => c.url.includes("N41W074.merged")).length).toBeLessThanOrEqual(2);
+  });
+
   it("evicts the oldest chunk and merged entries once the caches overflow", async () => {
     // Any requested tile is served a merged file whose entire chunk row 7 —
     // the chunk row holding latitude 41.5 — is flat 500.

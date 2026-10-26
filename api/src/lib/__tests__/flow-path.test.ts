@@ -285,6 +285,16 @@ describe("traceDownstream", () => {
     expect(result.coordinates).toHaveLength(50);
     expect(result.elevations).toEqual(Array(50).fill(250));
   });
+
+  it("a single-point trace pops exactly one heap entry", async () => {
+    // maxPoints=1: the heap holds one seed node; popping it leaves the heap
+    // empty, so the post-pop shuffle guard takes its false arm (MinHeap).
+    terrain(() => 250);
+
+    const result = await traceDownstream(41, -73.5, undefined, { maxPoints: 1 });
+
+    expect(result.coordinates).toHaveLength(1);
+  });
 });
 
 describe("traceUpstream", () => {
@@ -344,5 +354,15 @@ describe("traceUpstream", () => {
       expect(lons[i]).toBeGreaterThanOrEqual(lons[i - 1]!);
     }
     expect(calls.length).toBeGreaterThan(1);
+  });
+
+  it("a single-point trace pops exactly one heap entry", async () => {
+    // maxPoints=1 on the upstream walk exercises MaxHeap's post-pop
+    // shuffle-guard false arm (heap empty after the pop).
+    terrain(() => 250);
+
+    const result = await traceUpstream(20, 10, undefined, { maxPoints: 1 });
+
+    expect(result.coordinates).toHaveLength(1);
   });
 });

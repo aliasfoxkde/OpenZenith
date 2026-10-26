@@ -252,6 +252,32 @@ describe("getPointElevation — AWS terrarium fallback", () => {
     expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
   });
 
+  it("returns null when the PNG IDAT is truncated mid-image", async () => {
+    // raw.length < (py+1)*(1+stride): the decoder must stop before the
+    // filter readers assume a full-width row. zlibSync of a single short
+    // scanline against a 256-tall header produces exactly that.
+    const shortScanline = new Uint8Array([0, 9, 9, 9]); // filter byte + one pixel
+    const bytes = [
+      0x89,
+      0x50,
+      0x4e,
+      0x47,
+      0x0d,
+      0x0a,
+      0x1a,
+      0x0a,
+      ...pngChunk("IHDR", [...be32(256), ...be32(256), 8, 2, 0, 0, 0]),
+      ...pngChunk("IDAT", [...zlibSync(shortScanline)]),
+      ...pngChunk("IEND", []),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array(bytes).buffer, { status: 200 }))),
+    );
+
+    expect(await getPointElevation(BLACKLISTED.lat, BLACKLISTED.lon, backendFor(new Map()))).toBeNull();
+  });
+
   it("returns null when the target pixel is terrarium nodata (0,0,0)", async () => {
     const png = terrariumPng(256, () => [0, 0, 0]);
     vi.stubGlobal(

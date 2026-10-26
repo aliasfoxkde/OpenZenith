@@ -290,7 +290,9 @@ async function serveOZT2Tile(z: number, x: number, y: number): Promise<Response>
   try {
     const ozt2 = await fetchOzt2Tile(z, x, y);
     if (ozt2) {
-      putCfCacheTile(z, x, y, ozt2, FMT_OZT2, ENC_TERRARIUM).catch(() => {});
+      // putCfCacheTile resolves on every path (its own try/catch swallows all
+      // failures), so no rejection guard is needed.
+      void putCfCacheTile(z, x, y, ozt2, FMT_OZT2, ENC_TERRARIUM);
       return new Response(ozt2, {
         headers: {
           ...CACHE_HEADERS,
@@ -356,8 +358,8 @@ async function servePNGTile(z: number, x: number, y: number, encoding: Encoding 
         ? encodeTerrainRgbPNG(tileData.data, tileData.width, tileData.height)
         : encodeTerrariumPNG(tileData.data, tileData.width, tileData.height);
 
-    // Store in CF Cache for future requests
-    putCfCacheTile(z, x, y, png.buffer as ArrayBuffer, FMT_PNG, encoding).catch(() => {});
+    // Store in CF Cache for future requests (putCfCacheTile never rejects)
+    void putCfCacheTile(z, x, y, png.buffer as ArrayBuffer, FMT_PNG, encoding);
 
     return new Response(png.buffer as ArrayBuffer, {
       headers: {

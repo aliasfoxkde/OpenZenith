@@ -148,8 +148,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   try {
     const cached = await edgeGetTile("elevation-color", zoom, tileX, tileY);
     if (cached) {
-      // Also store in CF Cache
-      putEcCfCache(zoom, tileX, tileY, cached).catch(() => {});
+      // Also store in CF Cache. putEcCfCache resolves on every path (its own
+      // try/catch swallows all failures), so no rejection guard is needed.
+      void putEcCfCache(zoom, tileX, tileY, cached);
 
       return new Response(cached, {
         headers: {
@@ -169,9 +170,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const tileData = await getTileData(zoom, tileX, tileY, HF_BACKEND);
     const png = encodeColorPNG(tileData.data, tileData.width, tileData.height);
 
-    // Store in R2 and CF Cache
+    // Store in R2 and CF Cache. edgePutTile's mock-real contract rejects only
+    // on transport failure — the response is already committed, so the
+    // rejection is deliberately dropped; putEcCfCache never rejects.
     edgePutTile("elevation-color", zoom, tileX, tileY, png.buffer as ArrayBuffer, "image/png").catch(() => {});
-    putEcCfCache(zoom, tileX, tileY, png.buffer as ArrayBuffer).catch(() => {});
+    void putEcCfCache(zoom, tileX, tileY, png.buffer as ArrayBuffer);
 
     return new Response(png.buffer as ArrayBuffer, {
       headers: {

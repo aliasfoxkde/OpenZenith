@@ -88,6 +88,8 @@ const mergedCache = new Map<string, { data: Uint8Array; index: MergedIndex; ts: 
 const CHUNK_TTL = 10 * 60 * 1000;
 const MERGED_TTL = 30 * 60 * 1000;
 
+// Call AFTER inserting the new entry: with the check before the insert, the
+// size could never exceed MAX_CACHE_SIZE and the eviction body was dead code.
 function cacheEvict(cache: Map<string, { ts: number }>) {
   if (cache.size <= MAX_CACHE_SIZE) return;
   let oldest = Infinity;
@@ -98,7 +100,9 @@ function cacheEvict(cache: Map<string, { ts: number }>) {
       oldestKey = key;
     }
   }
-  if (oldestKey) cache.delete(oldestKey);
+  // bounds: the size guard above proves the cache holds > MAX_CACHE_SIZE
+  // entries, so the scan always finds an oldest key.
+  cache.delete(oldestKey);
 }
 
 // --- Fetch merged file from HuggingFace ---
@@ -119,9 +123,9 @@ async function fetchMergedFile(srtmName: string): Promise<{ data: Uint8Array; in
     const index = parseMergedHeader(data);
     if (!index) return null;
 
-    cacheEvict(mergedCache);
     const entry = { data, index, ts: Date.now() };
     mergedCache.set(srtmName, entry);
+    cacheEvict(mergedCache);
     return entry;
   } catch {
     return null;
@@ -141,8 +145,8 @@ async function getDecodedChunk(srtmName: string, chunkRow: number, chunkCol: num
     const rawChunk = extractChunkFromMerged(merged.data, merged.index, chunkRow, chunkCol);
     const decoded = decodeChunk(rawChunk, chunkRow, chunkCol);
     if (decoded) {
-      cacheEvict(chunkCache);
       chunkCache.set(cacheKey, { entry: decoded, ts: Date.now() });
+      cacheEvict(chunkCache);
       return decoded;
     }
   }
@@ -167,8 +171,10 @@ function readPixel(
 ): number | null {
   const localRow = pixel.row - Math.floor(pixel.row / 256) * 256;
   const localCol = pixel.col - Math.floor(pixel.col / 256) * 256;
-  if (localRow >= chunk.height || localCol >= chunk.width) return null;
-  // bounds: localRow/localCol checked against height/width above
+  // bounds: latLonToPixel clamps row/col to [0,3600]; interior chunks have a
+  // 256-cell real extent (local < 256) and the 15th row/column has extent 17
+  // with local in [3584..3600] - 14*256 = [0..16] — so the local indices are
+  // always inside the decoded grid.
   const val = chunk.data[localRow * chunk.width + localCol]!;
   return val === -32768 ? null : val;
 }
@@ -191,8 +197,8 @@ async function fetchGebcoStrip(quadName: string, row: number): Promise<Uint8Arra
     if (res.status !== 206 && res.status !== 200) return null;
 
     const strip = new Uint8Array(await res.arrayBuffer());
-    cacheEvict(gebcoStripCache);
     gebcoStripCache.set(cacheKey, { strip, ts: Date.now() });
+    cacheEvict(gebcoStripCache);
     return strip;
   } catch {
     return null;
@@ -222,8 +228,9 @@ async function clientGebcoElevation(
   tile: string;
 } | null> {
   const quadName = latLonToQuadName(lat, lon);
-  const bounds = quadNameToBounds(quadName);
-  if (!bounds) return null;
+  // latLonToQuadName emits only the four `gebco_2025_n.._s.._w.._e..` names,
+  // all of which match quadNameToBounds's regex — the null arm is unreachable.
+  const bounds = quadNameToBounds(quadName)!; // quad-name generator and parser are format-locked
 
   const { row, col } = gebcoLatLonToPixel(lat, lon, bounds);
   const strip = await fetchGebcoStrip(quadName, row);
@@ -541,10 +548,10 @@ async function clientTileDataDirect(
 
     for (let cr = startCR; cr <= endCR; cr++) {
       for (let cc = startCC; cc <= endCC; cc++) {
+        // (cr, cc) pairs are unique across the two loops, so has() is always
+        // false here and the set below is unconditional.
         const ck = `${cr}:${cc}`;
-        if (!chunkCache.has(ck)) {
-          chunkCache.set(ck, await getDecodedChunk(srtmName, cr, cc));
-        }
+        chunkCache.set(ck, await getDecodedChunk(srtmName, cr, cc));
         const chunk = chunkCache.get(ck);
         if (!chunk) continue;
 
@@ -567,11 +574,12 @@ async function clientTileDataDirect(
             if (pixelCR !== cr || pixelCC !== cc) continue;
             const lRow = pixel.row % 256;
             const lCol = pixel.col % 256;
-            if (lRow < chunk.height && lCol < chunk.width) {
-              // bounds: lRow/lCol checked against chunk height/width above
-              const val = chunk.data[lRow * chunk.width + lCol]!;
-              if (val !== NODATA) data[py * TILE_SIZE + px] = val;
-            }
+            // bounds: the pixelCR/pixelCC guard above ties the pixel to this
+            // chunk; interior chunks have a 256-cell extent (local < 256) and
+            // the 15th row/column has extent 17 with local in [3584..3600]
+            // mod 256 = [0..16] — always inside the decoded grid.
+            const val = chunk.data[lRow * chunk.width + lCol]!;
+            if (val !== NODATA) data[py * TILE_SIZE + px] = val;
           }
         }
       }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deflateSync, inflateSync } from "fflate";
+import { deflateSync, inflateSync, zlibSync } from "fflate";
 import {
   MERGED_CHUNK_STRIDE,
   MERGED_EDGE_EXTENT,
@@ -164,6 +164,15 @@ describe("extractChunkFromMerged", () => {
     const sparseIndex = parseMergedHeader(sparse) as MergedIndex;
     expect(extractChunkFromMerged(sparse, sparseIndex, 0, 0)).toHaveLength(0);
   });
+
+  it("throws a catchable RangeError when the index entry extends past EOF", () => {
+    // A corrupt index whose entry.offset + entry.size overruns the buffer:
+    // the guard must throw rather than slice garbage bytes.
+    const data = new MergedBuilder(1, 1, 1).addChunk("real").build();
+    const index = parseMergedHeader(data) as MergedIndex;
+    index.entries[0]!.size = data.length; // offset 0 + size = EOF is fine, push past it
+    expect(() => extractChunkFromMerged(data, index, 0, 0)).toThrow(RangeError);
+  });
 });
 
 function decodeChunk(chunk: Uint8Array): string {
@@ -244,8 +253,10 @@ describe("decodeMergedChunk", () => {
   it("rejects a chunk truncated below the stored 256x256 square", () => {
     // 17x17 real-extent storage (no padding): a valid zlib stream, but too
     // short for the stride-256 predictor pass — callers must not decode it.
+    // zlibSync (not deflateSync) so the payload survives the unzlib step and
+    // the truncation guard — not the zlib-format rejection — is what trips.
     const short = new Int16Array(MERGED_EDGE_EXTENT * MERGED_EDGE_EXTENT).fill(400);
-    const compressed = deflateSync(new Uint8Array(short.buffer, short.byteOffset, short.byteLength));
+    const compressed = zlibSync(new Uint8Array(short.buffer, short.byteOffset, short.byteLength), { level: 1 });
     expect(decodeMergedChunk(compressed, 14, 14)).toBeNull();
   });
 

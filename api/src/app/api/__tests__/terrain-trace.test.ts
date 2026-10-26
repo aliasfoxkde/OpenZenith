@@ -171,6 +171,21 @@ describe("Terrain routes — trace flow-walk termination", () => {
     expect(body.steps).toBeGreaterThanOrEqual(1);
     expect(body.steps).toBeLessThanOrEqual(4);
     expect(body.elevations).toHaveLength(body.path?.length ?? 0);
+
+    // Two live pixels in opposite corners: the walk reads a stencil where one
+    // probe lands wholly inside the nodata field, so the all-nodata stencil
+    // guard in d8FromPoint takes its early-null arm mid-walk.
+    const twoLive = nodataTile();
+    const pour = pourPixel(POUR_ISLAND.lat, POUR_ISLAND.lon);
+    const pr = Math.floor(pour.ly), pc = Math.floor(pour.lx);
+    twoLive[pr * 256 + pc] = 500;
+    twoLive[(pr + 40) * 256 + (pc + 40)] = 100;
+    mockGetTileData.mockImplementation(resolveTile(twoLive));
+    const resp2 = await postJSON(tracePOST, POUR_ISLAND);
+    expect(resp2.status).toBe(200);
+    const body2 = await traceBody(resp2);
+    expect(body2.start_elev).toBeGreaterThan(-32768);
+    expect(body2.steps).toBeGreaterThanOrEqual(1);
   });
 
   it("rejects a pour point whose sampled stencil is entirely nodata", async () => {

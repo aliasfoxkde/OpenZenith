@@ -235,13 +235,10 @@ export async function fillTileFromSrtm(
   // single-flight per SRTM cell (see huggingface-backend), so concurrency
   // here collapses to one file download plus cache reads.
   const jobs: Array<{ cr: number; cc: number; cacheKey: string }> = [];
-  const seen = new Set<string>();
+  // (cr, cc) pairs are unique across the two loops — no dedupe set needed.
   for (let cr = startChunkRow; cr <= endChunkRow; cr++) {
     for (let cc = startChunkCol; cc <= endChunkCol; cc++) {
-      const cacheKey = `${cr}:${cc}`;
-      if (seen.has(cacheKey)) continue;
-      seen.add(cacheKey);
-      jobs.push({ cr, cc, cacheKey });
+      jobs.push({ cr, cc, cacheKey: `${cr}:${cc}` });
     }
   }
 
@@ -289,14 +286,13 @@ export async function fillTileFromSrtm(
 
       const localRow = pixel.row - chunkRow * 256;
       const localCol = pixel.col - chunkCol * 256;
-
-      if (localRow < chunk.height && localCol < chunk.width) {
-        // bounds: localRow < chunk.height && localCol < chunk.width, so the
-        // flat index is < chunk.height * chunk.width === chunk.data.length
-        const val = chunk.data[localRow * chunk.width + localCol]!;
-        if (val !== NODATA) {
-          output[py * TILE_SIZE + px] = val;
-        }
+      // bounds: latLonToPixel clamps row/col to [0,3600] and the pixel belongs
+      // to this chunk by construction of chunkRow/chunkCol; interior chunks
+      // have a 256-cell extent and the 15th row/column extent 17 with local
+      // in [3584..3600] - 14*256 = [0..16] — always inside the decoded grid.
+      const val = chunk.data[localRow * chunk.width + localCol]!;
+      if (val !== NODATA) {
+        output[py * TILE_SIZE + px] = val;
       }
     }
   }

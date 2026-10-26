@@ -386,4 +386,93 @@ describe("Hurricanes API", () => {
       category: 1,
     });
   });
+
+  it("track mode: missing lat/lon/wind cells fall through the ?? and || fallbacks", async () => {
+    // The track parser reads cols[latIdx]?.trim() ?? "" and an unparsable
+    // wind || 0 — rows with EMPTY cells in those positions exercise the
+    // other arm of each operator (lines 64/65/68) and still build a track.
+    // The blank lat/lon row is dropped by the NaN guard, so a second
+    // positioned row keeps the storm alive with trackPoints 1.
+    const rows = [
+      HEADER,
+      UNITS,
+      ladderRow("sparse", "SPARSE", 90, "2024-10-09 18:00:00", "22.8", "-89.1"),
+      `sparse,2024,NA,NORTH_ATLANTIC,SPARSE,2024-10-09 12:00:00,TS,,,90,982,main`, // blank lat/lon/wind
+    ].join("\n");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(rows, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?track=full"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    // Only one positioned fix survives → a single-point track is dropped
+    // by the 2-point minimum, so the collection is empty.
+    expect(data.features).toHaveLength(0);
+  });
+
+  it("point mode: every fallback arm of the storm-field readers is taken", async () => {
+    // Covers the ?? arms on lat/lon (line 173/174) and the || 0 arms on
+    // wind/pres/season (177/178/194) with a storm whose numeric fields are
+    // all blank.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        [
+          HEADER,
+          UNITS,
+          "blanknum,2024,NA,NORTH_ATLANTIC,BLANK,2024-10-09 18:00:00,TS,,,65,,,main",
+        ].join("\n"),
+        { status: 200 },
+      ),
+    );
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    // A storm with an unparsable position is dropped by the geometry guard.
+    expect(data.features).toHaveLength(0);
+  });
+
+  it("point mode: a positioned storm with blank wind/pressure/season defaults all", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        [
+          HEADER,
+          UNITS,
+          "pos-blank,,NA,NORTH_ATLANTIC,PB,2024-10-09 18:00:00,TS,22.8,-89.1,,,main",
+        ].join("\n"),
+        { status: 200 },
+      ),
+    );
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes?active=false"));
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    expect(data.features).toHaveLength(1);
+    expect(data.features[0]!.properties).toMatchObject({
+      wind: null,
+      pressure: null,
+      season: 0,
+      category: 0,
+    });
+  });
+
+  it("a rejecting edge cache write never fails the response", async () => {
+    // The edgePutJson(...).catch(()=>{}) arrow is its own coverage
+    // function; this test executes it by mocking the write to reject.
+    vi.doMock("@/lib/storage/edge-cache", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
+      return {
+        ...actual,
+        edgeGetJson: () => Promise.resolve(undefined),
+        edgePutJson: () => Promise.reject(new Error("write failed")),
+      };
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(MOCK_IBTRACS, { status: 200 }));
+
+    const { GET } = await import("@/app/api/hurricanes/route");
+    const resp = await GET(mockRequest("/api/hurricanes"));
+    expect(resp.status).toBe(200);
+    const data = await bodyAs<HurricaneCollectionBody>(resp);
+    // MOCK_IBTRACS timestamps are 2024 — outside the 7-day active cutoff.
+    expect(data.features).toHaveLength(0);
+  });
 });

@@ -241,6 +241,25 @@ describe("staleWhileRevalidate", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("treats a stale-with-missing-timestamp entry as expired and fetches upstream", async () => {
+    // An undated entry has unknown write age; staleWhileRevalidate must not
+    // serve it from the cache at all.
+    const caches = createCaches();
+    vi.stubGlobal("caches", caches);
+    const store = caches.stores.get(NAMESPACE) as CacheStore;
+    store.set(
+      `${NAMESPACE}:${URL_UNDER_TEST}`,
+      new Response('{"undated":1}', { headers: { "content-type": "application/json" } }),
+    );
+    fetchMock.mockResolvedValue(jsonResponse('{"fresh":9}'));
+
+    const { staleWhileRevalidate } = await import("@/lib/cache");
+    const response = await staleWhileRevalidate(URL_UNDER_TEST, 60);
+
+    expect(await readText(response)).toBe('{"fresh":9}');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("waits for upstream when the entry is beyond the stale window", async () => {
     const caches = createCaches();
     vi.stubGlobal("caches", caches);
@@ -313,5 +332,53 @@ describe("staleWhileRevalidate", () => {
     const response = await staleWhileRevalidate(URL_UNDER_TEST, 60);
 
     expect(await readText(response)).toBe('{"direct":4}');
+  });
+
+  it("cachedFetch: a rejecting cache.put never fails the request", async () => {
+    // The .catch(()=>{}) arrow on the put promise is its own coverage
+    // function — this test is what executes it.
+    const failingPut = {
+      match: () => Promise.resolve(null),
+      put: () => Promise.reject(new Error("quota exceeded")),
+    };
+    vi.stubGlobal("caches", { open: () => Promise.resolve(failingPut) });
+    fetchMock.mockResolvedValue(jsonResponse('{"miss":1}'));
+
+    const { cachedFetch } = await import("@/lib/cache");
+    const response = await cachedFetch(URL_UNDER_TEST, 60);
+
+    expect(await readText(response)).toBe('{"miss":1}');
+    expect(response.status).toBe(200);
+  });
+
+  it("staleWhileRevalidate: a rejecting background revalidation is swallowed", async () => {
+    // Covers the revalidation chain's .catch — the upstream fetch itself
+    // rejects, which must not surface as an unhandled rejection.
+    const caches = createCaches();
+    vi.stubGlobal("caches", caches);
+    seedEntry(caches.stores.get(NAMESPACE) as CacheStore, '{"stale":9}', Date.now() - 90_000);
+    fetchMock.mockRejectedValue(new Error("network gone"));
+
+    const { staleWhileRevalidate } = await import("@/lib/cache");
+    const response = await staleWhileRevalidate(URL_UNDER_TEST, 60);
+
+    expect(await readText(response)).toBe('{"stale":9}');
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("staleWhileRevalidate: a rejecting put on the fresh path never fails the request", async () => {
+    const failingPut = {
+      match: () => Promise.resolve(null),
+      put: () => Promise.reject(new Error("quota exceeded")),
+    };
+    vi.stubGlobal("caches", { open: () => Promise.resolve(failingPut) });
+    fetchMock.mockResolvedValue(jsonResponse('{"fresh":2}'));
+
+    const { staleWhileRevalidate } = await import("@/lib/cache");
+    const response = await staleWhileRevalidate(URL_UNDER_TEST, 60);
+
+    expect(await readText(response)).toBe('{"fresh":2}');
   });
 });

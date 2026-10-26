@@ -194,6 +194,32 @@ describe("getTileDataCRS84 — AWS resample path (z <= 10)", () => {
     expect(values.filter((v) => v === EL100)).toHaveLength(validRows * TILE_SIZE);
   });
 
+  it("falls through to chunk assembly when the 3857 source decodes entirely to nodata", async () => {
+    // Black terrarium pixels decode to -32768: the sampler skips every cell
+    // (val !== NODATA skip arm), validCount(data) is 0, and the z<=10 guard's
+    // else arm runs — the request falls through to chunk assembly instead of
+    // returning the empty resample.
+    stubFetch(() =>
+      awsResponse(
+        buildTerrariumPNG({
+          width: TILE_SIZE,
+          height: TILE_SIZE,
+          colorType: 2,
+          pixel: () => [0, 0, 0],
+        }),
+      ),
+    );
+    const storage = constantStorage(() => 555);
+
+    const result = await getTileDataCRS84(4, 0, 4, storage);
+
+    // Chunk assembly fills from the 9 sampled cells only — 9 cells cover a
+    // fraction of this 11.25° tile — so assert a solid minority filled and
+    // the rest nodata rather than full coverage.
+    const values = Array.from(result.data);
+    expect(values.filter((v) => v === 555).length).toBeGreaterThan(2000);
+  });
+
   it("falls through to chunk assembly when the 3857 source is unreachable", async () => {
     stubFetch(() => null);
     const storage = constantStorage(() => 555);
@@ -323,6 +349,30 @@ describe("getTileDataCRS84 — HuggingFace chunk path (z > 10)", () => {
     const values = Array.from(result.data);
     expect(values).toContain(1234);
     expect(values).toContain(NODATA);
+  });
+
+  it("keeps a NODATA-valued resample from replacing the assembled chunk data", async () => {
+    // Chunk assembly is sparse (all-nodata chunks, <5% valid) so the z>10 AWS
+    // resample IS attempted — but the source answers with black terrarium
+    // pixels, which decode to exactly -32768. The sampler's val !== NODATA
+    // guard skips every cell (101's skip arm), the resample's valid count is
+    // 0, and 0 > 0 is false (199's comparison-false arm): the assembled
+    // all-nodata grid stands instead of being replaced by the empty resample.
+    stubFetch(() =>
+      awsResponse(
+        buildTerrariumPNG({
+          width: TILE_SIZE,
+          height: TILE_SIZE,
+          colorType: 2,
+          pixel: () => [0, 0, 0],
+        }),
+      ),
+    );
+    const storage = constantStorage(() => NODATA);
+
+    const result = await getTileDataCRS84(INSIDE.z, INSIDE.col, INSIDE.row, storage);
+
+    expect(Array.from(result.data).every((v) => v === NODATA)).toBe(true);
   });
 
   it("returns an all-nodata tile when neither source has data", async () => {

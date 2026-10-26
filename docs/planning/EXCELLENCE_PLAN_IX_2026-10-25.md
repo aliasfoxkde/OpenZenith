@@ -52,6 +52,15 @@ Measured this session, not carried:
   prod run (receipt: ship log).
 
 ### Phase C — next ratchets (queued, next cycle)
+
+**Status update 2026-10-26 (resumed session):** C-2 and C-4 done; C-1
+in progress (measured 99.78 stmts / 98.95 branches / 99.61 functions /
+99.95 lines; 26 uncovered branches across ~38 files, 2 uncovered
+functions). C-3 remains operator-blocked.
+
+- C-2 **DONE 2026-10-26**: target-size recorded as permanent
+  reported-not-enforced policy in docs/security/TRIAGE.md, with
+  rationale and a revisit trigger (~20-control band threshold).
 - C-1: TS coverage floors — branches 97.32→99, functions 95.09→99. The
   user goal is 99% everywhere; lines/Statements already ≥99. This is a
   test-authoring cycle, not a config change: audit uncovered-branch
@@ -63,8 +72,12 @@ Measured this session, not carried:
   the decision as permanent policy in docs/security/TRIAGE.md.
 - C-3: `api/node_modules.stale/` (1.6 GB) still awaits operator
   confirmation before deletion.
-- C-4: override expiry watch: miniflare undici/zod pins (see item 1) —
-  add a `npm audit` drift check to the cycle-open baseline.
+- C-4 **DONE 2026-10-26**: `scripts/override_drift_check.sh` added to
+  the cycle-open baseline — runs `npm audit` (must be 0) and verifies
+  every resolved instance of each override target satisfies at least
+  one declared override range; parent-conflict INVALID markers are
+  surfaced as notes (expected for override-imposed pins). Receipt:
+  PASS at cycle reopen (audit 0, all 8 targets applying).
 
 ### Phase D — release
 - D-1: six-point version bump → v0.9.8, lockfiles, openapi:generate.

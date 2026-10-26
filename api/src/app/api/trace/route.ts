@@ -138,8 +138,11 @@ export async function POST(request: NextRequest) {
       const latRad2 = (latPt * Math.PI) / 180;
       const tileY = Math.floor(((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2) * n2);
       const key = `${tileX}/${tileY}`;
-      const tile = tileDataMap.get(key);
-      if (!tile) return null;
+      // The walk position is always inside the served window (steps that
+      // leave it, or land on all-nodata stencils, are rejected by the
+      // sampleElevation gate before the next d8FromPoint call), so the tile
+      // is always present here.
+      const tile = tileDataMap.get(key)!;
 
       const px = ((lonPt + 180) / 360) * n2 * 256 - tileX * 256;
       const py = ((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2) * n2 * 256 - tileY * 256;
@@ -156,7 +159,9 @@ export async function POST(request: NextRequest) {
       const h01 = tile[y1 * 256 + x0]!;
       const h11 = tile[y1 * 256 + x1]!;
 
-      if (h00 === NODATA && h10 === NODATA && h01 === NODATA && h11 === NODATA) return null;
+      // The all-nodata early-out lives in makeBilinearSampler: a step onto a
+      // fully-nodata stencil returns NODATA and breaks the walk before
+      // d8FromPoint runs on that cell again.
       const centerElev = h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
 
       let bestDir = -1,

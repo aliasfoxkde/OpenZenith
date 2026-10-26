@@ -59,11 +59,11 @@ const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
 interface CfCache {
   match: ReturnType<typeof vi.fn>;
-  put: ReturnType<typeof vi.fn>;
+  put: (key: string, response: Response) => Promise<void>;
 }
 
 interface CfCacheStub {
-  open: ReturnType<typeof vi.fn>;
+  open: (name?: string) => Promise<CfCache>;
   caches: CfCache[];
   putCalls: string[];
 }
@@ -255,9 +255,16 @@ describe("Elevation color API cache layers", () => {
   });
 
   it("serves an R2 hit when the edge cache has no entry", async () => {
-    stubCfCache();
+    const stub = stubCfCache();
     const bytes = pngBytes(24);
     r2Store.set("8/100/60", bytes);
+    // The R2 hit re-seeds the CF cache fire-and-forget; a rejecting put
+    // exercises the .catch(()=>{}) arrow on that chain (line 152).
+    stub.open = () =>
+      Promise.resolve({
+        match: vi.fn(() => Promise.resolve(null)),
+        put: vi.fn((_key: string, _response: Response) => Promise.reject(new Error("quota"))),
+      });
 
     const resp = await GET(
       new NextRequest("http://localhost/api/elevation-color/8/100/60"),
@@ -365,6 +372,47 @@ describe("Elevation color API generation", () => {
     // Every other 200-path test stubs `caches`; this one pins the opposite arm
     // so the local-dev early returns in both cache helpers stay covered.
     vi.stubGlobal("caches", undefined);
+
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+    expect(mockGetTileData).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(mockR2PutTile).toHaveBeenCalled();
+    });
+  });
+
+  it("a rejecting Cache put on the background store never fails the HIT response", async () => {
+    // putEcCfCache's .catch(()=>{}) arrow is its own coverage function: the
+    // HIT path re-seeds the CF cache via a fire-and-forget put whose promise
+    // rejects here.
+    const stub = stubCfCache({ entry: cachedResponse(pngBytes(16), Date.now()) });
+    const cache = await stub.open();
+    cache.put = () => Promise.reject(new Error("quota"));
+
+    const resp = await GET(
+      new NextRequest("http://localhost/api/elevation-color/8/100/60"),
+      routeCtx("8", "100", "60"),
+    );
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("HIT");
+  });
+
+  it("rejecting background writes on the generate path never fail the MISS response", async () => {
+    // Covers the .catch arrows on the post-render writes: a rejecting R2
+    // put and rejecting CF-cache puts are all swallowed.
+    mockR2PutTile.mockRejectedValueOnce(new Error("R2 write failed"));
+    vi.stubGlobal("caches", {
+      open: () => {
+        return Promise.resolve({
+          match: () => Promise.resolve(null),
+          put: () => Promise.reject(new Error("quota")),
+        });
+      },
+    });
 
     const resp = await GET(
       new NextRequest("http://localhost/api/elevation-color/8/100/60"),

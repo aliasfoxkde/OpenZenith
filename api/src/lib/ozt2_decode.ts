@@ -312,14 +312,16 @@ export async function decodeOZT2(tileBytes: ArrayBuffer): Promise<OZT2DecodeResu
 
   const predictorNames: Array<"none" | "left" | "gradient"> = ["none", "left", "gradient"];
   const compressorNames: Array<"brotli" | "zstd" | "zlib"> = ["brotli", "zstd", "zlib"];
+  // predictor/compressor are validated above (throws on out-of-enum), so the
+  // lookups cannot miss — no ?? fallback needed.
 
   const metadata: OZT2Metadata = {
     minElevation: vmin,
     elevationRange: elevRange,
     maxElevation: vmin + elevRange,
     bitsPerPixel: bits,
-    predictor: predictorNames[predictor] ?? "none",
-    compressor: compressorNames[compressor] ?? "brotli",
+    predictor: predictorNames[predictor]!,
+    compressor: compressorNames[compressor]!,
     width,
     height,
   };
@@ -415,8 +417,9 @@ export function decodeOZT2Sync(tileBytes: ArrayBuffer, inflateFn?: (data: Uint8A
       elevationRange: elevRange,
       maxElevation: vminVal + elevRange,
       bitsPerPixel: bits,
-      predictor: predictorNames[predictor] ?? "none",
-      compressor: compressorNames[compressor] ?? "brotli",
+      // predictor/compressor validated above — lookups cannot miss.
+      predictor: predictorNames[predictor]!,
+      compressor: compressorNames[compressor]!,
       width,
       height,
     },

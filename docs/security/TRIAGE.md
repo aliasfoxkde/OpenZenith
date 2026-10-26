@@ -2192,3 +2192,25 @@ Baseline regenerated with `scripts/aegis_scan.sh update` (run inside the
 `openzenith-ci-aegis:1` image, which is the scanner version the CI job
 executes) after this entry; the gate was re-run green in the same image
 before the push.
+
+## WCAG AAA target-size: reported-not-enforced (2026-10-26, cycle IX C-2)
+
+ axe's `target-size` AAA rule (WCAG 2.5.8, 44×44px minimum) currently
+ reports 138 first-party interactive controls sitting in the 24–44px
+ band. Decision: **reported-not-enforced is permanent policy**, not a
+ pending ratchet.
+
+Why not enforcement with an exemption list:
+- The 24–44px band is dominated by dense map/HUD/toolbar controls
+  (globe widgets, studio toolbars, tab strips) where 44px minimums
+  would force a layout redesign, not a spacing patch.
+- An exemption list of 138 entries is unmaintainable: every new control
+  lands flagged, and the list rots exactly like a deny-list.
+- The rule stays ON in the axe audit (`api/e2e/a11y.spec.ts`) so any
+  count regression is visible in cycle reporting; only the gate
+  threshold is untouched.
+
+Revisit trigger: if a future redesign consolidates the HUD/toolbar
+control set, re-measure; if the band count drops below ~20, raising
+the rule to enforcement with a short exemption list becomes the better
+trade.

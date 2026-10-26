@@ -8,7 +8,11 @@ const r2State = vi.hoisted<{ cached?: unknown }>(() => ({ cached: undefined }));
 
 vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
-  return { ...actual, edgeGetJson: () => Promise.resolve(r2State.cached) };
+  return {
+    ...actual,
+    edgeGetJson: () => Promise.resolve(r2State.cached),
+    edgePutJson: vi.fn(() => Promise.resolve(undefined)),
+  };
 });
 
 const mockNlnogNodes = [
@@ -117,12 +121,25 @@ describe("NLNOG endpoint", () => {
     expect(data.count).toBe(0);
   });
 
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutJson(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the stub to execute it.
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    (edgePutJson as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("write failed"));
+    stubUpstream(JSON.stringify([{ id: 9, hostname: "ok9", geo: "52.37,4.9" }]));
+
+    const { GET } = await import("@/app/api/nlnog/route");
+    const data = await bodyAs<NlnogBody>(await GET());
+    expect(data.count).toBe(1);
+  });
+
   it("drops nodes without geo and geo strings that do not parse to coordinates", async () => {
     const messy = [
       { id: 1, hostname: "ok", geo: "52.37,4.9" },
       { id: 2, hostname: "no-geo" }, // filtered out before parsing
       { id: 3, hostname: "non-numeric", geo: "abc,def" }, // both coords NaN
       { id: 4, hostname: "lon-only", geo: "52.0,nan" }, // lon NaN
+      { id: 5, hostname: "lat-only", geo: "52.0" }, // single part: parts[1] undefined -> lon null
       { id: 5, hostname: "lat-only", geo: "nan,4.0" }, // lat NaN
     ];
     stubUpstream(JSON.stringify(messy));

@@ -178,6 +178,47 @@ describe("Sentinel-2 tile API", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
   });
 
+  it("a rejecting edge-cache write never fails the TiTiler response", async () => {
+    // The fire-and-forget edgePutTile(...).catch(()=>{}) arrow is its own
+    // coverage function; the global stub resolves, so reject it here.
+    const { edgePutTile } = await import("@/lib/storage/edge-cache");
+    vi.mocked(edgePutTile).mockRejectedValueOnce(new Error("R2 write failed"));
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return stacResponse("https://assets.example/visual.tif");
+      if (url.includes("titiler.planetarycomputer")) return pngResponse(true);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await GET(new Request("https://oz/api/sentinel2/10/163/396"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "396" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
+
+  it("a rejecting edge-cache write never fails the GIBS fallback response", async () => {
+    const { edgePutTile } = await import("@/lib/storage/edge-cache");
+    vi.mocked(edgePutTile).mockRejectedValueOnce(new Error("R2 write failed"));
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      if (url.includes("planetarycomputer.microsoft.com/api/stac"))
+        return stacResponse("https://assets.example/visual.tif");
+      if (url.includes("titiler.planetarycomputer")) throw new Error("titiler down");
+      if (url.includes("gibs.earthdata.nasa.gov")) return pngResponse(true);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await GET(new Request("https://oz/api/sentinel2/10/163/396"), {
+      params: Promise.resolve({ z: "10", x: "163", y: "396" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS-GIBS");
+  });
+
   it("falls back to GIBS when TiTiler fails", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = urlOf(input);

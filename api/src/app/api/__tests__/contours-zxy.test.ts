@@ -192,6 +192,17 @@ describe("Contours API generation", () => {
     expect(mockR2PutTile.mock.calls[0]!.slice(0, 4)).toEqual(["contours", 8, 72, 52]); // bounds: called asserted above
   });
 
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutTile(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the stub to execute it.
+    mockR2PutTile.mockRejectedValueOnce(new Error("R2 write failed"));
+
+    const resp = await GET(new NextRequest("http://localhost/api/contours/8/72/53"), routeCtx("8", "72", "53"));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.type).toBe("FeatureCollection");
+  });
+
   it("marks levels at the major interval as major contours", async () => {
     const resp = await GET(new NextRequest("http://localhost/api/contours/10/72/52"), routeCtx("10", "72", "52"));
     const body = (await resp.json()) as { features: Array<{ properties: { elevation: number; type: string } }> };

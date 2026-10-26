@@ -353,6 +353,16 @@ describe("propagateCatalogueInWorker", () => {
     expect(FakeWorker.instances[0]?.terminated).toBe(true);
   });
 
+  it("rejects via the worker's onerror and terminates the worker", async () => {
+    // FakeWorker.failureMessage routes the failure through worker.onerror —
+    // the catalogue path's onerror callback (terminate + reject) — rather
+    // than through a script-evaluation guard.
+    FakeWorker.failureMessage = "worker crashed";
+
+    await expect(propagateCatalogueInWorker([tle(0)], 6_000_000)).rejects.toThrow("worker crashed");
+    expect(FakeWorker.instances[0]?.terminated).toBe(true);
+  });
+
   it("terminates the worker once the propagation arrives", async () => {
     importScriptsImpl = seedFakeSatellite;
     await propagateCatalogueInWorker([tle(0), tle(5)], 6_000_000, [1]);

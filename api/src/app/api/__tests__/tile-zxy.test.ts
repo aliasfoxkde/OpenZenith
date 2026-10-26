@@ -123,6 +123,15 @@ describe("Raw DEM tile API (/api/tile)", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("X-Cache")).toBe("MISS");
   });
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutTile(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the stub to execute it.
+    const { edgePutTile } = await import("@/lib/storage/edge-cache");
+    (edgePutTile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("R2 write failed"));
+    const resp = await GET(req("http://localhost/api/tile/8/74/96"), routeCtx(8, 74, 96));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
 
   it("exposes CORS preflight", () => {
     const resp = OPTIONS();

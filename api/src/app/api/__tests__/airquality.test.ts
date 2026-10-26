@@ -75,6 +75,28 @@ describe("Air Quality API", () => {
     expect(resp.headers.get("X-Cache")).toBe("MISS");
   });
 
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutJson(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the stub to execute it.
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    (edgePutJson as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("write failed"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        aqResponse({
+          pm2_5: 10,
+          us_aqi: 40,
+          time: "2026-04-10T12:00",
+        }),
+      ),
+    );
+
+    const { GET } = await import("@/app/api/airquality/route");
+    const resp = await GET(new Request("http://localhost/api/airquality?lat=41.0&lon=-73.0"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
+
   it("serves a cached HIT without touching the upstream", async () => {
     const { edgeGetJson } = await import("@/lib/storage/edge-cache");
     const cached = { type: "FeatureCollection", features: [] };

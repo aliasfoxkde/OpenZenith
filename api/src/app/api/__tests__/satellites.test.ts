@@ -20,10 +20,30 @@ const r2State = vi.hoisted<{ cached?: unknown }>(() => ({ cached: undefined }));
 
 vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
-  return { ...actual, edgeGetJson: () => Promise.resolve(r2State.cached) };
+  return {
+    ...actual,
+    edgeGetJson: () => Promise.resolve(r2State.cached),
+    edgePutJson: vi.fn(() => Promise.resolve(undefined)),
+  };
 });
 
 describe("Satellites API", () => {
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutJson(...).catch(()=>{}) arrows are their own
+    // coverage functions; the global stub resolves, so reject it here.
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    (edgePutJson as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("write failed"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify([{ name: "ISS (ZARYA)", norad_cat_id: 25544 }]), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/satellites/route");
+    const resp = await GET(mockRequest("/api/satellites?group=active"));
+    expect(resp.status).toBe(200);
+    const data = await bodyAs<SatellitesBody>(resp);
+    expect(data.satellites?.[0]?.name).toBe("ISS (ZARYA)");
+  });
+
   it("returns satellite data from Celestrak", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify([{ name: "ISS (ZARYA)", norad_cat_id: 25544 }]), { status: 200 }),

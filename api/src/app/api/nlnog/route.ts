@@ -77,9 +77,11 @@ export async function GET() {
       .filter((n): n is NlnogNode & { geo: string } => Boolean(n.geo))
       .map((n) => {
         const parts = n.geo.split(",").map(Number);
-        // A missing part is undefined; ?? NaN makes isNaN() treat it exactly
-        // as it did before (undefined coerces to NaN).
-        const lat = parts[0] ?? NaN;
+        // A single-part geo ("50.1") leaves parts[1] undefined; ?? NaN makes
+        // isNaN() treat it exactly as before (undefined coerces to NaN).
+        // parts[0] always exists: geo is non-empty (filter above), so split
+        // yields at least one element.
+        const lat = parts[0]!;
         const lon = parts[1] ?? NaN;
         return {
           id: n.id,

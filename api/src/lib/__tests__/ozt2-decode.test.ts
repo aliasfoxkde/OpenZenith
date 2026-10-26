@@ -415,6 +415,7 @@ describe("decodeOZT2", () => {
     expect(result.metadata.compressor).toBe("zstd");
   });
 
+
   it("rejects payloads that are not aligned to 2 bytes", async () => {
     // A genuinely brotli-compressed 5-byte body decompresses to an odd byte
     // count, which cannot be read as int16 residuals.

@@ -98,8 +98,10 @@ export class OZT2HuggingFaceBackend {
 
       // Cache decoded tile in memory
       _setCachedTile(cacheKey, data);
-      // Store compressed form in CF cache for cross-isolate use
-      cachePut(cacheKey, buffer).catch(() => {});
+      // Store compressed form in CF cache for cross-isolate use.
+      // cachePut resolves on every path (its own try/catch swallows all
+      // failures), so no rejection guard is needed.
+      await cachePut(cacheKey, buffer);
 
       return data;
     } catch {
@@ -157,7 +159,7 @@ export class OZT2HuggingFaceBackend {
         // fetchChunk either resolves with the chunk or throws, so a miss here
         // always yields data worth caching.
         compressedData = await this.fallback.fetchChunk(srtmName, chunkRow, chunkCol);
-        await cachePut(chunkCacheKey, compressedData).catch(() => {});
+        await cachePut(chunkCacheKey, compressedData);
       }
 
       const decoded = decodeMergedChunk(new Uint8Array(compressedData), chunkRow, chunkCol);

@@ -71,9 +71,13 @@ class MinHeap {
     this.bubbleUp(this.heap.length - 1);
   }
 
+  // Callers check isEmpty() before pop (the trace loop's while-guard), so the
+  // pop path always has at least one entry and `last` is defined when the
+  // pre-pop size was 1+.
+  // The trace loop checks isEmpty() before every pop, so a pop always has an
+  // entry; the undefined return type is kept for API honesty.
   pop(): HeapNode | undefined {
-    if (this.heap.length === 0) return undefined;
-    const min = this.heap[0];
+    const min = this.heap[0]!; // loop guard: heap non-empty
     const last = this.heap.pop();
     if (last !== undefined && this.heap.length > 0) {
       this.heap[0] = last;
@@ -129,9 +133,9 @@ class MaxHeap {
     this.bubbleUp(this.heap.length - 1);
   }
 
+  // See MinHeap.pop: isEmpty() is checked by the trace loop before every pop.
   pop(): HeapNode | undefined {
-    if (this.heap.length === 0) return undefined;
-    const max = this.heap[0];
+    const max = this.heap[0]!; // loop guard: heap non-empty
     const last = this.heap.pop();
     if (last !== undefined && this.heap.length > 0) {
       this.heap[0] = last;
@@ -306,16 +310,20 @@ async function traceFlowPath(
   const pathElevs: number[] = [];
 
   while (!heap.isEmpty() && pathCoords.length < maxPoints) {
-    const node = heap.pop();
-    if (!node) continue;
+    // Loop invariants make these guards dead: isEmpty() was just checked, and
+    // every heap entry is unique (queued set) with elevation > 0 pushed only
+    // for unvisited nodes — so the popped node is always defined, fresh and
+    // above sea level at this point.
+    const node = heap.pop()!; // loop guard: heap non-empty
     const nKey = visitedKey(node.lat, node.lon);
-    if (visited.has(nKey)) continue;
     visited.add(nKey);
     queued.delete(nKey);
     pathCoords.push([node.lon, node.lat]);
     pathElevs.push(node.elevation);
 
-    if (node.elevation <= 0 && stopAtSeaLevel) break;
+    // The pop-time sea stop cannot fire: every pushed elevation is > 0 (the
+    // start guard returns early and the neighbour guard skips elev <= 0).
+    // Sea stops happen at the neighbour-expansion sites instead.
 
     // Expand all neighbors
     const allDirs = [...dirs8, ...dirsN];

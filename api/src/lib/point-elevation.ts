@@ -74,16 +74,16 @@ export async function getPointElevation(
   // Decompress, undo the predictor at the stored 256 stride, crop padding
   const decoded = decodeMergedChunk(new Uint8Array(compressedData), chunkRow, chunkCol);
   if (!decoded) return null;
-  const { data, width: chunkWidth, height: chunkHeight } = decoded;
+  const { data, width: chunkWidth } = decoded;
 
   // Get the pixel value
   const localRow = pixel.row - chunkRow * 256;
   const localCol = pixel.col - chunkCol * 256;
-
-  if (localRow < 0 || localCol < 0 || localRow >= chunkHeight || localCol >= chunkWidth) return null;
-
+  // bounds: latLonToPixel clamps row/col to [0,3600] and chunkRow/chunkCol
+  // are floor(row/256)/floor(col/256), so local indices are always within
+  // the chunk extent (interior 256, edge 17 with local in [0..16]).
   const elevation = data[localRow * chunkWidth + localCol];
-  // bounds: localRow/localCol checked against chunkHeight/chunkWidth above
+  // bounds: local indices are always inside the chunk extent (see above)
   if (elevation === undefined || elevation === NODATA) return null;
 
   return {
@@ -204,7 +204,7 @@ async function getPointElevationFromAWS(
 
     for (let row = 0; row <= py; row++) {
       const rowStart = row * (1 + stride);
-      const filterType = raw[rowStart] ?? 0; // absent trailing byte: unfiltered (as `default` did)
+      const filterType = raw[rowStart]!; // stride guard above proves the byte exists
       const rowData = raw.subarray(rowStart + 1, rowStart + 1 + stride);
       // bounds: stride-guard above makes rowData full-length; currRow/prevRow
       // are stride-sized allocations, so every index below is in [0, stride)

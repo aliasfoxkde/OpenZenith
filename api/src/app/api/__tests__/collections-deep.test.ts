@@ -301,6 +301,31 @@ describe("Collection Items — bbox filtering", () => {
     expect(data.numberMatched).toBe(0);
     expect(data.numberReturned).toBe(0);
   });
+
+  it("matches nothing when the bbox has fewer than four parts", async () => {
+    // A one-part bbox destructures minLat/maxLon/maxLat to undefined: the
+    // undefined guard must drop every feature rather than compare undefined.
+    const data = await bodyAs<CollectionBody>(await query("?bbox=-75"));
+    expect(data.numberMatched).toBe(0);
+    expect(data.numberReturned).toBe(0);
+  });
+
+  it("reports the thrown non-Error value as a generic 502 message", async () => {
+    // Non-Error throwables take the generic-message arm. The lint rule bans
+    // string throws, so suppress it here — the throw type is the point.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((): never => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw "upstream socket reset";
+      }),
+    );
+
+    const GET = await getGET();
+    const resp = await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes"));
+    expect(resp.status).toBe(502);
+    expect((await bodyAs<CollectionBody>(resp)).error).toBe("Failed to fetch features");
+  });
 });
 
 describe("Collection Items — property filtering", () => {

@@ -116,6 +116,18 @@ describe("Reverse Geocode endpoint", () => {
     expect(data.place?.name).toBe("A Road");
   });
 
+  it("leaves the place unnamed when Nominatim omits display_name", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ osm_id: 1 }), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/reverse-geocode/route");
+    const resp = await GET(mockRequest("/api/reverse-geocode?lat=0&lon=0"));
+    const data = (await resp.json()) as GeocodeBody;
+    expect(data.place?.name).toBeUndefined();
+    expect(data.place?.display_name).toBeUndefined();
+  });
+
   it("returns 502 when the upstream is unavailable", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("down", { status: 503 }));
 

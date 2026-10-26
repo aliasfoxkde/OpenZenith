@@ -61,12 +61,14 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
       const sid = cols[sidIdx]?.trim();
       if (!sid || sid === "SID") continue;
 
-      const lat = parseFloat(cols[latIdx]?.trim() ?? "");
-      const lon = parseFloat(cols[lonIdx]?.trim() ?? "");
+      // bounds: cols.length >= headers.length guard above proves every index
+      // in [0, headers.length) exists
+      const lat = parseFloat(cols[latIdx]!.trim());
+      const lon = parseFloat(cols[lonIdx]!.trim());
       if (isNaN(lat) || isNaN(lon)) continue;
 
-      const wind = parseInt(cols[windIdx]?.trim() ?? "", 10) || 0;
-      const time = cols[isoTimeIdx]?.trim() || "";
+      const wind = parseInt(cols[windIdx]!.trim(), 10) || 0;
+      const time = cols[isoTimeIdx]!.trim() || "";
 
       let track = stormTracks.get(sid);
       if (!track) {
@@ -170,12 +172,14 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   const features: GeoJSON.Feature[] = [];
 
   for (const s of storms.values()) {
-    const lat = parseFloat(s.lat ?? "");
-    const lon = parseFloat(s.lon ?? "");
+    // lat/lon/wind/pres/season are defaulted to "" at the storms.set site, so
+    // parseFloat/parseInt always receive a string — no ?? fallback can fire.
+    const lat = parseFloat(s.lat!);
+    const lon = parseFloat(s.lon!);
     if (isNaN(lat) || isNaN(lon)) continue;
 
-    const wind = parseInt(s.wind ?? "", 10) || 0;
-    const pres = parseInt(s.pres ?? "", 10) || 0;
+    const wind = parseInt(s.wind!, 10) || 0;
+    const pres = parseInt(s.pres!, 10) || 0;
 
     let category = 0;
     if (wind >= 137) category = 5;
@@ -191,7 +195,7 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
       properties: {
         sid: s.sid,
         name: s.name === "NOT_NAMED" ? "UNNAMED" : s.name,
-        season: parseInt(s.season ?? "", 10) || 0,
+        season: parseInt(s.season!, 10) || 0,
         basin: s.basin,
         nature: s.nature,
         wind: wind || null,

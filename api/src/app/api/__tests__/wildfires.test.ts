@@ -196,6 +196,20 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(ttl).toBe(3600);
   });
 
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutJson(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the stub to execute it.
+    stubKey();
+    const { edgePutJson } = await r2Json();
+    (edgePutJson as Mock).mockRejectedValueOnce(new Error("write failed"));
+    stubFetch(vi.fn(() => new Response([FIRMS_HEADER, "37.5,-122.3,333.4,1.2,1.1,2026-09-21,1830,VIIRS_SNPP_NRT,viirs,85,1.0NRT,300.2,42.7,N"].join("\n"), { status: 200 })));
+
+    const GET = await getRoute();
+    const resp = await GET(createMockRequest("https://example.com/api/wildfires"));
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("X-Cache")).toBe("MISS");
+  });
+
   it("reads frp and daynight from the real 14-column FIRMS layout", async () => {
     stubKey();
     // Regression: frp sits at index 12 and daynight at 13 — the route used to
@@ -221,16 +235,21 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
       "1.0,2.0,300", // too few columns
       ",,300,1,1,2026-09-21,1830,SAT,inst,50,1.0,290,1,N", // NaN lat/lon
       "3.0,4.0,301,1,1,2026-09-21,1831,SAT,inst,60,1.0,291,1,D",
+      "5.0,6.0,302,1,1,2026-09-21,1832,SAT,inst,l", // 10 cols exactly: frp/daynight past the gate default to 0/"D"
     ].join("\n");
     stubFetch(vi.fn(() => new Response(csv, { status: 200 })));
 
     const GET = await getRoute();
     const data = await bodyAs<WildfireBody>(await GET(createMockRequest("https://example.com/api/wildfires")));
-    expect(data.count).toBe(2);
+    expect(data.count).toBe(3);
     expect(data.features.map((f: { geometry: { coordinates: number[] } }) => f.geometry.coordinates)).toEqual([
       [2, 1],
       [4, 3],
+      [6, 5],
     ]);
+    const shortRow = data.features[2] as { properties: { frp: number; daynight: string } };
+    expect(shortRow.properties.frp).toBe(0);
+    expect(shortRow.properties.daynight).toBe("D");
   });
 
   it("caps the parsed feature list at 3000 rows", async () => {

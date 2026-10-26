@@ -250,6 +250,8 @@ describe("DEM Tile XYZ API — Cloudflare edge cache", () => {
     expect(resp.headers.get("X-Dem-Tile-Source")).toBe("cf-cache");
     expect(resp.headers.get("X-Dem-Tile-Format")).toBe("ozt2");
     expect(resp.headers.get("Content-Type")).toBe("application/octet-stream");
+    // OZT2 carries an int16 grid — no encoding header on the cached hit.
+    expect(resp.headers.get("X-Dem-Tile-Encoding")).toBeNull();
     expect(cachesMock.match).toHaveBeenCalledWith("/api/dem-tile/10/163/395?fmt=ozt2&enc=terrarium");
   });
 

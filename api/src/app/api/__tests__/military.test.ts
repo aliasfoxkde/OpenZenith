@@ -23,7 +23,11 @@ const r2State = vi.hoisted<{ cached?: unknown }>(() => ({ cached: undefined }));
 
 vi.mock("@/lib/storage/edge-cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/storage/edge-cache")>();
-  return { ...actual, edgeGetJson: () => Promise.resolve(r2State.cached) };
+  return {
+    ...actual,
+    edgeGetJson: () => Promise.resolve(r2State.cached),
+    edgePutJson: vi.fn(() => Promise.resolve(undefined)),
+  };
 });
 
 describe("Military API", () => {
@@ -38,6 +42,22 @@ describe("Military API", () => {
 
     const { GET } = await import("@/app/api/military/route");
     const resp = await GET(mockRequest("/api/military?lat=30&lon=-90&dist=100"));
+    expect(resp.status).toBe(200);
+    const data = await bodyAs<MilitaryBody>(resp);
+    expect(data.ac).toHaveLength(1);
+  });
+
+  it("a rejecting edge-cache write never fails the response", async () => {
+    // The fire-and-forget edgePutJson(...).catch(()=>{}) arrow is its own
+    // coverage function; reject the stub to execute it.
+    const { edgePutJson } = await import("@/lib/storage/edge-cache");
+    (edgePutJson as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("write failed"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ ac: [{ hex: "DEF456" }], total: 1 }), { status: 200 }),
+    );
+
+    const { GET } = await import("@/app/api/military/route");
+    const resp = await GET(mockRequest("/api/military?lat=31&lon=-91&dist=100"));
     expect(resp.status).toBe(200);
     const data = await bodyAs<MilitaryBody>(resp);
     expect(data.ac).toHaveLength(1);

@@ -96,8 +96,9 @@ abstract class BaseChunkBackend implements ChunkBackend {
 
       mergedFileCache.set(srtmName, { data, index, timestamp: Date.now() });
 
-      // Store in CF Cache / in-memory cache for cross-isolate persistence
-      cachePut(cacheKey, buffer).catch(() => {});
+      // Store in CF Cache / in-memory cache for cross-isolate persistence.
+      // cachePut resolves on every path, so no rejection guard is needed.
+      await cachePut(cacheKey, buffer);
 
       return { data, index };
     } catch {

@@ -1,5 +1,16 @@
 # OpenZenith handoff
 
+> **Update (2026-10-26, cycle IX phase C closed):** all agent-side
+> phase-C ratchets are done and committed (49404dc6): C-1 coverage
+> floors ratcheted to 99/99 (branches 96→99, functions 94→99;
+> measured 99.8/99.07/99.61/99.97; 1,761 tests, eslint 0, tsc clean),
+> C-2 target-size recorded as permanent reported-not-enforced policy
+> in docs/security/TRIAGE.md, C-4 override drift check added
+> (scripts/override_drift_check.sh — run at cycle open). C-3
+> (node_modules.stale 1.6GB deletion) remains operator-gated. Next
+> cycle: open X with the drift check as baseline; C-1's residual
+> 22 uncovered branches are concentrated in thin route error arms.
+
 > **Update (2026-10-25, v0.9.8-pending):** excellence plan IX
 > ([EXCELLENCE_PLAN_IX_2026-10-25.md](EXCELLENCE_PLAN_IX_2026-10-25.md))
 > in progress. All 8 Dependabot alerts closed (83d29d10: mcp-server

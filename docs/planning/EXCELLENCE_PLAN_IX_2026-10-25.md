@@ -53,10 +53,16 @@ Measured this session, not carried:
 
 ### Phase C — next ratchets (queued, next cycle)
 
-**Status update 2026-10-26 (resumed session):** C-2 and C-4 done; C-1
-in progress (measured 99.78 stmts / 98.95 branches / 99.61 functions /
-99.95 lines; 26 uncovered branches across ~38 files, 2 uncovered
-functions). C-3 remains operator-blocked.
+**Status update 2026-10-26 (resumed session, CLOSED):** C-1, C-2, C-4
+done and committed (49404dc6). C-3 remains operator-blocked.
+- C-1 **DONE 2026-10-26**: floors ratcheted to 99/99. Measured
+  99.80 stmts / 99.07 branches / 99.61 functions / 99.97 lines.
+  Route taken: targeted branch tests (dem-tile ozt2 cache-hit,
+  reverse-geocode missing display_name, staleWhileRevalidate undated
+  entry) + removal of the unreachable contours marching-squares
+  0/15 guard (folded into the switch default). Remaining 22
+  uncovered branches are thin route error arms — documented as the
+  known residue, floor 99 tolerates them (24/2494).
 
 - C-2 **DONE 2026-10-26**: target-size recorded as permanent
   reported-not-enforced policy in docs/security/TRIAGE.md, with

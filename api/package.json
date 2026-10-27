@@ -38,10 +38,10 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@cloudflare/next-on-pages": "^1.13.12",
-    "@cloudflare/workers-types": "^5.20261019.1",
+    "@cloudflare/workers-types": "^5.20261024.1",
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "^16.4.2",
+    "@next/eslint-plugin-next": "^16.4.3",
     "@playwright/test": "^1.64.1",
     "@types/maplibre-gl": "^1.14.0",
     "@types/node": "^22.20.5",
@@ -50,9 +50,9 @@
     "@vitest/coverage-v8": "^5.0.5",
     "cesium": "^1.146.0",
     "eslint": "^10.13.0",
-    "eslint-config-next": "^16.4.2",
+    "eslint-config-next": "^16.4.3",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-jsdoc": "^65.3.12",
+    "eslint-plugin-jsdoc": "^65.4.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.13.0",
     "jsdom": "^26.1.0",
@@ -61,9 +61,9 @@
     "satellite.js": "^7.1.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.1"
+    "wrangler": "^4.152.0"
   },
   "overrides": {
     "@cloudflare/next-on-pages": {

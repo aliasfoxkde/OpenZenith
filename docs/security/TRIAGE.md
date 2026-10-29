@@ -2214,3 +2214,40 @@ Revisit trigger: if a future redesign consolidates the HUD/toolbar
 control set, re-measure; if the band count drops below ~20, raising
 the rule to enforcement with a short exemption list becomes the better
 trade.
+
+## Re-triage 2026-10-29 — cycle X open (17 → 0 fixed at source, 17 ACCEPTED)
+
+The phase-C commits (49404dc6/d42773eb) introduced 17 new findings.
+
+api/src (10):
+- `hardcoded-internal-endpoint` ×3 (`__tests__/tile-zxy.test.ts:131`,
+  `airquality.test.ts:95`, `contours-zxy.test.ts:200`) —
+  `http://localhost` URLs passed to test mockRequest helpers; test-only,
+  never executed against a live server. The class already carries test
+  baseline entries. ACCEPTED.
+- `azure-functions` ×1 (`__tests__/satellites.test.ts:33`) — the word
+  "functions" adjacent to azure-flavored identifiers in a Celestrak mock;
+  no Azure involvement. Misfire. ACCEPTED.
+- `try-catch-bulk` ×3 (`elevation-color/[z]/[x]/[y]/route.ts:54`,
+  `nlnog/route.ts:52`, `trace/route.ts:77`) — the strict-mode hardening
+  wave added proof comments inside catch blocks, growing them past the
+  pattern's verbosity threshold. The catches are the routes' error
+  envelopes (502/400 responses), not swallowed errors. ACCEPTED.
+- `sync-in-async` ×2 (`__tests__/srtm/merged-parser.test.ts:256,259`) —
+  *Sync fs calls in a test fixture reader; synchronous reads are the
+  point of a unit-test fixture. Test-only. ACCEPTED.
+- `expensive-computation-loop` ×1 (`lib/point-elevation.ts:205`) — the
+  PNG defilter's Paeth/Sub/Up reconstruction: per-byte inner loops over
+  the row stride are the standard algorithm (O(pixels), unavoidable for
+  the format). Not a hotspot defect — the tile path is already
+  edge-cached. ACCEPTED.
+
+scripts (7): all in scripts/override_drift_check.sh (the C-4 gate
+script itself) — `npm-audit` ×4, `console-log`/`-debug` ×2,
+`package-json` ×1. The script's job IS to run npm audit, read
+package.json, and print results; a security-pattern scanner firing on
+a security tool. ACCEPTED.
+
+Baseline regenerated with `scripts/aegis_scan.sh update` (inside the
+openzenith-ci-aegis:1 image) after this entry; gate re-run green in
+the same image before the push.

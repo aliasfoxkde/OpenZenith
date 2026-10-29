@@ -1,5 +1,14 @@
 # OpenZenith handoff
 
+> **Update (2026-10-29, cycle X open):** plan X
+> ([EXCELLENCE_PLAN_X_2026-10-29.md](EXCELLENCE_PLAN_X_2026-10-29.md))
+> opened with a fresh baseline (all gates measured green at v0.9.8+49404dc6)
+> and a three-dimension audit. Phases: A docs currency, B ratchets
+> (jscpd automation gate, tsconfig strictness frontier), C a11y depth
+> (dark-theme axe pass, webkit project, keyboard depth), D release
+> v0.9.9. New cycle-open gates: scripts/override_drift_check.sh (IX C-4)
+> and, once B-1 lands, the jscpd floor.
+
 > **Update (2026-10-26, cycle IX phase C closed):** all agent-side
 > phase-C ratchets are done and committed (49404dc6): C-1 coverage
 > floors ratcheted to 99/99 (branches 96→99, functions 94→99;

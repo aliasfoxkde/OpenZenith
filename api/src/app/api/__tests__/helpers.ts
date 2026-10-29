@@ -17,7 +17,7 @@ export function mockRequest(
   overrides: Record<string, unknown> = {},
 ): NextRequest {
   const url = `http://localhost:8788${path}`;
-  const req = new NextRequest(url, { method, body: body ?? undefined });
+  const req = new NextRequest(url, ...(body !== undefined && body !== null ? [{ method, body }] : [{ method }]));
   return Object.assign(req, overrides);
 }
 

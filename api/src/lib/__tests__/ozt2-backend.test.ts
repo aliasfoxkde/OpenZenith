@@ -417,7 +417,9 @@ describe("OZT2HuggingFaceBackend", () => {
   });
 });
 
-function requestedUrlOf(fetchMock: { mock: { calls: Array<[string, RequestInit?]> } }): string | null {
+function requestedUrlOf(
+  fetchMock: { mock: { calls: Array<[input: string, init?: RequestInit | undefined]> } },
+): string | null {
   const first = fetchMock.mock.calls.at(0);
   return first ? first[0] : null;
 }

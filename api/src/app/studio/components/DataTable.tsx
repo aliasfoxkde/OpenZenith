@@ -126,8 +126,8 @@ export function DataTable({ dark, dataset }: Props) {
     const placemarks = asUploaded(dataset.data.features)
       .map((f) => {
         const props = f.properties ?? {};
-        const name = String(props.name ?? "");
-        const desc = String(props.description ?? "");
+        const name = String(props["name"] ?? "");
+        const desc = String(props["description"] ?? "");
         const geom = f.geometry;
         let geomXml = "";
         // The ambient GeoJSON.Geometry leaves `coordinates` untyped; the

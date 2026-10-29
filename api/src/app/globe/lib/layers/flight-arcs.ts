@@ -25,7 +25,7 @@ export function loadFlightArcs(
   const doLoad = async () => {
     try {
       updateStatus("flightArcs", { error: null });
-      const res = await fetch("/api/proxy/https://opensky-network.org/api/states/all", { signal });
+      const res = await fetch("/api/proxy/https://opensky-network.org/api/states/all", ...(signal ? [{ signal }] : []));
       const body: unknown = await res.json();
       const data = body as OpenSkyResponse;
       if (!data.states) {

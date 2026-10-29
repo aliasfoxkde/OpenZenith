@@ -65,7 +65,7 @@ export function BasemapWidget({ globe }: WidgetProps) {
           <div
             className="wv-bm-preview-thumb"
             style={{
-              background: previews[key] || PREVIEW_GRADIENTS[key] || PREVIEW_GRADIENTS.dark,
+              background: previews[key] || PREVIEW_GRADIENTS[key] || PREVIEW_GRADIENTS["dark"],
             }}
           />
           <span className="wv-bm-preview-label">{label}</span>

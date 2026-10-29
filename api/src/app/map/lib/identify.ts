@@ -219,10 +219,10 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Earthquakes",
     rows: (f) =>
       compact([
-        ["Magnitude", magnitude(f.properties.mag)],
-        ["Place", text(f.properties.place)],
+        ["Magnitude", magnitude(f.properties["mag"])],
+        ["Place", text(f.properties["place"])],
         ["Depth", pointDepth(f.geometry)],
-        ["Time", formatEpoch(f.properties.time)],
+        ["Time", formatEpoch(f.properties["time"])],
       ]),
   },
   "warnings-fill": {
@@ -230,12 +230,12 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Weather Warnings",
     rows: (f) =>
       compact([
-        ["Event", text(f.properties.event)],
-        ["Severity", text(f.properties.severity)],
-        ["Urgency", text(f.properties.urgency)],
-        ["Headline", clip(f.properties.headline, 120)],
-        ["Area", clip(f.properties.areaDesc, 140)],
-        ["Expires", formatEpoch(f.properties.expires)],
+        ["Event", text(f.properties["event"])],
+        ["Severity", text(f.properties["severity"])],
+        ["Urgency", text(f.properties["urgency"])],
+        ["Headline", clip(f.properties["headline"], 120)],
+        ["Area", clip(f.properties["areaDesc"], 140)],
+        ["Expires", formatEpoch(f.properties["expires"])],
       ]),
   },
   "waterways-line": {
@@ -243,9 +243,9 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Waterways",
     rows: (f) =>
       compact([
-        ["Name", text(f.properties.name)],
-        ["Waterway", text(f.properties.waterway)],
-        ["Natural", text(f.properties.natural)],
+        ["Name", text(f.properties["name"])],
+        ["Waterway", text(f.properties["waterway"])],
+        ["Natural", text(f.properties["natural"])],
       ]),
   },
   "wildfires-circles": {
@@ -253,11 +253,11 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Wildfires",
     rows: (f) =>
       compact([
-        ["Brightness", kelvin(f.properties.brightness)],
-        ["Fire radiative power", megawatts(f.properties.frp)],
-        ["Confidence", text(f.properties.confidence)],
-        ["Day/Night", dayNight(f.properties.daynight)],
-        ["Satellite", text(f.properties.satellite)],
+        ["Brightness", kelvin(f.properties["brightness"])],
+        ["Fire radiative power", megawatts(f.properties["frp"])],
+        ["Confidence", text(f.properties["confidence"])],
+        ["Day/Night", dayNight(f.properties["daynight"])],
+        ["Satellite", text(f.properties["satellite"])],
       ]),
   },
   "flights-circles": {
@@ -265,12 +265,12 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Flights (ADS-B)",
     rows: (f) =>
       compact([
-        ["Callsign", text(f.properties.callsign)],
-        ["ICAO24", text(f.properties.icao24)],
-        ["Origin", text(f.properties.origin_country)],
-        ["Ground speed", kmh(f.properties.velocity)],
-        ["Baro altitude", metres(f.properties.baro_altitude)],
-        ["On ground", yesNo(f.properties.on_ground)],
+        ["Callsign", text(f.properties["callsign"])],
+        ["ICAO24", text(f.properties["icao24"])],
+        ["Origin", text(f.properties["origin_country"])],
+        ["Ground speed", kmh(f.properties["velocity"])],
+        ["Baro altitude", metres(f.properties["baro_altitude"])],
+        ["On ground", yesNo(f.properties["on_ground"])],
       ]),
   },
   "vessels-points": {
@@ -278,11 +278,11 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Vessels (AIS)",
     rows: (f) =>
       compact([
-        ["Name", text(f.properties.name)],
-        ["MMSI", text(f.properties.mmsi)],
-        ["Ship type", text(f.properties.shipType)],
-        ["Speed", knots(f.properties.speed)],
-        ["Destination", clip(f.properties.destination, 80)],
+        ["Name", text(f.properties["name"])],
+        ["MMSI", text(f.properties["mmsi"])],
+        ["Ship type", text(f.properties["shipType"])],
+        ["Speed", knots(f.properties["speed"])],
+        ["Destination", clip(f.properties["destination"], 80)],
       ]),
   },
   "satellites-points": {
@@ -290,9 +290,9 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Satellites",
     rows: (f) =>
       compact([
-        ["Name", text(f.properties.name)],
-        ["Altitude", km(f.properties.altitude)],
-        ["Notable", yesNo(f.properties.notable)],
+        ["Name", text(f.properties["name"])],
+        ["Altitude", km(f.properties["altitude"])],
+        ["Notable", yesNo(f.properties["notable"])],
       ]),
   },
   "military-points": {
@@ -300,10 +300,10 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Military ADS-B",
     rows: (f) =>
       compact([
-        ["Callsign", text(f.properties.callsign)],
-        ["Type", text(f.properties.type)],
-        ["Altitude", metres(f.properties.alt)],
-        ["Ground speed", knots(f.properties.speed)],
+        ["Callsign", text(f.properties["callsign"])],
+        ["Type", text(f.properties["type"])],
+        ["Altitude", metres(f.properties["alt"])],
+        ["Ground speed", knots(f.properties["speed"])],
       ]),
   },
   "hurricanes-points": {
@@ -311,11 +311,11 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Hurricane Tracks",
     rows: (f) =>
       compact([
-        ["Storm", text(f.properties.name)],
-        ["Category", text(f.properties.categoryLabel) ?? text(f.properties.category)],
-        ["Max sustained wind", knots(f.properties.wind)],
-        ["Pressure", mb(f.properties.pressure)],
-        ["Fix time", text(f.properties.isoTime)],
+        ["Storm", text(f.properties["name"])],
+        ["Category", text(f.properties["categoryLabel"]) ?? text(f.properties["category"])],
+        ["Max sustained wind", knots(f.properties["wind"])],
+        ["Pressure", mb(f.properties["pressure"])],
+        ["Fix time", text(f.properties["isoTime"])],
       ]),
   },
   "buildings-fill": {
@@ -323,10 +323,10 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Building Footprints",
     rows: (f) =>
       compact([
-        ["Name", text(f.properties.name) ?? text(f.properties.id)],
-        ["Building", text(f.properties.building)],
-        ["Height", metres(f.properties.height)],
-        ["Levels", text(f.properties.levels)],
+        ["Name", text(f.properties["name"]) ?? text(f.properties["id"])],
+        ["Building", text(f.properties["building"])],
+        ["Height", metres(f.properties["height"])],
+        ["Levels", text(f.properties["levels"])],
       ]),
   },
   "natural-events-points": {
@@ -334,12 +334,12 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Natural Events",
     rows: (f) =>
       compact([
-        ["Event", text(f.properties.title)],
+        ["Event", text(f.properties["title"])],
         [
           "Category",
-          text(f.properties.categoryLabel) ?? text(f.properties.category) ?? eonetCategory(f.properties.categories),
+          text(f.properties["categoryLabel"]) ?? text(f.properties["category"]) ?? eonetCategory(f.properties["categories"]),
         ],
-        ["Date", formatEpoch(f.properties.date)],
+        ["Date", formatEpoch(f.properties["date"])],
       ]),
   },
   "volcanoes-points": {
@@ -347,10 +347,10 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Volcano Alerts",
     rows: (f) =>
       compact([
-        ["Volcano", text(f.properties.name)],
-        ["Alert", text(f.properties.alertLevel) ?? text(f.properties.alert)],
-        ["Observatory", text(f.properties.observatory)],
-        ["Synopsis", clip(f.properties.synopsis, 160)],
+        ["Volcano", text(f.properties["name"])],
+        ["Alert", text(f.properties["alertLevel"]) ?? text(f.properties["alert"])],
+        ["Observatory", text(f.properties["observatory"])],
+        ["Synopsis", clip(f.properties["synopsis"], 160)],
       ]),
   },
   "nlnog-circles": {
@@ -358,10 +358,10 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "NLNOG Nodes",
     rows: (f) =>
       compact([
-        ["Hostname", text(f.properties.hostname)],
-        ["City", text(f.properties.city)],
-        ["Country", text(f.properties.country)],
-        ["ASN", text(f.properties.asn)],
+        ["Hostname", text(f.properties["hostname"])],
+        ["City", text(f.properties["city"])],
+        ["Country", text(f.properties["country"])],
+        ["ASN", text(f.properties["asn"])],
       ]),
   },
   "air-quality-circle": {
@@ -369,8 +369,8 @@ export const IDENTIFY_LAYERS: Record<string, IdentifyMeta> = {
     title: "Air Quality",
     rows: (f) =>
       compact([
-        ["US AQI", text(f.properties.us_aqi)],
-        ["AQI level", text(f.properties.aqi_level)],
+        ["US AQI", text(f.properties["us_aqi"])],
+        ["AQI level", text(f.properties["aqi_level"])],
       ]),
   },
 };

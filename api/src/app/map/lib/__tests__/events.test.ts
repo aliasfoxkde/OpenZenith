@@ -62,9 +62,9 @@ describe("addNaturalEvents source data", () => {
     addNaturalEvents(map, handle);
     await settle(handle);
 
-    const data = map.sourceData[0]?.data as { features: Array<{ properties: Record<string, unknown> }> };
-    expect(data.features[0]?.properties.category).toBe("severeStorms");
-    expect(data.features[0]?.properties.categoryLabel).toBe("Severe Storms");
+    const data = map.sourceData[0]?.["data"] as { features: Array<{ properties: Record<string, unknown> }> };
+    expect(data.features[0]?.properties["category"]).toBe("severeStorms");
+    expect(data.features[0]?.properties["categoryLabel"]).toBe("Severe Storms");
   });
 
   it("falls back to 'Event' when the feed omits the categories array", async () => {
@@ -78,8 +78,8 @@ describe("addNaturalEvents source data", () => {
     addNaturalEvents(map, handle);
     await settle(handle);
 
-    const data = map.sourceData[0]?.data as { features: Array<{ properties: Record<string, unknown> }> };
-    expect(data.features[0]?.properties.category).toBe("Event");
-    expect(data.features[0]?.properties.categoryLabel).toBe("Event");
+    const data = map.sourceData[0]?.["data"] as { features: Array<{ properties: Record<string, unknown> }> };
+    expect(data.features[0]?.properties["category"]).toBe("Event");
+    expect(data.features[0]?.properties["categoryLabel"]).toBe("Event");
   });
 });

@@ -54,7 +54,7 @@ export function ThemeSwitcher({ theme, open, onToggleOpen, onSelect }: ThemeSwit
     <div className="wv-theme-switcher">
       <button className="wv-theme-btn" onClick={onToggleOpen} title="Change theme">
         // bounds: THEMES always declares the "default" key (module constant)
-        {(THEMES as Partial<Record<string, (typeof THEMES)[string]>>)[theme]?.icon ?? THEMES.default!.icon}
+        {(THEMES as Partial<Record<string, (typeof THEMES)[string]>>)[theme]?.icon ?? THEMES["default"]!.icon}
       </button>
       {open && (
         <div className="wv-theme-dropdown">

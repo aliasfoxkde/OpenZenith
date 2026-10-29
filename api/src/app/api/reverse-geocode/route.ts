@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     const data = (await res.json()) as Record<string, unknown>;
 
-    if (data.error) {
+    if (data["error"]) {
       return NextResponse.json(
         { place: null, location: { lat: latNum, lon: lonNum } },
         { headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=3600" } },
@@ -85,17 +85,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Nominatim payloads are untyped JSON — display_name is only sometimes present.
-    const displayName = typeof data.display_name === "string" ? data.display_name : undefined;
+    const displayName = typeof data["display_name"] === "string" ? data["display_name"] : undefined;
 
     return NextResponse.json(
       {
         place: {
-          display_name: data.display_name,
-          name: data.name || displayName?.split(",")[0],
-          type: data.type,
-          address: data.address,
-          osm_id: data.osm_id,
-          osm_type: data.osm_type,
+          display_name: data["display_name"],
+          name: data["name"] || displayName?.split(",")[0],
+          type: data["type"],
+          address: data["address"],
+          osm_id: data["osm_id"],
+          osm_type: data["osm_type"],
         },
         location: { lat: latNum, lon: lonNum },
       },

@@ -47,7 +47,7 @@ export interface ClientElevationResult {
   surfaceType: "land" | "inland_water" | "ocean" | "seafloor" | "unknown";
   tile: string;
   status: ElevationLookupStatus;
-  source?: string;
+  source?: string | undefined;
 }
 
 /** `/api/elevation` 200 payload — the fields this module's fallback reads. */
@@ -56,7 +56,7 @@ interface ElevationApiResponse {
   /** Same vocabulary as ClientElevationResult.surfaceType. */
   surface_type?: ClientElevationResult["surfaceType"];
   tile?: string;
-  source?: string;
+  source?: string | undefined;
   ok?: boolean;
 }
 
@@ -355,8 +355,8 @@ async function clientElevationDirect(
  * @returns Array of results preserving input order, with optional id passthrough
  */
 export async function getClientElevationBatch(
-  points: Array<{ lat: number; lon: number; id?: string }>,
-): Promise<Array<{ lat: number; lon: number; elevation: number | null; id?: string }>> {
+  points: Array<{ lat: number; lon: number; id?: string | undefined }>,
+): Promise<Array<{ lat: number; lon: number; elevation: number | null; id?: string | undefined }>> {
   // Normalize longitudes to -180..180 (handles map wrap-around)
   const normalizedPoints = points.map((p) => ({
     ...p,
@@ -370,7 +370,7 @@ export async function getClientElevationBatch(
    */
   const withCallerFields = (
     results: Array<{ elevation: number | null }>,
-  ): Array<{ lat: number; lon: number; elevation: number | null; id?: string }> =>
+  ): Array<{ lat: number; lon: number; elevation: number | null; id?: string | undefined }> =>
     results.map((r, i) => {
       const src = points[i] ?? { lat: NaN, lon: NaN };
       return {
@@ -408,10 +408,10 @@ export async function getClientElevationBatch(
 }
 
 async function clientBatchDirect(
-  points: Array<{ lat: number; lon: number; id?: string }>,
-): Promise<Array<{ lat: number; lon: number; elevation: number | null; id?: string }>> {
+  points: Array<{ lat: number; lon: number; id?: string | undefined }>,
+): Promise<Array<{ lat: number; lon: number; elevation: number | null; id?: string | undefined }>> {
   // Group points by SRTM tile
-  const tileGroups = new Map<string, Array<{ idx: number; lat: number; lon: number; id?: string }>>();
+  const tileGroups = new Map<string, Array<{ idx: number; lat: number; lon: number; id?: string | undefined }>>();
   for (let i = 0; i < points.length; i++) {
     // bounds: i < points.length
     const p = points[i]!;
@@ -422,7 +422,7 @@ async function clientBatchDirect(
     tileGroups.set(name, group);
   }
 
-  const results: Array<{ lat: number; lon: number; elevation: number | null; id?: string }> = points.map((p) => ({
+  const results: Array<{ lat: number; lon: number; elevation: number | null; id?: string | undefined }> = points.map((p) => ({
     ...p,
     elevation: null,
   }));

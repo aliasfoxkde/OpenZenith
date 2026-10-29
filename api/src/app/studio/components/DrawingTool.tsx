@@ -20,8 +20,8 @@ interface Props {
   dark: boolean;
   drawState: DrawState;
   onDrawStateChange: (state: DrawState) => void;
-  imperial?: boolean;
-  onImperialChange?: (imperial: boolean) => void;
+  imperial?: boolean | undefined;
+  onImperialChange?: ((imperial: boolean) => void) | undefined;
 }
 
 const MODES: { id: DrawMode; label: string; desc: string }[] = [

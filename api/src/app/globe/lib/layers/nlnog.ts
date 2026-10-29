@@ -41,7 +41,7 @@ export function loadNlnogNodes(
   const doLoad = async () => {
     try {
       updateStatus("nlnogNodes", { error: null });
-      const res = await fetch("/api/nlnog", { signal });
+      const res = await fetch("/api/nlnog", ...(signal ? [{ signal }] : []));
       const body: unknown = await res.json();
       const data = body as NlnogPayload;
       if (!data.nodes) {

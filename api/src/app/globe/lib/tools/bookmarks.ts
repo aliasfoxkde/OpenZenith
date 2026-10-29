@@ -41,14 +41,14 @@ export function loadBookmarks(): Bookmark[] {
       if (typeof v !== "object" || v === null) return false;
       const b = v as Record<string, unknown>;
       return (
-        typeof b.id === "string" &&
-        typeof b.name === "string" &&
-        typeof b.lat === "number" &&
-        typeof b.lon === "number" &&
-        typeof b.alt === "number" &&
-        typeof b.heading === "number" &&
-        typeof b.pitch === "number" &&
-        typeof b.timestamp === "number"
+        typeof b["id"] === "string" &&
+        typeof b["name"] === "string" &&
+        typeof b["lat"] === "number" &&
+        typeof b["lon"] === "number" &&
+        typeof b["alt"] === "number" &&
+        typeof b["heading"] === "number" &&
+        typeof b["pitch"] === "number" &&
+        typeof b["timestamp"] === "number"
       );
     };
     return parsed.filter(isBookmark);

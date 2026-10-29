@@ -117,7 +117,24 @@ export const DEFAULT_STATE: MapViewState = {
  * Absent fields come back as `undefined` so callers can merge onto
  * DEFAULT_STATE; malformed or out-of-range input yields `{}`.
  */
-export function parseHash(hash: string): Partial<MapViewState> {
+/**
+ * Partial with each optional field explicitly allowed to be `undefined` —
+ * parseHash builds its result object literal with possibly-undefined values
+ * for every hash field, which `exactOptionalPropertyTypes` forbids for a
+ * plain `Partial<MapViewState>`.
+ *
+ * @typeParam T - The full state type to partially expose.
+ */
+export type PartialWithUndefined<T> = { [K in keyof T]?: T[K] | undefined };
+
+/**
+ * Parse a MapLibre view-state URL hash (`#zoom/lat/lng` or query params)
+ * into a partial view state. Unknown keys are ignored.
+ *
+ * @param hash - The raw location hash (with or without the leading `#`).
+ * @returns The parsed partial state; empty when the hash is absent.
+ */
+export function parseHash(hash: string): PartialWithUndefined<MapViewState> {
   try {
     const h = hash.replace(/^#/, "");
     if (!h) return {};

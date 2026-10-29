@@ -590,7 +590,7 @@ export interface VolcanoAlertCollection {
  */
 export async function fetchVolcanoAlerts(signal?: AbortSignal): Promise<VolcanoAlertCollection> {
   try {
-    const r = await fetch("/api/volcanoes", { signal });
+    const r = await fetch("/api/volcanoes", ...(signal ? [{ signal }] : []));
     const data = (await r.json()) as VolcanoAlertCollection | null;
     if (!r.ok || data?.type !== "FeatureCollection") {
       return { type: "FeatureCollection", features: [] };

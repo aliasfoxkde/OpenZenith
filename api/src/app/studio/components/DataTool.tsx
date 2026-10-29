@@ -13,7 +13,7 @@ interface Props {
   onDatasetsChange: (datasets: UploadedDataset[]) => void;
   onToggleDataset: (id: string, visible: boolean) => void;
   onRemoveDataset: (id: string) => void;
-  onVisualizationChange?: (id: string, visualization: DatasetVisualization) => void;
+  onVisualizationChange?: ((id: string, visualization: DatasetVisualization) => void) | undefined;
 }
 
 /** Extract property names from a feature collection */

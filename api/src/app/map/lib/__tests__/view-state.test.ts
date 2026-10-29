@@ -89,10 +89,10 @@ describe("defaults", () => {
 
   it("seeds the map-specific layer set and merges only boolean values", () => {
     const layers = buildDefaultLayers();
-    expect(layers.hillshade).toBe(true);
-    expect(layers.contour).toBe(false);
-    expect(layers.terrain3d).toBe(false);
-    expect(layers.boundaries).toBe(false);
+    expect(layers["hillshade"]).toBe(true);
+    expect(layers["contour"]).toBe(false);
+    expect(layers["terrain3d"]).toBe(false);
+    expect(layers["boundaries"]).toBe(false);
     for (const value of Object.values(layers)) {
       expect(typeof value).toBe("boolean");
     }

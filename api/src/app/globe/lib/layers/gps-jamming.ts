@@ -69,7 +69,7 @@ function hexagonVertices(centerLon: number, centerLat: number, edgeLenMeters: nu
  * as a layer error instead of silently rendering stale or invented hexes.
  */
 async function fetchGpsJammingData(signal?: AbortSignal): Promise<GpsJammingHex[]> {
-  const response = await fetch("/api/gps-jamming", { signal });
+  const response = await fetch("/api/gps-jamming", ...(signal ? [{ signal }] : []));
   if (!response.ok) {
     throw new Error(`gps-jamming route returned ${response.status}`);
   }

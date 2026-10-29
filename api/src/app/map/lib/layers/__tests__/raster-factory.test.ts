@@ -28,7 +28,7 @@ function mockMap() {
     },
     getSource: (id: string) => sources.get(id),
     addLayer: (layer: Record<string, unknown>) => {
-      const id = layer.id as string;
+      const id = layer["id"] as string;
       if (layers.has(id)) throw new Error(`layer ${id} exists`);
       layers.set(id, layer);
     },
@@ -64,8 +64,8 @@ describe("addRasterLayer", () => {
     expect([...map.layers.keys()]).toEqual(["chlorophyll-raster"]);
     const layer = map.layers.get("chlorophyll-raster");
     expect(layer).toMatchObject({ type: "raster", source: "chlorophyll" });
-    expect(layer?.paint).toEqual({ "raster-opacity": 0.85 });
-    expect(handle.status.chlorophyll).toBe("loaded");
+    expect(layer?.["paint"]).toEqual({ "raster-opacity": 0.85 });
+    expect(handle.status["chlorophyll"]).toBe("loaded");
   });
 
   it("passes zooms, tile size, and attribution through to the source", () => {
@@ -99,7 +99,7 @@ describe("addRasterLayer", () => {
     });
 
     expect([...map.layers.keys()]).toEqual(["bathymetry"]);
-    expect(map.layers.get("bathymetry")?.paint).toEqual({
+    expect(map.layers.get("bathymetry")?.["paint"]).toEqual({
       "raster-opacity": 0.55,
       "raster-saturation": 0.3,
       "raster-brightness-max": 0.75,
@@ -112,7 +112,7 @@ describe("addRasterLayer", () => {
       sourceId: "canopy-height",
       statusId: "canopyHeight",
     });
-    expect(handle.status.canopyHeight).toBe("loaded");
+    expect(handle.status["canopyHeight"]).toBe("loaded");
     expect(handle.status["canopy-height"]).toBeUndefined();
   });
 
@@ -130,12 +130,12 @@ describe("addRasterLayer", () => {
       throw new Error("style busy");
     });
     addRasterLayer(failing, handle, baseSpec);
-    expect(handle.status.chlorophyll).toBe("error");
+    expect(handle.status["chlorophyll"]).toBe("error");
     expect(warnLayerError).toHaveBeenCalledWith("chlorophyll", expect.any(Error));
 
     // Second call: source exists, layer add succeeds → repaired + loaded.
     addRasterLayer(failing, handle, baseSpec);
-    expect(handle.status.chlorophyll).toBe("loaded");
+    expect(handle.status["chlorophyll"]).toBe("loaded");
     expect(map.layers.size).toBe(1);
   });
 

@@ -95,8 +95,11 @@ openzenith trace --lat 36.0 --lon -118.0
 │   │                            #   files), OZT2R2Backend (S3-compatible)
 │   └── tests/                   # pytest tests
 │
-├── mcp-server/                   # MCP server (stdio) over the REST API — elevation, weather,
-│                                 #   tides, address, waterways
+├── mcp-server/                   # MCP server (stdio) over the REST API — 15 tools:
+│                                 #   query, elevation, weather, tides, geocode,
+│                                 #   reverse_geocode, bathymetry, terrain_profile,
+│                                 #   elevation_along_path, slope_aspect, watershed,
+│                                 #   flow_trace, contours, elevation_batch, api_docs
 ├── core/                        # Rust crate (WASM + CLI binary)
 │   ├── src/
 │   │   ├── d8.rs               # D8 flow direction (WASM + CLI)
@@ -114,7 +117,7 @@ openzenith trace --lat 36.0 --lon -118.0
 
 - **App Router**: `api/src/app/` uses Next.js 15 App Router with React 19
 - **Map client**: MapLibre GL JS — `src/lib/tile.ts`, `src/lib/point-elevation.ts`
-- **Basemaps**: 10 basemaps in the shared registry `api/src/lib/basemaps.ts` (5 of them on the globe), with attribution and maxzoom per entry
+- **Basemaps**: 10 basemaps in the shared registry `api/src/lib/basemaps.ts`, with attribution and maxzoom per entry; the globe page serves the 5-key subset in `GLOBE_BASEMAP_KEYS` (dark, satellite, osm, voyager, topo)
 - **Globe client**: CesiumJS 1.119 — loaded via CDN in the globe page
 - **Data layers**: External real-time sources (USGS, OpenSky Network, NOAA, etc.)
 - **Edge runtime**: API routes run as Cloudflare Edge Workers — `api/src/middleware.ts` handles routing

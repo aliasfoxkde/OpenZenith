@@ -381,18 +381,18 @@ describe("Query API — weather include", () => {
     expect(resp.status).toBe(200);
     const data = await bodyAs<QueryBody>(resp);
 
-    expect(data.weather?.current?.temperature).toBe(59);
-    expect(data.weather?.current?.apparentTemperature).toBe(55.4);
-    expect(data.weather?.current?.windSpeed).toBe(6.2);
-    expect(data.weather?.current?.windGusts).toBe(12.4);
-    expect(data.weather?.current?.pressure).toBe(29.91);
-    expect(data.weather?.current?.precipitation).toBe(0.06);
-    expect(data.weather?.current?.visibility).toBe(0);
+    expect(data.weather?.current?.["temperature"]).toBe(59);
+    expect(data.weather?.current?.["apparentTemperature"]).toBe(55.4);
+    expect(data.weather?.current?.["windSpeed"]).toBe(6.2);
+    expect(data.weather?.current?.["windGusts"]).toBe(12.4);
+    expect(data.weather?.current?.["pressure"]).toBe(29.91);
+    expect(data.weather?.current?.["precipitation"]).toBe(0.06);
+    expect(data.weather?.current?.["visibility"]).toBe(0);
 
-    expect(data.weather?.daily?.[0]?.tempMax).toBe(68);
-    expect(data.weather?.daily?.[0]?.tempMin).toBe(50);
-    expect(data.weather?.daily?.[0]?.precipitationSum).toBe(0.08);
-    expect(data.weather?.daily?.[0]?.windSpeedMax).toBe(9.3);
+    expect(data.weather?.daily?.[0]?.["tempMax"]).toBe(68);
+    expect(data.weather?.daily?.[0]?.["tempMin"]).toBe(50);
+    expect(data.weather?.daily?.[0]?.["precipitationSum"]).toBe(0.08);
+    expect(data.weather?.daily?.[0]?.["windSpeedMax"]).toBe(9.3);
 
     expect(data.weather?.units).toEqual({
       temperature: "°F",

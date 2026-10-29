@@ -10,7 +10,7 @@ interface VesselsBody {
 }
 
 afterEach(() => {
-  delete process.env.AISSTREAM_KEY;
+  delete process.env["AISSTREAM_KEY"];
 });
 
 describe("Vessels API", () => {
@@ -24,7 +24,7 @@ describe("Vessels API", () => {
   });
 
   it("returns the stream config when AISSTREAM_KEY is set", async () => {
-    process.env.AISSTREAM_KEY = "test-key-123";
+    process.env["AISSTREAM_KEY"] = "test-key-123";
     const { GET } = await import("@/app/api/vessels/route");
     const resp = GET(mockRequest("/api/vessels"));
     expect(resp.status).toBe(200);

@@ -184,7 +184,7 @@ export default function StudioPage() {
         const session = readStudioSession();
         const registry = BASEMAPS as Partial<Record<string, (typeof BASEMAPS)[string]>>;
         // bounds: "dark" is a literal entry in BASEMAPS, so the fallback is always defined
-        const bm = registry[session.basemap] ?? BASEMAPS.dark!;
+        const bm = registry[session.basemap] ?? BASEMAPS["dark"]!;
         const map = new mlgl.Map({
           container: containerRef.current,
           style: {
@@ -248,7 +248,7 @@ export default function StudioPage() {
               // bounds: vertexFeatures.length > 0 checked above
               // properties is typed `{[k: string]: any} | null`, which TS
               // collapses to any — the `typeof` guard below is the real check.
-              const vi = vertexFeatures[0]!.properties.vertexIndex as number | undefined;
+              const vi = vertexFeatures[0]!.properties["vertexIndex"] as number | undefined;
               if (typeof vi === "number") {
                 setDrawState((prev) => ({ ...prev, selectedVertexIndex: vi }));
                 return;

@@ -243,7 +243,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
       await GET(mockRequest("/api/collections/nlnog_nodes/items"), itemsCtx("nlnog_nodes")),
     );
     expect(data.numberMatched).toBe(1);
-    expect(data.features?.[0]?.properties?.hostname).toBe("node9");
+    expect(data.features?.[0]?.properties?.["hostname"]).toBe("node9");
   });
 
   it("keeps a features array for non-NLNOG collections even when nodes are present", async () => {
@@ -261,7 +261,7 @@ describe("Collection Items — upstream fetching and normalisation", () => {
     const data = await bodyAs<CollectionBody>(
       await GET(mockRequest("/api/collections/earthquakes/items"), itemsCtx("earthquakes")),
     );
-    expect(data.features?.[0]?.properties?.id).toBe("a");
+    expect(data.features?.[0]?.properties?.["id"]).toBe("a");
   });
 });
 
@@ -287,13 +287,13 @@ describe("Collection Items — bbox filtering", () => {
   it("keeps only features inside the bbox", async () => {
     const data = await bodyAs<CollectionBody>(await query("?bbox=-75,39,-73,42"));
     expect(data.numberMatched).toBe(1);
-    expect(data.features?.[0]?.properties?.id).toBe("inside");
+    expect(data.features?.[0]?.properties?.["id"]).toBe("inside");
   });
 
   it("drops features without geometry coordinates", async () => {
     const data = await bodyAs<CollectionBody>(await query("?bbox=-180,-90,180,90"));
     expect(data.numberMatched).toBe(2);
-    expect((data.features ?? []).map((f) => f.properties?.id).sort()).toEqual(["inside", "outside"]);
+    expect((data.features ?? []).map((f) => f.properties?.["id"]).sort()).toEqual(["inside", "outside"]);
   });
 
   it("matches nothing when the bbox is not numeric", async () => {
@@ -363,7 +363,7 @@ describe("Collection Items — property filtering", () => {
     ["mag:>=2.5,place:california", ["q3"]],
   ])("applies %s and returns %s", async (filter, expected) => {
     const data = await bodyAs<CollectionBody>(await query(`?properties=${encodeURIComponent(filter)}`));
-    const ids = (data.features ?? []).map((f) => f.properties?.id);
+    const ids = (data.features ?? []).map((f) => f.properties?.["id"]);
     expect(ids).toEqual(expected);
     expect(data.numberMatched).toBe(expected.length);
   });
@@ -377,7 +377,7 @@ describe("Collection Items — property filtering", () => {
     };
     for (const [filter, ids] of Object.entries(expected)) {
       const data = await bodyAs<CollectionBody>(await query(`?properties=${encodeURIComponent(filter)}`));
-      const got = (data.features ?? []).map((f) => f.properties?.id);
+      const got = (data.features ?? []).map((f) => f.properties?.["id"]);
       expect(got, filter).toEqual(ids);
       expect(data.numberMatched, filter).toBe(ids.length);
     }
@@ -417,7 +417,7 @@ describe("Collection Items — pagination and links", () => {
     const data = await bodyAs<CollectionBody>(resp);
     expect(data.numberReturned).toBe(2);
     expect(data.numberMatched).toBe(4);
-    expect((data.features ?? []).map((f) => f.properties?.id)).toEqual(["f1", "f2"]);
+    expect((data.features ?? []).map((f) => f.properties?.["id"])).toEqual(["f1", "f2"]);
 
     const links = data.links ?? [];
     const next = links.find((l) => l.rel === "next");

@@ -27,7 +27,7 @@ const STRIP_DATA_START = 135948; // All strips are contiguous starting at this b
 // Override with GEBCO_TILE_URL env var for self-hosted files.
 function getBaseUrl(): string {
   return (
-    process.env.GEBCO_TILE_URL || "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff"
+    process.env["GEBCO_TILE_URL"] || "https://dap.ceda.ac.uk/bodc/gebco/global/gebco_2025/ice_surface_elevation/geotiff"
   );
 }
 

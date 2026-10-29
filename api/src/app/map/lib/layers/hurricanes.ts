@@ -235,7 +235,7 @@ export function startHurricaneAnimation(
   const trackFeatures = source._data.features.filter((f: GeoJSON.Feature) => {
     const geometry = f.geometry as GeoJSON.Geometry | null;
     const properties = f.properties;
-    return geometry?.type === "MultiLineString" && (properties.times !== undefined);
+    return geometry?.type === "MultiLineString" && (properties["times"] !== undefined);
   });
 
   if (trackFeatures.length === 0) return;
@@ -244,7 +244,7 @@ export function startHurricaneAnimation(
   let minTime = Infinity;
   let maxTime = -Infinity;
   for (const f of trackFeatures) {
-    const times = (f.properties as Record<string, unknown>).times as string[];
+    const times = (f.properties as Record<string, unknown>)["times"] as string[];
     for (const t of times) {
       const ms = new Date(t).getTime();
       if (!isNaN(ms)) {
@@ -268,8 +268,8 @@ export function startHurricaneAnimation(
     // Filter track coordinates to show only points up to currentTime
     try {
       for (const f of trackFeatures) {
-        const times = (f.properties as Record<string, unknown>).times as string[];
-        const _winds = (f.properties as Record<string, unknown>).winds as number[];
+        const times = (f.properties as Record<string, unknown>)["times"] as string[];
+        const _winds = (f.properties as Record<string, unknown>)["winds"] as number[];
         // bounds: i < times.length in the loop below. A track with an empty
         // MultiLineString would throw on the coords reads — that throw is
         // already swallowed by the surrounding try/catch, so the assertion

@@ -123,7 +123,7 @@ const LAYER_LOADERS: Partial<Record<string, () => Promise<LayerModule>>> = {
  * polling forever and re-enabling stacked a second timer alongside the
  * first. Scoped here instead, per layer.
  */
-const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cleanup?: () => void }>();
+const layerResources = new Map<string, { intervals: LayerHandle["intervals"]; cleanup?: (() => void) | undefined }>();
 
 /**
  * Per-layer lifecycle serialization. add/remove both start with a dynamic

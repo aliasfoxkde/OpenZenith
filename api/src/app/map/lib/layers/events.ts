@@ -18,7 +18,7 @@ function withCategory(feature: GeoJSON.Feature): GeoJSON.Feature {
   // signature while keeping the runtime-absent case, and the guards below are
   // the real check.
   const props = feature.properties as Record<string, unknown>;
-  const list: unknown = props.categories;
+  const list: unknown = props["categories"];
   const first = Array.isArray(list) ? (list[0] as { id?: unknown; title?: unknown } | undefined) : undefined;
   const id = first && typeof first === "object" ? first.id : undefined;
   const title = first && typeof first === "object" ? first.title : undefined;

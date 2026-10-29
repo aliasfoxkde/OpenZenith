@@ -45,7 +45,7 @@ export function loadOrbitalTracks(
     let tles: TleRecord[] = [];
     if (group.url) {
       try {
-        const r = await fetch(group.url, { signal });
+        const r = await fetch(group.url, ...(signal ? [{ signal }] : []));
         const body: unknown = await r.json();
         if (Array.isArray(body)) tles = (body as TleRecord[]).slice(0, 20);
       } catch (err) {
@@ -57,7 +57,7 @@ export function loadOrbitalTracks(
       try {
         const r = await fetch(
           `/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${group.catnr}&FORMAT=json`,
-          { signal },
+          ...(signal ? [{ signal }] : []),
         );
         const body: unknown = await r.json();
         if (Array.isArray(body)) tles = body as TleRecord[];

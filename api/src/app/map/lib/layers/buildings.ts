@@ -121,9 +121,9 @@ export function addBuildings(map: maplibregl.Map, handle: LayerHandle): void {
             },
             properties: {
               id: el.id,
-              building: el.tags?.building || "yes",
-              name: el.tags?.name || "",
-              height: el.tags?.height || null,
+              building: el.tags?.["building"] || "yes",
+              name: el.tags?.["name"] || "",
+              height: el.tags?.["height"] || null,
               levels: el.tags?.["building:levels"] || null,
             },
           });

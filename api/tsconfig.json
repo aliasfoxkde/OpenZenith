@@ -21,7 +21,9 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noPropertyAccessFromIndexSignature": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "scripts/**/*.mjs", ".next/types/**/*.ts"],
   "exclude": [

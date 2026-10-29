@@ -24,7 +24,7 @@ interface DemTileMetaBody {
 
 // First-party origin — used to separate our own request failures from the
 // third-party feed noise the globe is designed to tolerate.
-const baseURL = process.env.E2E_BASE_URL ?? "https://openzenith.cyopsys.com";
+const baseURL = process.env["E2E_BASE_URL"] ?? "https://openzenith.cyopsys.com";
 
 // Well-known tiles that should have land (mountains/coastal areas).
 // The z11 entry pins the 2026-09-28 backfill (595,149 tiles, byte-validated)
@@ -147,7 +147,7 @@ test.describe("OZT2 Tile Format", () => {
 test.describe("CesiumJS OZT2 Terrain Provider", () => {
   // Heavy: full Cesium load + terrain pipeline against the live site.
   // Opt in with E2E_RUN_HEAVY=1 instead of hard-skipping.
-  test.skip(!process.env.E2E_RUN_HEAVY, "requires E2E_RUN_HEAVY=1");
+  test.skip(!process.env["E2E_RUN_HEAVY"], "requires E2E_RUN_HEAVY=1");
   test("globe page loads with terrain without errors", async ({ page }) => {
     // The globe aggregates 15+ third-party live feeds; any single external
     // outage surfaces as a console resource error. What this test owns is:

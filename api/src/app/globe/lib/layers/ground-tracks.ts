@@ -27,9 +27,10 @@ export function loadGroundTracks(viewer: CesiumType.Viewer, Cesium: typeof Cesiu
 
   const loadTrack = async (sat: (typeof notable)[0]) => {
     try {
-      const r = await fetch(`/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`, {
-        signal,
-      });
+      const r = await fetch(
+        `/api/proxy/https://celestrak.org/NORAD/elements/gp.php?CATNR=${sat.catnr}&FORMAT=json`,
+        ...(signal ? [{ signal }] : []),
+      );
       const body: unknown = await r.json();
       if (!Array.isArray(body)) return;
       const tles = body as TleRecord[];

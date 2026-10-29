@@ -174,12 +174,12 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
   for (const s of storms.values()) {
     // lat/lon/wind/pres/season are defaulted to "" at the storms.set site, so
     // parseFloat/parseInt always receive a string — no ?? fallback can fire.
-    const lat = parseFloat(s.lat!);
-    const lon = parseFloat(s.lon!);
+    const lat = parseFloat(s["lat"]!);
+    const lon = parseFloat(s["lon"]!);
     if (isNaN(lat) || isNaN(lon)) continue;
 
-    const wind = parseInt(s.wind!, 10) || 0;
-    const pres = parseInt(s.pres!, 10) || 0;
+    const wind = parseInt(s["wind"]!, 10) || 0;
+    const pres = parseInt(s["pres"]!, 10) || 0;
 
     let category = 0;
     if (wind >= 137) category = 5;
@@ -193,11 +193,11 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
       type: "Feature",
       geometry: { type: "Point", coordinates: [lon, lat] },
       properties: {
-        sid: s.sid,
-        name: s.name === "NOT_NAMED" ? "UNNAMED" : s.name,
-        season: parseInt(s.season!, 10) || 0,
-        basin: s.basin,
-        nature: s.nature,
+        sid: s["sid"],
+        name: s["name"] === "NOT_NAMED" ? "UNNAMED" : s["name"],
+        season: parseInt(s["season"]!, 10) || 0,
+        basin: s["basin"],
+        nature: s["nature"],
         wind: wind || null,
         pressure: pres || null,
         category,
@@ -215,7 +215,7 @@ function parseIbtracs(csv: string, fullTrack = false): GeoJSON.FeatureCollection
                     : category === -1
                       ? "Tropical Storm"
                       : "Tropical Depression",
-        isoTime: s.isoTime,
+        isoTime: s["isoTime"],
       },
     });
   }
@@ -285,7 +285,7 @@ export async function GET(request: NextRequest) {
       result = {
         ...result,
         features: result.features.filter((f) => {
-          const t = (f.properties as Record<string, unknown>).isoTime as string;
+          const t = (f.properties as Record<string, unknown>)["isoTime"] as string;
           return t && new Date(t) >= cutoff;
         }),
       };

@@ -152,8 +152,8 @@ describe("Weather Warnings API — cache, trimming and error branches", () => {
         "urgency",
       ].sort(),
     );
-    expect(props.event).toBe("Tornado Warning");
-    expect(props.severity).toBe("Extreme");
+    expect(props["event"]).toBe("Tornado Warning");
+    expect(props["severity"]).toBe("Extreme");
     expect(props).not.toHaveProperty("description");
     expect(props).not.toHaveProperty("instruction");
     expect(props).not.toHaveProperty("parameters");

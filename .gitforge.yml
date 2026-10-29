@@ -192,9 +192,28 @@ jobs:
           npm run openapi:check
     timeout: 5m
 
+  - name: duplication
+    image: node:22-bookworm
+    needs: [lint]
+    steps:
+      # Plan X B-1: automate the previously-manual jscpd census. Floor 5.0%
+      # sits above the gated-scope first measurement (4.64% — the gate adds
+      # core/src Rust and pins --min-tokens 50; the old 4.09% figures were a
+      # narrower scope). jscpd ships as an api devDependency (locked).
+      # Scans the WORKSPACE checkout (raw sources), not /build — identical
+      # content, and the workspace is where the script's repo-relative paths
+      # expect to run.
+      - name: jscpd duplication floor (5.0%)
+        run: |
+          set -e
+          mkdir -p /build && tar xf /workspace/api-deps.tar -C /build
+          export PATH=/build/api/node_modules/.bin:$PATH
+          /workspace/scripts/duplication_check.sh
+    timeout: 10m
+
   - name: unit-test
     image: node:22-bookworm
-    needs: [spec-check]
+    needs: [spec-check, duplication]
     steps:
       # Two in-command retries: worker-start timeouts under host load are the
       # dominant failure mode (run 092b056e burned both attempts at load
@@ -251,6 +270,9 @@ jobs:
           # client-elevation.test.ts split into 5 sibling suites plus a
           # shared harness). Both splits moved code without moving coverage:
           # the test count is unchanged at 1,731 in each case.
+          # 125/1766 on 2026-10-29 (plan IX C-1: +35 strict-mode branch
+          # tests across dem-tile/reverse-geocode/cache-lib/contours and
+          # the coverage-floor ratchet commit d42773eb).
           #
           # FILE count is environment-independent because the parenthesised
           # total counts skipped files too: the ozt2-real-tiles suite skips
@@ -262,8 +284,8 @@ jobs:
           [ "${files:-0}" -eq 125 ] || {
             echo "INCOMPLETE: passing run covered ${files:-?}/125 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1731 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1731 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1766 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1766 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

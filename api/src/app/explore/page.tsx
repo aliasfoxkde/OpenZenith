@@ -292,10 +292,10 @@ export default function ExplorePage() {
               string,
               unknown
             > | null;
-            if (gpResp?.properties && typeof gpResp.properties === "object") {
-              const props = gpResp.properties as Record<string, unknown>;
-              if (typeof props.forecastHourly === "string") {
-                const fcResp = await proxyFetch(props.forecastHourly);
+            if (gpResp?.["properties"] && typeof gpResp["properties"] === "object") {
+              const props = gpResp["properties"] as Record<string, unknown>;
+              if (typeof props["forecastHourly"] === "string") {
+                const fcResp = await proxyFetch(props["forecastHourly"]);
                 setNoaaData(fcResp as NoaaData);
               } else {
                 setNoaaData(gpResp);

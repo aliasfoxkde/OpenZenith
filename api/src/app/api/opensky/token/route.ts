@@ -30,8 +30,8 @@ let cachedToken: { access_token: string; expires_at: number } | null = null;
 const TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
 
 async function fetchToken(): Promise<{ access_token: string; expires_at: number } | null> {
-  const clientId = process.env.OPENSKY_CLIENT_ID;
-  const clientSecret = process.env.OPENSKY_CLIENT_SECRET;
+  const clientId = process.env["OPENSKY_CLIENT_ID"];
+  const clientSecret = process.env["OPENSKY_CLIENT_SECRET"];
 
   if (!clientId || !clientSecret) return null;
 

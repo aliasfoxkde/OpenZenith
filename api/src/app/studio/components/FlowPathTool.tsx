@@ -28,9 +28,9 @@ interface Props {
   dark: boolean;
   map: maplibregl.Map | null;
   cursorPos: { lat: number; lon: number } | null;
-  imperial?: boolean;
+  imperial?: boolean | undefined;
   /** Shared ref — set by FlowPathTool, read by Studio page click handler */
-  flowPathClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
+  flowPathClickRef?: React.RefObject<((lat: number, lon: number) => void) | null> | undefined;
 }
 
 const FLOW_SOURCE = "flowpath-source";
@@ -636,7 +636,7 @@ function ElevationMiniChart({
 }: {
   paths: FlowPathFeature[];
   dark: boolean;
-  imperial?: boolean;
+  imperial?: boolean | undefined;
 }) {
   // WCAG AAA (7:1) secondary text on both themes (matches globals.css tokens).
   const textSec = dark ? "#a3a3a3" : "#525252";

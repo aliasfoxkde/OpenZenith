@@ -64,12 +64,12 @@ describe("Terrain routes — aspect direction bins", () => {
     const risingNorth = buildTile((row) => 500 - (row - 128));
     mockGetTileData.mockImplementation(resolveTile(risingNorth));
     const northResp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
-    expect((await aspectBody(northResp)).direction_bins?.S).toBe(100);
+    expect((await aspectBody(northResp)).direction_bins?.["S"]).toBe(100);
 
     const risingEast = buildTile((_row, col) => 500 + (col - 128));
     mockGetTileData.mockImplementation(resolveTile(risingEast));
     const eastResp = await aspectGET(makeRequest(`${GET_URL}?lat=40.7&lon=-74.0&radius=1&zoom=10`));
-    expect((await aspectBody(eastResp)).direction_bins?.W).toBe(100);
+    expect((await aspectBody(eastResp)).direction_bins?.["W"]).toBe(100);
   });
 
   it("reports flat terrain under the flat bin instead of a compass direction", async () => {
@@ -78,7 +78,7 @@ describe("Terrain routes — aspect direction bins", () => {
     expect(resp.status).toBe(200);
     const body = await aspectBody(resp);
     expect(body.valid_cells).toBe(9);
-    expect(body.direction_bins?.flat).toBe(100);
+    expect(body.direction_bins?.["flat"]).toBe(100);
     // -1 reaches the emitted grid for interior cells, null for the border.
     expect(body.grid?.[1]?.[1]).toBe(-1);
     expect(body.grid?.[0]?.[0]).toBeNull();

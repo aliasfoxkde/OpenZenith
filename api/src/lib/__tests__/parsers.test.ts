@@ -69,7 +69,7 @@ describe.skip("parseKML (requires browser DOMParser)", () => {
     const result = parseKML(kml);
     expect(result.features).toHaveLength(1);
     expect(result.features[0]!.geometry.type).toBe("Point");
-    expect(result.features[0]!.properties.name).toBe("Test");
+    expect(result.features[0]!.properties["name"]).toBe("Test");
   });
 
   it("parses KML with LineString", () => {
@@ -115,7 +115,7 @@ describe("parseGPX", () => {
     const result = parseGPX(gpx);
     expect(result.features).toHaveLength(2);
     expect(result.features[0]!.geometry.type).toBe("Point");
-    expect(result.features[0]!.properties.name).toBe("NYC");
+    expect(result.features[0]!.properties["name"]).toBe("NYC");
   });
 
   it("parses GPX with tracks", () => {

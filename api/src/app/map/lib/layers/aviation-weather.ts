@@ -124,9 +124,9 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
                   geometry: geom,
                   properties: {
                     type: "SIGMET",
-                    hazard: s.hazard || s.hazardType || "SIGMET",
-                    severity: s.severity || "",
-                    rawTime: s.start_time || s.validTimeFrom || "",
+                    hazard: s["hazard"] || s["hazardType"] || "SIGMET",
+                    severity: s["severity"] || "",
+                    rawTime: s["start_time"] || s["validTimeFrom"] || "",
                   },
                 });
               }
@@ -149,9 +149,9 @@ export function addAviationWeather(map: maplibregl.Map, handle: LayerHandle): vo
                   geometry: geom,
                   properties: {
                     type: "AIRMET",
-                    hazard: a.hazard || a.hazardType || "AIRMET",
-                    severity: a.severity || "",
-                    rawTime: a.start_time || a.validTimeFrom || "",
+                    hazard: a["hazard"] || a["hazardType"] || "AIRMET",
+                    severity: a["severity"] || "",
+                    rawTime: a["start_time"] || a["validTimeFrom"] || "",
                   },
                 });
               }
@@ -202,7 +202,7 @@ export function removeAviationWeather(map: maplibregl.Map): void {
 function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
   // Try coordinates array: [[lon,lat], [lon,lat], ...]
   const coords =
-    entry.coordinates || entry.area || (entry.geometry as Record<string, unknown> | undefined)?.coordinates;
+    entry["coordinates"] || entry["area"] || (entry["geometry"] as Record<string, unknown> | undefined)?.["coordinates"];
   if (Array.isArray(coords) && coords.length >= 3) {
     const ring: [number, number][] = [];
     for (const c of coords) {
@@ -218,7 +218,7 @@ function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
   }
 
   // Try polygon vertices
-  const verts = entry.vertices || entry.points;
+  const verts = entry["vertices"] || entry["points"];
   if (Array.isArray(verts) && verts.length >= 3) {
     const ring: [number, number][] = [];
     for (const v of verts) {
@@ -230,8 +230,8 @@ function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
       } else if (typeof v === "object" && v !== null) {
         // NOAA polygon vertices are either [lon, lat] pairs or {lon|lng, lat} objects
         const vert = v as Partial<Record<string, number>>;
-        const lon = vert.lon ?? vert.lng ?? 0;
-        const lat = vert.lat ?? 0;
+        const lon = vert["lon"] ?? vert["lng"] ?? 0;
+        const lat = vert["lat"] ?? 0;
         ring.push([lon, lat]);
       }
     }
@@ -243,8 +243,8 @@ function parseAviationGeometry(entry: AviationEntry): GeoJSON.Geometry | null {
   }
 
   // Try raw GeoJSON geometry
-  const geom = entry.geometry;
-  if (geom && typeof geom === "object" && (geom as Record<string, unknown>).type) {
+  const geom = entry["geometry"];
+  if (geom && typeof geom === "object" && (geom as Record<string, unknown>)["type"]) {
     return geom as GeoJSON.Geometry;
   }
 

@@ -36,9 +36,9 @@ function mockMap(hits: GeoJSON.Feature[], loaded: readonly string[] = Object.key
       return loaded.includes(id) ? {} : undefined;
     },
     queryRenderedFeatures(point: unknown, params?: Record<string, unknown>) {
-      const requested = (params?.layers as string[] | undefined) ?? [];
+      const requested = (params?.["layers"] as string[] | undefined) ?? [];
       if (requested.some((id) => !loaded.includes(id))) throw new Error(`${requested.join(", ")}: layer not found`);
-      queries.push({ point, layers: params?.layers });
+      queries.push({ point, layers: params?.["layers"] });
       return hits;
     },
     unproject(p: [number, number]) {

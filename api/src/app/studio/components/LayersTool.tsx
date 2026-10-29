@@ -73,7 +73,7 @@ export function LayersTool({ dark, basemap, onBasemapChange, layers, onToggleLay
         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
           <input
             type="checkbox"
-            checked={!!layers.hillshade}
+            checked={!!layers["hillshade"]}
             onChange={(e) => {
               onToggleLayer("hillshade", e.target.checked);
             }}

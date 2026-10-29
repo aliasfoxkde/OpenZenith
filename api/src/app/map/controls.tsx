@@ -12,7 +12,7 @@ import { MAP_2D_LAYER_IDS } from "./lib/layers";
 /** Per-layer load report recorded by the layer handle callback. */
 export interface LayerStatusEntry {
   status: string;
-  count?: number;
+  count?: number | undefined;
 }
 
 /** Layers whose accordion row exposes an opacity slider. */
@@ -172,7 +172,7 @@ export function LayerControls({
       <div style={{ padding: "0.3rem 0.35rem", borderBottom: "1px solid rgba(0,229,255,0.15)" }}>
         <LayerToggle
           label="Terrain 3D"
-          checked={layers.terrain3d ?? false}
+          checked={layers["terrain3d"] ?? false}
           onChange={(checked) => {
             onToggle("terrain3d", checked);
           }}

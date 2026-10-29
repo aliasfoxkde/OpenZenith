@@ -116,12 +116,12 @@ export async function GET(request: NextRequest) {
 
     const data = (await res.json()) as Record<string, unknown>[];
     const results = data.map((r) => ({
-      display_name: r.display_name,
-      lat: Number(r.lat),
-      lon: Number(r.lon),
-      type: r.type,
-      importance: r.importance,
-      address: r.address,
+      display_name: r["display_name"],
+      lat: Number(r["lat"]),
+      lon: Number(r["lon"]),
+      type: r["type"],
+      importance: r["importance"],
+      address: r["address"],
     }));
     await edgePutJson(cacheKey, { results, count: results.length }, GEOCODE_EDGE_TTL_SECONDS);
 

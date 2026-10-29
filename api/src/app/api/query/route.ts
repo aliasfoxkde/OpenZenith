@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     if (requestedIncludes.includes("elevation")) {
       promises.push(
         (async () => {
-          result.elevation = await getElevationFromR2(lat, lon);
+          result["elevation"] = await getElevationFromR2(lat, lon);
         })(),
       );
     }
@@ -109,23 +109,23 @@ export async function GET(request: NextRequest) {
             });
             if (res.ok) {
               const data = (await res.json()) as Record<string, unknown>;
-              if (data.error) {
-                result.address = null;
+              if (data["error"]) {
+                result["address"] = null;
               } else {
-                result.address = {
-                  display_name: data.display_name || null,
-                  name: data.name || (data.display_name as string | undefined)?.split(",")[0] || null,
-                  type: data.type || null,
-                  address: data.address || null,
-                  osm_id: data.osm_id || null,
-                  osm_type: data.osm_type || null,
+                result["address"] = {
+                  display_name: data["display_name"] || null,
+                  name: data["name"] || (data["display_name"] as string | undefined)?.split(",")[0] || null,
+                  type: data["type"] || null,
+                  address: data["address"] || null,
+                  osm_id: data["osm_id"] || null,
+                  osm_type: data["osm_type"] || null,
                 };
               }
             } else {
-              result.address = null;
+              result["address"] = null;
             }
           } catch {
-            result.address = null;
+            result["address"] = null;
           }
         })(),
       );
@@ -167,9 +167,9 @@ export async function GET(request: NextRequest) {
                 visibility: "mi",
               };
             }
-            result.weather = weatherData;
+            result["weather"] = weatherData;
           } else {
-            result.weather = null;
+            result["weather"] = null;
           }
         })(),
       );
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
     if (requestedIncludes.includes("tides")) {
       promises.push(
         (async () => {
-          result.tides = await getTides(lat, lon);
+          result["tides"] = await getTides(lat, lon);
         })(),
       );
     }
@@ -207,22 +207,22 @@ export async function GET(request: NextRequest) {
             if (res.ok) {
               const data = (await res.json()) as { elements?: Record<string, unknown>[] };
               const elements = Array.isArray(data.elements) ? data.elements : [];
-              result.waterways = {
+              result["waterways"] = {
                 count: elements.length,
                 features: elements.slice(0, 20).map((el: Record<string, unknown>) => {
-                  const tags = el.tags as Record<string, string> | undefined;
+                  const tags = el["tags"] as Record<string, string> | undefined;
                   return {
-                    id: el.id,
-                    name: tags?.name || null,
-                    type: tags?.waterway || tags?.natural || null,
+                    id: el["id"],
+                    name: tags?.["name"] || null,
+                    type: tags?.["waterway"] || tags?.["natural"] || null,
                   };
                 }),
               };
             } else {
-              result.waterways = null;
+              result["waterways"] = null;
             }
           } catch {
-            result.waterways = null;
+            result["waterways"] = null;
           }
         })(),
       );

@@ -214,7 +214,7 @@ export interface FlowPathResult {
   /** Elevation at each point (meters) */
   elevations: number[];
   /** AGLevel at each point (drone_alt - terrain_alt) if available */
-  agl?: number[];
+  agl?: number[] | undefined;
 }
 
 /**

@@ -34,7 +34,7 @@ function mapStub(): AddedEntries {
       added[id] = { id };
     },
     addLayer: (layer) => {
-      const id = layer.id;
+      const id = layer["id"];
       if (typeof id === "string") added[id] = { id, layer };
     },
   };
@@ -42,7 +42,7 @@ function mapStub(): AddedEntries {
 
 /** The paint block of a recorded layer spec, or an empty one when absent. */
 function paintOf(layer: Record<string, unknown> | undefined): Record<string, unknown> {
-  const paint: unknown = layer?.paint;
+  const paint: unknown = layer?.["paint"];
   return typeof paint === "object" && paint !== null ? (paint as Record<string, unknown>) : {};
 }
 

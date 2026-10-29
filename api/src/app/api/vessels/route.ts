@@ -15,7 +15,7 @@ export const runtime = "edge";
  * Otherwise returns empty config with helpful message.
  */
 export function GET(_request: NextRequest) {
-  const apiKey = process.env.AISSTREAM_KEY;
+  const apiKey = process.env["AISSTREAM_KEY"];
 
   if (!apiKey) {
     return NextResponse.json(

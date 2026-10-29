@@ -38,13 +38,13 @@ describe("Layer Registry", () => {
 
   it("getLayersByCategory returns layers grouped by category", () => {
     const groups = getLayersByCategory();
-    expect(groups.atmosphere).toBeDefined();
-    expect(groups.atmosphere!.length).toBeGreaterThan(0);
-    for (const layer of groups.atmosphere!) {
+    expect(groups["atmosphere"]).toBeDefined();
+    expect(groups["atmosphere"]!.length).toBeGreaterThan(0);
+    for (const layer of groups["atmosphere"]!) {
       expect(layer.category).toBe("atmosphere");
     }
-    expect(groups.terrain).toBeDefined();
-    expect(groups.aviation).toBeDefined();
+    expect(groups["terrain"]).toBeDefined();
+    expect(groups["aviation"]).toBeDefined();
   });
 
   it("getDefaultToggleState returns boolean map", () => {

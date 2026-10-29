@@ -58,18 +58,18 @@ export function escapeHtml(value: unknown): string {
 export function buildEntityTooltip(ent: TooltipEntity | undefined | null): string {
   if (!ent) return "";
 
-  const entType = ent.properties?.type?.getValue?.() || "";
+  const entType = ent.properties?.["type"]?.getValue?.() || "";
   const entName = ent.name || "";
   const entId = ent.id || "";
   let html = "";
   if (entId.startsWith("eq-")) {
-    const mag = ent.properties?.mag?.getValue?.() || "";
-    const place = ent.properties?.place?.getValue?.() || "";
+    const mag = ent.properties?.["mag"]?.getValue?.() || "";
+    const place = ent.properties?.["place"]?.getValue?.() || "";
     html = `<div style="font-weight:700;color:var(--err)">M${escapeHtml(mag)}</div><div>${escapeHtml(place)}</div>`;
   } else if (entId.startsWith("flight-") || entId.startsWith("mil-")) {
     const callsign = escapeHtml(entName);
-    const alt = ent.properties?.altitude?.getValue?.() as number | undefined;
-    const speed = ent.properties?.velocity?.getValue?.() as number | undefined;
+    const alt = ent.properties?.["altitude"]?.getValue?.() as number | undefined;
+    const speed = ent.properties?.["velocity"]?.getValue?.() as number | undefined;
     html = `<div style="font-weight:700;color:var(--warn)">${callsign}</div>${alt != null ? `<div>Alt: ${Math.round(alt * 3.281)}ft</div>` : ""}${speed != null ? `<div>Spd: ${Math.round(speed * 1.944)}kts</div>` : ""}`;
   } else if (entId.startsWith("vessel-")) {
     const name = escapeHtml(entName);
@@ -77,13 +77,13 @@ export function buildEntityTooltip(ent: TooltipEntity | undefined | null): strin
     html = `<div style="font-weight:700;color:#4488ff">${name}</div><div>MMSI: ${mmsi}</div>`;
   } else if (entId.startsWith("sat-") || entType === "orbitalTrack") {
     const name = escapeHtml(entName);
-    const alt = ent.properties?.altitude?.getValue?.() as number | undefined;
+    const alt = ent.properties?.["altitude"]?.getValue?.() as number | undefined;
     html = `<div style="font-weight:700;color:#aa44ff">${name}</div>${alt != null ? `<div>Alt: ${(alt / 1000).toFixed(0)}km</div>` : ""}`;
   } else if (entId.startsWith("storm-")) {
     html = `<div style="font-weight:700;color:#ff00ff">${escapeHtml(entName || "Storm")}</div>`;
   } else if (entId.startsWith("event-")) {
-    const cat = ent.properties?.category?.getValue?.() || "";
-    const title = ent.properties?.title?.getValue?.() || entName || "Event";
+    const cat = ent.properties?.["category"]?.getValue?.() || "";
+    const title = ent.properties?.["title"]?.getValue?.() || entName || "Event";
     html = `<div style="font-weight:700">${escapeHtml(title)}</div><div style="color:var(--text-muted)">${escapeHtml(cat)}</div>`;
   } else if (entName) {
     html = `<div>${escapeHtml(entName)}</div>`;

@@ -33,7 +33,7 @@ export function OPTIONS() {
  */
 export function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? `oz-${Date.now().toString(36)}`;
-  const backend = process.env.STORAGE_BACKEND || "huggingface";
+  const backend = process.env["STORAGE_BACKEND"] || "huggingface";
 
   return NextResponse.json(
     {

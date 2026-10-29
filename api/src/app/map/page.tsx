@@ -126,7 +126,16 @@ export default function MapPage() {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapState, setMapState] = useState<MapViewState>(() => {
     if (typeof window === "undefined") return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...parseHash(window.location.hash) };
+    const parsed = parseHash(window.location.hash);
+    return {
+      ...DEFAULT_STATE,
+      ...(parsed.center !== undefined ? { center: parsed.center } : {}),
+      ...(parsed.zoom !== undefined ? { zoom: parsed.zoom } : {}),
+      ...(parsed.bearing !== undefined ? { bearing: parsed.bearing } : {}),
+      ...(parsed.pitch !== undefined ? { pitch: parsed.pitch } : {}),
+      ...(parsed.basemap !== undefined ? { basemap: parsed.basemap } : {}),
+      ...(parsed.layers !== undefined ? { layers: parsed.layers } : {}),
+    };
   });
   const [pins, setPins] = useState<ElevationPin[]>([]);
   const [activePin, setActivePin] = useState<ElevationPin | null>(null);
@@ -205,7 +214,10 @@ export default function MapPage() {
   }, [loadError, loading, layerStatus]);
   const layerHandleRef = useRef<LayerHandle>(
     createLayerHandle((layerId, status, count) => {
-      setLayerStatus((prev) => ({ ...prev, [layerId]: { status, count } }));
+      setLayerStatus((prev) => ({
+        ...prev,
+        [layerId]: count !== undefined ? { status, count } : { status },
+      }));
       if (status === "error") {
         showToast(`${layerId}: failed to load`, "error");
       }
@@ -296,15 +308,16 @@ export default function MapPage() {
   }, [hurricaneAnimating]);
 
   // Stop hurricane animation when layer is toggled off
+  const hurricaneTracksOn = mapState.layers["hurricaneTracks"];
   useEffect(() => {
-    if (!mapState.layers.hurricaneTracks && hurricaneAnimating) {
+    if (!hurricaneTracksOn && hurricaneAnimating) {
       const map = mapRef.current;
       const handle = layerHandleRef.current;
       if (map) void stopHurricaneAnimation(map, handle);
       setHurricaneAnimating(false);
       setHurricaneProgress(0);
     }
-  }, [mapState.layers.hurricaneTracks, hurricaneAnimating]);
+  }, [hurricaneTracksOn, hurricaneAnimating]);
 
   const formatCoord = useCallback(
     (lat: number, lon: number) => {
@@ -670,28 +683,28 @@ export default function MapPage() {
       if (e.key === "h" || e.key === "H") {
         setMapState((prev) => ({
           ...prev,
-          layers: { ...prev.layers, hillshade: !prev.layers.hillshade },
+          layers: { ...prev.layers, hillshade: !prev.layers["hillshade"] },
         }));
       }
       // R toggles radar
       if (e.key === "r" || e.key === "R") {
         setMapState((prev) => ({
           ...prev,
-          layers: { ...prev.layers, radar: !prev.layers.radar },
+          layers: { ...prev.layers, radar: !prev.layers["radar"] },
         }));
       }
       // G toggles earthquakes
       if (e.key === "g" || e.key === "G") {
         setMapState((prev) => ({
           ...prev,
-          layers: { ...prev.layers, earthquakes: !prev.layers.earthquakes },
+          layers: { ...prev.layers, earthquakes: !prev.layers["earthquakes"] },
         }));
       }
       // 3 toggles satellite imagery
       if (e.key === "3") {
         setMapState((prev) => ({
           ...prev,
-          layers: { ...prev.layers, satellite: !prev.layers.satellite },
+          layers: { ...prev.layers, satellite: !prev.layers["satellite"] },
         }));
       }
       // P toggles measure mode
@@ -703,7 +716,7 @@ export default function MapPage() {
       if (e.key === "b" || e.key === "B") {
         setMapState((prev) => ({
           ...prev,
-          layers: { ...prev.layers, boundaries: !prev.layers.boundaries },
+          layers: { ...prev.layers, boundaries: !prev.layers["boundaries"] },
         }));
       }
     };
@@ -762,7 +775,7 @@ export default function MapPage() {
           }
         }
         // Restore hillshade if enabled
-        if (mapState.layers.hillshade) void addDataLayer(map, handle, "hillshade");
+        if (mapState.layers["hillshade"]) void addDataLayer(map, handle, "hillshade");
       }
     };
 
@@ -828,7 +841,7 @@ export default function MapPage() {
               }
             }
             // Phase 3: Hillshade — loaded last (on top of everything except labels)
-            if (mapState.layers.hillshade) void addDataLayer(map, layerHandleRef.current, "hillshade");
+            if (mapState.layers["hillshade"]) void addDataLayer(map, layerHandleRef.current, "hillshade");
             // Phase 4: Labels on very top
             addLabelLayer(map, mapState.basemap);
             // Enforce z-order
@@ -1057,10 +1070,10 @@ export default function MapPage() {
           }
         }
         // Hillshade — loaded last (on top of everything except labels)
-        if (mapState.layers.hillshade) void addDataLayer(map, layerHandleRef.current, "hillshade");
+        if (mapState.layers["hillshade"]) void addDataLayer(map, layerHandleRef.current, "hillshade");
         addLabelLayer(map, key);
         reorderMapLayers(map, mapState.layers);
-        if (mapState.layers.terrain3d) enable3DTerrain(map);
+        if (mapState.layers["terrain3d"]) enable3DTerrain(map);
       });
 
       setMapState((prev) => ({ ...prev, basemap: key }));
@@ -1202,8 +1215,13 @@ export default function MapPage() {
       if (!mapState.layers[layerId]) continue;
       try {
         const src = map.getSource(EXPORT_SOURCE_IDS[layerId] ?? layerId);
-        if (src && "_data" in src && src._data?.features) {
-          geojson.features.push(...src._data.features);
+        // `_data` is maplibre-private and its declared type is stricter than
+        // the runtime value (declared non-null and without `features`, but a
+        // geojson source's `_data` may legitimately be mid-parse). Inspect it
+        // through a structural record rather than the declared shape.
+        const data = (src as unknown as { _data?: { features?: GeoJSON.Feature[] } })._data;
+        if (data?.features) {
+          geojson.features.push(...data.features);
         }
       } catch {}
     }
@@ -1443,7 +1461,7 @@ export default function MapPage() {
             />
 
             {/* Earthquake time filter */}
-            {mapState.layers.earthquakes && (
+            {mapState.layers["earthquakes"] && (
               <EarthquakeTimelinePanel
                 feed={eqFeed}
                 playing={eqPlaying}
@@ -1457,7 +1475,7 @@ export default function MapPage() {
             )}
 
             {/* Hurricane animation controls */}
-            {mapState.layers.hurricaneTracks && (
+            {mapState.layers["hurricaneTracks"] && (
               <HurricaneAnimationPanel
                 animating={hurricaneAnimating}
                 progress={hurricaneProgress}
@@ -1534,7 +1552,7 @@ export default function MapPage() {
         )}
 
         {/* Click hint */}
-        {mapState.layers.terrain3d && <Terrain3dHint />}
+        {mapState.layers["terrain3d"] && <Terrain3dHint />}
       </main>
 
       {/* Toast notifications */}

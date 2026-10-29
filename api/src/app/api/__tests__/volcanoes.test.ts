@@ -30,7 +30,7 @@ const META_311070 = { latitude: 51.7892, longitude: -178.796 };
 const META_332010 = { latitude: 19.421, longitude: -155.287 };
 
 let upstream: (url: string) => Response;
-let fetchCalls: Array<[RequestInfo | URL, RequestInit?]>;
+let fetchCalls: Array<[input: string | URL | Request, init?: RequestInit | undefined]>;
 
 /** Install a URL-routing fetch mock (the route makes several fetches) and invoke the handler. */
 async function GETViaUpstream(): Promise<Response> {
@@ -66,7 +66,7 @@ describe("Volcanoes proxy endpoint", () => {
     expect(fc.features).toHaveLength(3);
     // bounds: the toEqual below pins exactly these three named features
     const alerts = Object.fromEntries(
-      fc.features.map((f): [string, string] => [f.properties.name!, f.properties.alertLevel!]),
+      fc.features.map((f): [string, string] => [f.properties["name"]!, f.properties["alertLevel"]!]),
     );
     expect(alerts).toEqual({ "Great Sitkin": "WATCH", Gareloi: "ADVISORY", Kilauea: "WARNING" });
   });
@@ -79,9 +79,9 @@ describe("Volcanoes proxy endpoint", () => {
     const resp = await GETViaUpstream();
     const fc = (await resp.json()) as { features: Array<{ properties: Record<string, string> }> };
     const p = fc.features[0]!.properties; // bounds: the stubbed upstream emits one feature
-    expect(p.color).toBe("#f97316"); // WATCH → orange
-    expect(p.title).toBe(p.name);
-    expect(p.alert).toBe(p.alertLevel);
+    expect(p["color"]).toBe("#f97316"); // WATCH → orange
+    expect(p["title"]).toBe(p["name"]);
+    expect(p["alert"]).toBe(p["alertLevel"]);
   });
 
   it("drops lookups that fail but keeps the rest of the feed", async () => {
@@ -93,7 +93,7 @@ describe("Volcanoes proxy endpoint", () => {
     };
     const resp = await GETViaUpstream();
     const fc = (await resp.json()) as { features: Array<{ properties: Record<string, unknown> }> };
-    expect(fc.features.map((f) => f.properties.name).sort()).toEqual(["Gareloi", "Great Sitkin"]);
+    expect(fc.features.map((f) => f.properties["name"]).sort()).toEqual(["Gareloi", "Great Sitkin"]);
   });
 
   it("bounds the per-request coordinate backfill", async () => {

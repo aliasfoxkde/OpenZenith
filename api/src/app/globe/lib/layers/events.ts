@@ -65,7 +65,7 @@ export function loadEvents(
     const c = Cesium.Color.fromCssColorString(colorStr);
     const title = f.properties?.title || CATEGORY_LABELS[cat] || cat;
     // bounds: CATEGORY_ICONS is a module constant that declares "manmade"
-    const icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS.manmade!;
+    const icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS["manmade"]!;
     const now = Date.now();
 
     // Check if event was updated within last 24 hours

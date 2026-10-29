@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         const coords = el.geometry.map((c) => [c.lon, c.lat]);
         if (coords.length < 2) continue;
 
-        const isPolygon = el.tags?.natural === "water" && coords.length >= 3;
+        const isPolygon = el.tags?.["natural"] === "water" && coords.length >= 3;
         // bounds: coords.length >= 2 enforced above
         const first = coords[0]!;
         const last = coords[coords.length - 1]!;
@@ -128,10 +128,10 @@ export async function GET(request: NextRequest) {
           },
           properties: {
             id: el.id,
-            name: el.tags?.name || null,
-            waterway: el.tags?.waterway || null,
-            natural: el.tags?.natural || null,
-            water: el.tags?.water || null,
+            name: el.tags?.["name"] || null,
+            waterway: el.tags?.["waterway"] || null,
+            natural: el.tags?.["natural"] || null,
+            water: el.tags?.["water"] || null,
           },
         });
       }

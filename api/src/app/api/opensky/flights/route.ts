@@ -50,8 +50,8 @@ function parseBboxCoord(val: string | null, min: number, max: number): number | 
 }
 
 async function getToken(): Promise<string | null> {
-  const clientId = process.env.OPENSKY_CLIENT_ID;
-  const clientSecret = process.env.OPENSKY_CLIENT_SECRET;
+  const clientId = process.env["OPENSKY_CLIENT_ID"];
+  const clientSecret = process.env["OPENSKY_CLIENT_SECRET"];
   if (!clientId || !clientSecret) return null;
 
   if (cachedToken && Date.now() < cachedToken.expires_at) {

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const apiKey = process.env.FIRMS_MAP_KEY;
+    const apiKey = process.env["FIRMS_MAP_KEY"];
 
     if (!apiKey) {
       return NextResponse.json(

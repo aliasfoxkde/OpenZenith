@@ -57,7 +57,7 @@ export function loadMarineWeather(
       for (const pt of points) {
         try {
           const url = `/api/proxy/https://marine-api.open-meteo.com/v1/marine?latitude=${pt.lat}&longitude=${pt.lon}&current=wave_height,wind_wave_height,wind_wave_direction,sea_surface_temperature`;
-          const r = await fetch(url, { signal });
+          const r = await fetch(url, ...(signal ? [{ signal }] : []));
           const body: unknown = await r.json();
           const data = body as MarineWeatherResponse;
           const current = data.current;

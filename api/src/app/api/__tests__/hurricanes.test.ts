@@ -81,8 +81,8 @@ describe("Hurricanes API", () => {
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.type).toBe("FeatureCollection");
     expect(data.features.length).toBeGreaterThan(0);
-    expect(data.features[0]!.properties.name).toBe("MILTON"); // bounds: non-empty asserted above
-    expect(data.features[0]!.properties.wind).toBe(50);
+    expect(data.features[0]!.properties["name"]).toBe("MILTON"); // bounds: non-empty asserted above
+    expect(data.features[0]!.properties["wind"]).toBe(50);
   });
 
   it("returns 502 naming the upstream status on IBTrACS failure", async () => {
@@ -158,24 +158,24 @@ describe("Hurricanes API", () => {
     // the default active=true and 2024 timestamps.
     expect(data.features).toHaveLength(7);
 
-    const bySid = new Map<unknown, Record<string, unknown>>(data.features.map((f) => [f.properties.sid, f.properties]));
-    expect(bySid.get("c5")?.category).toBe(5);
-    expect(bySid.get("c4")?.category).toBe(4);
-    expect(bySid.get("c3")?.category).toBe(3);
-    expect(bySid.get("c2")?.category).toBe(2);
-    expect(bySid.get("c1")?.category).toBe(1);
-    expect(bySid.get("ts")?.category).toBe(-1);
-    expect(bySid.get("td")?.category).toBe(0);
-    expect(bySid.get("c5")?.categoryLabel).toBe("Cat 5");
-    expect(bySid.get("c1")?.categoryLabel).toBe("Cat 1");
-    expect(bySid.get("ts")?.categoryLabel).toBe("Tropical Storm");
-    expect(bySid.get("td")?.categoryLabel).toBe("Tropical Depression");
+    const bySid = new Map<unknown, Record<string, unknown>>(data.features.map((f) => [f.properties["sid"], f.properties]));
+    expect(bySid.get("c5")?.["category"]).toBe(5);
+    expect(bySid.get("c4")?.["category"]).toBe(4);
+    expect(bySid.get("c3")?.["category"]).toBe(3);
+    expect(bySid.get("c2")?.["category"]).toBe(2);
+    expect(bySid.get("c1")?.["category"]).toBe(1);
+    expect(bySid.get("ts")?.["category"]).toBe(-1);
+    expect(bySid.get("td")?.["category"]).toBe(0);
+    expect(bySid.get("c5")?.["categoryLabel"]).toBe("Cat 5");
+    expect(bySid.get("c1")?.["categoryLabel"]).toBe("Cat 1");
+    expect(bySid.get("ts")?.["categoryLabel"]).toBe("Tropical Storm");
+    expect(bySid.get("td")?.["categoryLabel"]).toBe("Tropical Depression");
     // Category is driven by max wind across the track (140), not the last fix.
-    expect(bySid.get("c5")?.wind).toBe(140);
+    expect(bySid.get("c5")?.["wind"]).toBe(140);
     // NOT_NAMED is normalised to UNNAMED.
-    expect(bySid.get("c5")?.name).toBe("UNNAMED");
+    expect(bySid.get("c5")?.["name"]).toBe("UNNAMED");
 
-    const geo = data.features.find((f) => f.properties.sid === "c5");
+    const geo = data.features.find((f) => f.properties["sid"] === "c5");
     expect(geo?.geometry?.type).toBe("MultiLineString");
     expect(geo?.geometry?.coordinates[0]).toEqual([
       [-89.1, 22.8],
@@ -200,8 +200,8 @@ describe("Hurricanes API", () => {
     const resp = await GET(mockRequest("/api/hurricanes?track=full"));
     const data = await bodyAs<HurricaneCollectionBody>(resp);
     expect(data.features).toHaveLength(1);
-    expect(data.features[0]!.properties.sid).toBe("good"); // bounds: length 1 asserted above
-    expect(data.features[0]!.properties.trackPoints).toBe(2);
+    expect(data.features[0]!.properties["sid"]).toBe("good"); // bounds: length 1 asserted above
+    expect(data.features[0]!.properties["trackPoints"]).toBe(2);
   });
 
   it("filters point features to storms active in the last 7 days", async () => {
@@ -234,7 +234,7 @@ describe("Hurricanes API", () => {
 
     expect(data.features).toHaveLength(2);
     const bySid = new Map<unknown, Record<string, unknown>>(
-      data.features.map((f) => [f.properties.sid, f.properties] as const),
+      data.features.map((f) => [f.properties["sid"], f.properties] as const),
     );
     // Blank columns fall back to the documented defaults; zero wind and
     // pressure normalise to null, season to 0, name to UNNAMED.
@@ -327,7 +327,7 @@ describe("Hurricanes API", () => {
     const data = await bodyAs<HurricaneCollectionBody>(resp);
 
     const bySid = new Map<unknown, Record<string, unknown>>(
-      data.features.map((f) => [f.properties.sid, f.properties] as const),
+      data.features.map((f) => [f.properties["sid"], f.properties] as const),
     );
     expect(bySid.get("p5")).toMatchObject({ category: 5, categoryLabel: "Cat 5", name: "UNNAMED" });
     expect(bySid.get("p4")).toMatchObject({ category: 4, categoryLabel: "Cat 4" });
@@ -352,7 +352,7 @@ describe("Hurricanes API", () => {
     const { GET } = await import("@/app/api/hurricanes/route");
     const resp = await GET(mockRequest("/api/hurricanes?active=false"));
     const data = await bodyAs<HurricaneCollectionBody>(resp);
-    expect(data.features.map((f) => f.properties.sid)).toEqual(["good"]);
+    expect(data.features.map((f) => f.properties["sid"])).toEqual(["good"]);
   });
 
   it("answers 502 with the generic failure message when the rejection is not an Error", async () => {

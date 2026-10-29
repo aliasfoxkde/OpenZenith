@@ -7,9 +7,12 @@ import type { ToolMode as _ToolMode } from "../tools/tools";
 /** Plain entity snapshot the page hands the context menu (not a live Cesium Entity). */
 export interface CtxMenuEntityInfo {
   id: string;
-  name?: string;
+  name?: string | undefined;
+  // `unknown` already admits undefined — no explicit `| undefined` under
+  // exactOptionalPropertyTypes (and none is needed: the property may simply
+  // be absent).
   type?: unknown;
-  properties?: CesiumType.Entity["properties"];
+  properties?: CesiumType.Entity["properties"] | undefined;
 }
 
 /** Satellite summary rendered in the HUD panel. */
@@ -772,7 +775,7 @@ export function ContextMenu({
                   if (pos) {
                     const cg = C.Cartographic.fromCartesian(pos);
                     const altKm = +(cg.height / 1000).toFixed(1);
-                    const groupVal = found.properties?.group?.getValue();
+                    const groupVal = found.properties?.["group"]?.getValue();
                     const group = typeof groupVal === "string" ? groupVal : entName || "Unknown";
                     let orbitType: string;
                     if (altKm < 2000) orbitType = "LEO";

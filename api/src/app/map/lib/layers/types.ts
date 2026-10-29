@@ -14,10 +14,12 @@ export type LayerStatus = "idle" | "loading" | "loaded" | "error" | "empty";
  */
 export interface LayerHandle {
   intervals: ReturnType<typeof setInterval>[];
-  cleanup?: () => void;
+  cleanup?: (() => void) | undefined;
   status: Record<string, LayerStatus>;
   featureCount: Record<string, number>;
-  onStatusChange?: (layerId: string, status: LayerStatus, count?: number) => void;
+  onStatusChange?:
+    | ((layerId: string, status: LayerStatus, count?: number) => void)
+    | undefined;
 }
 
 /**

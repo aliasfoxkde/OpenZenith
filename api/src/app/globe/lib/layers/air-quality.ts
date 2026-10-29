@@ -80,7 +80,7 @@ export function loadAirQuality(
       for (const city of cities) {
         try {
           const url = `/api/proxy/https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone`;
-          const r = await fetch(url, { signal });
+          const r = await fetch(url, ...(signal ? [{ signal }] : []));
           const body: unknown = await r.json();
           // Open-Meteo answers an object with a `current` block; anything else
           // (proxy error page, null) is a skipped city like a failed fetch.

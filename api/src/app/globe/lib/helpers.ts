@@ -22,7 +22,25 @@ const ALL_LAYER_IDS = Object.keys(DEFAULT_LAYERS);
  * - Category shortcuts: "overlays", "realtime", "space", "infrastructure"
  * - Mixed: "earthquakes+flights+space" (individual + category)
  */
-export function parseHash(h: string): Partial<DashboardState> {
+/**
+ * Partial with each optional field explicitly allowed to be `undefined` —
+ * parseHash builds its result object literal with possibly-undefined values
+ * for every hash field, which `exactOptionalPropertyTypes` forbids for a
+ * plain `Partial<DashboardState>`.
+ *
+ * @typeParam T - The full state type to partially expose.
+ */
+export type PartialWithUndefined<T> = { [K in keyof T]?: T[K] | undefined };
+
+/**
+ * Parse the `#/zoom/lat/lng&layers=...` dashboard URL hash into a partial
+ * dashboard state. Unknown keys are ignored; malformed values fall back to
+ * the map defaults on apply.
+ *
+ * @param h - The raw location hash (with or without the leading `#`).
+ * @returns The parsed partial state; empty when the hash is absent.
+ */
+export function parseHash(h: string): PartialWithUndefined<DashboardState> {
   try {
     const hash = h.replace(/^#\/?/, "");
     if (!hash) return {};

@@ -48,7 +48,7 @@ export function AnnotationEdit({ editing, viewerRef, onClose }: AnnotationEditPr
             if (viewer && text) {
               const entity = viewer.entities.getById(editing.id);
               if (entity?.label) {
-                entity.label.text = text;
+                entity.label["text"] = text;
               }
             }
             onClose();
@@ -62,7 +62,7 @@ export function AnnotationEdit({ editing, viewerRef, onClose }: AnnotationEditPr
           if (viewer && text && text !== "Double-click to edit") {
             const entity = viewer.entities.getById(editing.id);
             if (entity?.label) {
-              entity.label.text = text;
+              entity.label["text"] = text;
             }
           }
           onClose();

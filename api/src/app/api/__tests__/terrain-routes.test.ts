@@ -136,7 +136,7 @@ describe("Terrain routes — happy path with mocked DEM tiles", () => {
     expect(body.valid_cells).toBeGreaterThan(0);
     // Ramp rises toward +x (east) → east-facing cells must dominate
     expect(body.direction_bins).not.toBeNull();
-    expect(body.direction_bins?.E).toBeGreaterThan(0);
+    expect(body.direction_bins?.["E"]).toBeGreaterThan(0);
     const binSum = Object.values(body.direction_bins ?? {}).reduce((a, b) => a + b, 0);
     expect(binSum).toBeCloseTo(100, 0);
   });

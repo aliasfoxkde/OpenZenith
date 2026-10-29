@@ -80,7 +80,7 @@ class FakeWorker {
       const sandbox: Record<string, unknown> = { self: selfObj };
       const seed = importScriptsImpl;
       if (seed != null) {
-        sandbox.importScripts = () => {
+        sandbox["importScripts"] = () => {
           seed(selfObj);
         };
       }

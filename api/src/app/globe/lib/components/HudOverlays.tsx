@@ -176,8 +176,8 @@ export function HudOverlays({
                 if (viewer) {
                   const found = viewer.entities.values.find(
                     (e) =>
-                      e.properties?.type?.getValue() === "orbitalTrack" &&
-                      (e.name?.includes(selectedSat.name) || e.properties.group?.getValue() === selectedSat.name),
+                      e.properties?.["type"]?.getValue() === "orbitalTrack" &&
+                      (e.name?.includes(selectedSat.name) || e.properties["group"]?.getValue() === selectedSat.name),
                   );
                   window.__ozSetFollowEntity?.(found || null);
                 }

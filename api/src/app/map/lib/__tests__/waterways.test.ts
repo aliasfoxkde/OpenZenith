@@ -26,8 +26,8 @@ function mapStub(sourceExists = false) {
 }
 
 /** Handle that records status transitions; also drains the layer's interval. */
-function handleSpy(): { handle: LayerHandle; calls: Array<[string, LayerStatus, number?]> } {
-  const calls: Array<[string, LayerStatus, number?]> = [];
+function handleSpy(): { handle: LayerHandle; calls: Array<[string, LayerStatus, number | undefined]> } {
+  const calls: Array<[string, LayerStatus, number | undefined]> = [];
   const handle = createLayerHandle((layerId, status, count) => calls.push([layerId, status, count]));
   return { handle, calls };
 }

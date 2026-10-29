@@ -37,7 +37,7 @@ export function WeatherTool({ dark, onToggleLayer, layers }: Props) {
       >
         <input
           type="checkbox"
-          checked={layers.warnings}
+          checked={layers["warnings"]}
           onChange={(e) => {
             onToggleLayer("warnings", e.target.checked);
           }}

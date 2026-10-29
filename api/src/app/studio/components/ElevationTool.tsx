@@ -9,8 +9,8 @@ interface Props {
   map: any;
   dark: boolean;
   cursorPos: { lat: number; lon: number } | null;
-  onProfileChange?: (coords: [number, number][] | null) => void;
-  profileClickRef?: React.RefObject<((lat: number, lon: number) => void) | null>;
+  onProfileChange?: ((coords: [number, number][] | null) => void) | undefined;
+  profileClickRef?: React.RefObject<((lat: number, lon: number) => void) | null> | undefined;
 }
 
 /**

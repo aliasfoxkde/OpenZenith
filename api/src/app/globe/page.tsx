@@ -390,9 +390,9 @@ export default function Globe() {
           if (picked && picked.id) {
             const entity = picked.id;
             const props = entity.properties;
-            if (props && props.type?.getValue() === "orbitalTrack") {
+            if (props && props["type"]?.getValue() === "orbitalTrack") {
               // `group` is a plain string property on the entity bag.
-              const name = entity.name || (props.group?.getValue() as string) || "Satellite";
+              const name = entity.name || (props["group"]?.getValue() as string) || "Satellite";
               // position is a Property for tracked entities, or a raw
               // Cartesian3 for statically-placed ones (Cesium wraps those on
               // assignment, but the raw value never grows getValue).
@@ -459,15 +459,22 @@ export default function Globe() {
             const lng = Cesium.Math.toDegrees(cg.longitude);
             const lat = Cesium.Math.toDegrees(cg.latitude);
             const entityProps = entity?.properties;
-            const entityType = entityProps?.type?.getValue() || entityProps?.type;
+            const entityType = entityProps?.["type"]?.getValue() || entityProps?.["type"];
             setCtxMenu({
               x: click.position.x,
               y: click.position.y,
               lng,
               lat,
-              entity: entity
-                ? { id: entity.id, name: entity.name, type: entityType, properties: entityProps }
-                : undefined,
+              ...(entity
+                ? {
+                    entity: {
+                      id: entity.id,
+                      ...(entity.name !== undefined ? { name: entity.name } : {}),
+                      ...(entityType !== undefined ? { type: entityType } : {}),
+                      ...(entityProps !== undefined ? { properties: entityProps } : {}),
+                    } satisfies CtxMenuEntityInfo,
+                  }
+                : {}),
             });
           }
         }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
@@ -1171,7 +1178,7 @@ export default function Globe() {
 
         switch (key) {
           case "earthquakes":
-            if (on && !dataLoadedRef.current.earthquakes)
+            if (on && !dataLoadedRef.current["earthquakes"])
               loadEarthquakes(
                 viewer,
                 Cesium,
@@ -1183,35 +1190,35 @@ export default function Globe() {
               );
             if (!on) {
               removeEntities("eq-");
-              dataLoadedRef.current.earthquakes = false;
+              dataLoadedRef.current["earthquakes"] = false;
             }
             break;
           case "radar":
             if (on) void loadLayerDynamic("radar");
             if (!on) {
               removeEntities("radar-");
-              dataLoadedRef.current.radar = false;
+              dataLoadedRef.current["radar"] = false;
             }
             break;
           case "flights":
             if (on) void loadLayerDynamic("flights");
             if (!on) {
               removeEntities("flight-");
-              dataLoadedRef.current.flights = false;
+              dataLoadedRef.current["flights"] = false;
             }
             break;
           case "militaryFlights":
             if (on) void loadLayerDynamic("militaryFlights");
             if (!on) {
               removeEntities("mil-");
-              dataLoadedRef.current.militaryFlights = false;
+              dataLoadedRef.current["militaryFlights"] = false;
             }
             break;
           case "vessels":
             if (on) void loadLayerDynamic("vessels");
             if (!on) {
               removeEntities("vessel-");
-              dataLoadedRef.current.vessels = false;
+              dataLoadedRef.current["vessels"] = false;
               const vesselMod = layerModulesRef.current.vessels;
               if (vesselMod) vesselMod.cleanupVessels();
             }
@@ -1220,11 +1227,11 @@ export default function Globe() {
             if (on) void loadLayerDynamic("warnings");
             if (!on) {
               removeEntities("warn-");
-              dataLoadedRef.current.warnings = false;
+              dataLoadedRef.current["warnings"] = false;
             }
             break;
           case "events":
-            if (on && !dataLoadedRef.current.events)
+            if (on && !dataLoadedRef.current["events"])
               loadEvents(
                 viewer,
                 Cesium,
@@ -1236,21 +1243,21 @@ export default function Globe() {
               );
             if (!on) {
               removeEntities("event-");
-              dataLoadedRef.current.events = false;
+              dataLoadedRef.current["events"] = false;
             }
             break;
           case "satellites":
             if (on) void loadLayerDynamic("satellites");
             if (!on) {
               removeEntities("sat-");
-              dataLoadedRef.current.satellites = false;
+              dataLoadedRef.current["satellites"] = false;
             }
             break;
           case "hurricaneTracks":
             if (on) void loadLayerDynamic("hurricaneTracks");
             if (!on) {
               removeEntities("storm-");
-              dataLoadedRef.current.hurricaneTracks = false;
+              dataLoadedRef.current["hurricaneTracks"] = false;
             }
             break;
           case "satellite":
@@ -1286,47 +1293,47 @@ export default function Globe() {
             if (on) void loadLayerDynamic("nlnogNodes");
             if (!on) {
               removeEntities("nlnog-");
-              dataLoadedRef.current.nlnogNodes = false;
+              dataLoadedRef.current["nlnogNodes"] = false;
             }
             break;
           case "flightArcs":
             if (on) void loadLayerDynamic("flightArcs");
             if (!on) {
               removeEntities("arc-");
-              dataLoadedRef.current.flightArcs = false;
+              dataLoadedRef.current["flightArcs"] = false;
             }
             break;
           case "hillshade":
             break;
           case "elevationColor":
             // Toggle elevation color material on the globe
-            if (on && !dataLoadedRef.current.elevationColor) {
+            if (on && !dataLoadedRef.current["elevationColor"]) {
               void doLoadElevationColor();
-              dataLoadedRef.current.elevationColor = true;
+              dataLoadedRef.current["elevationColor"] = true;
             } else if (!on) {
               removeEntities("elev-");
-              dataLoadedRef.current.elevationColor = false;
+              dataLoadedRef.current["elevationColor"] = false;
             }
             break;
           case "orbitalTracks":
             if (on) void loadLayerDynamic("orbitalTracks");
             if (!on) {
               removeEntities("orbit-");
-              dataLoadedRef.current.orbitalTracks = false;
+              dataLoadedRef.current["orbitalTracks"] = false;
             }
             break;
           case "groundTracks":
             if (on) void loadLayerDynamic("groundTracks");
             if (!on) {
               removeEntities("gtrack-");
-              dataLoadedRef.current.groundTracks = false;
+              dataLoadedRef.current["groundTracks"] = false;
             }
             break;
           case "currents":
             if (on) void loadLayerDynamic("currents");
             if (!on) {
               removeEntities("current-");
-              dataLoadedRef.current.currents = false;
+              dataLoadedRef.current["currents"] = false;
             }
             break;
           case "spaceWeather":
@@ -1334,14 +1341,14 @@ export default function Globe() {
             if (!on) {
               removeEntities("swpc-");
               removeEntities("aurora-");
-              dataLoadedRef.current.spaceWeather = false;
+              dataLoadedRef.current["spaceWeather"] = false;
             }
             break;
           case "airQuality":
             if (on) void loadLayerDynamic("airQuality");
             if (!on) {
               removeEntities("aq-");
-              dataLoadedRef.current.airQuality = false;
+              dataLoadedRef.current["airQuality"] = false;
             }
             break;
           case "aviationWeather":
@@ -1349,35 +1356,35 @@ export default function Globe() {
             if (!on) {
               removeEntities("sigmet-");
               removeEntities("airmet-");
-              dataLoadedRef.current.aviationWeather = false;
+              dataLoadedRef.current["aviationWeather"] = false;
             }
             break;
           case "volcanoes":
             if (on) void loadLayerDynamic("volcanoes");
             if (!on) {
               removeEntities("vol-");
-              dataLoadedRef.current.volcanoes = false;
+              dataLoadedRef.current["volcanoes"] = false;
             }
             break;
           case "gdacs":
             if (on) void loadLayerDynamic("gdacs");
             if (!on) {
               removeEntities("gdacs-");
-              dataLoadedRef.current.gdacs = false;
+              dataLoadedRef.current["gdacs"] = false;
             }
             break;
           case "marineWeather":
             if (on) void loadLayerDynamic("marineWeather");
             if (!on) {
               removeEntities("marine-");
-              dataLoadedRef.current.marineWeather = false;
+              dataLoadedRef.current["marineWeather"] = false;
             }
             break;
           case "wildfires":
             if (on) void loadLayerDynamic("wildfires");
             if (!on) {
               removeEntities("fire-");
-              dataLoadedRef.current.wildfires = false;
+              dataLoadedRef.current["wildfires"] = false;
             }
             break;
           case "lightning":
@@ -1387,21 +1394,21 @@ export default function Globe() {
               // adding strike entities after off — close it like unmount does.
               layerModulesRef.current.lightning?.cleanupLightning();
               removeEntities("strike-");
-              dataLoadedRef.current.lightning = false;
+              dataLoadedRef.current["lightning"] = false;
             }
             break;
           case "gpsJamming":
             if (on) void loadLayerDynamic("gpsJamming");
             if (!on) {
               removeEntities("gps-jam-");
-              dataLoadedRef.current.gpsJamming = false;
+              dataLoadedRef.current["gpsJamming"] = false;
             }
             break;
           case "dayNight":
             if (on) void loadLayerDynamic("dayNight");
             if (!on) {
               removeEntities("day-night");
-              dataLoadedRef.current.dayNight = false;
+              dataLoadedRef.current["dayNight"] = false;
             }
             break;
           case "coverage":
@@ -1410,7 +1417,7 @@ export default function Globe() {
               updateStatus("coverage", { lastUpdate: Date.now(), count: 1, error: null });
             } else {
               removeCoverage(viewer);
-              dataLoadedRef.current.coverage = false;
+              dataLoadedRef.current["coverage"] = false;
             }
             break;
         }
@@ -1568,7 +1575,7 @@ export default function Globe() {
   // THEMES as Partial to keep the default fallback visible to the checker.
   const themeRegistry = THEMES as Partial<Record<string, (typeof THEMES)[string]>>;
   // bounds: THEMES always declares the "default" key (module constant)
-  const currentTheme = themeRegistry[state.theme] ?? THEMES.default!;
+  const currentTheme = themeRegistry[state.theme] ?? THEMES["default"]!;
   const isHud = state.theme === "classified" || state.theme === "crimson";
   const themeStyle = useMemo(() => {
     const obj: Record<string, string> = {};

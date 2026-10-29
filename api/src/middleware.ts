@@ -76,7 +76,7 @@ export function middleware(request: NextRequest) {
   if (pathname === "/api/health") return NextResponse.next();
 
   // CORS headers — restrict to known origins in production
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || ["*"];
+  const allowedOrigins = process.env["ALLOWED_ORIGINS"]?.split(",") || ["*"];
   const origin = request.headers.get("origin");
   const response = NextResponse.next();
   if (allowedOrigins.includes("*") || (origin && allowedOrigins.includes(origin))) {

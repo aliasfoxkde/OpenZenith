@@ -140,5 +140,5 @@ interface TopoJSONClient {
 interface Window {
   maplibregl?: MapLibreGL;
   topojson?: TopoJSONClient;
-  _maplibreLoading?: Promise<void>;
+  _maplibreLoading?: Promise<void> | undefined;
 }

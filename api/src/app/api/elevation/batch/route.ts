@@ -42,11 +42,11 @@ export function OPTIONS() {
 interface BatchPoint {
   lat: number;
   lon: number;
-  id?: string;
+  id?: string | undefined;
 }
 
 interface BatchResult {
-  id?: string;
+  id?: string | undefined;
   lat: number;
   lon: number;
   elevation: number | null;

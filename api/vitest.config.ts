@@ -68,9 +68,12 @@ export default defineConfig({
         // 2026-10-09 (task #235 B7, cycle V): measured 99.47 / 97.29 /
         // 95.21 / 99.93 after the noUncheckedIndexedAccess adoption
         // (1,704 tests / 115 files) — functions ratcheted 92 → 94.
+        // 2026-10-26 (plan IX C-1): measured 99.80 / 99.07 / 99.61 /
+        // 99.97 after the strict-mode hardening wave + targeted branch
+        // tests — branches 96 → 99, functions 94 → 99 (all floors now 99).
         statements: 99,
-        branches: 96,
-        functions: 94,
+        branches: 99,
+        functions: 99,
         lines: 99,
       },
     },

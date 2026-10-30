@@ -14,8 +14,8 @@
     "test": "vitest run --dir src"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
-    "hono": "^4.13.11",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "hono": "^4.13.14",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -24,7 +24,7 @@
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.71.2",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
   }
 }

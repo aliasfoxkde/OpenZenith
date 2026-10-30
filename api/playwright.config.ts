@@ -7,7 +7,9 @@ const baseURL = process.env["E2E_BASE_URL"] ?? "https://openzenith.cyopsys.com";
 /**
  * Playwright config: E2E specs live in ./e2e and default to production
  * (`E2E_BASE_URL` retargets); chromium + firefox projects, one retry with
- * a trace for diagnosis.
+ * a trace for diagnosis. Webkit is observe-only (EXCELLENCE_PLAN_X C-2):
+ * run explicitly via `--project=webkit`; it is not a merge gate until it
+ * proves green across two consecutive full runs on this host.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -20,5 +22,6 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "firefox", use: { browserName: "firefox" } },
+    { name: "webkit", use: { browserName: "webkit" } },
   ],
 });

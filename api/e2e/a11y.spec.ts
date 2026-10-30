@@ -122,8 +122,43 @@ test.describe("Accessibility (WCAG 2.1 A/AA + AAA-tagged rules)", () => {
       })),
     ).toEqual([]);
   });
-});
 
+  // Dark-theme pass: the token system resolves `data-theme` before paint
+  // (cycle VI C1), but axe only audits the rendered default. `colorScheme`
+  // emulates `prefers-color-scheme: dark` so the same 10 pages are audited
+  // against the dark palette — a dark-only contrast defect is surfaced here
+  // instead of reaching dark-mode users unflagged. Vendor-scoped exclusions
+  // mirror the light pass (same VENDOR_SCOPES); they are surfaced as test
+  // annotations rather than console output to keep the report in the
+  // Playwright record.
+  test.describe("dark theme (prefers-color-scheme: dark)", () => {
+    test.use({ colorScheme: "dark" });
+    // axe scans of the heavy pages (map, studio) run 90-130s against the
+    // local workerd bundle; the shared 120s floor truncates them mid-scan.
+    test.setTimeout(240_000);
+
+    for (const { path, name } of PAGES) {
+      test(`no axe violations on ${name} (${path}, dark)`, async ({ page }, testInfo) => {
+        const violations = await scan(page, path);
+        const firstParty = violations.filter((v) => !isVendorOnly(v));
+        const vendor = violations.filter(isVendorOnly);
+        if (vendor.length > 0) {
+          testInfo.annotations.push({
+            type: "report",
+            description: `${vendor.length} vendor-scoped violation type(s) excluded: ${vendor.map((v) => v.id).join(", ")}`,
+          });
+        }
+        expect(
+          firstParty.map((v) => ({
+            rule: v.id,
+            impact: v.impact,
+            targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")),
+          })),
+        ).toEqual([]);
+      });
+    }
+  });
+});
 /* ─── Keyboard traversal + target size (axe cannot express these) ───
  *
  * axe-core samples static DOM: it cannot press Tab, so 2.1.1 (no trap),

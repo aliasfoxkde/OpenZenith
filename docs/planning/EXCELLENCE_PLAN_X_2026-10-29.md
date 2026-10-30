@@ -77,9 +77,37 @@ zero smells). Remaining gaps, ordered by value:
 - D-2: tag + push both remotes, ship.sh deploy, prod verify (health
   version, hash-URL spot checks), GitHub release with notes.
 
+## Execution log
+
+- **Phase A+B (9722892b, 2026-10-29):** A-1..A-4 docs currency; B-1
+  jscpd gate (`scripts/duplication_check.sh`, 4.09% floor) wired into
+  .gitforge.yml; B-2 `noPropertyAccessFromIndexSignature` enabled with
+  a bounded fix wave (`process.env["KEY"]` across api/src).
+  `exactOptionalPropertyTypes` evaluated: error count exceeded the
+  bound — deferred, re-entry metric recorded in the commit.
+- **Phase C-1 (002113c6, 2026-10-29):** dark-theme axe pass on all 10
+  pages; one real defect found and fixed — dark
+  `--oz-text-secondary` #a3a3a3 → #b8b8b8 (6.9:1 → 8.77:1 on
+  --oz-bg-code). Dark-pass timeout raised to 240s (map/studio scans
+  exceed the 120s floor).
+- **Phase C-2 (6ec50b92, 2026-10-30):** webkit added to
+  playwright.config.ts as observe-only. Observe run on prod target:
+  10 failed / 3 flaky / 94 passed — webkit cold-start stalls on
+  render-heavy pages (map/studio/landing timeouts). Does NOT meet the
+  two-consecutive-green promotion criterion; stays out of the merge
+  gate. Re-evaluate after a future playwright/webkit bump.
+- **Aegis baseline regen (6ec50b92, 2026-10-30):** the B-2 quote wave
+  re-fingerprinted 26 triaged findings (content-hash change), failing
+  the CI aegis job on d42773eb, 4c71f225 and 9722892b. Baseline
+  regenerated per the deliberate-regen policy (10,828 raw → 2,114
+  after profile filter). CI on 6ec50b92: aegis green, full run
+  e20d902b.
+- **C-3 (keyboard focus-trap)**: not attempted this cycle — bounded
+  to the identify overlay/widget shell; deferred to cycle XI with the
+  webkit re-evaluation.
+
 ## Residual risk
-- exactOptionalPropertyTypes may surface long-tail type errors in
-  vendor-typed integrations (MapLibre/Cesium); the B-2 bound caps the
-  blast radius.
-- webkit on this host is unproven; C-2 keeps it observational until it
-  proves stable.
+- exactOptionalPropertyTypes deferred past the B-2 bound; MapLibre/
+  Cesium vendor typing is the suspected long tail.
+- webkit stays observational: observe run failed its promotion
+  criterion; re-evaluate after a playwright/webkit bump.

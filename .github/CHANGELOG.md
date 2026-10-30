@@ -3,6 +3,28 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.9 (2026-10-30)
+
+Excellence-cycle X — quality ratchets and accessibility depth. No
+breaking changes.
+
+### Added
+- jscpd duplication gate (`scripts/duplication_check.sh`, 4.09% floor)
+  wired into CI.
+- dark-theme (`prefers-color-scheme: dark`) axe pass across all 10
+  first-party pages.
+- webkit Playwright project (observe-only; not a merge gate).
+
+### Fixed
+- dark-theme AAA contrast: `--oz-text-secondary` #a3a3a3 → #b8b8b8
+  (6.9:1 → 8.77:1 on code surfaces).
+
+### Changed
+- tsconfig: `noPropertyAccessFromIndexSignature` enabled across api/src
+  (bracket-style env access).
+- aegis baseline regenerated after the quote wave re-fingerprinted 26
+  triaged findings (no new defects).
+
 ## v0.9.8 (2026-10-25)
 
 Excellence-cycle IX — the GeoIP interaction race fix and documentation

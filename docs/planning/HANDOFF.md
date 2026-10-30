@@ -1,5 +1,16 @@
 # OpenZenith handoff
 
+> **Update (2026-10-30, cycle X phase C closed):** phases A, B, C-1 and
+> C-2 executed and committed (9722892b, 002113c6, 6ec50b92). Dark-theme
+> axe pass landed with one real AAA fix (#a3a3a3 → #b8b8b8). Webkit
+> observe run FAILED its promotion gate (10 failed / 94 passed —
+> cold-start stalls); stays observe-only, re-evaluate after a
+> playwright/webkit bump. Aegis baseline regenerated after the B-2
+> quote wave re-fingerprinted 26 triaged findings (CI aegis job red on
+> three commits; policy: deliberate regen, logged in the plan).
+> C-3 (keyboard focus-trap) deferred to cycle XI. D-1/D-2 (v0.9.9
+> release) in flight.
+
 > **Update (2026-10-29, cycle X open):** plan X
 > ([EXCELLENCE_PLAN_X_2026-10-29.md](EXCELLENCE_PLAN_X_2026-10-29.md))
 > opened with a fresh baseline (all gates measured green at v0.9.8+49404dc6)

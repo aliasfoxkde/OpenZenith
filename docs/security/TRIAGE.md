@@ -2251,3 +2251,22 @@ a security tool. ACCEPTED.
 Baseline regenerated with `scripts/aegis_scan.sh update` (inside the
 openzenith-ci-aegis:1 image) after this entry; gate re-run green in
 the same image before the push.
+
+## Re-triage 2026-10-31 — middleware rate-limit tests (3 → 0 ACCEPTED)
+
+The rate-limit sweep commit (2279f852) added `api/src/middleware.test.ts`
+with 3 new findings:
+
+- `double-type-assertion` ×1 (`middleware.test.ts:11`) — the
+  repo-standard test idiom `request-object as unknown as NextRequest`
+  for a handler that only reads `nextUrl`, `headers` and `method`
+  (same accepted class as the 2026-09-22 entry). ACCEPTED.
+- `missing-limit` ×2 (`middleware.test.ts:19,20`) — pattern noise on the
+  test grammar (`describe`/`it` lines reading "sweeps expired entries at
+  most once per cleanup interval"); not a query without LIMIT. The class
+  is already accepted as scanner noise for this codebase. ACCEPTED.
+
+No application-code defect: the test file exercises middleware, touches
+no external data source, and contains no credential material. Baseline
+regenerated with `scripts/aegis_scan.sh update`; gate re-run green
+before the push.

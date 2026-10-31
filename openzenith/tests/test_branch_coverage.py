@@ -280,7 +280,9 @@ class TestFusePILFallback:
 
         arr = np.full((8, 8), -2500, dtype=np.int16)
         path = tmp_path / "gebco.png"
-        Image.fromarray(arr, mode="I;16").save(path)
+        # Pillow 13 rejects an explicit "I;16" for int16 data; the bit-
+        # preserving uint16 view infers I;16 on every supported Pillow.
+        Image.fromarray(arr.view(np.uint16)).save(path)
 
         fusion = FusedDEM.__new__(FusedDEM)  # no init deps needed
         import builtins

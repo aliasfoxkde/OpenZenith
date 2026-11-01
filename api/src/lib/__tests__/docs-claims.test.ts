@@ -162,7 +162,7 @@ describe("docs claims vs source truth", () => {
 
   it("keeps the homepage framework claim equal to the installed Next.js major", () => {
     const homepage = readFileSync(path.join(API_ROOT, "src/app/page.tsx"), "utf8");
-    const matches = [...homepage.matchAll(/Next\\.js (\\d+)/g)];
+    const matches = [...homepage.matchAll(/Next\.js (\d+)/g)];
     expect(matches.length, "homepage must state its installed Next.js major").toBeGreaterThan(0);
     for (const match of matches) {
       expect(match[1]).toBe(NEXT_MAJOR);

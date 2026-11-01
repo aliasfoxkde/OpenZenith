@@ -85,8 +85,13 @@ circuit breaker):
 - Docs-vs-reality item flagged but not decided: whether "81 API routes" should
   count distinct public URLs (>81 with dynamic segments) — current phrasing
   counts route files, which is fine if stated.
-- Rust CLI subcommand list (`CLAUDE.md:146`) was not re-verified this pass —
-  verify when the core workstream re-runs.
+- Rust CLI subcommand list (`CLAUDE.md:146`): **verified 2026-11-01** — all six
+  (`d8`, `accum`, `reconstruct`, `viewshed`, `stream-order`,
+  `gradient-predict`) dispatch in `core/src/main.rs:67-72`. TRUE.
+- GEBCO year gate (Phase 3 item 2) — deferred: the year appears once in user
+  prose (README data-sources table) after the registry fix; the single-source
+  constant is worth doing only if the year is expected to churn (GEBCO 2026
+  release). Track as low priority.
 
 ## Receipts
 

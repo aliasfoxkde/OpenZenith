@@ -76,9 +76,14 @@ circuit breaker):
 
 1. Extend `docs-claims.test.ts` beyond counts: assert the Next.js version in
    prose matches `package.json`, and basemap labels in README match
-   `basemaps.ts` labels.
+   `basemaps.ts` labels. — **DONE 2026-11-01** (commit 1a455a8b; 2 new
+   assertions, 6/6 pass)
 2. Add a source-attribution check for the GEBCO year (single source constant
-   consumed by both registry and test).
+   consumed by both registry and test). — **DONE 2026-11-01** (commit 7ec4b300;
+   `GEBCO_YEAR` in `api/src/lib/gebco/tile-math.ts` now feeds the filename
+   builder, filename parser, CEDA URL, registry description, and WMTS
+   abstract; `quadNameToBounds` rejects foreign-year filenames; a third gate
+   assertion checks every prose surface)
 
 ## Explicitly deferred / operator-gated
 
@@ -88,10 +93,6 @@ circuit breaker):
 - Rust CLI subcommand list (`CLAUDE.md:146`): **verified 2026-11-01** — all six
   (`d8`, `accum`, `reconstruct`, `viewshed`, `stream-order`,
   `gradient-predict`) dispatch in `core/src/main.rs:67-72`. TRUE.
-- GEBCO year gate (Phase 3 item 2) — deferred: the year appears once in user
-  prose (README data-sources table) after the registry fix; the single-source
-  constant is worth doing only if the year is expected to churn (GEBCO 2026
-  release). Track as low priority.
 
 ## Receipts
 
@@ -99,3 +100,9 @@ circuit breaker):
   file:line-cited)
 - Dead-run logs: `next16-plan.log`, `coverage-plan.log`, `edge-cache.log`,
   `frontend-audit.md` (all gateway 502/429 terminations, 2026-11-01)
+- Phase 1 execution: commit 1a455a8b (docs truth fixes) + 9f5ce1f5 (minimatch
+  direct dep); Dependabot #93 (minimatch <11.0.1) confirmed **fixed**, 0 open
+  alerts after the push
+- Phase 3 execution: commit 7ec4b300 (GEBCO single-source) — full local vitest
+  green at 126 files / 1772 tests; CI unit-test guard baseline updated
+  1769 → 1772 in `.gitforge.yml` to match the three new gate assertions

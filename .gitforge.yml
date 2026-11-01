@@ -275,7 +275,9 @@ jobs:
           # the coverage-floor ratchet commit d42773eb). 126/1769 on
           # 2026-11-01: Next 16 bump (e306d225) added a codemod test file
           # (+1 file) and 3 tests — guard was not updated, failing the
-          # 06c695dd run as "covered 126/125 files".
+          # 06c695dd run as "covered 126/125 files". 126/1772 on
+          # 2026-11-01: docs-claims gate extended with Next.js-major,
+          # basemap-label, and GEBCO-year assertions (+3 tests, same file).
           #
           # FILE count is environment-independent because the parenthesised
           # total counts skipped files too: the ozt2-real-tiles suite skips
@@ -287,8 +289,8 @@ jobs:
           [ "${files:-0}" -eq 126 ] || {
             echo "INCOMPLETE: passing run covered ${files:-?}/126 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1769 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1769 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1772 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1772 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

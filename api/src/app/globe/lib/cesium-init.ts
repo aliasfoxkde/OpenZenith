@@ -10,8 +10,8 @@ import type { DashboardState } from "./types";
 // explicit fallback (partial deploy, stripped install).
 const CESIUM_LOCAL = "/cesium/";
 const CESIUM_CDNS = [
-  "https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/",
-  "https://unpkg.com/cesium@1.119/Build/Cesium/",
+  "https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/",
+  "https://unpkg.com/cesium@1.146.0/Build/Cesium/",
 ];
 const SATELLITE_LOCAL = "/vendor/satellite.min.js";
 const SATELLITE_CDN = "https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js";

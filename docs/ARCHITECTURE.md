@@ -8,7 +8,7 @@ High-level system overview of the OpenZenith geospatial intelligence platform.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Frontend (Next.js 15, Cloudflare Pages Edge)               │
+│  Frontend (Next.js 16, Cloudflare Pages Edge)               │
 │  ├── /map     — MapLibre 2D map                             │
 │  ├── /globe   — CesiumJS 3D globe                           │
 │  └── /wasm-demo — Browser-based terrain analysis (WASM)      │

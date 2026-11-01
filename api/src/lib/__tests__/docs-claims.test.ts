@@ -32,6 +32,12 @@ const LAYER_COUNT = LAYERS.length;
 const BASEMAP_COUNT = Object.keys(BASEMAPS).length;
 /** Next.js route handlers under src/app/api (a file may export several verbs). */
 const API_ROUTE_COUNT = countRouteFiles(path.join(API_ROOT, "src", "app", "api"));
+/** Major version of the installed Next.js, straight from package.json. */
+const NEXT_MAJOR = (
+  JSON.parse(readFileSync(path.join(API_ROOT, "package.json"), "utf8")) as {
+    dependencies: { next: string };
+  }
+).dependencies.next.match(/^\^?(\d+)/)?.[1];
 
 function countRouteFiles(dir: string): number {
   let routes = 0;
@@ -132,6 +138,35 @@ describe("docs claims vs source truth", () => {
       expect(
         stated,
         `no doc states the ${claim.name} count (truth: ${claim.truth}, from ${claim.source}) — add it to README.md or CLAUDE.md`,
+      ).toBe(true);
+    }
+  });
+
+  it("keeps the advertised Next.js major equal to the installed dependency", () => {
+    expect(NEXT_MAJOR, "could not parse next version from api/package.json").toBeTruthy();
+    const texts = DOCS.map((name) => readDoc(name));
+    const matches = texts.flatMap((text) => [...text.matchAll(/Next\.js (\d+)/g)]);
+    // Absence is not a failure, but once a doc names Next.js it must be right.
+    for (const match of matches) {
+      expect(
+        match[1],
+        `a doc says "${match[0]}" but api/package.json installs next ${NEXT_MAJOR} — update the doc`,
+      ).toBe(NEXT_MAJOR);
+    }
+    expect(
+      matches.length,
+      "no doc mentions Next.js — restore the version claim to README.md or CLAUDE.md",
+    ).toBeGreaterThan(0);
+  });
+
+  it("keeps README basemap display names equal to the registry labels", () => {
+    const readme = readDoc("README.md");
+    const labels = Object.values(BASEMAPS).map((b) => b.label);
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(
+        readme.includes(label),
+        `README basemap list does not contain registry label "${label}" (api/src/lib/basemaps.ts) — README names and shipped UI labels drifted; fix README or the label`,
       ).toBe(true);
     }
   });

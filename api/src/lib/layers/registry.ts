@@ -65,7 +65,7 @@ export const LAYERS: readonly LayerDefinition[] = [
     id: "bathymetry",
     name: "Bathymetry",
     category: "terrain",
-    description: "Ocean depth shading from GEBCO 2024 data",
+    description: "Ocean depth shading from GEBCO 2025 data",
     defaultEnabled: false,
     accent: "#3b82f6",
     dataSource: "/api/bathymetry",

@@ -1,6 +1,6 @@
 # api/ — OpenZenith web app + REST API
 
-Next.js 15 App Router application: the public REST API, the 2D map
+Next.js 16 App Router application: the public REST API, the 2D map
 (MapLibre), the 3D globe (CesiumJS), the studio/explore/demo surfaces, and
 the landing page. Deployed to Cloudflare Pages as Edge Workers — every API
 route sets `export const runtime = "edge"`.

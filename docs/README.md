@@ -1,34 +1,37 @@
 # OpenZenith docs index
 
-Read in this order. Every number in these docs is derived from the code and
-config (registry, route count, CI gates) — if a doc and the code disagree,
-the code wins and the doc is wrong.
+Read in this order. Source code and current release receipts are authoritative;
+a planning document is a dated snapshot, not a substitute for checking the
+current tree.
 
-Last swept: 2026-10-11
+**Last swept:** 2026-11-01
 
-## Reading order
+## Current orientation
 
-1. [`../CLAUDE.md`](../CLAUDE.md) — orientation: commands, architecture map, data sources, and the gotchas that bite (storage, CLI, ports).
-2. [`../README.md`](../README.md) — the 5-minute product overview: what the SDK and API do, with the measured layer/basemap/route counts.
-3. [`ARCHITECTURE.md`](ARCHITECTURE.md) — how the pieces fit: storage truth (HuggingFace origin + edge Cache API, no R2), elevation priority chains, CI/CD.
-4. [`DATASET_MANIFEST.md`](DATASET_MANIFEST.md) — every elevation dataset: source, format, tile counts, validation status.
-5. [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to add elevation data to the dataset.
-6. [`security/TRIAGE.md`](security/TRIAGE.md) — Aegis scan policy: what gets fixed vs baselined, and the findings register.
-7. [`handoffs/2026-10-11-integration-release-readiness-handoff.md`](handoffs/2026-10-11-integration-release-readiness-handoff.md) — integration/release readiness audit (2026-10-11): what actually gates what, the root-caused tag-validate defect, Dependabot #10–#24 triage, and the phased closeout plan — the current work queue.
-8. [`planning/HANDOFF.md`](planning/HANDOFF.md) — what the last session left unfinished.
-9. [`planning/EXCELLENCE_PLAN_VI_2026-10-10.md`](planning/EXCELLENCE_PLAN_VI_2026-10-10.md) — the current excellence cycle (VI: prod CVE, security governance, perf P2 closure, duplication kernels), executed end to end and shipped as v0.9.4; carries the G1–G11 gap register.
-10. [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) — the long-running plan and its dated progress log (what landed, when, with evidence).
-11. [`planning/PERFORMANCE_PLAN_2026-10-02.md`](planning/PERFORMANCE_PLAN_2026-10-02.md) — performance state: P0/P1 executed 2026-10-02, P2 items 11–15 closed in cycle VI (2026-10-10 receipts), each item evidence-anchored.
-12. [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) — process gaps and the deploy-then-verify-prod definition of done (item 11, the release tag gate, is open).
-13. [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) — pending stack decision: Next.js 16 + OpenNext (scoping only, nothing migrated).
-14. [`planning/EXCELLENCE_PLAN_2026-10-02.md`](planning/EXCELLENCE_PLAN_2026-10-02.md) — prior excellence plan (gaps F-1…F-18), executed through Phase 8 (v0.9.0); superseded register kept for lineage.
-15. [`planning/IMPROVEMENT_PLAN_2026-09-21.md`](planning/IMPROVEMENT_PLAN_2026-09-21.md) — the previous completed cycle, kept as context for why things look the way they do.
-16. [`OPZENITH_DATA_REPO.md`](OPZENITH_DATA_REPO.md) — spec/proposal for a community tile repository (not built — see its header).
+1. [`../CLAUDE.md`](../CLAUDE.md) — commands, architecture map, data sources, and operational gotchas.
+2. [`../README.md`](../README.md) — product overview, SDK quick start, API, layers, basemaps, and live entry points.
+3. [`ARCHITECTURE.md`](ARCHITECTURE.md) — system boundaries, storage truth, elevation priority, and deployment architecture.
+4. [`DATASET_MANIFEST.md`](DATASET_MANIFEST.md) — elevation dataset formats, source attribution, coverage, tile counts, and validation history.
+5. [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution and validation guidance.
+6. [`security/TRIAGE.md`](security/TRIAGE.md) — Aegis findings, triage policy, and accepted baseline decisions.
+
+## Current plans and operational state
+
+7. [`planning/HANDOFF.md`](planning/HANDOFF.md) — latest operator handoff and shipped-release state; confirm its date and SHA before acting.
+8. [`planning/EXCELLENCE_PLAN_X_2026-10-29.md`](planning/EXCELLENCE_PLAN_X_2026-10-29.md) — cycle X audit, gates, accessibility, and release work (dated plan; handoff records subsequent closeout).
+9. [`planning/FLEET_IMPROVEMENT_PLAN_2026-11-01.md`](planning/FLEET_IMPROVEMENT_PLAN_2026-11-01.md) — fleet audit revalidation and remaining workstreams; original Phase 1 findings are explicitly reconciled against current main.
+10. [`planning/RELIABILITY_GAPS_2026-10-01.md`](planning/RELIABILITY_GAPS_2026-10-01.md) — deploy-then-verify definition of done and release-gate gaps.
+11. [`planning/NEXTJS16_OPENNEXT_MIGRATION.md`](planning/NEXTJS16_OPENNEXT_MIGRATION.md) — migration scoping only; do not infer that a migration has shipped from the plan's existence.
+
+## Historical plans
+
+- [`handoffs/2026-10-11-integration-release-readiness-handoff.md`](handoffs/2026-10-11-integration-release-readiness-handoff.md) — historical integration/release-readiness audit; its old work queue is not current status.
+- [`planning/MASTER_PLAN_2026-09-22.md`](planning/MASTER_PLAN_2026-09-22.md) — long-running plan and dated progress history.
+- [`planning/EXCELLENCE_PLAN_IX_2026-10-25.md`](planning/EXCELLENCE_PLAN_IX_2026-10-25.md), [VIII](planning/EXCELLENCE_PLAN_VIII_2026-10-24.md), [VI](planning/EXCELLENCE_PLAN_VI_2026-10-10.md), and earlier cycles — superseded audit and implementation history.
 
 ## Archive
 
-[`archive/`](archive/) is history: completed plans, past audits, superseded
-roadmaps. Every file there carries a blockquote header saying why it was
-archived and where current truth lives. **Nothing in `archive/` is
-authoritative** — do not cite it as a source for current counts, paths, or
-behavior.
+[`archive/`](archive/) contains historical plans and reports. Each archived
+file should identify its successor. Do not cite archived documents as current
+truth for counts, paths, source versions, or runtime behavior.
+

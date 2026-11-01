@@ -1,5 +1,30 @@
 # Fleet Improvement Plan — 2026-11-01
 
+## Revalidation against current main — 2026-11-01
+
+The Phase 1 list below is the original audit snapshot. Its four claimed
+documentation defects were rechecked against the current repository tree
+before implementation. They are already resolved in the current source and
+must not be re-applied as blind edits:
+
+| Original finding | Current source of truth | Revalidation |
+|---|---|---|
+| Next.js version prose stale | `api/package.json` pins Next.js 16.4.3; README, CLAUDE.md, `api/README.md`, `api/src/app/about/page.tsx`, and `docs/ARCHITECTURE.md` all say Next.js 16 | Resolved |
+| Cesium version/load-path stale | `cesium-init.ts` loads vendored assets first; both jsDelivr and unpkg fallbacks are Cesium 1.146.0; CLAUDE.md records 1.146.0 | Resolved |
+| GEBCO year contradiction | Layer registry, dataset manifest, README, CLAUDE.md, and architecture docs identify GEBCO 2025 | No current contradiction found |
+| Basemap display labels stale | README's ten display labels match `BASEMAPS` in `api/src/lib/basemaps.ts` | Resolved |
+
+The source-level docs gate already checks the Next.js major against
+`api/package.json` and checks every README basemap label against the shared
+registry (`api/src/lib/__tests__/docs-claims.test.ts`). Do not duplicate
+those checks. The remaining improvement opportunity is to keep the source
+gate comprehensive as new cross-file claims are introduced.
+
+**Disposition:** no README, CLAUDE, registry, Cesium, or GEBCO edits are
+needed for the original Phase 1 findings. The re-run workstreams and other
+gaps below remain open unless their own receipts say otherwise.
+
+
 Source: audit fleet run of 2026-11-01 (9 workstreams). Only **docs-claims**
 completed substantively; edge-cache and frontend-audit returned skeletons and
 coverage-plan / next16-plan died on gateway 502/429s — those workstreams are

@@ -272,7 +272,10 @@ jobs:
           # the test count is unchanged at 1,731 in each case.
           # 125/1766 on 2026-10-29 (plan IX C-1: +35 strict-mode branch
           # tests across dem-tile/reverse-geocode/cache-lib/contours and
-          # the coverage-floor ratchet commit d42773eb).
+          # the coverage-floor ratchet commit d42773eb). 126/1769 on
+          # 2026-11-01: Next 16 bump (e306d225) added a codemod test file
+          # (+1 file) and 3 tests — guard was not updated, failing the
+          # 06c695dd run as "covered 126/125 files".
           #
           # FILE count is environment-independent because the parenthesised
           # total counts skipped files too: the ozt2-real-tiles suite skips
@@ -281,11 +284,11 @@ jobs:
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
-          [ "${files:-0}" -eq 125 ] || {
-            echo "INCOMPLETE: passing run covered ${files:-?}/125 files"; exit 1;
+          [ "${files:-0}" -eq 126 ] || {
+            echo "INCOMPLETE: passing run covered ${files:-?}/126 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1766 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1766 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1769 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1769 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

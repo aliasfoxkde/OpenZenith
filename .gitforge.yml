@@ -278,6 +278,9 @@ jobs:
           # 06c695dd run as "covered 126/125 files". 126/1772 on
           # 2026-11-01: docs-claims gate extended with Next.js-major,
           # basemap-label, and GEBCO-year assertions (+3 tests, same file).
+          # 126/1774 on 2026-11-01: GitHub PR #53 added two more
+          # docs-claims assertions (homepage Next.js major, footer data
+          # attribution) — same file, +2 tests.
           #
           # FILE count is environment-independent because the parenthesised
           # total counts skipped files too: the ozt2-real-tiles suite skips
@@ -289,8 +292,8 @@ jobs:
           [ "${files:-0}" -eq 126 ] || {
             echo "INCOMPLETE: passing run covered ${files:-?}/126 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1772 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1772 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1774 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1774 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

@@ -59,6 +59,48 @@ All findings below come from `/var/tmp/oz-fleet/work/docs-claims-report.md`.
 
 ## Phase 2 — Re-run the dead workstreams
 
+**Globe+studio frontend audit — COMPLETE 2026-11-01.** 17 confirmed
+findings (file:line-verified by the auditor), none in the
+already-fixed classes. Top items for the next execution cycle:
+
+- **globe/page.tsx:433** — LEFT_CLICK handler captures mount-time
+  `activeTool` (deps `[]`); elevation-profile clicks never reach
+  `profile.addPoint`.
+- **globe/page.tsx:1182/1196 + 1536-1548** — earthquakes/events toggle
+  fires `loadEarthquakes` twice; duplicate `eq-${i}` entity ids throw.
+- **globe/page.tsx:1188** — toggle passes pre-toggle `state.layers`
+  (stale closure); the 60 s poll dies after the first fetch.
+- **globe/lib/layers/earthquakes.ts:188** — `doLoad` skips
+  `removeEntities("eq-")`; visibilitychange reload duplicates ids.
+- **globe/page.tsx:502** — anonymous `camera.changed` listener leaks
+  past unmount.
+- **globe/page.tsx:360** — `ScreenSpaceEventHandler` never destroyed.
+- **globe/page.tsx:352** — deep-link `#lat/lon/zoom` restore races
+  viewer init and is ignored.
+- **globe/page.tsx:309-334** — `dynamicKeys` omits `spaceWeather` and
+  `coverage`; their polling dies after one tab hide/show.
+- **globe/lib/helpers.ts:217** — `switchBasemapOnViewer` drops
+  user-enabled overlays while their state flags stay true.
+- **globe/page.tsx:1151-1436** — `toggleLayer` side effects inside the
+  `setState` updater; StrictMode double-invokes.
+- **studio/page.tsx:624-635** — profile cleanup only removes markers
+  0/1; >2 points orphan `profile-marker-2+`.
+- **studio/page.tsx:640-687** — `profile-line` re-added unguarded after
+  basemap `setStyle`; styledata restore doesn't re-add profile layers.
+- **studio/page.tsx:644-654** — no cancellation on worker profile
+  results; stale result overwrites newer.
+- **studio/page.tsx:97-100** — `boundaries: true` default but layer
+  never added on load.
+- **studio/page.tsx:188-385** — Map init throw orphans the MapLibre
+  instance (never `.remove()`d).
+- **studio/page.tsx:541-574** — rapid Overpass results can orphan the
+  first result's layer.
+- **globe/page.tsx:589-591** — `__ozSetFollowEntity` survives unmount
+  while `__ozViewer` is cleared.
+
+Verified clean: `useWidgetManager.ts`, `elevation-profile.ts`/`tools.ts`,
+`cesium-init.ts`, `timers.ts`.
+
 Gateway permitting, re-run as forks (bounded, one at a time to avoid the
 circuit breaker):
 
@@ -106,3 +148,13 @@ circuit breaker):
 - Phase 3 execution: commit 7ec4b300 (GEBCO single-source) — full local vitest
   green at 126 files / 1772 tests; CI unit-test guard baseline updated
   1769 → 1772 in `.gitforge.yml` to match the three new gate assertions
+- Aegis re-triage 2026-11-01: commit a32a6167 — the docs-claims gate's
+  `api/package.json` reads tripped the `package-json` detector; the class
+  is the established "the literal IS the input contract" acceptance
+  (same as `relink-bins.mjs` / `override_drift_check.sh`). Baseline
+  regenerated 2117 → 2125; gate green across all five scopes.
+  Disposition recorded in `docs/security/TRIAGE.md`.
+- GitHub PR #53 ("Align live homepage version and data attribution")
+  merged 2026-11-01; it adds two more `docs-claims` assertions (homepage
+  Next.js major, footer data attribution). Local gate green at 9/9 for
+  that file; full suite and CI re-run on the merge commit `8229ad56`.

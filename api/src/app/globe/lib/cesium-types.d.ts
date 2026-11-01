@@ -548,7 +548,7 @@ interface Window {
   satellite?: SatelliteJsApi;
   /** Set by the globe page once its viewer is live; E2E/support detect init through it. */
   __ozViewer?: unknown;
-  __ozSetFollowEntity?: (entity: CesiumType.Entity | null) => void;
+  __ozSetFollowEntity?: ((entity: CesiumType.Entity | null) => void) | undefined;
   // Set by layers/vessels.ts so the layer can be torn down without a
   // module-level singleton.
   __ozCleanupVessels?: () => void;

@@ -61,7 +61,20 @@ All findings below come from `/var/tmp/oz-fleet/work/docs-claims-report.md`.
 
 **Globe+studio frontend audit — COMPLETE 2026-11-01.** 17 confirmed
 findings (file:line-verified by the auditor), none in the
-already-fixed classes. Top items for the next execution cycle:
+already-fixed classes. **Fixes implemented 2026-11-01** (uncommitted-
+at-crash, validated and committed post-recovery): stale `activeTool`
+closure (ref), duplicate earthquake/event loads + `eq-` dedup on load,
+stale `state.layers` in visibility resume and loaders (ref read),
+`camera.changed`/`preRender` listener teardown, `ScreenSpaceEventHandler`
+destroy, hash deep-link restore moved to lazy `useState` initializer,
+`spaceWeather` added to `dynamicKeys` (coverage is a static imagery
+layer, correctly excluded), `switchBasemapOnViewer` preserves
+user-enabled overlays, `toggleLayer` updater purity, `__ozSetFollowEntity`
+teardown; studio: `profile-layers.ts` module (N-marker existence-checked
+removal, in-place line update, stale-marker sweep + 5 unit tests),
+styledata boundary restore, worker-result token gating, map-init orphan
+fix, ref-tracked overpass layer swap. Guard baseline 126/1774 → 127/1779.
+Top items for the next execution cycle:
 
 - **globe/page.tsx:433** — LEFT_CLICK handler captures mount-time
   `activeTool` (deps `[]`); elevation-profile clicks never reach

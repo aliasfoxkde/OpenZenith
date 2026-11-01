@@ -289,11 +289,13 @@ jobs:
           files=$(echo "$clean" | grep -oE 'Test Files +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           tests=$(echo "$clean" | grep -oE 'Tests +[0-9]+ passed.*\([0-9]+\)' | grep -oE '\([0-9]+\)' | tr -d '()')
           echo "test files in passing run: ${files:-UNKNOWN}; tests: ${tests:-UNKNOWN}"
-          [ "${files:-0}" -eq 126 ] || {
-            echo "INCOMPLETE: passing run covered ${files:-?}/126 files"; exit 1;
+          # 127/1779 on 2026-11-01: globe/studio audit fixes extracted
+          # profile-layers.ts (+5 tests, 1 file).
+          [ "${files:-0}" -eq 127 ] || {
+            echo "INCOMPLETE: passing run covered ${files:-?}/127 files"; exit 1;
           }
-          [ "${tests:-0}" -eq 1774 ] || {
-            echo "COUNT DRIFT: ${tests:-?} total, baseline 1774 — update the guard or fix the suite"; exit 1;
+          [ "${tests:-0}" -eq 1779 ] || {
+            echo "COUNT DRIFT: ${tests:-?} total, baseline 1779 — update the guard or fix the suite"; exit 1;
           }
           tail -8 "$log"
     # Full suite is ~6 min locally, but load spikes on this shared NAS have

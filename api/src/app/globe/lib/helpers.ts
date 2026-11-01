@@ -213,9 +213,16 @@ export function switchBasemapOnViewer(viewer: CesiumType.Viewer, key: string) {
   // key comes from user state, so it may not be in the registry
   const bm = BASEMAPS[key]; // noUncheckedIndexedAccess: indexing already yields T | undefined
   const imageryLayers = viewer.imageryLayers;
-
-  while (imageryLayers.length > 0) {
-    imageryLayers.remove(imageryLayers.get(0));
+  // Basemap urls are unique per registry entry, so a layer is the basemap iff
+  // its provider url matches the OLD basemap's url — everything else (NASA
+  // GIBS overlays, BlueMarble, clouds) was enabled by the user and survives
+  // the swap; dropping it here silently desynced the toggle state, which
+  // stayed true while its imagery was gone.
+  const layers = imageryLayers as unknown as OverlayLayerCollection;
+  const knownUrls = new Set(Object.values(BASEMAPS).map((b) => b.url));
+  for (const layer of [...layers._layers]) {
+    const url = layer._imageryProvider?.url || "";
+    if (knownUrls.has(url) || url === "") layers.remove(layer);
   }
 
   if (bm?.url) {
@@ -230,6 +237,7 @@ export function switchBasemapOnViewer(viewer: CesiumType.Viewer, key: string) {
       }),
     );
   }
+  viewer.scene.requestRender();
 }
 
 /**

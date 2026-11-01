@@ -23,6 +23,8 @@ import {
 } from "./lib/drawing";
 import { ToolPanel } from "./components/ToolPanel";
 import { addDataLayer, removeDataLayer, MAP_2D_LAYER_IDS } from "../map/lib/layers";
+import { addBoundaryLayers, removeBoundaryLayers } from "../map/lib/map-setup";
+import { addProfileLayers, removeProfileLayers } from "./lib/profile-layers";
 import { encodeMapHash, decodeMapHash, loadPreferences, savePreferences } from "./lib/map-state";
 import { exportMapScreenshot } from "@/lib/map-export";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
@@ -105,15 +107,28 @@ export default function StudioPage() {
   // The overpass GeoJSON is not component state (only its layer id is), so
   // the basemap-switch restore below keeps a ref to re-add it after setStyle.
   const overpassLayerRef = useRef<{ id: string; data: GeoJSON.FeatureCollection } | null>(null);
+  // Monotonic counter for overpass layer ids — Date.now() can repeat
+  // within one millisecond when two queries resolve together.
+  const overpassSeqRef = useRef(0);
   const [profileCoords, setProfileCoords] = useState<[number, number][] | null>(null);
+  // The profile's map layers are not React state, so the basemap-switch
+  // restore needs a ref to know what to re-draw after setStyle.
+  const profileCoordsRef = useRef<[number, number][] | null>(null);
+  // Monotonic token: a worker result is applied only if it belongs to the
+  // most recent request, so a slow earlier profile cannot overwrite a newer one.
+  const profileRequestRef = useRef(0);
   const profileClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
   const flowPathClickRef = useRef<((lat: number, lon: number) => void) | null>(null);
 
   const [drawState, setDrawState] = useState<DrawState>(createDrawState());
   const drawStateRef = useRef<DrawState>(drawState);
+  // Mirror of `layers` for callbacks registered once at mount (map load,
+  // basemap restore) — they would otherwise read a frozen first-render value.
+  const layersRef = useRef(layers);
   const drawKeyHandlerRef = useRef<((ev: KeyboardEvent) => void) | null>(null);
   const dragRef = useRef<{ active: boolean; vertexIndex: number }>({ active: false, vertexIndex: -1 });
   drawStateRef.current = drawState;
+  layersRef.current = layers;
 
   // Update draw layers when draw state changes
   useEffect(() => {
@@ -200,6 +215,9 @@ export default function StudioPage() {
           maxZoom: 15,
           antialias: true,
         });
+        // Registered before the handlers so a throw below cannot orphan the
+        // instance — the unmount cleanup removes whatever the ref holds.
+        mapRef.current = map;
 
         map.on("load", () => {
           if (state.cancelled) return;
@@ -218,6 +236,9 @@ export default function StudioPage() {
             encoding: "terrarium",
           });
           void addDataLayer(map, layerHandleRef.current, "hillshade");
+          // boundaries defaults on in `layers` but is not in MAP_2D_LAYER_IDS,
+          // so it needs its dedicated add/remove pair.
+          if (layersRef.current["boundaries"]) addBoundaryLayers(map);
 
           setMapReady(true);
           addDrawLayers(map);
@@ -382,8 +403,13 @@ export default function StudioPage() {
         });
 
         map.addControl(new mlgl.NavigationControl(), "top-left");
-        mapRef.current = map;
       } catch {
+        // The map instance may already exist — its WebGL context must not
+        // outlive the failed init.
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
         setLoadError(true);
       }
     };
@@ -419,6 +445,12 @@ export default function StudioPage() {
     setLayers((prev) => ({ ...prev, [id]: enabled }));
     const map = mapRef.current;
     if (!map) return;
+
+    if (id === "boundaries") {
+      if (enabled) addBoundaryLayers(map);
+      else removeBoundaryLayers(map);
+      return;
+    }
 
     if (MAP_2D_LAYER_IDS.has(id)) {
       if (enabled) void addDataLayer(map, layerHandleRef.current, id);
@@ -457,6 +489,9 @@ export default function StudioPage() {
           encoding: "terrarium",
         });
         // Hillshade rides the shared module via the `layers` loop below.
+        // boundaries is not in MAP_2D_LAYER_IDS, so it needs its own restore —
+        // otherwise a style swap silently drops the overlay.
+        if (layersRef.current["boundaries"]) addBoundaryLayers(map);
         for (const [id, enabled] of Object.entries(layers)) {
           if (enabled && MAP_2D_LAYER_IDS.has(id)) {
             void addDataLayer(map, layerHandleRef.current, id);
@@ -467,6 +502,10 @@ export default function StudioPage() {
         }
         const op = overpassLayerRef.current;
         if (op) addGeoJSONLayer(map, op.id, op.data, "#8b5cf6");
+        // The profile line/markers live outside the layer registry, so the
+        // style swap drops them too — re-draw from the last requested endpoints.
+        const pc = profileCoordsRef.current;
+        if (pc) addProfileLayers(map, pc);
       });
     },
     [layers, datasets],
@@ -543,10 +582,16 @@ export default function StudioPage() {
       const map = mapRef.current;
       if (!map) return;
 
-      // Remove previous overpass layer
-      if (overpassLayerId) removeGeoJSONLayer(map, overpassLayerId);
+      // Remove the previous overpass layer. The ref — not the state — is the
+      // source of truth: two results arriving before React re-renders would
+      // both see the stale state id and the first result's layer would
+      // survive on the map.
+      const previous = overpassLayerRef.current;
+      if (previous) removeGeoJSONLayer(map, previous.id);
 
-      const id = `overpass-${Date.now()}`;
+      // A monotonic counter, not Date.now(): two results in the same
+      // millisecond would otherwise collide on one id.
+      const id = `overpass-${overpassSeqRef.current++}`;
       addGeoJSONLayer(map, id, data, "#8b5cf6");
       overpassLayerRef.current = { id, data };
       setOverpassLayerId(id);
@@ -570,7 +615,7 @@ export default function StudioPage() {
         map.fitBounds(bounds, { padding: 50, maxZoom: 14 });
       }
     },
-    [overpassLayerId],
+    [],
   );
 
   /* ─── URL hash sync ─── */
@@ -614,33 +659,28 @@ export default function StudioPage() {
   /* ─── Elevation profile ─── */
 
   const handleProfileChange = useCallback((coords: [number, number][] | null) => {
+    // Clearing a profile must also clear the map's profile layers, not
+    // just the overlay — otherwise the line/markers linger after the
+    // tool resets.
+    const map = mapRef.current;
     if (!coords || coords.length < 2) {
+      profileCoordsRef.current = null;
+      profileRequestRef.current += 1; // invalidate any in-flight result
       setProfileCoords(null);
-      // Clearing a profile must also clear the map's profile layers, not
-      // just the overlay — otherwise the line/markers linger after the
-      // tool resets (removeLayer throws on absent ids, hence the guards).
-      const map = mapRef.current;
-      if (map) {
-        for (const id of ["profile-line", "profile-marker-0", "profile-marker-1"]) {
-          try {
-            map.removeLayer(id);
-          } catch {
-            /* not added yet */
-          }
-          try {
-            map.removeSource(id);
-          } catch {
-            /* not added yet */
-          }
-        }
-      }
+      if (map) removeProfileLayers(map);
       return;
     }
+
+    profileCoordsRef.current = coords;
+    // Increment first: only a result whose token still matches the latest
+    // request may apply, so a slow earlier profile cannot overwrite a newer one.
+    const token = ++profileRequestRef.current;
 
     // Use Web Worker for interpolation computation
     // bounds: coords.length >= 2 returned early above, so endpoints exist
     computeProfileInWorker(coords[0]!, coords[1]!)
       .then(({ points }) => {
+        if (profileRequestRef.current !== token) return;
         setProfileCoords(points);
       })
       .catch(() => {
@@ -651,65 +691,12 @@ export default function StudioPage() {
           const t = i / 100;
           interpolated.push([start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])]);
         }
+        if (profileRequestRef.current !== token) return;
         setProfileCoords(interpolated);
       });
 
-    // `coords` is non-null here — the guard above already returned for the
-    // null/short case, so the former null-branch cleanup was unreachable.
-    // Draw a line on the map between profile endpoints
-    const map = mapRef.current;
     if (!map) return;
-    if (map.getSource("profile-line")) {
-      map.getSource("profile-line")?.setData({
-        type: "Feature",
-        geometry: { type: "LineString", coordinates: coords },
-        properties: {},
-      });
-    } else {
-      map.addSource("profile-line", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: { type: "LineString", coordinates: coords },
-          properties: {},
-        },
-      });
-      map.addLayer({
-        id: "profile-line",
-        type: "line",
-        source: "profile-line",
-        paint: {
-          "line-color": "#3b82f6",
-          "line-width": 3,
-          "line-dasharray": [2, 2],
-        },
-      });
-    }
-    // Add endpoint markers
-    for (let i = 0; i < coords.length; i++) {
-      const markerId = `profile-marker-${i}`;
-      if (!map.getSource(markerId)) {
-        map.addSource(markerId, {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            geometry: { type: "Point", coordinates: coords[i] },
-            properties: {},
-          },
-        });
-        map.addLayer({
-          id: markerId,
-          type: "circle",
-          source: markerId,
-          paint: {
-            "circle-radius": 6,
-            "circle-color": i === 0 ? "#22c55e" : "#ef4444",
-            "circle-stroke-width": 2,
-            "circle-stroke-color": "#fff",
-          },
-        });
-      }
-    }
+    addProfileLayers(map, coords);
   }, []);
 
   /* ─── Style vars ─── */
@@ -861,24 +848,9 @@ export default function StudioPage() {
                 dark={dark}
                 coordinates={profileCoords}
                 onClose={() => {
-                  setProfileCoords(null);
                   // Same cleanup path as handleProfileChange(null): drop the
                   // profile line and endpoint markers from the map.
-                  const map = mapRef.current;
-                  if (map) {
-                    for (const id of ["profile-line", "profile-marker-0", "profile-marker-1"]) {
-                      try {
-                        map.removeLayer(id);
-                      } catch {
-                        /* not added yet */
-                      }
-                      try {
-                        map.removeSource(id);
-                      } catch {
-                        /* not added yet */
-                      }
-                    }
-                  }
+                  handleProfileChange(null);
                 }}
               />
             )}

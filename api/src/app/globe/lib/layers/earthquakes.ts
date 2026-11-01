@@ -189,6 +189,10 @@ export function loadEarthquakes(
     try {
       const data = await fetchEarthquakes(signal);
       if (!Cesium || !viewer) return;
+      // Clear any previous generation first: a visibilitychange resume or
+      // re-toggle can reach this load while `eq-` entities from an earlier
+      // load are still on the viewer, and duplicate ids throw on add.
+      removeEntities("eq-");
       const features = data.features ?? [];
       updateStatus("earthquakes", { lastUpdate: Date.now(), count: features.length });
       features.forEach((f, i) => {

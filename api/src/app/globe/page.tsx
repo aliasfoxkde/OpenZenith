@@ -139,15 +139,16 @@ export default function Globe() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; html: string } | null>(null);
 
-  const [state, setState] = useState<DashboardState>(DEFAULT_STATE);
-  // Always-current view of layer state for effects/closures that must not
-  // re-fire on unrelated layer toggles.
-  const stateLayersRef = useRef(state.layers);
-  stateLayersRef.current = state.layers;
-  const [loading, setLoading] = useState(true);
-
-  // Apply hash/localStorage state on mount (client-only to avoid hydration mismatch)
-  useEffect(() => {
+  // Hash/localStorage restore runs during the first render, not in a
+  // post-mount effect: initCesiumViewer reads `state` for its initial
+  // camera setView and basemap, and an effect-applied state arrived only
+  // after the viewer had already positioned itself at DEFAULT_STATE — the
+  // deep link was silently ignored.
+  const [state, setState] = useState<DashboardState>(() => {
+    // Client component; window exists at render time in the browser. The
+    // guards keep SSR/prerender and tracking-prevention environments on
+    // defaults instead of throwing.
+    if (typeof window === "undefined") return DEFAULT_STATE;
     let savedTheme: string | null = null;
     try {
       savedTheme = localStorage.getItem("globe-theme");
@@ -158,13 +159,18 @@ export default function Globe() {
     const clean: Partial<DashboardState> = {};
     // parseHash returns Partial<DashboardState> — spread is safe
     Object.assign(clean, parsed);
-    setState({
+    return {
       ...DEFAULT_STATE,
       ...clean,
       layers: { ...DEFAULT_LAYERS, ...(parsed.layers || {}) },
       theme: parsed.theme || savedTheme || DEFAULT_STATE.theme,
-    });
-  }, []);
+    };
+  });
+  // Always-current view of layer state for effects/closures that must not
+  // re-fire on unrelated layer toggles.
+  const stateLayersRef = useRef(state.layers);
+  stateLayersRef.current = state.layers;
+  const [loading, setLoading] = useState(true);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState<[number, number] | null>(null);
   const [dataStatus, setDataStatus] = useState<DataStatus[]>([
@@ -206,6 +212,17 @@ export default function Globe() {
   const [lodZone, setLodZone] = useState<string>("SURFACE");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>("none");
+  // Mount-once Cesium click handlers capture this ref instead of the state
+  // value, which would be frozen at mount ("none") — elevation-profile
+  // clicks would never reach profile.addPoint.
+  const activeToolRef = useRef<ToolMode>("none");
+  activeToolRef.current = activeTool;
+  // Removal handles for viewer-scoped listeners registered inside the init
+  // effect; set as they are added, invoked (and cleared) at cleanup. Held at
+  // component level — hooks cannot be called inside an effect body.
+  const cameraChangedCleanup = useRef<(() => void) | null>(null);
+  const preRenderCleanup = useRef<(() => void) | null>(null);
+  const handlerRef = useRef<CesiumType.ScreenSpaceEventHandler | null>(null);
   const toolManagerRef = useRef<ReturnType<typeof createToolManager> | null>(null);
   const elevationProfileRef = useRef<ElevationProfileManager | null>(null);
   const spaceSceneRef = useRef<SpaceSceneManager | null>(null);
@@ -302,10 +319,11 @@ export default function Globe() {
           activeLayers.forEach((key) => {
             dataLoadedRef.current[key] = false;
           });
-          if (activeLayers.includes("earthquakes") && state.layers.earthquakes)
-            loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
-          if (activeLayers.includes("events") && state.layers.events)
-            loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, state.layers);
+          const layers = stateLayersRef.current;
+          if (activeLayers.includes("earthquakes") && layers.earthquakes)
+            loadEarthquakes(viewer, Cesium, updateStatus, removeEntities, intervalsRef, layers);
+          if (activeLayers.includes("events") && layers.events)
+            loadEvents(viewer, Cesium, updateStatus, removeEntities, intervalsRef, layers);
           const dynamicKeys = [
             "flights",
             "militaryFlights",
@@ -321,9 +339,10 @@ export default function Globe() {
             "currents",
             "gpsJamming",
             "dayNight",
-            // These seven were missing, so after one tab hide/show their
-            // polling never restarted — the layers froze on stale data until
+            // These were missing, so after one tab hide/show their polling
+            // never restarted — the layers froze on stale data until
             // manually toggled (dataLoaded had been reset below).
+            "spaceWeather",
             "airQuality",
             "aviationWeather",
             "volcanoes",
@@ -333,7 +352,7 @@ export default function Globe() {
             "lightning",
           ] as const;
           for (const dk of dynamicKeys) {
-            if (activeLayers.includes(dk) && state.layers[dk as keyof LayerState]) {
+            if (activeLayers.includes(dk) && layers[dk]) {
               void loadLayerDynamicRef.current?.(dk);
             }
           }
@@ -358,6 +377,7 @@ export default function Globe() {
         const { Cesium, addCloudOverlay } = result;
 
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handlerRef.current = handler;
         handler.setInputAction((movement: CesiumType.ScreenSpaceEvent) => {
           const cart = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
           if (cart) {
@@ -430,7 +450,7 @@ export default function Globe() {
             }
 
             // Handle elevation profile clicks
-            if (activeTool === "elevation-profile" && elevationProfileRef.current) {
+            if (activeToolRef.current === "elevation-profile" && elevationProfileRef.current) {
               // Bind before the .then(): TS narrowing does not reach into the
               // closure, and the ref can be nulled while the point is added.
               const profile = elevationProfileRef.current;
@@ -499,7 +519,9 @@ export default function Globe() {
         document.addEventListener("contextmenu", handleDocumentContextmenu);
         document.addEventListener("click", handleDocumentClick);
 
-        viewer.camera.changed.addEventListener(() => {
+        // Named so unmount can remove it — an anonymous listener here leaked
+        // past viewer.destroy() and kept setState-ing a dead component.
+        const onCameraChanged = () => {
           // positionCartographic is always defined on a live camera.
           const cg = viewer.camera.positionCartographic;
           const lng = Cesium.Math.toDegrees(cg.longitude);
@@ -507,7 +529,11 @@ export default function Globe() {
           const heightM = cg.height;
           const zoomEst = Math.max(1, Math.log2(40075016 / heightM));
           setState((prev) => ({ ...prev, center: [lng, lat], zoom: zoomEst }));
-        });
+        };
+        viewer.camera.changed.addEventListener(onCameraChanged);
+        cameraChangedCleanup.current = () => {
+          viewer.camera.changed.removeEventListener(onCameraChanged);
+        };
 
         viewerRef.current = viewer;
         // Diagnostic hook: E2E and support tooling detect a completed globe
@@ -590,6 +616,9 @@ export default function Globe() {
           followEntity = entity;
         };
         viewer.scene.preRender.addEventListener(preRenderListener);
+        preRenderCleanup.current = () => {
+          viewer.scene.preRender.removeEventListener(preRenderListener);
+        };
       } catch (err) {
         // Only update state if component is still mounted
         if (!mount.destroyed) {
@@ -626,6 +655,20 @@ export default function Globe() {
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
       layerModulesRef.current.lightning?.cleanupLightning();
+      // Detach viewer-scoped listeners before destroy — destroy() does not
+      // remove camera/scene listeners, and an anonymous camera.changed
+      // callback kept firing (setState on an unmounted component) after it.
+      cameraChangedCleanup.current?.();
+      cameraChangedCleanup.current = null;
+      preRenderCleanup.current?.();
+      preRenderCleanup.current = null;
+      // The ScreenSpaceEventHandler registers canvas-level listeners that
+      // viewer.destroy() does not remove either; destroy it explicitly.
+      handlerRef.current?.destroy();
+      handlerRef.current = null;
+      // Cleared together: leaving this set while __ozViewer is undefined
+      // hands satellites a follow target on a viewer that no longer exists.
+      delete window.__ozSetFollowEntity;
       if (viewerRef.current) {
         viewerRef.current.destroy();
         viewerRef.current = null;
@@ -926,7 +969,7 @@ export default function Globe() {
             updateStatus,
             toggleImageryOverlay,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -937,7 +980,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -948,7 +991,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -959,7 +1002,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -970,7 +1013,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -983,7 +1026,7 @@ export default function Globe() {
             intervalsRef,
             entitiesRef,
             satDataRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1010,7 +1053,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
           );
           break;
         case "spaceWeather":
@@ -1020,7 +1063,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1031,7 +1074,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1042,7 +1085,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1053,7 +1096,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1064,7 +1107,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1075,7 +1118,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1086,7 +1129,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1098,7 +1141,7 @@ export default function Globe() {
             updateStatus,
             removeEntities,
             intervalsRef,
-            state.layers,
+            stateLayersRef.current,
           );
           break;
         case "gpsJamming":
@@ -1109,7 +1152,7 @@ export default function Globe() {
             removeEntities,
             intervalsRef,
             entitiesRef,
-            state.layers,
+            stateLayersRef.current,
             signal,
           );
           break;
@@ -1121,16 +1164,16 @@ export default function Globe() {
             removeEntities,
             intervalsRef,
             entitiesRef,
-            state.layers,
+            stateLayersRef.current,
           );
           break;
       }
       dataLoadedRef.current[key] = true;
     },
 
-    // The remaining callees are all useCallback([], …)-stable; listing them
-    // costs nothing and keeps the rule honest.
-    [state.layers, updateStatus, removeEntities, toggleImageryOverlay, beginLayerLoad],
+    // Layer state is read through stateLayersRef.current inside the loader
+    // calls; the remaining callees are all useCallback([], …)-stable.
+    [updateStatus, removeEntities, toggleImageryOverlay, beginLayerLoad],
   );
   loadLayerDynamicRef.current = loadLayerDynamic;
 
@@ -1154,7 +1197,7 @@ export default function Globe() {
       // one ref array, so without per-layer attribution the timer survived
       // toggle-off (fetching forever for a removed layer) and re-enabling
       // stacked a duplicate beside it. No-op for layers without timers.
-      if (state.layers[key]) {
+      if (stateLayersRef.current[key]) {
         intervalsRef.current = intervalsRef.current.filter((entry) => {
           if (entry.key !== key) return true;
           clearInterval(entry.id);
@@ -1169,14 +1212,16 @@ export default function Globe() {
           abortControllersRef.current.delete(key);
         }
       }
-      setState((prev) => {
-        const next = { ...prev, layers: { ...prev.layers, [key]: !prev.layers[key] } };
-        const on = next.layers[key];
+      // The new value, computed outside the updater: the updater itself must
+      // stay pure — StrictMode double-invokes it, and the side branches below
+      // (loads, entity removals, timers) ran twice under it.
+      const on = !stateLayersRef.current[key];
+      setState((prev) => ({ ...prev, layers: { ...prev.layers, [key]: on } }));
+      {
         const Cesium = cesiumRef.current;
         const viewer = viewerRef.current;
-        if (!Cesium || !viewer) return next;
-
-        switch (key) {
+        if (Cesium && viewer) {
+          switch (key) {
           case "earthquakes":
             if (on && !dataLoadedRef.current["earthquakes"])
               loadEarthquakes(
@@ -1185,7 +1230,7 @@ export default function Globe() {
                 updateStatus,
                 removeEntities,
                 intervalsRef,
-                state.layers,
+                stateLayersRef.current,
                 beginLayerLoad("earthquakes"),
               );
             if (!on) {
@@ -1238,7 +1283,7 @@ export default function Globe() {
                 updateStatus,
                 removeEntities,
                 intervalsRef,
-                state.layers,
+                stateLayersRef.current,
                 beginLayerLoad("events"),
               );
             if (!on) {
@@ -1421,15 +1466,14 @@ export default function Globe() {
             }
             break;
         }
-        return next;
-      });
+        }
+      }
     },
 
-    // state.layers is read inside the updater's side branches; the remaining
-    // callees are useCallback([], …)-stable.
+    // Layer state is read inside the updater through stateLayersRef.current
+    // (no stale-closure dep); the remaining callees are useCallback([], …)-stable.
     [
       loadLayerDynamic,
-      state.layers,
       updateStatus,
       removeEntities,
       toggleImageryOverlay,

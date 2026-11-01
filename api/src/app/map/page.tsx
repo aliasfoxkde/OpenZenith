@@ -159,18 +159,29 @@ export default function MapPage() {
     });
     const map = mapRef.current;
     if (!map) return;
+    // Registry ids are camelCase ("elevationColor") but map layer ids are
+    // kebab-case ("elevation-color-layer"); match on both spellings or the
+    // slider moves the stored value without touching any paint property.
+    const kebab = layerId.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+    const matches = (id: string) => id.startsWith(layerId) || id.startsWith(kebab);
     try {
       const style = map.getStyle();
       if (!style?.layers) return;
       for (const layer of style.layers) {
-        if (layer.id.startsWith(layerId) && layer.type === "raster") {
+        if (matches(layer.id) && layer.type === "raster") {
           map.setPaintProperty(layer.id, "raster-opacity", value / 100);
         }
-        if (layer.id.startsWith(layerId) && layer.type === "hillshade") {
+        if (matches(layer.id) && layer.type === "hillshade") {
           map.setPaintProperty(layer.id, "hillshade-opacity", value / 100);
         }
-        if (layer.id.startsWith(layerId) && layer.type === "symbol") {
+        if (matches(layer.id) && layer.type === "symbol") {
           map.setPaintProperty(layer.id, "text-opacity", value / 100);
+        }
+        if (matches(layer.id) && layer.type === "circle") {
+          map.setPaintProperty(layer.id, "circle-opacity", value / 100);
+        }
+        if (matches(layer.id) && layer.type === "line") {
+          map.setPaintProperty(layer.id, "line-opacity", value / 100);
         }
       }
     } catch {
@@ -291,6 +302,8 @@ export default function MapPage() {
 
   /* Hurricane animation */
   const [hurricaneAnimating, setHurricaneAnimating] = useState(false);
+  const hurricaneAnimatingRef = useRef(hurricaneAnimating);
+  hurricaneAnimatingRef.current = hurricaneAnimating;
   const [hurricaneProgress, setHurricaneProgress] = useState(0);
 
   const toggleHurricaneAnimation = useCallback(() => {
@@ -344,6 +357,8 @@ export default function MapPage() {
   const [drawMode, setDrawMode] = useState<DrawMode>("none");
   const drawModeRef = useRef<DrawMode>("none");
   const cursorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ctxCleanupRef = useRef<(() => void) | null>(null);
+  const basemapSwitchSeqRef = useRef(0);
   const [annotations, setAnnotations] = useState<import("./lib/layers/annotations").Annotation[]>(() =>
     loadAnnotations(),
   );
@@ -428,6 +443,12 @@ export default function MapPage() {
     // drawMode state is intentionally absent — the mode is read from
     // drawModeRef.current so the callback stays valid between renders.
   }, [annotations, annotationName]);
+
+  // The map's mount-time click handler must call the LATEST finishDrawing:
+  // the callback closes over `annotations`, so calling a stale one saved
+  // only the new annotation and wiped every previously saved one.
+  const finishDrawingRef = useRef(finishDrawing);
+  finishDrawingRef.current = finishDrawing;
 
   const cancelDrawing = useCallback(() => {
     drawPointsRef.current = [];
@@ -816,6 +837,9 @@ export default function MapPage() {
           pitch: mapState.pitch || 0,
           maxZoom: 15,
           antialias: true,
+          // Screenshot export reads the canvas after the frame; without this
+          // the drawing buffer is cleared post-present and toDataURL is blank.
+          preserveDrawingBuffer: true,
         });
 
         // Add elevation protocol and source
@@ -913,7 +937,7 @@ export default function MapPage() {
             // Auto-finish for point mode
             if (drawModeRef.current === "point") {
               setTimeout(() => {
-                finishDrawing();
+                finishDrawingRef.current();
               }, 0);
             }
             return;
@@ -988,26 +1012,27 @@ export default function MapPage() {
         map.addControl(new mlgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), "top-right");
 
         // Right-click context menu
-        map.getCanvas().addEventListener("contextmenu", (e: MouseEvent) => {
+        const canvas = map.getCanvas();
+        const onCtxMenu = (e: MouseEvent) => {
           e.preventDefault();
-          const rect = map.getCanvas().getBoundingClientRect();
+          const rect = canvas.getBoundingClientRect();
           const point = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
           setCtxMenu({ x: e.clientX, y: e.clientY, lng: point.lng, lat: point.lat });
-        });
-        map.getCanvas().addEventListener(
-          "click",
-          () => {
-            setCtxMenu(null);
-          },
-          true,
-        );
-        document.addEventListener(
-          "click",
-          (e) => {
-            if (!(e.target as HTMLElement).closest(".map-ctx-menu")) setCtxMenu(null);
-          },
-          true,
-        );
+        };
+        const closeCtxMenu = () => {
+          setCtxMenu(null);
+        };
+        canvas.addEventListener("contextmenu", onCtxMenu);
+        canvas.addEventListener("click", closeCtxMenu, true);
+        const onDocClick = (e: Event) => {
+          if (!(e.target as HTMLElement).closest(".map-ctx-menu")) setCtxMenu(null);
+        };
+        document.addEventListener("click", onDocClick, true);
+        ctxCleanupRef.current = () => {
+          canvas.removeEventListener("contextmenu", onCtxMenu);
+          canvas.removeEventListener("click", closeCtxMenu, true);
+          document.removeEventListener("click", onDocClick, true);
+        };
 
         mapRef.current = map;
       } catch {
@@ -1030,6 +1055,17 @@ export default function MapPage() {
       const handle = layerHandleRef.current;
       handle.intervals.forEach(clearInterval);
       handle.intervals = [];
+      ctxCleanupRef.current?.();
+      ctxCleanupRef.current = null;
+      // Timers registered outside handle.intervals must also die with the map:
+      // the eq play interval and the module-level hurricane animation interval
+      // both call setState (and map mutations) after unmount otherwise.
+      if (eqPlayRef.current) clearInterval(eqPlayRef.current);
+      if (cursorDebounceRef.current) clearTimeout(cursorDebounceRef.current);
+      if (hurricaneAnimatingRef.current) {
+        const m = mapRef.current;
+        if (m) void stopHurricaneAnimation(m, handle);
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -1051,7 +1087,12 @@ export default function MapPage() {
 
       map.setStyle(buildMapStyle(bm));
 
+      // Only the most recent switch may re-add layers: "styledata" fires for
+      // every style data event, so a pending handler from switch A would
+      // otherwise run after switch B's and restore A's stale layer set.
+      const switchSeq = ++basemapSwitchSeqRef.current;
       map.once("styledata", () => {
+        if (switchSeq !== basemapSwitchSeqRef.current) return;
         addElevationSource(map, mlgl);
         // Re-add all layers in correct order after style change
         for (const layer of LAYERS) {
@@ -1087,35 +1128,30 @@ export default function MapPage() {
     const mlgl = mlglRef.current;
     if (!map || !mlgl) return;
 
-    setMapState((prev) => {
-      const layers = { ...prev.layers, [layerName]: enabled };
+    setMapState((prev) => ({ ...prev, layers: { ...prev.layers, [layerName]: enabled } }));
 
-      if (layerName === "terrain3d") {
-        if (enabled) enable3DTerrain(map);
-        else disable3DTerrain(map);
+    // Map mutations run OUTSIDE the state updater: updaters must be pure —
+    // React may invoke them twice (StrictMode), which would double-fire the
+    // layer adds/removes.
+    if (layerName === "terrain3d") {
+      if (enabled) enable3DTerrain(map);
+      else disable3DTerrain(map);
+    }
+
+    if (layerName === "boundaries") {
+      if (enabled) addBoundaryLayers(map);
+      else removeBoundaryLayers(map);
+    }
+
+    // Data layers from shared registry
+    if (MAP_2D_LAYER_IDS.has(layerName)) {
+      if (enabled) {
+        void addDataLayer(map, layerHandleRef.current, layerName);
+        reorderMapLayers(map, { ...mapStateRef.current.layers, [layerName]: enabled });
+      } else {
+        void removeDataLayer(map, layerHandleRef.current, layerName);
       }
-
-      if (layerName === "contour") {
-        // Contour is a visual hint — actual contour generation would need server-side
-      }
-
-      if (layerName === "boundaries") {
-        if (enabled) addBoundaryLayers(map);
-        else removeBoundaryLayers(map);
-      }
-
-      // Data layers from shared registry
-      if (MAP_2D_LAYER_IDS.has(layerName)) {
-        if (enabled) {
-          void addDataLayer(map, layerHandleRef.current, layerName);
-          reorderMapLayers(map, layers);
-        } else {
-          void removeDataLayer(map, layerHandleRef.current, layerName);
-        }
-      }
-
-      return { ...prev, layers };
-    });
+    }
 
     // Persist layer state to localStorage
     try {

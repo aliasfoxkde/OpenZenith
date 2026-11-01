@@ -127,6 +127,41 @@ circuit breaker):
    abstract; `quadNameToBounds` rejects foreign-year filenames; a third gate
    assertion checks every prose surface)
 
+## Phase 2.5 — Map page audit findings (2026-11-01, all source-verified)
+
+Eight confirmed defects in `api/src/app/map/`, found by the re-run frontend
+audit and independently verified line-by-line:
+
+1. **Stale `finishDrawing` closure wipes annotations** (`page.tsx:789-1042`
+   effect has `[]` deps; handler captures mount-time `finishDrawing` whose
+   `annotations` is the initial value; a point draw then
+   `saveAnnotations([ann])` — permanent data loss of all prior annotations).
+2. **Context-menu listeners never removed** (`page.tsx:989-1008`): the
+   canvas `contextmenu`/capture-click and the `document` capture-click
+   listeners have no cleanup — the document listener survives unmount.
+3. **Tab-hide kills layer polling permanently** (`page.tsx:761-787` +
+   `layers/index.ts`): visibility resume re-calls `addDataLayer`, but
+   `add*` early-returns when the source exists, so the cleared intervals
+   (and flights' `moveend` cleanup) are never re-registered.
+4. **Timers survive unmount**: `eqPlayRef` interval (`page.tsx:269`) and the
+   module-level `hurricaneAnimationInterval` (`layers/hurricanes.ts:307`)
+   are outside `handle.intervals` and never cleared on unmount.
+5. **Side effects inside a `setMapState` updater** (`page.tsx:1084-1124`):
+   `toggleLayer` performs map mutations in the updater (impure; double-
+   invoked under StrictMode).
+6. **`switchBasemap` re-add race** (`page.tsx:1045`): `map.once("styledata")`
+   fires on any styledata event, so two rapid switches interleave stale
+   `mapState.layers` closures.
+7. **Opacity sliders dead for many layers** (`page.tsx:152-179`): match
+   is `layer.id.startsWith(registryId)` but map layer ids use kebab-case
+   (`elevation-color-layer`, `land-cover-layer`, `sentinel2-layer`,
+   `population-density-layer`, `accuracy-*`). Verified dead: elevationColor,
+   elevationAccuracy, bathymetry, sentinel2, nightLights, populationDensity,
+   landCover, seaIce, floods, fireTemperature, sarBackscatter.
+8. **Blank screenshots** (`page.tsx:1181-1189` + `lib/map-export.ts`): both
+   paths call `canvas.toDataURL` on a `preserveDrawingBuffer:false` canvas
+   → empty PNG.
+
 ## Explicitly deferred / operator-gated
 
 - Docs-vs-reality item flagged but not decided: whether "81 API routes" should

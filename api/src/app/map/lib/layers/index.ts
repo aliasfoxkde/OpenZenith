@@ -185,6 +185,17 @@ export async function addDataLayer(map: maplibregl.Map, handle: LayerHandle, lay
     handle.intervals = [];
     handle.cleanup = undefined;
     try {
+      // Tab-hide resume re-adds enabled layers to restart their polling, but
+      // every module's add() early-returns when its source still exists — the
+      // cleared intervals would never come back. Teardown first so add() runs
+      // its full registration path (remove tolerates missing pieces, and the
+      // refetch is the resume's purpose). Only a registration that still owns
+      // resources (intervals or a cleanup) means a live source on the map —
+      // an empty registration is a no-op add's residue.
+      if (existing && (existing.intervals.length > 0 || existing.cleanup)) {
+        mod.remove(map);
+        layerResources.delete(layerId);
+      }
       mod.add(map, handle);
     } finally {
       const owned = { intervals: handle.intervals, cleanup: handle.cleanup };

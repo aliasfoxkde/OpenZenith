@@ -815,7 +815,7 @@ export default function Home() {
                   emoji: "\uD83D\uDEE0\uFE0F",
                   title: "Self-Hostable",
                   desc: "Deploy anywhere with Next.js + Cloudflare Pages. Data stored on HuggingFace or your own backend.",
-                  back: "Open source MIT license. Next.js 14 edge runtime. HuggingFace or custom chunk backend. One-click deploy.",
+                  back: "Open source MIT license. Next.js 16 edge runtime. HuggingFace or custom chunk backend. One-click deploy.",
                   href: "https://github.com/aliasfoxkde/OpenZenith",
                   btn: "Get Source",
                 },

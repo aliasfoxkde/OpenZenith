@@ -2270,3 +2270,24 @@ No application-code defect: the test file exercises middleware, touches
 no external data source, and contains no credential material. Baseline
 regenerated with `scripts/aegis_scan.sh update`; gate re-run green
 before the push.
+
+## Re-triage 2026-11-01 — docs-claims gate reads package.json (4 → 0 ACCEPTED)
+
+The docs-claims gate commit (`1a455a8b`) extended
+`api/src/lib/__tests__/docs-claims.test.ts` with a source-attribution
+assertion that reads the installed Next.js major version out of
+`api/package.json`. That added 4 new findings:
+
+- `package-json` ×4 (`docs-claims.test.ts:36,38,147,154`) — the detector
+  fires on the string literal `"package.json"` that the test must read to
+  compare the docs' advertised Next.js major against the installed
+  dependency. Same accepted class as the `scripts/ci/relink-bins.mjs`
+  and `scripts/override_drift_check.sh` dispositions above: the literal
+  IS the input contract, not a stray manifest file. The test parses it
+  with `JSON.parse` and reads one version field; it never writes,
+  resolves, installs, or fetches anything. ACCEPTED.
+
+No application-code defect: the file is a vitest assertion module, it
+touches no external data source, and it contains no credential material.
+Baseline regenerated with `scripts/aegis_scan.sh update`; gate re-run
+green before the push.

@@ -2,7 +2,8 @@
 
 Global elevation data platform — query, analyze, and visualize terrain anywhere on Earth.
 
-**Live:** [openzenith.cyopsys.com](https://openzenith.cyopsys.com) · [Map](https://openzenith.cyopsys.com/map) · [Globe](https://openzenith.cyopsys.com/globe) · [Explore](https://openzenith.cyopsys.com/explore) · [WASM Demo](https://openzenith.cyopsys.com/wasm-demo)
+**Live site:** [openzenith.org](https://openzenith.org) · [Map](https://openzenith.org/map) · [Globe](https://openzenith.org/globe) · [Explore](https://openzenith.org/explore) · [WASM Demo](https://openzenith.org/wasm-demo)  
+**API base:** [openzenith.cyopsys.com](https://openzenith.cyopsys.com)
 
 ---
 

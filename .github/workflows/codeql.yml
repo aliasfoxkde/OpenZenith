@@ -25,5 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v4
         with:
-          languages: ["javascript", "typescript", "python"]
+          # Scalar string: the init action's `with:` does not accept a YAML
+          # sequence. javascript-typescript covers both JS and TS (CodeQL 2.16+).
+          languages: javascript-typescript,python
       - uses: github/codeql-action/analyze@v4

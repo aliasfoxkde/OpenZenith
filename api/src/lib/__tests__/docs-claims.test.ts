@@ -160,6 +160,23 @@ describe("docs claims vs source truth", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("keeps the homepage framework claim equal to the installed Next.js major", () => {
+    const homepage = readFileSync(path.join(API_ROOT, "src/app/page.tsx"), "utf8");
+    const matches = [...homepage.matchAll(/Next\\.js (\\d+)/g)];
+    expect(matches.length, "homepage must state its installed Next.js major").toBeGreaterThan(0);
+    for (const match of matches) {
+      expect(match[1]).toBe(NEXT_MAJOR);
+    }
+  });
+
+  it("distinguishes web API elevation sources from the local SDK dataset", () => {
+    const footer = readFileSync(path.join(API_ROOT, "src/components/Footer.tsx"), "utf8");
+    expect(footer).toContain("Copernicus GLO-30 land");
+    expect(footer).toContain("GEBCO 2025 ocean");
+    expect(footer).toContain("NASA SRTM 30m");
+    expect(footer).toContain("Local SDK");
+  });
+
   it("keeps README basemap display names equal to the registry labels", () => {
     const readme = readDoc("README.md");
     const labels = Object.values(BASEMAPS).map((b) => b.label);

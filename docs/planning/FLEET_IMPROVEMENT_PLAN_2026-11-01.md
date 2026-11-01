@@ -9,26 +9,33 @@ re-queued below rather than their findings being fabricated.
 
 All findings below come from `/var/tmp/oz-fleet/work/docs-claims-report.md`.
 
-1. **Next.js version claims say 15, tree is on 16.4.3.** Fix all five sites:
-   - `CLAUDE.md:63`, `CLAUDE.md:118`
-   - `README.md:196`
-   - `api/README.md:3`
-   - `api/src/app/about/page.tsx:178` (user-visible tech tag)
-   - `docs/ARCHITECTURE.md:11`
-2. **CesiumJS claims stale on two counts.** `CLAUDE.md:121` says "1.119 —
-   loaded via CDN". Actual: vendored 1.146.0 loaded local-first
-   (`cesium-init.ts:11`, `copy-vendor-assets.mjs`), CDN 1.119 is only a
-   fallback — and the fallback version itself lags the vendored copy
-   (`cesium-init.ts:12-17`). Fix the doc, and bump the fallback URLs to 1.146.0
-   (or drop the version-pinned fallback duplication).
-3. **GEBCO year contradiction.** Registry says 2024 (`registry.ts:68`); docs say
-   2025 (`CLAUDE.md:164`, README data-sources table). Resolve the year once —
-   check the actual tile source — and fix whichever side is wrong. Note: this
-   class of drift is **ungated** (docs-claims.test.ts only covers counts).
-4. **README basemap labels don't match shipped UI labels.** README:255 says
+1. **Next.js version claims say 15, tree is on 16.4.3.** **Resolved 2026-11-01**
+   (commit `1a455a8b`) — all six sites now say 16: `CLAUDE.md` (architecture +
+   frontend sections), `README.md:196`, `api/README.md:3`,
+   `api/src/app/about/page.tsx:178` (user-visible tech tag),
+   `docs/ARCHITECTURE.md:11`. The drift class is **gated**: `docs-claims.test.ts`
+   asserts every `Next.js <major>` mention in README/CLAUDE.md equals the
+   `next` dependency's major in `api/package.json`.
+2. **CesiumJS claims stale on two counts.** **Resolved 2026-11-01** (commit
+   `1a455a8b`) — docs now state the vendored 1.146.0 loaded local-first, with
+   the CDN as a fallback; the CDN fallback URLs in `cesium-init.ts:12-17` were
+   bumped from 1.119 to 1.146.0 so the fallback no longer lags the vendored
+   copy.
+3. **GEBCO year contradiction.** Registry said 2024 (`registry.ts:68`); docs said
+   2025 (`CLAUDE.md:164`, README data-sources table). **Resolved 2026-11-01** —
+   the live source is GEBCO 2025 (CEDA `gebco_2025_*` quadrants), so the year is
+   now a single constant `GEBCO_YEAR` in `api/src/lib/gebco/tile-math.ts`,
+   consumed by the registry description, the WMTS abstract, the CEDA base URL,
+   and the quadrant filename builder/parser. The drift class is **gated**:
+   `docs-claims.test.ts` asserts every `GEBCO <year>` mention in README, CLAUDE.md,
+   the registry description, and the WMTS source equals `GEBCO_YEAR`.
+4. **README basemap labels don't match shipped UI labels.** README:255 said
    Voyager/OSM/Topo/Dark No-Labels; registry labels are
    Streets/OpenStreetMap/Topographic/Dark (no labels) (`basemaps.ts:90,116,133,80`).
-   Fix README names or align registry labels — pick one naming authority.
+   **Resolved 2026-11-01** — the registry is the naming authority and README
+   now lists all ten registry labels verbatim. The drift class is **gated**:
+   `docs-claims.test.ts` compares the README basemap bullet's label set against
+   the registry's label set (set equality, not substring presence).
 5. **Counts verified TRUE (no action):** 62 layers, 81 route files, 36 CLI
    subcommands, 15 MCP tools, 10 basemaps, 31 highlight rows.
 
@@ -49,19 +56,32 @@ circuit breaker):
 
 ## Phase 3 — Gates to close the ungated drift class
 
-1. Extend `docs-claims.test.ts` beyond counts: assert the Next.js version in
-   prose matches `package.json`, and basemap labels in README match
-   `basemaps.ts` labels.
-2. Add a source-attribution check for the GEBCO year (single source constant
-   consumed by both registry and test).
+**Both items closed 2026-11-01** (same `docs-claims.test.ts` file, one unit-test
+job — no new CI job):
+
+1. Next.js version gate — the test parses `next` out of `api/package.json` and
+   asserts every `Next.js <major>` mention in README.md and CLAUDE.md equals
+   it; a doc that stops mentioning Next.js fails (the claim must not silently
+   disappear).
+2. Basemap label gate — the README basemap bullet's bolded label set must
+   equal the registry's label set exactly.
+3. GEBCO source-attribution gate — the year is one constant
+   (`GEBCO_YEAR` in `api/src/lib/gebco/tile-math.ts`), consumed by the layer
+   registry description, the WMTS capabilities abstract, the CEDA base URL,
+   and the quadrant filename builder/parser. The test asserts every
+   `GEBCO <year>` mention in README, CLAUDE.md, the registry descriptions, and
+   the WMTS source equals that constant.
 
 ## Explicitly deferred / operator-gated
 
 - Docs-vs-reality item flagged but not decided: whether "81 API routes" should
   count distinct public URLs (>81 with dynamic segments) — current phrasing
   counts route files, which is fine if stated.
-- Rust CLI subcommand list (`CLAUDE.md:146`) was not re-verified this pass —
-  verify when the core workstream re-runs.
+- Rust CLI subcommand list (`CLAUDE.md:146`): **verified 2026-11-01** — all six
+  (`d8`, `accum`, `reconstruct`, `viewshed`, `stream-order`,
+  `gradient-predict`) dispatch in `core/src/main.rs:67-72`. TRUE.
+- GEBCO year gate (Phase 3 item 2) — **closed 2026-11-01**: single-source
+  constant + drift gate now in place (see Phase 3 item 3).
 
 ## Receipts
 

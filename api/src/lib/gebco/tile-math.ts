@@ -16,6 +16,13 @@ const PIXELS_PER_DEG = 240; // 3600 arc-seconds / 15 arc-seconds
 const QUAD_PIXELS = 21600; // pixels per quadrant side
 
 /**
+ * GEBCO release year in use. Single source: filename construction/parsing and
+ * the CEDA base URL derive from this, and the docs-claims gate asserts prose
+ * surfaces (registry description, WMTS abstract, README) agree with it.
+ */
+export const GEBCO_YEAR = 2025;
+
+/**
  * Convert lat/lon to the GEBCO quadrant filename.
  */
 export function latLonToQuadName(lat: number, lon: number): string {
@@ -27,7 +34,7 @@ export function latLonToQuadName(lat: number, lon: number): string {
   else if (lon < 90) lonBand = "w0.0_e90.0";
   else lonBand = "w90.0_e180.0";
 
-  return `gebco_2025_${latBand}_${lonBand}.tif`;
+  return `gebco_${GEBCO_YEAR}_${latBand}_${lonBand}.tif`;
 }
 
 /**
@@ -39,15 +46,16 @@ export function quadNameToBounds(quadName: string): {
   latMax: number;
   lonMax: number;
 } | null {
-  const m = quadName.match(/gebco_2025_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/);
+  const m = quadName.match(/gebco_(\d{4})_n([\d.-]+)_s([\d.-]+)_w([\d.-]+)_e([\d.-]+)\.tif/);
   if (!m) return null;
 
-  // bounds: the regex has four capture groups, all defined on a match
+  // bounds: the regex has five capture groups, all defined on a match
+  if (Number.parseInt(m[1]!, 10) !== GEBCO_YEAR) return null;
   return {
-    latMax: parseFloat(m[1]!),
-    latMin: parseFloat(m[2]!),
-    lonMin: parseFloat(m[3]!),
-    lonMax: parseFloat(m[4]!),
+    latMax: parseFloat(m[2]!),
+    latMin: parseFloat(m[3]!),
+    lonMin: parseFloat(m[4]!),
+    lonMax: parseFloat(m[5]!),
   };
 }
 

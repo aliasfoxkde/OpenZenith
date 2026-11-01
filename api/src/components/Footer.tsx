@@ -16,8 +16,8 @@ interface FooterProps {
  * clears WCAG AAA (7:1) against the footer background.
  *
  * The brand column carries the OpenZenith logo, a one-line description of the
- * free elevation API and a GitHub icon link. The bottom bar credits NASA SRTM
- * 30m, Cloudflare Pages and MIT licensing.
+ * free elevation API and a GitHub icon link. The bottom bar distinguishes the
+ * Copernicus/GEBCO web API data from the NASA SRTM local SDK dataset.
  */
 export function Footer({ dark }: FooterProps) {
   const border = dark ? "#222" : "#e5e5e5";
@@ -48,7 +48,7 @@ export function Footer({ dark }: FooterProps) {
               </span>
             </div>
             <p style={{ fontSize: "0.78rem", color: textSecondary, lineHeight: 1.55, margin: "0 0 0.75rem" }}>
-              Free, fast, global elevation and geospatial API. No API key or signup required. Built with NASA SRTM 30m
+              Free, fast, global elevation and geospatial API. No API key or signup required. Web API uses Copernicus GLO-30 land + GEBCO 2025 ocean; the local SDK also supports NASA SRTM 30m
               data, served on Cloudflare&apos;s edge.
             </p>
             <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -176,7 +176,7 @@ export function Footer({ dark }: FooterProps) {
           }}
         >
           <span style={{ fontSize: "0.72rem", color: textSecondary }}>
-            NASA SRTM 30m Global DEM &middot; Cloudflare Pages &middot; Open Source (MIT)
+            API: Copernicus GLO-30 + GEBCO 2025 &middot; Local SDK: NASA SRTM 30m &middot; Cloudflare Pages &middot; Open Source (MIT)
           </span>
           <span style={{ fontSize: "0.72rem", color: textSecondary }}>
             No API key or signup required. No tracking. Just data.

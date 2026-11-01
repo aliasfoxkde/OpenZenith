@@ -8,6 +8,7 @@
  * renderMapLibre/renderCesium to activate them.
  */
 
+import { GEBCO_YEAR } from "@/lib/gebco/tile-math";
 import type { LayerDefinition, LayerToggleState } from "./types";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -65,7 +66,7 @@ export const LAYERS: readonly LayerDefinition[] = [
     id: "bathymetry",
     name: "Bathymetry",
     category: "terrain",
-    description: "Ocean depth shading from GEBCO 2025 data",
+    description: `Ocean depth shading from GEBCO ${GEBCO_YEAR} data`,
     defaultEnabled: false,
     accent: "#3b82f6",
     dataSource: "/api/bathymetry",

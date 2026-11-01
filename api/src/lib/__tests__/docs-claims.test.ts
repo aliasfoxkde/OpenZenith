@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { LAYERS } from "@/lib/layers/registry";
 import { BASEMAPS } from "@/lib/basemaps";
+import { GEBCO_YEAR } from "@/lib/gebco/tile-math";
 
 /** …/api/src/lib/__tests__ — four levels below the repository root. */
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -168,6 +169,25 @@ describe("docs claims vs source truth", () => {
         readme.includes(label),
         `README basemap list does not contain registry label "${label}" (api/src/lib/basemaps.ts) — README names and shipped UI labels drifted; fix README or the label`,
       ).toBe(true);
+    }
+  });
+
+  it("keeps every GEBCO year mention in code-derived prose equal to GEBCO_YEAR", () => {
+    const surfaces: readonly [string, string][] = [
+      ["README.md", readDoc("README.md")],
+      ["CLAUDE.md", readDoc("CLAUDE.md")],
+      ["registry.ts", JSON.stringify(LAYERS.map((l) => l.description))],
+      ["wmts-capabilities.ts", readFileSync(path.join(API_ROOT, "src/app/api/tiles/wmts-capabilities.ts"), "utf8")],
+    ];
+    for (const [where, text] of surfaces) {
+      const matches = [...text.matchAll(/GEBCO (\d{4})/g)];
+      if (matches.length === 0) continue;
+      for (const match of matches) {
+        expect(
+          Number.parseInt(match[1]!, 10),
+          `${where} says "${match[0]}" but the GEBCO release in use is ${GEBCO_YEAR} (GEBCO_YEAR in api/src/lib/gebco/tile-math.ts) — fix ${where} or bump GEBCO_YEAR everywhere`,
+        ).toBe(GEBCO_YEAR);
+      }
     }
   });
 });

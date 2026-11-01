@@ -1,4 +1,5 @@
 import { CORS_HEADERS } from "@/lib/cors";
+import { GEBCO_YEAR } from "@/lib/gebco/tile-math";
 
 /**
  * OGC WMTS 1.0.0 Capabilities document.
@@ -126,7 +127,7 @@ export function wmtsCapabilitiesResponse(request: Request): Response {
     [
       "    <Layer>",
       `      <ows:Title>OpenZenith Global Elevation (Terrarium PNG, ${tms.id})</ows:Title>`,
-      "      <ows:Abstract>SRTM 30m / GEBCO 2025 elevation encoded as Terrarium PNG tiles.</ows:Abstract>",
+      `      <ows:Abstract>SRTM 30m / GEBCO ${GEBCO_YEAR} elevation encoded as Terrarium PNG tiles.</ows:Abstract>`,
       `      <ows:Identifier>${layerIdentifier(tms)}</ows:Identifier>`,
       '      <Style isDefault="true">',
       "        <ows:Identifier>default</ows:Identifier>",

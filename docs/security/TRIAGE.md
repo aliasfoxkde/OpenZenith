@@ -2291,3 +2291,33 @@ No application-code defect: the file is a vitest assertion module, it
 touches no external data source, and it contains no credential material.
 Baseline regenerated with `scripts/aegis_scan.sh update`; gate re-run
 green before the push.
+
+## Re-triage 2026-11-01 — globe/studio audit-fix commit 96a83491 (4)
+
+Gate reported 4 new findings after the 17+6 globe/studio defect fixes;
+semantic set-difference (pattern + file + content hash, line elided)
+shows +4 real, −0 — the other 35 gate flags were line-shift ghosts of
+already-triaged entries in the same files:
+
+- `try-catch-bulk` globe/page.tsx:153, map/page.tsx:145 (low): the
+  pattern's regex is an un-anchored `try{...}catch(...){...}` that
+  greedily spans from the FIRST try in the file to a distant catch —
+  verified by replaying the regex: it matches lines 153–629 (globe) and
+  145–875 (map), swallowing hundreds of pre-existing statements. The
+  fingerprint's content hash covers that whole span, so ANY edit inside
+  it re-flags the block. The edits themselves (state-initializer
+  restore, cleanup handles) introduced no new try/catch. Same
+  accepted class as the many prior try-catch-bulk baselines; the
+  detector limitation is noted for the scanner's backlog. Re-baselined.
+- `react-missing-key-prop` profile-layers.test.ts:23 (low): the
+  documented multi-line-JSX misfire class — but this instance is not
+  even JSX: it is a plain object literal inside the MapLibre test
+  double. No React involved. Baselined as false positive.
+- `double-type-assertion` profile-layers.test.ts:25 (medium): the
+  repo-standard test-double cast (`as unknown as maplibregl.Map`)
+  handing a minimal scripted map to the module under test; the only
+  way to construct the typed facade in a unit test. Same accepted
+  class as every prior Request-as-NextRequest baseline. Baselined.
+
+No new vulnerability classes; no code changes. Baseline regenerated via
+`scripts/aegis_scan.sh update`; gate green across all 5 scopes.

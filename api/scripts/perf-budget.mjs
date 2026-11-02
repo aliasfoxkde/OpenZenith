@@ -35,7 +35,13 @@ function measure() {
   const js = walk(join(STATIC, "_next/static")).filter((f) => f.endsWith(".js"));
   const totalJs = js.reduce((a, f) => a + statSync(f).size, 0);
 
-  const chunks = js.map((f) => [f.replace(chunksDir + "/", ""), statSync(f).size]);
+  // Only direct children of chunks/ are page chunks. Turbopack also emits
+  // low-priority manifests under _next/static/<buildId>/ (_buildManifest.js
+  // et al.); they count toward totalJs but are not in chunks/, and joining
+  // their walked path onto chunksDir below would fabricate a bogus filename.
+  const chunks = js
+    .filter((f) => statSync(f).isFile() && f.startsWith(chunksDir + "/"))
+    .map((f) => [f.replace(chunksDir + "/", ""), statSync(f).size]);
   const polyfills = chunks.find(([n]) => n.startsWith("polyfills-"))?.[1] ?? 0;
 
   // Per-route page chunks. Turbopack (Next 16) emits opaque chunk names, so

@@ -312,6 +312,24 @@ describe("Wildfires API — caching, CSV parsing and error paths", () => {
     expect(urls[2]).toContain("/csv/test-key/VIIRS_SNPP_NRT/-180,-90,180,90/1");
   });
 
+  it("rejects an unvalidated bbox and satellite before they reach the FIRMS URL", async () => {
+    stubKey();
+    stubFetch(vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));
+
+    const GET = await getRoute();
+    for (const bad of [
+      "?bbox=../../admin",
+      "?bbox=1,2,3",
+      "?bbox=abc,def,ghi,jkl",
+      "?satellite=VIIRS_SNPP_NRT/../../../x",
+      "?satellite=NOT_A_SAT",
+    ]) {
+      const resp = await GET(createMockRequest(`https://example.com/api/wildfires${bad}`));
+      expect(resp.status, bad).toBe(400);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("forwards a custom satellite to the FIRMS URL and the response payload", async () => {
     stubKey();
     stubFetch(vi.fn(() => new Response(FIRMS_HEADER, { status: 200 })));

@@ -9,6 +9,9 @@ import { edgeGetJson, edgePutJson, apiCacheKey } from "@/lib/storage/edge-cache"
  */
 export const runtime = "edge";
 
+const VALID_SATELLITES = new Set(["VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "MODIS_NRT"]);
+const BBOX_RE = /^-?\d{1,3}(\.\d+)?,-?\d{1,2}(\.\d+)?,-?\d{1,3}(\.\d+)?,-?\d{1,2}(\.\d+)?$/;
+
 // Preflight has nothing to await — stay promise-returning because callers await handlers.
 /**
  * Answers the CORS preflight for the NASA FIRMS wildfire endpoint with a 204
@@ -34,8 +37,23 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const days = Math.min(Number(searchParams.get("days")) || 1, 7);
-    const bbox = searchParams.get("bbox") || "-180,-90,180,90";
+    const rawBbox = searchParams.get("bbox") || "-180,-90,180,90";
+    // Validate before interpolation: bbox and satellite go into the FIRMS URL
+    // path, so an unvalidated value could restructure the upstream request.
+    if (!BBOX_RE.test(rawBbox)) {
+      return NextResponse.json(
+        { error: 'Invalid bbox — expected "lon_min,lat_min,lon_max,lat_max" decimal degrees' },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
+    const bbox = rawBbox;
     const satellite = searchParams.get("satellite") || "VIIRS_SNPP_NRT";
+    if (!VALID_SATELLITES.has(satellite)) {
+      return NextResponse.json(
+        { error: `Invalid satellite. Valid: ${[...VALID_SATELLITES].join(", ")}` },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
 
     const cacheKey = apiCacheKey("wildfires", { days: String(days), bbox, satellite });
 

@@ -7,6 +7,7 @@ type ThemeMode = "system" | "dark" | "light";
 
 // ── Module-level shared state (single source of truth) ──
 let currentMode: ThemeMode = "system";
+let initialized = false;
 const listeners = new Set<() => void>();
 
 function notifyAll() {
@@ -32,6 +33,23 @@ export function isDarkNow(): boolean {
   return resolveDark(currentMode);
 }
 
+/**
+ * The palette the user actually sees right now.
+ *
+ * Before `initTheme()` runs, `currentMode` is still the module default
+ * ("system"), which loses a saved explicit choice: a user who picked "light"
+ * on a dark OS would briefly get the OS palette. The pre-paint inline script
+ * in the root layout already resolved the saved mode into `data-theme`, so
+ * trust that attribute until initialization has synced the module state.
+ */
+function currentPalette(): boolean {
+  if (!initialized && typeof document !== "undefined") {
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark" || attr === "light") return attr === "dark";
+  }
+  return resolveDark(currentMode);
+}
+
 /** React hook — returns `true` if dark theme is active. */
 export function useTheme() {
   const subscribe = useCallback((callback: () => void) => {
@@ -48,8 +66,13 @@ export function useTheme() {
     };
   }, []);
 
-  const getSnapshot = useCallback(() => resolveDark(currentMode), []);
+  const getSnapshot = useCallback(() => currentPalette(), []);
 
+  // getServerSnapshot must agree with the server render, so it stays a
+  // constant. Surfaces that must be correct on the FIRST paint are driven by
+  // the --oz-* CSS variables (see globals.css), which the pre-paint inline
+  // script resolves via data-theme; this hook only supplies the boolean
+  // flags that React-rendered chrome needs.
   const dark = useSyncExternalStore(subscribe, getSnapshot, () => false);
   return dark;
 }
@@ -69,6 +92,7 @@ export function initTheme(): ThemeMode {
     /* storage unavailable */
   }
   applyTheme(currentMode);
+  initialized = true;
   // Stored mode can differ from what the hook resolved pre-init (module
   // default is "system"); notify so `useTheme()` consumers re-render with the
   // restored value instead of staying on the stale one.

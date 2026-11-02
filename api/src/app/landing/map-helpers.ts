@@ -13,6 +13,11 @@ interface MapWithPin extends maplibregl.Map {
 export function addOrUpdatePin(map: maplibregl.Map, lon: number, lat: number) {
   const el = document.createElement("div");
   el.className = "oz-pin";
+  // MapLibre names a custom marker element (aria-label) but leaves the role
+  // to its default-marker path, which a custom element never takes — an
+  // element with a name but no role violates aria-prohibited-attr. "img" is
+  // the role MapLibre assigns its own non-interactive markers.
+  el.setAttribute("role", "img");
   el.style.cssText = `
     width:20px;height:20px;border-radius:50%;
     background:rgba(59,130,246,0.9);border:2px solid #fff;

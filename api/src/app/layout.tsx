@@ -161,12 +161,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   var d=m==="dark"||(m==="system"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
   document.documentElement.setAttribute("data-theme",d?"dark":"light");
   }catch(e){document.documentElement.setAttribute("data-theme",window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");}
+  // WCAG 2.4.1: move focus to #main-content when the skip link is activated.
+  // Delegated on document in the capture phase so it is live from the first
+  // paint — a React handler only exists once the page has hydrated, and on
+  // the heaviest pages a keyboard user can activate the link before that.
+  // Native fragment navigation moves sequential focus in Chromium but leaves
+  // document.activeElement on <body> in Firefox and WebKit.
+  document.addEventListener("click",function(e){
+    var a=e.target&&e.target.closest?e.target.closest("a.skip-to-content"):null;
+    if(!a)return;
+    var t=document.getElementById("main-content");
+    if(!t)return;
+    e.preventDefault();
+    t.focus();
+    t.scrollIntoView();
+  },true);
 })();`,
           }}
         />
         {/* WCAG 2.4.1 (Bypass Blocks): first focusable element on every
             page jumps past the repeated chrome to that page's
-            <main id="main-content">. Client component — fragment nav alone
+            <main id="main-content">. The focus move lives in the inline
+            script above so it works before hydration; fragment nav alone
             does not move focus in Firefox/Safari (see SkipLink). */}
         <SkipLink />
         <ErrorBoundary>{children}</ErrorBoundary>

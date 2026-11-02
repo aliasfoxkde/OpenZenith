@@ -38,12 +38,27 @@ function measure() {
   const chunks = js.map((f) => [f.replace(chunksDir + "/", ""), statSync(f).size]);
   const polyfills = chunks.find(([n]) => n.startsWith("polyfills-"))?.[1] ?? 0;
 
-  // Per-route page chunks (hash in the name — match by prefix). The root
-  // route emits `app/page-<hash>.js` (no extra segment).
-  const pageChunk = (route) =>
-    chunks
-      .filter(([n]) => (route === "page" ? n.startsWith("app/page-") : n.startsWith(`app/${route}/page-`)))
-      .reduce((a, [, s]) => a + s, 0);
+  // Per-route page chunks. Turbopack (Next 16) emits opaque chunk names, so
+  // route attribution comes from each route's HTML: the chunks it references
+  // minus the chunks every other route also references.
+  const routeHtml = { landing: "index.html", map: "map.html", globe: "globe.html", explore: "explore.html", studio: "studio.html" };
+  const refs = Object.fromEntries(
+    Object.entries(routeHtml).map(([route, file]) => [
+      route,
+      new Set(
+        readFileSync(join(STATIC, file), "utf8")
+          .match(/static\/chunks\/[a-zA-Z0-9_.-]+\.js/g)
+          ?.map((m) => m.replace("static/chunks/", "")) ?? [],
+      ),
+    ]),
+  );
+  const pageChunk = (route) => {
+    const others = new Set(Object.entries(refs).flatMap(([r, s]) => (r === route ? [] : [...s])));
+    return [...refs[route]].filter((n) => !others.has(n)).reduce((a, n) => {
+      const c = chunks.find(([cn]) => cn === n);
+      return a + (c ? c[1] : 0);
+    }, 0);
+  };
 
   // Structural invariants that should never regress silently.
   const indexHtml = readFileSync(join(STATIC, "index.html"), "utf8");
@@ -53,15 +68,15 @@ function measure() {
     noGoogleFontsImport: !indexHtml.includes("fonts.googleapis"),
     heroTilePreconnect: indexHtml.includes("server.arcgisonline.com"),
     cesiumPreload: globeHtml.includes('"/cesium/Cesium.js"'),
-    flipCardMarker: chunks.some(
-      ([n]) => n.startsWith("app/page-") && readFileSync(join(chunksDir, n)).includes("oz-flip-card"),
+    flipCardMarker: chunks.some(([n, s]) =>
+      s < 200_000 && readFileSync(join(chunksDir, n), "utf8").includes("oz-flip-card"),
     ),
   };
 
   return {
     totalJs,
     polyfills,
-    landing: pageChunk("page"),
+    landing: pageChunk("landing"),
     map: pageChunk("map"),
     globe: pageChunk("globe"),
     explore: pageChunk("explore"),

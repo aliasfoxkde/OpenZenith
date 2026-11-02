@@ -2336,3 +2336,26 @@ Gate reported 1 new finding; semantic set-difference shows +1 real, −0.
 
 No new vulnerability classes. Baseline regenerated; gate green across
 all 5 scopes.
+
+## Re-triage 2026-11-02 — pre-hydration a11y fixes commit 27b2db05 (4)
+
+Gate reported 4 new findings; all in code introduced by the
+pre-hydration a11y/theme commits.
+
+- `react-optimization` useTheme.ts:69 (low): `currentPalette()` in the
+  `getSnapshot` callback — the scanner flags the call shape, but the
+  function deliberately reads module state (`initialized`,
+  `data-theme`) rather than props/state, which is the whole point of
+  the pre-init fallback. Correct as written; baselined.
+- `var-declaration` layout.tsx:171,173 (low, ×2): inside the inline
+  pre-paint script rendered into the HTML `<head>`-adjacent
+  `dangerouslySetInnerHTML` block. `var` is deliberate — the script
+  must parse on engines without full ES6 module treatment and runs
+  before any transpiled bundle. Baselined.
+- `comment-ratio-outlier` SkipLink.tsx:1 (info): the file's doc comment
+  explains WHY the focus move lives in the layout's inline script
+  (hydration timing, cross-browser fragment-nav behavior) — exactly the
+  non-obvious rationale comments exist for. Baselined.
+
+No new vulnerability classes. Baseline regenerated via
+`scripts/aegis_scan.sh update`; gate green across all 5 scopes.

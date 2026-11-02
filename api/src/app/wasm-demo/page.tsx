@@ -482,7 +482,7 @@ export default function WasmDemo() {
       {/* The demo was the only page without site chrome; the navbar gives it
          standard navigation (and its keyboard stop) back. It renders light —
          this page has no theme support. */}
-      <Navbar dark={false} breadcrumb="WASM Demo" />
+      <Navbar breadcrumb="WASM Demo" />
       <main
         id="main-content"
         tabIndex={-1}

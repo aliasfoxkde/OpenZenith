@@ -5,16 +5,16 @@ import { useState, type ReactNode } from "react";
 interface CodeBlockProps {
   children: ReactNode;
   label?: string;
-  dark?: boolean;
   code?: string;
 }
 
 /**
  * Renders a monospaced code panel with a copy-to-clipboard button.
  *
- * `dark` selects the palette: the dark surface is `#0d1117` and the light one
- * `#f5f5f5`, each paired with a label color that clears WCAG AAA contrast.
- * `label`, when given, is shown as an uppercase caption above the code.
+ * The surface and label colors come from the `--oz-code-bg`/`--oz-code-text`
+ * theme tokens in `globals.css`, each clearing WCAG AAA contrast in both
+ * themes. `label`, when given, is shown as an uppercase caption above the
+ * code.
  *
  * The button copies `code` verbatim when it is supplied; otherwise the text is
  * derived from `children` by flattening string nodes and joining nested arrays
@@ -27,7 +27,7 @@ interface CodeBlockProps {
  * @param props.code - Explicit source text to place on the clipboard, used in
  *   preference to the text derived from `children`.
  */
-export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps) {
+export function CodeBlock({ children, label, code }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 
   const copyCode = () => {
@@ -49,7 +49,7 @@ export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps
     <div
       style={{
         position: "relative",
-        background: dark ? "#0d1117" : "#f5f5f5",
+        background: "var(--oz-code-bg)",
         borderRadius: 8,
         padding: "0.8rem 1rem",
         fontFamily: "monospace",
@@ -65,7 +65,7 @@ export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps
             fontWeight: 600,
             // AAA on the block background: #c9d1d9 = 11.5:1 on #0d1117,
             // #404040 = 9.8:1 on #f5f5f5.
-            color: dark ? "#c9d1d9" : "#404040",
+            color: "var(--oz-code-text)",
             marginBottom: "0.4rem",
             textTransform: "uppercase",
             letterSpacing: "0.05em",
@@ -87,7 +87,7 @@ export function CodeBlock({ children, label, dark = true, code }: CodeBlockProps
           // blended the label down to 2.9:1 on light backgrounds. Effective
           // surface is #f5f5f5 (light) / #202429 (dark, white 8% over #0d1117):
           // #404040 = 9.8:1, #c9d1d9 = 11.5:1.
-          color: dark ? "#c9d1d9" : "#404040",
+          color: "var(--oz-code-text)",
           padding: "0.2rem 0.5rem",
           // 2.5.8 AA floor (24px)
           minHeight: 24,

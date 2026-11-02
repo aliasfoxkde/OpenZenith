@@ -72,6 +72,9 @@
   --oz-code-syn-fn: #61afef;
   --oz-code-syn-str: #98c379;
   --oz-code-syn-num: #d19a66;
+  --oz-footer-bg: #0c0c0c;
+  --oz-code-bg: #0d1117;
+  --oz-code-text: #c9d1d9;
 }
 
 /* Light theme */
@@ -98,6 +101,9 @@
   --oz-code-syn-fn: #0c4a6e;
   --oz-code-syn-str: #365314;
   --oz-code-syn-num: #7c2d12;
+  --oz-footer-bg: #f8f8f8;
+  --oz-code-bg: #f5f5f5;
+  --oz-code-text: #404040;
 }
 
 /* ─── Text Rendering Optimization ─── */

@@ -1277,7 +1277,6 @@ export default function MapPage() {
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: T.bg, overflow: "hidden" }}>
       {/* Top bar */}
       <Navbar
-        dark
         breadcrumb="Map"
         extra={
           <>

@@ -7,7 +7,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 // Shared hydration-safe theme hook (useSyncExternalStore, server snapshot
 // false). A local useState(() => matchMedia(...)) initializer ran during SSR
 // and desynced the server/client HTML for dark-preference visitors.
-import { useTheme } from "../landing/useTheme";
 
 const S = `
 .ab-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif}
@@ -73,20 +72,19 @@ const S = `
  * Explorer), the technology stack, the upstream data sources (USGS
  * earthquakes, OpenSky, Celestrak, NASA EONET, NWS/NOAA, Open-Meteo), the
  * author and team, a project-history timeline, ways to get involved, and the
- * licence. Theme-aware via the shared `useTheme` hook.
+ * licence. Theme-aware via the `--oz-*` tokens in `globals.css`.
  */
 export default function AboutPage() {
-  const dark = useTheme();
 
   return (
     <ErrorBoundary>
       <div
         className="ab-wrap"
-        style={{ background: dark ? "#0a0a0a" : "#fafafa", color: dark ? "#e5e5e5" : "#171717" }}
+        style={{ background: "var(--oz-bg)", color: "var(--oz-text)" }}
       >
         <style dangerouslySetInnerHTML={{ __html: S }} />
 
-        <Navbar dark breadcrumb="About" />
+        <Navbar breadcrumb="About" />
 
         <main id="main-content" tabIndex={-1} className="ab-body">
           <h1>About OpenZenith</h1>
@@ -270,8 +268,7 @@ export default function AboutPage() {
                   href="https://github.com/aliasfoxkde"
                   target="_blank"
                   rel="noopener noreferrer"
-                  /* #a3a3a3 = 7.2:1 on #0a0a0a, #525252 = 7.8:1 on #fafafa */
-                  style={{ color: dark ? "#a3a3a3" : "#525252", display: "flex" }}
+                  style={{ color: "var(--oz-text-secondary)", display: "flex" }}
                   aria-label="GitHub"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -282,8 +279,7 @@ export default function AboutPage() {
                   href="https://github.com/aliasfoxkde/OpenZenith"
                   target="_blank"
                   rel="noopener noreferrer"
-                  /* #a3a3a3 = 7.2:1 on #0a0a0a, #525252 = 7.8:1 on #fafafa */
-                  style={{ color: dark ? "#a3a3a3" : "#525252", fontSize: "0.8rem" }}
+                  style={{ color: "var(--oz-text-secondary)", fontSize: "0.8rem" }}
                 >
                   OpenZenith
                 </a>
@@ -361,12 +357,11 @@ export default function AboutPage() {
         </main>
 
         <GetInTouch
-          dark={dark}
           heading="Get in Touch"
           description="Questions, feedback, or want to collaborate? Send a message."
         />
 
-        <Footer dark={dark} />
+        <Footer />
       </div>
     </ErrorBoundary>
   );

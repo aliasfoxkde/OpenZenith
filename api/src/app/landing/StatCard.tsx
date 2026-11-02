@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useTheme } from "./useTheme";
 
 interface Stat {
   label: string;
@@ -17,12 +16,11 @@ interface Stat {
  * its comments apply here too).
  */
 export default function StatCard({ s }: { s: Stat }) {
-  const dark = useTheme();
   const [open, setOpen] = useState(false);
-  const cardBg = dark ? "#161616" : "#ffffff";
-  const border = dark ? "#222" : "#e5e5e5";
-  const textSecondary = dark ? "#9CA3AF" : "#404040";
-  const accentText = dark ? "#22c55e" : "#14532d";
+  const cardBg = "var(--oz-bg-card)";
+  const border = "var(--oz-border)";
+  const textSecondary = "var(--oz-text-secondary)";
+  const accentText = "var(--oz-accent-text)";
   const tooltipBg = "#1a1a1a";
 
   return (

@@ -55,7 +55,6 @@ interface SnippetTabsProps {
   result: SnippetResult | null;
   placeName: string | null;
   loading: boolean;
-  dark: boolean;
   text: string;
   textSecondary: string;
 }
@@ -64,7 +63,7 @@ interface SnippetTabsProps {
  * Result + code-snippet panel under the elevation lookup: tabbed API URL,
  * tile, cURL, JS, and Python examples with a copy button.
  */
-export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, textSecondary }: SnippetTabsProps) {
+export function SnippetTabs({ lat, lon, result, placeName, loading, text, textSecondary }: SnippetTabsProps) {
   const [tab, setTab] = useState<SnippetTab>("url");
   const [copied, setCopied] = useState(false);
 
@@ -152,7 +151,7 @@ export function SnippetTabs({ lat, lon, result, placeName, loading, dark, text, 
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <CodeBlock dark={dark} code={snippetText(tab, la, lo, result)}>
+      <CodeBlock code={snippetText(tab, la, lo, result)}>
         {tab === "result" && result && (
           <div>
             <div className="oz-result-value">

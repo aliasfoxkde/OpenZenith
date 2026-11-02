@@ -2321,3 +2321,18 @@ already-triaged entries in the same files:
 
 No new vulnerability classes; no code changes. Baseline regenerated via
 `scripts/aegis_scan.sh update`; gate green across all 5 scopes.
+
+## Re-triage 2026-11-02 — wildfires bbox-validation commit 2d6090a2 (1)
+
+Gate reported 1 new finding; semantic set-difference shows +1 real, −0.
+
+- `try-catch-bulk` wildfires/route.ts:37 (low): the known greedy-span
+  class (see 2026-11-01 globe/studio entry) — the bbox/satellite
+  validation added real statements inside the try block, changing the
+  span's content hash, so the whole-block fingerprint went NEW. The edit
+  introduced no new try/catch and the route's outer catch is the
+  deliberate error envelope (502 FeatureCollection). Same accepted
+  class; re-baselined via `scripts/aegis_scan.sh update`, gate green.
+
+No new vulnerability classes. Baseline regenerated; gate green across
+all 5 scopes.

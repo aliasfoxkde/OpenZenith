@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 interface GetInTouchProps {
-  dark: boolean;
   /** Optional section heading (default: "Get in Touch") */
   heading?: string;
   /** Optional description text */
@@ -28,11 +27,8 @@ interface GetInTouchProps {
  *
  * The section is exposed as a `region` landmark named by the heading, so the
  * form content is contained by a landmark for the axe region rule (WCAG 1.3.6).
- *
- * @param props.dark - Selects the dark card, border, input and text palette.
  */
 export function GetInTouch({
-  dark,
   heading = "Get in Touch",
   description = "Have a question, suggestion, or want to collaborate? Drop us a message.",
   submitLabel = "Send Message",
@@ -42,15 +38,13 @@ export function GetInTouch({
   const [contactForm, setContactForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [contactSent, setContactSent] = useState(false);
 
-  const cardBg = dark ? "#161616" : "#ffffff";
-  const border = dark ? "#222" : "#e5e5e5";
-  const text = dark ? "#e5e5e5" : "#171717";
-  // WCAG AAA (7:1) secondary text: #a3a3a3 = 7.2:1 on the #161616 card,
-  // #525252 = 7.8:1 on the #ffffff card.
-  const textSecondary = dark ? "#a3a3a3" : "#525252";
+  const cardBg = "var(--oz-bg-card)";
+  const border = "var(--oz-border)";
+  const text = "var(--oz-text)";
+  const textSecondary = "var(--oz-text-secondary)";
   const accent = "#22c55e";
-  const accentDim = dark ? "rgba(34,197,94,0.12)" : "#dcfce7";
-  const inputBg = dark ? "#111" : "#fff";
+  const accentDim = "var(--oz-accent-dim)";
+  const inputBg = "var(--oz-bg-input)";
 
   function sendContact(e: React.SubmitEvent<HTMLFormElement>): void {
     e.preventDefault();
@@ -69,7 +63,7 @@ export function GetInTouch({
         maxWidth: 1400,
         margin: "0 auto",
         padding: "2.5rem 1.5rem",
-        borderTop: `1px solid ${dark ? "#1a1a1a" : "#f0f0f0"}`,
+        borderTop: "1px solid var(--oz-border-strong)",
       }}
     >
       <div

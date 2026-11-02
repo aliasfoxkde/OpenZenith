@@ -8,7 +8,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 // Shared hydration-safe theme hook (useSyncExternalStore, server snapshot
 // false). A local useState(() => matchMedia(...)) initializer ran during SSR
 // and desynced the server/client HTML for dark-preference visitors.
-import { useTheme } from "../landing/useTheme";
 
 const S = `
 .ct-wrap{position:relative;width:100vw;min-height:100vh;overflow-x:hidden;font-family:system-ui,-apple-system,sans-serif}
@@ -87,10 +86,9 @@ const S = `
  * supported source-integration formats (static GeoJSON/CSV, ArcGIS REST,
  * Overpass/OSM, live WMS/WFS/WCS feeds, custom tile services), the
  * API endpoints they can target, and the pull-request workflow for adding a
- * route or layer. Theme-aware via the shared `useTheme` hook.
+ * route or layer. Theme-aware via the `--oz-*` tokens in `globals.css`.
  */
 export default function ContributePage() {
-  const dark = useTheme();
   const [uploadData, setUploadData] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -121,12 +119,12 @@ export default function ContributePage() {
     <ErrorBoundary>
       <div
         className="ct-wrap"
-        style={{ background: dark ? "#0a0a0a" : "#fafafa", color: dark ? "#e5e5e5" : "#171717" }}
+        style={{ background: "var(--oz-bg)", color: "var(--oz-text)" }}
       >
         <style dangerouslySetInnerHTML={{ __html: S }} />
 
         {/* Shared Nav */}
-        <Navbar dark={dark} breadcrumb="Contribute" />
+        <Navbar breadcrumb="Contribute" />
 
         <main id="main-content" tabIndex={-1} className="ct-body">
           <h1>Contribute Data</h1>
@@ -411,7 +409,6 @@ export default function ContributePage() {
 
         {/* Shared Get in Touch */}
         <GetInTouch
-          dark={dark}
           heading="Submit a Proposal"
           description="Have a dataset you'd like to add? Want to discuss integration? Submit a proposal below and we'll get back to you."
           submitLabel="Send Proposal"
@@ -420,7 +417,7 @@ export default function ContributePage() {
         />
 
         {/* Shared Footer */}
-        <Footer dark={dark} />
+        <Footer />
       </div>
     </ErrorBoundary>
   );

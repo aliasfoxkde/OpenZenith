@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Logo } from "./Logo";
 
 interface NavbarProps {
-  dark: boolean;
   /** Optional right-side extra elements (theme toggles, etc.) */
   extra?: ReactNode;
   /** Show breadcrumb text after brand (e.g., "Globe") */
@@ -35,14 +34,13 @@ const NAV_LINKS = [
  * body scroll while open and closes on Escape, on a backdrop click and after
  * any link is activated.
  */
-export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
+export function Navbar({ extra, breadcrumb }: NavbarProps) {
   const [mobileMenu, setMobileMenu] = useState(false);
 
-  const bg = dark ? "#0a0a0a" : "#fafafa";
-  const border = dark ? "#222" : "#e5e5e5";
-  const text = dark ? "#e5e5e5" : "#171717";
-  // Must match --oz-text-secondary in globals.css (WCAG AAA 7:1 on bg).
-  const textSecondary = dark ? "#a3a3a3" : "#525252";
+  const bg = "var(--oz-bg)";
+  const border = "var(--oz-border)";
+  const text = "var(--oz-text)";
+  const textSecondary = "var(--oz-text-secondary)";
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -169,7 +167,7 @@ export function Navbar({ dark, extra, breadcrumb }: NavbarProps) {
         }}
         style={
           {
-            "--oz-mm-bg": dark ? "#0a0a0a" : "#fafafa",
+            "--oz-mm-bg": "var(--oz-bg)",
             "--oz-mm-text": text,
             "--oz-mm-text-secondary": textSecondary,
             "--oz-mm-border": border,

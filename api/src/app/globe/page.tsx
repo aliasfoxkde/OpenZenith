@@ -1694,7 +1694,6 @@ export default function Globe() {
 
       {/* Nav */}
       <Navbar
-        dark
         breadcrumb="Globe"
         extra={
           <>

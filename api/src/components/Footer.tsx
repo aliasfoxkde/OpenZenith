@@ -2,29 +2,22 @@
 
 import { Logo } from "./Logo";
 
-interface FooterProps {
-  dark: boolean;
-}
-
 /**
  * Site-wide footer rendered as a four-column grid above a bottom bar.
  *
- * `dark` selects the palette: it flips the top border, the page background
- * (`#0c0c0c` vs `#f8f8f8`), the primary text color and the secondary text
- * color shared by all three link columns (Product, Data Sources, Resources).
- * The secondary color matches `--oz-text-secondary` in `globals.css` and
- * clears WCAG AAA (7:1) against the footer background.
+ * The palette comes from the `--oz-*` theme tokens in `globals.css`, so it
+ * follows `data-theme` without a re-render; the colors clear WCAG AAA (7:1)
+ * against the footer background.
  *
  * The brand column carries the OpenZenith logo, a one-line description of the
  * free elevation API and a GitHub icon link. The bottom bar distinguishes the
  * Copernicus/GEBCO web API data from the NASA SRTM local SDK dataset.
  */
-export function Footer({ dark }: FooterProps) {
-  const border = dark ? "#222" : "#e5e5e5";
-  const text = dark ? "#e5e5e5" : "#171717";
-  // Must match --oz-text-secondary in globals.css (WCAG AAA 7:1 on bg).
-  const textSecondary = dark ? "#a3a3a3" : "#525252";
-  const footerBg = dark ? "#0c0c0c" : "#f8f8f8";
+export function Footer() {
+  const border = "var(--oz-border)";
+  const text = "var(--oz-text)";
+  const textSecondary = "var(--oz-text-secondary)";
+  const footerBg = "var(--oz-footer-bg)";
   // Shared by all three link columns; minHeight is the 2.5.8 AA floor (24px).
   const linkStyle: React.CSSProperties = {
     color: textSecondary,

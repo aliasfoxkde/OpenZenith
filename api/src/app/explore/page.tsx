@@ -492,7 +492,7 @@ export default function ExplorePage() {
         <style dangerouslySetInnerHTML={{ __html: S }} />
 
         {/* Nav */}
-        <Navbar dark breadcrumb="Explore" />
+        <Navbar breadcrumb="Explore" />
 
         <main id="main-content" tabIndex={-1} className="ex-body">
           <h1>Data Explorer</h1>

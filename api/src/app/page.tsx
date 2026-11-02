@@ -379,7 +379,7 @@ export default function Home() {
         <link rel="preconnect" href="https://server.arcgisonline.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
         <Navbar
-          dark={dark}
+
           extra={
             <button
               onClick={() => {
@@ -611,7 +611,7 @@ export default function Home() {
                 result={result}
                 placeName={placeName}
                 loading={loading}
-                dark={dark}
+
                 text={text}
                 textSecondary={textSecondary}
               />
@@ -1293,7 +1293,7 @@ export default function Home() {
               >
                 <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Elevation lookup</div>
                 <CodeBlock
-                  dark={dark}
+
                   code={`GET /api/elevation?lat={lat}&lon={lon}\n\n# Mount Everest\ncurl "https://openzenith.cyopsys.com/api/elevation?lat=28.0&lon=86.9"\n\n{"elevation": 8233, "unit": "meters", "surface_type": "land", "tile": "8/217/151"}`}
                 >
                   <div>
@@ -1327,7 +1327,7 @@ export default function Home() {
               >
                 <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>JavaScript</div>
                 <CodeBlock
-                  dark={dark}
+
                   code={`const res = await fetch('/api/elevation?lat=48.8566&lon=2.3522')\nconst { elevation } = await res.json()`}
                 >
                   <div>
@@ -1352,7 +1352,7 @@ export default function Home() {
               >
                 <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>Python</div>
                 <CodeBlock
-                  dark={dark}
+
                   code={`import requests\n\nres = requests.get(\n    "https://openzenith.cyopsys.com/api/elevation",\n    params={"lat": 48.8566, "lon": 2.3522})\ndata = res.json()\nprint(data["elevation"])  # 35`}
                 >
                   <div>
@@ -1379,7 +1379,7 @@ export default function Home() {
           </section>
 
           {/* Contact Form */}
-          <GetInTouch dark={dark} />
+          <GetInTouch />
 
           {/* Back to top */}
           {showTop && (
@@ -1582,7 +1582,7 @@ export default function Home() {
         </main>
 
         {/* Footer */}
-        <Footer dark={dark} />
+        <Footer />
       </div>
     </ErrorBoundary>
   );

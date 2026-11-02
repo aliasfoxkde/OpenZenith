@@ -760,7 +760,7 @@ export default function StudioPage() {
         Skip to map
       </a>
 
-      <Navbar dark={dark} breadcrumb="Studio" />
+      <Navbar breadcrumb="Studio" />
 
       {/* main landmark: contains the map, sidebar, status bar and onboarding
           overlay so axe's `region` rule (WCAG 1.3.6) is satisfied. */}

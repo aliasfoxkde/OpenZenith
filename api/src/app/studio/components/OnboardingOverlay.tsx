@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 interface Props {
   dark: boolean;
@@ -49,6 +49,18 @@ const TIPS = [
  */
 export function OnboardingOverlay({ dark, onDismiss }: Props) {
   const [visible, setVisible] = useState(true);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<Element | null>(null);
+
+  useEffect(() => {
+    previouslyFocused.current = document.activeElement;
+    dialogRef.current?.querySelector<HTMLElement>("button")?.focus();
+    return () => {
+      if (previouslyFocused.current instanceof HTMLElement) {
+        previouslyFocused.current.focus();
+      }
+    };
+  }, []);
 
   const dismiss = () => {
     setVisible(false);
@@ -56,6 +68,26 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
   };
 
   if (!visible) return null;
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      dismiss();
+      return;
+    }
+    if (e.key !== "Tab" || !dialogRef.current) return;
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>("button");
+    if (focusable.length === 0) return;
+    const first = focusable.item(0);
+    const last = focusable.item(focusable.length - 1);
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   const bg = dark ? "#0a0a0a" : "#fff";
   const border = dark ? "#2a2a2a" : "#e5e5e5";
@@ -68,6 +100,7 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
   return (
     <div
       onClick={dismiss}
+      onKeyDown={handleKeyDown}
       style={{
         position: "fixed",
         inset: 0,
@@ -79,6 +112,7 @@ export function OnboardingOverlay({ dark, onDismiss }: Props) {
       }}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => {
           e.stopPropagation();
         }}

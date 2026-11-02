@@ -254,6 +254,31 @@ test.describe("Studio interactions", () => {
     expect(await page.getByRole("button", { name: "Get Started" }).isVisible()).toBe(false);
   });
 
+  test("onboarding traps keyboard focus and closes on Escape", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto("/studio");
+    const start = page.getByRole("button", { name: "Get Started" });
+    await expect(start).toBeVisible({ timeout: 30_000 });
+    const dialog = page.getByRole("dialog");
+
+    // Initial focus lands inside the modal, not on the page behind it.
+    await expect(start).toBeFocused();
+
+    // Tab and Shift+Tab cycle within the dialog only: the sole focusable
+    // child ("Get Started") keeps focus rather than escaping to the map
+    // controls behind the overlay.
+    await page.keyboard.press("Tab");
+    await expect(start).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(start).toBeFocused();
+    expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+
+    // Escape dismisses the modal (and the dismissal persists the flag).
+    await page.keyboard.press("Escape");
+    await expect(start).toBeHidden({ timeout: 10_000 });
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("openzenith-studio-onboarded"))).toBe("1");
+  });
+
   test("basemap switch restores hillshade and data layers", async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => {

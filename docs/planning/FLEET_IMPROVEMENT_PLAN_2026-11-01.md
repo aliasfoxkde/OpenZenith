@@ -117,15 +117,28 @@ Verified clean: `useWidgetManager.ts`, `elevation-profile.ts`/`tools.ts`,
 Gateway permitting, re-run as forks (bounded, one at a time to avoid the
 circuit breaker):
 
-1. **edge-cache design review** — skeleton at
-   `/var/tmp/oz-fleet/work/edge-cache-review.md`; the outline (cache-key
-   collisions, freshness/SWR headers, negative caching of upstream 4xx/5xx,
-   cold z11 origin-hit count) is already there — fill it.
-2. **frontend map/globe audit** — skeleton at `frontend-audit.md`, same deal.
-3. **coverage-plan** — died on 429/502; re-run.
-4. **next16-plan** — Next.js 16/OpenNext migration plan; the migration doc
-   `docs/planning/NEXTJS16_OPENNEXT_MIGRATION.md` already exists, so the ask is
-   a review/update against the current 16.4.3 tree, not a fresh plan.
+1. **edge-cache design review** — **DONE 2026-11-01** (completed outside the
+   fork; receipt in the session memory `edge-cache-audit-2026-11-01`):
+   `api/src/lib/storage/edge-cache.ts` and its 7 consumers audited — sound
+   design, no user-facing defects; known quirks (dead `dem-tile` type entry,
+   deliberate route-local dem cache, fail-closed expiry, best-effort writes)
+   documented as accepted.
+2. **frontend map/globe audit** — **DONE 2026-11-01.** Executed as the
+   globe/studio audit (17 findings fixed, commits recorded in Phase 2 above)
+   plus the Phase 2.5 map audit (8 defects fixed in aed1d676). The
+   `/var/tmp/oz-fleet/work/frontend-audit.md` skeleton is superseded by those
+   receipts.
+3. **coverage-plan** — the closure plan skeleton at
+   `/var/tmp/oz-fleet/work/coverage-closure-plan.md` reports the real
+   baseline: **99.8 stmts / 99.07 branch / 99.61 funcs / 99.97 lines against
+   a floor of 99** — there are no coverage gaps to close at the current
+   floor. Re-queue only if the floor is raised.
+4. **next16-plan** — **DONE 2026-11-02.** Review recorded at the top of
+   `NEXTJS16_OPENNEXT_MIGRATION.md`: Phase 2 (Next 15→16) already landed
+   (16.4.3, e306d225); the T-016 32.2 MiB bundle blocker no longer reproduces
+   (current build: 10.7 MiB gz, green since v0.9.9); the zstd-wasm webpack
+   alias guards a dead import and is deletable. Remaining actionable work is
+   Phase 1 only (OpenNext adapter swap, still user-gated as T-017).
 
 ## Phase 3 — Gates to close the ungated drift class
 

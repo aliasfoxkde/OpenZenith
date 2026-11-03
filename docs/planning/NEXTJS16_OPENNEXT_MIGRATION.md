@@ -7,6 +7,36 @@ Next.js 16 + `@opennextjs/cloudflare` (Cloudflare Workers), and how.
 
 ---
 
+## 2026-11-02 review against the current tree (next16-plan re-run)
+
+Re-validated every premise against main at `9b9a8b19`; several facts have
+moved since 2026-09-30:
+
+| Original premise | Current tree | Effect on the plan |
+|---|---|---|
+| Installed Next is 15.5.26; 16 is "not yet installed" | `api/package.json` pins **next 16.4.3** (Dependabot re-landed it 2026-10-30 as e306d225, after the 2026-10-20 revert 0a28fad3) | Phase 2 (15→16 upgrade) is **already done** — what remains is only the platform swap |
+| "Next 16 + next-on-pages is impossible: bundle 32.2 MiB > 25 MiB Pages limit" (T-016) | Current Turbopack build trace (`has-custom-webpack-config: true`, next 16.4.3) plus the produced `_worker.js/__next-on-pages-dist__/functions` bundle: **10.7 MiB gzipped total**, builds and deploys green since the re-land (v0.9.9 shipped on it; perf-budget CI gate Turbopack-proofed in 4e1d4e20/cee3f9e0) | The measured blocker **no longer reproduces** at 16.4.3 — later Next/Turbopack patch releases restored chunk sharing. T-016's evidence is historical |
+| Next 16 "fails the build if a custom `webpack` config is present" — migrate the zstd-wasm alias to `turbopack.resolveAlias` | The build **succeeds** with the webpack block present (advisory, not fatal), and **no source file imports `zstd-wasm` anymore** (grep at HEAD: only next.config.ts and docs mention it) — the alias guards a dead import. `src/lib/polyfills/no-zstd.ts` has no importer either | The webpack block (and its polyfill) are **dead config**, deletable outright; no turbopack.resolveAlias migration is needed |
+| `eslint: { ignoreDuringBuilds }` block must be dropped | Already dropped (f0da7015) | Done |
+| `eslint-config-next` at ^16.2.1 | Now ^16.4.3 | Consistent |
+
+**Revised recommendation:** the two-phase plan collapses to **Phase 1 only —
+the `@opennextjs/cloudflare` adapter swap** (Pages → Workers), on the already
+current Next 16.4.3. Motivations are unchanged and now sharper: next-on-pages
+is archived, its esbuild/miniflare CVE residue (G9) resolves only with the
+swap, and its peer range excludes the Next actually installed. The Workers
+3/10 MiB compressed limit needs a fresh `--dry-run` measurement against the
+10.7 MiB (gzip) current bundle — the zstd(2-3×)-bodied Worker size may differ;
+run the dry-run before committing to the cutover. Also delete the dead
+webpack/zstd-wasm block in the same change (it is the last `has-custom-
+webpack-config` trigger). T-017 in `TASKS.md` remains the tracking item and
+stays user-gated (platform change).
+
+The original 2026-09-30 analysis below is retained for the Phase 1 steps,
+which remain accurate apart from "on Next 15" (read: on the current Next 16).
+
+---
+
 ## TL;DR / Recommendation
 
 **Do the migration, in two staged phases (≈1 focused day total), not one

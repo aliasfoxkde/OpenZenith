@@ -173,7 +173,7 @@ export default function AboutPage() {
           <h2>Technology</h2>
           <p>The platform is built with modern, lightweight tools:</p>
           <div className="ab-tech-grid">
-            <span className="ab-tech-tag">Next.js 16</span>
+            <span className="ab-tech-tag">Next.js 15</span>
             <span className="ab-tech-tag">TypeScript</span>
             <span className="ab-tech-tag">MapLibre GL</span>
             <span className="ab-tech-tag">CesiumJS</span>

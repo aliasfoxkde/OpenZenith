@@ -194,7 +194,7 @@ Python SDK (local compute) ←→ REST API (cloud, 81 API routes)
 | | |
 |-|-|
 | SDK | Python 3.10+, NumPy, Rust (WASM + CLI) |
-| API | Next.js 16, TypeScript, Cloudflare Edge |
+| API | Next.js 15, TypeScript, Cloudflare Edge |
 | Data | SRTM 30m (HuggingFace), GEBCO 2025 |
 | Tests | 1,650 pytest @ 99% gate (Python), 247 cargo test across feature sets (Rust core), 1,709 vitest across 115 files (TypeScript) |
 

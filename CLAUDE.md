@@ -60,7 +60,7 @@ openzenith trace --lat 36.0 --lon -118.0
 
 ```
 /nas/Temp/repos/OpenZenith/
-├── api/                          # Next.js 16 App Router (Cloudflare Pages)
+├── api/                          # Next.js 15 App Router (Cloudflare Pages)
 │   ├── src/app/                  # Pages and API routes (81 API routes)
 │   │   ├── api/                 # REST API endpoints (earthquakes, flights, elevation, etc.)
 │   │   ├── map/                 # 2D MapLibre map page
@@ -115,7 +115,7 @@ openzenith trace --lat 36.0 --lon -118.0
 
 ### Frontend Architecture (Next.js)
 
-- **App Router**: `api/src/app/` uses Next.js 16 App Router with React 19
+- **App Router**: `api/src/app/` uses Next.js 15 App Router with React 19
 - **Map client**: MapLibre GL JS — `src/lib/tile.ts`, `src/lib/point-elevation.ts`
 - **Basemaps**: 10 basemaps in the shared registry `api/src/lib/basemaps.ts`, with attribution and maxzoom per entry; the globe page serves the 5-key subset in `GLOBE_BASEMAP_KEYS` (dark, satellite, osm, voyager, topo)
 - **Globe client**: CesiumJS 1.146.0 — vendored to `api/public/cesium/` (local-first, CDN only as fallback; see `api/scripts/copy-vendor-assets.mjs`)

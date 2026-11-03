@@ -77,6 +77,44 @@ interface MapStyleState {
   hillshade?: boolean;
 }
 
+/**
+ * Ask the map instance (via the same fiber walk) whether a specific MapLibre
+ * layer id exists — the positive check for specs that assert an add happened,
+ * where `getStyle().layers` alone cannot distinguish "added" from "removed"
+ * if the spec races a toggle.
+ */
+async function mapHasLayer(page: import("@playwright/test").Page, layerId: string): Promise<boolean | undefined> {
+  return page.evaluate((id) => {
+    const container = document.querySelector(".maplibregl-map");
+    if (!container) return undefined;
+    const key = Object.keys(container).find((k) => k.startsWith("__reactFiber$"));
+    if (!key) return undefined;
+    type Fiber = { memoizedState?: unknown; return?: Fiber };
+    let fiber: Fiber | undefined = (container as unknown as Record<string, Fiber>)[key];
+    for (let hops = 0; hops < 50 && fiber; hops++) {
+      type Hook = { memoizedState?: unknown; next?: Hook };
+      let hook: Hook | undefined = fiber.memoizedState as Hook | undefined;
+      for (let j = 0; j < 40 && hook; j++) {
+        const v: unknown = hook.memoizedState;
+        if (v && typeof v === "object" && "current" in (v as Record<string, unknown>)) {
+          const cur: unknown = (v as { current: unknown }).current;
+          if (
+            cur &&
+            typeof cur === "object" &&
+            typeof (cur as { getLayer?: unknown }).getLayer === "function" &&
+            typeof (cur as { getStyle?: unknown }).getStyle === "function"
+          ) {
+            return Boolean((cur as { getLayer(id: string): unknown }).getLayer(id));
+          }
+        }
+        hook = hook.next;
+      }
+      fiber = fiber.return;
+    }
+    return undefined;
+  }, layerId);
+}
+
 test.describe("Map page interactions", () => {
   test("search box geocodes a location", async ({ page }) => {
     test.setTimeout(90_000);
@@ -128,6 +166,32 @@ test.describe("Map page interactions", () => {
     const before = await page.evaluate(() => location.hash);
     await page.getByRole("button", { name: "Zoom in" }).click();
     await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).not.toBe(before); // zoom is mirrored into the hash
+  });
+
+  test("hillshade toggle adds and removes the map layer", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto("/map");
+    await page.waitForSelector(MAP_CANVAS, { timeout: 60_000 });
+    await page.waitForTimeout(3_000);
+    // The walk needs the map ref populated — poll past undefined.
+    await expect.poll(() => mapHasLayer(page, "hillshade-base"), { timeout: 20_000 }).toBeDefined();
+    // Hillshade defaults ON (view-state.ts) — the layer must be present.
+    expect(await mapHasLayer(page, "hillshade-base")).toBe(true);
+    // The LEGEND lives in the layer panel, collapsed by default.
+    await page.getByRole("button", { name: "Toggle layer panel" }).click();
+    const card = page.locator('[title*="Hillshade"]');
+    await expect(card.first()).toBeVisible({ timeout: 15_000 });
+    await card.first().click();
+    // Toggle off: the layer must actually leave the style (the crawl's
+    // "unguarded remover" defect class — a remove that throws or no-ops).
+    await expect
+      .poll(() => mapHasLayer(page, "hillshade-base"), { timeout: 20_000 })
+      .toBe(false);
+    // Toggle back on: the layer must come back.
+    await card.first().click();
+    await expect
+      .poll(() => mapHasLayer(page, "hillshade-base"), { timeout: 20_000 })
+      .toBe(true);
   });
 
   test("elevation query on map click updates the readout", async ({ page }) => {

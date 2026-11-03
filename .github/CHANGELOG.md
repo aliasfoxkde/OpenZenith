@@ -3,6 +3,42 @@
 Format follows Keep a Changelog; versions match git tags. Fuller history
 (latest: v0.6.4) lives in `docs/archive/CHANGELOG.md`.
 
+## v0.9.10 (2026-11-02)
+
+Fleet-improvement execution — frontend audit closeout and a Next.js 16
+re-landing. No breaking changes.
+
+### Fixed
+- 8 audit defects in the 2D map page (aed1d676): stale-annotation wipe,
+  leaked context-menu listeners, tab-hide polling death, unmount-leaking
+  timers, impure `toggleLayer` updater, basemap re-add race, 11 dead
+  opacity sliders, blank screenshots.
+- 17 globe + 6 studio audit defects (96a83491): stale `activeTool`
+  closure, duplicate earthquake/event loads, listener teardown, deep-link
+  restore race, profile layer hygiene, worker-result token gating.
+- Studio onboarding overlay hardened to a real focus-trapped dialog with
+  E2E coverage (46e3b1ed); pre-hydration skip-link focus and theme
+  palette (27b2db05).
+- Next.js re-landed at 16.4.3 (e306d225) after the 2026-10-20 revert —
+  the Turbopack bundle blocker no longer reproduces; perf-budget gate
+  made Turbopack-proof (4e1d4e20, cee3f9e0); ESLint key dropped (f0da7015).
+- Wildfires route validates bbox/satellite before building the FIRMS URL
+  (2d6090a2).
+- Security: minimatch override to 11.0.3, `@hono/node-server` pinned to
+  the patched release, middleware test findings triaged and aegis
+  re-baselined.
+
+### Changed
+- Docs truth sync: Next.js/Cesium versions, GEBCO 2025 single-sourced via
+  a `GEBCO_YEAR` constant feeding registry, URLs and gates (a5e26310).
+- next16-plan review (8d03caeb): the OpenNext migration collapses to the
+  adapter swap; T-016's 32.2 MiB blocker no longer reproduces (10.7 MiB
+  gz current build); zstd-wasm webpack alias is dead config.
+- Rust CI image lockfile stamp refreshed for the serde_json bump
+  (core/Cargo.lock 1c74359e).
+- New E2E spec: hillshade toggle add/remove via the React-fiber map walk
+  (9b9a8b19).
+
 ## v0.9.9 (2026-10-30)
 
 Excellence-cycle X — quality ratchets and accessibility depth. No

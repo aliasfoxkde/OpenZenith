@@ -5,8 +5,7 @@ Format follows Keep a Changelog; versions match git tags. Fuller history
 
 ## v0.9.10 (2026-11-02)
 
-Fleet-improvement execution — frontend audit closeout and a Next.js 16
-re-landing. No breaking changes.
+Fleet-improvement execution — frontend audit closeout. No breaking changes.
 
 ### Fixed
 - 8 audit defects in the 2D map page (aed1d676): stale-annotation wipe,
@@ -19,9 +18,11 @@ re-landing. No breaking changes.
 - Studio onboarding overlay hardened to a real focus-trapped dialog with
   E2E coverage (46e3b1ed); pre-hydration skip-link focus and theme
   palette (27b2db05).
-- Next.js re-landed at 16.4.3 (e306d225) after the 2026-10-20 revert —
-  the Turbopack bundle blocker no longer reproduces; perf-budget gate
-  made Turbopack-proof (4e1d4e20, cee3f9e0); ESLint key dropped (f0da7015).
+- Next.js 16 re-landing attempted (e306d225) but reverted to 15.5.28
+  (da7d5e7c) before the v0.9.10 cut — the re-landed build exceeded the
+  Cloudflare Pages 25 MiB worker-size upload limit; 15.5.28 remains the
+  shipping runtime and the next16-plan review (8d03caeb) stands for the
+  eventual retry.
 - Wildfires route validates bbox/satellite before building the FIRMS URL
   (2d6090a2).
 - Security: minimatch override to 11.0.3, `@hono/node-server` pinned to

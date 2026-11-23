@@ -1,0 +1,1 @@
+import{aF as t}from"./index.D4_cmR8a.js";import"./vendor-react.C2GGNzzc.js";import"./vendor-tanstack.Bc0nLFL-.js";import"./vendor-paypal.BhJX58I2.js";import"./vendor-shared.BZuwZhqM.js";import"./vendor-animation.B_2lgLrh.js";import"./vendor-state.4IV7gRul.js";const o=[["path",{d:"M4 4v16",key:"6qkkli"}]],r=t("tally-1",o);export{o as __iconNode,r as default};

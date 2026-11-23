@@ -1,0 +1,93 @@
+# Darkside Crafts — storefront robots.txt
+# Reference: https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /account/
+Disallow: /profile/
+Disallow: /auth/callback
+
+# --- Traditional search engines ---
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin/
+
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /admin/
+
+# --- AI / LLM crawlers (modern AI search & assistants) ---
+# Content pages are open to AI indexing; admin and transactional routes stay
+# closed. These agents also honor AGENTS.md and llms.txt at the site root.
+User-agent: GPTBot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Claude-User
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: meta-externalagent
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Bytespider
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# --- Utility bots ---
+User-agent: Cloudflare-Sitemap-Bot
+Allow: /sitemap.xml
+
+# Sitemap origin must match SITE_URL (src/lib/seo.ts, overridable with
+# the VITE_SITE_URL build var); both move together on an origin change.
+Sitemap: https://dsc-commerce-storefront.pages.dev/sitemap.xml

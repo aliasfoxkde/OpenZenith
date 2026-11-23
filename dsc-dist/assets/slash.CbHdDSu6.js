@@ -1,0 +1,1 @@
+import{aF as o}from"./index.D4_cmR8a.js";import"./vendor-react.C2GGNzzc.js";import"./vendor-tanstack.Bc0nLFL-.js";import"./vendor-paypal.BhJX58I2.js";import"./vendor-shared.BZuwZhqM.js";import"./vendor-animation.B_2lgLrh.js";import"./vendor-state.4IV7gRul.js";const r=[["path",{d:"M22 2 2 22",key:"y4kqgn"}]],t=o("slash",r);export{r as __iconNode,t as default};

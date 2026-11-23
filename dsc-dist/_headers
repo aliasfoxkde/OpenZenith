@@ -1,0 +1,57 @@
+# Cloudflare Pages Headers Configuration
+# Cache headers for static assets
+
+# Cache static assets aggressively
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+# Cache HTML (no cache by default, can be changed for static hosting)
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  # same-origin-allow-popups: PayPal/social popups need window.opener
+  # across origins; strict same-origin would isolate them.
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  # Our own assets load same-site; cross-site embedding of them is not a
+  # use case (email images are served by the media domain, not Pages).
+  Cross-Origin-Resource-Policy: same-site
+  # script-src deliberately has no 'unsafe-inline': nothing injects an
+  # executable inline script (the JSON-LD block is a data block — CSP-exempt;
+  # Plausible/Meta load external allowlisted srcs; Vite emits external
+  # module scripts).
+  # img-src additionally allows images.unsplash.com: the mock catalog's
+  # image URLs point there (the API serves them inside product/category
+  # payloads). Interim until real photography ships through the media
+  # pipeline and the API payloads are repointed to the media domain.
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.paypal.com https://www.paypal.com https://api.darksidecrafts.com https://plausible.io https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://media.darksidecrafts.com https://images.unsplash.com; connect-src 'self' https://api.darksidecrafts.com https://*.sentry.io https://plausible.io https://*.paypal.com https://*.paypalobjects.com https://www.paypal.com https://www.facebook.com; frame-src https://*.paypal.com https://*.paypalobjects.com https://www.paypal.com https://www.instagram.com https://www.youtube.com https://player.vimeo.com https://www.facebook.com https://www.tiktok.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# Cache manifest and service worker
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400
+  Content-Type: application/manifest+json
+
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+
+# Image caching
+/images/*
+  Cache-Control: public, max-age=604800
+  X-Content-Type-Options: nosniff
+
+# Font caching
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# API calls - no cache
+/api/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
+
+# Static JSON data
+/data/*
+  Cache-Control: public, max-age=3600

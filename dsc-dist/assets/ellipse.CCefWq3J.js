@@ -1,0 +1,1 @@
+import{aF as r}from"./index.D4_cmR8a.js";import"./vendor-react.C2GGNzzc.js";import"./vendor-tanstack.Bc0nLFL-.js";import"./vendor-paypal.BhJX58I2.js";import"./vendor-shared.BZuwZhqM.js";import"./vendor-animation.B_2lgLrh.js";import"./vendor-state.4IV7gRul.js";const e=[["ellipse",{cx:"12",cy:"12",rx:"10",ry:"6",key:"swdkt4"}]],o=r("ellipse",e);export{e as __iconNode,o as default};

@@ -1,0 +1,54 @@
+{
+  "id": "/",
+  "name": "DSC Commerce Storefront",
+  "short_name": "Storefront",
+  "description": "Shop handcrafted goods — fast delivery, secure checkout, and exceptional customer service.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "lang": "en",
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pwa-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Shop products",
+      "short_name": "Shop",
+      "url": "/products",
+      "icons": [{ "src": "/icons/pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Shopping cart",
+      "short_name": "Cart",
+      "url": "/cart",
+      "icons": [{ "src": "/icons/pwa-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

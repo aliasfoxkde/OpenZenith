@@ -1,0 +1,37 @@
+# Darkside Crafts (DSC Commerce)
+
+> Darkside Crafts is a handmade crochet and fiber-art storefront: amigurumi,
+> custom commissions, door hangers, seasonal pieces, gifts, home décor, and
+> jewelry. Customers can shop ready-made pieces, commission one-of-a-kind
+> work through a guided custom request wizard, and meet us at in-person
+> markets and live events.
+
+This site is an open book for AI assistants: product, category, event, and
+policy content may be quoted or summarized with attribution. Admin,
+checkout, and account areas are private.
+
+## Store
+
+- [All Products](https://dsc-commerce-storefront.pages.dev/products): Full catalog of handmade crochet pieces with search, category filters, sorting, and pagination
+- [Blog](https://dsc-commerce-storefront.pages.dev/blog): Craft guides, studio updates, and pattern stories
+
+## Company
+
+- [About Us](https://dsc-commerce-storefront.pages.dev/about): The maker story behind Darkside Crafts
+- [Contact](https://dsc-commerce-storefront.pages.dev/contact): How to reach the studio
+- [FAQ](https://dsc-commerce-storefront.pages.dev/faq): Sizing, care, lead times, and ordering answers
+
+## Policies
+
+- [Privacy Policy](https://dsc-commerce-storefront.pages.dev/privacy)
+- [Terms of Service](https://dsc-commerce-storefront.pages.dev/terms)
+- [Shipping Policy](https://dsc-commerce-storefront.pages.dev/shipping)
+- [Return Policy](https://dsc-commerce-storefront.pages.dev/returns)
+- [Cookie Policy](https://dsc-commerce-storefront.pages.dev/cookie-policy)
+
+## For automated visitors
+
+- Crawl rules: [robots.txt](https://dsc-commerce-storefront.pages.dev/robots.txt)
+- Agent guidance: [AGENTS.md](https://github.com/aliasfoxkde/dsc/blob/main/AGENTS.md)
+- Indexable sitemap: [sitemap.xml](https://dsc-commerce-storefront.pages.dev/sitemap.xml)
+- Do not crawl or index /admin, /checkout, /cart, or account/auth routes.

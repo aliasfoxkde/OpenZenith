@@ -1,0 +1,1 @@
+import{j as s}from"./vendor-react.C2GGNzzc.js";import{ac as a}from"./index.D4_cmR8a.js";import{c as t}from"./cn.Cn7Se-FQ.js";function e({status:e,label:r}){const o=r||e.split("_").map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(" ");return s.jsx("span",{className:t("whitespace-nowrap px-2 py-1 rounded-full text-xs font-medium",a(e)),children:o})}export{e as S};

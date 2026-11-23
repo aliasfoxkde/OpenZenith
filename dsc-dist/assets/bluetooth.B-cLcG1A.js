@@ -1,0 +1,1 @@
+import{aF as o}from"./index.D4_cmR8a.js";import"./vendor-react.C2GGNzzc.js";import"./vendor-tanstack.Bc0nLFL-.js";import"./vendor-paypal.BhJX58I2.js";import"./vendor-shared.BZuwZhqM.js";import"./vendor-animation.B_2lgLrh.js";import"./vendor-state.4IV7gRul.js";const t=[["path",{d:"m7 7 10 10-5 5V2l5 5L7 17",key:"1q5490"}]],r=o("bluetooth",t);export{t as __iconNode,r as default};

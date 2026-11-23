@@ -1,0 +1,23 @@
+{
+  "sitemap": "https://dsc-commerce-storefront.pages.dev/sitemap.xml",
+  "title": "DSC Commerce Storefront",
+  "description": "Premium e-commerce storefront",
+  "links": [
+    { "rel": "canonical", "href": "https://dsc-commerce-storefront.pages.dev/" },
+    { "rel": "manifest", "href": "/manifest.webmanifest" }
+  ],
+  "og": {
+    "title": "DSC Commerce - Premium E-Commerce Storefront",
+    "description": "Shop the latest products with fast delivery, secure checkout, and exceptional customer service.",
+    "type": "website",
+    "url": "https://dsc-commerce-storefront.pages.dev/",
+    "image": "https://dsc-commerce-storefront.pages.dev/og-image.png",
+    "site_name": "DSC Commerce"
+  },
+  "twitter": {
+    "card": "summary_large_image",
+    "title": "DSC Commerce - Premium E-Commerce Storefront",
+    "description": "Shop the latest products with fast delivery, secure checkout, and exceptional customer service.",
+    "image": "https://dsc-commerce-storefront.pages.dev/og-image.png"
+  }
+}

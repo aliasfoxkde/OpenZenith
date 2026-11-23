@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "include": [
+    "/products/*",
+    "/blog/*",
+    "/privacy",
+    "/terms",
+    "/shipping",
+    "/returns",
+    "/faq",
+    "/robots.txt",
+    "/AGENTS.md"
+  ],
+  "exclude": ["/api/*", "/admin/*", "/sw.js", "/manifest.webmanifest"]
+}
